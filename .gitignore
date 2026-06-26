@@ -23,6 +23,7 @@ auth.json
 
 # Composer / Laravel installer artifacts
 composer-setup.php
+composer.phar
 
 # Logs & caches
 /storage/logs/*.log
