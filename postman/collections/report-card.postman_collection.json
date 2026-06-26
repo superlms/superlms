@@ -1,0 +1,62 @@
+{
+	"info": {
+		"_postman_id": "b7e4c2a1-9d3f-4a52-8c11-reportcard0001",
+		"name": "LMS — Report Card (v1)",
+		"description": "Student app APIs for the annual report card.\n\nAll endpoints are STUDENT-only (Sanctum role `user`) and auto-scoped to the logged-in student. Auth: Sanctum bearer token in `authToken`.\n\n- **List Report Cards** — the student's issued report cards, latest first.\n- **Report Card Detail** — the full *Annual Report Card*: per-subject aggregate marks + grade, overall percentage / grade / **rank**, the grading scale, and a `pdf_url`.\n- **Report Card PDF** — streams the official report card PDF (the same dompdf template the admin panel generates). The app previews this (book-style) and downloads it.\n\nGrades come from the central grading system in `config/grading.php` (GradingService).",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{ "key": "token", "value": "{{authToken}}", "type": "string" }
+		]
+	},
+	"item": [
+		{
+			"name": "List Report Cards",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/report-card?per_page=20",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "report-card" ],
+					"query": [
+						{ "key": "per_page", "value": "20" },
+						{ "key": "academic_year", "value": "", "disabled": true }
+					]
+				},
+				"description": "The logged-in student's issued report cards, latest first. Each item: id, academic_year, class, issued_at, issued_by, status. Use the latest (first) id for the current year in Report Card Detail. Optional filter: academic_year."
+			},
+			"response": []
+		},
+		{
+			"name": "Report Card Detail (Annual)",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/report-card/1",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "report-card", "1" ]
+				},
+				"description": "Full Annual Report Card. Returns: `title` ('Annual Report Card'), academic_year, class, student {full_name, roll_no, admission_no, image_url}, `subjects[]` (per-subject annual aggregate: obtained, total, percentage, grade), `summary` {total_obtained, total_max, percentage, grade, grade_remark, rank, rank_total, result}, the `grading_scale[]` (grade/min/max/remark) and a `pdf_url`. Percentage, grade and rank are computed dynamically (rank = position within class+section for the year)."
+			},
+			"response": []
+		},
+		{
+			"name": "Report Card — PDF",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/pdf" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/report-card/1/pdf",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "report-card", "1", "pdf" ]
+				},
+				"description": "Streams the report card as a PDF using the SAME dompdf template the admin panel generates (admin.report-card-pdf — Term-1/Term-2, co-scholastic, attendance). The app previews this in its in-app PDF reader (book-style) with the Sanctum bearer header and downloads the same bytes. 404 when no issued report card exists for the student."
+			},
+			"response": []
+		}
+	]
+}

@@ -1,0 +1,188 @@
+@import 'tailwindcss';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+/* Tile colour palette used by admin Quick Links / More / Home tiles is built
+   at runtime from a fixed PHP list; safelist the exact utilities so the
+   `bg-<color>-100` rounds + `text-<color>-600` icons always paint. */
+@source inline("bg-{blue,indigo,purple,green,yellow,pink,teal,rose,cyan,lime,fuchsia,red,orange,amber,sky,violet,gray}-100");
+@source inline("text-{blue,indigo,purple,green,yellow,pink,teal,rose,cyan,lime,fuchsia,red,orange,amber,sky,violet,gray}-600");
+
+/* School-info "USM" cards (Vision / Mission / Values / Goals) build the
+   gradient header + checkmark badge + hover border from a per-card colour,
+   so pin every shade the section actually emits. */
+@source inline("bg-{blue,green,purple,orange,amber,rose,indigo}-500");
+@source inline("from-{blue,green,purple,orange,amber,rose,indigo}-50");
+@source inline("to-{blue,green,purple,orange,amber,rose,indigo,white}-50");
+@source inline("hover:border-{blue,green,purple,orange,amber,rose,indigo}-200");
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+@import '../../vendor/wireui/wireui/ts/global.css';
+
+@layer utilities {
+    .bg-gradient-3 {
+        background-image: linear-gradient(to right, #ff00cc, #cc00ff, #3366ff);
+    }
+
+    .bg-icon-gradient-3 {
+        background-image: linear-gradient(to right, #f3d1e8, #b3a6d1, #b8c6ec);
+    }
+
+    .hover\:bg-gradient-3-hover:hover {
+        background-image: linear-gradient(to right, #d633ff, #9933ff, #3366ff);
+    }
+
+    .text-gradient-3 {
+        background-image: linear-gradient(to right, #ff00cc, #cc00ff, #3366ff);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    .web-bg-gradient-3 {
+        background-image: linear-gradient(to right, #843474, #470c56, #193a9d);
+    }
+
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    .dot {
+        width: 10px;
+        height: 10px;
+        background-color: #ccc;
+        border-radius: 9999px;
+        transition: background-color 0.3s;
+    }
+
+    .dot.active {
+        background-color: #3b82f6;
+    }
+
+    #carousel {
+        touch-action: pan-x;
+    }
+}
+
+/* Smooth transitions for Livewire */
+.slide-enter-active {
+    transition: all 0.3s ease-out;
+}
+
+.slide-leave-active {
+    transition: all 0.2s ease-in;
+}
+
+.slide-enter-from {
+    transform: translateX(100%);
+}
+
+.slide-leave-to {
+    transform: translateX(100%);
+}
+
+/* Loading states */
+.loading {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Custom scrollbar for slider */
+.slider-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.slider-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.slider-content::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.slider-content::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Notification Animation */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.notification-item {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Global mobile-responsive safety net
+   ────────────────────────────────────────────────────────────────────
+   "Do no harm" baseline so any admin page is at least usable on a phone
+   without bespoke media queries. Keep these defensive — only target
+   selectors that the admin templates already rely on. */
+
+@media (max-width: 767.98px) {
+    /* Any wide table inside an admin card becomes touch-scrollable
+       (its parent uses overflow-x-auto, the table just keeps min-width). */
+    .min-h-screen table,
+    .overflow-x-auto > table {
+        min-width: 640px;
+    }
+
+    /* Tame the typical sticky page header on phones. */
+    .min-h-screen > .bg-white.border-b.border-gray-200 {
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+    }
+
+    /* Centered modals — keep them inside the viewport with a sane width. */
+    .fixed.inset-0 > .bg-white.rounded-xl,
+    .fixed.inset-0 > .bg-white.rounded-2xl,
+    .fixed.inset-0 .bg-white.rounded-2xl.shadow-xl,
+    .fixed.inset-0 .bg-white.rounded-xl.shadow-xl {
+        max-width: calc(100vw - 1.5rem) !important;
+        margin-left: 0.75rem;
+        margin-right: 0.75rem;
+    }
+
+    /* Don't let long unbreakable strings blow out cards on phones. */
+    .min-h-screen p,
+    .min-h-screen td,
+    .min-h-screen span,
+    .min-h-screen a {
+        overflow-wrap: anywhere;
+    }
+}
+
+/* Re-usable helper: wrap any wide table to get a touch-friendly h-scroll. */
+.responsive-table-wrap {
+    -webkit-overflow-scrolling: touch;
+    overflow-x: auto;
+}
+
+/* Body lock applied by the layout when the mobile drawer is open. */
+body.drawer-open {
+    overflow: hidden !important;
+}
+
+
+

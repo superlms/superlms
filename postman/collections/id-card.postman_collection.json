@@ -1,0 +1,76 @@
+{
+	"info": {
+		"_postman_id": "b7e4c2a1-9f33-4d6b-8c10-idcardadmit01",
+		"name": "LMS — ID Card & Admit Card (v1)",
+		"description": "Student/teacher app APIs for the digital ID card and the student admit card.\n\n**Scoping (automatic, by the logged-in role):**\n- **Student ID Card** — returns the logged-in STUDENT's active, non-expired ID card. 403 for non-students.\n- **Teacher ID Card** — returns the logged-in TEACHER's active ID card. 403 for non-teachers.\n- **Student Admit Card** — the student's active admit card for the latest published, not-yet-ended exam, including per-subject schedule, exam center, rules and verification info.\n- **Verify Admit Card** — public endpoint (no auth) to verify an admit card by its number.\n\n**ID card response shape:** `id-card/student` and `id-card/teacher` return the SAME flat structure the admin ID-card design renders (IdCardService::cardViewData), so the app renders a card identical to the admin print/preview: `type`, `name`, `subtitle`, `photo`, `card_number`, `issue_date` (d M Y), `expiry_date` (d M Y), `status`, `qr_code` (raw base64 PNG, no data: prefix — generated on the fly if missing), `school` {name, logo, address, website, email, phone}, `front_rows` (ordered key→value), `back_mode`, `transport` (student only, when assigned), plus app extras `days_remaining` and `is_expired`.\n\nReturns 404 when no active card exists. Auth (except verify): Sanctum bearer token in `authToken`.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{ "key": "token", "value": "{{authToken}}", "type": "string" }
+		]
+	},
+	"item": [
+		{
+			"name": "Student ID Card",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/id-card/student",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "id-card", "student" ]
+				},
+				"description": "Active ID card for the logged-in STUDENT, in the SAME flat shape the admin ID-card design renders. Response `data`: type, name, subtitle (e.g. 'Class 10 - A'), photo, card_number, issue_date (d M Y), expiry_date (d M Y), status, qr_code (raw base64 PNG), school {name, logo, address, website, email, phone}, front_rows {Reg No, Class, Section, Father Name, Mobile, Address}, back_mode ('transport'), transport (object when a route is assigned, else null), days_remaining, is_expired. 403 if the caller is not a student; 404 if no active card."
+			},
+			"response": []
+		},
+		{
+			"name": "Teacher ID Card",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/id-card/teacher",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "id-card", "teacher" ]
+				},
+				"description": "Active ID card for the logged-in TEACHER, in the SAME flat shape the admin ID-card design renders. Response `data`: type, name, subtitle ('Teacher'), photo, card_number, issue_date (d M Y), expiry_date (d M Y), status, qr_code (raw base64 PNG), school {name, logo, address, website, email, phone}, front_rows {Employee ID, Designation, Qualification, Mobile, Joining Date, Address}, back_mode ('terms'), transport (null), days_remaining, is_expired. 403 if the caller is not a teacher; 404 if no active card."
+			},
+			"response": []
+		},
+		{
+			"name": "Student Admit Card",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/id-card/admit-card",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "id-card", "admit-card" ]
+				},
+				"description": "Active admit card for the logged-in STUDENT, for the latest published exam that has not yet ended. Includes admit_card_number, overall_exam_status, the `exam` (with a per-subject `subjects[]` schedule + live status), `exam_center`, `student`, `academic`, `organization`, `exam_rules` and `verification` blocks. 403 if not a student; 404 if no active admit card."
+			},
+			"response": []
+		},
+		{
+			"name": "Verify Admit Card (public)",
+			"request": {
+				"auth": { "type": "noauth" },
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/admit-card/verify/:admitCardNumber",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "admit-card", "verify", ":admitCardNumber" ],
+					"variable": [
+						{ "key": "admitCardNumber", "value": "", "description": "The admit card number to verify (from the QR / printed card)." }
+					]
+				},
+				"description": "Public (no auth) verification of an admit card by its number. Returns is_valid, the student summary, exam and organization name. 404 if the number is not found or the card is not active."
+			},
+			"response": []
+		}
+	]
+}

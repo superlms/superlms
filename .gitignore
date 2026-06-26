@@ -1,0 +1,58 @@
+# Dependencies
+/node_modules
+/vendor
+/public/build
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/bootstrap/cache/*.php
+
+# Environment
+.env
+.env.backup
+.env.production
+.env.*.local
+
+# Credentials & secrets
+/public/*firebase-adminsdk*.json
+/storage/app/firebase/*.json
+*firebase-adminsdk*.json
+*.pem
+auth.json
+
+# Composer / Laravel installer artifacts
+composer-setup.php
+
+# Logs & caches
+/storage/logs/*.log
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/framework/testing/*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test artifacts
+/.phpunit.cache
+/.phpunit.result.cache
+/coverage
+
+# Editors / IDE
+/.idea
+/.vscode
+/.fleet
+/.nova
+/.zed
+*.sublime-project
+*.sublime-workspace
+.phpactor.json
+.phpunit.cache
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker local overrides
+docker-compose.override.yml

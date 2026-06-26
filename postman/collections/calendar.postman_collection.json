@@ -1,0 +1,73 @@
+{
+	"info": {
+		"_postman_id": "c4d8e1f0-7a23-4b91-9e6c-calendar000001",
+		"name": "LMS — Calendar (v1)",
+		"description": "Calendar / event APIs for the student & teacher app. Events are organization-scoped and exclude cancelled-then-filtered rows.\n\nEndpoints:\n- `POST /calendar/events` — paginated event list within a date range, with optional filters.\n- `GET /calendar/events/today` — today's events (flat).\n- `GET /calendar/events/{id}` — full details for a single event (used by the app's View Event screen).\n\nAuth: Sanctum bearer token in `authToken`.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{ "key": "token", "value": "{{authToken}}", "type": "string" }
+		]
+	},
+	"item": [
+		{
+			"name": "List Events",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Accept", "value": "application/json" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"start_date\": \"2026-06-01\",\n  \"end_date\": \"2026-06-30\",\n  \"limit\": 100\n}",
+					"options": { "raw": { "language": "json" } }
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/calendar/events",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "calendar", "events" ]
+				},
+				"description": "Returns events for the authenticated user's organization within a date range, paginated.\n\nAll body fields are OPTIONAL:\n- `start_date` / `end_date` (`Y-m-d`) — defaults to today → +1 month\n- `event_type` — one of `class`, `exam`, `meeting`, `event`, `holiday`\n- `is_all_day` — boolean\n- `teacher_detail_id`, `standard_id`, `section_id`, `subject_id` — academic filters\n- `limit` (1–100, default 50), `page` (default 1)\n\nResponse: `{ events[], pagination, filters }`. Each event carries `id`, `title`, `description`, `date`, `start_time`, `end_time`, `is_all_day`, `event_type`, `color`, `location`, and `academic_details`."
+			},
+			"response": []
+		},
+		{
+			"name": "Today's Events",
+			"request": {
+				"method": "GET",
+				"header": [
+					{ "key": "Accept", "value": "application/json" }
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/calendar/events/today?per_page=20",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "calendar", "events", "today" ],
+					"query": [
+						{ "key": "per_page", "value": "20" }
+					]
+				},
+				"description": "Today's events for the user's organization, ordered by start/end time. Returns a flat `events[]` with a friendly `time` string plus `subject`, `teacher`, and `location`. `per_page` is optional (default 20)."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Event by ID",
+			"request": {
+				"method": "GET",
+				"header": [
+					{ "key": "Accept", "value": "application/json" }
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/calendar/events/1",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "calendar", "events", "1" ]
+				},
+				"description": "Full details for a single event, scoped to the user's organization. Powers the app's **View Event** screen (opened by tapping an event in the calendar).\n\nReturns: `id`, `title`, `description`, `date`, `start_time`, `end_time`, `is_all_day`, `event_type`, `color`, `is_cancelled`, `cancellation_reason`, `timing_display`, `location { room_number, building, location, full_address }`, and `academic_details { standard, section, subject, teacher { id, name, email } }`.\n\nPosted By: `creator_name`, `creator_email`, and `creator_avatar` (full URL of the creator's profile image, falling back to the school/organization logo, or `null` when neither is set).\n\n**404** if the event does not exist or belongs to another organization."
+			},
+			"response": []
+		}
+	]
+}

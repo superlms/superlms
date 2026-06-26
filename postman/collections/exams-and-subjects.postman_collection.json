@@ -1,0 +1,123 @@
+{
+	"info": {
+		"_postman_id": "d3a9f1c5-7b2e-4c8a-9e1d-examsubject001",
+		"name": "LMS — Exams, Syllabus & Subjects (v1)",
+		"description": "Student/teacher app APIs for exams, exam syllabus and subjects.\n\n**Scoping (automatic, by the logged-in role):**\n- **Exam syllabus** — a STUDENT sees the syllabus for their own class (standard) + section; a TEACHER sees the syllabus for the (class, subject) pairs they are assigned **via the timetable** (and any directly assigned subjects).\n- **Student subjects** — the subjects mapped to the student's class + section (section-specific subjects take priority, otherwise the class's standard subjects).\n- **Teacher subjects** — the subjects a teacher teaches, combined from the timetable + assigned subjects, plus today's period list.\n\nOnly published exams are returned. Auth: Sanctum bearer token in `authToken`.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{ "key": "token", "value": "{{authToken}}", "type": "string" }
+		]
+	},
+	"item": [
+		{
+			"name": "List Exams",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/exams?per_page=20",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "exams" ],
+					"query": [
+						{ "key": "per_page", "value": "20" },
+						{ "key": "academic_year", "value": "", "disabled": true },
+						{ "key": "exam_type", "value": "", "disabled": true },
+						{ "key": "search", "value": "", "disabled": true }
+					]
+				},
+				"description": "Paginated list of published exams. Scoped to the caller's assigned subjects: a STUDENT sees only exams that have syllabus for their class+section; a TEACHER sees only exams that include their timetable/assigned subjects. Each card has exam_name, exam_type, academic_year, status (upcoming/ongoing/completed) and dates — matching the app's exam cards. Open an exam's syllabus via the Exam Syllabus request. Optional filters: academic_year, exam_type, search."
+			},
+			"response": []
+		},
+		{
+			"name": "Exam Detail (with syllabus)",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/exams/1",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "exams", "1" ]
+				},
+				"description": "Single exam with description, status and a `syllabus[]` array scoped to the caller (student class/section or teacher timetable subjects)."
+			},
+			"response": []
+		},
+		{
+			"name": "Exam Syllabus",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/exams/1/syllabus",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "exams", "1", "syllabus" ],
+					"query": [
+						{ "key": "subject_id", "value": "", "disabled": true }
+					]
+				},
+				"description": "Just the syllabus for an exam, scoped to the caller. Returns groups of { standard, subject, chapters[] (each with topics[]) }. Optional `?subject_id=` narrows to one subject.\n\nNote: a TEACHER only sees subjects assigned to them via the timetable (fixed: previously this used only directly-assigned subjects, so timetable-only teachers got nothing). A STUDENT sees their class+section syllabus. The exam must be Published in the admin panel."
+			},
+			"response": []
+		},
+		{
+			"name": "Student Admit Card (for exam)",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/exams/1/admit-card",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "exams", "1", "admit-card" ]
+				},
+				"description": "Student-only. Returns the admit card the school has ISSUED for the logged-in student + this exam: exam header, the subject schedule (each subject with its total/passing marks), the exam-level total/passing marks, student + exam-center details and a `pdf_url`. Returns 404 \"Admit card has not been issued for this exam yet.\" when no active card exists — the app shows a 'not issued' empty state for that."
+			},
+			"response": []
+		},
+		{
+			"name": "Student Admit Card — PDF",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/pdf" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/exams/1/admit-card/pdf",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "exams", "1", "admit-card", "pdf" ]
+				},
+				"description": "Student-only. Streams the issued admit card as a PDF (the same dompdf layout the admin panel prints, now including each subject's Total/Pass marks). The app previews this URL in its in-app PDF reader (book-style) using the Sanctum bearer header, and downloads the same bytes to the device. Returns 404 when the admit card is not issued."
+			},
+			"response": []
+		},
+		{
+			"name": "Student Subjects (class + section)",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/subject/",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "subject", "" ]
+				},
+				"description": "Subjects for the logged-in STUDENT, based on their class (standard) + section. Section-specific subjects are returned when present; otherwise the class's standard subjects.\n\nEach item returns: `id`, `name`, `image` (subject icon — full S3 URL, may be null), `detail_image` (larger image for the detail screen — full S3 URL, may be null), `is_mandatory`, `type`. The app shows `image` as the subject card icon and falls back to a book SVG when it is null."
+			},
+			"response": []
+		},
+		{
+			"name": "Teacher Subjects (via timetable)",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/teacher/subject",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "teacher", "subject" ]
+				},
+				"description": "Subjects for the logged-in TEACHER, combined from the timetable + any assigned subjects, grouped by class, plus `today_timetable` (today's periods) and a summary. Each subject row includes `subject_image` and `subject_detail_image` (used by the syllabus/content screens)."
+			},
+			"response": []
+		}
+	]
+}

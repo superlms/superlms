@@ -1,0 +1,4145 @@
+{
+  "info": {
+    "_postman_id": "edyone-lms-auth-collection",
+    "name": "Edyone LMS — Auth & Legal APIs",
+    "description": "Authentication, password management, and legal document endpoints for Edyone LMS v1 API.\n\n**Base URL variable:** `{{baseUrl}}` — set to your environment (e.g. https://edyonelms.in/api or http://localhost:8000/api)\n\n**Auth variable:** `{{token}}` — captured automatically by Login requests via the test script.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Login (Unified — auto-detect role)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.data && json.data.token) {",
+                  "        pm.collectionVariables.set('token', json.data.token);",
+                  "        pm.collectionVariables.set('user_id', json.data.user.id);",
+                  "        console.log('Login token saved — user_type:', json.data.user_type);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"ADM001\",\n  \"password\": \"Student@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "login"
+              ]
+            },
+            "description": "Single global login for every user type. The role is auto-detected from the `identifier`:\n\n- **Student** → admission number (e.g. `ADM001`)\n- **Teacher / Admin / Sub-admin / Accounts** → email (e.g. `admin@school.com`)\n\n**Request body:**\n- `identifier` (required, string) — admission number OR email\n- `password` (required, string)\n\n_Back-compat: `admission_number` or `email` are also accepted in place of `identifier`._\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"status_code\": 200,\n  \"message\": \"Login successful\",\n  \"data\": {\n    \"user\": { \"id\": 1, \"name\": \"...\", \"email\": \"...\", \"role\": \"user\", \"user_type\": \"student\", \"organization\": { ... } },\n    \"token\": \"...\",\n    \"token_type\": \"Bearer\",\n    \"role\": \"user\",\n    \"user_type\": \"student\",\n    \"dashboard\": \"student\"\n  }\n}\n```\n\n`user_type` / `dashboard` ∈ `student | teacher | admin | accounts` — the app uses it to route to the correct dashboard."
+          }
+        },
+        {
+          "name": "Student Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.data && json.data.token) {",
+                  "        pm.collectionVariables.set('token', json.data.token);",
+                  "        pm.collectionVariables.set('user_id', json.data.user.id);",
+                  "        console.log('Student token saved');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"admission_number\": \"ADM001\",\n  \"password\": \"Student@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/user/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "user",
+                "login"
+              ]
+            },
+            "description": "Login as a student using admission number and password.\n\n**Request body:**\n- `admission_number` (required, string)\n- `password` (required, string)\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"status_code\": 200,\n  \"message\": \"Login successful\",\n  \"data\": {\n    \"user\": { ... },\n    \"token\": \"...\",\n    \"token_type\": \"Bearer\"\n  }\n}\n```"
+          }
+        },
+        {
+          "name": "Teacher Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.data && json.data.token) {",
+                  "        pm.collectionVariables.set('token', json.data.token);",
+                  "        pm.collectionVariables.set('user_id', json.data.user.id);",
+                  "        console.log('Teacher token saved');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"teacher@example.com\",\n  \"password\": \"Teacher@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/teacher/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "teacher",
+                "login"
+              ]
+            },
+            "description": "Login as a teacher using email and password.\n\n**Request body:**\n- `email` (required, valid email)\n- `password` (required, string)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Password Management",
+      "item": [
+        {
+          "name": "Forgot Password (Send OTP)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.data && json.data.user_id) {",
+                  "        pm.collectionVariables.set('reset_user_id', json.data.user_id);",
+                  "        console.log('Reset user_id saved: ' + json.data.user_id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/forgot-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "forgot-password"
+              ]
+            },
+            "description": "Send a 6-digit OTP to the user's email address. OTP is valid for **2 minutes**.\n\n**Request body:**\n- `email` (required, valid email)\n\n**Response includes:**\n- `user_id` — to be used in Verify OTP\n- `email`\n- `expires_in` (seconds)\n\nOTP is delivered via ZeptoMail template configured in `services.zeptomail.otp_template_key`."
+          }
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": {{reset_user_id}},\n  \"otp\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/verify-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "verify-otp"
+              ]
+            },
+            "description": "Verify the 6-digit OTP sent to user's email.\n\n**Request body:**\n- `user_id` (required, numeric) — from Forgot Password response\n- `otp` (required, 6 digits)\n\nAfter successful verification, OTP is cleared from DB and user can proceed to `change-password`."
+          }
+        },
+        {
+          "name": "Resend OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": {{reset_user_id}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/resend-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "resend-otp"
+              ]
+            },
+            "description": "Resend OTP to user's email. **120-second cooldown** applies between resends.\n\n**Request body:**\n- `user_id` (required, numeric)"
+          }
+        },
+        {
+          "name": "Change Password (after OTP verify)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": {{reset_user_id}},\n  \"password\": \"NewPass@123\",\n  \"password_confirmation\": \"NewPass@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/change-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "change-password"
+              ]
+            },
+            "description": "Set new password after OTP verification (forgot password flow).\n\n**Request body:**\n- `user_id` (required, numeric)\n- `password` (required, min 8 chars, must contain lowercase, uppercase, number, special char)\n- `password_confirmation` (required, must match `password`)\n\n**Important:** OTP must be verified (via `verify-otp`) before calling this. Returns a fresh auth token."
+          }
+        },
+        {
+          "name": "Update Password (authenticated)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"Current@123\",\n  \"new_password\": \"NewPass@456\",\n  \"new_password_confirmation\": \"NewPass@456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/update-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "update-password"
+              ]
+            },
+            "description": "Update password while logged in. Requires current password.\n\n**Headers:** `Authorization: Bearer {{token}}`\n\n**Request body:**\n- `current_password` (required)\n- `new_password` (required, same complexity rules as Change Password)\n- `new_password_confirmation` (required, must match)\n\nAll existing tokens are revoked and a new one is issued."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Profile",
+      "item": [
+        {
+          "name": "Student Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/user/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "user",
+                "profile"
+              ]
+            },
+            "description": "**Authenticated (student).** Returns full student profile in 6 grouped sections:\n\n**1. personal_info** — student_detail_id, user_id, full_name, email, mobile_number, phone, dob, gender, religion, aadhar_no, appar_id, registration_number, image, is_active, role\n\n**2. family_info** — father_name, mother_name\n\n**3. address_info** — local_address, permanent_address, city, state, pincode\n\n**4. academic_info** — admission_no, date_of_admission, roll_no, board, standard_id, standard_name, standard_code, section_id, section_name\n\n**5. transport_info** — transportation_required, active_transport (vehicle_no, route, pickup_point, is_active)\n\n**6. organization_info** — organization_id, name, code, logo_url"
+          }
+        },
+        {
+          "name": "Teacher Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/teacher/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "teacher",
+                "profile"
+              ]
+            },
+            "description": "**Authenticated (teacher).** Returns full teacher profile in 5 grouped sections:\n\n**1. personal_info** — teacher_detail_id, user_id, name, email, mobile_number, phone, emergency_contact, gender, dob, image, role, is_active\n\n**2. professional_info** — employee_id, date_of_joining, qualification, total_subjects_assigned, total_classes_assigned, total_sections_assigned\n\n**3. address_info** — address, city, state, pincode\n\n**4. assignments** — `subjects[]` (subject_id, subject_name, subject_code, standard_id, standard_name, section_id, section_name), `classes[]` (standard_id, standard_name, section_id, section_name), `sections[]` (section_id, section_name, standard_id, standard_name), `summary` (total_assignments, has_data)\n\n**5. organization_info** — organization_id, name, code, logo_url"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. App Info",
+      "item": [
+        {
+          "name": "About App",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/about-app",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "about-app"
+              ]
+            },
+            "description": "**Authenticated.** Returns app information:\n- `heading`, `sub_heading`, `logo`, `address`\n- `content[] { title, description }`\n- `contact_details[] { type, value }`\n- `core_team[] { id, name, designation, photo_url, url }` — `photo_url` is the member image; tapping a member opens `url` (falls back to `photo_url`)\n- `social_media[] { platform, url, icon }`\n- `documents[] { id, title, file_path, file_type }` (PDF/DOC uploads on S3)\n\n**404** when no record exists yet — clients render a \"No Data found\" state instead of an error.\n\n**Headers:** `Authorization: Bearer {{token}}`"
+          }
+        },
+        {
+          "name": "School Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/school-info",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "school-info"
+              ]
+            },
+            "description": "**Authenticated.** Returns school information for the logged-in user's organization:\n- `about_school`, `usm_vision`, `usm_mission`, `usm_values`, `usm_goals`, `website_info`, `website_url`\n- `school_mobile`, `school_email`, `school_address`\n- `management_team[] { id, name, designation, photo_url, sort_order }`\n- `documents[] { id, title, file_url, file_type, sort_order }`\n- `organization { logo_url, name }`\n\n**404** when no record exists — clients render a \"No Data found\" state.\n\n**Headers:** `Authorization: Bearer {{token}}`"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Switch Account (Multi-Account)",
+      "item": [
+        {
+          "name": "Add Account (Login + Snapshot)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.data && json.data.token) {",
+                  "        pm.collectionVariables.set('added_token', json.data.token);",
+                  "        console.log('Added account token saved');",
+                  "        console.log('Account:', JSON.stringify(json.data.account, null, 2));",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"ADM001\",\n  \"password\": \"Student@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/switch-account/add",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "switch-account",
+                "add"
+              ]
+            },
+            "description": "**Public.** Instagram-style \"Add Account\" — one endpoint, both account types. The app stores the returned `{ token, account }` locally; the user can switch between stored accounts without re-login and remove any one of them.\n\n**Unified request body (recommended):**\n```json\n{\n  \"identifier\": \"ADM001\",\n  \"password\": \"Student@123\"\n}\n```\n`identifier` accepts a student **admission number** OR an **email** for any other role (teacher / admin / sub-admin / accounts). The server auto-detects the role by checking whether the value looks like an email address — no `login_type` needed. `user_type` ∈ `student | teacher | admin | accounts`.\n\n**Teacher example:**\n```json\n{\n  \"identifier\": \"priya.mehta@edyone.in\",\n  \"password\": \"Teacher@123\"\n}\n```\n\n**Legacy body (still accepted):**\n```json\n{ \"login_type\": \"student\",  \"admission_number\": \"ADM001\", \"password\": \"...\" }\n{ \"login_type\": \"teacher\",  \"email\": \"t@x.in\",            \"password\": \"...\" }\n```\n\n**Response (200):**\n```json\n{\n  \"data\": {\n    \"account\": {\n      \"user_id\": 42,\n      \"name\": \"Amit Dagur\",\n      \"email\": \"amit@edyone.in\",\n      \"role\": \"user\",\n      \"role_label\": \"Student\",\n      \"user_type\": \"student\",\n      \"image\": \"https://.../avatar.jpg\",\n      \"organization\": { \"id\": 5, \"name\": \"THE DEMO SCHOOL\", \"logo\": \"https://.../logo.png\" },\n      \"class_info\": { \"admission_no\": \"ADM001\", \"roll_no\": \"01\", \"class_display\": \"Class 1 - Section A\", ... }\n    },\n    \"token\":      \"abc123...\",\n    \"token_type\": \"Bearer\"\n  }\n}\n```\nFor a teacher, `user_type` is `\"teacher\"` and `class_info` carries `{ employee_id, qualification, class_display }`.\n\n**App flow (Instagram-style):**\n1. User taps **Add Account** in the switcher and enters admission no / email + password.\n2. App calls this endpoint.\n3. App appends the returned `{ token, account }` to its local accounts list and shows it as a card with: image, name, `user_type` badge.\n4. To switch, the app loads the stored token for the chosen account and uses it as the Bearer.\n5. To remove an account, send `POST /remove` with that account's token (see next request) — only that token is revoked, the other accounts keep working."
+          }
+        },
+        {
+          "name": "Profile Snapshot (Refresh card)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/switch-account/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "switch-account",
+                "me"
+              ]
+            },
+            "description": "**Authenticated.** Returns compact profile snapshot for the currently authenticated user.\n\n**Use case:** App periodically calls this for each stored token to refresh the snapshot (so the switcher shows the latest name / image / class after admin updates).\n\n**Returns:** same `snapshot` shape as Add Account response."
+          }
+        },
+        {
+          "name": "Remove Account (Revoke token)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{added_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/switch-account/remove",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "switch-account",
+                "remove"
+              ]
+            },
+            "description": "**Authenticated.** Revokes ONLY the current access token (the one in the Authorization header).\n\n**Use case:** User removes an account from the device switcher. App sends this with the token-to-remove in Authorization, server revokes only that token (other linked accounts keep working).\n\n**App flow:**\n1. User taps the X / Remove icon on an account card in switcher\n2. App calls this with `Authorization: Bearer <that-account-token>`\n3. On success, app deletes the stored `{ token, snapshot }` entry locally\n\nNote: tries `{{added_token}}` for testing — switch this header to the specific account's token in production."
+          }
+        },
+        {
+          "name": "Cross-Org Accounts (Auto-discovery)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/switch-account/schools",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "switch-account",
+                "schools"
+              ]
+            },
+            "description": "**Authenticated.** Auto-discovers all accounts sharing the current user's email + role across organizations.\n\nUseful when a user (same email) is enrolled in multiple schools — they can see all linked schools without manually adding each one.\n\n**Returns:** array of `{ user_id, organization_id, is_current, school: { id, name, logo, active } }`"
+          }
+        },
+        {
+          "name": "Switch to Org",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"organization_id\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/switch-account/switch",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "switch-account",
+                "switch"
+              ]
+            },
+            "description": "**Authenticated.** Revokes current token and issues a new one for the same user-email in a different organization (used with the auto-discovery flow `/switch-account/schools`).\n\n**Body:** `{ organization_id }`\n\n**Returns:** new token + user data."
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Contact School (Student & Teacher)",
+      "item": [
+        {
+          "name": "Student → Submit Contact",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"topic\": \"Fee Issue\",\n  \"student_query\": \"I have a question about my fees.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/user/admin/contact",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "user",
+                "admin",
+                "contact"
+              ]
+            },
+            "description": "Student raises a query/contact request to the school admin.\n\n**Body:** `{ topic, student_query }` (optional `image` as multipart, max 2MB jpeg/png/jpg/gif)"
+          }
+        },
+        {
+          "name": "Student → My Contact List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/user/admin/contact-list",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "user",
+                "admin",
+                "contact-list"
+              ]
+            },
+            "description": "Returns the student's own contact requests with admin replies."
+          }
+        },
+        {
+          "name": "Student → Reply to Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contact_id\": 1,\n  \"reply\": \"Thanks, I understand now.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/user/admin/contact-reply",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "user",
+                "admin",
+                "contact-reply"
+              ]
+            },
+            "description": "Student adds a follow-up reply to an existing contact thread."
+          }
+        },
+        {
+          "name": "Teacher → Submit Contact",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"topic\": \"Class Schedule\",\n  \"teacher_query\": \"Request to update my class timing.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/teacher/admin/contact",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "teacher",
+                "admin",
+                "contact"
+              ]
+            },
+            "description": "Teacher raises a query/contact request to the school admin.\n\n**Body:** `{ topic, teacher_query }` (optional `image` as multipart, max 2MB jpeg/png/jpg/gif)"
+          }
+        },
+        {
+          "name": "Teacher → My Contact List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/teacher/admin/contact-list",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "teacher",
+                "admin",
+                "contact-list"
+              ]
+            },
+            "description": "Returns the teacher's own contact requests with admin replies."
+          }
+        },
+        {
+          "name": "Teacher → Reply to Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contact_id\": 1,\n  \"reply\": \"Thanks for the clarification.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/teacher/admin/contact-reply",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "teacher",
+                "admin",
+                "contact-reply"
+              ]
+            },
+            "description": "Teacher adds a follow-up reply to an existing contact thread."
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Announcements",
+      "item": [
+        {
+          "name": "List Announcements",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"per_page\": 20\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/announcement",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "announcement"
+              ]
+            },
+            "description": "Lists announcements visible to the caller (filtered by their organization, class, section based on role)."
+          }
+        },
+        {
+          "name": "Get Single Announcement",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/announcement/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "announcement",
+                "1"
+              ]
+            },
+            "description": "Returns a single announcement with full description, attachments, and target audience."
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Exams & Syllabus",
+      "item": [
+        {
+          "name": "List Exams",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/exams?per_page=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "exams"
+              ],
+              "query": [
+                {
+                  "key": "per_page",
+                  "value": "20"
+                },
+                {
+                  "key": "academic_year",
+                  "value": "2025-26",
+                  "disabled": true
+                },
+                {
+                  "key": "exam_type",
+                  "value": "Mid-Term",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "math",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Lists published exams for the caller's school.\n\n**Optional filters:** `academic_year`, `exam_type`, `search`, `per_page`\n\nReturns paginated list with status (`upcoming`/`ongoing`/`completed`)."
+          }
+        },
+        {
+          "name": "Get Exam Detail (with Syllabus)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/exams/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "exams",
+                "1"
+              ]
+            },
+            "description": "Returns full exam detail + role-scoped syllabus embedded.\n\n**Syllabus scoping:**\n- Student → syllabus for their class+section only\n- Teacher → syllabus for their assigned (standard, subject) pairs\n\nSyllabus is grouped by (standard, subject) with chapters and topics."
+          }
+        },
+        {
+          "name": "Get Exam Syllabus Only",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/exams/1/syllabus",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "exams",
+                "1",
+                "syllabus"
+              ],
+              "query": [
+                {
+                  "key": "subject_id",
+                  "value": "5",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns only the syllabus chapters+topics for an exam, scoped to the caller.\n\n**Optional query:** `subject_id` to filter to one subject.\n\nReturns: `[{ standard_id, standard_name, subject_id, subject_name, chapter_count, chapters: [{ id, name, description, order, topics: [{ id, topic_name }] }] }]`"
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Books",
+      "description": "Class library (PDF books).\n\n**Auto-scoped by role** (same endpoint, both roles):\n- **Student** → books for their class + section (and class-wide books with `section_id=NULL`).\n- **Teacher** → books for `(class, subject)` pairs derived from their **timetable**.\n\nList response carries `pdf_url` too — the card 'open' action does NOT need a separate detail call.\n\n**Card field mapping:**\n- Student card → `title` (book name), `cover_url` (cover image), `subject.name` → tap = open `pdf_url`.\n- Teacher card → `title`, `cover_url`, `subject.name`, `standard.name` (class), `section.name` → tap = open `pdf_url`.\n\n`logo_url` is a back-compat alias of `cover_url`.",
+      "item": [
+        {
+          "name": "List Books (role-scoped)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/books?per_page=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "books"
+              ],
+              "query": [
+                {
+                  "key": "per_page",
+                  "value": "20"
+                },
+                {
+                  "key": "standard_id",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Narrow within caller's scope."
+                },
+                {
+                  "key": "section_id",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Narrow within caller's scope."
+                },
+                {
+                  "key": "subject_id",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Narrow within caller's scope."
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Case-insensitive substring match on title."
+                }
+              ]
+            },
+            "description": "Lists books auto-scoped by caller's role.\n\n- **Student** → books for their class + section (also picks up class-wide books where `section_id IS NULL`).\n- **Teacher** → books for the `(class, subject)` pairs they teach (derived from `teacher_time_tables`).\n\n**Optional filters:** `standard_id`, `section_id`, `subject_id`, `search`, `per_page`.\n\n**Each item:**\n```json\n{\n  \"id\": 14,\n  \"title\": \"NCERT Mathematics — Class 8\",\n  \"cover_url\": \"https://.../math-8.png\",\n  \"logo_url\":  \"https://.../math-8.png\",\n  \"standard\": { \"id\": 8,  \"name\": \"Class 8\" },\n  \"section\":  { \"id\": 24, \"name\": \"A\" },\n  \"subject\":  { \"id\": 3,  \"name\": \"Mathematics\" },\n  \"pdf_url\":  \"https://.../math-8.pdf\"\n}\n```\n\n**Use:** student/teacher app library screen. Tap on a card → open `pdf_url` directly (no extra detail call needed)."
+          },
+          "response": [
+            {
+              "name": "Sample — Student (role=user)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/books?per_page=20",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "books"
+                  ],
+                  "query": [
+                    {
+                      "key": "per_page",
+                      "value": "20"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Books fetched successfully.\",\n  \"data\": [\n    {\n      \"id\": 14,\n      \"title\": \"NCERT Mathematics — Class 8\",\n      \"cover_url\": \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/covers/math-8.png\",\n      \"logo_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/covers/math-8.png\",\n      \"standard\": { \"id\": 8, \"name\": \"Class 8\" },\n      \"section\":  { \"id\": 24, \"name\": \"A\" },\n      \"subject\":  { \"id\": 3, \"name\": \"Mathematics\" },\n      \"pdf_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/pdfs/math-8.pdf\"\n    },\n    {\n      \"id\": 15,\n      \"title\": \"NCERT Science — Class 8\",\n      \"cover_url\": \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/covers/sci-8.png\",\n      \"logo_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/covers/sci-8.png\",\n      \"standard\": { \"id\": 8, \"name\": \"Class 8\" },\n      \"section\":  null,\n      \"subject\":  { \"id\": 4, \"name\": \"Science\" },\n      \"pdf_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/pdfs/sci-8.pdf\"\n    }\n  ],\n  \"meta\": { \"current_page\": 1, \"per_page\": 20, \"total\": 6, \"last_page\": 1 }\n}"
+            },
+            {
+              "name": "Sample — Teacher (role=teacher)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/books?per_page=20",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "books"
+                  ],
+                  "query": [
+                    {
+                      "key": "per_page",
+                      "value": "20"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Books fetched successfully.\",\n  \"data\": [\n    {\n      \"id\": 14,\n      \"title\": \"NCERT Mathematics — Class 8\",\n      \"cover_url\": \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/covers/math-8.png\",\n      \"logo_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/covers/math-8.png\",\n      \"standard\": { \"id\": 8, \"name\": \"Class 8\" },\n      \"section\":  { \"id\": 24, \"name\": \"A\" },\n      \"subject\":  { \"id\": 3, \"name\": \"Mathematics\" },\n      \"pdf_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/pdfs/math-8.pdf\"\n    },\n    {\n      \"id\": 22,\n      \"title\": \"NCERT Mathematics — Class 9\",\n      \"cover_url\": \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/covers/math-9.png\",\n      \"logo_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/covers/math-9.png\",\n      \"standard\": { \"id\": 9, \"name\": \"Class 9\" },\n      \"section\":  { \"id\": 27, \"name\": \"B\" },\n      \"subject\":  { \"id\": 3, \"name\": \"Mathematics\" },\n      \"pdf_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/pdfs/math-9.pdf\"\n    }\n  ],\n  \"meta\": { \"current_page\": 1, \"per_page\": 20, \"total\": 4, \"last_page\": 1 }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Book Detail (with PDF)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/books/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "books",
+                "1"
+              ]
+            },
+            "description": "Returns a single book (same shape as a list item), still role-scoped.\n\nMostly **optional** for the normal list flow — list response already carries `pdf_url`. Use this for **deep-link / share-link / push-notification** scenarios where the front-end only has a book id, not a list.\n\n- **200** → full book payload\n- **404** → book outside the caller's scope or doesn't exist (security check — a teacher cannot deep-link to another class's book)."
+          },
+          "response": [
+            {
+              "name": "Sample — 200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/books/14",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "books",
+                    "14"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Book fetched successfully.\",\n  \"data\": {\n    \"id\": 14,\n    \"title\": \"NCERT Mathematics — Class 8\",\n    \"cover_url\": \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/covers/math-8.png\",\n    \"logo_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/covers/math-8.png\",\n    \"standard\": { \"id\": 8, \"name\": \"Class 8\" },\n    \"section\":  { \"id\": 24, \"name\": \"A\" },\n    \"subject\":  { \"id\": 3, \"name\": \"Mathematics\" },\n    \"pdf_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/pdfs/math-8.pdf\"\n  }\n}"
+            },
+            {
+              "name": "Sample — 404 Out of scope",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/books/9999",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "books",
+                    "9999"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": false,\n  \"message\": \"Book not found.\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10. Teacher → Marks & Exam Copies",
+      "description": "Teacher app APIs for managing student marks and uploading exam-copy PDFs.\n\nAll endpoints are auto-scoped to the (class, section, subject) triples the teacher teaches via the timetable. 403 if they touch a class+subject they don't teach.",
+      "item": [
+        {
+          "name": "Dropdown — Classes + Subjects",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/teacher/classes-subjects",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "teacher",
+                "classes-subjects"
+              ]
+            },
+            "description": "Every distinct (class, section, subject) the authenticated teacher teaches.\n\nEach item carries a ready-to-display `label` (e.g. `\"Class 8 · A · Mathematics\"`) plus the three IDs for follow-up calls.\n\n**Use:** populate the \"select class + subject\" dropdown on the marks / exam-copy upload screens."
+          },
+          "response": [
+            {
+              "name": "Sample 200",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/teacher/classes-subjects",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "teacher",
+                    "classes-subjects"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Classes & subjects fetched successfully.\",\n  \"data\": [\n    { \"standard_id\": 8, \"standard_name\": \"Class 8\", \"section_id\": 24, \"section_name\": \"A\", \"subject_id\": 3, \"subject_name\": \"Mathematics\", \"label\": \"Class 8 · A · Mathematics\" },\n    { \"standard_id\": 9, \"standard_name\": \"Class 9\", \"section_id\": 27, \"section_name\": \"B\", \"subject_id\": 3, \"subject_name\": \"Mathematics\", \"label\": \"Class 9 · B · Mathematics\" }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Marks — Students roster (for chosen class+section)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/teacher/marks/students?standard_id=8&section_id=24",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "teacher",
+                "marks",
+                "students"
+              ],
+              "query": [
+                {
+                  "key": "standard_id",
+                  "value": "8"
+                },
+                {
+                  "key": "section_id",
+                  "value": "24"
+                }
+              ]
+            },
+            "description": "Students enrolled in the chosen (class, section). 403 if the teacher doesn't teach this class+section."
+          },
+          "response": []
+        },
+        {
+          "name": "Marks — List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/teacher/marks?per_page=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "teacher",
+                "marks"
+              ],
+              "query": [
+                {
+                  "key": "per_page",
+                  "value": "20"
+                },
+                {
+                  "key": "exam_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "standard_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "section_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "subject_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "student_detail_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Student name / roll no"
+                }
+              ]
+            },
+            "description": "Paginated list of marks rows the teacher can see (scoped to their class+subject triples)."
+          },
+          "response": []
+        },
+        {
+          "name": "Marks — Show one",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/teacher/marks/451",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "teacher",
+                "marks",
+                "451"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Marks — Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/teacher/marks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "teacher",
+                "marks"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"exam_id\": 5,\n  \"student_detail_id\": 101,\n  \"standard_id\": 8,\n  \"section_id\": 24,\n  \"subject_id\": 3,\n  \"marks_obtained\": 78,\n  \"max_marks\": 100,\n  \"grade\": \"A\",\n  \"is_absent\": false,\n  \"is_recheck\": false,\n  \"remarks\": \"Good work\"\n}"
+            },
+            "description": "Upload marks for one student. 403 if the teacher doesn't teach that triple, 409 if marks already exist (use update)."
+          },
+          "response": []
+        },
+        {
+          "name": "Marks — Update",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/teacher/marks/451",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "teacher",
+                "marks",
+                "451"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"marks_obtained\": 82,\n  \"grade\": \"A+\"\n}"
+            },
+            "description": "Partial update — only sent fields change. Percentage is recomputed."
+          },
+          "response": []
+        },
+        {
+          "name": "Marks — Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/teacher/marks/451",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "teacher",
+                "marks",
+                "451"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Exam Copies — List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/teacher/exam-copies?per_page=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "teacher",
+                "exam-copies"
+              ],
+              "query": [
+                {
+                  "key": "per_page",
+                  "value": "20"
+                },
+                {
+                  "key": "exam_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "student_detail_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "standard_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "section_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "subject_id",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Only rows that have a PDF attached. Each item carries `pdf_url`."
+          },
+          "response": []
+        },
+        {
+          "name": "Exam Copies — Show one",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/teacher/exam-copies/451",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "teacher",
+                "exam-copies",
+                "451"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Exam Copies — Upload (PDF + optional marks)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/teacher/exam-copies",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "teacher",
+                "exam-copies"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "exam_id",
+                  "value": "5",
+                  "type": "text"
+                },
+                {
+                  "key": "student_detail_id",
+                  "value": "101",
+                  "type": "text"
+                },
+                {
+                  "key": "standard_id",
+                  "value": "8",
+                  "type": "text"
+                },
+                {
+                  "key": "section_id",
+                  "value": "24",
+                  "type": "text"
+                },
+                {
+                  "key": "subject_id",
+                  "value": "3",
+                  "type": "text"
+                },
+                {
+                  "key": "pdf",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "marks_obtained",
+                  "value": "78",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "max_marks",
+                  "value": "100",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "grade",
+                  "value": "A",
+                  "type": "text",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "**multipart/form-data**. PDF required, max 10 MB. Optional marks fields save the marks on the same row."
+          },
+          "response": []
+        },
+        {
+          "name": "Exam Copies — Update",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/teacher/exam-copies/451",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "teacher",
+                "exam-copies",
+                "451"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "_method",
+                  "value": "PUT",
+                  "type": "text"
+                },
+                {
+                  "key": "pdf",
+                  "type": "file",
+                  "src": [],
+                  "disabled": true,
+                  "description": "Optional — include to replace existing PDF."
+                },
+                {
+                  "key": "marks_obtained",
+                  "value": "82",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "grade",
+                  "value": "A+",
+                  "type": "text",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Optional PDF replacement + any metadata field. Send `_method=PUT` since the file upload needs POST."
+          },
+          "response": []
+        },
+        {
+          "name": "Exam Copies — Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/teacher/exam-copies/451",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "teacher",
+                "exam-copies",
+                "451"
+              ]
+            },
+            "description": "Removes the row and wipes the PDF on S3."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "11. Student → Marks & Exam Copies",
+      "description": "Student app APIs for viewing own marks, overall performance, and exam-copy PDFs.\n\nRead-only — always scoped to the authenticated student.",
+      "item": [
+        {
+          "name": "Marks — List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/student/marks?per_page=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "student",
+                "marks"
+              ],
+              "query": [
+                {
+                  "key": "per_page",
+                  "value": "50"
+                },
+                {
+                  "key": "exam_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "subject_id",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Paginated marks list. Each row: `exam_name, subject_name, marks_obtained, max_marks, percentage, grade` — exactly what a marks-list card needs."
+          },
+          "response": []
+        },
+        {
+          "name": "Marks — Overall Performance",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/student/marks/overall-performance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "student",
+                "marks",
+                "overall-performance"
+              ]
+            },
+            "description": "Aggregate dashboard: `overall_percentage`, `subject_wise_performance`, `performance_trend` (last 5), `grade_distribution`, `total_exams_given`."
+          },
+          "response": []
+        },
+        {
+          "name": "Exam Copies — List (with PDF urls)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/student/exam-copies?per_page=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "student",
+                "exam-copies"
+              ],
+              "query": [
+                {
+                  "key": "per_page",
+                  "value": "50"
+                },
+                {
+                  "key": "exam_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "subject_id",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Only rows where a teacher has uploaded a PDF. Each item carries `pdf_url` — front-end card tap → open PDF."
+          },
+          "response": []
+        },
+        {
+          "name": "Exam Copies — Show one",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/student/exam-copies/451",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "student",
+                "exam-copies",
+                "451"
+              ]
+            },
+            "description": "404 if the id doesn't belong to the caller."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "12. Filters (Cascading Dropdowns)",
+      "item": [
+        {
+          "name": "Classes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/filters/classes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "filters",
+                "classes"
+              ]
+            },
+            "description": "Returns classes (standards) the caller can see.\n\n- **Student** → just their own class\n- **Teacher** → only classes they teach\n- **Admin** → all classes in org\n\nResponse: `[{ id, name, code, order }]`"
+          }
+        },
+        {
+          "name": "Sections by Class",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/filters/sections?standard_id=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "filters",
+                "sections"
+              ],
+              "query": [
+                {
+                  "key": "standard_id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Returns sections of a given class (role-scoped).\n\n**Query:** `standard_id` (required)\n\nResponse: `[{ id, name, standard_id }]`"
+          }
+        },
+        {
+          "name": "Subjects by Class (+Section)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/filters/subjects?standard_id=1&section_id=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "filters",
+                "subjects"
+              ],
+              "query": [
+                {
+                  "key": "standard_id",
+                  "value": "1"
+                },
+                {
+                  "key": "section_id",
+                  "value": "1",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns subjects for a class (and optionally section), role-scoped.\n\n**Query:** `standard_id` (required), `section_id` (optional)\n\n- Without `section_id`: uses `standard_subjects` mapping\n- With `section_id`: uses `section_subjects` mapping\n\nResponse: `[{ id, name }]`"
+          }
+        },
+        {
+          "name": "Exams",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/filters/exams",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "filters",
+                "exams"
+              ],
+              "query": [
+                {
+                  "key": "academic_year",
+                  "value": "2025-26",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Returns published exams for filter dropdowns.\n\n**Optional query:** `academic_year`\n\nResponse: `[{ id, name, type, academic_year, start_date, end_date }]`"
+          }
+        }
+      ]
+    },
+    {
+      "name": "13. Calendar (Student & Teacher)",
+      "item": [
+        {
+          "name": "List Events",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"month\": \"2026-06\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/calendar/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "calendar",
+                "events"
+              ]
+            },
+            "description": "Calendar events for the caller's organization (optionally filtered by month/date range). Same for student & teacher."
+          }
+        },
+        {
+          "name": "Today's Events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/calendar/events/today",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "calendar",
+                "events",
+                "today"
+              ]
+            },
+            "description": "Events scheduled for today."
+          }
+        },
+        {
+          "name": "Get Event",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/calendar/events/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "calendar",
+                "events",
+                "1"
+              ]
+            },
+            "description": "Single calendar event detail."
+          }
+        }
+      ]
+    },
+    {
+      "name": "14. Subjects",
+      "item": [
+        {
+          "name": "All Subjects",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/subject",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "subject"
+              ]
+            },
+            "description": "All subjects for the caller (role-scoped)."
+          }
+        },
+        {
+          "name": "Teacher Subjects",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/teacher/subject",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "teacher",
+                "subject"
+              ]
+            },
+            "description": "Subjects assigned to the authenticated teacher."
+          }
+        }
+      ]
+    },
+    {
+      "name": "15. Syllabus",
+      "item": [
+        {
+          "name": "List Syllabus",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"standard_id\": 1,\n  \"section_id\": 1,\n  \"subject_id\": 5\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/syllabus",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "syllabus"
+              ]
+            },
+            "description": "List syllabus entries (filter by class/section/subject)."
+          }
+        },
+        {
+          "name": "Upload Syllabus (Teacher)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Term 1 Syllabus",
+                  "type": "text"
+                },
+                {
+                  "key": "standard_id",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "section_id",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "subject_id",
+                  "value": "5",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/syllabus/upload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "syllabus",
+                "upload"
+              ]
+            },
+            "description": "Upload a syllabus document (PDF/doc)."
+          }
+        },
+        {
+          "name": "Update Syllabus (Teacher)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Updated Syllabus",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "disabled": true
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/syllabus/update/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "syllabus",
+                "update",
+                "1"
+              ]
+            },
+            "description": "Update a syllabus entry / replace its file."
+          }
+        },
+        {
+          "name": "Delete Syllabus (Teacher)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/syllabus/delete/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "syllabus",
+                "delete",
+                "1"
+              ]
+            },
+            "description": "Delete a syllabus entry."
+          }
+        },
+        {
+          "name": "Download Syllabus",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/syllabus/download/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "syllabus",
+                "download",
+                "1"
+              ]
+            },
+            "description": "Get a downloadable URL for the syllabus file."
+          }
+        }
+      ]
+    },
+    {
+      "name": "16. Content (Chapters & Topics)",
+      "item": [
+        {
+          "name": "Get Chapters & Topics",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"standard_id\": 1,\n  \"subject_id\": 5\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/content/get",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "content",
+                "get"
+              ]
+            },
+            "description": "List chapters with their topics for a class/subject."
+          }
+        },
+        {
+          "name": "Upload Chapter + Topics (Teacher)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"standard_id\": 1,\n  \"subject_id\": 5,\n  \"chapter_name\": \"Algebra\",\n  \"topics\": [\"Linear Equations\", \"Quadratics\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/content/upload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "content",
+                "upload"
+              ]
+            },
+            "description": "Create a chapter and its topics."
+          }
+        },
+        {
+          "name": "Update Chapter (Teacher)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Chapter Name\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/content/chapter/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "content",
+                "chapter",
+                "1"
+              ]
+            },
+            "description": "Rename a chapter."
+          }
+        },
+        {
+          "name": "Delete Chapter (Teacher)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/content/chapter-delete/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "content",
+                "chapter-delete",
+                "1"
+              ]
+            },
+            "description": "Delete a chapter (and its topics)."
+          }
+        },
+        {
+          "name": "Update Topic (Teacher)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"topic_name\": \"Updated Topic\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/content/topic/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "content",
+                "topic",
+                "1"
+              ]
+            },
+            "description": "Update a topic name."
+          }
+        },
+        {
+          "name": "Delete Topic (Teacher)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/content/topic-delete/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "content",
+                "topic-delete",
+                "1"
+              ]
+            },
+            "description": "Delete a topic."
+          }
+        }
+      ]
+    },
+    {
+      "name": "17. Quiz / MCQ",
+      "item": [
+        {
+          "name": "List Quizzes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"standard_id\": 1,\n  \"section_id\": 1,\n  \"chapter_id\": 1,\n  \"per_page\": 15\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/quiz/get",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "quiz",
+                "get"
+              ]
+            },
+            "description": "List quiz questions with options (filterable by class/section/chapter/topic)."
+          }
+        },
+        {
+          "name": "Upload Quiz (Teacher)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question_text\": \"What is 2 + 2?\",\n  \"standard_id\": 1,\n  \"section_id\": 1,\n  \"chapter_id\": 1,\n  \"topic_id\": 1,\n  \"time_limit\": 60,\n  \"options\": [\n    { \"option_text\": \"3\", \"is_correct\": false },\n    { \"option_text\": \"4\", \"is_correct\": true },\n    { \"option_text\": \"5\", \"is_correct\": false }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/quiz/upload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "quiz",
+                "upload"
+              ]
+            },
+            "description": "Create a quiz question with options. **Teacher.**"
+          }
+        },
+        {
+          "name": "Update Quiz (Teacher)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question_text\": \"Updated question?\",\n  \"time_limit\": 90,\n  \"options\": [\n    { \"option_text\": \"A\", \"is_correct\": true },\n    { \"option_text\": \"B\", \"is_correct\": false }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/quiz/update/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "quiz",
+                "update",
+                "1"
+              ]
+            },
+            "description": "**Teacher only.** Update question/fields; if `options` provided they fully replace existing options. Partial fields allowed."
+          }
+        },
+        {
+          "name": "Delete Quiz (Teacher)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/quiz/delete/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "quiz",
+                "delete",
+                "1"
+              ]
+            },
+            "description": "**Teacher only.** Deletes the question, its options, and any submitted answers."
+          }
+        },
+        {
+          "name": "Submit Answer (Student)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mcq_question_id\": 1,\n  \"mcq_option_id\": 2,\n  \"time_taken\": 12\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/quiz/submit-answer",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "quiz",
+                "submit-answer"
+              ]
+            },
+            "description": "Student submits an answer to a quiz question."
+          }
+        },
+        {
+          "name": "Get User Answers",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"standard_id\": 1,\n  \"section_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/quiz/get/user-answer",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "quiz",
+                "get",
+                "user-answer"
+              ]
+            },
+            "description": "Get the caller's submitted answers / results."
+          }
+        }
+      ]
+    },
+    {
+      "name": "18. Homework",
+      "item": [
+        {
+          "name": "List Homework",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"standard_id\": 1,\n  \"section_id\": 1,\n  \"subject_id\": 5\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/homework/get",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "homework",
+                "get"
+              ]
+            },
+            "description": "List homework (teacher view, filterable)."
+          }
+        },
+        {
+          "name": "Student Homework",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject_id\": 5\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/homework/student",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "homework",
+                "student"
+              ]
+            },
+            "description": "Homework for the logged-in student (their class/section)."
+          }
+        },
+        {
+          "name": "Get Single Homework",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/homework/get/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "homework",
+                "get",
+                "1"
+              ]
+            },
+            "description": "Single homework detail with attachments."
+          }
+        },
+        {
+          "name": "Upload Homework (Teacher)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Chapter 3 Exercises",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "Solve Q1-Q10",
+                  "type": "text"
+                },
+                {
+                  "key": "standard_id",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "section_id",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "subject_id",
+                  "value": "5",
+                  "type": "text"
+                },
+                {
+                  "key": "due_date",
+                  "value": "2026-06-10",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "disabled": true
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/homework/upload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "homework",
+                "upload"
+              ]
+            },
+            "description": "**Teacher.** Create homework (optional attachment)."
+          }
+        },
+        {
+          "name": "Update Homework (Teacher)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Updated title",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "Updated description",
+                  "type": "text"
+                },
+                {
+                  "key": "due_date",
+                  "value": "2026-06-12",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/homework/update/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "homework",
+                "update",
+                "1"
+              ]
+            },
+            "description": "**Teacher.** Update homework fields/attachment."
+          }
+        },
+        {
+          "name": "Delete Homework (Teacher)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/homework/delete/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "homework",
+                "delete",
+                "1"
+              ]
+            },
+            "description": "**Teacher.** Delete homework."
+          }
+        }
+      ]
+    },
+    {
+      "name": "19. Attendance",
+      "item": [
+        {
+          "name": "My Attendance (Student & Teacher)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/attendance/my?month=2026-06",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "attendance",
+                "my"
+              ],
+              "query": [
+                {
+                  "key": "month",
+                  "value": "2026-06"
+                }
+              ]
+            },
+            "description": "Self attendance view for **both roles**. Optional `month=YYYY-MM` (defaults current). Returns day-wise statuses (present/absent/holiday) + monthly summary (total/working/present/absent days + percentage). Unmarked days = holiday."
+          }
+        },
+        {
+          "name": "Get Students for Attendance (Teacher)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"standard_id\": 1,\n  \"section_id\": 1,\n  \"date\": \"2026-06-01\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/attendance/get-student-for-attendance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "attendance",
+                "get-student-for-attendance"
+              ]
+            },
+            "description": "**Teacher.** Students of a class/section with any existing marks for the date."
+          }
+        },
+        {
+          "name": "Submit Attendance (Teacher)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"standard_id\": 1,\n  \"section_id\": 1,\n  \"date\": \"2026-06-01\",\n  \"attendance\": [\n    { \"student_detail_id\": 12, \"status\": 1, \"remarks\": \"\" },\n    { \"student_detail_id\": 13, \"status\": 0, \"remarks\": \"Sick\" }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/attendance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "attendance"
+              ]
+            },
+            "description": "**Teacher only.** Bulk mark student attendance (status 1=present, 0=absent)."
+          }
+        },
+        {
+          "name": "Attendance Summary (Teacher)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"2026-06-01\",\n  \"standard_id\": 1,\n  \"section_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/attendance/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "attendance",
+                "summary"
+              ]
+            },
+            "description": "**Teacher.** Class attendance summary for a date."
+          }
+        },
+        {
+          "name": "Teacher Attendance (own marks)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"month\": \"2026-06\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/attendance/teacher",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "attendance",
+                "teacher"
+              ]
+            },
+            "description": "Teacher's own attendance records."
+          }
+        },
+        {
+          "name": "Today's Teacher Attendance",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/attendance/today-teacher",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "attendance",
+                "today-teacher"
+              ]
+            },
+            "description": "Teacher's attendance status for today."
+          }
+        }
+      ]
+    },
+    {
+      "name": "20. Legal Documents",
+      "item": [
+        {
+          "name": "Terms and Conditions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/terms-and-conditions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "terms-and-conditions"
+              ]
+            },
+            "description": "Public endpoint. Returns Terms and Conditions: `platform_logo`, `platform_name`, `company_name`, `company_cin`, `metadata { sections[] {head, desc}, files[] {title, file_path, file_type}, additional_info[] {key, value} }`, `last_updated`.\n\n**404** when not configured — clients render a \"No Data found\" state."
+          }
+        },
+        {
+          "name": "Privacy Policy",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/privacy-policy",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "privacy-policy"
+              ]
+            },
+            "description": "Public endpoint. Returns Privacy Policy: `metadata { sections[] {head, desc} }`, `last_updated`.\n\n**404** when not configured — clients render a \"No Data found\" state."
+          }
+        },
+        {
+          "name": "Terms of Use",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/terms-of-use",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "terms-of-use"
+              ]
+            },
+            "description": "Public endpoint. Returns Terms of Use: `metadata { sections[] {head, desc} }`, `last_updated`.\n\n**404** when not configured — clients render a \"No Data found\" state."
+          }
+        },
+        {
+          "name": "Rules and Regulations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/rules-and-regulation",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "rules-and-regulation"
+              ]
+            },
+            "description": "**Authenticated.** Returns rules and regulations for the logged-in user's organization.\n\n**Headers:** `Authorization: Bearer {{token}}`\n\n**Response fields:**\n- `id` — record id\n- `organization_id` — org this belongs to\n- `sections[]` — array of rule sections (title, body, etc. as set by admin)\n- `additional_info[]` — extra metadata fields\n- `files[]` — uploaded documents `{ title, file_path (S3 URL), file_type, file_size (bytes) }`\n- `last_updated` — when admin last updated the content\n- `created_at`, `updated_at`\n\n**404** when not configured — clients render a \"No Data found\" state."
+          }
+        }
+      ]
+    },
+    {
+      "name": "21. Instructors",
+      "item": [
+        {
+          "name": "List Instructors (role-scoped)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/instructors?per_page=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "instructors"
+              ],
+              "query": [
+                {
+                  "key": "per_page",
+                  "value": "20"
+                },
+                {
+                  "key": "subject_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "standard_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Lists instructors auto-scoped by user role:\n- **Student** (`role=user`) -> only instructors who teach the student's `(standard, section)` via the **timetable** (`teacher_time_tables`). Each instructor's `subjects[]` is scoped to the subjects they teach that student's class.\n- **Teacher / Admin** -> all active instructors in the organization, with `subjects`, `classes`, and `assigned_classes` collections.\n\n**Optional filters:** `subject_id`, `search`, `per_page`. `standard_id` is ignored for students (they're already auto-scoped).\n\n**Student response item:** `{ id, name, email, avatar, employee_id, subjects: [{ id, name, code, image }] }`"
+          }
+        },
+        {
+          "name": "Get Instructor Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/instructors/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "instructors",
+                "1"
+              ]
+            },
+            "description": "Single instructor (role-scoped) including profile fields: `qualification`, `date_of_joining`, `phone`, `city`, `state`, `address`.\n\nReturns **404** if the instructor is outside the caller's scope - e.g. a student requesting an instructor who does not teach their class via the timetable."
+          }
+        }
+      ]
+    },
+    {
+      "name": "22. Fees & Payments",
+      "item": [
+        {
+          "name": "Fee Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fees/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fees",
+                "dashboard"
+              ]
+            },
+            "description": "**Authenticated (student).** One-shot home: `summary`, full `academic` block (structures, totals, upcoming installments, paid slips, penalty), full `transport` block (route, 12-month schedule, totals, upcoming, paid slips) or null, and `overall_payments` (merged academic+transport feed)."
+          }
+        },
+        {
+          "name": "Academic Fees",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fees/academic",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fees",
+                "academic"
+              ]
+            },
+            "description": "**Authenticated (student).** Academic: structures, totals, `upcoming` installments (cycle-based, overdue penalty + payable), `paid` slips, and penalty policy."
+          }
+        },
+        {
+          "name": "Penalties",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fees/penalties",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fees",
+                "penalties"
+              ]
+            },
+            "description": "**Authenticated (student).** Only penalties charged to the student, each tied to the payment (receipt) it was levied on. Returns penalty_per_day, total_penalty, count, items[]."
+          }
+        },
+        {
+          "name": "Fee Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fees/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fees",
+                "summary"
+              ]
+            },
+            "description": "**Authenticated (student).** Overall fee summary totals."
+          }
+        },
+        {
+          "name": "Fee Structure",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fees/structure",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fees",
+                "structure"
+              ]
+            },
+            "description": "**Authenticated (student).** Fee structure items for the student's class."
+          }
+        },
+        {
+          "name": "Fee Payments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fees/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fees",
+                "payments"
+              ]
+            },
+            "description": "**Authenticated (student).** Paginated list of the student's recorded payments. Query: `fee_type` (academic|transport), `per_page`."
+          }
+        },
+        {
+          "name": "Initiate Payment (PhonePe)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 1500,\n  \"fee_type\": \"academic\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/fees/pay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fees",
+                "pay"
+              ]
+            },
+            "description": "**Authenticated (student). Rate-limited (5/min).** Creates a PENDING transaction and returns a PhonePe hosted-checkout `redirect_url` + `merchant_order_id`. Open the URL in a browser/WebView; the app polls status on return. `fee_type`: academic|transport."
+          }
+        },
+        {
+          "name": "Payment Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fees/pay/{{merchant_order_id}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fees",
+                "pay",
+                "{{merchant_order_id}}",
+                "status"
+              ]
+            },
+            "description": "**Authenticated (student).** Polls the latest payment state. On COMPLETED, the matching fee_payments record is created exactly once. Returns state (PENDING|COMPLETED|FAILED), paid, receipt_number."
+          }
+        },
+        {
+          "name": "PhonePe Webhook (public)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "{{phonepe_webhook_sha256}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"checkout.order.completed\",\n  \"payload\": {\n    \"merchantOrderId\": \"{{merchant_order_id}}\",\n    \"orderId\": \"OMxxxxxxxx\",\n    \"state\": \"COMPLETED\",\n    \"amount\": 150000\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/phonepe/webhook",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "phonepe",
+                "webhook"
+              ]
+            },
+            "description": "**Public (PhonePe server-to-server).** No bearer auth. PhonePe sends an `Authorization` header = SHA256(webhook_username:webhook_password); the server verifies it before settling. Configure the URL + username/password under PhonePe Developer Settings -> Webhooks."
+          }
+        },
+        {
+          "name": "Transport Fees",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/fees/transport",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fees",
+                "transport"
+              ]
+            },
+            "description": "**Authenticated (student).** Transport route + 12-month schedule (paid/partial/pending with carry-forward), totals (monthly/annual/paid/remaining), upcoming months, and paid slips. 404 if no transport assigned."
+          }
+        },
+        {
+          "name": "Initiate Payment (Transport)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 1600,\n  \"fee_type\": \"transport\",\n  \"months\": [\"jun\", \"jul\"],\n  \"transportation_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/fees/pay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "fees",
+                "pay"
+              ]
+            },
+            "description": "**Authenticated (student). Rate-limited.** Transport online payment. `months` = which months the student intends to clear (apr..mar keys); `transportation_id` optional (resolves active route). Amount is editable — excess carries forward to next months via oldest-first allocation. On success a transport_fee_payments row is created (visible in admin + 12-month schedule)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "23. School Admin (Phase 0)",
+      "item": [
+        {
+          "name": "Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@school.com\",\n  \"password\": \"secret\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "login"
+              ]
+            },
+            "description": "**Public. Rate-limited (login).** School admin login (role admin / sub-admin), email + password. Returns `{ user (with organization), token, token_type }`. Set the returned token into `{{token}}`."
+          }
+        },
+        {
+          "name": "Admin Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "me"
+              ]
+            },
+            "description": "**Authenticated (admin/sub-admin).** Current admin profile + organization."
+          }
+        },
+        {
+          "name": "Admin Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "dashboard"
+              ]
+            },
+            "description": "**Authenticated (admin/sub-admin).** Headline counts: students, teachers, fees collected (this month + total)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "24. Accounts (Phase 0)",
+      "item": [
+        {
+          "name": "Accounts Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"accounts@school.com\",\n  \"password\": \"secret\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/accounts/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "accounts",
+                "login"
+              ]
+            },
+            "description": "**Public. Rate-limited (login).** Accounts-staff login (role accounts), email + password. Returns `{ user (with organization), token, token_type }`. Set the returned token into `{{token}}`."
+          }
+        },
+        {
+          "name": "Accounts Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/accounts/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "accounts",
+                "me"
+              ]
+            },
+            "description": "**Authenticated (accounts).** Current accounts profile + organization."
+          }
+        },
+        {
+          "name": "Accounts Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/accounts/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "accounts",
+                "dashboard"
+              ]
+            },
+            "description": "**Authenticated (accounts).** Finance numbers: fees collected (today/month/total), transport collected, pending dues, students."
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://edyonelms.in/api",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "reset_user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "added_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "merchant_order_id",
+      "value": ""
+    },
+    {
+      "key": "phonepe_webhook_sha256",
+      "value": ""
+    }
+  ]
+}

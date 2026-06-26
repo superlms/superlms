@@ -1,0 +1,134 @@
+{
+	"info": {
+		"_postman_id": "e1b6d3f8-72a4-4c19-9d50-contactschool01",
+		"name": "LMS — Contact School (v1)",
+		"description": "\"Contact School\" query APIs for the student/teacher app. Students and teachers each have their own endpoints and tables.\n\n**Important field difference (a common integration gotcha):**\n- Student submit uses **`student_query`**.\n- Teacher submit uses **`teacher_query`**.\n\nSending the wrong field name returns **400** (\"Query content is required\"). When reading a list, the body lives in `student_query` for students and `teacher_query` for teachers.\n\nSubmissions accept an optional `image` (jpeg/png/jpg/gif, ≤ 2MB) via multipart/form-data. Replies are checked with `contact-reply` and returned as `admin_text` + `has_reply`.\n\nAuth: Sanctum bearer token in `authToken`.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{ "key": "token", "value": "{{authToken}}", "type": "string" }
+		]
+	},
+	"item": [
+		{
+			"name": "Student",
+			"item": [
+				{
+					"name": "Submit Query (student)",
+					"request": {
+						"method": "POST",
+						"header": [ { "key": "Accept", "value": "application/json" } ],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{ "key": "topic", "value": "Library book not issued", "type": "text" },
+								{ "key": "student_query", "value": "I requested a book last week but haven't received it.", "type": "text" },
+								{ "key": "image", "type": "file", "src": [], "description": "Optional. jpeg/png/jpg/gif, max 2MB." }
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/user/admin/contact",
+							"host": [ "{{baseUrl}}" ],
+							"path": [ "api", "v1", "user", "admin", "contact" ]
+						},
+						"description": "Create a query from the authenticated **student** to the school admin.\n\nRequired: `topic`, **`student_query`**. Optional `image`.\n\n**400** if validation fails, **404** if no student profile."
+					},
+					"response": []
+				},
+				{
+					"name": "My Queries (student)",
+					"request": {
+						"method": "GET",
+						"header": [ { "key": "Accept", "value": "application/json" } ],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/user/admin/contact-list",
+							"host": [ "{{baseUrl}}" ],
+							"path": [ "api", "v1", "user", "admin", "contact-list" ]
+						},
+						"description": "Latest 30 queries raised by the authenticated student. Each item includes `topic`, `student_query`, `admin_reply`, `admin_text`, `image_url`, `created_at`, `updated_at`."
+					},
+					"response": []
+				},
+				{
+					"name": "Query Reply (student)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Accept", "value": "application/json" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": { "mode": "raw", "raw": "{\n  \"contact_id\": 1\n}" },
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/user/admin/contact-reply",
+							"host": [ "{{baseUrl}}" ],
+							"path": [ "api", "v1", "user", "admin", "contact-reply" ]
+						},
+						"description": "Fetch the admin reply for one of the student's own queries. Returns `admin_text`, `has_reply`, `replied_at`.\n\n**403** if the contact doesn't belong to the caller; **400** if `contact_id` is missing/invalid."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Teacher",
+			"item": [
+				{
+					"name": "Submit Query (teacher)",
+					"request": {
+						"method": "POST",
+						"header": [ { "key": "Accept", "value": "application/json" } ],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{ "key": "topic", "value": "Projector not working in Room 102", "type": "text" },
+								{ "key": "teacher_query", "value": "The projector in Room 102 has been down for two days.", "type": "text" },
+								{ "key": "image", "type": "file", "src": [], "description": "Optional. jpeg/png/jpg/gif, max 2MB." }
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/teacher/admin/contact",
+							"host": [ "{{baseUrl}}" ],
+							"path": [ "api", "v1", "teacher", "admin", "contact" ]
+						},
+						"description": "Create a query from the authenticated **teacher** to the school admin.\n\nRequired: `topic`, **`teacher_query`** (NOT `student_query`). Optional `image`.\n\n**400** if validation fails (e.g. sending `student_query` instead of `teacher_query`)."
+					},
+					"response": []
+				},
+				{
+					"name": "My Queries (teacher)",
+					"request": {
+						"method": "GET",
+						"header": [ { "key": "Accept", "value": "application/json" } ],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/teacher/admin/contact-list",
+							"host": [ "{{baseUrl}}" ],
+							"path": [ "api", "v1", "teacher", "admin", "contact-list" ]
+						},
+						"description": "Latest 30 queries raised by the authenticated teacher. Each item includes `topic`, `teacher_query`, `admin_reply`, `admin_text`, `image_url`, `created_at`, `updated_at`."
+					},
+					"response": []
+				},
+				{
+					"name": "Query Reply (teacher)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Accept", "value": "application/json" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": { "mode": "raw", "raw": "{\n  \"contact_id\": 1\n}" },
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/teacher/admin/contact-reply",
+							"host": [ "{{baseUrl}}" ],
+							"path": [ "api", "v1", "teacher", "admin", "contact-reply" ]
+						},
+						"description": "Fetch the admin reply for one of the teacher's own queries. Returns `admin_text`, `has_reply`, `replied_at`.\n\n**403** if the contact doesn't belong to the caller; **400** if `contact_id` is missing/invalid."
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}

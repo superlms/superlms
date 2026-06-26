@@ -1,0 +1,54 @@
+{
+	"info": {
+		"_postman_id": "b1e7c3a2-9f4d-4a1e-8c2a-announce0001",
+		"name": "LMS — Announcements (v1)",
+		"description": "Mobile app announcement APIs.\n\nAudience rules (driven by the logged-in user's role + the announcement `type` set in admin):\n- `teacher` announcements → shown to **teachers only**\n- `user` (student) announcements → shown to **students only**\n- `all` (both) announcements → shown to **everyone**\n\nThe server scopes results automatically by the authenticated user's role, so the app does not need to send anything to get the correct list. Teachers only ever receive `teacher` + `all`; students only ever receive `user` + `all`.\n\nAuth: Bearer token (Sanctum). Set the `authToken` environment variable after login.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{ "key": "token", "value": "{{authToken}}", "type": "string" }
+		]
+	},
+	"item": [
+		{
+			"name": "List Announcements",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Accept", "value": "application/json" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"type\": \"both\"\n}",
+					"options": { "raw": { "language": "json" } }
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/announcement/",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "announcement", "" ]
+				},
+				"description": "Returns the last 30 announcements (last 30 days) for the user's organization, already scoped to what the logged-in role may see.\n\nThe `type` field in the body is OPTIONAL and only narrows the list within the allowed set (useful for app tabs):\n- omit it → everything the role can see (recommended default)\n- `\"both\"` (or `\"all\"`) → only the both-audience announcements\n- `\"student\"` (or `\"user\"`) → only student announcements (students/admins)\n- `\"teacher\"` → only teacher announcements (teachers/admins)\n\nA value the role isn't allowed to see is ignored (the role scope still applies), so a student can never pull teacher-only announcements.\n\nEach item includes the creator (\"Posted By\") fields: `creator_name`, `creator_email`, and `creator_avatar` (full URL of the creator's profile image, falling back to the school/organization logo, or `null` when neither is set). File fields `image_url` and `pdf_url` are full URLs (or `null`)."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Single Announcement",
+			"request": {
+				"method": "GET",
+				"header": [
+					{ "key": "Accept", "value": "application/json" }
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/announcement/1",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "announcement", "1" ]
+				},
+				"description": "Fetch a single announcement by id. Returns 403 if the announcement's audience type is not visible to the logged-in user's role (e.g. a student opening a teacher-only announcement).\n\nResponse includes the creator (\"Posted By\") fields: `creator_name`, `creator_email`, and `creator_avatar` (full URL of the creator's profile image, falling back to the school/organization logo, or `null` when neither is set), plus `image_url` and `pdf_url` (full URLs, or `null`)."
+			},
+			"response": []
+		}
+	]
+}

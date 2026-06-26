@@ -1,0 +1,135 @@
+{
+	"info": {
+		"_postman_id": "c4e7a9b2-1d56-4f8a-9c20-quizmcq000001",
+		"name": "LMS — Quiz / MCQ (v1)",
+		"description": "Teacher/student MCQ quiz APIs. Each MCQ is one question with its options (exactly one flagged `is_correct`) and a per-question `time_limit` in seconds. Questions are scoped to a class (`standard_id` + `section_id`) and a `chapter_id` / `topic_id` — the same chapters/topics used by Syllabus & Content — so teacher edits, student attempts and the admin panel all read/write the same tables and stay in sync.\n\n**Roles:**\n- **Create / Update / Delete** — teacher only.\n- **List** — teacher (to manage/preview) and student (to attempt). Options include `is_correct`; the app only reveals it in the post-attempt report.\n- **Submit Answer** — student; persists the attempt (used for the report and visible to admin).\n- **My Answers** — the caller's own answers with correctness + the correct option.\n\nAuth: Sanctum bearer token in `authToken`.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{ "key": "token", "value": "{{authToken}}", "type": "string" }
+		]
+	},
+	"item": [
+		{
+			"name": "List Questions",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Accept", "value": "application/json" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"standard_id\": 1,\n  \"section_id\": 1,\n  \"chapter_id\": 1,\n  \"topic_id\": 1,\n  \"per_page\": 200\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/quiz/get",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "quiz", "get" ]
+				},
+				"description": "Paginated active MCQ questions (each with its `options[]`). Filter by any of `standard_id`, `section_id`, `chapter_id`, `topic_id`. The app sends `chapter_id` + `topic_id` to load one topic's quiz. Each option has `option_text` + `is_correct`."
+			},
+			"response": []
+		},
+		{
+			"name": "Create Question (teacher)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Accept", "value": "application/json" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"question_text\": \"Newton's first law is also called?\",\n  \"standard_id\": 1,\n  \"section_id\": 1,\n  \"chapter_id\": 1,\n  \"topic_id\": 1,\n  \"time_limit\": 60,\n  \"options\": [\n    { \"option_text\": \"Law of Inertia\", \"is_correct\": true },\n    { \"option_text\": \"Law of Acceleration\", \"is_correct\": false },\n    { \"option_text\": \"Law of Action\", \"is_correct\": false },\n    { \"option_text\": \"Law of Gravity\", \"is_correct\": false }\n  ]\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/quiz/upload",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "quiz", "upload" ]
+				},
+				"description": "Create one MCQ. Requires `question_text`, `standard_id`, `section_id`, an `options` array (min 2; each `option_text` + boolean `is_correct`). `chapter_id`/`topic_id` are optional but the app always sends them. `time_limit` (seconds) defaults to 60. Returns the question with its options + chapter/topic."
+			},
+			"response": []
+		},
+		{
+			"name": "Update Question (teacher)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Accept", "value": "application/json" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"question_text\": \"Updated question text?\",\n  \"time_limit\": 45,\n  \"options\": [\n    { \"option_text\": \"Correct one\", \"is_correct\": true },\n    { \"option_text\": \"Wrong\", \"is_correct\": false },\n    { \"option_text\": \"Wrong\", \"is_correct\": false },\n    { \"option_text\": \"Wrong\", \"is_correct\": false }\n  ]\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/quiz/update/1",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "quiz", "update", "1" ]
+				},
+				"description": "Teacher-only. Update a question's text / scope / `time_limit`. If `options` is sent, the question's options are fully replaced. Scoped to the caller's organization; 403 for non-teachers, 404 if not found."
+			},
+			"response": []
+		},
+		{
+			"name": "Delete Question (teacher)",
+			"request": {
+				"method": "DELETE",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/quiz/delete/1",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "quiz", "delete", "1" ]
+				},
+				"description": "Teacher-only. Delete a question and its options + any submitted answers. Scoped to the caller's organization; 403 for non-teachers, 404 if not found."
+			},
+			"response": []
+		},
+		{
+			"name": "Submit Answer (student)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Accept", "value": "application/json" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"mcq_question_id\": 1,\n  \"mcq_option_id\": 2,\n  \"time_taken\": 12\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/quiz/submit-answer",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "quiz", "submit-answer" ]
+				},
+				"description": "Record the student's chosen option for a question (`time_taken` in seconds). Re-submitting the same question updates the previous answer (one answer per question per user). `is_correct` is computed server-side. Persisted so the report + admin stay in sync."
+			},
+			"response": []
+		},
+		{
+			"name": "My Answers / Report",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Accept", "value": "application/json" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"mcq_question_id\": 1\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/quiz/get/user-answer",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "quiz", "get", "user-answer" ]
+				},
+				"description": "The caller's own answers with correctness details: `question_text`, `selected_option` {id,text,is_correct}, `correct_option` {id,text}, `is_correct`, `time_taken`. Optionally filter by `mcq_question_id`; omit it to get all of the student's answers (paginated)."
+			},
+			"response": []
+		}
+	]
+}

@@ -1,0 +1,44 @@
+{
+	"info": {
+		"_postman_id": "c2d9e7b4-1a86-4f53-bb20-dashboardhome1",
+		"name": "LMS — Dashboard & Analytics (v1)",
+		"description": "Aggregated home-screen + analytics data for the student and teacher apps. Each endpoint composes the same data the per-feature endpoints expose (attendance, marks, exams, homework, announcements) into a single call, so the home screen needs one request.\n\nAuth: Sanctum bearer token in `authToken`.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{ "key": "token", "value": "{{authToken}}", "type": "string" }
+		]
+	},
+	"item": [
+		{
+			"name": "Student Dashboard",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/student/dashboard",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "student", "dashboard" ]
+				},
+				"description": "Home + analytics payload for the logged-in STUDENT. Response `data` contains:\n- `profile` (name, standard, section, roll_no, admission_no)\n- `attendance` (current month: total/working/present/absent days, present_percentage, + a 7-day `week` strip)\n- `performance` (overall_percentage, total_obtained/max, `subject_wise[]`, `trend[]` of recent exam %s)\n- `exams.upcoming[]` (published, not-yet-ended)\n- `homework` (total + `recent[]`)\n- `notices[]` (latest announcements for students)\n\n403/404 if the caller is not a student / has no student profile."
+			},
+			"response": []
+		},
+		{
+			"name": "Teacher Dashboard",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/teacher/dashboard",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "teacher", "dashboard" ]
+				},
+				"description": "Home + analytics payload for the logged-in TEACHER. Response `data` contains:\n- `profile` (name, employee_id)\n- `today_classes[]` (subject, class, time, room — from the timetable)\n- `totals` (total_students, total_classes_today, homework_count, upcoming_exams)\n- `class_attendance` (overall_percentage + `by_class[]` with present/total/percentage for today)\n- `homework.recent[]` (assigned by this teacher)\n- `exams.upcoming[]`\n- `notices[]` (latest announcements for teachers)\n\n404 if the caller has no teacher profile."
+			},
+			"response": []
+		}
+	]
+}

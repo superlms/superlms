@@ -1,0 +1,138 @@
+{
+	"info": {
+		"_postman_id": "f4a1c8d2-90b6-4e3a-bb71-homework000001",
+		"name": "LMS — Homework (v1)",
+		"description": "Homework APIs for the student/teacher app.\n\n## Teacher\n- **POST `/homework/upload`** — create homework (optionally with a file). `multipart/form-data` when a `file` is attached, JSON otherwise.\n- **POST `/homework/get`** — the teacher's OWN homework, defaulting to the last 15 days (override with `days`, or pass an exact `date`).\n- **GET `/homework/get/{id}`** — single homework.\n- **POST `/homework/update/{id}`** — update (optionally replace the file via multipart).\n- **DELETE `/homework/delete/{id}`** — delete.\n\n## Student\n- **POST `/homework/student`** — homework for the student's class (last 15 days by default).\n\nEach homework row is returned in a flat shape: `id, title, description, subject{id,name,code}, standard, section, assigned_by, assigned_date, assigned_time, days_ago, file_url, file_type`.\n\nThe class/section/subject options a teacher can post to come from **GET `/teacher/classes-subjects`** (see the Marks collection).\n\nAuth: Sanctum bearer token in `authToken`.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [ { "key": "token", "value": "{{authToken}}", "type": "string" } ]
+	},
+	"item": [
+		{
+			"name": "Teacher",
+			"item": [
+				{
+					"name": "Create Homework (with optional file)",
+					"request": {
+						"method": "POST",
+						"header": [ { "key": "Accept", "value": "application/json" } ],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{ "key": "standard_id", "value": "8", "type": "text" },
+								{ "key": "section_id", "value": "24", "type": "text" },
+								{ "key": "subject_id", "value": "3", "type": "text" },
+								{ "key": "title", "value": "Chapter 3 Exercise", "type": "text" },
+								{ "key": "description", "value": "Solve Q1–Q10 from exercise 3.2.", "type": "text" },
+								{ "key": "file", "type": "file", "src": [], "description": "Optional. pdf/jpg/png/doc/docx, max 10MB." }
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/homework/upload",
+							"host": [ "{{baseUrl}}" ],
+							"path": [ "api", "v1", "homework", "upload" ]
+						},
+						"description": "Create homework for one (class, section, subject). Required: `standard_id`, `section_id`, `subject_id`, `title` (or legacy `name`). Optional `description` and `file`.\n\nA **teacher** may only post to a (class, section, subject) assigned to them in the **timetable** (the same triples returned by `GET /teacher/classes-subjects`) — otherwise **403**. The homework lands on its creation day and is visible to the teacher and to every student of that class+section.\n\nSend as `multipart/form-data` when attaching a file; a plain JSON body works when there's no file. **422** on validation failure."
+					},
+					"response": []
+				},
+				{
+					"name": "My Homework (last 15 days)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Accept", "value": "application/json" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": { "mode": "raw", "raw": "{\n  \"days\": 15,\n  \"per_page\": 100\n}" },
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/homework/get",
+							"host": [ "{{baseUrl}}" ],
+							"path": [ "api", "v1", "homework", "get" ]
+						},
+						"description": "The authenticated teacher's own homework. Defaults to the last 15 days; override with `days`, or pass `date` (`Y-m-d`) for a single day. Optional filters: `search`, `standard_id`, `section_id`, `subject_id`, `per_page`.\n\nReturns `{ homeworks[], pagination }`."
+					},
+					"response": []
+				},
+				{
+					"name": "Single Homework",
+					"request": {
+						"method": "GET",
+						"header": [ { "key": "Accept", "value": "application/json" } ],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/homework/get/1",
+							"host": [ "{{baseUrl}}" ],
+							"path": [ "api", "v1", "homework", "get", "1" ]
+						},
+						"description": "One homework by id (scoped to the caller's organization). **404** if not found."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Homework",
+					"request": {
+						"method": "POST",
+						"header": [ { "key": "Accept", "value": "application/json" } ],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{ "key": "title", "value": "Chapter 3 Exercise (updated)", "type": "text" },
+								{ "key": "description", "value": "Now also do Q11.", "type": "text" },
+								{ "key": "standard_id", "value": "8", "type": "text", "disabled": true },
+								{ "key": "section_id", "value": "24", "type": "text", "disabled": true },
+								{ "key": "subject_id", "value": "3", "type": "text", "disabled": true },
+								{ "key": "file", "type": "file", "src": [], "disabled": true, "description": "Optional — include to replace the attachment." }
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/homework/update/1",
+							"host": [ "{{baseUrl}}" ],
+							"path": [ "api", "v1", "homework", "update", "1" ]
+						},
+						"description": "Update a homework's fields; only the fields you send change. Include `file` to replace the attachment. **404** if not found."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Homework",
+					"request": {
+						"method": "DELETE",
+						"header": [ { "key": "Accept", "value": "application/json" } ],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/homework/delete/1",
+							"host": [ "{{baseUrl}}" ],
+							"path": [ "api", "v1", "homework", "delete", "1" ]
+						},
+						"description": "Delete a homework by id. **404** if not found."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Student",
+			"item": [
+				{
+					"name": "My Class Homework (last 15 days)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Accept", "value": "application/json" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": { "mode": "raw", "raw": "{\n  \"days\": 15,\n  \"per_page\": 100\n}" },
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/homework/student",
+							"host": [ "{{baseUrl}}" ],
+							"path": [ "api", "v1", "homework", "student" ]
+						},
+						"description": "Homework assigned to the authenticated student's class (standard + section). Defaults to the last 15 days; override with `days`, or `from_date`/`to_date`. Optional filters: `search`, `subject_id`, `per_page`.\n\nReturns `{ student_info, homeworks[], pagination, summary }`. **404** if the caller has no student profile."
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}

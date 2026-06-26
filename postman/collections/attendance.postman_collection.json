@@ -1,0 +1,152 @@
+{
+	"info": {
+		"_postman_id": "c3e8f1a9-4b2d-4e7a-9c10-attendance0001",
+		"name": "LMS — Attendance (v1)",
+		"description": "Attendance APIs for the student/teacher app.\n\n- **Self view** (`/attendance/my`) is role-aware: a student sees their own day-wise attendance, a teacher sees theirs. Each day's `status` is one of `present` | `absent` | `holiday` | `not_marked` | `upcoming`. `not_marked` = a past/today date with no record; `upcoming` = a future date in the month (shown as a dash in the app).\n- **Marking** is for teachers and limited to the **last 3 working days**. Sundays are auto-holidays — they are skipped from the window and cannot be marked. Out-of-window dates (and Sundays) return **403**.\n- `get-student-for-attendance` returns the teacher's assigned classes with each student's current status for a date; `POST /attendance` bulk-submits; `POST /attendance/mark-holiday` marks a whole class+section as holiday.\n\nStudent attendance is stored as a tinyint (`status`: 0=absent, 1=present, 4=holiday). The teacher app marks per-student Present/Absent/Holiday and submits the codes via `POST /attendance`.\n\nAuth: Sanctum bearer token in `authToken`.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{ "key": "token", "value": "{{authToken}}", "type": "string" }
+		]
+	},
+	"item": [
+		{
+			"name": "My Attendance (student & teacher)",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/attendance/my?month=2026-06",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "attendance", "my" ],
+					"query": [
+						{ "key": "month", "value": "2026-06", "description": "YYYY-MM. Defaults to the current month if omitted/invalid." }
+					]
+				},
+				"description": "Self attendance for the authenticated user (role auto-detected).\n\nReturns `month`, `role`, `days[] { date, day, status }` and a `summary` with `total_days`, `working_days`, `present_days`, `absent_days`, `holiday_days`, `not_marked_days`, `present_percentage`.\n\n`status` values:\n- `present` / `absent` — a recorded attendance row\n- `holiday` — a Sunday (auto-holiday) or a date the teacher marked as holiday (status code 4)\n- `not_marked` — a past/today date that was never marked\n- `upcoming` — a future date in the month (render as a dash)\n\nSundays are always returned as `holiday` regardless of any stored record."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Students for Attendance (teacher)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Accept", "value": "application/json" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"date\": \"2026-06-13\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/attendance/get-student-for-attendance",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "attendance", "get-student-for-attendance" ]
+				},
+				"description": "All classes assigned to the authenticated teacher, with each class's students and their current attendance for `date` (defaults to today).\n\nResponse: `teacher_info`, `date`, `classes[] { assignment_id, class_info, total_students, students[] { student_id, roll_no, full_name, photo, attendance { status, db_status, remarks } } }`, and a `summary`.\n\n**404** if no teacher profile or no assigned classes."
+			},
+			"response": []
+		},
+		{
+			"name": "Submit Attendance (bulk)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Accept", "value": "application/json" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"attendance_date\": \"2026-06-13\",\n  \"attendances\": [\n    { \"student_detail_id\": 1, \"status\": 1, \"remarks\": null },\n    { \"student_detail_id\": 2, \"status\": 0, \"remarks\": null },\n    { \"student_detail_id\": 3, \"status\": 4, \"remarks\": \"Holiday\" }\n  ]\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/attendance",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "attendance" ]
+				},
+				"description": "Bulk insert/update student attendance for `attendance_date`.\n\nEach item: `student_detail_id` (required, must exist), `status` (required — tinyint code: `0`=absent, `1`=present, `4`=holiday; legacy booleans true/false are still accepted and normalised to 1/0), `remarks` (optional).\n\n`attendance_date` must be within the **last 3 working days** (Sundays excluded), else **403**.\n\nReturns `processed_count`, a daily `summary`, and per-record `details` (with the stored integer `status`)."
+			},
+			"response": []
+		},
+		{
+			"name": "Mark as Holiday (teacher)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Accept", "value": "application/json" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"date\": \"2026-06-13\",\n  \"standard_id\": 1,\n  \"section_id\": 1\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/attendance/mark-holiday",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "attendance", "mark-holiday" ]
+				},
+				"description": "Marks an entire class+section as **holiday** for `date` (every student's attendance row is set to status code 4).\n\nBody: `date` (required, within the last 3 working days (Sundays excluded)), `standard_id` (required), `section_id` (optional — omit for classes without sections).\n\nThe teacher must be assigned to the class (**403** otherwise). A Sunday, or a `date` outside the last 3 working days → **403**. Returns `{ date, standard_id, section_id, marked_students }`."
+			},
+			"response": []
+		},
+		{
+			"name": "Attendance Summary (teacher)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Accept", "value": "application/json" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"date\": \"2026-06-13\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/attendance/summary",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "attendance", "summary" ]
+				},
+				"description": "Present/absent summary for the teacher's classes on `date`. Optionally pass `standard_id` + `section_id` to scope to one class (must be assigned to the teacher, else **403**)."
+			},
+			"response": []
+		},
+		{
+			"name": "Today's Attendance (teacher self)",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/attendance/today-teacher",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "attendance", "today-teacher" ]
+				},
+				"description": "The authenticated teacher's own attendance status for today, including `can_edit` (editable within 24h of marking)."
+			},
+			"response": []
+		},
+		{
+			"name": "Teacher Attendance (history)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Accept", "value": "application/json" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"month\": 6,\n  \"year\": 2026,\n  \"per_page\": 20\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/attendance/teacher",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "attendance", "teacher" ]
+				},
+				"description": "Paginated history of the authenticated teacher's own attendance with statistics (current month / last 30 days / overall). Optional filters: `month`, `year`, `date`, `status` (present|absent|late|half_day), `per_page`."
+			},
+			"response": []
+		}
+	]
+}

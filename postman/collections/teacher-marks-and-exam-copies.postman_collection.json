@@ -1,0 +1,254 @@
+{
+	"info": {
+		"_postman_id": "a7e4-b5f1-marks-teacher-001",
+		"name": "LMS — Teacher: Marks & Exam Copies (v1)",
+		"description": "Teacher app APIs for managing student marks and uploading exam-copy PDFs.\n\n## Scope\n\nEvery endpoint is auto-scoped to the **(class, section, subject) triples the teacher actually teaches**, derived from `teacher_time_tables`. A teacher cannot list, create, edit, or delete marks/copies for a class+subject they don't teach — the server returns 403.\n\n## Dropdown source\n\nThe front-end needs a single dropdown showing every (class, section, subject) combination the teacher teaches. Use **GET `/teacher/classes-subjects`** — each item carries a ready-to-display `label` like `\"Class 8 · A · Mathematics\"` plus the three IDs needed for subsequent calls.\n\n## Marks vs exam-copy PDFs\n\n- **Marks** = numeric record (`marks_obtained`, `max_marks`, `grade`, etc.) — JSON requests.\n- **Exam copies** = scanned file of the actual answer sheet (.pdf/.jpg/.jpeg/.png, max 2 MB) — `multipart/form-data` requests. File stored on S3 under `admin/exam-copies/`.\n\nBoth are backed by the same `exam_copies` table, so uploading a PDF on top of an existing marks row attaches the PDF to that row; uploading marks on top of a row that already has a PDF keeps the PDF intact.\n\n## Auth\n\nSanctum bearer token in `authToken`.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [ { "key": "token", "value": "{{authToken}}", "type": "string" } ]
+	},
+	"item": [
+		{
+			"name": "Dropdown — Classes + Subjects (teacher's own)",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/teacher/classes-subjects",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "teacher", "classes-subjects" ]
+				},
+				"description": "Returns every distinct **(class, section, subject)** combination the authenticated teacher teaches via the timetable.\n\nFront-end uses each row's `label` directly for dropdown text and the three IDs for follow-up calls."
+			},
+			"response": [
+				{
+					"name": "Sample 200",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/api/v1/teacher/classes-subjects", "host": ["{{baseUrl}}"], "path": ["api","v1","teacher","classes-subjects"] }
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [ { "key": "Content-Type", "value": "application/json" } ],
+					"body": "{\n  \"success\": true,\n  \"message\": \"Classes & subjects fetched successfully.\",\n  \"data\": [\n    { \"standard_id\": 8, \"standard_name\": \"Class 8\", \"section_id\": 24, \"section_name\": \"A\", \"subject_id\": 3, \"subject_name\": \"Mathematics\", \"label\": \"Class 8 · A · Mathematics\" },\n    { \"standard_id\": 9, \"standard_name\": \"Class 9\", \"section_id\": 27, \"section_name\": \"B\", \"subject_id\": 3, \"subject_name\": \"Mathematics\", \"label\": \"Class 9 · B · Mathematics\" }\n  ]\n}"
+				}
+			]
+		},
+		{
+			"name": "Marks — Students roster for a chosen class+section",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/teacher/marks/students?standard_id=8&section_id=24",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "teacher", "marks", "students" ],
+					"query": [
+						{ "key": "standard_id", "value": "8" },
+						{ "key": "section_id",  "value": "24" }
+					]
+				},
+				"description": "List of students enrolled in the chosen (class, section). 403 if the teacher doesn't teach this class+section."
+			},
+			"response": [
+				{
+					"name": "Sample 200",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/api/v1/teacher/marks/students?standard_id=8&section_id=24", "host": ["{{baseUrl}}"], "path": ["api","v1","teacher","marks","students"], "query": [{"key":"standard_id","value":"8"},{"key":"section_id","value":"24"}] }
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"body": "{\n  \"success\": true,\n  \"message\": \"Students fetched successfully.\",\n  \"data\": [\n    { \"student_detail_id\": 101, \"name\": \"Amit Kumar\", \"roll_no\": \"001\", \"admission_no\": \"26TDS080001\", \"email\": \"amit@example.com\" },\n    { \"student_detail_id\": 102, \"name\": \"Riya Sharma\", \"roll_no\": \"002\", \"admission_no\": \"26TDS080002\", \"email\": \"riya@example.com\" }\n  ]\n}"
+				}
+			]
+		},
+		{
+			"name": "Marks — List (teacher's scope)",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/teacher/marks?per_page=20",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "teacher", "marks" ],
+					"query": [
+						{ "key": "per_page", "value": "20" },
+						{ "key": "exam_id",           "value": "", "disabled": true },
+						{ "key": "standard_id",       "value": "", "disabled": true },
+						{ "key": "section_id",        "value": "", "disabled": true },
+						{ "key": "subject_id",        "value": "", "disabled": true },
+						{ "key": "student_detail_id", "value": "", "disabled": true },
+						{ "key": "search",            "value": "", "disabled": true, "description": "Match against student name / roll no" }
+					]
+				},
+				"description": "Paginated list of marks rows for the teacher's class+subject triples."
+			},
+			"response": []
+		},
+		{
+			"name": "Marks — Show one",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": { "raw": "{{baseUrl}}/api/v1/teacher/marks/123", "host": ["{{baseUrl}}"], "path": ["api","v1","teacher","marks","123"] }
+			},
+			"response": []
+		},
+		{
+			"name": "Marks — Create",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Accept", "value": "application/json" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"url": { "raw": "{{baseUrl}}/api/v1/teacher/marks", "host": ["{{baseUrl}}"], "path": ["api","v1","teacher","marks"] },
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"exam_id\": 5,\n  \"student_detail_id\": 101,\n  \"standard_id\": 8,\n  \"section_id\": 24,\n  \"subject_id\": 3,\n  \"marks_obtained\": 78,\n  \"max_marks\": 100,\n  \"grade\": \"A\",\n  \"is_absent\": false,\n  \"is_recheck\": false,\n  \"remarks\": \"Good work\"\n}"
+				},
+				"description": "Upload marks for one student in one (class, section, subject). 403 if the teacher doesn't teach that triple. 409 if marks already exist (use update instead)."
+			},
+			"response": [
+				{
+					"name": "Sample 201",
+					"originalRequest": {
+						"method": "POST",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/api/v1/teacher/marks", "host": ["{{baseUrl}}"], "path": ["api","v1","teacher","marks"] },
+						"body": { "mode": "raw", "raw": "{}" }
+					},
+					"status": "Created",
+					"code": 201,
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"body": "{\n  \"success\": true,\n  \"message\": \"Marks uploaded successfully.\",\n  \"data\": {\n    \"id\": 451,\n    \"exam\":     { \"id\": 5, \"name\": \"Half-yearly\" },\n    \"standard\": { \"id\": 8, \"name\": \"Class 8\" },\n    \"section\":  { \"id\": 24, \"name\": \"A\" },\n    \"subject\":  { \"id\": 3, \"name\": \"Mathematics\" },\n    \"student\":  { \"id\": 101, \"name\": \"Amit Kumar\", \"roll_no\": \"001\" },\n    \"marks_obtained\": 78,\n    \"max_marks\": 100,\n    \"percentage\": 78,\n    \"grade\": \"A\",\n    \"is_absent\": false,\n    \"is_recheck\": false,\n    \"remarks\": \"Good work\"\n  }\n}"
+				}
+			]
+		},
+		{
+			"name": "Marks — Update",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{ "key": "Accept", "value": "application/json" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"url": { "raw": "{{baseUrl}}/api/v1/teacher/marks/451", "host": ["{{baseUrl}}"], "path": ["api","v1","teacher","marks","451"] },
+				"body": { "mode": "raw", "raw": "{\n  \"marks_obtained\": 82,\n  \"grade\": \"A+\"\n}" },
+				"description": "Partial update — only the fields you send are changed. Percentage is recomputed automatically."
+			},
+			"response": []
+		},
+		{
+			"name": "Marks — Delete",
+			"request": {
+				"method": "DELETE",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": { "raw": "{{baseUrl}}/api/v1/teacher/marks/451", "host": ["{{baseUrl}}"], "path": ["api","v1","teacher","marks","451"] }
+			},
+			"response": []
+		},
+		{
+			"name": "Exam Copies — List",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/teacher/exam-copies?per_page=20",
+					"host": ["{{baseUrl}}"],
+					"path": ["api","v1","teacher","exam-copies"],
+					"query": [
+						{ "key": "per_page", "value": "20" },
+						{ "key": "exam_id",           "value": "", "disabled": true },
+						{ "key": "student_detail_id", "value": "", "disabled": true },
+						{ "key": "standard_id",       "value": "", "disabled": true },
+						{ "key": "section_id",        "value": "", "disabled": true },
+						{ "key": "subject_id",        "value": "", "disabled": true }
+					]
+				},
+				"description": "Lists only rows that have a PDF attached. Each item includes `pdf_url` for direct viewing."
+			},
+			"response": []
+		},
+		{
+			"name": "Exam Copies — Show one",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": { "raw": "{{baseUrl}}/api/v1/teacher/exam-copies/451", "host": ["{{baseUrl}}"], "path": ["api","v1","teacher","exam-copies","451"] }
+			},
+			"response": []
+		},
+		{
+			"name": "Exam Copies — Upload (PDF + optional marks)",
+			"request": {
+				"method": "POST",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": { "raw": "{{baseUrl}}/api/v1/teacher/exam-copies", "host": ["{{baseUrl}}"], "path": ["api","v1","teacher","exam-copies"] },
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{ "key": "exam_id",           "value": "5",   "type": "text" },
+						{ "key": "student_detail_id", "value": "101", "type": "text" },
+						{ "key": "standard_id",       "value": "8",   "type": "text" },
+						{ "key": "section_id",        "value": "24",  "type": "text" },
+						{ "key": "subject_id",        "value": "3",   "type": "text" },
+						{ "key": "pdf",               "type": "file", "src": [] },
+						{ "key": "marks_obtained",    "value": "78", "type": "text", "disabled": true },
+						{ "key": "max_marks",         "value": "100", "type": "text", "disabled": true },
+						{ "key": "grade",             "value": "A",  "type": "text", "disabled": true }
+					]
+				},
+				"description": "**multipart/form-data**. `pdf` is required — accepts .pdf/.jpg/.jpeg/.png, **max 2 MB**. If marks fields are included, they're saved on the same row as the file."
+			},
+			"response": [
+				{
+					"name": "Sample 201",
+					"originalRequest": { "method": "POST", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/teacher/exam-copies", "host": ["{{baseUrl}}"], "path": ["api","v1","teacher","exam-copies"] } },
+					"status": "Created",
+					"code": 201,
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"body": "{\n  \"success\": true,\n  \"message\": \"Exam copy uploaded successfully.\",\n  \"data\": {\n    \"id\": 451,\n    \"exam\":     { \"id\": 5,  \"name\": \"Half-yearly\" },\n    \"standard\": { \"id\": 8,  \"name\": \"Class 8\" },\n    \"section\":  { \"id\": 24, \"name\": \"A\" },\n    \"subject\":  { \"id\": 3,  \"name\": \"Mathematics\" },\n    \"student\":  { \"id\": 101, \"name\": \"Amit Kumar\", \"roll_no\": \"001\" },\n    \"pdf_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/exam-copies/abc123.pdf\",\n    \"marks_obtained\": null,\n    \"max_marks\": null,\n    \"percentage\": null,\n    \"grade\": null,\n    \"uploaded_at\": \"2026-06-04T15:32:11Z\"\n  }\n}"
+				}
+			]
+		},
+		{
+			"name": "Exam Copies — Update (optional PDF replace + metadata)",
+			"request": {
+				"method": "POST",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": { "raw": "{{baseUrl}}/api/v1/teacher/exam-copies/451", "host": ["{{baseUrl}}"], "path": ["api","v1","teacher","exam-copies","451"] },
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{ "key": "_method",        "value": "PUT", "type": "text" },
+						{ "key": "pdf",            "type": "file", "src": [], "disabled": true, "description": "Optional — include to replace the existing PDF." },
+						{ "key": "marks_obtained", "value": "82", "type": "text", "disabled": true },
+						{ "key": "grade",          "value": "A+", "type": "text", "disabled": true }
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Exam Copies — Delete",
+			"request": {
+				"method": "DELETE",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": { "raw": "{{baseUrl}}/api/v1/teacher/exam-copies/451", "host": ["{{baseUrl}}"], "path": ["api","v1","teacher","exam-copies","451"] },
+				"description": "Removes the row and wipes the PDF on S3."
+			},
+			"response": []
+		}
+	]
+}

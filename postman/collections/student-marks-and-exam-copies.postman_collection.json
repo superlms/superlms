@@ -1,0 +1,106 @@
+{
+	"info": {
+		"_postman_id": "b2c9-d4e1-marks-student-001",
+		"name": "LMS — Student: Marks & Exam Copies (v1)",
+		"description": "Student app APIs for viewing own marks, overall performance, and exam-copy PDFs.\n\n## Scope\n\nAlways auto-scoped to the **authenticated student** — every query is forced to `student_detail_id = own.id` so there's no way to peek at another student's data.\n\n## Endpoints\n\n- **GET `/student/marks`** — list of marks (exam + subject + marks).\n- **GET `/student/marks/overall-performance`** — aggregate dashboard (overall %, subject-wise, trend, grades).\n- **GET `/student/exam-copies`** — only rows that have an uploaded PDF; each item carries `pdf_url`.\n- **GET `/student/exam-copies/{id}`** — single copy with `pdf_url`.\n\n## Auth\n\nSanctum bearer token in `authToken`.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [ { "key": "token", "value": "{{authToken}}", "type": "string" } ]
+	},
+	"item": [
+		{
+			"name": "Marks — List",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/student/marks?per_page=50",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "student", "marks" ],
+					"query": [
+						{ "key": "per_page",   "value": "50" },
+						{ "key": "exam_id",    "value": "", "disabled": true },
+						{ "key": "subject_id", "value": "", "disabled": true }
+					]
+				},
+				"description": "Paginated list of the student's marks. Each row carries the fields a marks-list screen needs:\n\n```\n{ exam_name, subject_name, marks_obtained, max_marks, percentage, grade }\n```"
+			},
+			"response": [
+				{
+					"name": "Sample 200",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/api/v1/student/marks?per_page=50", "host": ["{{baseUrl}}"], "path": ["api","v1","student","marks"] }
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"body": "{\n  \"success\": true,\n  \"message\": \"Marks fetched successfully.\",\n  \"data\": [\n    { \"id\": 451, \"exam_id\": 5, \"exam_name\": \"Half-yearly\",  \"subject_id\": 3, \"subject_name\": \"Mathematics\", \"marks_obtained\": 78, \"max_marks\": 100, \"percentage\": 78,   \"grade\": \"A\",  \"is_absent\": false, \"remarks\": \"Good work\" },\n    { \"id\": 452, \"exam_id\": 5, \"exam_name\": \"Half-yearly\",  \"subject_id\": 4, \"subject_name\": \"Science\",     \"marks_obtained\": 65, \"max_marks\": 100, \"percentage\": 65,   \"grade\": \"B+\", \"is_absent\": false, \"remarks\": null },\n    { \"id\": 410, \"exam_id\": 4, \"exam_name\": \"Unit Test 1\", \"subject_id\": 3, \"subject_name\": \"Mathematics\", \"marks_obtained\": 22, \"max_marks\": 25,  \"percentage\": 88,   \"grade\": \"A+\", \"is_absent\": false, \"remarks\": null }\n  ],\n  \"meta\": { \"current_page\": 1, \"per_page\": 50, \"total\": 3, \"last_page\": 1 }\n}"
+				}
+			]
+		},
+		{
+			"name": "Marks — Overall Performance",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": { "raw": "{{baseUrl}}/api/v1/student/marks/overall-performance", "host": [ "{{baseUrl}}" ], "path": [ "api", "v1", "student", "marks", "overall-performance" ] },
+				"description": "Single aggregated dashboard payload — feeds the student's performance screen end-to-end:\n\n- `overall_percentage` — across every graded exam\n- `subject_wise_performance` — per-subject %, exam count, avg marks\n- `performance_trend` — last 5 exams with %\n- `grade_distribution` — count of each grade letter"
+			},
+			"response": [
+				{
+					"name": "Sample 200",
+					"originalRequest": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/student/marks/overall-performance", "host": ["{{baseUrl}}"], "path": ["api","v1","student","marks","overall-performance"] } },
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"body": "{\n  \"success\": true,\n  \"message\": \"Overall performance fetched successfully.\",\n  \"data\": {\n    \"student\": { \"id\": 101, \"name\": \"Amit Kumar\", \"roll_no\": \"001\", \"admission_no\": \"26TDS080001\" },\n    \"total_exams_given\": 6,\n    \"overall_percentage\": 76.5,\n    \"total_marks_obtained\": 459,\n    \"total_max_marks\": 600,\n    \"subject_wise_performance\": [\n      { \"subject_id\": 3, \"subject_name\": \"Mathematics\", \"percentage\": 83, \"exam_count\": 2, \"average_marks\": 50 },\n      { \"subject_id\": 4, \"subject_name\": \"Science\",     \"percentage\": 70, \"exam_count\": 2, \"average_marks\": 35 },\n      { \"subject_id\": 5, \"subject_name\": \"English\",     \"percentage\": 72, \"exam_count\": 2, \"average_marks\": 36 }\n    ],\n    \"performance_trend\": [\n      { \"exam_id\": 5, \"exam_name\": \"Half-yearly\", \"percentage\": 78, \"marks_obtained\": 78, \"max_marks\": 100, \"date\": \"2026-04-12\" },\n      { \"exam_id\": 4, \"exam_name\": \"Unit Test 2\", \"percentage\": 80, \"marks_obtained\": 20, \"max_marks\": 25,  \"date\": \"2026-03-05\" },\n      { \"exam_id\": 3, \"exam_name\": \"Unit Test 1\", \"percentage\": 72, \"marks_obtained\": 18, \"max_marks\": 25,  \"date\": \"2026-02-10\" }\n    ],\n    \"grade_distribution\": { \"A+\": 1, \"A\": 2, \"B+\": 2, \"B\": 1 }\n  }\n}"
+				}
+			]
+		},
+		{
+			"name": "Exam Copies — List (with PDF urls)",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/student/exam-copies?per_page=50",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "student", "exam-copies" ],
+					"query": [
+						{ "key": "per_page",   "value": "50" },
+						{ "key": "exam_id",    "value": "", "disabled": true },
+						{ "key": "subject_id", "value": "", "disabled": true }
+					]
+				},
+				"description": "Lists only exam rows where a teacher has uploaded a PDF copy. Each item carries `pdf_url` — front-end card tap → open PDF."
+			},
+			"response": [
+				{
+					"name": "Sample 200",
+					"originalRequest": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/student/exam-copies?per_page=50", "host": ["{{baseUrl}}"], "path": ["api","v1","student","exam-copies"] } },
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"body": "{\n  \"success\": true,\n  \"message\": \"Exam copies fetched successfully.\",\n  \"data\": [\n    {\n      \"id\": 451,\n      \"exam\":     { \"id\": 5, \"name\": \"Half-yearly\" },\n      \"subject\":  { \"id\": 3, \"name\": \"Mathematics\" },\n      \"standard\": { \"id\": 8, \"name\": \"Class 8\" },\n      \"section\":  { \"id\": 24, \"name\": \"A\" },\n      \"pdf_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/exam-copies/abc123.pdf\",\n      \"marks_obtained\": 78,\n      \"max_marks\": 100,\n      \"percentage\": 78,\n      \"grade\": \"A\",\n      \"remarks\": null,\n      \"uploaded_at\": \"2026-06-04T15:32:11Z\"\n    }\n  ],\n  \"meta\": { \"current_page\": 1, \"per_page\": 50, \"total\": 1, \"last_page\": 1 }\n}"
+				}
+			]
+		},
+		{
+			"name": "Exam Copies — Show one",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": { "raw": "{{baseUrl}}/api/v1/student/exam-copies/451", "host": ["{{baseUrl}}"], "path": ["api","v1","student","exam-copies","451"] },
+				"description": "Single exam copy. Returns 404 if the id doesn't belong to the caller."
+			},
+			"response": []
+		}
+	]
+}

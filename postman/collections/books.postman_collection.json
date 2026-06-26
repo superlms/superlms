@@ -1,0 +1,123 @@
+{
+	"info": {
+		"_postman_id": "e4b0a2d6-8c3f-4d9b-a1e2-booksapi00001",
+		"name": "LMS — Books (v1)",
+		"description": "Student / teacher app APIs for class books (PDF library).\n\n## Auto-scoping by role\n\nThe SAME endpoint serves both roles — the back-end derives what to return from the Sanctum token, no role parameter needed.\n\n- **Student** (`role=user`) → only books for **their class + section**.\n  Books with `section_id = NULL` (class-wide / shared books) are also included for the student's class.\n- **Teacher** (`role=teacher`) → only books for the **(class, subject) pairs they teach**.\n  Those pairs are derived from the **teacher timetable** (`teacher_time_tables`).\n\n## Card payload\n\nEvery list item already carries everything both card UIs need + the `pdf_url` for tap-to-open, so the front-end does NOT need a second `/books/{id}` call just to read.\n\n**Student card needs**: `subject.name`, `cover_url`, `title`, `pdf_url`.\n**Teacher card needs**: `subject.name`, `standard.name`, `section.name`, `title`, `cover_url`, `pdf_url`.\n\n`logo_url` is a backwards-compatible alias of `cover_url` — old clients keep working.\n\n## Response envelope\n\nAll responses are wrapped: `{ success, status_code, message, data }`. The **list** endpoint paginates inside `data`: `data.items` is the array and `data.pagination` carries `{ total, per_page, current_page, last_page, from, to }`. (The single-book endpoint returns the book object directly in `data`.)\n\n## In-app PDF reader\n\nThe app opens `pdf_url` in an in-app reader screen (no external browser) that supports **go to page** — the reader can jump straight to a typed page number. Both the student and teacher book screens use the same reader.\n\n## Auth\n\nSanctum bearer token in collection variable `authToken`.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{ "key": "token", "value": "{{authToken}}", "type": "string" }
+		]
+	},
+	"item": [
+		{
+			"name": "List Books (auto-scoped to caller's role)",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/books?per_page=20",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "books" ],
+					"query": [
+						{ "key": "per_page",    "value": "20" },
+						{ "key": "standard_id", "value": "", "disabled": true, "description": "Optional. Narrow to a specific class within the caller's scope." },
+						{ "key": "section_id",  "value": "", "disabled": true, "description": "Optional. Narrow to a specific section within the caller's scope." },
+						{ "key": "subject_id",  "value": "", "disabled": true, "description": "Optional. Narrow to a specific subject within the caller's scope." },
+						{ "key": "search",      "value": "", "disabled": true, "description": "Optional. Case-insensitive substring match against book title." }
+					]
+				},
+				"description": "Paginated list of active books, auto-scoped to the caller's role.\n\nEach item is shaped to render a card directly AND open the PDF without a second call.\n\nFields:\n- `id` — book id\n- `title` — book name (card heading)\n- `cover_url` — cover image (card image)\n- `logo_url` — same as `cover_url` (back-compat alias)\n- `subject` — `{ id, name, image }` — `image` is the subject icon (full S3 URL or null) shown on the book card; the app falls back to a book icon when it's null\n- `standard` — `{ id, name }` — class (used by teacher card; omitted on student UI)\n- `section` — `{ id, name }` — section (used by teacher card; omitted on student UI)\n- `pdf_url` — direct PDF target for the card's \"open\" tap"
+			},
+			"response": [
+				{
+					"name": "Sample — Student (role=user)",
+					"originalRequest": {
+						"method": "GET",
+						"header": [ { "key": "Accept", "value": "application/json" } ],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/books?per_page=20",
+							"host": [ "{{baseUrl}}" ],
+							"path": [ "api", "v1", "books" ],
+							"query": [ { "key": "per_page", "value": "20" } ]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [ { "key": "Content-Type", "value": "application/json" } ],
+					"body": "{\n  \"success\": true,\n  \"status_code\": 200,\n  \"message\": \"Books fetched successfully.\",\n  \"data\": {\n    \"items\": [\n    {\n      \"id\": 14,\n      \"title\": \"NCERT Mathematics — Class 8\",\n      \"cover_url\": \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/covers/math-8.png\",\n      \"logo_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/covers/math-8.png\",\n      \"standard\": { \"id\": 8, \"name\": \"Class 8\" },\n      \"section\":  { \"id\": 24, \"name\": \"A\" },\n      \"subject\":  { \"id\": 3, \"name\": \"Mathematics\", \"image\": \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/subjects/images/math.png\" },\n      \"pdf_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/pdfs/math-8.pdf\"\n    },\n    {\n      \"id\": 15,\n      \"title\": \"NCERT Science — Class 8\",\n      \"cover_url\": \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/covers/sci-8.png\",\n      \"logo_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/covers/sci-8.png\",\n      \"standard\": { \"id\": 8, \"name\": \"Class 8\" },\n      \"section\":  null,\n      \"subject\":  { \"id\": 4, \"name\": \"Science\", \"image\": null },\n      \"pdf_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/pdfs/sci-8.pdf\"\n    }\n    ],\n    \"pagination\": { \"total\": 6, \"per_page\": 20, \"current_page\": 1, \"last_page\": 1, \"from\": 1, \"to\": 2 }\n  }\n}"
+				},
+				{
+					"name": "Sample — Teacher (role=teacher)",
+					"originalRequest": {
+						"method": "GET",
+						"header": [ { "key": "Accept", "value": "application/json" } ],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/books?per_page=20",
+							"host": [ "{{baseUrl}}" ],
+							"path": [ "api", "v1", "books" ],
+							"query": [ { "key": "per_page", "value": "20" } ]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [ { "key": "Content-Type", "value": "application/json" } ],
+					"body": "{\n  \"success\": true,\n  \"status_code\": 200,\n  \"message\": \"Books fetched successfully.\",\n  \"data\": {\n    \"items\": [\n    {\n      \"id\": 14,\n      \"title\": \"NCERT Mathematics — Class 8\",\n      \"cover_url\": \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/covers/math-8.png\",\n      \"logo_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/covers/math-8.png\",\n      \"standard\": { \"id\": 8, \"name\": \"Class 8\" },\n      \"section\":  { \"id\": 24, \"name\": \"A\" },\n      \"subject\":  { \"id\": 3, \"name\": \"Mathematics\", \"image\": \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/subjects/images/math.png\" },\n      \"pdf_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/pdfs/math-8.pdf\"\n    },\n    {\n      \"id\": 22,\n      \"title\": \"NCERT Mathematics — Class 9\",\n      \"cover_url\": \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/covers/math-9.png\",\n      \"logo_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/covers/math-9.png\",\n      \"standard\": { \"id\": 9, \"name\": \"Class 9\" },\n      \"section\":  { \"id\": 27, \"name\": \"B\" },\n      \"subject\":  { \"id\": 3, \"name\": \"Mathematics\", \"image\": \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/subjects/images/math.png\" },\n      \"pdf_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/pdfs/math-9.pdf\"\n    }\n    ],\n    \"pagination\": { \"total\": 4, \"per_page\": 20, \"current_page\": 1, \"last_page\": 1, \"from\": 1, \"to\": 2 }\n  }\n}"
+				}
+			]
+		},
+		{
+			"name": "Book Detail (with PDF)",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/books/1",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "books", "1" ]
+				},
+				"description": "Single book by id, still role-scoped — returns the same shape as a list item.\n\nMost clients no longer need this endpoint because the list response already carries `pdf_url`. It remains available for deep-link / share scenarios where only the book id is known.\n\n- 200 → book payload (same fields as list item)\n- 404 → book is outside the caller's scope or doesn't exist"
+			},
+			"response": [
+				{
+					"name": "Sample — 200 OK",
+					"originalRequest": {
+						"method": "GET",
+						"header": [ { "key": "Accept", "value": "application/json" } ],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/books/14",
+							"host": [ "{{baseUrl}}" ],
+							"path": [ "api", "v1", "books", "14" ]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [ { "key": "Content-Type", "value": "application/json" } ],
+					"body": "{\n  \"success\": true,\n  \"status_code\": 200,\n  \"message\": \"Book fetched successfully.\",\n  \"data\": {\n    \"id\": 14,\n    \"title\": \"NCERT Mathematics — Class 8\",\n    \"cover_url\": \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/covers/math-8.png\",\n    \"logo_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/covers/math-8.png\",\n    \"standard\": { \"id\": 8, \"name\": \"Class 8\" },\n    \"section\":  { \"id\": 24, \"name\": \"A\" },\n    \"subject\":  { \"id\": 3, \"name\": \"Mathematics\", \"image\": \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/subjects/images/math.png\" },\n    \"pdf_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/books/pdfs/math-8.pdf\"\n  }\n}"
+				},
+				{
+					"name": "Sample — 404 Out of scope",
+					"originalRequest": {
+						"method": "GET",
+						"header": [ { "key": "Accept", "value": "application/json" } ],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/books/9999",
+							"host": [ "{{baseUrl}}" ],
+							"path": [ "api", "v1", "books", "9999" ]
+						}
+					},
+					"status": "Not Found",
+					"code": 404,
+					"_postman_previewlanguage": "json",
+					"header": [ { "key": "Content-Type", "value": "application/json" } ],
+					"body": "{\n  \"success\": false,\n  \"message\": \"Book not found.\"\n}"
+				}
+			]
+		}
+	]
+}

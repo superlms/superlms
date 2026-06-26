@@ -1,0 +1,177 @@
+{
+	"info": {
+		"_postman_id": "c2f8d4b3-1a2e-4b6c-9d3a-switchacct001",
+		"name": "LMS — Switch Account (v1)",
+		"description": "Multi-profile account switching for the mobile app.\n\n**Model:** the app keeps a local list of \"added accounts\". Each added account is a `{ token, card }` pair returned by **Add Account**. Switching between profiles (e.g. a Student account and a Teacher account on the same device) is done **client-side** by selecting which stored token to send — no server round-trip is needed. The endpoints here let the app add, remove and refresh those accounts.\n\n**Profile card** (the `data.snapshot` object) always contains the fields the switcher UI needs:\n- `image` — profile picture URL\n- `username` — display name\n- `user_type` — `student` or `teacher`\n(plus `email`, `organization`, and `class_info` for extra context).\n\n**Auth:** Sanctum bearer token. `Add Account` is public and returns a token; the other endpoints require the token of the account being acted on. The Add requests auto-save the returned token into the `authToken` environment variable.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{ "key": "token", "value": "{{authToken}}", "type": "string" }
+		]
+	},
+	"item": [
+		{
+			"name": "Add Account — Student",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"const r = pm.response.json();",
+							"if (r && r.data && r.data.token) {",
+							"    pm.environment.set('authToken', r.data.token);",
+							"    console.log('Saved student token to authToken');",
+							"}"
+						]
+					}
+				}
+			],
+			"request": {
+				"auth": { "type": "noauth" },
+				"method": "POST",
+				"header": [
+					{ "key": "Accept", "value": "application/json" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"identifier\": \"ADM-001\",\n  \"password\": \"password\"\n}",
+					"options": { "raw": { "language": "json" } }
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/switch-account/add",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "switch-account", "add" ]
+				},
+				"description": "Add a STUDENT account. Pass `identifier` (admission number) + `password`; the role is auto-detected (no `login_type`). Returns `{ account, token, token_type }`; `account.user_type` will be `student`."
+			},
+			"response": []
+		},
+		{
+			"name": "Add Account — Teacher",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"const r = pm.response.json();",
+							"if (r && r.data && r.data.token) {",
+							"    pm.environment.set('authToken', r.data.token);",
+							"    console.log('Saved teacher token to authToken');",
+							"}"
+						]
+					}
+				}
+			],
+			"request": {
+				"auth": { "type": "noauth" },
+				"method": "POST",
+				"header": [
+					{ "key": "Accept", "value": "application/json" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"identifier\": \"teacher@example.com\",\n  \"password\": \"password\"\n}",
+					"options": { "raw": { "language": "json" } }
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/switch-account/add",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "switch-account", "add" ]
+				},
+				"description": "Add a TEACHER / ADMIN / SUB-ADMIN / ACCOUNTS account by email + password. Pass `identifier` (email) + `password`; the role is auto-detected (no `login_type`). `account.user_type` ∈ `teacher | admin | accounts`."
+			},
+			"response": []
+		},
+		{
+			"name": "Get My Card (refresh snapshot)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{ "key": "Accept", "value": "application/json" }
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/switch-account/me",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "switch-account", "me" ]
+				},
+				"description": "Returns the latest profile card for the token in the Authorization header. The app calls this to refresh a stored account's `image` / `username` / `user_type`. Set `authToken` to the account you want to refresh."
+			},
+			"response": []
+		},
+		{
+			"name": "Remove Account (revoke this token)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Accept", "value": "application/json" }
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/switch-account/remove",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "switch-account", "remove" ]
+				},
+				"description": "Revokes ONLY the token in the Authorization header (the account being removed from the device's switcher). Other added accounts keep working. Set `authToken` to the account you want to remove."
+			},
+			"response": []
+		},
+		{
+			"name": "List Linked Schools (same email + role)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{ "key": "Accept", "value": "application/json" }
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/switch-account/schools",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "switch-account", "schools" ]
+				},
+				"description": "Auto-discovery: lists every active account that shares the current user's email + role across organizations (for users enrolled in multiple schools with one email). Returns each with `is_current` and its `school`."
+			},
+			"response": []
+		},
+		{
+			"name": "Switch School",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"const r = pm.response.json();",
+							"if (r && r.data && r.data.token) {",
+							"    pm.environment.set('authToken', r.data.token);",
+							"    console.log('Switched — saved new token to authToken');",
+							"}"
+						]
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Accept", "value": "application/json" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"organization_id\": 2\n}",
+					"options": { "raw": { "language": "json" } }
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/switch-account/switch",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "switch-account", "switch" ]
+				},
+				"description": "Revokes the current token and issues a new one for the SAME email + role in a different organization (`organization_id`). Used by the linked-schools flow above. Returns `{ user, token, token_type }`."
+			},
+			"response": []
+		}
+	]
+}

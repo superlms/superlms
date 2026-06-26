@@ -1,0 +1,44 @@
+{
+	"info": {
+		"_postman_id": "b7d2e4a1-3c5f-4d9a-9e21-transport0001",
+		"name": "LMS — Transport (v1)",
+		"description": "Student/teacher app APIs for school transport.\n\n**Scoping (automatic, by role):**\n- **Student** (`role=user`) → only the active route the student is assigned to, plus the student's own month-by-month fee schedule and totals.\n- **Any authenticated role** → list of all active routes for the organization.\n\nThe fee schedule is derived from the student's `billable_months` (June excluded by default) and recorded `transport_fee_payments`. Payments are allocated across billable months in academic order (April → March), so earlier months read as `paid` and the first uncovered month onward reads as `pending`.\n\nAuth: Sanctum bearer token in `authToken`.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{ "key": "token", "value": "{{authToken}}", "type": "string" }
+		]
+	},
+	"item": [
+		{
+			"name": "My Transport Route",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/transport/my-route",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "transport", "my-route" ]
+				},
+				"description": "The active transport route assigned to the authenticated **student** (`role=user`).\n\nReturns route details (`route_name`, `pickup_location`, `drop_location`, `pickup_time`, `stops`, `monthly_fee`, `capacity`, `vehicle_no`), the assigned `driver` (`name`, `email`, `image`, `phone`, `license_no`, `vehicle_no`, `vehicle_type`), and a `fees` object with the month-by-month `schedule` plus `total_paid` / `total_due`.\n\n**Errors:**\n- **403** — caller is not a student.\n- **404** — no student profile, or no active route assigned.\n\n**Sample 200 response:**\n```json\n{\n  \"success\": true,\n  \"status_code\": 200,\n  \"message\": \"Transport route fetched successfully.\",\n  \"data\": {\n    \"id\": 3,\n    \"route_name\": \"Jafari\",\n    \"pickup_location\": \"Civil Lines\",\n    \"drop_location\": \"School Gate\",\n    \"pickup_time\": \"08:00 AM\",\n    \"stops\": [\"Civil Lines\", \"Station Road\"],\n    \"monthly_fee\": 1000,\n    \"capacity\": 40,\n    \"vehicle_no\": \"UP81 AB 1234\",\n    \"driver\": {\n      \"id\": 5,\n      \"name\": \"Ramesh Kumar\",\n      \"email\": \"driver@school.com\",\n      \"image\": null,\n      \"phone\": \"+91 98765 43210\",\n      \"license_no\": \"DL-0420110012345\",\n      \"vehicle_no\": \"UP81 AB 1234\",\n      \"vehicle_type\": \"Bus\"\n    },\n    \"fees\": {\n      \"monthly_fee\": 1000,\n      \"annual_fee\": 11000,\n      \"months_count\": 11,\n      \"total_paid\": 3000,\n      \"total_due\": 8000,\n      \"schedule\": [\n        { \"key\": \"apr\", \"month\": \"April\", \"amount\": 1000, \"status\": \"paid\" },\n        { \"key\": \"may\", \"month\": \"May\", \"amount\": 1000, \"status\": \"paid\" },\n        { \"key\": \"jun\", \"month\": \"June\", \"amount\": 0, \"status\": \"no_transport\" },\n        { \"key\": \"jul\", \"month\": \"July\", \"amount\": 1000, \"status\": \"paid\" },\n        { \"key\": \"aug\", \"month\": \"August\", \"amount\": 1000, \"status\": \"pending\" }\n      ]\n    }\n  }\n}\n```\n\n`status` values: `paid`, `partial`, `pending`, `no_transport`."
+			},
+			"response": []
+		},
+		{
+			"name": "All Transport Routes",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/transport/routes",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "transport", "routes" ]
+				},
+				"description": "All active transport routes for the authenticated user's organization (any role). Each item carries the same route + driver fields as `My Transport Route` but **without** the per-student `fees` block.\n\n**401** if unauthenticated."
+			},
+			"response": []
+		}
+	]
+}

@@ -1,0 +1,135 @@
+{
+	"info": {
+		"_postman_id": "d9a4c2b7-6e31-4f08-bb52-timetable00001",
+		"name": "LMS — Timetable (v1)",
+		"description": "Timetable APIs for the student/teacher app.\n\n- **Teacher** (`POST /time-table`): the authenticated teacher's own teaching schedule. Body controls the view via `type` (`today` | `week` | `all`), or filter by `day_of_week` / `date`.\n- **Student** (`GET /time-table/student`): the weekly schedule for the authenticated student's class (derived from teacher timetables targeting the student's standard + section), grouped by day.\n\nBoth `week`/student responses return `timetable_by_day[] { day_of_week, day_name, total_classes, timetable[] }`. Each period includes `subject`, `teacher`, `standard`, `section`, `start_time`, `end_time`, `time_slot`, and substitute info (`has_substitute`, `substitute_details`).\n\n`day_of_week` is ISO: 1 = Monday … 7 = Sunday.\n\nAuth: Sanctum bearer token in `authToken`.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{ "key": "token", "value": "{{authToken}}", "type": "string" }
+		]
+	},
+	"item": [
+		{
+			"name": "Student Weekly Timetable",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/time-table/student",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "time-table", "student" ]
+				},
+				"description": "Weekly timetable for the authenticated **student's** class (standard + section).\n\nReturns `student_id`, `standard`, `section`, `total_classes`, and `timetable_by_day[]` (only days that have classes). Each period carries `subject`, `teacher`, `start_time`, `end_time`, `time_slot`, and substitute info.\n\n**404** if the caller has no student profile."
+			},
+			"response": []
+		},
+		{
+			"name": "Teacher — Weekly",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Accept", "value": "application/json" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"type\": \"week\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/time-table",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "time-table" ]
+				},
+				"description": "The authenticated teacher's schedule grouped by day for the week.\n\nReturns `teacher_id`, `teacher_name`, `week_start`, `week_end`, `total_classes`, and `timetable_by_day[]` (only days with classes). Each period includes the class it targets (`standard`, `section`), `subject`, times, and substitute info.\n\n**404** if the caller has no teacher profile."
+			},
+			"response": []
+		},
+		{
+			"name": "Teacher — Today",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Accept", "value": "application/json" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"type\": \"today\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/time-table",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "time-table" ]
+				},
+				"description": "The teacher's classes for today only. Returns `day_of_week`, `day_name`, `date`, `total_classes`, and a flat `timetable[]`."
+			},
+			"response": []
+		},
+		{
+			"name": "Teacher — All Periods",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Accept", "value": "application/json" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"type\": \"all\",\n  \"limit\": 50\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/time-table",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "time-table" ]
+				},
+				"description": "Flat list of all the teacher's timetable rows (each with `day_of_week`), capped by `limit` (1–100, default 50)."
+			},
+			"response": []
+		},
+		{
+			"name": "Teacher — By Day of Week",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Accept", "value": "application/json" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"day_of_week\": 1\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/time-table",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "time-table" ]
+				},
+				"description": "The teacher's classes for a specific weekday. `day_of_week` is ISO (1 = Monday … 7 = Sunday). Returns the next date that weekday falls on plus a flat `timetable[]`."
+			},
+			"response": []
+		},
+		{
+			"name": "Teacher — By Date",
+			"request": {
+				"method": "POST",
+				"header": [
+					{ "key": "Accept", "value": "application/json" },
+					{ "key": "Content-Type", "value": "application/json" }
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"date\": \"2026-06-15\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/time-table",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "time-table" ]
+				},
+				"description": "The teacher's classes for the weekday of a specific `date` (format `Y-m-d`)."
+			},
+			"response": []
+		}
+	]
+}

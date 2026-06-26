@@ -1,0 +1,50 @@
+{
+	"info": {
+		"_postman_id": "f7c1a4e2-9b6d-4a8c-b3e1-instructors001",
+		"name": "LMS — Instructors (v1)",
+		"description": "Student/teacher app APIs for class instructors.\n\n**Scoping (automatic, by role):**\n- **Student** (`role=user`) → only instructors who teach the student's class via the **timetable** (matched on `standard_id` + `section_id` from `teacher_time_tables`). Each instructor's `subjects` list is also scoped to the subjects they teach to that student's class.\n- **Other roles** → all active instructors in the organization (legacy behavior with `subjects`, `classes`, `assigned_classes`).\n\nAuth: Sanctum bearer token in `authToken`.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{ "key": "token", "value": "{{authToken}}", "type": "string" }
+		]
+	},
+	"item": [
+		{
+			"name": "List Instructors",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/instructors?per_page=20",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "instructors" ],
+					"query": [
+						{ "key": "per_page", "value": "20" },
+						{ "key": "subject_id", "value": "", "disabled": true },
+						{ "key": "standard_id", "value": "", "description": "Non-student callers only — students are auto-scoped to their own class.", "disabled": true },
+						{ "key": "search", "value": "", "description": "Search by instructor name or email.", "disabled": true }
+					]
+				},
+				"description": "Paginated list of instructors.\n\n**Student request:** returns only instructors who appear in `teacher_time_tables` for the student's `(standard_id, section_id)`. Each item exposes `id, name, email, avatar, employee_id, phone, subjects[]` (subjects scoped to the student's class). The app card shows the mobile number and offers View Profile + Chat Now.\n\n**Other roles:** returns all active instructors in the organization with `subjects`, `classes`, and `assigned_classes` collections.\n\nOptional filters: `subject_id`, `search`, `per_page`. `standard_id` is ignored for students."
+			},
+			"response": []
+		},
+		{
+			"name": "Instructor Detail",
+			"request": {
+				"method": "GET",
+				"header": [ { "key": "Accept", "value": "application/json" } ],
+				"url": {
+					"raw": "{{baseUrl}}/api/v1/instructors/1",
+					"host": [ "{{baseUrl}}" ],
+					"path": [ "api", "v1", "instructors", "1" ]
+				},
+				"description": "Single instructor (role-scoped) including profile fields: `qualification`, `date_of_joining`, `phone`, `city`, `state`, `address`, `subjects[]`, `classes[]`. Powers the app's announcement-style Instructor Profile screen, which intentionally hides `employee_id` and `date_of_joining`.\n\n**404** if the instructor is outside the caller's scope — e.g. a student requesting an instructor who does not teach their class via the timetable."
+			},
+			"response": []
+		}
+	]
+}

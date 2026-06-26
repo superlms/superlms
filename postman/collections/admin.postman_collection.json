@@ -1,0 +1,4046 @@
+{
+  "info": {
+    "_postman_id": "c4f1a8d0-1234-4abc-9def-admin0000001",
+    "name": "LMS — Admin (v1)",
+    "description": "School-admin (role: admin / sub-admin) APIs for the mobile app.\n\nCovers: Profile / School Info, Announcements, Calendar events and Enquiries. All routes require a Bearer token (Sanctum) belonging to an admin/sub-admin user. Set `baseUrl` and `authToken` environment variables.\n\nNote: Calendar listing/detail reuse the shared Calendar collection (`POST /calendar/events`, `GET /calendar/events/{id}`) — only event create/update/delete are admin-only and live here.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Profile / School Info",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "profile"
+              ]
+            },
+            "description": "Returns user, organization (logo), school_info (about/website/email/mobile/address/USM/custom_sections), management_team[] and documents[]."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Logo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "photo",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/profile/logo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "profile",
+                "logo"
+              ]
+            },
+            "description": "Multipart. `photo` = image (max 2MB). Updates the organization logo."
+          },
+          "response": []
+        },
+        {
+          "name": "Update School Info",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"about_school\": \"A premier school\",\n  \"website_info\": \"Visit us online\",\n  \"website_url\": \"https://example.com\",\n  \"school_email\": \"info@example.com\",\n  \"school_mobile\": \"9876543210\",\n  \"school_address\": \"123 Street, City\",\n  \"usm_vision\": \"...\",\n  \"usm_mission\": \"...\",\n  \"usm_values\": \"...\",\n  \"usm_goals\": \"...\",\n  \"custom_sections\": [ { \"title\": \"History\", \"description\": \"Founded in 1990\" } ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/profile/school-info",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "profile",
+                "school-info"
+              ]
+            },
+            "description": "Replaces the school info text fields, USM and custom_sections. Returns the full refreshed profile."
+          },
+          "response": []
+        },
+        {
+          "name": "Add Member",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "name",
+                  "value": "John Doe",
+                  "type": "text"
+                },
+                {
+                  "key": "designation",
+                  "value": "Principal",
+                  "type": "text"
+                },
+                {
+                  "key": "photo",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/profile/members",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "profile",
+                "members"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Member",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "name",
+                  "value": "John Doe",
+                  "type": "text"
+                },
+                {
+                  "key": "designation",
+                  "value": "Vice Principal",
+                  "type": "text"
+                },
+                {
+                  "key": "photo",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/profile/members/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "profile",
+                "members",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Member",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/profile/members/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "profile",
+                "members",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Document",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Affiliation Certificate",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/profile/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "profile",
+                "documents"
+              ]
+            },
+            "description": "Multipart. `file` = PDF (max 2MB)."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Document",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/profile/documents/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "profile",
+                "documents",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"OldPass@123\",\n  \"new_password\": \"NewPass@123\",\n  \"new_password_confirmation\": \"NewPass@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/profile/password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "profile",
+                "password"
+              ]
+            },
+            "description": "new_password must differ from current and be min 8 chars with upper+lower case, a number and a symbol."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Announcements",
+      "item": [
+        {
+          "name": "List Announcements",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/announcements?type=&days=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "announcements"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "",
+                  "description": "all | user | teacher (optional)"
+                },
+                {
+                  "key": "days",
+                  "value": "",
+                  "description": "only last N days (optional)"
+                }
+              ]
+            },
+            "description": "Returns { announcements: [...], stats: { total, this_month } } for the admin's organization."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Announcement",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "announcement_name",
+                  "value": "Holiday Notice",
+                  "type": "text"
+                },
+                {
+                  "key": "announcement_content",
+                  "value": "School closed on Friday.",
+                  "type": "text"
+                },
+                {
+                  "key": "type",
+                  "value": "all",
+                  "type": "text",
+                  "description": "all | user | teacher"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "optional image or PDF (max 5MB)"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/announcements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "announcements"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Announcement",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "announcement_name",
+                  "value": "Holiday Notice (updated)",
+                  "type": "text"
+                },
+                {
+                  "key": "announcement_content",
+                  "value": "Updated content.",
+                  "type": "text"
+                },
+                {
+                  "key": "type",
+                  "value": "all",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "optional replacement image/PDF"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/announcements/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "announcements",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Announcement",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/announcements/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "announcements",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Calendar (events)",
+      "item": [
+        {
+          "name": "Create Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Annual Day\",\n  \"description\": \"Cultural program\",\n  \"date\": \"2026-07-15\",\n  \"is_all_day\": true,\n  \"event_type\": \"event\",\n  \"color\": \"#10b981\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/calendar/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "calendar",
+                "events"
+              ]
+            },
+            "description": "event_type: class | exam | meeting | event | holiday. When is_all_day=false, send start_time/end_time as HH:mm."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Event",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Annual Day (rescheduled)\",\n  \"date\": \"2026-07-20\",\n  \"is_all_day\": false,\n  \"start_time\": \"10:00\",\n  \"end_time\": \"13:00\",\n  \"event_type\": \"event\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/calendar/events/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "calendar",
+                "events",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Event",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/calendar/events/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "calendar",
+                "events",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Enquiries",
+      "item": [
+        {
+          "name": "List Enquiries",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/enquiries?tab=teacher&search=&days=&status=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "enquiries"
+              ],
+              "query": [
+                {
+                  "key": "tab",
+                  "value": "teacher",
+                  "description": "teacher | student"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "optional text search"
+                },
+                {
+                  "key": "days",
+                  "value": "",
+                  "description": "optional last N days"
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "pending | replied (optional)"
+                }
+              ]
+            },
+            "description": "Returns { tab, enquiries: [...], stats: { total, pending, replied }, tab_totals: { teacher, student } }."
+          },
+          "response": []
+        },
+        {
+          "name": "Reply Enquiry",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"admin_text\": \"Thanks for reaching out. ...\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/enquiries/teacher/1/reply",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "enquiries",
+                "teacher",
+                "1",
+                "reply"
+              ]
+            },
+            "description": "tab in the path is teacher | student. Marks the enquiry as replied."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Enquiry",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/enquiries/teacher/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "enquiries",
+                "teacher",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Standards (Classes / Sections / Subjects)",
+      "item": [
+        {
+          "name": "Academic Lookups",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/academic-lookups",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "academic-lookups"
+              ]
+            },
+            "description": "Classes with their sections, for dropdowns."
+          },
+          "response": []
+        },
+        {
+          "name": "List Classes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/standards?search=&status=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "standards"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "name/code"
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "active | inactive"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Class",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/standards",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "standards"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Class 10\",\n  \"code\": \"10\",\n  \"order\": 10,\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Class",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/standards/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "standards",
+                "1"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Class 10\",\n  \"code\": \"10\",\n  \"order\": 10,\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Class",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/standards/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "standards",
+                "1"
+              ]
+            },
+            "description": "Blocked if sections still exist; orphans students."
+          },
+          "response": []
+        },
+        {
+          "name": "List Sections",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/sections?standard_id=&search=&status=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "sections"
+              ],
+              "query": [
+                {
+                  "key": "standard_id",
+                  "value": "",
+                  "description": "class id"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "active | inactive"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Section",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/sections",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "sections"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"A\",\n  \"code\": \"A\",\n  \"description\": \"\",\n  \"standard_id\": 1,\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Section",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/sections/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "sections",
+                "1"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"A\",\n  \"code\": \"A\",\n  \"description\": \"\",\n  \"standard_id\": 1,\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Section",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/sections/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "sections",
+                "1"
+              ]
+            },
+            "description": "Cascades the sections subjects."
+          },
+          "response": []
+        },
+        {
+          "name": "List Subjects",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/subjects?section_id=&standard_id=&search=&status=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "subjects"
+              ],
+              "query": [
+                {
+                  "key": "section_id",
+                  "value": "",
+                  "description": "section id"
+                },
+                {
+                  "key": "standard_id",
+                  "value": "",
+                  "description": "class id"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "active | inactive"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Subject",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/subjects",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "subjects"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "name",
+                  "value": "Mathematics",
+                  "type": "text"
+                },
+                {
+                  "key": "code",
+                  "value": "MATH",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "standard_id",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "section_ids[]",
+                  "value": "1",
+                  "type": "text",
+                  "description": "repeat for each section"
+                },
+                {
+                  "key": "is_mandatory",
+                  "value": "1",
+                  "type": "text",
+                  "description": "1 | 0"
+                },
+                {
+                  "key": "is_active",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": [],
+                  "description": "optional"
+                },
+                {
+                  "key": "detail_image",
+                  "type": "file",
+                  "src": [],
+                  "description": "optional"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Subject",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/subjects/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "subjects",
+                "1"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "name",
+                  "value": "Mathematics",
+                  "type": "text"
+                },
+                {
+                  "key": "code",
+                  "value": "MATH",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "standard_id",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "section_ids[]",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "is_mandatory",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "is_active",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": [],
+                  "description": ""
+                },
+                {
+                  "key": "detail_image",
+                  "type": "file",
+                  "src": [],
+                  "description": ""
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Subject",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/subjects/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "subjects",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Students",
+      "item": [
+        {
+          "name": "Student Lookups",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/students/lookups?standard_id=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "students",
+                "lookups"
+              ],
+              "query": [
+                {
+                  "key": "standard_id",
+                  "value": "",
+                  "description": "optional class id"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Students",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/students?search=&class=&section=&gender=&status=&sort=&page=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "students"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "class",
+                  "value": "",
+                  "description": "class id"
+                },
+                {
+                  "key": "section",
+                  "value": "",
+                  "description": "section id"
+                },
+                {
+                  "key": "gender",
+                  "value": ""
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "0 | 1"
+                },
+                {
+                  "key": "sort",
+                  "value": "",
+                  "description": "name_asc | admission_no | roll_no"
+                },
+                {
+                  "key": "page",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Student",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/students/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "students",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Student",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/students",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "students"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "name",
+                  "value": "Riya Sharma",
+                  "type": "text"
+                },
+                {
+                  "key": "email",
+                  "value": "riya@example.com",
+                  "type": "text"
+                },
+                {
+                  "key": "mobile",
+                  "value": "9876543210",
+                  "type": "text"
+                },
+                {
+                  "key": "dob",
+                  "value": "2012-05-10",
+                  "type": "text"
+                },
+                {
+                  "key": "gender",
+                  "value": "female",
+                  "type": "text",
+                  "description": "male | female | other"
+                },
+                {
+                  "key": "standard_id",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "section_id",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "father_name",
+                  "value": "Mr Sharma",
+                  "type": "text"
+                },
+                {
+                  "key": "mother_name",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "date_of_admission",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "aadhar_no",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "pincode",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "religion",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "local_address",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "permanent_address",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "state",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "city",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "appar_id",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "registration_number",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "is_active",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "transportation_required",
+                  "value": "0",
+                  "type": "text",
+                  "description": "1 | 0"
+                },
+                {
+                  "key": "route_id",
+                  "value": "",
+                  "type": "text",
+                  "description": "required when transport=1"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": [],
+                  "description": "optional"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Student",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/students/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "students",
+                "1"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "name",
+                  "value": "Riya Sharma",
+                  "type": "text"
+                },
+                {
+                  "key": "email",
+                  "value": "riya@example.com",
+                  "type": "text"
+                },
+                {
+                  "key": "mobile",
+                  "value": "9876543210",
+                  "type": "text"
+                },
+                {
+                  "key": "dob",
+                  "value": "2012-05-10",
+                  "type": "text"
+                },
+                {
+                  "key": "gender",
+                  "value": "female",
+                  "type": "text",
+                  "description": "male | female | other"
+                },
+                {
+                  "key": "standard_id",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "section_id",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "father_name",
+                  "value": "Mr Sharma",
+                  "type": "text"
+                },
+                {
+                  "key": "mother_name",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "date_of_admission",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "aadhar_no",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "pincode",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "religion",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "local_address",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "permanent_address",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "state",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "city",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "appar_id",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "registration_number",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "is_active",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "transportation_required",
+                  "value": "0",
+                  "type": "text",
+                  "description": "1 | 0"
+                },
+                {
+                  "key": "route_id",
+                  "value": "",
+                  "type": "text",
+                  "description": "required when transport=1"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": [],
+                  "description": "optional"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Student",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/students/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "students",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Teachers",
+      "item": [
+        {
+          "name": "List Teachers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/teachers?search=&gender=&status=&class=&section=&page=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "teachers"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "gender",
+                  "value": ""
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "0 | 1"
+                },
+                {
+                  "key": "class",
+                  "value": "",
+                  "description": "class id"
+                },
+                {
+                  "key": "section",
+                  "value": "",
+                  "description": "section id"
+                },
+                {
+                  "key": "page",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Teacher",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/teachers/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "teachers",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Teacher",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/teachers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "teachers"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "name",
+                  "value": "Anil Verma",
+                  "type": "text"
+                },
+                {
+                  "key": "email",
+                  "value": "anil@example.com",
+                  "type": "text"
+                },
+                {
+                  "key": "mobile",
+                  "value": "9876500000",
+                  "type": "text"
+                },
+                {
+                  "key": "dob",
+                  "value": "1990-01-01",
+                  "type": "text"
+                },
+                {
+                  "key": "gender",
+                  "value": "male",
+                  "type": "text",
+                  "description": "male | female | other"
+                },
+                {
+                  "key": "employee_id",
+                  "value": "EMP001",
+                  "type": "text"
+                },
+                {
+                  "key": "date_of_joining",
+                  "value": "2024-06-01",
+                  "type": "text"
+                },
+                {
+                  "key": "qualification",
+                  "value": "M.Sc, B.Ed",
+                  "type": "text"
+                },
+                {
+                  "key": "address",
+                  "value": "123 Street",
+                  "type": "text"
+                },
+                {
+                  "key": "pincode",
+                  "value": "110001",
+                  "type": "text"
+                },
+                {
+                  "key": "emergency_contact",
+                  "value": "9000000000",
+                  "type": "text"
+                },
+                {
+                  "key": "state",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "city",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "is_active",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": [],
+                  "description": "optional"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Teacher",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/teachers/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "teachers",
+                "1"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "name",
+                  "value": "Anil Verma",
+                  "type": "text"
+                },
+                {
+                  "key": "email",
+                  "value": "anil@example.com",
+                  "type": "text"
+                },
+                {
+                  "key": "mobile",
+                  "value": "9876500000",
+                  "type": "text"
+                },
+                {
+                  "key": "dob",
+                  "value": "1990-01-01",
+                  "type": "text"
+                },
+                {
+                  "key": "gender",
+                  "value": "male",
+                  "type": "text",
+                  "description": "male | female | other"
+                },
+                {
+                  "key": "employee_id",
+                  "value": "EMP001",
+                  "type": "text"
+                },
+                {
+                  "key": "date_of_joining",
+                  "value": "2024-06-01",
+                  "type": "text"
+                },
+                {
+                  "key": "qualification",
+                  "value": "M.Sc, B.Ed",
+                  "type": "text"
+                },
+                {
+                  "key": "address",
+                  "value": "123 Street",
+                  "type": "text"
+                },
+                {
+                  "key": "pincode",
+                  "value": "110001",
+                  "type": "text"
+                },
+                {
+                  "key": "emergency_contact",
+                  "value": "9000000000",
+                  "type": "text"
+                },
+                {
+                  "key": "state",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "city",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "is_active",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": [],
+                  "description": "optional"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Teacher",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/teachers/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "teachers",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "ID Cards",
+      "item": [
+        {
+          "name": "List Cards",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/id-cards?type=&search=&standard=&section=&status=&page=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "id-cards"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "",
+                  "description": "student | teacher | employee"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "standard",
+                  "value": "",
+                  "description": "class id (student)"
+                },
+                {
+                  "key": "section",
+                  "value": "",
+                  "description": "section id (student)"
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "active | inactive"
+                },
+                {
+                  "key": "page",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Generate Cards",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/id-cards/generate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "id-cards",
+                "generate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"student\",\n  \"expiry_date\": \"2027-06-30\",\n  \"standard_ids\": [\n    1,\n    2\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "View Card",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/id-cards/student/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "id-cards",
+                "student",
+                "1"
+              ]
+            },
+            "description": "Flattened card payload + QR (data-URI). Replace student with teacher|employee."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Card",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/id-cards/student/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "id-cards",
+                "student",
+                "1"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"expiry_date\": \"2027-06-30\",\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Card",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/id-cards/student/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "id-cards",
+                "student",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Exams + Syllabus",
+      "item": [
+        {
+          "name": "List Exams",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/exams?search=&academic_year=&exam_type=&term=&status=&page=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "exams"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "academic_year",
+                  "value": ""
+                },
+                {
+                  "key": "exam_type",
+                  "value": "",
+                  "description": "quarterly | half_yearly | annual | unit_test | pre_board"
+                },
+                {
+                  "key": "term",
+                  "value": "",
+                  "description": "Term-1 | Term-2"
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "published | draft | active | upcoming | completed"
+                },
+                {
+                  "key": "page",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Exam",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/exams",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "exams"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"exam_name\": \"Half Yearly 2026\",\n  \"term\": \"Term-1\",\n  \"academic_year\": \"2026-2027\",\n  \"start_date\": \"2026-09-01\",\n  \"end_date\": \"2026-09-10\",\n  \"exam_type\": \"half_yearly\",\n  \"description\": \"\",\n  \"is_published\": false,\n  \"uses_grading_system\": false,\n  \"total_marks\": 100,\n  \"passing_marks\": 33\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Exam",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/exams/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "exams",
+                "1"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"exam_name\": \"Half Yearly 2026\",\n  \"term\": \"Term-1\",\n  \"academic_year\": \"2026-2027\",\n  \"start_date\": \"2026-09-01\",\n  \"end_date\": \"2026-09-10\",\n  \"exam_type\": \"half_yearly\",\n  \"uses_grading_system\": false,\n  \"total_marks\": 100,\n  \"passing_marks\": 33,\n  \"is_published\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Toggle Publish",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/exams/1/toggle-publish",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "exams",
+                "1",
+                "toggle-publish"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Exam",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/exams/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "exams",
+                "1"
+              ]
+            },
+            "description": "Cascades the exams syllabus rows."
+          },
+          "response": []
+        },
+        {
+          "name": "Syllabus Options (cascading)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/exams/syllabus/options?exam_id=&standard_id=&section_id=&subject_id=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "exams",
+                "syllabus",
+                "options"
+              ],
+              "query": [
+                {
+                  "key": "exam_id",
+                  "value": ""
+                },
+                {
+                  "key": "standard_id",
+                  "value": ""
+                },
+                {
+                  "key": "section_id",
+                  "value": ""
+                },
+                {
+                  "key": "subject_id",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Syllabus (list / detail)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/exams/syllabus?exam_id=&standard_id=&section_id=&subject_id=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "exams",
+                "syllabus"
+              ],
+              "query": [
+                {
+                  "key": "exam_id",
+                  "value": ""
+                },
+                {
+                  "key": "standard_id",
+                  "value": ""
+                },
+                {
+                  "key": "section_id",
+                  "value": ""
+                },
+                {
+                  "key": "subject_id",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Save Syllabus",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/exams/syllabus",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "exams",
+                "syllabus"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"exam_id\": 1,\n  \"standard_id\": 1,\n  \"section_id\": 1,\n  \"subject_id\": 1,\n  \"chapter_ids\": [\n    1,\n    2,\n    3\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Syllabus Group",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/exams/syllabus",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "exams",
+                "syllabus"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"exam_id\": 1,\n  \"standard_id\": 1,\n  \"subject_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Syllabus (Chapters / Topics)",
+      "item": [
+        {
+          "name": "Syllabus Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/syllabus/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "syllabus",
+                "stats"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Curriculum Subjects",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/curriculum/subjects?standard_id=&section_id=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "curriculum",
+                "subjects"
+              ],
+              "query": [
+                {
+                  "key": "standard_id",
+                  "value": "",
+                  "description": "class id"
+                },
+                {
+                  "key": "section_id",
+                  "value": "",
+                  "description": "optional"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Curriculum Chapters",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/curriculum/chapters?subject_id=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "curriculum",
+                "chapters"
+              ],
+              "query": [
+                {
+                  "key": "subject_id",
+                  "value": "",
+                  "description": "subject id"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "View Syllabus",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/syllabus?standard_id=&section_id=&subject_id=&search=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "syllabus"
+              ],
+              "query": [
+                {
+                  "key": "standard_id",
+                  "value": "",
+                  "description": "class id"
+                },
+                {
+                  "key": "section_id",
+                  "value": "",
+                  "description": "optional"
+                },
+                {
+                  "key": "subject_id",
+                  "value": "",
+                  "description": "subject id"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Chapters",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/syllabus/chapters",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "syllabus",
+                "chapters"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"standard_id\": 1,\n  \"section_id\": null,\n  \"subject_id\": 1,\n  \"chapters\": [\n    {\n      \"name\": \"Chapter 1\",\n      \"description\": \"\",\n      \"order\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Chapter",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/syllabus/chapters/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "syllabus",
+                "chapters",
+                "1"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Chapter 1\",\n  \"description\": \"\",\n  \"order\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Chapter",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/syllabus/chapters/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "syllabus",
+                "chapters",
+                "1"
+              ]
+            },
+            "description": "Also deletes its topics."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Topics",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/syllabus/topics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "syllabus",
+                "topics"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"chapter_id\": 1,\n  \"topics\": [\n    {\n      \"name\": \"Topic 1\"\n    },\n    {\n      \"name\": \"Topic 2\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Topic",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/syllabus/topics/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "syllabus",
+                "topics",
+                "1"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Topic 1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Topic",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/syllabus/topics/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "syllabus",
+                "topics",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Content (Chapter/Topic)",
+      "item": [
+        {
+          "name": "Content Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/content/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "content",
+                "stats"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Content",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/content?standard_id=&section_id=&subject_id=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "content"
+              ],
+              "query": [
+                {
+                  "key": "standard_id",
+                  "value": "",
+                  "description": "class id"
+                },
+                {
+                  "key": "section_id",
+                  "value": "",
+                  "description": "optional"
+                },
+                {
+                  "key": "subject_id",
+                  "value": "",
+                  "description": "subject id"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Save Content",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/content",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "content"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "target_type",
+                  "value": "chapter",
+                  "type": "text",
+                  "description": "chapter | topic"
+                },
+                {
+                  "key": "target_id",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "content_type",
+                  "value": "text",
+                  "type": "text",
+                  "description": "text | url | image | pdf | all"
+                },
+                {
+                  "key": "text",
+                  "value": "Some learning content",
+                  "type": "text"
+                },
+                {
+                  "key": "url",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": [],
+                  "description": "when content_type=image|all"
+                },
+                {
+                  "key": "pdf",
+                  "type": "file",
+                  "src": [],
+                  "description": "when content_type=pdf|all"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Clear Content",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/content/chapter/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "content",
+                "chapter",
+                "1"
+              ]
+            },
+            "description": "Replace chapter with topic to clear a topic."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Quiz (MCQs)",
+      "item": [
+        {
+          "name": "Quiz Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/quiz/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "quiz",
+                "stats"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Quiz Tree",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/quiz?standard_id=&section_id=&subject_id=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "quiz"
+              ],
+              "query": [
+                {
+                  "key": "standard_id",
+                  "value": "",
+                  "description": "class id"
+                },
+                {
+                  "key": "section_id",
+                  "value": "",
+                  "description": "optional"
+                },
+                {
+                  "key": "subject_id",
+                  "value": "",
+                  "description": "subject id"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List MCQs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/quiz/chapter/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "quiz",
+                "chapter",
+                "1"
+              ]
+            },
+            "description": "Replace chapter with topic for topic MCQs."
+          },
+          "response": []
+        },
+        {
+          "name": "Create MCQs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/quiz/chapter/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "quiz",
+                "chapter",
+                "1"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mcqs\": [\n    {\n      \"question_text\": \"What is 2+2?\",\n      \"time_limit\": 30,\n      \"options\": [\n        {\n          \"text\": \"3\",\n          \"is_correct\": false\n        },\n        {\n          \"text\": \"4\",\n          \"is_correct\": true\n        },\n        {\n          \"text\": \"5\",\n          \"is_correct\": false\n        },\n        {\n          \"text\": \"6\",\n          \"is_correct\": false\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update MCQs",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/quiz/mcqs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "quiz",
+                "mcqs"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mcqs\": [\n    {\n      \"id\": 1,\n      \"question_text\": \"What is 2+2?\",\n      \"time_limit\": 30,\n      \"options\": [\n        {\n          \"id\": 1,\n          \"text\": \"3\",\n          \"is_correct\": false\n        },\n        {\n          \"id\": 2,\n          \"text\": \"4\",\n          \"is_correct\": true\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete MCQs",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/quiz/mcqs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "quiz",
+                "mcqs"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ids\": [\n    1,\n    2\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Books (Library)",
+      "item": [
+        {
+          "name": "Book Options",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/books/options?standard_id=&section_id=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "books",
+                "options"
+              ],
+              "query": [
+                {
+                  "key": "standard_id",
+                  "value": "",
+                  "description": "class id"
+                },
+                {
+                  "key": "section_id",
+                  "value": "",
+                  "description": "optional"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Books",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/books?standard_id=&section_id=&subject_id=&search=&status=&page=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "books"
+              ],
+              "query": [
+                {
+                  "key": "standard_id",
+                  "value": "",
+                  "description": "class id (required for list)"
+                },
+                {
+                  "key": "section_id",
+                  "value": ""
+                },
+                {
+                  "key": "subject_id",
+                  "value": ""
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "0 | 1"
+                },
+                {
+                  "key": "page",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Book",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/books",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "books"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Mathematics Textbook",
+                  "type": "text"
+                },
+                {
+                  "key": "standard_id",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "section_id",
+                  "value": "",
+                  "type": "text",
+                  "description": "optional"
+                },
+                {
+                  "key": "subject_id",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "is_active",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "book_logo",
+                  "type": "file",
+                  "src": [],
+                  "description": "optional cover"
+                },
+                {
+                  "key": "pdf_file",
+                  "type": "file",
+                  "src": [],
+                  "description": "optional PDF"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Book",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/books/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "books",
+                "1"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Mathematics Textbook",
+                  "type": "text"
+                },
+                {
+                  "key": "standard_id",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "section_id",
+                  "value": "",
+                  "type": "text",
+                  "description": "optional"
+                },
+                {
+                  "key": "subject_id",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "is_active",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "book_logo",
+                  "type": "file",
+                  "src": [],
+                  "description": "optional cover"
+                },
+                {
+                  "key": "pdf_file",
+                  "type": "file",
+                  "src": [],
+                  "description": "optional PDF"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Book",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/books/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "books",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Time Table",
+      "item": [
+        {
+          "name": "Timetable Lookups",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/timetable/lookups",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "timetable",
+                "lookups"
+              ]
+            },
+            "description": "Classes (with sections) + active teachers + day names."
+          },
+          "response": []
+        },
+        {
+          "name": "Timetable Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/timetable/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "timetable",
+                "stats"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Builder (subjects + prefill)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/timetable/builder?standard_id=&section_id=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "timetable",
+                "builder"
+              ],
+              "query": [
+                {
+                  "key": "standard_id",
+                  "value": "",
+                  "description": "class id"
+                },
+                {
+                  "key": "section_id",
+                  "value": "",
+                  "description": "section id"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "View Timetable",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/timetable?view=&standard_id=&section_id=&teacher_id=&days=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "timetable"
+              ],
+              "query": [
+                {
+                  "key": "view",
+                  "value": "",
+                  "description": "class | teacher"
+                },
+                {
+                  "key": "standard_id",
+                  "value": "",
+                  "description": "class id (class view)"
+                },
+                {
+                  "key": "section_id",
+                  "value": "",
+                  "description": "section id (class view)"
+                },
+                {
+                  "key": "teacher_id",
+                  "value": "",
+                  "description": "teacher id (teacher view)"
+                },
+                {
+                  "key": "days",
+                  "value": "",
+                  "description": "optional 1..6"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Save Timetable",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/timetable",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "timetable"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"standard_id\": 1,\n  \"section_id\": 1,\n  \"is_edit\": false,\n  \"rows\": [\n    {\n      \"subject_id\": 1,\n      \"subject_name\": \"Maths\",\n      \"start_time\": \"09:00\",\n      \"end_time\": \"10:00\",\n      \"day_teachers\": {\n        \"1\": 5,\n        \"2\": 5,\n        \"3\": null,\n        \"4\": null,\n        \"5\": null,\n        \"6\": null\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Section Timetable",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/timetable",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "timetable"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"standard_id\": 1,\n  \"section_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Arrangement (Substitutions)",
+      "item": [
+        {
+          "name": "Arrangements (by date)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/arrangement?date=&standard_id=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "arrangement"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "",
+                  "description": "YYYY-MM-DD (default today)"
+                },
+                {
+                  "key": "standard_id",
+                  "value": "",
+                  "description": "optional class filter"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Assign Substitute",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/arrangement",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "arrangement"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"2026-06-18\",\n  \"slot_id\": 10,\n  \"substitute_id\": 7,\n  \"reason\": \"Teacher on leave\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Arrangement",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/admin/arrangement/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "admin",
+                "arrangement",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

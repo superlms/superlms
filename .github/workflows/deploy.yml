@@ -1,0 +1,442 @@
+name: Deploy
+
+# Pull requests + pushes run the `validate` job — fast, no secrets, no infra.
+# Only pushes to main, with `validate` green, proceed to the `deploy` job.
+# This is the gate: a red validate cancels the deploy automatically.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: cicd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────
+  # JOB 1 — VALIDATE
+  # Catches every class of deploy-blocking bug we know about, before the
+  # workflow ever touches the EC2 box. If any step fails here, `deploy`
+  # is skipped automatically.
+  # ──────────────────────────────────────────────────────────────────────
+  validate:
+    name: Validate (autoload, routes, views, migrations, assets)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      # Real MySQL so migrations + lms:migrate execute against a Server,
+      # not just SQLite. Catches MySQL-specific schema bugs.
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootsecret
+          MYSQL_DATABASE: lms_edyone
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -prootsecret"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ─────────────────────────────────────────────────────────────────
+      # PHP setup — match production (8.3, same extensions as Dockerfile)
+      # ─────────────────────────────────────────────────────────────────
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: bcmath, exif, gd, intl, mbstring, pdo_mysql, redis, zip, pcntl
+          tools: composer:v2
+          coverage: none
+
+      - name: Setup Node 20 (matches Dockerfile assets stage)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      # ─────────────────────────────────────────────────────────────────
+      # CHECK 1 — Syntax lint every PHP file.
+      # Catches typos that wouldn't parse. Fast (parallel via xargs).
+      # ─────────────────────────────────────────────────────────────────
+      - name: PHP syntax lint (php -l)
+        run: |
+          set -e
+          find app bootstrap config database routes tests -name '*.php' -print0 \
+            | xargs -0 -n1 -P4 php -l > /tmp/lint.log 2>&1 \
+            || (grep -v 'No syntax errors' /tmp/lint.log; exit 1)
+          echo "All PHP files lint clean."
+
+      # ─────────────────────────────────────────────────────────────────
+      # CHECK 2 — No .php file under app/ is missing a class/interface/
+      # trait/enum declaration. Catches the Profile.php "Blade dumped
+      # into the PHP class file" class of bug.
+      # ─────────────────────────────────────────────────────────────────
+      - name: Guard against PHP files without class declarations
+        run: |
+          set -e
+          missing=$(
+            find app -type f -name '*.php' \
+              -print0 \
+              | xargs -0 -I{} sh -c '
+                  if ! grep -qE "^\s*(class|interface|trait|enum|abstract class|final class)\s" "$1"; then
+                    echo "$1"
+                  fi
+                ' _ {}
+          )
+          if [ -n "$missing" ]; then
+            echo "::error::These files under app/ have no class/interface/trait/enum declaration:"
+            echo "$missing"
+            echo
+            echo "If a file is a Blade view, move it to resources/views/ with .blade.php extension."
+            exit 1
+          fi
+          echo "All files under app/ declare a class-like symbol."
+
+      # ─────────────────────────────────────────────────────────────────
+      # CHECK 3 — Composer install in prod mode (no-dev), then strict
+      # PSR-4. Catches filename/classname mismatches like
+      # FirebaseNotification.php vs class FirebasePushNotification.
+      # ─────────────────────────────────────────────────────────────────
+      - name: Composer install (no-dev, prod-like)
+        run: |
+          composer install \
+            --no-dev \
+            --no-interaction \
+            --no-progress \
+            --prefer-dist \
+            --optimize-autoloader \
+            --no-scripts
+
+      - name: Strict PSR-4 + classmap-authoritative (mirrors Dockerfile)
+        run: |
+          set -e
+          composer dump-autoload \
+            --optimize \
+            --classmap-authoritative \
+            --strict-psr \
+            --no-scripts
+
+      # ─────────────────────────────────────────────────────────────────
+      # CHECK 4 — Asset build. Catches Vite/Tailwind compile errors
+      # before the Dockerfile assets stage fails on EC2.
+      # ─────────────────────────────────────────────────────────────────
+      - name: Build front-end assets (npm ci + vite build)
+        run: |
+          npm ci
+          npm run build
+          test -f public/build/manifest.json
+          echo "Vite manifest produced."
+
+      # ─────────────────────────────────────────────────────────────────
+      # CHECK 5 — Boot Laravel against the prepared MySQL service,
+      # then run all the artisan steps that run inside docker/entrypoint.sh
+      # at container boot. Catches:
+      #   - missing config keys
+      #   - blade view compile errors (view:cache)
+      #   - cached-config env() bugs (config:cache)
+      #   - migration failures
+      #   - lms:migrate schema-drift command failures
+      #   - route resolution failures including Livewire components
+      # ─────────────────────────────────────────────────────────────────
+      - name: Prepare .env for CI run
+        run: |
+          cp .env.example .env
+          # Override DB to point at the GitHub services MySQL.
+          sed -i 's/^DB_HOST=.*/DB_HOST=127.0.0.1/' .env
+          sed -i 's/^DB_PORT=.*/DB_PORT=3306/' .env
+          sed -i 's/^DB_DATABASE=.*/DB_DATABASE=lms_edyone/' .env
+          sed -i 's/^DB_USERNAME=.*/DB_USERNAME=root/' .env
+          sed -i 's/^DB_PASSWORD=.*/DB_PASSWORD=rootsecret/' .env
+          # Use file/array drivers — CI doesn't have Redis.
+          sed -i 's/^CACHE_STORE=.*/CACHE_STORE=file/' .env
+          sed -i 's/^SESSION_DRIVER=.*/SESSION_DRIVER=file/' .env
+          sed -i 's/^QUEUE_CONNECTION=.*/QUEUE_CONNECTION=sync/' .env
+          # S3 stays unconfigured in CI — that's fine; nothing here uploads.
+          php artisan key:generate --force --no-interaction
+
+      - name: artisan config:cache (catches env() usage outside config files)
+        run: php artisan config:cache
+
+      - name: artisan view:cache (catches Blade compile errors)
+        run: php artisan view:cache
+
+      - name: artisan migrate (catches migration SQL errors against real MySQL)
+        run: php artisan migrate --force --no-interaction
+
+      - name: artisan lms:migrate (catches schema-drift command errors)
+        run: php artisan lms:migrate --no-interaction
+
+      - name: artisan route:list (catches "Invalid route action" bugs)
+        run: |
+          php artisan route:list --no-ansi >/dev/null
+          echo "All routes resolved their actions successfully."
+
+  # ──────────────────────────────────────────────────────────────────────
+  # JOB 2 — DEPLOY
+  # Only runs when:
+  #   • validate passed
+  #   • event is a push to main (NOT a pull_request — PRs validate but
+  #     don't deploy)
+  # ──────────────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to EC2
+    needs: validate
+    # Deploy when:
+    #   • commit is pushed to main, OR
+    #   • the workflow is dispatched manually from the Actions tab.
+    # PRs are intentionally excluded (they validate but don't deploy).
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: production    # optional: tie to a GitHub Environment for approvals/secrets scoping
+
+    steps:
+      - name: SSH and redeploy
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ZEPTOMAIL_API_TOKEN: ${{ secrets.ZEPTOMAIL_API_TOKEN }}
+          ZEPTOMAIL_OTP_TEMPLATE_KEY: ${{ secrets.ZEPTOMAIL_OTP_TEMPLATE_KEY }}
+          ZEPTOMAIL_TEACHER_PASSWORD_TEMPLATE_KEY: ${{ secrets.ZEPTOMAIL_TEACHER_PASSWORD_TEMPLATE_KEY }}
+          ZEPTOMAIL_STUDENT_PASSWORD_TEMPLATE_KEY: ${{ secrets.ZEPTOMAIL_STUDENT_PASSWORD_TEMPLATE_KEY }}
+          ZEPTOMAIL_FROM_EMAIL: ${{ secrets.ZEPTOMAIL_FROM_EMAIL }}
+          ZEPTOMAIL_FROM_NAME: ${{ secrets.ZEPTOMAIL_FROM_NAME }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          AWS_BUCKET: ${{ secrets.AWS_BUCKET }}
+          AWS_URL: ${{ secrets.AWS_URL }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          # Docker build recompiles PHP from source (cache pruned each deploy),
+          # which can exceed the action's default 10m command timeout.
+          command_timeout: 30m
+          script_stop: true
+          envs: GIT_TOKEN,ZEPTOMAIL_API_TOKEN,ZEPTOMAIL_OTP_TEMPLATE_KEY,ZEPTOMAIL_TEACHER_PASSWORD_TEMPLATE_KEY,ZEPTOMAIL_STUDENT_PASSWORD_TEMPLATE_KEY,ZEPTOMAIL_FROM_EMAIL,ZEPTOMAIL_FROM_NAME,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_DEFAULT_REGION,AWS_BUCKET,AWS_URL
+          script: |
+            set -x
+            cd ${{ secrets.EC2_PROJECT_PATH }}
+
+            # ─── STEP 0: FREE DISK SPACE FIRST ──────────────────────────────
+            # The disk on this EC2 has been filling up to the point where even
+            # writing a few-KB .env file fails with "no space left on device".
+            # Reclaim space BEFORE doing anything that writes to disk
+            # (env injection, git pull, docker build).
+            #
+            # Strategy:
+            #   - Stop the old app container so we can also wipe its
+            #     no-longer-needed image (compose will rebuild + restart).
+            #   - Prune docker builder cache + dangling images + stopped
+            #     containers + unused networks. NEVER prune volumes (MySQL
+            #     data lives there).
+            #   - Truncate large container/app logs (often gigs on small disks).
+            echo "==> [step 0] disk space BEFORE cleanup"
+            df -h / || true
+            du -sh /var/lib/docker 2>/dev/null || true
+
+            echo "==> [step 0] truncate large container logs (Docker JSON logs are usually the biggest hogs)"
+            find /var/lib/docker/containers -type f -name "*-json.log" -exec truncate -s 0 {} + 2>/dev/null || true
+
+            echo "==> [step 0] truncate large /var/log files (>20MB)"
+            find /var/log -type f \( -name "*.log" -o -name "*.gz" \) -size +20M -exec truncate -s 0 {} + 2>/dev/null || true
+
+            echo "==> [step 0] docker prune (images + containers + networks)"
+            # NOTE: do NOT run `docker builder prune -af` here. Wiping the build
+            # cache forces a full from-source PHP recompile every deploy (10m+),
+            # which overran the SSH timeout. Keep the cache so the heavy PHP/
+            # extension layers are reused and the build finishes in seconds.
+            # Only trim builder cache older than 7 days to bound disk growth.
+            docker builder prune -f --filter "until=168h" || true
+            docker image prune -af || true
+            docker container prune -f || true
+            docker network prune -f || true
+            # NOTE: deliberately NOT pruning volumes — that would wipe MySQL data.
+
+            echo "==> [step 0] also drop apt cache + pip cache (in case present)"
+            sudo rm -rf /var/cache/apt/archives/*.deb 2>/dev/null || true
+            rm -rf /root/.cache/pip 2>/dev/null || true
+
+            echo "==> [step 0] disk space AFTER cleanup"
+            df -h / || true
+
+            # Hard fail if we still have <500MB free on / — no point trying to
+            # build a Docker image with no headroom. Operator must intervene.
+            #
+            # NOTE: appleboy/ssh-action with script_stop:true checks the exit
+            # code of EVERY top-level command including bash `[` test inside
+            # `if` conditions. A `[ X -lt 500 ]` that evaluates FALSE returns
+            # exit 1 and trips script_stop — even though that's the GOOD case.
+            # Wrap the whole conditional in `bash -c '...'` so the action only
+            # sees the final exit code of the subshell.
+            FREE_MB=$(df --output=avail / | tail -n1 | awk '{print int($1/1024)}')
+            echo "==> [step 0] free space on /: ${FREE_MB} MB"
+            bash -c "
+              if [ \"${FREE_MB}\" -lt 500 ]; then
+                echo '::error::Less than 500MB free after cleanup — manual intervention needed (resize EBS volume or investigate disk hogs).'
+                exit 1
+              fi
+            "
+
+            # ─── STEP 1: inject ZeptoMail env vars into .env ────────────────
+            # Wrap whole loop in bash -c so internal `if [ -n ... ]` doesn't
+            # trip script_stop when a value happens to be empty (returns 1).
+            echo "==> inject ZeptoMail env vars"
+            ZM_API="${ZEPTOMAIL_API_TOKEN:-}" \
+            ZM_OTP="${ZEPTOMAIL_OTP_TEMPLATE_KEY:-}" \
+            ZM_TPW="${ZEPTOMAIL_TEACHER_PASSWORD_TEMPLATE_KEY:-}" \
+            ZM_SPW="${ZEPTOMAIL_STUDENT_PASSWORD_TEMPLATE_KEY:-}" \
+            ZM_FE="${ZEPTOMAIL_FROM_EMAIL:-}" \
+            ZM_FN="${ZEPTOMAIL_FROM_NAME:-}" \
+            bash -c '
+              for ENTRY in \
+                "ZEPTOMAIL_API_TOKEN=$ZM_API" \
+                "ZEPTOMAIL_OTP_TEMPLATE_KEY=$ZM_OTP" \
+                "ZEPTOMAIL_TEACHER_PASSWORD_TEMPLATE_KEY=$ZM_TPW" \
+                "ZEPTOMAIL_STUDENT_PASSWORD_TEMPLATE_KEY=$ZM_SPW" \
+                "ZEPTOMAIL_FROM_EMAIL=$ZM_FE" \
+                "ZEPTOMAIL_FROM_NAME=$ZM_FN"; do
+                KEY="${ENTRY%%=*}"
+                VAL="${ENTRY#*=}"
+                if [ -n "$VAL" ]; then
+                  grep -v "^${KEY}=" .env > /tmp/.env_tmp 2>/dev/null || true
+                  printf "%s=\"%s\"\n" "$KEY" "$VAL" >> /tmp/.env_tmp
+                  mv /tmp/.env_tmp .env
+                fi
+              done
+            ' || true
+
+            # ─── STEP 1b: inject AWS / S3 env vars into .env ────────────────
+            # Same self-healing pattern as ZeptoMail above: only overwrite a
+            # key when a non-empty secret is provided, so a missing GitHub
+            # secret never blanks out a working value. Values are quoted to
+            # survive special chars (the secret key can contain + / =).
+            echo "==> inject AWS S3 env vars"
+            AWS_AK="${AWS_ACCESS_KEY_ID:-}" \
+            AWS_SK="${AWS_SECRET_ACCESS_KEY:-}" \
+            AWS_RG="${AWS_DEFAULT_REGION:-}" \
+            AWS_BK="${AWS_BUCKET:-}" \
+            AWS_UR="${AWS_URL:-}" \
+            bash -c '
+              for ENTRY in \
+                "AWS_ACCESS_KEY_ID=$AWS_AK" \
+                "AWS_SECRET_ACCESS_KEY=$AWS_SK" \
+                "AWS_DEFAULT_REGION=$AWS_RG" \
+                "AWS_BUCKET=$AWS_BK" \
+                "AWS_URL=$AWS_UR"; do
+                KEY="${ENTRY%%=*}"
+                VAL="${ENTRY#*=}"
+                if [ -n "$VAL" ]; then
+                  grep -v "^${KEY}=" .env > /tmp/.env_tmp 2>/dev/null || true
+                  printf "%s=\"%s\"\n" "$KEY" "$VAL" >> /tmp/.env_tmp
+                  mv /tmp/.env_tmp .env
+                fi
+              done
+            ' || true
+
+            echo "==> git pull"
+            git remote set-url origin "https://x-access-token:${GIT_TOKEN:-}@github.com/edyonelms/edyonelms.git"
+            git fetch origin main
+            # Fix ownership of files that Docker may have created as root
+            # (e.g. public/build/* built inside the container).
+            # Without this, git reset --hard fails with "Permission denied".
+            sudo chown -R "$(whoami)":"$(whoami)" . 2>/dev/null || true
+            git reset --hard origin/main
+
+            # ─── Drop stale compiled caches so new routes take effect ───────
+            # bootstrap/cache is bind-mounted from the host and is chown'd to
+            # the SSH user just above, so the in-container www-data user can no
+            # longer delete or overwrite it. The route table also can't be
+            # re-cached (some routes use closures, which makes route:cache fail
+            # and the entrypoint swallows it). The net effect is a STALE
+            # routes-v7.php — generated before newer routes (e.g. the
+            # certificate / TC PDF download routes) existed — keeps being
+            # served, so those URLs 404 even though the code is deployed.
+            # Remove the compiled caches here on the host (we own them); the
+            # container regenerates config/view on boot and falls back to
+            # dynamic route resolution, so every route is reachable.
+            rm -f bootstrap/cache/*.php || true
+
+            # ─── Restore storage/cache ownership to www-data ────────────────
+            # The host-side `chown -R $(whoami)` above gives storage/ and
+            # bootstrap/cache/ to ec2-user, but PHP-FPM in the container runs
+            # as www-data (UID 33 on debian bookworm). Without this fix, every
+            # request 500s on the first session write:
+            #   file_put_contents(storage/framework/sessions/...): Permission denied
+            # Hand these two trees back to UID 33 so the container can write
+            # sessions, compiled views, the framework cache, and logs.
+            sudo chown -R 33:33 storage bootstrap/cache 2>/dev/null || true
+            sudo chmod -R u+rwX,g+rwX storage bootstrap/cache 2>/dev/null || true
+
+            # Build new app image while old container keeps serving traffic.
+            # Compose only recreates services whose image/config changed —
+            # nginx, mysql, redis stay untouched (no DB/cache downtime).
+            echo "==> docker compose build app"
+            docker compose build app
+
+            echo "==> docker compose up -d (recreate changed services only)"
+            docker compose up -d --remove-orphans
+
+            echo "==> waiting for app container to be healthy"
+            bash -c '
+              for i in $(seq 1 30); do
+                if docker compose ps app | grep -q "Up"; then
+                  echo "app is running"
+                  break
+                fi
+                sleep 2
+              done
+            ' || true
+
+            # ─── Self-heal: ensure APP_KEY is set ──────────────────────────
+            # appleboy/ssh-action's script_stop checks the exit code of every
+            # top-level command — including `[`, `grep -q`, and other tests
+            # inside `if` conditions. A `[ -z "$VAR" ]` that evaluates to
+            # FALSE (variable IS set — the good case) returns exit 1 and
+            # trips script_stop. Run the whole self-heal block inside a
+            # single `bash -c "..."` so the action only sees one exit code,
+            # and `|| true` so even an internal failure doesn't abort the
+            # deploy (just logs and moves on).
+            echo "==> ensure APP_KEY is set"
+            bash -c '
+              if grep -qE "^APP_KEY=base64:" .env; then
+                echo "APP_KEY already present"
+                exit 0
+              fi
+              echo "APP_KEY missing or empty — generating one"
+              grep -qE "^APP_KEY=" .env || echo "APP_KEY=" >> .env
+              docker compose exec -T app php artisan key:generate --force --no-interaction || true
+              docker compose exec -T app php artisan config:cache || true
+            ' || true
+
+            echo "==> docker compose ps"
+            docker compose ps
+
+            echo "==> tail of app logs"
+            docker compose logs --tail=50 app
+
+            echo "==> Laravel error log"
+            docker compose exec -T app tail -n 80 storage/logs/laravel.log 2>/dev/null || echo "no laravel log"
+
+            echo "==> flush all caches then rebuild"
+            docker compose exec -T app php artisan optimize:clear || true
+            docker compose exec -T app php artisan optimize || true
+
+            echo "==> app env check"
+            docker compose exec -T app php artisan env || true
+
+            echo "==> prune dangling images"
+            docker image prune -f
