@@ -24,6 +24,10 @@ auth.json
 # Composer / Laravel installer artifacts
 composer-setup.php
 
+# Infra secrets (real values - never commit)
+infra/secrets/app-secrets.json
+infra/secrets/*firebase*.json
+
 # Logs & caches
 /storage/logs/*.log
 /storage/framework/cache/data/*
