@@ -1,0 +1,85 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  EdyOne LMS database (Phase 6). RDS MySQL 8, db.t4g.small, Single-AZ, in the
+  private subnets, reachable only from the ECS security group. The master
+  password is generated and stored in Secrets Manager (edyonelms/rds) - never
+  in plaintext. Endpoint + secret ARN are exported for the app env (Phase 8).
+
+Parameters:
+  DBName:
+    Type: String
+    Default: edyonelms
+  MasterUsername:
+    Type: String
+    Default: edyonelms
+  DBInstanceClass:
+    Type: String
+    Default: db.t4g.small
+  AllocatedStorage:
+    Type: Number
+    Default: 20
+
+Resources:
+  # Generated master credentials, stored in Secrets Manager.
+  DBSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: edyonelms/rds
+      Description: EdyOne LMS RDS MySQL master credentials
+      GenerateSecretString:
+        SecretStringTemplate: !Sub '{"username":"${MasterUsername}"}'
+        GenerateStringKey: password
+        PasswordLength: 24
+        ExcludePunctuation: true   # keep it URL/.env safe
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: EdyOne LMS private DB subnets
+      SubnetIds: !Split [",", !ImportValue edyonelms-private-subnets]
+
+  DBInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: edyonelms-mysql
+      Engine: mysql
+      # EngineVersion omitted on purpose - RDS uses the current default 8.0 minor.
+      DBInstanceClass: !Ref DBInstanceClass
+      AllocatedStorage: !Ref AllocatedStorage
+      StorageType: gp3
+      MultiAZ: false
+      DBName: !Ref DBName
+      MasterUsername: !Sub "{{resolve:secretsmanager:${DBSecret}:SecretString:username}}"
+      MasterUserPassword: !Sub "{{resolve:secretsmanager:${DBSecret}:SecretString:password}}"
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VPCSecurityGroups:
+        - !ImportValue edyonelms-rds-sg
+      PubliclyAccessible: false
+      StorageEncrypted: true
+      BackupRetentionPeriod: 7
+      DeletionProtection: false
+
+  # Binds the secret to the DB instance (adds host/port to the secret JSON).
+  DBSecretAttachment:
+    Type: AWS::SecretsManager::SecretTargetAttachment
+    Properties:
+      SecretId: !Ref DBSecret
+      TargetId: !Ref DBInstance
+      TargetType: AWS::RDS::DBInstance
+
+Outputs:
+  DBHost:
+    Value: !GetAtt DBInstance.Endpoint.Address
+    Export: { Name: edyonelms-db-host }
+  DBPort:
+    Value: !GetAtt DBInstance.Endpoint.Port
+    Export: { Name: edyonelms-db-port }
+  DBName:
+    Value: !Ref DBName
+    Export: { Name: edyonelms-db-name }
+  DBSecretArn:
+    Description: Secrets Manager ARN with username/password/host/port
+    Value: !Ref DBSecret
+    Export: { Name: edyonelms-db-secret-arn }
