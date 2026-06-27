@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
-  superlms ECS (Phase 10). Fargate (ARM64) cluster + internet-facing ALB +
+  superlms ECS (Phase 10). Fargate (x86_64) cluster + internet-facing ALB +
   three services from ONE image: web (x2, behind ALB), worker (Fargate Spot),
   scheduler (x1). Plain config is passed as environment; sensitive values are
   injected from Secrets Manager (superlms/rds + superlms/app). DB/Redis/S3
