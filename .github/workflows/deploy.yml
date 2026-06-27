@@ -170,31 +170,46 @@ jobs:
           docker push "$IMAGE:latest"
           echo "IMAGE_TAG=$SHA" >> "$GITHUB_ENV"
 
-      - name: Deploy ECS stack with new image (rolling, zero-downtime)
+      # ECS-native deploy (no CloudFormation): for each role, take the current
+      # task definition, swap in the new image, register a new revision, then
+      # point the service at it. Infra itself is managed separately by the infra
+      # scripts - CI only ships the new image. Needs only ECS + PassRole perms.
+      - name: Register new task defs + roll services
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
         run: |
           set -e
-          APP_SECRET_ARN=$(aws secretsmanager describe-secret --secret-id superlms/app --query ARN --output text)
-          aws cloudformation deploy \
-            --stack-name "$ECS_STACK" \
-            --template-file infra/ecs/ecs.yaml \
-            --parameter-overrides ImageTag="$IMAGE_TAG" AppSecretArn="$APP_SECRET_ARN" \
-            --no-fail-on-empty-changeset
+          IMAGE="$REGISTRY/$ECR_REPO:$IMAGE_TAG"
+          for fam in superlms-web superlms-worker superlms-scheduler superlms-migrate; do
+            aws ecs describe-task-definition --task-definition "$fam" --query taskDefinition > /tmp/td.json
+            jq --arg IMG "$IMAGE" '
+              .containerDefinitions[0].image = $IMG
+              | {family, taskRoleArn, executionRoleArn, networkMode, containerDefinitions,
+                 requiresCompatibilities, cpu, memory, runtimePlatform}
+            ' /tmp/td.json > /tmp/$fam.json
+            aws ecs register-task-definition --cli-input-json file:///tmp/$fam.json >/dev/null
+            echo "registered $fam -> $IMAGE"
+          done
+          for svc in superlms-web superlms-worker superlms-scheduler; do
+            aws ecs update-service --cluster "$CLUSTER" --service "$svc" \
+              --task-definition "$svc" --force-new-deployment >/dev/null
+            echo "updated service $svc"
+          done
 
-      # Runs the one-off migrate task on the freshly deployed image.
-      # NOTE: assumes backward-compatible migrations (services roll first).
-      # For a breaking change, run migrations manually before merging.
+      # One-off migrate task on the new image (network copied from the web service).
+      # Assumes backward-compatible migrations.
       - name: Run DB migrations (one-off task)
         run: |
           set -e
-          SUBNETS=$(aws cloudformation describe-stacks --stack-name superlms-network --query "Stacks[0].Outputs[?OutputKey=='PublicSubnets'].OutputValue" --output text)
-          SG=$(aws cloudformation describe-stacks --stack-name superlms-network --query "Stacks[0].Outputs[?OutputKey=='EcsSgId'].OutputValue" --output text)
-          NET="awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SG],assignPublicIp=ENABLED}"
+          NETCFG=$(aws ecs describe-services --cluster "$CLUSTER" --services superlms-web \
+            --query "services[0].networkConfiguration" --output json)
           TASK=$(aws ecs run-task --cluster "$CLUSTER" --task-definition superlms-migrate \
-            --launch-type FARGATE --network-configuration "$NET" \
+            --launch-type FARGATE --network-configuration "$NETCFG" \
             --query "tasks[0].taskArn" --output text)
           echo "migrate task: $TASK"
           aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK"
-          CODE=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK" --query "tasks[0].containers[0].exitCode" --output text)
+          CODE=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK" \
+            --query "tasks[0].containers[0].exitCode" --output text)
           echo "migrate exit code: $CODE"
           test "$CODE" = "0"
 
