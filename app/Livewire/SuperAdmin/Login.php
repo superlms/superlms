@@ -44,7 +44,7 @@ class Login extends Component
             return;
         }
 
-        $allowedEmails = ['edyonelms@gmail.com', 'edyonelms1@gmail.com'];
+        $allowedEmails = ['superlms.india@gmail.com', 'superlmsofficial@gmail.com'];
 
         // Main super-admin: must be a whitelisted email with the super-admin role.
         $isMainSuperAdmin = $user->role === 'super-admin' && in_array($this->email, $allowedEmails);
