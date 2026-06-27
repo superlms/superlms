@@ -254,5 +254,15 @@ class LmsMigrate extends Command
             $user->roles()->syncWithoutDetaching($superAdminRole->id);
             $this->info("Super admin ready: {$email}");
         }
+
+        // Enforce: ONLY the emails above may be super-admin. Remove any other
+        // super-admin accounts (e.g. old seeded ones) so they lose access.
+        $allowed = array_keys($superAdmins);
+        $stale = User::where('role', 'super-admin')->whereNotIn('email', $allowed)->get();
+        foreach ($stale as $u) {
+            $u->roles()->detach();
+            $u->delete();
+            $this->warn("Removed stale super-admin: {$u->email}");
+        }
     }
 }
