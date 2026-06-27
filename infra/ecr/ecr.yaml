@@ -1,0 +1,38 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  superlms container registry (Phase 9). One ECR repo for the app image
+  (all 4 roles run from the same image). Scan-on-push enabled; a lifecycle
+  policy keeps only the last 10 images so the repo never grows unbounded.
+
+Resources:
+  Repo:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: superlms-app
+      ImageTagMutability: MUTABLE
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep only the last 10 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": { "type": "expire" }
+              }
+            ]
+          }
+
+Outputs:
+  RepoUri:
+    Value: !GetAtt Repo.RepositoryUri
+    Export: { Name: superlms-ecr-uri }
+  RepoName:
+    Value: !Ref Repo
+    Export: { Name: superlms-ecr-name }
