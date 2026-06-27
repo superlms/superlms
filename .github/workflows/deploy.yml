@@ -133,7 +133,7 @@ jobs:
     if: >-
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    runs-on: ubuntu-24.04-arm    # native ARM64 -> fast image build (no emulation)
+    runs-on: ubuntu-latest       # native amd64 -> matches the x86_64 ECS task defs
     timeout-minutes: 30
     environment: production
     permissions:
@@ -158,14 +158,14 @@ jobs:
         id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build & push image (linux/arm64)
+      - name: Build & push image (linux/amd64)
         env:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
         run: |
           set -e
           IMAGE="$REGISTRY/$ECR_REPO"
           SHA="${GITHUB_SHA::12}"
-          docker build --target runtime -t "$IMAGE:$SHA" -t "$IMAGE:latest" .
+          docker build --platform linux/amd64 --target runtime -t "$IMAGE:$SHA" -t "$IMAGE:latest" .
           docker push "$IMAGE:$SHA"
           docker push "$IMAGE:latest"
           echo "IMAGE_TAG=$SHA" >> "$GITHUB_ENV"
