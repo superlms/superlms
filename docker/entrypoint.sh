@@ -33,12 +33,12 @@ if [ "${RUN_STORAGE_LINK:-true}" = "true" ]; then
     php artisan storage:link --force || true
 fi
 
-# Run migrations on boot unless opted out
-if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
-    php artisan migrate --force --no-interaction || true
-    # Apply schema patches not covered by regular migrations (idempotent via Schema::hasColumn checks)
-    php artisan lms:migrate --no-interaction || true
-fi
+# Migrations are intentionally NOT run on container boot.
+# On ECS every web/worker task would race to migrate the same database,
+# causing duplicate/locked migrations. Instead migrations run as a single
+# dedicated one-off task (the "migrate" role — Phase 11):
+#     php artisan migrate --force --no-interaction
+#     php artisan lms:migrate --no-interaction
 
 # Cache config/routes/views for production
 if [ "${APP_ENV:-production}" = "production" ]; then

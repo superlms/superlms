@@ -58,6 +58,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         curl \
         ca-certificates \
         supervisor \
+        nginx \
         libpng-dev \
         libjpeg62-turbo-dev \
         libfreetype6-dev \
@@ -92,8 +93,14 @@ COPY docker/php/php.ini       /usr/local/etc/php/conf.d/zz-app.ini
 COPY docker/php/opcache.ini   /usr/local/etc/php/conf.d/zz-opcache.ini
 COPY docker/php/www.conf      /usr/local/etc/php-fpm.d/zz-www.conf
 
-# Supervisor (runs php-fpm + queue worker)
-COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/app.conf
+# nginx vhost — nginx runs INSIDE this image (web role), reaching php-fpm
+# over 127.0.0.1:9000. No separate nginx container/task needed on ECS.
+COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+RUN rm -f /etc/nginx/sites-enabled/default
+
+# Supervisor — WEB role only: runs nginx + php-fpm together.
+# worker/scheduler/migrate roles override the container command instead.
+COPY docker/supervisor/web.conf /etc/supervisor/conf.d/app.conf
 
 WORKDIR ${APP_HOME}
 
@@ -116,7 +123,12 @@ RUN chown -R www-data:www-data ${APP_HOME}/storage ${APP_HOME}/bootstrap/cache \
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-EXPOSE 9000
+# Web role serves HTTP on 80 (nginx). The ALB target group points here.
+EXPOSE 80
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+# Default = WEB role. Other ECS services override this command:
+#   worker     -> php artisan queue:work --tries=3 --timeout=120 --sleep=3 --max-jobs=1000 --max-time=3600
+#   scheduler  -> php artisan schedule:work
+#   migrate    -> sh -c "php artisan migrate --force --no-interaction && php artisan lms:migrate --no-interaction"
 CMD ["supervisord", "-c", "/etc/supervisor/conf.d/app.conf"]

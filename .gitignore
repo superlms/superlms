@@ -23,6 +23,7 @@ auth.json
 
 # Composer / Laravel installer artifacts
 composer-setup.php
+composer.phar
 
 # Infra secrets (real values - never commit)
 infra/secrets/app-secrets.json
