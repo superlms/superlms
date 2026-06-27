@@ -101,7 +101,7 @@
       <div class="svc-content">
         <span class="svc-eyebrow">01 · Software</span>
         <h2 class="svc-title">All-in-One School LMS</h2>
-        <p class="svc-desc">At the heart of everything is the EDYONE Learning Management System — a complete, affordable
+        <p class="svc-desc">At the heart of everything is the SUPERLMS Learning Management System — a complete, affordable
           platform that runs your entire school from a single login. From admissions to report cards, attendance to fees,
           everything is connected and available on the web and on dedicated mobile apps.</p>
         <ul class="svc-points">
@@ -283,7 +283,7 @@
         <span class="svc-eyebrow">08 · Learning</span>
         <h2 class="svc-title">Online Education</h2>
         <p class="svc-desc">Learning shouldn't stop at the school gate. We provide online education for students through
-          live and recorded classes, digital study material and assessments — all accessible from the EDYONE app, so
+          live and recorded classes, digital study material and assessments — all accessible from the SUPERLMS app, so
           students can keep learning anytime, anywhere.</p>
         <ul class="svc-points">
           <li><span class="svc-check">✓</span>Live online classes plus recorded lectures to revisit</li>
@@ -303,7 +303,7 @@
     <div class="cta-card">
       <h2 class="cta-title">Ready to digitise &amp; equip your <span class="gradient-text">school?</span></h2>
       <p class="cta-desc">Tell us what your school needs — software, infrastructure, transport, essentials or online
-        learning — and we'll tailor the right mix of EDYONE services for you.</p>
+        learning — and we'll tailor the right mix of SUPERLMS services for you.</p>
       <div class="cta-actions">
         <a href="{{ url('web/demo') }}" class="btn btn-primary btn-xl">Request a Demo</a>
         <a href="{{ url('web/contact') }}" class="btn btn-outline btn-xl">Talk to Us</a>

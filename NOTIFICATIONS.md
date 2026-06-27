@@ -1,7 +1,7 @@
 # Push Notifications (backend)
 
 How the Laravel API delivers push notifications to the mobile app
-(`edyonelmsapp`). The app handles **display** (Notifee) and keeps its own
+(`superlmsapp`). The app handles **display** (Notifee) and keeps its own
 in-app inbox — the backend only **delivers data**.
 
 ## Pieces
@@ -83,7 +83,7 @@ Implemented rules (dispatched via `App\Services\AppPushNotifier`, wired in
 
 ## One-time credentials setup
 
-1. Firebase Console → project **edyone-lms-57e8c** → ⚙ Project settings →
+1. Firebase Console → project **superlms-lms-57e8c** → ⚙ Project settings →
    **Service accounts** → **Generate new private key** (downloads a JSON).
 2. Put it on the server at `storage/app/firebase/service-account.json`
    (this path is git-ignored — never commit the key).

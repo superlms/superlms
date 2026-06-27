@@ -1,5 +1,5 @@
 <style>
-    .edyone-app-section {
+    .superlms-app-section {
         padding: 80px 6%;
         background: linear-gradient(135deg, var(--primary-faint, #F9EDF5), var(--secondary-faint, #F0EDFF));
         border-top: 1px solid var(--border2, rgba(111,86,254,0.08));
@@ -9,7 +9,7 @@
         box-sizing: border-box;
     }
 
-    .edyone-app-grid {
+    .superlms-app-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 60px;
@@ -18,7 +18,7 @@
         margin: 0 auto;
     }
 
-    .edyone-section-tag {
+    .superlms-section-tag {
         display: inline-flex;
         align-items: center;
         gap: 6px;
@@ -34,7 +34,7 @@
         color: var(--violet, #6F56FE);
     }
 
-    .edyone-app-title {
+    .superlms-app-title {
         font-family: 'Cormorant Garamond', serif;
         font-size: clamp(28px, 3vw, 40px);
         font-weight: 600;
@@ -43,28 +43,28 @@
         margin: 0 0 16px;
     }
 
-    .edyone-app-title .gradient-text {
+    .superlms-app-title .gradient-text {
         background: var(--grad1, linear-gradient(135deg, #DB57B2 0%, #6F56FE 100%));
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
     }
 
-    .edyone-app-desc {
+    .superlms-app-desc {
         font-size: 15px;
         color: var(--text3, #6B5B8A);
         line-height: 1.8;
         margin: 0 0 28px;
     }
 
-    .edyone-store-buttons {
+    .superlms-store-buttons {
         display: flex;
         gap: 14px;
         flex-wrap: wrap;
         margin-top: 28px;
     }
 
-    .edyone-store-btn {
+    .superlms-store-btn {
         display: flex;
         align-items: center;
         gap: 10px;
@@ -77,37 +77,37 @@
         transition: border-color .3s, transform .3s, box-shadow .3s;
     }
 
-    .edyone-store-btn:hover {
+    .superlms-store-btn:hover {
         border-color: var(--violet, #6F56FE);
         transform: translateY(-3px);
         box-shadow: 0 2px 12px rgba(111, 86, 254, 0.08);
     }
 
-    .edyone-store-btn__meta {
+    .superlms-store-btn__meta {
         display: flex;
         flex-direction: column;
     }
 
-    .edyone-store-btn__sub {
+    .superlms-store-btn__sub {
         font-size: 10px;
         color: var(--text3, #6B5B8A);
         letter-spacing: 0.5px;
         margin-bottom: 2px;
     }
 
-    .edyone-store-btn__name {
+    .superlms-store-btn__name {
         font-size: 14px;
         font-weight: 600;
         color: var(--text, #1A0F2E);
     }
 
-    .edyone-phone-wrap {
+    .superlms-phone-wrap {
         display: flex;
         justify-content: center;
         align-items: center;
     }
 
-    .edyone-phone-mockup {
+    .superlms-phone-mockup {
         width: 250px;
         height: 500px;
         background: #F7F4FF;
@@ -117,10 +117,10 @@
         position: relative;
         overflow: hidden;
         box-shadow: 0 8px 32px rgba(111, 86, 254, 0.12);
-        animation: edyoneFloat 5s ease-in-out infinite;
+        animation: superlmsFloat 5s ease-in-out infinite;
     }
 
-    .edyone-phone-notch {
+    .superlms-phone-notch {
         position: absolute;
         top: 10px;
         left: 50%;
@@ -132,7 +132,7 @@
         z-index: 10;
     }
 
-    .edyone-phone-screen {
+    .superlms-phone-screen {
         padding: 46px 14px 14px;
         height: 100%;
         display: flex;
@@ -141,7 +141,7 @@
         background: linear-gradient(160deg, #FAFAFA, #F7F4FF);
     }
 
-    .edyone-phone-header {
+    .superlms-phone-header {
         background: linear-gradient(135deg, #DB57B2 0%, #6F56FE 100%);
         border-radius: 12px;
         padding: 14px;
@@ -151,34 +151,34 @@
         color: #fff;
     }
 
-    .edyone-phone-card {
+    .superlms-phone-card {
         background: #fff;
         border: 1px solid var(--border2, rgba(111,86,254,0.08));
         border-radius: 10px;
         padding: 10px;
     }
 
-    .edyone-phone-card__title {
+    .superlms-phone-card__title {
         font-size: 11px;
         font-weight: 600;
         color: var(--text, #1A0F2E);
         margin-bottom: 5px;
     }
 
-    .edyone-phone-bar {
+    .superlms-phone-bar {
         height: 3px;
         border-radius: 2px;
         background: linear-gradient(135deg, #DB57B2 0%, #6F56FE 100%);
         margin-bottom: 4px;
     }
 
-    .edyone-phone-label {
+    .superlms-phone-label {
         font-size: 9px;
         color: var(--text3, #6B5B8A);
     }
 
     /* ── Dashboard-style phone screen ── */
-    .edyone-dash-head {
+    .superlms-dash-head {
         display: flex;
         align-items: center;
         gap: 9px;
@@ -188,7 +188,7 @@
         color: #fff;
     }
 
-    .edyone-dash-avatar {
+    .superlms-dash-avatar {
         width: 30px;
         height: 30px;
         border-radius: 50%;
@@ -200,37 +200,37 @@
         flex-shrink: 0;
     }
 
-    .edyone-dash-hi {
+    .superlms-dash-hi {
         font-size: 9px;
         opacity: 0.85;
         line-height: 1.2;
     }
 
-    .edyone-dash-name {
+    .superlms-dash-name {
         font-size: 12px;
         font-weight: 700;
         line-height: 1.2;
     }
 
-    .edyone-dash-bell {
+    .superlms-dash-bell {
         margin-left: auto;
         font-size: 13px;
     }
 
-    .edyone-kpi-grid {
+    .superlms-kpi-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 8px;
     }
 
-    .edyone-kpi {
+    .superlms-kpi {
         background: #fff;
         border: 1px solid var(--border2, rgba(111, 86, 254, 0.08));
         border-radius: 11px;
         padding: 9px 10px;
     }
 
-    .edyone-kpi__num {
+    .superlms-kpi__num {
         font-size: 15px;
         font-weight: 700;
         background: linear-gradient(135deg, #6F56FE, #DB57B2);
@@ -240,13 +240,13 @@
         line-height: 1.1;
     }
 
-    .edyone-kpi__label {
+    .superlms-kpi__label {
         font-size: 8px;
         color: var(--text3, #6B5B8A);
         margin-top: 1px;
     }
 
-    .edyone-mini-chart {
+    .superlms-mini-chart {
         display: flex;
         align-items: flex-end;
         gap: 5px;
@@ -254,26 +254,26 @@
         margin-top: 8px;
     }
 
-    .edyone-mini-chart span {
+    .superlms-mini-chart span {
         flex: 1;
         border-radius: 3px 3px 0 0;
         background: linear-gradient(180deg, #6F56FE, #DB57B2);
         transform-origin: bottom;
-        animation: edyoneBar .9s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        animation: superlmsBar .9s cubic-bezier(0.34, 1.56, 0.64, 1) both;
     }
 
-    @keyframes edyoneBar {
+    @keyframes superlmsBar {
         from { transform: scaleY(0); }
         to   { transform: scaleY(1); }
     }
 
-    .edyone-quick-grid {
+    .superlms-quick-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
         gap: 6px;
     }
 
-    .edyone-quick {
+    .superlms-quick {
         background: #fff;
         border: 1px solid var(--border2, rgba(111, 86, 254, 0.08));
         border-radius: 9px;
@@ -281,67 +281,67 @@
         text-align: center;
     }
 
-    .edyone-quick__icon {
+    .superlms-quick__icon {
         font-size: 14px;
     }
 
-    .edyone-quick__label {
+    .superlms-quick__label {
         font-size: 7px;
         color: var(--text3, #6B5B8A);
         margin-top: 2px;
     }
 
-    @keyframes edyoneFloat {
+    @keyframes superlmsFloat {
         0%, 100% { transform: translateY(0); }
         50%       { transform: translateY(-14px); }
     }
 
     @media (max-width: 1100px) {
-        .edyone-app-grid {
+        .superlms-app-grid {
             grid-template-columns: 1fr;
             gap: 40px;
         }
-        .edyone-phone-mockup {
+        .superlms-phone-mockup {
             display: none;
         }
     }
 
     @media (max-width: 480px) {
-        .edyone-app-section {
+        .superlms-app-section {
             padding: 52px 4%;
         }
-        .edyone-store-buttons {
+        .superlms-store-buttons {
             flex-direction: column;
         }
-        .edyone-store-btn {
+        .superlms-store-btn {
             width: 100%;
             justify-content: center;
         }
     }
 </style>
 
-<section class="edyone-app-section">
-    <div class="edyone-app-grid">
+<section class="superlms-app-section">
+    <div class="superlms-app-grid">
 
         {{-- LEFT: Text content --}}
         <div>
-            <span class="edyone-section-tag">Mobile Apps</span>
+            <span class="superlms-section-tag">Mobile Apps</span>
 
-            <h2 class="edyone-app-title">
+            <h2 class="superlms-app-title">
                 Learn Anywhere,
                 <span class="gradient-text">Anytime</span>
             </h2>
 
-            <p class="edyone-app-desc">
-                Learn anytime, anywhere with EDYONE LMS mobile apps. Stay connected to
+            <p class="superlms-app-desc">
+                Learn anytime, anywhere with SUPERLMS mobile apps. Stay connected to
                 classes, assignments, and school updates on the go. Access lessons, track
                 progress, communicate with teachers, and manage your learning seamlessly,
                 ensuring uninterrupted education and real-time engagement, all from the
                 convenience of your smartphone or tablet.
             </p>
 
-            <div class="edyone-store-buttons">
-                <a class="edyone-store-btn"
+            <div class="superlms-store-buttons">
+                <a class="superlms-store-btn"
                     href="https://play.google.com/store/apps/details?id=com.edyoneapp&pcampaignid=web_share"
                     target="_blank" rel="noopener noreferrer">
                     <svg width="32" height="32" viewBox="0 0 512 512" aria-hidden="true" focusable="false">
@@ -350,53 +350,53 @@
                         <path d="M336 336l-96-80L48 432l288-96z" fill="#34A853" />
                         <path d="M464 256l-128-80-96 80 96 80 128-80z" fill="#4285F4" />
                     </svg>
-                    <div class="edyone-store-btn__meta">
-                        <span class="edyone-store-btn__sub">Get it on</span>
-                        <span class="edyone-store-btn__name">Google Play</span>
+                    <div class="superlms-store-btn__meta">
+                        <span class="superlms-store-btn__sub">Get it on</span>
+                        <span class="superlms-store-btn__name">Google Play</span>
                     </div>
                 </a>
             </div>
         </div>
 
         {{-- RIGHT: Phone mockup --}}
-        <div class="edyone-phone-wrap">
-            <div class="edyone-phone-mockup">
-                <div class="edyone-phone-notch"></div>
-                <div class="edyone-phone-screen">
+        <div class="superlms-phone-wrap">
+            <div class="superlms-phone-mockup">
+                <div class="superlms-phone-notch"></div>
+                <div class="superlms-phone-screen">
                     {{-- Greeting header --}}
-                    <div class="edyone-dash-head">
-                        <div class="edyone-dash-avatar">🎓</div>
+                    <div class="superlms-dash-head">
+                        <div class="superlms-dash-avatar">🎓</div>
                         <div>
-                            <div class="edyone-dash-hi">Good morning,</div>
-                            <div class="edyone-dash-name">Aarav's Dashboard</div>
+                            <div class="superlms-dash-hi">Good morning,</div>
+                            <div class="superlms-dash-name">Aarav's Dashboard</div>
                         </div>
-                        <div class="edyone-dash-bell">🔔</div>
+                        <div class="superlms-dash-bell">🔔</div>
                     </div>
 
                     {{-- KPI tiles --}}
-                    <div class="edyone-kpi-grid">
-                        <div class="edyone-kpi">
-                            <div class="edyone-kpi__num">94%</div>
-                            <div class="edyone-kpi__label">Attendance</div>
+                    <div class="superlms-kpi-grid">
+                        <div class="superlms-kpi">
+                            <div class="superlms-kpi__num">94%</div>
+                            <div class="superlms-kpi__label">Attendance</div>
                         </div>
-                        <div class="edyone-kpi">
-                            <div class="edyone-kpi__num">A+</div>
-                            <div class="edyone-kpi__label">Avg. Grade</div>
+                        <div class="superlms-kpi">
+                            <div class="superlms-kpi__num">A+</div>
+                            <div class="superlms-kpi__label">Avg. Grade</div>
                         </div>
-                        <div class="edyone-kpi">
-                            <div class="edyone-kpi__num">3</div>
-                            <div class="edyone-kpi__label">Tasks Due</div>
+                        <div class="superlms-kpi">
+                            <div class="superlms-kpi__num">3</div>
+                            <div class="superlms-kpi__label">Tasks Due</div>
                         </div>
-                        <div class="edyone-kpi">
-                            <div class="edyone-kpi__num">Paid</div>
-                            <div class="edyone-kpi__label">Fee Status</div>
+                        <div class="superlms-kpi">
+                            <div class="superlms-kpi__num">Paid</div>
+                            <div class="superlms-kpi__label">Fee Status</div>
                         </div>
                     </div>
 
                     {{-- Performance chart --}}
-                    <div class="edyone-phone-card">
-                        <div class="edyone-phone-card__title">Performance Overview</div>
-                        <div class="edyone-mini-chart">
+                    <div class="superlms-phone-card">
+                        <div class="superlms-phone-card__title">Performance Overview</div>
+                        <div class="superlms-mini-chart">
                             <span style="height:55%;animation-delay:.05s"></span>
                             <span style="height:72%;animation-delay:.13s"></span>
                             <span style="height:48%;animation-delay:.21s"></span>
@@ -404,26 +404,26 @@
                             <span style="height:66%;animation-delay:.37s"></span>
                             <span style="height:95%;animation-delay:.45s"></span>
                         </div>
-                        <div class="edyone-phone-label" style="margin-top:6px;">Steady improvement this term 📈</div>
+                        <div class="superlms-phone-label" style="margin-top:6px;">Steady improvement this term 📈</div>
                     </div>
 
                     {{-- Quick actions --}}
-                    <div class="edyone-quick-grid">
-                        <div class="edyone-quick">
-                            <div class="edyone-quick__icon">📚</div>
-                            <div class="edyone-quick__label">Classes</div>
+                    <div class="superlms-quick-grid">
+                        <div class="superlms-quick">
+                            <div class="superlms-quick__icon">📚</div>
+                            <div class="superlms-quick__label">Classes</div>
                         </div>
-                        <div class="edyone-quick">
-                            <div class="edyone-quick__icon">📝</div>
-                            <div class="edyone-quick__label">Homework</div>
+                        <div class="superlms-quick">
+                            <div class="superlms-quick__icon">📝</div>
+                            <div class="superlms-quick__label">Homework</div>
                         </div>
-                        <div class="edyone-quick">
-                            <div class="edyone-quick__icon">🗓️</div>
-                            <div class="edyone-quick__label">Timetable</div>
+                        <div class="superlms-quick">
+                            <div class="superlms-quick__icon">🗓️</div>
+                            <div class="superlms-quick__label">Timetable</div>
                         </div>
-                        <div class="edyone-quick">
-                            <div class="edyone-quick__icon">💳</div>
-                            <div class="edyone-quick__label">Fees</div>
+                        <div class="superlms-quick">
+                            <div class="superlms-quick__icon">💳</div>
+                            <div class="superlms-quick__label">Fees</div>
                         </div>
                     </div>
                 </div>

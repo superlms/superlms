@@ -71,7 +71,7 @@
                         <div class="mb-4">
                             <img src="{{ asset('website-image/Group 11525.png') }}" class="mx-auto w-16 h-16">
                         </div>
-                        <h3 class="text-xl mb-4 w-fit mx-auto">EDYONE LMS</h3>
+                        <h3 class="text-xl mb-4 w-fit mx-auto">SUPERLMS</h3>
                         <a href="https://play.google.com/store/apps/details?id=com.edyoneapp" target="_blank"> <button
                                 class="bg-gradient-to-r from-pink-500 to-purple-600 text-white py-2 rounded-full font-semibold px-6">
                                 Get Now
@@ -85,7 +85,7 @@
                         <div class="mb-4">
                             <img src="{{ asset('website-image/Vector 7.png') }}" class="mx-auto w-16 h-16">
                         </div>
-                        <h3 class="text-xl mb-4 w-fit mx-auto">EDYONE</h3>
+                        <h3 class="text-xl mb-4 w-fit mx-auto">SUPERLMS</h3>
                         <button
                             class="bg-gradient-to-r from-pink-500 to-purple-600 text-white py-2 rounded-full font-semibold px-6">
                             Coming Soon
@@ -213,7 +213,7 @@
                 },
                 {
                     title: 'About App',
-                    desc: 'Learn about the features, updates, and value Edyone LMS brings to your institution.'
+                    desc: 'Learn about the features, updates, and value SuperLMS brings to your institution.'
                 },
                 {
                     title: 'Upgrade Standard',

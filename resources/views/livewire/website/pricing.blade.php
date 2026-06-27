@@ -5,9 +5,9 @@
          <h3 class="text-3xl font-extrabold text-left mb-6">Priced For Everyone.</h3>
 
          <p class="text-black font-semibold leading-relaxed mb-6">
-             EDYONE LMS offers a complete suite of essential educational tools—from attendance and fee management to
+             SUPERLMS offers a complete suite of essential educational tools—from attendance and fee management to
              course delivery and progress tracking—all designed to simplify learning and administration. What sets
-             EDYONE apart is its commitment to affordability, making advanced, feature-rich learning accessible to
+             SUPERLMS apart is its commitment to affordability, making advanced, feature-rich learning accessible to
              institutions of all sizes without compromising quality. Experience the perfect blend of powerful
              functionality and cost-effective pricing, empowering you to transform education without stretching your
              budget.

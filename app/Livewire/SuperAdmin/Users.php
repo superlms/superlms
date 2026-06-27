@@ -222,7 +222,7 @@ class Users extends Component
                 [
                     'password'      => $plainPassword,
                     'email_address' => $user->email,
-                    'school_name'   => 'EDYONE LMS',
+                    'school_name'   => 'SUPERLMS',
                     'username'      => $user->name,
                     'name'          => $user->name,
                     'login_url'     => route('super-admin.login'),

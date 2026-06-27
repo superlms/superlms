@@ -8,7 +8,7 @@
             <div>
                 <h3 class="text-xl font-semibold text-gray-800">Introduction</h3>
                 <p class="mb-6">
-                    These terms and conditions apply to all Users who access the EdyoneLms Platform, including the 'EdyoneLms' application and www.edyonelms.in ('Website') and services managed by the Company. Users are required to read and understand these terms before submitting any Personal Information. By using our services, you consent to the collection, processing, and use of your information as described in these terms and our Privacy Policy. EdyoneLms does not guarantee the accuracy, integrity, or quality of information on third-party websites or applications and encourages users to review their respective terms and privacy policies. We have implemented reasonable precautions under applicable Indian law to protect Personal Information from unauthorized access, misuse, disclosure, modification, or loss.
+                    These terms and conditions apply to all Users who access the SuperLMS Platform, including the 'SuperLMS' application and www.superlms.in ('Website') and services managed by the Company. Users are required to read and understand these terms before submitting any Personal Information. By using our services, you consent to the collection, processing, and use of your information as described in these terms and our Privacy Policy. SuperLMS does not guarantee the accuracy, integrity, or quality of information on third-party websites or applications and encourages users to review their respective terms and privacy policies. We have implemented reasonable precautions under applicable Indian law to protect Personal Information from unauthorized access, misuse, disclosure, modification, or loss.
                 </p>
 
                 <h3 class="text-xl font-semibold text-gray-800">Usage and Retention of Information</h3>
@@ -36,17 +36,17 @@
 
                 <h3 class="text-xl font-semibold text-gray-800">Ownership of Rights</h3>
                 <p class="mb-6">
-                    All rights, including copyright, in the Website/Application are owned by or licensed to EdyoneLms. Any use of the Website/Application or its contents, including copying or storing, beyond personal, non-commercial use, is prohibited without our permission. You may not modify, distribute, transmit, display, print, publish, sell, license, create derivative works, or use content for commercial or public purposes. Trademarks on our Website/Application remain the exclusive property of EdyoneLms or their respective owners.
+                    All rights, including copyright, in the Website/Application are owned by or licensed to SuperLMS. Any use of the Website/Application or its contents, including copying or storing, beyond personal, non-commercial use, is prohibited without our permission. You may not modify, distribute, transmit, display, print, publish, sell, license, create derivative works, or use content for commercial or public purposes. Trademarks on our Website/Application remain the exclusive property of SuperLMS or their respective owners.
                 </p>
 
                 <h3 class="text-xl font-semibold text-gray-800">Consent</h3>
                 <p class="mb-6">
-                    By registering, you expressly consent to our collection, processing, storing, and handling of your information as outlined in this Policy. For minors, consent is deemed to be provided by their parents or guardians. All processing activities, including collecting, storing, deleting, using, combining, sharing, transferring, and disclosing information, will occur in India in accordance with applicable data protection laws. You also consent to EdyoneLms using your name, age, photograph, videos, voice recordings, rank, statements, or testimonials ("Personal Attributes") for promotional purposes across various media without further notice or compensation. Marketing materials created using your Personal Attributes remain the sole property of EdyoneLms, and you waive any claims related to their use.
+                    By registering, you expressly consent to our collection, processing, storing, and handling of your information as outlined in this Policy. For minors, consent is deemed to be provided by their parents or guardians. All processing activities, including collecting, storing, deleting, using, combining, sharing, transferring, and disclosing information, will occur in India in accordance with applicable data protection laws. You also consent to SuperLMS using your name, age, photograph, videos, voice recordings, rank, statements, or testimonials ("Personal Attributes") for promotional purposes across various media without further notice or compensation. Marketing materials created using your Personal Attributes remain the sole property of SuperLMS, and you waive any claims related to their use.
                 </p>
 
                 <h3 class="text-xl font-semibold text-gray-800">Exclusive Service</h3>
                 <p class="mb-6">
-                    By maintaining an EdyoneLms account, you consent to the use of camera and microphone permissions for video calls and recordings.
+                    By maintaining an SuperLMS account, you consent to the use of camera and microphone permissions for video calls and recordings.
                 </p>
 
                 <h3 class="text-xl font-semibold text-gray-800">Security</h3>
@@ -55,7 +55,7 @@
                 </p>
 
                 <h3 class="text-xl font-semibold text-gray-800">Disclosure of Information</h3>
-                <p class="mb-4"><strong>EdyoneLms may disclose information in the following situations:</strong></p>
+                <p class="mb-4"><strong>SuperLMS may disclose information in the following situations:</strong></p>
                 <ul class="list-disc pl-6 text-gray-700 space-y-1">
                     <li>As required by law;</li>
                     <li>To enforce these Terms and Conditions, including investigating potential violations;</li>
@@ -70,7 +70,7 @@
 
                 <h3 class="text-xl font-semibold text-gray-800">Limitation of Liability</h3>
                 <p class="mb-6">
-                    EdyoneLms is not the manufacturer of content on the Website, Application, or YouTube Channel and is not liable for any repercussions arising from such content. The Company, its officers, directors, employees, partners, or agents shall not be liable for any special, incidental, indirect, consequential, or punitive damages, including loss of use, data, or profits, arising from your use of or access to the Website/Application/Services. In case of a breach of these Terms, the Company may seek an injunction and other remedies, and your account may be suspended or terminated. Violations may also result in civil or criminal liability under applicable laws.
+                    SuperLMS is not the manufacturer of content on the Website, Application, or YouTube Channel and is not liable for any repercussions arising from such content. The Company, its officers, directors, employees, partners, or agents shall not be liable for any special, incidental, indirect, consequential, or punitive damages, including loss of use, data, or profits, arising from your use of or access to the Website/Application/Services. In case of a breach of these Terms, the Company may seek an injunction and other remedies, and your account may be suspended or terminated. Violations may also result in civil or criminal liability under applicable laws.
                 </p>
 
                 <h3 class="text-xl font-semibold text-gray-800">Refund Policy</h3>

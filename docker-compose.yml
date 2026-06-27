@@ -13,7 +13,7 @@ x-app: &app-base
     context: .
     dockerfile: Dockerfile
     target: runtime
-  image: edyonelms/app:local
+  image: superlms/app:local
   restart: unless-stopped
   logging: *default-logging
   env_file:
@@ -35,13 +35,13 @@ x-app: &app-base
     redis:
       condition: service_started
   networks:
-    - edyonelms
+    - superlms
 
 services:
   # WEB role — nginx + php-fpm in one container (default CMD = supervisord).
   web:
     <<: *app-base
-    container_name: edyonelms-web
+    container_name: superlms-web
     ports:
       - "8080:80"
 
@@ -49,24 +49,24 @@ services:
   # Only starts with `docker compose --profile workers up`.
   worker:
     <<: *app-base
-    container_name: edyonelms-worker
+    container_name: superlms-worker
     command: php artisan queue:work --tries=3 --timeout=120 --sleep=3 --max-jobs=1000 --max-time=3600
     profiles: ["workers"]
 
   # SCHEDULER role — exactly ONE instance, ever (no duplicate cron).
   scheduler:
     <<: *app-base
-    container_name: edyonelms-scheduler
+    container_name: superlms-scheduler
     command: php artisan schedule:work
     profiles: ["workers"]
 
   mysql:
     image: mysql:8.0
-    container_name: edyonelms-mysql
+    container_name: superlms-mysql
     restart: unless-stopped
     logging: *default-logging
     environment:
-      MYSQL_DATABASE: ${DB_DATABASE:-edyonelms}
+      MYSQL_DATABASE: ${DB_DATABASE:-superlms}
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-${DB_PASSWORD:-rootsecret}}
     command:
       - --default-authentication-plugin=caching_sha2_password
@@ -90,11 +90,11 @@ services:
       timeout: 5s
       retries: 10
     networks:
-      - edyonelms
+      - superlms
 
   redis:
     image: redis:7-alpine
-    container_name: edyonelms-redis
+    container_name: superlms-redis
     restart: unless-stopped
     logging: *default-logging
     command: ["redis-server", "--appendonly", "yes"]
@@ -103,7 +103,7 @@ services:
     ports:
       - "6379:6379"
     networks:
-      - edyonelms
+      - superlms
 
 volumes:
   mysql-data:
@@ -111,5 +111,5 @@ volumes:
   vendor-data:
 
 networks:
-  edyonelms:
+  superlms:
     driver: bridge

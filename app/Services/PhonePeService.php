@@ -56,7 +56,7 @@ class PhonePeService
      *
      * Uses the org's OWN PhonePe merchant credentials when configured & active —
      * so a student's fee settles into that school's account. Falls back to the
-     * platform (Edyone) credentials when the org hasn't onboarded yet.
+     * platform (SuperLMS) credentials when the org hasn't onboarded yet.
      */
     public static function fromOrganization(int $orgId): self
     {

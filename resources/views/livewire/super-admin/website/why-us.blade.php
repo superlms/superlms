@@ -1,7 +1,7 @@
 <div class="min-h-screen bg-gray-50">
     @include('livewire.super-admin.website.partials.topbar', [
         'heading'     => 'Why Us',
-        'description' => 'Manage the reasons schools choose EDYONE LMS.',
+        'description' => 'Manage the reasons schools choose SUPERLMS.',
         'url'         => 'web/why-us',
     ])
 

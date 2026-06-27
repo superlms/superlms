@@ -52,7 +52,7 @@
             <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 sm:py-5">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div class="flex items-center gap-3 min-w-0">
-                        <img src="{{ asset('website-image/Group 11525.png') }}" alt="EDYONE LMS"
+                        <img src="{{ asset('website-image/Group 11525.png') }}" alt="SUPERLMS"
                             class="w-12 h-12 rounded-xl object-contain border border-gray-200 shadow-sm bg-white p-1 flex-shrink-0">
                         <div class="min-w-0">
                             <h1 class="text-xl sm:text-2xl font-bold text-gray-900 truncate">Terms And Condition</h1>

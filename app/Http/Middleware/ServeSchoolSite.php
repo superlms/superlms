@@ -49,7 +49,7 @@ class ServeSchoolSite
         return app(SchoolSiteController::class)->render($site, $path);
     }
 
-    /** Hosts that belong to the main EDYONE app itself. */
+    /** Hosts that belong to the main SUPERLMS app itself. */
     private function mainHosts(): array
     {
         $appHost = parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'localhost';

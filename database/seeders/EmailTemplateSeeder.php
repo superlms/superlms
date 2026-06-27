@@ -54,7 +54,7 @@ class EmailTemplateSeeder extends Seeder
         <p class="info">If you did not request this, please ignore this email.</p>
 
         <div class="footer">
-            Edyone LMS
+            SuperLMS
         </div>
     </div>
 </body>

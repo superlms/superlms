@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Request Demo — EDYONE LMS</title>
+    <title>Request Demo — SUPERLMS</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="icon" type="image/png" href="{{ asset('website-image/Group 11525.png') }}">
@@ -839,9 +839,9 @@
     <div class="page-header">
         <div class="section-tag tag-dual">Free Demo</div>
         <h1 class="section-title">Request a Free <span class="gradient-text">Demo</span></h1>
-        <p class="section-subtitle">Discover how EDYONE LMS streamlines teaching, enhances learning, and simplifies
+        <p class="section-subtitle">Discover how SUPERLMS streamlines teaching, enhances learning, and simplifies
             school management—all within one powerful platform. In your personalized 30-minute demo, our education
-            specialist will guide you through key features and show how EDYONE LMS can transform your institution's
+            specialist will guide you through key features and show how SUPERLMS can transform your institution's
             daily operations and academic experience.</p>
     </div>
 

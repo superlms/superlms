@@ -13,7 +13,7 @@
     <div class="p-6 space-y-3">
         <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Tag / Badge</label>
-            <input type="text" wire:model="meta.tag" placeholder="e.g., Why EDYONE LMS"
+            <input type="text" wire:model="meta.tag" placeholder="e.g., Why SUPERLMS"
                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400">
         </div>
         <div>

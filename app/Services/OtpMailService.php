@@ -27,9 +27,9 @@ class OtpMailService
         ZeptoMailService::sendTemplate($templateKey, $user->email, $user->name, [
             'OTP' => $otp,
             'name' => $user->name,
-            'organization_name' => 'Edyone LMS',
+            'organization_name' => 'SuperLMS',
             'team' => $panelName,
-            'product_name' => 'Edyone LMS',
+            'product_name' => 'SuperLMS',
         ]);
     }
 

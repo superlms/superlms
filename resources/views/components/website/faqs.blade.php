@@ -78,10 +78,10 @@
     <div class="cta-bg"></div>
     <div class="cta-card">
       <h2 class="cta-title">Still have <span class="gradient-text">questions?</span></h2>
-      <p class="cta-desc">Our friendly team is always happy to help you with anything about EDYONE LMS — whether it's
+      <p class="cta-desc">Our friendly team is always happy to help you with anything about SUPERLMS — whether it's
         choosing the right plan, setting up your school, migrating your data or understanding a specific feature.
         Reach out over call, chat or WhatsApp and we'll get back to you quickly. You can also book a free, no-obligation
-        demo and see exactly how EDYONE can work for your institution.</p>
+        demo and see exactly how SUPERLMS can work for your institution.</p>
       <div class="cta-actions">
         <a href="{{ url('web/contact') }}" class="btn btn-primary btn-xl">Contact Us</a>
         <a href="{{ url('web/demo') }}" class="btn btn-outline btn-xl">Request a Demo</a>

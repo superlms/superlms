@@ -9,7 +9,7 @@
     @livewireStyles
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <title>{{ $title ?? 'Edyone LMS' }}</title>
+    <title>{{ $title ?? 'SuperLMS' }}</title>
 
     {{-- Rich Text --}}
     <link rel="stylesheet" type="text/css" href="https://unpkg.com/trix@2.0.8/dist/trix.css">
@@ -232,9 +232,9 @@
                 try {
                     firebase.initializeApp({
                         apiKey: 'AIzaSyBRZcETdNS1gcdedGB_IW8KwOSyUUXTa6w',
-                        authDomain: 'edyone-lms-57e8c.firebaseapp.com',
-                        projectId: 'edyone-lms-57e8c',
-                        storageBucket: 'edyone-lms-57e8c.firebasestorage.app',
+                        authDomain: 'superlms-lms-57e8c.firebaseapp.com',
+                        projectId: 'superlms-lms-57e8c',
+                        storageBucket: 'superlms-lms-57e8c.firebasestorage.app',
                         messagingSenderId: '682389969874',
                         appId: '1:682389969874:web:f9e4948399cdc52cc5c60b',
                     });
@@ -266,7 +266,7 @@
                     messaging.onMessage(function (payload) {
                         const n = payload.notification || {};
                         try {
-                            new Notification(n.title || 'Edyone LMS', { body: n.body || '' });
+                            new Notification(n.title || 'SuperLMS', { body: n.body || '' });
                         } catch (e) {}
                     });
                 } catch (e) {

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Features — EDYONE LMS</title>
+  <title>Features — SUPERLMS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link rel="icon" type="image/png" href="{{ asset('website-image/Group 11525.png') }}">
@@ -560,7 +560,7 @@
       <div class="feature-card">
         <div class="feature-icon-wrap" style="background:rgba(111,86,254,.1);">⭐</div>
         <div class="feature-title">Rate LMS</div>
-        <div class="feature-desc">Students, teachers, and parents can rate their EDYONE LMS experience. Feedback is aggregated and used to continuously improve the platform.</div>
+        <div class="feature-desc">Students, teachers, and parents can rate their SUPERLMS experience. Feedback is aggregated and used to continuously improve the platform.</div>
         <span class="feature-tag tag-v">Feedback</span>
       </div>
 

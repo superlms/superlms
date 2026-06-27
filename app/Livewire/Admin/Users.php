@@ -226,7 +226,7 @@ class Users extends Component
                 return;
             }
 
-            $schoolName = optional($user->organization)->name ?: 'EDYONE LMS';
+            $schoolName = optional($user->organization)->name ?: 'SUPERLMS';
 
             \App\Services\ZeptoMailService::sendTemplate(
                 $templateKey,

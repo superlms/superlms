@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>About Us — EDYONE LMS</title>
+    <title>About Us — SUPERLMS</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="icon" type="image/png" href="{{ asset('website-image/Group 11525.png') }}">
@@ -1320,7 +1320,7 @@
             <div class="section-tag tag-dual reveal">About Us</div>
             <h1 class="section-title reveal" style="margin-top:16px;">Your All in One Solution for<br /><span
                     class="gradient-text">Learning &amp; Management</span></h1>
-            <p class="section-subtitle reveal">EDYONE LMS brings learning, administration, and communication together in
+            <p class="section-subtitle reveal">SUPERLMS brings learning, administration, and communication together in
                 one powerful, unified platform. More than just a learning management system, it streamlines academics,
                 automates operations, and connects educators, students, and parents seamlessly. Trusted by many schools
                 across India, it delivers efficiency, transparency, and measurable impact from day one.</p>
@@ -1335,7 +1335,7 @@
                 <h2 class="section-title">Making Education <span class="gradient-text">Accessible</span> &amp;
                     Affordable</h2>
                 <p style="color:var(--text3);line-height:1.8;margin-bottom:20px;font-size:15px;">Founded with a vision
-                    to democratize quality education management, EDYONE LMS was built by educators and technology
+                    to democratize quality education management, SUPERLMS was built by educators and technology
                     enthusiasts who understood the real challenges schools face every day.</p>
                 <p style="color:var(--text3);line-height:1.8;margin-bottom:32px;font-size:15px;">Our platform serves
                     schools from small rural institutions to large urban academies — offering the same powerful features
@@ -1386,7 +1386,7 @@
                             stroke="#EDE8FF" stroke-width="1" />
                         <text x="235" y="268" text-anchor="middle" font-size="10" fill="#DB57B2"
                             font-weight="600">many Schools</text>
-                        <text x="235" y="281" text-anchor="middle" font-size="9" fill="#A99CC0">trust EDYONE</text>
+                        <text x="235" y="281" text-anchor="middle" font-size="9" fill="#A99CC0">trust SUPERLMS</text>
                         <defs>
                             <linearGradient id="gm1" x1="0" y1="0" x2="1"
                                 y2="1">
@@ -1525,15 +1525,15 @@
                 <div style="animation:slideInRight .9s ease .1s forwards;opacity:0;">
                     <div class="section-tag tag-pink">Our Story</div>
                     <h2 class="section-title">From a Basic <span class="gradient-text">Idea to a Platform</span></h2>
-                    <p class="story-para">EDYONE LMS was started in 2024 in a small office in Aligarh, Uttar Pradesh —
+                    <p class="story-para">SUPERLMS was started in 2024 in a small office in Aligarh, Uttar Pradesh —
                         not from a corporate strategy, but from a real frustration. Our founders saw teachers spending
                         endless hours on paper attendance, principals chasing parents for fees, and students missing
                         timely feedback.</p>
-                    <p class="story-para">The first version of EDYONE LMS launched quietly with just one partner
+                    <p class="story-para">The first version of SUPERLMS launched quietly with just one partner
                         schools and a core team of three. Within months, it grew to 5+ schools, expanding organically as
                         one principal recommended us to another and teachers shared screenshots in WhatsApp groups.</p>
                     <p class="story-para">By the end of 2025, we introduced dedicated iOS and Android apps, integrated
-                        biometric attendance, and real-time WhatsApp notifications for parents. Today, EDYONE LMS
+                        biometric attendance, and real-time WhatsApp notifications for parents. Today, SUPERLMS
                         supports over vast schools and uncounted number of students across India with fully integrated
                         modules, transforming how schools manage academics, attendance, communication, and finance.</p>
                     <div class="story-highlights">
@@ -1581,7 +1581,7 @@
         <div style="max-width:1060px;margin:0 auto;">
             <div class="reveal" style="text-align:center;margin-bottom:16px;">
                 <div class="section-tag tag-pink">What We Do</div>
-                <h2 class="section-title" style="margin-top:16px;">EDYONE LMS <span
+                <h2 class="section-title" style="margin-top:16px;">SUPERLMS <span
                         class="gradient-text">Streamlines</span> Everything</h2>
             </div>
             <div class="about-list stagger-left">
@@ -1598,7 +1598,7 @@
                     <div>
                         <div class="about-item-title">Enhances Learning Experience</div>
                         <div class="about-item-desc">With real-time progress analysis, resource sharing, and
-                            interactive tools, EDYONE LMS empowers educators and students to engage in a smarter digital
+                            interactive tools, SUPERLMS empowers educators and students to engage in a smarter digital
                             environment.</div>
                     </div>
                 </div>
@@ -1688,7 +1688,7 @@
                         style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;color:var(--text);margin-bottom:10px;">
                         Go-Live &amp; Monitor</div>
                     <div style="font-size:13px;color:var(--text3);line-height:1.75;">Your school goes live with full
-                        EDYONE LMS access. Our team actively monitors the first 30 days to ensure smooth operation.
+                        SUPERLMS access. Our team actively monitors the first 30 days to ensure smooth operation.
                     </div>
                 </div>
                 <div class="card-wmodel">
@@ -1697,7 +1697,7 @@
                     <div
                         style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;color:var(--text);margin-bottom:10px;">
                         Continuous Updates</div>
-                    <div style="font-size:13px;color:var(--text3);line-height:1.75;">EDYONE LMS is updated every month
+                    <div style="font-size:13px;color:var(--text3);line-height:1.75;">SUPERLMS is updated every month
                         with new features, security patches, and performance improvements — all included at no extra
                         cost.</div>
                 </div>
@@ -1721,7 +1721,7 @@
                 <div class="section-tag tag-dual">Platform Capabilities</div>
                 <h2 class="section-title" style="margin-top:16px;">Built for <span class="gradient-text">Every
                         Role</span></h2>
-                <p class="section-subtitle" style="margin:0 auto;">EDYONE LMS is designed to serve the unique needs of
+                <p class="section-subtitle" style="margin:0 auto;">SUPERLMS is designed to serve the unique needs of
                     every stakeholder in a school ecosystem.</p>
             </div>
             <div class="role-grid-2 stagger">
@@ -2004,7 +2004,7 @@
                 <div class="founder-content">
                     <span class="founder-badge">Founder &amp; CEO</span>
                     <h3 class="founder-name">Annant Dagur</h3>
-                    <p class="founder-bio">The visionary behind EDYONE LMS. Annant started EDYONE with one mission — to
+                    <p class="founder-bio">The visionary behind SUPERLMS. Annant started SUPERLMS with one mission — to
                         make quality, affordable school-management technology accessible to every institution in India,
                         from large city schools to small towns. He works closely with educators on the ground, turning
                         their everyday challenges into simple, powerful features that thousands of students, teachers and

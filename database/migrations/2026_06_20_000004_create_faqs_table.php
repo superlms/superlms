@@ -20,9 +20,9 @@ return new class extends Migration
         // Seed the existing default FAQs so the public page is not empty.
         $now      = now();
         $defaults = [
-            ['General',         'What is EDYONE LMS?', 'EDYONE LMS is an affordable, all-in-one Learning Management System for schools. It covers admissions, attendance, timetable, exams, fees, study material and parent communication — all from one platform, with apps for admins, teachers, students and parents.'],
+            ['General',         'What is SUPERLMS?', 'SUPERLMS is an affordable, all-in-one Learning Management System for schools. It covers admissions, attendance, timetable, exams, fees, study material and parent communication — all from one platform, with apps for admins, teachers, students and parents.'],
             ['Pricing',         'How much does it cost?', 'Pricing is simple and transparent, designed to be affordable for schools of every size. Visit our Pricing page or request a demo and we will share a plan tailored to your student count.'],
-            ['Product',         'Is there a mobile app?', 'Yes. EDYONE LMS has dedicated mobile apps for Android and iOS, so admins, teachers, students and parents can stay connected from anywhere.'],
+            ['Product',         'Is there a mobile app?', 'Yes. SUPERLMS has dedicated mobile apps for Android and iOS, so admins, teachers, students and parents can stay connected from anywhere.'],
             ['Fees',            'Can parents pay fees online?', 'Absolutely. Parents can pay fees securely online and receive instant digital receipts, while your accounts team gets automatic reconciliation and dues tracking.'],
             ['Onboarding',      'How long does it take to set up?', 'Most schools go live within a few days. Our onboarding team helps you import your data, configure classes and fees, and trains your staff so the transition is smooth.'],
             ['Security',        "Is my school's data secure?", 'Yes. Your data is stored securely, access is role-based, and payments are processed through trusted, secure gateways. Your information is never shared without your consent.'],

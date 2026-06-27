@@ -34,7 +34,7 @@ jobs:
         image: mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: rootsecret
-          MYSQL_DATABASE: lms_edyone
+          MYSQL_DATABASE: lms_superlms
         ports:
           - 3306:3306
         options: >-
@@ -153,7 +153,7 @@ jobs:
           # Override DB to point at the GitHub services MySQL.
           sed -i 's/^DB_HOST=.*/DB_HOST=127.0.0.1/' .env
           sed -i 's/^DB_PORT=.*/DB_PORT=3306/' .env
-          sed -i 's/^DB_DATABASE=.*/DB_DATABASE=lms_edyone/' .env
+          sed -i 's/^DB_DATABASE=.*/DB_DATABASE=lms_superlms/' .env
           sed -i 's/^DB_USERNAME=.*/DB_USERNAME=root/' .env
           sed -i 's/^DB_PASSWORD=.*/DB_PASSWORD=rootsecret/' .env
           # Use file/array drivers — CI doesn't have Redis.
@@ -348,7 +348,7 @@ jobs:
             ' || true
 
             echo "==> git pull"
-            git remote set-url origin "https://x-access-token:${GIT_TOKEN:-}@github.com/edyonelms/edyonelms.git"
+            git remote set-url origin "https://x-access-token:${GIT_TOKEN:-}@github.com/superlms/superlms.git"
             git fetch origin main
             # Fix ownership of files that Docker may have created as root
             # (e.g. public/build/* built inside the container).

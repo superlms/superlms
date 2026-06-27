@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Terms and Conditions — EDYONE LMS</title>
+    <title>Terms and Conditions — SUPERLMS</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -716,7 +716,7 @@
         <div class="policy-header-content">
             <div class="section-tag tag-dual">Legal</div>
             <h1 class="section-title" style="margin-top:16px;">Terms and Conditions</h1>
-            <p class="policy-header-sub" id="touSubtitle">EDYONE LMS — edyonelms.in</p>
+            <p class="policy-header-sub" id="touSubtitle">SUPERLMS — superlms.in</p>
             <div class="last-updated" id="touLastUpdated">Last updated: —</div>
         </div>
     </div>
@@ -729,13 +729,13 @@
                 <!-- Static fallback content -->
                 <div class="policy-section" id="u1">
                     <h2><span class="sec-num">1</span> Acceptance of Terms of Use</h2>
-                    <p>By accessing or using the EDYONE LMS platform, you agree to comply with and be bound by these
+                    <p>By accessing or using the SUPERLMS platform, you agree to comply with and be bound by these
                         Terms of Use. These Terms govern your day-to-day use of the platform and its features.</p>
                 </div>
 
                 <div class="policy-section" id="u2">
                     <h2><span class="sec-num">2</span> Permitted Use</h2>
-                    <p>You may use the EDYONE LMS platform only for lawful educational and institutional management
+                    <p>You may use the SUPERLMS platform only for lawful educational and institutional management
                         purposes. Any use outside the scope of your subscription plan or these terms is strictly
                         prohibited.</p>
                 </div>
@@ -744,7 +744,7 @@
                     <h2><span class="sec-num">3</span> Contact Us</h2>
                     <p>For any questions about these Terms of Use, please contact us at:</p>
                     <div class="contact-info-card">
-                        <div class="contact-info-row"><span>📧</span><span>support@edyonelms.in</span></div>
+                        <div class="contact-info-row"><span>📧</span><span>support@superlms.in</span></div>
                         <div class="contact-info-row"><span>📱</span><span>+91 9084748563</span></div>
                         <div class="contact-info-row"><span>📍</span><span>House No.02, Braj Vihar Colony, Jattari,
                                 Khair, Aligarh, UP 202137</span></div>

@@ -276,7 +276,7 @@
                 </div>
                 <div class="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-xs text-amber-800 leading-relaxed">
                     <p class="font-semibold mb-1">One-time DNS setup (by the school / ops):</p>
-                    1. Point the domain's <strong>A record</strong> to the EDYONE server IP.<br>
+                    1. Point the domain's <strong>A record</strong> to the SUPERLMS server IP.<br>
                     2. On the server, add this domain to the web server (nginx <code>server_name</code>) and issue an SSL certificate.<br>
                     3. Toggle <strong>Publish</strong> below — the site goes live on this domain automatically.
                 </div>

@@ -9,7 +9,7 @@
             },
             {
                 title: 'Get Your LMS Account',
-                desc: 'Each School, Student and Teacher receives a secure LMS login to access EdyoneLMS.',
+                desc: 'Each School, Student and Teacher receives a secure LMS login to access SuperLMS.',
                 svg: `<path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8v8 m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1' />`,
                 color: 'bg-yellow-400',
                 rotate: ''
@@ -69,7 +69,7 @@
                             Your All-In-One Solution For <br /> Learning And Management.
                         </h3>
                         <p class="text-gray-700 mb-6 leading-relaxed">
-                            At Edyone LMS, we offer a comprehensive suite of services designed to streamline school
+                            At SuperLMS, we offer a comprehensive suite of services designed to streamline school
                             management and enhance the learning experience for students, teachers, and administrators.
                             The platform opens with a personalized Home Dashboardthat centralizes updates and quick
                             access to features. Our Standard module organizes users by class levels, while
@@ -105,7 +105,7 @@
                                 class="w-8 h-8 rounded-full shadow-lg ml-4" />
                         </div>
                         <p class="text-gray-600 text-sm">
-                            EDYONE LMS simplifies daily academic operations with attendance tracking, timetable
+                            SUPERLMS simplifies daily academic operations with attendance tracking, timetable
                             scheduling, fee management, and note sharing.
                         </p>
                     </div>
@@ -117,7 +117,7 @@
                                 class="w-8 h-8 object-contain shrink-0" />
                         </div>
                         <p class="text-gray-600 text-sm">
-                            With real-time progress analysis, resource sharing, and interactive tools, EDYONE LMS
+                            With real-time progress analysis, resource sharing, and interactive tools, SUPERLMS
                             empowers both Educatorsss and learners digitally.
                         </p>
                     </div>
