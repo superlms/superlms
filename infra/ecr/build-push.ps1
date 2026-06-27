@@ -17,15 +17,21 @@ $Registry  = "$AccountId.dkr.ecr.$Region.amazonaws.com"
 $Image     = "$Registry/superlms-app"
 $Sha       = (git -C $RepoRoot rev-parse --short HEAD).Trim()
 
+# Native exe failures don't trip $ErrorActionPreference; check $LASTEXITCODE
+# explicitly so a failed login/build/push can never look like success.
+function Check($msg) { if ($LASTEXITCODE -ne 0) { throw "FAILED: $msg (exit $LASTEXITCODE)" } }
+
 Write-Host "==> Logging in to ECR ($Registry)" -ForegroundColor Cyan
 aws ecr get-login-password --region $Region | docker login --username AWS --password-stdin $Registry
+Check "ECR login"
 
 Write-Host "==> Building linux/amd64 image (native, $Image : latest, $Sha)" -ForegroundColor Cyan
 docker build --platform linux/amd64 --target runtime -t "${Image}:latest" -t "${Image}:$Sha" $RepoRoot
+Check "docker build"
 
 Write-Host "==> Pushing to ECR" -ForegroundColor Cyan
-docker push "${Image}:latest"
-docker push "${Image}:$Sha"
+docker push "${Image}:latest";  Check "push :latest"
+docker push "${Image}:$Sha";    Check "push :$Sha"
 
 Write-Host "`n==> Pushed:" -ForegroundColor Green
 Write-Host "    ${Image}:latest"
