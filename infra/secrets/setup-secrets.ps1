@@ -36,7 +36,9 @@ foreach ($k in $obj.Keys) {
 
 $json = ($obj | ConvertTo-Json -Compress)
 $tmp = Join-Path $env:TEMP "superlms-app-secret.json"
-$json | Set-Content $tmp -Encoding utf8
+# Write UTF-8 WITHOUT a BOM - a BOM corrupts the JSON for ECS's secret parser
+# ("invalid character" on retrieval). PS 5.1's Set-Content -Encoding utf8 adds one.
+[System.IO.File]::WriteAllText($tmp, $json, (New-Object System.Text.UTF8Encoding($false)))
 
 # Create or update.
 $exists = $true
