@@ -62,7 +62,15 @@ class Login extends Component
             return;
         }
 
-        OtpMailService::sendOtp($user, 'Super Admin');
+        // The OTP is saved to the user inside sendOtp BEFORE the email is sent,
+        // so even if email delivery fails we can still continue. TEMPORARY: if
+        // delivery fails (e.g. ZeptoMail outage), log the OTP so a super-admin
+        // can sign in from the logs. Remove this catch once email is healthy.
+        try {
+            OtpMailService::sendOtp($user, 'Super Admin');
+        } catch (\Throwable $e) {
+            \Log::warning('SUPERADMIN OTP email failed; OTP for ' . $user->email . ' = ' . $user->otp . ' (expires 2 min)', ['err' => $e->getMessage()]);
+        }
 
         $this->otpSentTo  = $user->email;
         $this->otp        = ['', '', '', '', '', ''];
