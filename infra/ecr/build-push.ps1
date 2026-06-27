@@ -1,13 +1,12 @@
 # ==========================================================================
-# Phase 9 - build the ARM64 app image and push it to ECR.
+# Phase 9 - build the app image and push it to ECR.
 #
-# IMPORTANT: run this from a checkout that has the PRODUCTION Dockerfile
-# (nginx+php-fpm, roles, no boot migrations) - i.e. the branch carrying the
-# Phase 1 docker refactor. It builds for linux/arm64 (Graviton/Fargate ARM).
+# Builds linux/amd64 NATIVELY on an x86 PC (fast, no emulation). The ECS task
+# definitions are set to X86_64 to match. CI (Phase 13) can later build ARM64
+# natively on an ARM runner and flip ECS to Graviton.
 #
-# NOTE: on an x86 PC the ARM64 build runs under QEMU emulation and the PHP
-# extension compile can take 15-40 min. That's expected; CI (Phase 13) will
-# build natively. Run from this folder:  .\build-push.ps1
+# Run from a checkout that has the production Dockerfile (the Phase 1 docker
+# refactor). Run from this folder:  .\build-push.ps1
 # ==========================================================================
 $ErrorActionPreference = "Stop"
 $Region = "ap-south-1"
@@ -21,24 +20,12 @@ $Sha       = (git -C $RepoRoot rev-parse --short HEAD).Trim()
 Write-Host "==> Logging in to ECR ($Registry)" -ForegroundColor Cyan
 aws ecr get-login-password --region $Region | docker login --username AWS --password-stdin $Registry
 
-# Ensure a buildx builder exists (needed for cross-platform builds).
-$null = docker buildx inspect superlms-builder 2>$null
-if ($LASTEXITCODE -ne 0) {
-  Write-Host "==> Creating buildx builder 'superlms-builder'"
-  docker buildx create --name superlms-builder --use | Out-Null
-} else {
-  docker buildx use superlms-builder
-}
+Write-Host "==> Building linux/amd64 image (native, $Image : latest, $Sha)" -ForegroundColor Cyan
+docker build --platform linux/amd64 --target runtime -t "${Image}:latest" -t "${Image}:$Sha" $RepoRoot
 
-Write-Host "==> Building linux/arm64 image and pushing ($Image : latest, $Sha)" -ForegroundColor Cyan
-Write-Host "    (this is slow under emulation - grab a chai)" -ForegroundColor Yellow
-docker buildx build `
-  --platform linux/arm64 `
-  --target runtime `
-  -t "${Image}:latest" `
-  -t "${Image}:$Sha" `
-  --push `
-  $RepoRoot
+Write-Host "==> Pushing to ECR" -ForegroundColor Cyan
+docker push "${Image}:latest"
+docker push "${Image}:$Sha"
 
 Write-Host "`n==> Pushed:" -ForegroundColor Green
 Write-Host "    ${Image}:latest"

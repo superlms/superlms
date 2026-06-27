@@ -119,7 +119,7 @@ Resources:
       Cpu: "512"
       Memory: "1024"
       RuntimePlatform:
-        CpuArchitecture: ARM64
+        CpuArchitecture: X86_64
         OperatingSystemFamily: LINUX
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/ecsTaskExecutionRole
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/superlms-task-role
@@ -199,7 +199,7 @@ Resources:
       NetworkMode: awsvpc
       Cpu: "256"
       Memory: "512"
-      RuntimePlatform: { CpuArchitecture: ARM64, OperatingSystemFamily: LINUX }
+      RuntimePlatform: { CpuArchitecture: X86_64, OperatingSystemFamily: LINUX }
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/ecsTaskExecutionRole
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/superlms-task-role
       ContainerDefinitions:
@@ -227,7 +227,7 @@ Resources:
       NetworkMode: awsvpc
       Cpu: "256"
       Memory: "512"
-      RuntimePlatform: { CpuArchitecture: ARM64, OperatingSystemFamily: LINUX }
+      RuntimePlatform: { CpuArchitecture: X86_64, OperatingSystemFamily: LINUX }
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/ecsTaskExecutionRole
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/superlms-task-role
       ContainerDefinitions:
@@ -255,7 +255,7 @@ Resources:
       NetworkMode: awsvpc
       Cpu: "256"
       Memory: "512"
-      RuntimePlatform: { CpuArchitecture: ARM64, OperatingSystemFamily: LINUX }
+      RuntimePlatform: { CpuArchitecture: X86_64, OperatingSystemFamily: LINUX }
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/ecsTaskExecutionRole
       TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/superlms-task-role
       ContainerDefinitions:
