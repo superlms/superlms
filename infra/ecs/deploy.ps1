@@ -5,7 +5,7 @@
 # secret created (Phase 8), and an image pushed to ECR (Phase 9 build-push).
 # Idempotent. Run from this folder:  .\deploy.ps1  [-ImageTag <tag>]
 # ==========================================================================
-param([string]$ImageTag = "latest")
+param([string]$ImageTag = "latest", [string]$AlbCertArn = "")
 $ErrorActionPreference = "Stop"
 $Region = "ap-south-1"
 $Stack  = "superlms-ecs"
@@ -19,12 +19,15 @@ Write-Host "==> App secret: $AppSecretArn" -ForegroundColor Cyan
 Write-Host "==> Validating template" -ForegroundColor Cyan
 aws cloudformation validate-template --template-body "file://$($Tpl -replace '\\','/')" --region $Region | Out-Null
 
+$overrides = @("ImageTag=$ImageTag", "AppSecretArn=$AppSecretArn")
+if ($AlbCertArn) { $overrides += "AlbCertArn=$AlbCertArn"; Write-Host "==> HTTPS enabled (cert provided)" -ForegroundColor Cyan }
+
 Write-Host "==> Deploying stack $Stack (image tag: $ImageTag)" -ForegroundColor Cyan
 aws cloudformation deploy `
   --stack-name $Stack `
   --template-file $Tpl `
   --region $Region `
-  --parameter-overrides ImageTag=$ImageTag AppSecretArn=$AppSecretArn `
+  --parameter-overrides $overrides `
   --no-fail-on-empty-changeset
 
 Write-Host "`n==> App is live at:" -ForegroundColor Green

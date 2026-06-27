@@ -1,0 +1,26 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  superlms CloudFront certificate (Phase 12, MUST be us-east-1). ACM cert for
+  cdn.superlms.in, DNS-validated via the Route53 hosted zone. CloudFront only
+  accepts certs from us-east-1, so this is a separate stack in that region.
+  Deploy AFTER the registrar nameservers point at Route53.
+
+Parameters:
+  ZoneId:
+    Type: String
+    Description: Route53 hosted zone id for superlms.in (output of hosted-zone stack)
+
+Resources:
+  CdnCert:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: cdn.superlms.in
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: cdn.superlms.in
+          HostedZoneId: !Ref ZoneId
+
+Outputs:
+  CertArn:
+    Description: Pass this as CdnCertArn to the media stack (infra/s3)
+    Value: !Ref CdnCert

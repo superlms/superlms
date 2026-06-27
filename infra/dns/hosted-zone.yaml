@@ -1,0 +1,19 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  superlms DNS (Phase 12). Route53 public hosted zone for superlms.in.
+  After deploying, copy the 4 NameServers into your registrar so Route53
+  becomes authoritative; ACM cert validation + app records depend on it.
+
+Resources:
+  Zone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      Name: superlms.in
+
+Outputs:
+  ZoneId:
+    Value: !Ref Zone
+    Export: { Name: superlms-zone-id }
+  NameServers:
+    Description: Set these as the nameservers at your domain registrar
+    Value: !Join [", ", !GetAtt Zone.NameServers]

@@ -1,0 +1,39 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  superlms DNS records (Phase 12). Alias records: superlms.in + www.superlms.in
+  -> ALB, cdn.superlms.in -> CloudFront. Deploy LAST (after the ecs stack has
+  the ALB and the media stack has the CDN alias).
+
+Resources:
+  RootAlias:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !ImportValue superlms-zone-id
+      Name: superlms.in.
+      Type: A
+      AliasTarget:
+        DNSName: !ImportValue superlms-alb-dns
+        HostedZoneId: !ImportValue superlms-alb-zone-id
+        EvaluateTargetHealth: false
+
+  WwwAlias:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !ImportValue superlms-zone-id
+      Name: www.superlms.in.
+      Type: A
+      AliasTarget:
+        DNSName: !ImportValue superlms-alb-dns
+        HostedZoneId: !ImportValue superlms-alb-zone-id
+        EvaluateTargetHealth: false
+
+  CdnAlias:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !ImportValue superlms-zone-id
+      Name: cdn.superlms.in.
+      Type: A
+      AliasTarget:
+        DNSName: !ImportValue superlms-cdn-domain
+        HostedZoneId: Z2FDTNDATAQYW2   # fixed CloudFront alias zone id (all regions)
+        EvaluateTargetHealth: false

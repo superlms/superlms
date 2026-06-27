@@ -8,6 +8,15 @@ Description: >-
   added later in Phase 12 — for now the default *.cloudfront.net domain is
   used.
 
+Parameters:
+  CdnCertArn:
+    Type: String
+    Default: ""
+    Description: ACM cert ARN (us-east-1) for cdn.superlms.in. Empty = default CloudFront cert/domain (Phase 12 adds it).
+
+Conditions:
+  HasCdnCert: !Not [!Equals [!Ref CdnCertArn, ""]]
+
 Resources:
   # ── Private bucket ───────────────────────────────────────────────────────
   MediaBucket:
@@ -52,6 +61,7 @@ Resources:
       DistributionConfig:
         Comment: superlms media CDN
         Enabled: true
+        Aliases: !If [HasCdnCert, [cdn.superlms.in], !Ref "AWS::NoValue"]
         HttpVersion: http2and3
         PriceClass: PriceClass_200   # includes India edge locations, cheaper than _All
         Origins:
@@ -68,8 +78,12 @@ Resources:
           Compress: true
           # AWS managed "CachingOptimized" policy
           CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
-        ViewerCertificate:
-          CloudFrontDefaultCertificate: true
+        ViewerCertificate: !If
+          - HasCdnCert
+          - AcmCertificateArn: !Ref CdnCertArn
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
 
   # ── Bucket policy: only this distribution (via OAC) may GetObject ─────────
   MediaBucketPolicy:

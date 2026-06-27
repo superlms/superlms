@@ -1,0 +1,25 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  superlms ALB certificate (Phase 12, ap-south-1). ACM cert for superlms.in
+  + www.superlms.in, DNS-validated automatically via the Route53 hosted zone.
+  NOTE: deploy this AFTER the registrar nameservers point at Route53, else
+  validation (and this stack) will hang until DNS resolves.
+
+Resources:
+  AlbCert:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: superlms.in
+      SubjectAlternativeNames:
+        - www.superlms.in
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: superlms.in
+          HostedZoneId: !ImportValue superlms-zone-id
+        - DomainName: www.superlms.in
+          HostedZoneId: !ImportValue superlms-zone-id
+
+Outputs:
+  CertArn:
+    Value: !Ref AlbCert
+    Export: { Name: superlms-alb-cert }

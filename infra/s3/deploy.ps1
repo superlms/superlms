@@ -4,6 +4,7 @@
 # Idempotent. Prereq: 'aws configure' done (Phase 3). CloudFront takes a few
 # minutes to deploy. Run from this folder:  .\deploy.ps1
 # ==========================================================================
+param([string]$CdnCertArn = "")
 $ErrorActionPreference = "Stop"
 $Region = "ap-south-1"
 $Stack  = "superlms-media"
@@ -12,12 +13,15 @@ $Tpl    = Join-Path $PSScriptRoot "s3-cdn.yaml"
 Write-Host "==> Validating template" -ForegroundColor Cyan
 aws cloudformation validate-template --template-body "file://$($Tpl -replace '\\','/')" --region $Region | Out-Null
 
+$overrides = @()
+if ($CdnCertArn) { $overrides += "CdnCertArn=$CdnCertArn"; Write-Host "==> CDN alias cdn.superlms.in enabled (cert provided)" -ForegroundColor Cyan }
+
 Write-Host "==> Deploying stack $Stack (this can take 3-5 min for CloudFront)" -ForegroundColor Cyan
-aws cloudformation deploy `
-  --stack-name $Stack `
-  --template-file $Tpl `
-  --region $Region `
-  --no-fail-on-empty-changeset
+if ($overrides.Count -gt 0) {
+  aws cloudformation deploy --stack-name $Stack --template-file $Tpl --region $Region --parameter-overrides $overrides --no-fail-on-empty-changeset
+} else {
+  aws cloudformation deploy --stack-name $Stack --template-file $Tpl --region $Region --no-fail-on-empty-changeset
+}
 
 Write-Host "`n==> Stack outputs:" -ForegroundColor Green
 aws cloudformation describe-stacks --stack-name $Stack --region $Region `
