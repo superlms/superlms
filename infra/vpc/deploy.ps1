@@ -1,9 +1,9 @@
-# ─────────────────────────────────────────────────────────────────────────
-# Phase 4 — deploy the EdyOne LMS network stack (VPC, subnets, SGs).
+# ==========================================================================
+# Phase 4 - deploy the EdyOne LMS network stack (VPC, subnets, SGs).
 #
-# Idempotent: re-running updates the stack in place. Prereq: `aws configure`
-# done with the admin user (Phase 3). Run from this folder:  ./deploy.ps1
-# ─────────────────────────────────────────────────────────────────────────
+# Idempotent: re-running updates the stack in place. Prereq: 'aws configure'
+# done with the admin user (Phase 3). Run from this folder:  .\deploy.ps1
+# ==========================================================================
 $ErrorActionPreference = "Stop"
 $Region = "ap-south-1"
 $Stack  = "edyonelms-network"
