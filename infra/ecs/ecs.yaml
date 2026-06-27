@@ -210,6 +210,34 @@ Resources:
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: scheduler
 
+  # ── Migrate task definition (one-off, Phase 11 - run via run-migrate.ps1) ──
+  MigrateTaskDef:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: superlms-migrate
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: "256"
+      Memory: "512"
+      RuntimePlatform: { CpuArchitecture: ARM64, OperatingSystemFamily: LINUX }
+      ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/ecsTaskExecutionRole
+      TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/superlms-task-role
+      ContainerDefinitions:
+        - Name: migrate
+          Image: !Sub
+            - "${Uri}:${Tag}"
+            - { Uri: !ImportValue superlms-ecr-uri, Tag: !Ref ImageTag }
+          Essential: true
+          Command: [sh, -c, "php artisan migrate --force --no-interaction && php artisan lms:migrate --no-interaction"]
+          Environment: *appenv
+          Secrets: *appsecrets
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: migrate
+
   # ── Services ──────────────────────────────────────────────────────────────
   WebService:
     Type: AWS::ECS::Service
