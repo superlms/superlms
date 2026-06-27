@@ -51,6 +51,11 @@ class ZeptoMailService
             throw new \RuntimeException('ZeptoMail API token not configured. Set ZEPTOMAIL_API_TOKEN in .env');
         }
 
+        // Be tolerant if the token was pasted WITH the "Zoho-enczapikey " prefix
+        // already - we add the prefix to the Authorization header ourselves, and
+        // a doubled prefix makes ZeptoMail return HTTP 500.
+        $apiToken = preg_replace('/^Zoho-enczapikey\s+/i', '', trim($apiToken));
+
         if (!$templateKey) {
             throw new \RuntimeException('ZeptoMail template key is required.');
         }
