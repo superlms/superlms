@@ -131,7 +131,7 @@ Resources:
           Essential: true
           PortMappings:
             - { ContainerPort: 80 }
-          Environment: &appenv
+          Environment:
             - { Name: APP_NAME, Value: SuperLMS }
             - { Name: APP_ENV, Value: production }
             - { Name: APP_DEBUG, Value: "false" }
@@ -166,7 +166,7 @@ Resources:
             - { Name: PHONEPE_CLIENT_VERSION, Value: "1" }
             - { Name: PHONEPE_ENV, Value: production }
             - { Name: RUN_MIGRATIONS, Value: "false" }
-          Secrets: &appsecrets
+          Secrets:
             - { Name: DB_USERNAME, ValueFrom: !Sub ["${A}:username::", { A: !ImportValue superlms-db-secret-arn }] }
             - { Name: DB_PASSWORD, ValueFrom: !Sub ["${A}:password::", { A: !ImportValue superlms-db-secret-arn }] }
             - { Name: APP_KEY, ValueFrom: !Sub "${AppSecretArn}:APP_KEY::" }
@@ -209,8 +209,58 @@ Resources:
             - { Uri: !ImportValue superlms-ecr-uri, Tag: !Ref ImageTag }
           Essential: true
           Command: [php, artisan, queue:work, "--tries=3", "--timeout=120", "--sleep=3", "--max-jobs=1000", "--max-time=3600"]
-          Environment: *appenv
-          Secrets: *appsecrets
+          Environment:
+            - { Name: APP_NAME, Value: SuperLMS }
+            - { Name: APP_ENV, Value: production }
+            - { Name: APP_DEBUG, Value: "false" }
+            - { Name: APP_TIMEZONE, Value: Asia/Kolkata }
+            - Name: APP_URL
+              Value: !If
+                - HasCert
+                - !Sub "https://${AppDomain}"
+                - !Sub ["http://${D}", { D: !GetAtt Alb.DNSName }]
+            - { Name: APP_LOCALE, Value: en }
+            - { Name: LOG_CHANNEL, Value: stderr }
+            - { Name: LOG_LEVEL, Value: info }
+            - { Name: DB_CONNECTION, Value: mysql }
+            - { Name: DB_HOST, Value: !ImportValue superlms-db-host }
+            - { Name: DB_PORT, Value: "3306" }
+            - { Name: DB_DATABASE, Value: !ImportValue superlms-db-name }
+            - { Name: SESSION_DRIVER, Value: redis }
+            - { Name: SESSION_LIFETIME, Value: "120" }
+            - { Name: QUEUE_CONNECTION, Value: redis }
+            - { Name: CACHE_STORE, Value: redis }
+            - { Name: REDIS_CLIENT, Value: phpredis }
+            - { Name: REDIS_HOST, Value: !ImportValue superlms-redis-host }
+            - { Name: REDIS_PORT, Value: "6379" }
+            - { Name: FILESYSTEM_DISK, Value: s3 }
+            - { Name: AWS_DEFAULT_REGION, Value: ap-south-1 }
+            - { Name: AWS_BUCKET, Value: !ImportValue superlms-media-bucket }
+            - { Name: AWS_URL, Value: !Sub ["https://${D}", { D: !ImportValue superlms-cdn-domain }] }
+            - { Name: AWS_USE_PATH_STYLE_ENDPOINT, Value: "false" }
+            - { Name: ZEPTOMAIL_API_URL, Value: https://api.zeptomail.in/v1.1 }
+            - { Name: ZEPTOMAIL_FROM_EMAIL, Value: noreply@superlms.in }
+            - { Name: ZEPTOMAIL_FROM_NAME, Value: SuperLMS }
+            - { Name: PHONEPE_CLIENT_VERSION, Value: "1" }
+            - { Name: PHONEPE_ENV, Value: production }
+            - { Name: RUN_MIGRATIONS, Value: "false" }
+          Secrets:
+            - { Name: DB_USERNAME, ValueFrom: !Sub ["${A}:username::", { A: !ImportValue superlms-db-secret-arn }] }
+            - { Name: DB_PASSWORD, ValueFrom: !Sub ["${A}:password::", { A: !ImportValue superlms-db-secret-arn }] }
+            - { Name: APP_KEY, ValueFrom: !Sub "${AppSecretArn}:APP_KEY::" }
+            - { Name: ZEPTOMAIL_API_TOKEN, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_API_TOKEN::" }
+            - { Name: ZEPTOMAIL_OTP_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_OTP_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_STUDENT_PASSWORD_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_STUDENT_PASSWORD_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_TEACHER_PASSWORD_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_TEACHER_PASSWORD_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_WELCOME_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_WELCOME_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_FEE_RECEIPT_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_FEE_RECEIPT_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_ANNOUNCEMENT_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_ANNOUNCEMENT_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_PASSWORD_CHANGED_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_PASSWORD_CHANGED_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_SCHOOL_CREATION_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_SCHOOL_CREATION_TEMPLATE_KEY::" }
+            - { Name: PHONEPE_CLIENT_ID, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_CLIENT_ID::" }
+            - { Name: PHONEPE_CLIENT_SECRET, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_CLIENT_SECRET::" }
+            - { Name: PHONEPE_WEBHOOK_USERNAME, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_WEBHOOK_USERNAME::" }
+            - { Name: PHONEPE_WEBHOOK_PASSWORD, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_WEBHOOK_PASSWORD::" }
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -237,8 +287,58 @@ Resources:
             - { Uri: !ImportValue superlms-ecr-uri, Tag: !Ref ImageTag }
           Essential: true
           Command: [php, artisan, schedule:work]
-          Environment: *appenv
-          Secrets: *appsecrets
+          Environment:
+            - { Name: APP_NAME, Value: SuperLMS }
+            - { Name: APP_ENV, Value: production }
+            - { Name: APP_DEBUG, Value: "false" }
+            - { Name: APP_TIMEZONE, Value: Asia/Kolkata }
+            - Name: APP_URL
+              Value: !If
+                - HasCert
+                - !Sub "https://${AppDomain}"
+                - !Sub ["http://${D}", { D: !GetAtt Alb.DNSName }]
+            - { Name: APP_LOCALE, Value: en }
+            - { Name: LOG_CHANNEL, Value: stderr }
+            - { Name: LOG_LEVEL, Value: info }
+            - { Name: DB_CONNECTION, Value: mysql }
+            - { Name: DB_HOST, Value: !ImportValue superlms-db-host }
+            - { Name: DB_PORT, Value: "3306" }
+            - { Name: DB_DATABASE, Value: !ImportValue superlms-db-name }
+            - { Name: SESSION_DRIVER, Value: redis }
+            - { Name: SESSION_LIFETIME, Value: "120" }
+            - { Name: QUEUE_CONNECTION, Value: redis }
+            - { Name: CACHE_STORE, Value: redis }
+            - { Name: REDIS_CLIENT, Value: phpredis }
+            - { Name: REDIS_HOST, Value: !ImportValue superlms-redis-host }
+            - { Name: REDIS_PORT, Value: "6379" }
+            - { Name: FILESYSTEM_DISK, Value: s3 }
+            - { Name: AWS_DEFAULT_REGION, Value: ap-south-1 }
+            - { Name: AWS_BUCKET, Value: !ImportValue superlms-media-bucket }
+            - { Name: AWS_URL, Value: !Sub ["https://${D}", { D: !ImportValue superlms-cdn-domain }] }
+            - { Name: AWS_USE_PATH_STYLE_ENDPOINT, Value: "false" }
+            - { Name: ZEPTOMAIL_API_URL, Value: https://api.zeptomail.in/v1.1 }
+            - { Name: ZEPTOMAIL_FROM_EMAIL, Value: noreply@superlms.in }
+            - { Name: ZEPTOMAIL_FROM_NAME, Value: SuperLMS }
+            - { Name: PHONEPE_CLIENT_VERSION, Value: "1" }
+            - { Name: PHONEPE_ENV, Value: production }
+            - { Name: RUN_MIGRATIONS, Value: "false" }
+          Secrets:
+            - { Name: DB_USERNAME, ValueFrom: !Sub ["${A}:username::", { A: !ImportValue superlms-db-secret-arn }] }
+            - { Name: DB_PASSWORD, ValueFrom: !Sub ["${A}:password::", { A: !ImportValue superlms-db-secret-arn }] }
+            - { Name: APP_KEY, ValueFrom: !Sub "${AppSecretArn}:APP_KEY::" }
+            - { Name: ZEPTOMAIL_API_TOKEN, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_API_TOKEN::" }
+            - { Name: ZEPTOMAIL_OTP_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_OTP_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_STUDENT_PASSWORD_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_STUDENT_PASSWORD_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_TEACHER_PASSWORD_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_TEACHER_PASSWORD_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_WELCOME_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_WELCOME_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_FEE_RECEIPT_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_FEE_RECEIPT_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_ANNOUNCEMENT_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_ANNOUNCEMENT_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_PASSWORD_CHANGED_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_PASSWORD_CHANGED_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_SCHOOL_CREATION_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_SCHOOL_CREATION_TEMPLATE_KEY::" }
+            - { Name: PHONEPE_CLIENT_ID, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_CLIENT_ID::" }
+            - { Name: PHONEPE_CLIENT_SECRET, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_CLIENT_SECRET::" }
+            - { Name: PHONEPE_WEBHOOK_USERNAME, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_WEBHOOK_USERNAME::" }
+            - { Name: PHONEPE_WEBHOOK_PASSWORD, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_WEBHOOK_PASSWORD::" }
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -265,8 +365,58 @@ Resources:
             - { Uri: !ImportValue superlms-ecr-uri, Tag: !Ref ImageTag }
           Essential: true
           Command: [sh, -c, "php artisan migrate --force --no-interaction && php artisan lms:migrate --no-interaction"]
-          Environment: *appenv
-          Secrets: *appsecrets
+          Environment:
+            - { Name: APP_NAME, Value: SuperLMS }
+            - { Name: APP_ENV, Value: production }
+            - { Name: APP_DEBUG, Value: "false" }
+            - { Name: APP_TIMEZONE, Value: Asia/Kolkata }
+            - Name: APP_URL
+              Value: !If
+                - HasCert
+                - !Sub "https://${AppDomain}"
+                - !Sub ["http://${D}", { D: !GetAtt Alb.DNSName }]
+            - { Name: APP_LOCALE, Value: en }
+            - { Name: LOG_CHANNEL, Value: stderr }
+            - { Name: LOG_LEVEL, Value: info }
+            - { Name: DB_CONNECTION, Value: mysql }
+            - { Name: DB_HOST, Value: !ImportValue superlms-db-host }
+            - { Name: DB_PORT, Value: "3306" }
+            - { Name: DB_DATABASE, Value: !ImportValue superlms-db-name }
+            - { Name: SESSION_DRIVER, Value: redis }
+            - { Name: SESSION_LIFETIME, Value: "120" }
+            - { Name: QUEUE_CONNECTION, Value: redis }
+            - { Name: CACHE_STORE, Value: redis }
+            - { Name: REDIS_CLIENT, Value: phpredis }
+            - { Name: REDIS_HOST, Value: !ImportValue superlms-redis-host }
+            - { Name: REDIS_PORT, Value: "6379" }
+            - { Name: FILESYSTEM_DISK, Value: s3 }
+            - { Name: AWS_DEFAULT_REGION, Value: ap-south-1 }
+            - { Name: AWS_BUCKET, Value: !ImportValue superlms-media-bucket }
+            - { Name: AWS_URL, Value: !Sub ["https://${D}", { D: !ImportValue superlms-cdn-domain }] }
+            - { Name: AWS_USE_PATH_STYLE_ENDPOINT, Value: "false" }
+            - { Name: ZEPTOMAIL_API_URL, Value: https://api.zeptomail.in/v1.1 }
+            - { Name: ZEPTOMAIL_FROM_EMAIL, Value: noreply@superlms.in }
+            - { Name: ZEPTOMAIL_FROM_NAME, Value: SuperLMS }
+            - { Name: PHONEPE_CLIENT_VERSION, Value: "1" }
+            - { Name: PHONEPE_ENV, Value: production }
+            - { Name: RUN_MIGRATIONS, Value: "false" }
+          Secrets:
+            - { Name: DB_USERNAME, ValueFrom: !Sub ["${A}:username::", { A: !ImportValue superlms-db-secret-arn }] }
+            - { Name: DB_PASSWORD, ValueFrom: !Sub ["${A}:password::", { A: !ImportValue superlms-db-secret-arn }] }
+            - { Name: APP_KEY, ValueFrom: !Sub "${AppSecretArn}:APP_KEY::" }
+            - { Name: ZEPTOMAIL_API_TOKEN, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_API_TOKEN::" }
+            - { Name: ZEPTOMAIL_OTP_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_OTP_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_STUDENT_PASSWORD_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_STUDENT_PASSWORD_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_TEACHER_PASSWORD_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_TEACHER_PASSWORD_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_WELCOME_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_WELCOME_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_FEE_RECEIPT_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_FEE_RECEIPT_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_ANNOUNCEMENT_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_ANNOUNCEMENT_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_PASSWORD_CHANGED_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_PASSWORD_CHANGED_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_SCHOOL_CREATION_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_SCHOOL_CREATION_TEMPLATE_KEY::" }
+            - { Name: PHONEPE_CLIENT_ID, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_CLIENT_ID::" }
+            - { Name: PHONEPE_CLIENT_SECRET, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_CLIENT_SECRET::" }
+            - { Name: PHONEPE_WEBHOOK_USERNAME, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_WEBHOOK_USERNAME::" }
+            - { Name: PHONEPE_WEBHOOK_PASSWORD, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_WEBHOOK_PASSWORD::" }
           LogConfiguration:
             LogDriver: awslogs
             Options:
