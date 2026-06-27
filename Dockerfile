@@ -100,7 +100,9 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 # PHP / FPM / opcache config
 COPY docker/php/php.ini       /usr/local/etc/php/conf.d/zz-app.ini
 COPY docker/php/opcache.ini   /usr/local/etc/php/conf.d/zz-opcache.ini
-COPY docker/php/www.conf      /usr/local/etc/php-fpm.d/zz-www.conf
+# Overwrite the base image's default [www] pool (NOT a zz- add-on) - two pools
+# named [www] make php-fpm fail to start, which surfaces as nginx 502s.
+COPY docker/php/www.conf      /usr/local/etc/php-fpm.d/www.conf
 
 # nginx vhost — nginx runs INSIDE this image (web role), reaching php-fpm
 # over 127.0.0.1:9000. No separate nginx container/task needed on ECS.
@@ -137,7 +139,7 @@ RUN sed -i 's/\r$//' \
         /usr/local/bin/entrypoint.sh \
         /usr/local/etc/php/conf.d/zz-app.ini \
         /usr/local/etc/php/conf.d/zz-opcache.ini \
-        /usr/local/etc/php-fpm.d/zz-www.conf \
+        /usr/local/etc/php-fpm.d/www.conf \
         /etc/nginx/conf.d/default.conf \
         /etc/supervisor/conf.d/app.conf \
     && chmod +x /usr/local/bin/entrypoint.sh
