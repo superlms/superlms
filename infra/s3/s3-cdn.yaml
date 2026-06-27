@@ -1,0 +1,103 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  EdyOne LMS media storage (Phase 5). Private S3 bucket (all public access
+  blocked, SSE-S3 encryption) fronted by a CloudFront distribution using
+  Origin Access Control (OAC). Only CloudFront can read objects; the bucket
+  is never public. The app writes to S3 via its ECS task role and serves
+  files through the CloudFront URL (AWS_URL). Custom domain + ACM cert are
+  added later in Phase 12 — for now the default *.cloudfront.net domain is
+  used.
+
+Resources:
+  # ── Private bucket ───────────────────────────────────────────────────────
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub "edyonelms-media-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      CorsConfiguration:
+        CorsRules:
+          - AllowedMethods: [GET, HEAD, PUT]
+            AllowedOrigins: ["*"]
+            AllowedHeaders: ["*"]
+            MaxAge: 3000
+
+  # ── CloudFront Origin Access Control (signs requests to S3) ───────────────
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: edyonelms-media-oac
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # ── CloudFront distribution ──────────────────────────────────────────────
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: EdyOne LMS media CDN
+        Enabled: true
+        HttpVersion: http2and3
+        PriceClass: PriceClass_200   # includes India edge locations, cheaper than _All
+        Origins:
+          - Id: s3-media
+            DomainName: !GetAtt MediaBucket.RegionalDomainName
+            OriginAccessControlId: !Ref OriginAccessControl
+            S3OriginConfig:
+              OriginAccessIdentity: ""   # empty = use OAC, not legacy OAI
+        DefaultCacheBehavior:
+          TargetOriginId: s3-media
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          # AWS managed "CachingOptimized" policy
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+
+  # ── Bucket policy: only this distribution (via OAC) may GetObject ─────────
+  MediaBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref MediaBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontRead
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${MediaBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution}"
+
+Outputs:
+  BucketName:
+    Description: Set as AWS_BUCKET in the app env
+    Value: !Ref MediaBucket
+    Export: { Name: edyonelms-media-bucket }
+  CloudFrontDomain:
+    Description: Set as AWS_URL (prefix with https://) in the app env
+    Value: !GetAtt Distribution.DomainName
+    Export: { Name: edyonelms-cdn-domain }
+  DistributionId:
+    Value: !Ref Distribution
+    Export: { Name: edyonelms-cdn-distribution-id }
