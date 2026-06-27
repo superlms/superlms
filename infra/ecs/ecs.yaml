@@ -490,6 +490,12 @@ Outputs:
   AlbZoneId:
     Value: !GetAtt Alb.CanonicalHostedZoneID
     Export: { Name: superlms-alb-zone-id }
+  AlbFullName:
+    Value: !GetAtt Alb.LoadBalancerFullName
+    Export: { Name: superlms-alb-fullname }
+  TgFullName:
+    Value: !GetAtt TargetGroup.TargetGroupFullName
+    Export: { Name: superlms-tg-fullname }
   ClusterName:
     Value: !Ref Cluster
     Export: { Name: superlms-ecs-cluster }

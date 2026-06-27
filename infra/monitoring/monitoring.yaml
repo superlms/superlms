@@ -1,0 +1,160 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  superlms monitoring + autoscaling (Phase 16-17). Target-tracking autoscaling
+  for the web service (CPU 60%, 2-6 tasks) and CloudWatch alarms (ECS CPU/mem,
+  ALB 5xx + unhealthy hosts, RDS CPU/storage) that notify an SNS email topic.
+
+Parameters:
+  AlertEmail:
+    Type: String
+    Default: edyonelms1@gmail.com
+    Description: Address that receives alarm notifications (confirm the SNS email).
+  WebMin:
+    Type: Number
+    Default: 2
+  WebMax:
+    Type: Number
+    Default: 6
+
+Resources:
+  # ── Alerts topic (confirm the subscription email after deploy) ────────────
+  AlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: superlms-alerts
+
+  AlertEmailSub:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+      TopicArn: !Ref AlertsTopic
+
+  # ── Web service autoscaling (CPU target tracking) ─────────────────────────
+  WebScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      ServiceNamespace: ecs
+      ResourceId: service/superlms/superlms-web
+      ScalableDimension: ecs:service:DesiredCount
+      MinCapacity: !Ref WebMin
+      MaxCapacity: !Ref WebMax
+
+  WebCpuPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: superlms-web-cpu60
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref WebScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        TargetValue: 60
+        ScaleInCooldown: 300
+        ScaleOutCooldown: 60
+
+  # ── Alarms ────────────────────────────────────────────────────────────────
+  WebCpuHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: superlms-web-cpu-high
+      AlarmDescription: Web service CPU > 80% for 10 min
+      Namespace: AWS/ECS
+      MetricName: CPUUtilization
+      Dimensions:
+        - { Name: ClusterName, Value: superlms }
+        - { Name: ServiceName, Value: superlms-web }
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions: [!Ref AlertsTopic]
+
+  WebMemHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: superlms-web-mem-high
+      AlarmDescription: Web service memory > 85% for 10 min
+      Namespace: AWS/ECS
+      MetricName: MemoryUtilization
+      Dimensions:
+        - { Name: ClusterName, Value: superlms }
+        - { Name: ServiceName, Value: superlms-web }
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 85
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions: [!Ref AlertsTopic]
+
+  Alb5xx:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: superlms-alb-5xx
+      AlarmDescription: ALB returned >10 5xx in 5 min
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_ELB_5XX_Count
+      Dimensions:
+        - { Name: LoadBalancer, Value: !ImportValue superlms-alb-fullname }
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertsTopic]
+
+  UnhealthyHosts:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: superlms-unhealthy-targets
+      AlarmDescription: One or more web targets unhealthy
+      Namespace: AWS/ApplicationELB
+      MetricName: UnHealthyHostCount
+      Dimensions:
+        - { Name: LoadBalancer, Value: !ImportValue superlms-alb-fullname }
+        - { Name: TargetGroup, Value: !ImportValue superlms-tg-fullname }
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 3
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertsTopic]
+
+  RdsCpuHigh:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: superlms-rds-cpu-high
+      AlarmDescription: RDS CPU > 80% for 10 min
+      Namespace: AWS/RDS
+      MetricName: CPUUtilization
+      Dimensions:
+        - { Name: DBInstanceIdentifier, Value: superlms-mysql }
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions: [!Ref AlertsTopic]
+
+  RdsStorageLow:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: superlms-rds-storage-low
+      AlarmDescription: RDS free storage < 2 GB
+      Namespace: AWS/RDS
+      MetricName: FreeStorageSpace
+      Dimensions:
+        - { Name: DBInstanceIdentifier, Value: superlms-mysql }
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2147483648   # 2 GB in bytes
+      ComparisonOperator: LessThanThreshold
+      AlarmActions: [!Ref AlertsTopic]
+
+Outputs:
+  AlertsTopicArn:
+    Value: !Ref AlertsTopic
