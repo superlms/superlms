@@ -22,13 +22,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 COPY composer.json composer.lock ./
-RUN composer install \
-        --no-dev \
-        --no-interaction \
-        --no-progress \
-        --no-scripts \
-        --prefer-dist \
-        --optimize-autoloader
+# Retry composer install up to 5x - GitHub/codeload can return transient
+# HTTP 400s/timeouts on dist downloads (esp. on flaky networks). Succeeds on
+# the first good attempt; fails the build (exit 1) only if all 5 fail.
+RUN for i in 1 2 3 4 5; do \
+        composer install \
+            --no-dev \
+            --no-interaction \
+            --no-progress \
+            --no-scripts \
+            --prefer-dist \
+            --optimize-autoloader \
+        && exit 0; \
+        echo "composer install attempt $i failed; retrying in 10s"; sleep 10; \
+    done; \
+    exit 1
 
 # ---------- Stage 2: Front-end assets ----------
 FROM node:20-alpine AS assets
@@ -36,7 +44,8 @@ FROM node:20-alpine AS assets
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
+# Retry npm ci too (registry/network hiccups).
+RUN for i in 1 2 3 4 5; do npm ci && exit 0; echo "npm ci attempt $i failed; retry in 10s"; sleep 10; done; exit 1
 
 COPY resources ./resources
 COPY public ./public
