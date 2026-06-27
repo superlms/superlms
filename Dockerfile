@@ -130,7 +130,17 @@ RUN chown -R www-data:www-data ${APP_HOME}/storage ${APP_HOME}/bootstrap/cache \
     && find ${APP_HOME}/bootstrap/cache -type d -exec chmod 775 {} \;
 
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+# Strip CR from the entrypoint + all docker configs. On Windows checkouts these
+# files can have CRLF line endings, which break the shell shebang inside the
+# Linux container (exit 127) and can upset nginx/php/supervisor parsing.
+RUN sed -i 's/\r$//' \
+        /usr/local/bin/entrypoint.sh \
+        /usr/local/etc/php/conf.d/zz-app.ini \
+        /usr/local/etc/php/conf.d/zz-opcache.ini \
+        /usr/local/etc/php-fpm.d/zz-www.conf \
+        /etc/nginx/conf.d/default.conf \
+        /etc/supervisor/conf.d/app.conf \
+    && chmod +x /usr/local/bin/entrypoint.sh
 
 # Web role serves HTTP on 80 (nginx). The ALB target group points here.
 EXPOSE 80

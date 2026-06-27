@@ -1,0 +1,6 @@
+# Force LF for files that run inside the Linux container — CRLF breaks shell
+# shebangs (exit 127) and can upset nginx/php/supervisor parsing.
+*.sh            text eol=lf
+docker/**       text eol=lf
+infra/**/*.sh   text eol=lf
+entrypoint.sh   text eol=lf
