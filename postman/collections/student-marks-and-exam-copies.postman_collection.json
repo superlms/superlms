@@ -88,7 +88,7 @@
 					"code": 200,
 					"_postman_previewlanguage": "json",
 					"header": [],
-					"body": "{\n  \"success\": true,\n  \"message\": \"Exam copies fetched successfully.\",\n  \"data\": [\n    {\n      \"id\": 451,\n      \"exam\":     { \"id\": 5, \"name\": \"Half-yearly\" },\n      \"subject\":  { \"id\": 3, \"name\": \"Mathematics\" },\n      \"standard\": { \"id\": 8, \"name\": \"Class 8\" },\n      \"section\":  { \"id\": 24, \"name\": \"A\" },\n      \"pdf_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/exam-copies/abc123.pdf\",\n      \"marks_obtained\": 78,\n      \"max_marks\": 100,\n      \"percentage\": 78,\n      \"grade\": \"A\",\n      \"remarks\": null,\n      \"uploaded_at\": \"2026-06-04T15:32:11Z\"\n    }\n  ],\n  \"meta\": { \"current_page\": 1, \"per_page\": 50, \"total\": 1, \"last_page\": 1 }\n}"
+					"body": "{\n  \"success\": true,\n  \"message\": \"Exam copies fetched successfully.\",\n  \"data\": [\n    {\n      \"id\": 451,\n      \"exam\":     { \"id\": 5, \"name\": \"Half-yearly\" },\n      \"subject\":  { \"id\": 3, \"name\": \"Mathematics\" },\n      \"standard\": { \"id\": 8, \"name\": \"Class 8\" },\n      \"section\":  { \"id\": 24, \"name\": \"A\" },\n      \"pdf_url\":  \"https://superlms-prod.s3.ap-south-1.amazonaws.com/admin/exam-copies/abc123.pdf\",\n      \"marks_obtained\": 78,\n      \"max_marks\": 100,\n      \"percentage\": 78,\n      \"grade\": \"A\",\n      \"remarks\": null,\n      \"uploaded_at\": \"2026-06-04T15:32:11Z\"\n    }\n  ],\n  \"meta\": { \"current_page\": 1, \"per_page\": 50, \"total\": 1, \"last_page\": 1 }\n}"
 				}
 			]
 		},

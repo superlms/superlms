@@ -124,7 +124,7 @@ return [
     ],
 
     'firebase' => [
-        'credentials' => public_path('edyone-lms-firebase-adminsdk-fbsvc-b592c9fade.json'),
+        'credentials' => public_path('superlms-lms-firebase-adminsdk-fbsvc-b592c9fade.json'),
         'database_url' => env('FIREBASE_DATABASE_URL'),
     ]
 

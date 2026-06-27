@@ -8,9 +8,9 @@ Add these variables to your `.env` file:
 # Zoho ZeptoMail (Transactional Email)
 ZEPTOMAIL_API_TOKEN=your-zeptomail-api-token
 ZEPTOMAIL_OTP_TEMPLATE_KEY=your-otp-template-key
-ZEPTOMAIL_FROM_EMAIL=noreply@edyone.site
-ZEPTOMAIL_FROM_NAME="Edyone LMS"
-ZEPTOMAIL_BOUNCE_ADDRESS=bounce@edyone.site
+ZEPTOMAIL_FROM_EMAIL=noreply@superlms.site
+ZEPTOMAIL_FROM_NAME="SuperLMS"
+ZEPTOMAIL_BOUNCE_ADDRESS=bounce@superlms.site
 ```
 
 ## ZeptoMail Template Setup

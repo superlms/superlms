@@ -1,8 +1,8 @@
 # Phase 6 - RDS MySQL
 
-Stack `edyonelms-rds`: MySQL 8, `db.t4g.small`, Single-AZ, private subnets,
+Stack `superlms-rds`: MySQL 8, `db.t4g.small`, Single-AZ, private subnets,
 reachable only from the ECS security group. Master password is generated and
-kept in Secrets Manager (`edyonelms/rds`) - never in plaintext.
+kept in Secrets Manager (`superlms/rds`) - never in plaintext.
 
 ## Run
 
@@ -17,22 +17,22 @@ Takes ~6-12 min (RDS provisioning). Requires the Phase 4 VPC stack.
 
 | Resource | Notes |
 |----------|-------|
-| Secrets Manager `edyonelms/rds` | generated 24-char password; after creation also holds host/port |
+| Secrets Manager `superlms/rds` | generated 24-char password; after creation also holds host/port |
 | DB subnet group | the two private subnets |
-| RDS instance `edyonelms-mysql` | MySQL 8, db.t4g.small, 20 GB gp3, encrypted, 7-day backups, Single-AZ, not public |
+| RDS instance `superlms-mysql` | MySQL 8, db.t4g.small, 20 GB gp3, encrypted, 7-day backups, Single-AZ, not public |
 
 `DeletionPolicy: Snapshot` - deleting the stack takes a final snapshot first.
 
 ## App wiring (Phase 8)
 
-The app reads DB creds from secret `edyonelms/rds`. Exports for the ECS task def:
+The app reads DB creds from secret `superlms/rds`. Exports for the ECS task def:
 
 | Export | App env |
 |--------|---------|
-| `edyonelms-db-host` | `DB_HOST` |
-| `edyonelms-db-port` | `DB_PORT` (3306) |
-| `edyonelms-db-name` | `DB_DATABASE` (edyonelms) |
-| `edyonelms-db-secret-arn` | source for `DB_USERNAME` / `DB_PASSWORD` (secret keys) |
+| `superlms-db-host` | `DB_HOST` |
+| `superlms-db-port` | `DB_PORT` (3306) |
+| `superlms-db-name` | `DB_DATABASE` (superlms) |
+| `superlms-db-secret-arn` | source for `DB_USERNAME` / `DB_PASSWORD` (secret keys) |
 
 ## Notes
 

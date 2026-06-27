@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/payment/return/{merchantOrderId}', [PhonePeController::class, 'paymentReturn'])
     ->name('phonepe.return');
 
-//Edyone Website (must be before admin — avoids {organization} wildcard swallowing /web/* routes)
+//SuperLMS Website (must be before admin — avoids {organization} wildcard swallowing /web/* routes)
 require __DIR__.'/website.php';
 
 // Super Admin

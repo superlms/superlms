@@ -1,11 +1,11 @@
 # ==========================================================================
-# Phase 3 - IAM setup for the EdyOne LMS AWS migration.
+# Phase 3 - IAM setup for the superlms AWS migration.
 #
 # Creates (idempotent - safe to re-run):
 #   1. GitHub OIDC identity provider
 #   2. github-actions-deploy   role  (assumed by GitHub Actions via OIDC)
 #   3. ecsTaskExecutionRole          (ECS pulls image, reads secrets, logs)
-#   4. edyonelms-task-role           (the app's own runtime permissions: S3)
+#   4. superlms-task-role           (the app's own runtime permissions: S3)
 #
 # Prereqs: 'aws configure' already done with the admin user (Phase 3.1).
 # Run from this folder:  .\setup.ps1
@@ -75,12 +75,12 @@ aws iam put-role-policy --role-name $execRole `
   --policy-name read-app-secrets --policy-document (Render "execution-role-secrets.json") | Out-Null
 
 # 4. App TASK role (runtime perms for the PHP app) -------------------------
-$taskRole = "edyonelms-task-role"
+$taskRole = "superlms-task-role"
 if (-not (RoleExists $taskRole)) {
   Write-Host "==> Creating role $taskRole"
   aws iam create-role --role-name $taskRole `
     --assume-role-policy-document (Render "ecs-tasks-trust.json") `
-    --description "Runtime permissions for the EdyOne LMS app (S3, etc.)" | Out-Null
+    --description "Runtime permissions for the superlms app (S3, etc.)" | Out-Null
 } else {
   Write-Host "==> $taskRole exists - updating policy" -ForegroundColor Yellow
 }

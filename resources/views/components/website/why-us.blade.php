@@ -1,7 +1,7 @@
 @php
     $def      = config('website_pages.why-us', []);
     // Header copy from config; the detailed reason sections below are fixed content.
-    $tag      = $def['tag']      ?? 'Why EDYONE LMS';
+    $tag      = $def['tag']      ?? 'Why SUPERLMS';
     $title    = $def['title']    ?? '';
     $subtitle = $def['subtitle'] ?? '';
 
@@ -111,7 +111,7 @@
         <span class="wu-eyebrow">01 · One Partner, Everything</span>
         <h2 class="wu-title">Everything your school needs — in one place</h2>
         <p class="wu-desc">Most schools juggle five different vendors for software, ID cards, labs, transport and more.
-          With EDYONE you get it all from a single trusted partner. Our LMS covers the entire academic workflow, and our
+          With SUPERLMS you get it all from a single trusted partner. Our LMS covers the entire academic workflow, and our
           services equip the rest of your campus — so nothing falls through the cracks.</p>
         <div class="wu-feature-chips">
           @foreach ($features as $f)<span>{{ $f }}</span>@endforeach
@@ -138,7 +138,7 @@
       <div class="wu-content">
         <span class="wu-eyebrow">02 · Pricing</span>
         <h2 class="wu-title">Genuinely affordable — and transparent</h2>
-        <p class="wu-desc">World-class school technology should not cost a fortune. EDYONE is priced so that schools of
+        <p class="wu-desc">World-class school technology should not cost a fortune. SUPERLMS is priced so that schools of
           every size can afford it — one simple plan, billed per student, with every module included. No per-feature
           add-ons, no setup charges and absolutely no hidden fees.</p>
         <ul class="wu-points">
@@ -166,7 +166,7 @@
       <div class="wu-content">
         <span class="wu-eyebrow">03 · Hybrid Platform</span>
         <h2 class="wu-title">Powerful on the web, brilliant on mobile</h2>
-        <p class="wu-desc">EDYONE is truly hybrid. Your office staff get a full-featured web dashboard for heavy
+        <p class="wu-desc">SUPERLMS is truly hybrid. Your office staff get a full-featured web dashboard for heavy
           administrative work, while teachers, students and parents stay connected through dedicated mobile apps. The
           same live data, everywhere — no compromises, no separate logins.</p>
         <ul class="wu-points">
@@ -191,7 +191,7 @@
       <div class="wu-content">
         <span class="wu-eyebrow">04 · Setup &amp; Integration</span>
         <h2 class="wu-title">We handle the integration &amp; data upload</h2>
-        <p class="wu-desc">Switching systems sounds scary — but with EDYONE you don't lift a finger. Our team takes your
+        <p class="wu-desc">Switching systems sounds scary — but with SUPERLMS you don't lift a finger. Our team takes your
           existing records and uploads everything for you: students, staff, classes, fee structures and more. We
           integrate, configure and verify, so your school goes live smoothly without disrupting daily work.</p>
         <ul class="wu-points">
@@ -241,7 +241,7 @@
       <div class="wu-content">
         <span class="wu-eyebrow">06 · Built for India</span>
         <h2 class="wu-title">Designed for Indian schools, not adapted</h2>
-        <p class="wu-desc">EDYONE is built from the ground up around how Indian schools actually work — your boards, your
+        <p class="wu-desc">SUPERLMS is built from the ground up around how Indian schools actually work — your boards, your
           fee cycles, your report cards and your day-to-day realities. It's not a foreign product forced to fit; it's
           made here, for schools like yours, and improved with feedback from real classrooms every day.</p>
         <ul class="wu-points">
@@ -259,8 +259,8 @@
   <section class="cta-section">
     <div class="cta-bg"></div>
     <div class="cta-card">
-      <h2 class="cta-title">See why schools switch to <span class="gradient-text">EDYONE</span></h2>
-      <p class="cta-desc">Book a free, no-obligation demo and we'll show you exactly how EDYONE works for your school —
+      <h2 class="cta-title">See why schools switch to <span class="gradient-text">SUPERLMS</span></h2>
+      <p class="cta-desc">Book a free, no-obligation demo and we'll show you exactly how SUPERLMS works for your school —
         from the software to the services that equip your whole campus.</p>
       <div class="cta-actions">
         <a href="{{ url('web/demo') }}" class="btn btn-primary btn-xl">Request a Demo</a>

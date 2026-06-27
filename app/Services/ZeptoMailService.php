@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Log;
  *   ], null, ['greeting' => 'Hello']);
  *
  *   // Custom from address
- *   ZeptoMailService::sendTemplate('key', 'to@test.com', 'To', ['field' => 'val'], 'custom@edyone.site', 'Custom Name');
+ *   ZeptoMailService::sendTemplate('key', 'to@test.com', 'To', ['field' => 'val'], 'custom@superlms.site', 'Custom Name');
  */
 class ZeptoMailService
 {
@@ -61,8 +61,8 @@ class ZeptoMailService
         $payload = [
             'template_key' => $templateKey,
             'from' => [
-                'address' => $fromEmail ?? config('services.zeptomail.from_email', 'noreply@edyonelms.in'),
-                'name' => $fromName ?? config('services.zeptomail.from_name', 'Edyone LMS'),
+                'address' => $fromEmail ?? config('services.zeptomail.from_email', 'noreply@superlms.in'),
+                'name' => $fromName ?? config('services.zeptomail.from_name', 'SuperLMS'),
             ],
             'to' => $recipients,
             'merge_info' => $mergeFields,
@@ -129,8 +129,8 @@ class ZeptoMailService
 
         $payload = [
             'from' => [
-                'address' => $fromEmail ?? config('services.zeptomail.from_email', 'noreply@edyonelms.in'),
-                'name' => $fromName ?? config('services.zeptomail.from_name', 'Edyone LMS'),
+                'address' => $fromEmail ?? config('services.zeptomail.from_email', 'noreply@superlms.in'),
+                'name' => $fromName ?? config('services.zeptomail.from_name', 'SuperLMS'),
             ],
             'to' => $recipients,
             'subject' => $subject,

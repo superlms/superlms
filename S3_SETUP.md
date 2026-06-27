@@ -9,7 +9,7 @@ The application code is already wired to upload files to S3 (see [`app/Helpers/F
 ## 1. Create the S3 bucket
 
 1. AWS Console → **S3 → Create bucket**.
-2. **Bucket name:** `edyonelms-prod` (or your own — must be globally unique).
+2. **Bucket name:** `superlms-prod` (or your own — must be globally unique).
 3. **Region:** match your EC2 region. To find it, run on EC2:
    ```bash
    curl -s http://169.254.169.254/latest/meta-data/placement/region; echo
@@ -26,7 +26,7 @@ The application code is already wired to upload files to S3 (see [`app/Helpers/F
 
 ## 2. Attach a bucket policy (allow public reads on objects)
 
-Open the bucket → **Permissions → Bucket policy → Edit** → paste the following (replace `edyonelms-prod` with your bucket name if different):
+Open the bucket → **Permissions → Bucket policy → Edit** → paste the following (replace `superlms-prod` with your bucket name if different):
 
 ```json
 {
@@ -37,7 +37,7 @@ Open the bucket → **Permissions → Bucket policy → Edit** → paste the fol
       "Effect": "Allow",
       "Principal": "*",
       "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::edyonelms-prod/*"
+      "Resource": "arn:aws:s3:::superlms-prod/*"
     }
   ]
 }
@@ -57,7 +57,7 @@ Same bucket → **Permissions → Cross-origin resource sharing (CORS) → Edit*
     "AllowedHeaders": ["*"],
     "AllowedMethods": ["GET", "HEAD"],
     "AllowedOrigins": [
-      "https://edyonelms.in",
+      "https://superlms.in",
       "http://localhost:8080",
       "http://localhost:8000"
     ],
@@ -75,7 +75,7 @@ Save. Add any additional domains you serve from (staging, custom CloudFront, etc
 **Do not use your AWS root account credentials in the app.**
 
 1. AWS Console → **IAM → Users → Create user**.
-2. **User name:** `edyonelms-s3-app`.
+2. **User name:** `superlms-s3-app`.
 3. **Access type:** check **"Programmatic access"** (we want an Access Key + Secret).
 4. **Permissions → Attach policies directly → Create policy** (in a new tab):
 
@@ -89,7 +89,7 @@ Save. Add any additional domains you serve from (staging, custom CloudFront, etc
            "Sid": "BucketLevel",
            "Effect": "Allow",
            "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
-           "Resource": "arn:aws:s3:::edyonelms-prod"
+           "Resource": "arn:aws:s3:::superlms-prod"
          },
          {
            "Sid": "ObjectLevel",
@@ -100,15 +100,15 @@ Save. Add any additional domains you serve from (staging, custom CloudFront, etc
              "s3:GetObject",
              "s3:DeleteObject"
            ],
-           "Resource": "arn:aws:s3:::edyonelms-prod/*"
+           "Resource": "arn:aws:s3:::superlms-prod/*"
          }
        ]
      }
      ```
 
-   - **Policy name:** `EdyonelmsS3Access`. Create policy.
+   - **Policy name:** `SuperLMSS3Access`. Create policy.
 
-5. Back on the user creation tab → refresh the policy list → attach `EdyonelmsS3Access`.
+5. Back on the user creation tab → refresh the policy list → attach `SuperLMSS3Access`.
 6. Create the user. Once created, click into the user → **Security credentials → Create access key**:
    - Use case: **Application running outside AWS** (or "Other" — doesn't matter for billing).
    - **Copy the Access key ID and Secret access key NOW.** The Secret is shown only once. Store it in your password manager.
@@ -120,7 +120,7 @@ Save. Add any additional domains you serve from (staging, custom CloudFront, etc
 SSH into EC2 and edit `.env` in the project directory:
 
 ```bash
-cd ~/edyonelms       # adjust path if different
+cd ~/superlms       # adjust path if different
 nano .env
 ```
 
@@ -132,8 +132,8 @@ FILESYSTEM_DISK=s3
 AWS_ACCESS_KEY_ID=AKIA...your-key...
 AWS_SECRET_ACCESS_KEY=...your-secret...
 AWS_DEFAULT_REGION=ap-south-1
-AWS_BUCKET=edyonelms-prod
-AWS_URL=https://edyonelms-prod.s3.ap-south-1.amazonaws.com
+AWS_BUCKET=superlms-prod
+AWS_URL=https://superlms-prod.s3.ap-south-1.amazonaws.com
 AWS_USE_PATH_STYLE_ENDPOINT=false
 ```
 
@@ -174,11 +174,11 @@ docker compose exec app php artisan s3:health
 You should see something like:
 
 ```
-✓ Configuration looks valid (bucket: edyonelms-prod, region: ap-south-1)
+✓ Configuration looks valid (bucket: superlms-prod, region: ap-south-1)
 ✓ PUT  succeeded → s3-health-check/<timestamp>.txt
 ✓ EXISTS check passed
 ✓ GET  succeeded → content matched
-✓ URL  generated  → https://edyonelms-prod.s3.ap-south-1.amazonaws.com/s3-health-check/<timestamp>.txt
+✓ URL  generated  → https://superlms-prod.s3.ap-south-1.amazonaws.com/s3-health-check/<timestamp>.txt
 ✓ HEAD via HTTP   → 200 OK
 ✓ DELETE succeeded
 
@@ -200,7 +200,7 @@ If any step fails, the command prints which one and why. Common causes:
 Once `s3:health` passes:
 
 1. Log into the admin panel and edit a teacher profile — upload a new photo.
-2. The new image URL stored in the database should be `https://edyonelms-prod.s3.<region>.amazonaws.com/teacher-images/<random>.jpg`.
+2. The new image URL stored in the database should be `https://superlms-prod.s3.<region>.amazonaws.com/teacher-images/<random>.jpg`.
 3. Open that URL in the browser — it should load.
 4. Check the S3 bucket in the console — the file should appear under `teacher-images/`.
 

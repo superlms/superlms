@@ -35,7 +35,7 @@
                         @elseif (auth()->user()->role === 'admin')
                             Welcome! {{ auth()->user()->organization->name }}
                         @else
-                            Welcome! Edyone LMS Admin
+                            Welcome! SuperLMS Admin
                         @endif
                     </h2>
                     <span

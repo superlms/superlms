@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
-  EdyOne LMS media storage (Phase 5). Private S3 bucket (all public access
+  superlms media storage (Phase 5). Private S3 bucket (all public access
   blocked, SSE-S3 encryption) fronted by a CloudFront distribution using
   Origin Access Control (OAC). Only CloudFront can read objects; the bucket
   is never public. The app writes to S3 via its ECS task role and serves
@@ -15,7 +15,7 @@ Resources:
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
-      BucketName: !Sub "edyonelms-media-${AWS::AccountId}"
+      BucketName: !Sub "superlms-media-${AWS::AccountId}"
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -40,7 +40,7 @@ Resources:
     Type: AWS::CloudFront::OriginAccessControl
     Properties:
       OriginAccessControlConfig:
-        Name: edyonelms-media-oac
+        Name: superlms-media-oac
         OriginAccessControlOriginType: s3
         SigningBehavior: always
         SigningProtocol: sigv4
@@ -50,7 +50,7 @@ Resources:
     Type: AWS::CloudFront::Distribution
     Properties:
       DistributionConfig:
-        Comment: EdyOne LMS media CDN
+        Comment: superlms media CDN
         Enabled: true
         HttpVersion: http2and3
         PriceClass: PriceClass_200   # includes India edge locations, cheaper than _All
@@ -93,11 +93,11 @@ Outputs:
   BucketName:
     Description: Set as AWS_BUCKET in the app env
     Value: !Ref MediaBucket
-    Export: { Name: edyonelms-media-bucket }
+    Export: { Name: superlms-media-bucket }
   CloudFrontDomain:
     Description: Set as AWS_URL (prefix with https://) in the app env
     Value: !GetAtt Distribution.DomainName
-    Export: { Name: edyonelms-cdn-domain }
+    Export: { Name: superlms-cdn-domain }
   DistributionId:
     Value: !Ref Distribution
-    Export: { Name: edyonelms-cdn-distribution-id }
+    Export: { Name: superlms-cdn-distribution-id }

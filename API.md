@@ -1,9 +1,9 @@
-# EdyoneLMS — API Reference
+# SuperLMS — API Reference
 
 All endpoints in this app are prefixed with `/api`. Production base URL:
 
 ```
-https://edyonelms.in/api
+https://superlms.in/api
 ```
 
 For local Docker development:
@@ -50,7 +50,7 @@ This document contains a `curl` example for every endpoint, grouped by feature.
 Paste these once per terminal session — every curl below uses `$BASE` and (for authenticated calls) `$TOKEN`:
 
 ```bash
-export BASE="https://edyonelms.in/api"
+export BASE="https://superlms.in/api"
 export TOKEN=""           # filled in after a successful login (see section 2)
 ```
 

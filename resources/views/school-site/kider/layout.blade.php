@@ -111,7 +111,7 @@
                         Designed By <a class="border-bottom" href="https://htmlcodex.com" target="_blank" rel="noopener">HTML Codex</a>
                     </div>
                     <div class="col-md-6 text-center text-md-end">
-                        Powered by <a class="border-bottom" href="https://edyonelms.in" target="_blank" rel="noopener">EDYONE LMS</a>
+                        Powered by <a class="border-bottom" href="https://superlms.in" target="_blank" rel="noopener">SUPERLMS</a>
                     </div>
                 </div>
             </div>

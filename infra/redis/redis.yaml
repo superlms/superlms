@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
-  EdyOne LMS cache (Phase 7). ElastiCache Redis, cache.t4g.micro, single node,
+  superlms cache (Phase 7). ElastiCache Redis, cache.t4g.micro, single node,
   in the private subnets, reachable only from the ECS security group. Used for
   cache + sessions + queue (CACHE_STORE / SESSION_DRIVER / QUEUE_CONNECTION =
   redis). No auth token - it is private and SG-restricted.
@@ -14,13 +14,13 @@ Resources:
   RedisSubnetGroup:
     Type: AWS::ElastiCache::SubnetGroup
     Properties:
-      Description: EdyOne LMS private cache subnets
-      SubnetIds: !Split [",", !ImportValue edyonelms-private-subnets]
+      Description: superlms private cache subnets
+      SubnetIds: !Split [",", !ImportValue superlms-private-subnets]
 
   RedisCluster:
     Type: AWS::ElastiCache::CacheCluster
     Properties:
-      ClusterName: edyonelms-redis
+      ClusterName: superlms-redis
       Engine: redis
       EngineVersion: "7.1"
       CacheNodeType: !Ref NodeType
@@ -28,12 +28,12 @@ Resources:
       Port: 6379
       CacheSubnetGroupName: !Ref RedisSubnetGroup
       VpcSecurityGroupIds:
-        - !ImportValue edyonelms-redis-sg
+        - !ImportValue superlms-redis-sg
 
 Outputs:
   RedisHost:
     Value: !GetAtt RedisCluster.RedisEndpoint.Address
-    Export: { Name: edyonelms-redis-host }
+    Export: { Name: superlms-redis-host }
   RedisPort:
     Value: !GetAtt RedisCluster.RedisEndpoint.Port
-    Export: { Name: edyonelms-redis-port }
+    Export: { Name: superlms-redis-port }

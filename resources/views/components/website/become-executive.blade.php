@@ -105,7 +105,7 @@
     <div class="section-head">
       <span class="section-tag tag-pink">Why Become an Executive</span>
       <h2 class="section-title">Perks that actually pay off</h2>
-      <p class="section-subtitle">Partnering with EDYONE means real earning potential, full flexibility and a product
+      <p class="section-subtitle">Partnering with SUPERLMS means real earning potential, full flexibility and a product
         schools genuinely need — backed by a team that supports you at every step.</p>
     </div>
     <div class="cards-grid">
@@ -171,7 +171,7 @@
     <div class="section-head">
       <span class="section-tag tag-violet">Your Role</span>
       <h2 class="section-title">What you'll do</h2>
-      <p class="section-subtitle">Your core mission is simple — help schools in your region partner with EDYONE and go
+      <p class="section-subtitle">Your core mission is simple — help schools in your region partner with SUPERLMS and go
         digital. You connect them with us, and we take care of the rest.</p>
     </div>
     <div class="do-split">
@@ -180,7 +180,7 @@
           <div class="do-check">🏫</div>
           <div>
             <div class="do-item-title">Get schools to partner with us</div>
-            <div class="do-item-desc">Reach out to schools in your area and introduce them to EDYONE — India's
+            <div class="do-item-desc">Reach out to schools in your area and introduce them to SUPERLMS — India's
               affordable, all-in-one school management platform.</div>
           </div>
         </div>
@@ -189,7 +189,7 @@
           <div>
             <div class="do-item-title">Pitch &amp; book demos</div>
             <div class="do-item-desc">Share our brochures and pricing, and book a demo with our team. We help you
-              present EDYONE with confidence — even if you're brand new to sales.</div>
+              present SUPERLMS with confidence — even if you're brand new to sales.</div>
           </div>
         </div>
         <div class="do-item">
@@ -205,7 +205,7 @@
           <div>
             <div class="do-item-title">Earn for every school</div>
             <div class="do-item-desc">Get paid a healthy commission for each school you bring on board, plus recurring
-              income for as long as they stay with EDYONE.</div>
+              income for as long as they stay with SUPERLMS.</div>
           </div>
         </div>
       </div>
@@ -239,7 +239,7 @@
       <div class="step-card">
         <div class="step-num">3</div>
         <div class="step-title">Train</div>
-        <div class="step-desc">Get product training, sales material and pricing so you can pitch EDYONE with confidence.</div>
+        <div class="step-desc">Get product training, sales material and pricing so you can pitch SUPERLMS with confidence.</div>
       </div>
       <div class="step-card">
         <div class="step-num">4</div>

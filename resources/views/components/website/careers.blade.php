@@ -28,7 +28,7 @@
         ['n' => '1', 'title' => 'Apply / Enquiry', 'desc' => 'Submit the short application form with your details and resume — or enquire about a role you like.'],
         ['n' => '2', 'title' => 'Screening',       'desc' => 'Our team reviews your application and shortlists the candidates who best fit the role.'],
         ['n' => '3', 'title' => 'Interview',       'desc' => 'Have a friendly call / interview with the team to talk through your experience and the role.'],
-        ['n' => '4', 'title' => 'Offer & Joining', 'desc' => 'Clear the interview, receive your offer, complete onboarding and join the EDYONE team.'],
+        ['n' => '4', 'title' => 'Offer & Joining', 'desc' => 'Clear the interview, receive your offer, complete onboarding and join the SUPERLMS team.'],
     ];
 @endphp
 @include('components.website.partials.head', ['title' => 'Careers'])
@@ -131,7 +131,7 @@
   {{-- ══════════════════ WHY WORK WITH US ══════════════════ --}}
   <section class="section" style="padding-bottom:48px;">
     <div class="section-head">
-      <span class="section-tag tag-pink">Why Join EDYONE</span>
+      <span class="section-tag tag-pink">Why Join SUPERLMS</span>
       <h2 class="section-title">A place to do your best work</h2>
       <p class="section-subtitle">We're a fast-growing team on a mission to make great school technology affordable for
         every institution in India — and we look after the people who build it.</p>
@@ -207,7 +207,7 @@
       <div class="apply-wrap">
       <button type="button" class="apply-modal-close" onclick="closeApply()" aria-label="Close">&times;</button>
       <div class="apply-head">
-        <h3 id="applyTitle">Apply <span id="applyRoleLabel">to EDYONE</span></h3>
+        <h3 id="applyTitle">Apply <span id="applyRoleLabel">to SUPERLMS</span></h3>
         <p>Fill in your details and attach your resume. Fields marked <span style="color:var(--pink-dark)">*</span> are required.</p>
       </div>
 
@@ -276,7 +276,7 @@
 
     function openApply(role) {
       document.getElementById('jobRole').value = role || '';
-      document.getElementById('applyRoleLabel').textContent = role ? ('for ' + role) : 'to EDYONE';
+      document.getElementById('applyRoleLabel').textContent = role ? ('for ' + role) : 'to SUPERLMS';
       document.getElementById('applyReveal').classList.add('open');
       document.getElementById('applySection').scrollIntoView({ behavior: 'smooth', block: 'start' });
       setTimeout(function () {

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Contact Us — EDYONE LMS</title>
+    <title>Contact Us — SUPERLMS</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="icon" type="image/png" href="{{ asset('website-image/Group 11525.png') }}">
@@ -805,7 +805,7 @@
                     <div class="info-icon" style="background:var(--secondary-faint);">📧</div>
                     <div>
                         <div class="info-label">Email Address</div>
-                        <div class="info-value">support@edyonelms.in</div>
+                        <div class="info-value">support@superlms.in</div>
                     </div>
                 </div>
 

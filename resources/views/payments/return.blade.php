@@ -37,7 +37,7 @@
         @endif
 
         <h1>{{ $label }}</h1>
-        <p>You can now return to the EDYONE LMS app. Your fee status will update automatically.</p>
+        <p>You can now return to the SUPERLMS app. Your fee status will update automatically.</p>
         <a class="btn" href="{{ $deepLink }}">Return to app</a>
     </div>
 

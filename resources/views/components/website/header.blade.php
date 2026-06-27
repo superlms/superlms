@@ -7,7 +7,7 @@
                 <img src="{{ asset('website-image/Group 11525.png') }}" alt="Logo"
                     class="w-12 h-12 object-contain mb-2">
             </div>
-            <div class="logo-text">EDYONE <span>LMS</span></div>
+            <div class="logo-text">SUPERLMS <span>LMS</span></div>
         </a>
 
     <ul class="nav-links">
@@ -38,7 +38,7 @@
         <a href="{{ url('web/demo') }}" class="btn btn-primary">Request Demo</a>
     </div>
 
-    {{-- id="hamburger" & id="mobileClose" match edyone-homepage-single.html JS --}}
+    {{-- id="hamburger" & id="mobileClose" match superlms-homepage-single.html JS --}}
     <button class="hamburger" id="hamburger" aria-label="Open menu">
         <span></span><span></span><span></span>
     </button>

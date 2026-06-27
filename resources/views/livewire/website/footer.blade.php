@@ -11,7 +11,7 @@
                         <circle cx="12" cy="12" r="2.5" fill="rgba(255,255,255,0.95)"/>
                     </svg>
                 </div>
-                <span class="text-xl font-bold">EDYONE <span class="font-light">LMS</span></span>
+                <span class="text-xl font-bold">SUPERLMS <span class="font-light">LMS</span></span>
             </a>
             <p class="text-sm text-white/80 leading-relaxed">India's leading affordable Learning Management System for schools and educational institutions.</p>
         </div>
@@ -43,7 +43,7 @@
                 Tips, And Exclusive Content
             </p>
             <div class="flex justify-center space-x-4">
-                <a href="https://www.instagram.com/edyonelms?utm_source=ig_web_button_share_sheet&igsh=ZzlkamE5ZTR5MDB6"
+                <a href="https://www.instagram.com/superlms?utm_source=ig_web_button_share_sheet&igsh=ZzlkamE5ZTR5MDB6"
                     target="_blank" rel="noopener noreferrer">
                     <img src="https://img.icons8.com/fluency/48/instagram-new.png" alt="Instagram" class="w-6 h-6" />
                 </a>
@@ -51,7 +51,7 @@
                     rel="noopener noreferrer">
                     <img src="https://img.icons8.com/color/48/whatsapp--v1.png" alt="WhatsApp" class="w-6 h-6" />
                 </a>
-                <a href="https://youtube.com/@edyonelms?si=SqStdSrTtJ95j8tP" target="_blank" rel="noopener noreferrer">
+                <a href="https://youtube.com/@superlms?si=SqStdSrTtJ95j8tP" target="_blank" rel="noopener noreferrer">
                     <img src="https://img.icons8.com/color/48/youtube-play.png" alt="YouTube" class="w-6 h-6" />
                 </a>
             </div>
@@ -62,8 +62,8 @@
             <!-- Email -->
             <div class="flex items-center md:justify-end gap-3">
                 <span class="text-lg">📧</span>
-                <a href="mailto:support@edyonelms.in"
-                    class="hover:underline break-all font-medium">support@edyonelms.in</a>
+                <a href="mailto:support@superlms.in"
+                    class="hover:underline break-all font-medium">support@superlms.in</a>
             </div>
 
             <!-- Phone -->

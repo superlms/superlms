@@ -43,7 +43,7 @@ return [
     ],
 
     'firebase' => [
-        'credentials' => public_path('edyone-lms-firebase-adminsdk-fbsvc-b592c9fade.json'),
+        'credentials' => public_path('superlms-lms-firebase-adminsdk-fbsvc-b592c9fade.json'),
         'project_id' => env('FIREBASE_PROJECT_ID'),
         'database_url' => env('FIREBASE_DATABASE_URL'),
     ],
@@ -65,8 +65,8 @@ return [
     'zeptomail' => [
         'api_url' => env('ZEPTOMAIL_API_URL', 'https://api.zeptomail.in/v1.1'),
         'api_token' => env('ZEPTOMAIL_API_TOKEN'),
-        'from_email' => env('ZEPTOMAIL_FROM_EMAIL', 'noreply@edyonelms.in'),
-        'from_name' => env('ZEPTOMAIL_FROM_NAME', 'Edyone LMS'),
+        'from_email' => env('ZEPTOMAIL_FROM_EMAIL', 'noreply@superlms.in'),
+        'from_name' => env('ZEPTOMAIL_FROM_NAME', 'SuperLMS'),
         'bounce_address' => env('ZEPTOMAIL_BOUNCE_ADDRESS'),
 
         // Template keys - add new ones here as you create them in Zoho

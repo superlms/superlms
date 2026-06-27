@@ -1,5 +1,5 @@
 # ==========================================================================
-# Phase 6 - deploy the EdyOne LMS database (RDS MySQL, Single-AZ).
+# Phase 6 - deploy the superlms database (RDS MySQL, Single-AZ).
 #
 # Idempotent. Prereq: VPC stack (Phase 4) exists - this imports its subnets
 # and rds security group. RDS creation takes ~6-12 min. Run from this folder:
@@ -7,7 +7,7 @@
 # ==========================================================================
 $ErrorActionPreference = "Stop"
 $Region = "ap-south-1"
-$Stack  = "edyonelms-rds"
+$Stack  = "superlms-rds"
 $Tpl    = Join-Path $PSScriptRoot "rds.yaml"
 
 Write-Host "==> Validating template" -ForegroundColor Cyan
@@ -24,8 +24,8 @@ Write-Host "`n==> Stack outputs (exported for Secrets/ECS phases):" -ForegroundC
 aws cloudformation describe-stacks --stack-name $Stack --region $Region `
   --query "Stacks[0].Outputs[].{Key:OutputKey,Value:OutputValue}" --output table
 
-Write-Host "`n==> The DB password lives in Secrets Manager (secret 'edyonelms/rds')." -ForegroundColor Green
+Write-Host "`n==> The DB password lives in Secrets Manager (secret 'superlms/rds')." -ForegroundColor Green
 Write-Host "    The app reads DB creds from there in Phase 8 - no plaintext password."
 
 # Tear down later (keeps a final snapshot, see DeletionPolicy):
-#   aws cloudformation delete-stack --stack-name edyonelms-rds --region ap-south-1
+#   aws cloudformation delete-stack --stack-name superlms-rds --region ap-south-1

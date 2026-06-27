@@ -74,7 +74,7 @@ class PhonePeController extends Controller
             }
         }
 
-        $deepLink = 'edyonelms://payment/return?orderId=' . urlencode($merchantOrderId) . '&state=' . urlencode($state);
+        $deepLink = 'superlms://payment/return?orderId=' . urlencode($merchantOrderId) . '&state=' . urlencode($state);
 
         $label = match ($state) {
             PaymentTransaction::STATE_COMPLETED => 'Payment successful',

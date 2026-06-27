@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Terms Of Use — EDYONE LMS</title>
+    <title>Terms Of Use — SUPERLMS</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -721,7 +721,7 @@
             <div class="section-tag tag-dual">Legal</div>
             <h1 class="section-title" style="margin-top:16px;">Terms of <span class="gradient-text">Use</span>
             </h1>
-            <p class="policy-header-sub" id="tcPlatformName">EDYONE LMS — edyonelms.in</p>
+            <p class="policy-header-sub" id="tcPlatformName">SUPERLMS — superlms.in</p>
             <div class="last-updated" id="tcLastUpdated">Last updated: —</div>
         </div>
     </div>
@@ -734,10 +734,10 @@
                 <!-- 1 -->
                 <div class="policy-section" id="t1">
                     <h2><span class="sec-num">1</span> Acceptance of Terms</h2>
-                    <p>By accessing or using the EDYONE LMS platform ("Service") available at edyonelms.in and our
+                    <p>By accessing or using the SUPERLMS platform ("Service") available at superlms.in and our
                         mobile
                         applications, you ("User," "School," or "Institution") agree to be bound by these Terms &amp;
-                        Conditions ("Terms"). These Terms constitute a legally binding agreement between you and EDYONE
+                        Conditions ("Terms"). These Terms constitute a legally binding agreement between you and SUPERLMS
                         LMS
                         ("Company," "we," "us," or "our").</p>
                     <div class="highlight-box">
@@ -751,7 +751,7 @@
                 <!-- 2 -->
                 <div class="policy-section" id="t2">
                     <h2><span class="sec-num">2</span> Description of Service</h2>
-                    <p>EDYONE LMS is a cloud-based Learning Management System (LMS) designed for schools and educational
+                    <p>SUPERLMS is a cloud-based Learning Management System (LMS) designed for schools and educational
                         institutions in India. The Service includes, but is not limited to:</p>
                     <ul>
                         <li>Student and teacher management modules</li>
@@ -783,7 +783,7 @@
                         <div class="highlight-box-icon">🔐</div>
                         <p>Your school administrator is fully responsible for managing user access within your
                             institution.
-                            EDYONE LMS is not liable for unauthorized access resulting from negligent credential
+                            SUPERLMS is not liable for unauthorized access resulting from negligent credential
                             management.
                         </p>
                     </div>
@@ -792,7 +792,7 @@
                 <!-- 4 -->
                 <div class="policy-section" id="t4">
                     <h2><span class="sec-num">4</span> Subscription Plans &amp; Payment</h2>
-                    <p>EDYONE LMS offers the following subscription plans:</p>
+                    <p>SUPERLMS offers the following subscription plans:</p>
                     <ul>
                         <li><strong>School Plan:</strong> ₹250/year (₹20.83/month), billed annually, for up to 500
                             students</li>
@@ -820,7 +820,7 @@
                 <!-- 5 -->
                 <div class="policy-section" id="t5">
                     <h2><span class="sec-num">5</span> Acceptable Use Policy</h2>
-                    <p>You agree to use the EDYONE LMS platform only for lawful educational and administrative purposes.
+                    <p>You agree to use the SUPERLMS platform only for lawful educational and administrative purposes.
                         You
                         must NOT:</p>
                     <ul>
@@ -840,18 +840,18 @@
                 <!-- 6 -->
                 <div class="policy-section" id="t6">
                     <h2><span class="sec-num">6</span> Intellectual Property Rights</h2>
-                    <p>All intellectual property in the EDYONE LMS platform — including software, code, design,
+                    <p>All intellectual property in the SUPERLMS platform — including software, code, design,
                         trademarks,
-                        logos, and content — is exclusively owned by EDYONE LMS and its licensors. You are granted a
+                        logos, and content — is exclusively owned by SUPERLMS and its licensors. You are granted a
                         limited, non-exclusive, non-transferable license to use the Service during your active
                         subscription
                         period.</p>
                     <p>You retain full ownership of all data and content you upload to the platform ("Your Content"). By
-                        using the Service, you grant EDYONE LMS a limited license to process, store, and display Your
+                        using the Service, you grant SUPERLMS a limited license to process, store, and display Your
                         Content solely to provide the Service.</p>
                     <div class="highlight-box">
                         <div class="highlight-box-icon">©️</div>
-                        <p>The EDYONE LMS name, logo, and all associated marks are registered trademarks. Unauthorized
+                        <p>The SUPERLMS name, logo, and all associated marks are registered trademarks. Unauthorized
                             use
                             of our trademarks is strictly prohibited and may result in legal action.</p>
                     </div>
@@ -861,7 +861,7 @@
                 <div class="policy-section" id="t7">
                     <h2><span class="sec-num">7</span> Data Ownership &amp; Privacy</h2>
                     <p>You (the school/institution) own all data you input into the platform, including student records,
-                        academic data, and financial information. EDYONE LMS acts as a Data Processor on your behalf and
+                        academic data, and financial information. SUPERLMS acts as a Data Processor on your behalf and
                         processes data only as instructed.</p>
                     <p>Our full data handling practices are described in our <a href="{{ url('web/privacy-policy') }}"
                             style="color:var(--violet);text-decoration:none;font-weight:600;">Privacy Policy</a>, which
@@ -879,7 +879,7 @@
                 <!-- 8 -->
                 <div class="policy-section" id="t8">
                     <h2><span class="sec-num">8</span> Service Availability &amp; SLA</h2>
-                    <p>EDYONE LMS targets a 99.9% uptime Service Level Agreement (SLA) measured monthly, excluding
+                    <p>SUPERLMS targets a 99.9% uptime Service Level Agreement (SLA) measured monthly, excluding
                         scheduled
                         maintenance windows.</p>
                     <ul>
@@ -892,14 +892,14 @@
                         <div class="highlight-box-icon">⚡</div>
                         <p>We target 99.9% uptime. In the event of extended downtime beyond our SLA, affected schools
                             may be
-                            eligible for prorated service credits. Contact support@edyonelms.in to submit a claim.</p>
+                            eligible for prorated service credits. Contact support@superlms.in to submit a claim.</p>
                     </div>
                 </div>
 
                 <!-- 9 -->
                 <div class="policy-section" id="t9">
                     <h2><span class="sec-num">9</span> Limitation of Liability</h2>
-                    <p>To the maximum extent permitted by applicable Indian law, EDYONE LMS and its directors, officers,
+                    <p>To the maximum extent permitted by applicable Indian law, SUPERLMS and its directors, officers,
                         employees, and agents shall not be liable for:</p>
                     <ul>
                         <li>Indirect, incidental, special, consequential, or punitive damages</li>
@@ -918,8 +918,8 @@
                     <p>Either party may terminate the subscription agreement:</p>
                     <ul>
                         <li><strong>By the School:</strong> Written notice at least 15 days before the renewal date via
-                            email to support@edyonelms.in</li>
-                        <li><strong>By EDYONE LMS:</strong> Immediately, with or without notice, in cases of Terms
+                            email to support@superlms.in</li>
+                        <li><strong>By SUPERLMS:</strong> Immediately, with or without notice, in cases of Terms
                             violations, non-payment, or fraudulent activity</li>
                         <li><strong>Mutual Agreement:</strong> Both parties may agree to terminate at any time</li>
                     </ul>
@@ -951,7 +951,7 @@
                     </p>
                     <ul>
                         <li>Email notification to the registered school administrator at least 30 days in advance</li>
-                        <li>A prominent banner notice within the EDYONE LMS platform</li>
+                        <li>A prominent banner notice within the SUPERLMS platform</li>
                         <li>Updated "Last Modified" date on this page</li>
                     </ul>
                     <p>Your continued use of the Service after the effective date of any changes constitutes your
@@ -972,7 +972,7 @@
                         please
                         contact us at:</p>
                     <div class="contact-info-card">
-                        <div class="contact-info-row"><span>📧</span><span>support@edyonelms.in</span></div>
+                        <div class="contact-info-row"><span>📧</span><span>support@superlms.in</span></div>
                         <div class="contact-info-row"><span>📱</span><span>+91 9084748563</span></div>
                         <div class="contact-info-row"><span>📍</span><span>Floor 2, Braj Vihar Colony, Main Road
                                 Jattari,

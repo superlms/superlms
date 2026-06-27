@@ -4,18 +4,18 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EDYONE LMS — India's #1 School Management Platform</title>
+    <title>SUPERLMS — India's #1 School Management Platform</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-7S4FD1GMPK"></script>
     <link rel="icon" type="image/png" href="{{ asset('website-image/Group 11525.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('website-image/Group 11525.png') }}">
-    <meta property="og:title" content="EDYONE LMS — India's #1 School Management Platform" />
+    <meta property="og:title" content="SUPERLMS — India's #1 School Management Platform" />
     <meta property="og:description" content="Smart attendance, automated timetables, fee management, and real-time progress tracking — all in one powerful platform trusted by schools across India." />
     <meta property="og:image" content="{{ asset('website-image/Group 11525.png') }}" />
     <meta property="og:image:width" content="512" />
     <meta property="og:image:height" content="512" />
-    <meta property="og:url" content="https://edyonelms.in/" />
+    <meta property="og:url" content="https://superlms.in/" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:image" content="{{ asset('website-image/Group 11525.png') }}" />
@@ -23,11 +23,11 @@
     {
       "@@context": "https://schema.org",
       "@@type": "Organization",
-      "name": "EDYONE LMS",
-      "url": "https://edyonelms.in",
+      "name": "SUPERLMS",
+      "url": "https://superlms.in",
       "logo": "{{ asset('website-image/Group 11525.png') }}",
       "description": "India's #1 School Management Platform",
-      "sameAs": ["https://www.instagram.com/edyonelms"]
+      "sameAs": ["https://www.instagram.com/superlms"]
     }
     </script>
     <script>
@@ -41,7 +41,7 @@
         gtag('config', 'G-7S4FD1GMPK');
     </script>
     <meta name="description"
-        content="EDYONE LMS is a complete academic ecosystem for schools and institutions. Smart attendance, automated timetables, fee management, and real-time progress tracking — all in one powerful platform trusted by many schools across India." />
+        content="SUPERLMS is a complete academic ecosystem for schools and institutions. Smart attendance, automated timetables, fee management, and real-time progress tracking — all in one powerful platform trusted by many schools across India." />
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap');
 
@@ -2686,7 +2686,7 @@
                 </h1>
 
                 <p class="hero-desc">
-                    EDYONE LMS is a complete academic ecosystem for schools and institutions.
+                    SUPERLMS is a complete academic ecosystem for schools and institutions.
                     Smart attendance, automated timetables, fee management, and real-time progress
                     tracking — all in one powerful platform trusted by many schools across India.
                 </p>
@@ -2745,7 +2745,7 @@
                         <div class="dash-top-logo">
                             <div class="dash-top-icon">🎓</div>
                             <div>
-                                <div class="dash-top-title">EDYONE Dashboard</div>
+                                <div class="dash-top-title">SUPERLMS Dashboard</div>
                                 <div class="dash-top-sub">Live school overview</div>
                             </div>
                         </div>
@@ -2882,7 +2882,7 @@
                 <div class="section-tag tag-violet">Process</div>
                 <h2 class="section-title">How It <span class="gradient-text">Works</span></h2>
                 <p class="section-subtitle"
-                    style="font-size:clamp(18px, 2vw, 22px); line-height:1.6; max-width:780px;">See how EDYONE LMS
+                    style="font-size:clamp(18px, 2vw, 22px); line-height:1.6; max-width:780px;">See how SUPERLMS
                     bridges technology with effective learning in 3 simple steps.</p>
             </div>
 
@@ -3152,7 +3152,7 @@
             <div class="section-center reveal">
                 <div class="section-tag tag-violet">Built for Everyone</div>
                 <h2 class="section-title">One Platform, <span class="gradient-text">Every Role</span></h2>
-                <p class="section-subtitle" style="max-width:780px;">EDYONE LMS is built to serve the unique needs of every stakeholder in your
+                <p class="section-subtitle" style="max-width:780px;">SUPERLMS is built to serve the unique needs of every stakeholder in your
                     school ecosystem — from administrators and teachers to students, parents and the accounts &amp;
                     examination teams. Each role gets a dedicated, role-based dashboard with exactly the tools they need,
                     so everyone works from a single source of truth without juggling spreadsheets, paperwork or
@@ -3306,13 +3306,13 @@
             <div class="section-center reveal">
                 <div class="section-tag tag-dual">Available On All Platforms</div>
                 <h2 class="section-title">One Company, <span class="gradient-text">Three Platforms</span></h2>
-                <p class="section-subtitle">One company, three powerful platforms — Edyone, EdyoneLMS, and Edyone Safe
+                <p class="section-subtitle">One company, three powerful platforms — SuperLMS, SuperLMS, and SuperLMS Safe
                     — built to keep your entire school ecosystem connected. Access everything from any device, anytime,
                     anywhere.</p>
             </div>
 
             <div class="apps-download-grid stagger-children">
-                <!-- Edyone App -->
+                <!-- SuperLMS App -->
                 <div class="app-card">
                     <div class="app-badge" style="background:rgba(34,197,94,0.12);color:#15803d;">🤖 Android</div>
                     <div class="app-card-icon"
@@ -3320,16 +3320,16 @@
                         <img src="{{ asset('admin-image/c8cd2e7a3c40476d15ae54f52a8565b83bfc20b3.png') }}"
                             alt="Logo" class="w-12 h-12 object-contain mb-2">
                     </div>
-                    <div class="app-card-name">Edyone</div>
-                    <div class="app-card-desc">Edyone is a comprehensive edtech platform offering academic and
+                    <div class="app-card-name">SuperLMS</div>
+                    <div class="app-card-desc">SuperLMS is a comprehensive edtech platform offering academic and
                         competitive exam courses, interactive lessons, practice tests, performance tracking, and smart
                         learning tools for students.</div>
-                    <a href="https://edyone.in" target="_blank" rel="noopener noreferrer" class="app-dl-btn app-dl-btn-primary">
+                    <a href="https://superlms.in" target="_blank" rel="noopener noreferrer" class="app-dl-btn app-dl-btn-primary">
                         <span style="font-size:16px;">▶</span> Coming Soon
                     </a>
                 </div>
 
-                <!-- Edyone LMS App -->
+                <!-- SuperLMS App -->
                 <div class="app-card" style="border:2px solid var(--border);box-shadow:var(--shadow);">
                     <div
                         style="position:absolute;top:16px;right:16px;background:var(--grad1);color:#fff;font-size:9px;font-weight:700;padding:3px 10px;border-radius:50px;letter-spacing:1px;">
@@ -3341,8 +3341,8 @@
                         <img src="{{ asset('website-image/Group 11525.png') }}" alt="Logo"
                             class="w-12 h-12 object-contain mb-2">
                     </div>
-                    <div class="app-card-name">Edyone LMS</div>
-                    <div class="app-card-desc">Edyone LMS is a complete school management system enabling attendance
+                    <div class="app-card-name">SuperLMS</div>
+                    <div class="app-card-desc">SuperLMS is a complete school management system enabling attendance
                         tracking, fee management, timetables, academic reports, and seamless communication between
                         administrators, teachers, students, and parents.</div>
                     <a href="https://play.google.com/store/apps/details?id=com.edyoneapp&pcampaignid=web_share"
@@ -3354,7 +3354,7 @@
                     </div>
                 </div>
 
-                <!-- Edyone Safe App -->
+                <!-- SuperLMS Safe App -->
                 <div class="app-card">
                     <div class="app-badge" style="background:rgba(219,87,178,0.1);color:var(--pink-dark);">🤖 Android
                     </div>
@@ -3363,11 +3363,11 @@
                         <img src="{{ asset('admin-image/Group 33079.png') }}" alt="Logo"
                             class="w-12 h-12 object-contain mb-2">
                     </div>
-                    <div class="app-card-name">Edyone Safe</div>
-                    <div class="app-card-desc">Edyone Safe is a powerful parental control app that monitors screen
+                    <div class="app-card-name">SuperLMS Safe</div>
+                    <div class="app-card-desc">SuperLMS Safe is a powerful parental control app that monitors screen
                         time, filters inappropriate content, tracks online activity, and helps parents ensure their
                         children's digital safety.</div>
-                    <a href="https://edyonesafe.in" target="_blank" rel="noopener noreferrer"
+                    <a href="https://superlmssafe.in" target="_blank" rel="noopener noreferrer"
                         class="app-dl-btn app-dl-btn-primary">
                         <span style="font-size:16px;">🚀</span> Coming Soon.
                     </a>
@@ -3436,9 +3436,9 @@
         <div style="max-width:1200px;margin:0 auto;">
             <div class="section-center reveal">
                 <div class="section-tag tag-pink">Testimonials</div>
-                <h2 class="section-title">Why Schools <span class="gradient-text">Love</span> EDYONE</h2>
+                <h2 class="section-title">Why Schools <span class="gradient-text">Love</span> SUPERLMS</h2>
                 <p class="section-subtitle" style="max-width:780px;">From small private schools to large multi-campus institutions, principals,
-                    teachers and parents trust EDYONE to run their day-to-day work. Here's what they have to say about
+                    teachers and parents trust SUPERLMS to run their day-to-day work. Here's what they have to say about
                     saving hours of paperwork, faster fee collection and happier classrooms.</p>
             </div>
 
@@ -3471,7 +3471,7 @@
         <div style="max-width:1060px;margin:0 auto;">
             <div class="section-center reveal">
                 <div class="section-tag tag-violet">Our Team</div>
-                <h2 class="section-title">Meet the <span class="gradient-text">Minds Behind</span> EDYONE</h2>
+                <h2 class="section-title">Meet the <span class="gradient-text">Minds Behind</span> SUPERLMS</h2>
                 <p class="section-subtitle">Built by educators, engineers, and designers passionate about making
                     quality education accessible to every school.</p>
             </div>
@@ -3491,7 +3491,7 @@
                 <div class="founder-content">
                     <span class="founder-badge">Founder &amp; CEO</span>
                     <h3 class="founder-name">Annant Dagur</h3>
-                    <p class="founder-bio">The visionary behind EDYONE LMS. Annant started EDYONE with one mission — to
+                    <p class="founder-bio">The visionary behind SUPERLMS. Annant started SUPERLMS with one mission — to
                         make quality, affordable school-management technology accessible to every institution in India,
                         from large city schools to small towns. He works closely with educators on the ground, turning
                         their everyday challenges into simple, powerful features that thousands of students, teachers and
@@ -3574,47 +3574,47 @@
 
             <div class="faq-wrap reveal">
                 <details class="faq-item" open>
-                    <summary class="faq-q">What is EDYONE LMS, and who is it designed for?<span class="faq-icon">+</span></summary>
-                    <div class="faq-a">EDYONE LMS is a comprehensive Learning Management System for schools and
+                    <summary class="faq-q">What is SUPERLMS, and who is it designed for?<span class="faq-icon">+</span></summary>
+                    <div class="faq-a">SUPERLMS is a comprehensive Learning Management System for schools and
                         educational institutions that streamlines teaching, learning, and administrative tasks like
                         attendance, fees, timetables, and assessments. It's designed for students, teachers, and school
                         administrators.</div>
                 </details>
                 <details class="faq-item">
-                    <summary class="faq-q">How easy is it to get started with EDYONE LMS?<span class="faq-icon">+</span></summary>
-                    <div class="faq-a">Getting started with EDYONE LMS is straightforward — schools can begin by signing
+                    <summary class="faq-q">How easy is it to get started with SUPERLMS?<span class="faq-icon">+</span></summary>
+                    <div class="faq-a">Getting started with SUPERLMS is straightforward — schools can begin by signing
                         up or requesting a demo, then set up user roles, dashboards, and key modules without steep
                         technical barriers, making onboarding quick and manageable.</div>
                 </details>
                 <details class="faq-item">
-                    <summary class="faq-q">Can EDYONE LMS be accessed on mobile devices?<span class="faq-icon">+</span></summary>
-                    <div class="faq-a">Yes — EDYONE LMS can be accessed on mobile devices. It offers a mobile-friendly
+                    <summary class="faq-q">Can SUPERLMS be accessed on mobile devices?<span class="faq-icon">+</span></summary>
+                    <div class="faq-a">Yes — SUPERLMS can be accessed on mobile devices. It offers a mobile-friendly
                         app (including an Android APK) so students and educators can log in, view syllabus and content,
                         submit &amp; view homework, and all school related features and interact with the system
                         conveniently from smartphones and tablets.</div>
                 </details>
                 <details class="faq-item">
-                    <summary class="faq-q">Does EDYONE LMS support attendance and fee management?<span class="faq-icon">+</span></summary>
-                    <div class="faq-a">Yes — EDYONE LMS includes both attendance tracking and fee management as core
+                    <summary class="faq-q">Does SUPERLMS support attendance and fee management?<span class="faq-icon">+</span></summary>
+                    <div class="faq-a">Yes — SUPERLMS includes both attendance tracking and fee management as core
                         features. It lets schools record and monitor student attendance easily and handle tuition fees,
                         payment records, and related administrative tasks within the same platform.</div>
                 </details>
                 <details class="faq-item">
-                    <summary class="faq-q">Is EDYONE LMS customizable to suit specific institutional needs?<span class="faq-icon">+</span></summary>
-                    <div class="faq-a">Yes — EDYONE LMS offers customizable options so institutions can adapt the system
+                    <summary class="faq-q">Is SUPERLMS customizable to suit specific institutional needs?<span class="faq-icon">+</span></summary>
+                    <div class="faq-a">Yes — SUPERLMS offers customizable options so institutions can adapt the system
                         to their specific academic structure, workflows, permissions, and feature use cases to better
                         match their operational needs and preferences.</div>
                 </details>
                 <details class="faq-item">
-                    <summary class="faq-q">What security measures does EDYONE LMS have in place?<span class="faq-icon">+</span></summary>
-                    <div class="faq-a">EDYONE LMS uses secure cloud hosting and encrypted data storage to protect
+                    <summary class="faq-q">What security measures does SUPERLMS have in place?<span class="faq-icon">+</span></summary>
+                    <div class="faq-a">SUPERLMS uses secure cloud hosting and encrypted data storage to protect
                         personal and academic information. It enforces secure user authentication, role-based access
                         controls, and privacy safeguards so only authorised school administrators and users can access
                         sensitive data.</div>
                 </details>
                 <details class="faq-item">
-                    <summary class="faq-q">Can teachers easily share study materials through EDYONE LMS?<span class="faq-icon">+</span></summary>
-                    <div class="faq-a">Yes! EDYONE LMS allows teachers to easily share study materials like PDFs, videos,
+                    <summary class="faq-q">Can teachers easily share study materials through SUPERLMS?<span class="faq-icon">+</span></summary>
+                    <div class="faq-a">Yes! SUPERLMS allows teachers to easily share study materials like PDFs, videos,
                         presentations, and more directly through the platform. Once uploaded, students receive instant
                         notifications, ensuring timely access. This seamless process enhances learning, keeps students
                         engaged, and simplifies resource management for educators, all within a single centralized
@@ -3641,7 +3641,7 @@
             </div>
             <div class="section-tag tag-dual" style="margin:0 auto 20px;display:inline-flex;">Get Started</div>
             <h2 class="cta-title">Ready to Transform Your <span class="gradient-text">Institution?</span></h2>
-            <p class="cta-desc">Join many schools already using EDYONE LMS. Get started with a free personalized demo
+            <p class="cta-desc">Join many schools already using SUPERLMS. Get started with a free personalized demo
                 today — no commitment, no credit card required.</p>
             <div class="cta-actions">
                 <a href="{{ url('web/demo') }}" class="btn btn-primary btn-xl">Request Free Demo</a>
@@ -3658,7 +3658,7 @@
 
     <script>
         /* ─────────────────────────────────────────────
-                                   EDYONE LMS — Homepage JavaScript
+                                   SUPERLMS — Homepage JavaScript
                                    ───────────────────────────────────────────── */
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -3964,7 +3964,7 @@
         });
 
         const staticTestimonials = [{
-                feedback: 'EDYONE LMS transformed how we manage our institution. Attendance tracking and fee collection became completely seamless.',
+                feedback: 'SUPERLMS transformed how we manage our institution. Attendance tracking and fee collection became completely seamless.',
                 rating: 5,
                 school_name: 'Delhi Public School',
                 logo_url: null,

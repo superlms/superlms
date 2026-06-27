@@ -18,7 +18,7 @@
            <div
                class="flex flex-col space-y-3 bg-white p-4 rounded-r-lg shadow-md border-l-4 border-pink-500 shadow-pink-glow">
 
-               <a href="https://www.instagram.com/edyonelms?utm_source=ig_web_button_share_sheet&igsh=ZzlkamE5ZTR5MDB6"
+               <a href="https://www.instagram.com/superlms?utm_source=ig_web_button_share_sheet&igsh=ZzlkamE5ZTR5MDB6"
                    target="_blank" rel="noopener noreferrer">
                    <img src="https://img.icons8.com/fluency/48/instagram-new.png" alt="Instagram" class="w-8 h-8" />
                </a>
@@ -27,7 +27,7 @@
                    <img src="https://img.icons8.com/color/48/whatsapp--v1.png" alt="WhatsApp" class="w-8 h-8" />
                </a>
 
-               <a href="https://youtube.com/@edyonelms?si=SqStdSrTtJ95j8tP" target="_blank" rel="noopener noreferrer">
+               <a href="https://youtube.com/@superlms?si=SqStdSrTtJ95j8tP" target="_blank" rel="noopener noreferrer">
                    <img src="https://img.icons8.com/color/48/youtube-play.png" alt="YouTube" class="w-8 h-8" />
                </a>
 
@@ -207,31 +207,31 @@
                return {
                    open: null,
                    faqs: [{
-                           question: "1. What is EDYONE LMS, and who is it designed for?",
-                           answer: "Edyone LMS is a comprehensive Learning Management System built specifically for schools and educational institutions. It is designed to serve students, teachers, and administrators by offering tools for digital learning, academic management, communication, and performance tracking."
+                           question: "1. What is SUPERLMS, and who is it designed for?",
+                           answer: "SuperLMS is a comprehensive Learning Management System built specifically for schools and educational institutions. It is designed to serve students, teachers, and administrators by offering tools for digital learning, academic management, communication, and performance tracking."
                        },
                        {
-                           question: "2. How easy is it to get started with EDYONE LMS?",
-                           answer: "Getting started with Edyone LMS is quick and seamless. Once your school is onboarded, each user receives login credentials and guided support to begin using the platform. The user-friendly interface ensures that even first-time users can navigate it effortlessly."
+                           question: "2. How easy is it to get started with SUPERLMS?",
+                           answer: "Getting started with SuperLMS is quick and seamless. Once your school is onboarded, each user receives login credentials and guided support to begin using the platform. The user-friendly interface ensures that even first-time users can navigate it effortlessly."
                        },
                        {
-                           question: "3. Can EDYONE LMS be accessed on mobile devices?",
-                           answer: "Yes, Edyone LMS is fully mobile-compatible. Students, teachers, and parents can access all features via smartphones and tablets, making learning and school management accessible anytime, anywhere."
+                           question: "3. Can SUPERLMS be accessed on mobile devices?",
+                           answer: "Yes, SuperLMS is fully mobile-compatible. Students, teachers, and parents can access all features via smartphones and tablets, making learning and school management accessible anytime, anywhere."
                        },
                        {
-                           question: "4. Does EDYONE LMS support attendance and fee management?",
-                           answer: "Absolutely. Edyone LMS includes powerful modules for real-time attendance tracking and a secure, transparent fee management system that simplifies payments, receipts, and record-keeping."
+                           question: "4. Does SUPERLMS support attendance and fee management?",
+                           answer: "Absolutely. SuperLMS includes powerful modules for real-time attendance tracking and a secure, transparent fee management system that simplifies payments, receipts, and record-keeping."
                        },
                        {
-                           question: "5. Is EDYONE LMS customizable to suit specific institutional needs?",
-                           answer: "Yes, Edyone LMS is highly customizable. Schools can tailor modules, permissions, design layouts, and workflows according to their academic structure and operational requirements."
+                           question: "5. Is SUPERLMS customizable to suit specific institutional needs?",
+                           answer: "Yes, SuperLMS is highly customizable. Schools can tailor modules, permissions, design layouts, and workflows according to their academic structure and operational requirements."
                        },
                        {
-                           question: "6. What security measures does EDYONE LMS have in place?",
-                           answer: "Edyone LMS uses encrypted user authentication, secure cloud hosting, and role-based access control to ensure data privacy and system security. Regular backups and compliance with data protection standards further strengthen platform safety."
+                           question: "6. What security measures does SUPERLMS have in place?",
+                           answer: "SuperLMS uses encrypted user authentication, secure cloud hosting, and role-based access control to ensure data privacy and system security. Regular backups and compliance with data protection standards further strengthen platform safety."
                        },
                        {
-                           question: "7. Can teachers easily share study materials and notes through EDYONE LMS?",
+                           question: "7. Can teachers easily share study materials and notes through SUPERLMS?",
                            answer: "Yes, teachers can upload and share documents, presentations, videos, and notes with students directly through the platform. These materials can be accessed by students anytime for continued learning and revision."
                        }
                    ]

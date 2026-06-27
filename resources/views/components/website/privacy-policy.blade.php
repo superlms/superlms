@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Privacy Policy — EDYONE LMS</title>
+    <title>Privacy Policy — SUPERLMS</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="icon" type="image/png" href="{{ asset('website-image/Group 11525.png') }}">
@@ -742,7 +742,7 @@
         <div class="policy-header-content">
             <div class="section-tag tag-dual">Legal</div>
             <h1 class="section-title" style="margin-top:16px;">Privacy <span class="gradient-text">Policy</span></h1>
-            <p class="policy-header-sub">EDYONE LMS — edyonelms.in</p>
+            <p class="policy-header-sub">SUPERLMS — superlms.in</p>
             <div class="last-updated" id="ppLastUpdated">Last updated: —</div>
         </div>
     </div>
@@ -800,9 +800,9 @@
 
         function getStaticPrivacy() {
             return `
-        <div class="policy-section"><h2><span class="sec-num">1</span> Introduction</h2><p>EDYONE LMS is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our platform.</p></div>
+        <div class="policy-section"><h2><span class="sec-num">1</span> Introduction</h2><p>SUPERLMS is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our platform.</p></div>
         <div class="policy-section"><h2><span class="sec-num">2</span> Information We Collect</h2><p>We collect personal information, student data, usage data, and device information necessary for providing our services.</p></div>
-        <div class="policy-section"><h2><span class="sec-num">3</span> Contact Us</h2><p>For privacy-related inquiries, contact us at support@edyonelms.in or call +91 9084748563.</p></div>`;
+        <div class="policy-section"><h2><span class="sec-num">3</span> Contact Us</h2><p>For privacy-related inquiries, contact us at support@superlms.in or call +91 9084748563.</p></div>`;
         }
     </script>
 </body>

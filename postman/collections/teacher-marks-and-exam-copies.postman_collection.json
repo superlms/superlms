@@ -218,7 +218,7 @@
 					"code": 201,
 					"_postman_previewlanguage": "json",
 					"header": [],
-					"body": "{\n  \"success\": true,\n  \"message\": \"Exam copy uploaded successfully.\",\n  \"data\": {\n    \"id\": 451,\n    \"exam\":     { \"id\": 5,  \"name\": \"Half-yearly\" },\n    \"standard\": { \"id\": 8,  \"name\": \"Class 8\" },\n    \"section\":  { \"id\": 24, \"name\": \"A\" },\n    \"subject\":  { \"id\": 3,  \"name\": \"Mathematics\" },\n    \"student\":  { \"id\": 101, \"name\": \"Amit Kumar\", \"roll_no\": \"001\" },\n    \"pdf_url\":  \"https://edyonelms-prod.s3.ap-south-1.amazonaws.com/admin/exam-copies/abc123.pdf\",\n    \"marks_obtained\": null,\n    \"max_marks\": null,\n    \"percentage\": null,\n    \"grade\": null,\n    \"uploaded_at\": \"2026-06-04T15:32:11Z\"\n  }\n}"
+					"body": "{\n  \"success\": true,\n  \"message\": \"Exam copy uploaded successfully.\",\n  \"data\": {\n    \"id\": 451,\n    \"exam\":     { \"id\": 5,  \"name\": \"Half-yearly\" },\n    \"standard\": { \"id\": 8,  \"name\": \"Class 8\" },\n    \"section\":  { \"id\": 24, \"name\": \"A\" },\n    \"subject\":  { \"id\": 3,  \"name\": \"Mathematics\" },\n    \"student\":  { \"id\": 101, \"name\": \"Amit Kumar\", \"roll_no\": \"001\" },\n    \"pdf_url\":  \"https://superlms-prod.s3.ap-south-1.amazonaws.com/admin/exam-copies/abc123.pdf\",\n    \"marks_obtained\": null,\n    \"max_marks\": null,\n    \"percentage\": null,\n    \"grade\": null,\n    \"uploaded_at\": \"2026-06-04T15:32:11Z\"\n  }\n}"
 				}
 			]
 		},

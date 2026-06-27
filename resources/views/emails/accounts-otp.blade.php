@@ -27,7 +27,7 @@
         <p class="info">If you did not request this, please ignore this email.</p>
 
         <div class="footer">
-            Edyone LMS - Accounts Panel
+            SuperLMS - Accounts Panel
         </div>
     </div>
 </body>

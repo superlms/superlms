@@ -1,6 +1,6 @@
 # Phase 4 — VPC / Network
 
-One CloudFormation stack (`edyonelms-network`) for all networking. Region
+One CloudFormation stack (`superlms-network`) for all networking. Region
 `ap-south-1`, 2 AZ, **no NAT gateway** (saves ~$32/mo).
 
 ## Run
@@ -13,7 +13,7 @@ cd infra/vpc
 Idempotent — re-run to apply changes. Tear down with:
 
 ```powershell
-aws cloudformation delete-stack --stack-name edyonelms-network --region ap-south-1
+aws cloudformation delete-stack --stack-name superlms-network --region ap-south-1
 ```
 
 > Delete only works once later stacks (RDS/ECS) that import these exports
@@ -40,10 +40,10 @@ public IP is not reachable from outside on the app port.
 
 | SG | Inbound | From |
 |----|---------|------|
-| `edyonelms-alb-sg` | 80, 443 | `0.0.0.0/0` (internet) |
-| `edyonelms-ecs-sg` | container port (80) | ALB SG only |
-| `edyonelms-rds-sg` | 3306 | ECS SG only |
-| `edyonelms-redis-sg` | 6379 | ECS SG only |
+| `superlms-alb-sg` | 80, 443 | `0.0.0.0/0` (internet) |
+| `superlms-ecs-sg` | container port (80) | ALB SG only |
+| `superlms-rds-sg` | 3306 | ECS SG only |
+| `superlms-redis-sg` | 6379 | ECS SG only |
 
 (Egress is the SG default = allow all.)
 
@@ -51,7 +51,7 @@ public IP is not reachable from outside on the app port.
 
 | Export name | Used by |
 |-------------|---------|
-| `edyonelms-vpc-id` | RDS, ElastiCache, ECS |
-| `edyonelms-public-subnets` | ALB, ECS services |
-| `edyonelms-private-subnets` | RDS subnet group, ElastiCache subnet group |
-| `edyonelms-alb-sg` / `edyonelms-ecs-sg` / `edyonelms-rds-sg` / `edyonelms-redis-sg` | respective resources |
+| `superlms-vpc-id` | RDS, ElastiCache, ECS |
+| `superlms-public-subnets` | ALB, ECS services |
+| `superlms-private-subnets` | RDS subnet group, ElastiCache subnet group |
+| `superlms-alb-sg` / `superlms-ecs-sg` / `superlms-rds-sg` / `superlms-redis-sg` | respective resources |

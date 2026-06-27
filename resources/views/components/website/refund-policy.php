@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Edyone Refund Policy</title>
+    <title>SuperLMS Refund Policy</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" type="image/png" href="{{ asset('website-image/Group 11525.png') }}">
 
@@ -37,7 +37,7 @@
 <body class="bg-gray-50 font-sans antialiased">
     <div class="bg-white shadow-md border-b border-gray-200 flex justify-center">
         <header class="container mx-auto px-6 py-8 text-center">
-            <h1 class="text-4xl font-bold text-gray-900 mb-2">Edyone Educatorss Private Limited</h1>
+            <h1 class="text-4xl font-bold text-gray-900 mb-2">SuperLMS Educatorss Private Limited</h1>
             <p class="text-xl text-gray-600">Refund and Cancellation Policy</p>
         </header>
     </div>
@@ -45,10 +45,10 @@
     <main class="container mx-auto px-6 py-12 max-w-5xl">
         <section class="mb-10 bg-white p-8 rounded-lg shadow-sm border border-gray-100">
             <p class="text-base text-gray-700 leading-relaxed">
-                This Refund and Cancellation Policy governs the services provided by Edyone Educatorss Private Limited, accessible via <a href="https://www.edyonelms.in" class="text-blue-600 hover:underline font-medium">www.edyonelms.in</a> or the EdyoneLms Mobile Application available on Google Play ("EdyoneLms App"/"Website"). We recommend reviewing this policy carefully before engaging with our services. This policy may be updated periodically, and we encourage you to check back regularly to stay informed about how we handle cancellations, refunds, returns, and shipping.
+                This Refund and Cancellation Policy governs the services provided by SuperLMS Educatorss Private Limited, accessible via <a href="https://www.superlms.in" class="text-blue-600 hover:underline font-medium">www.superlms.in</a> or the SuperLMS Mobile Application available on Google Play ("SuperLMS App"/"Website"). We recommend reviewing this policy carefully before engaging with our services. This policy may be updated periodically, and we encourage you to check back regularly to stay informed about how we handle cancellations, refunds, returns, and shipping.
             </p>
             <p class="text-base mt-4 text-gray-700 leading-relaxed">
-                By using the EdyoneLms Platform or making a purchase, you consent to the terms outlined in this Refund and Cancellation Policy. Changes to this policy will be posted on this page to keep you informed. If you do not agree with this policy, please refrain from using or accessing our Website or services.
+                By using the SuperLMS Platform or making a purchase, you consent to the terms outlined in this Refund and Cancellation Policy. Changes to this policy will be posted on this page to keep you informed. If you do not agree with this policy, please refrain from using or accessing our Website or services.
             </p>
         </section>
 
@@ -57,15 +57,15 @@
             <div class="space-y-6 text-base text-gray-700 leading-relaxed">
                 <p><strong>1.1</strong> Cancellations will only be considered if the request is made within 7 days of placing the order. However, cancellation requests may not be entertained if the orders have been communicated to sellers/merchants listed on the Platform and they have initiated the process of shipping, or if the product is out for delivery. In such cases, you may choose to reject the product at the doorstep.</p>
 
-                <p><strong>1.2</strong> Edyone Educatorss Private Limited does not accept cancellation requests for perishable items such as flowers, eatables, etc. However, a refund or replacement can be made if the user establishes that the quality of the product delivered is not satisfactory.</p>
+                <p><strong>1.2</strong> SuperLMS Educatorss Private Limited does not accept cancellation requests for perishable items such as flowers, eatables, etc. However, a refund or replacement can be made if the user establishes that the quality of the product delivered is not satisfactory.</p>
 
-                <p><strong>1.3</strong> In case of receipt of damaged or defective items, please report to our customer service team at <a href="mailto:support@edyonelms.in" class="text-blue-600 hover:underline font-medium">support@edyonelms.in</a>. The request will be entertained once the seller/merchant listed on the Platform has checked and confirmed the issue. This should be reported within 7 days of receipt of the products.</p>
+                <p><strong>1.3</strong> In case of receipt of damaged or defective items, please report to our customer service team at <a href="mailto:support@superlms.in" class="text-blue-600 hover:underline font-medium">support@superlms.in</a>. The request will be entertained once the seller/merchant listed on the Platform has checked and confirmed the issue. This should be reported within 7 days of receipt of the products.</p>
 
                 <p><strong>1.4</strong> If you feel that the product received is not as shown on the site or does not meet your expectations, you must notify our customer service team within 7 days of receiving the product. The customer service team will review your complaint and take an appropriate decision.</p>
 
                 <p><strong>1.5</strong> For products that come with a warranty from the manufacturer, please refer the issue to the manufacturer directly.</p>
 
-                <p><strong>1.6</strong> In case of any refunds approved by Edyone Educatorss Private Limited, it will take 7 days for the refund to be processed to you.</p>
+                <p><strong>1.6</strong> In case of any refunds approved by SuperLMS Educatorss Private Limited, it will take 7 days for the refund to be processed to you.</p>
             </div>
         </section>
 
@@ -95,7 +95,7 @@
             <div class="space-y-6 text-base text-gray-700 leading-relaxed">
                 <p><strong>3.1</strong> Orders are shipped through registered domestic courier companies and/or speed post only. Orders are shipped within 1 day from the date of the order and/or payment, or as per the delivery date agreed at the time of order confirmation, subject to courier company/post office norms.</p>
 
-                <p><strong>3.2</strong> Edyone Educatorss Private Limited shall not be liable for any delay in delivery by the courier company/postal authority.</p>
+                <p><strong>3.2</strong> SuperLMS Educatorss Private Limited shall not be liable for any delay in delivery by the courier company/postal authority.</p>
 
                 <p><strong>3.3</strong> Delivery of all orders will be made to the address provided by the buyer at the time of purchase.</p>
 
@@ -110,9 +110,9 @@
             <div class="space-y-6 text-base text-gray-700 leading-relaxed">
                 <p><strong>4.1</strong> This document is an electronic record in terms of the Information Technology Act, 2000 and rules thereunder as applicable and the amended provisions pertaining to electronic records in various statutes as amended by the Information Technology Act, 2000. This electronic record is generated by a computer system and does not require any physical or digital signatures.</p>
 
-                <p><strong>4.2</strong> This document is published in accordance with the provisions of Rule 3 (1) of the Information Technology (Intermediaries guidelines) Rules, 2011 that require publishing the rules and regulations, privacy policy, and Terms of Use for access or usage of the domain name <a href="https://www.edyonelms.in" class="text-blue-600 hover:underline font-medium">www.edyonelms.in</a> ("Website"), including the related mobile site and mobile application (hereinafter referred to as "Platform").</p>
+                <p><strong>4.2</strong> This document is published in accordance with the provisions of Rule 3 (1) of the Information Technology (Intermediaries guidelines) Rules, 2011 that require publishing the rules and regulations, privacy policy, and Terms of Use for access or usage of the domain name <a href="https://www.superlms.in" class="text-blue-600 hover:underline font-medium">www.superlms.in</a> ("Website"), including the related mobile site and mobile application (hereinafter referred to as "Platform").</p>
 
-                <p><strong>4.3</strong> The Platform is owned by Edyone Educatorss Private Limited, a company incorporated under the Companies Act, 1956 with its registered office at House No 1, Brij Vihar Colony Jattari Khair Aligarh, Uttar Pradesh, India (hereinafter referred to as "Platform Owner", "we", "us", "our").</p>
+                <p><strong>4.3</strong> The Platform is owned by SuperLMS Educatorss Private Limited, a company incorporated under the Companies Act, 1956 with its registered office at House No 1, Brij Vihar Colony Jattari Khair Aligarh, Uttar Pradesh, India (hereinafter referred to as "Platform Owner", "we", "us", "our").</p>
 
                 <p><strong>4.4</strong> Your use of the Platform and services and tools are governed by the following Terms of Use as applicable to the Platform, including the applicable policies which are incorporated herein by way of reference. By merely using the Platform, you shall be contracting with the Platform Owner, and these terms and conditions, including the policies, constitute your binding obligations with the Platform Owner.</p>
 
@@ -152,15 +152,15 @@
 
         <section class="bg-white p-8 rounded-lg shadow-sm border border-gray-100">
             <p class="text-base text-gray-700 leading-relaxed">
-                All other terms and conditions as outlined in the <a href="https://www.edyonelms.in" class="text-blue-600 hover:underline font-medium">Terms and Conditions of Use</a> apply and should be read in conjunction with this Refund and Cancellation Policy.
+                All other terms and conditions as outlined in the <a href="https://www.superlms.in" class="text-blue-600 hover:underline font-medium">Terms and Conditions of Use</a> apply and should be read in conjunction with this Refund and Cancellation Policy.
             </p>
         </section>
     </main>
 
     <footer class="bg-gray-900 text-white py-8">
         <div class="container mx-auto px-6 text-center">
-            <p class="text-sm mb-2">Contact: <a href="mailto:support@edyonelms.in" class="text-blue-400 hover:underline">support@edyonelms.in</a></p>
-            <p class="text-sm">© 2025 Edyone Educatorss Private Limited. All rights reserved.</p>
+            <p class="text-sm mb-2">Contact: <a href="mailto:support@superlms.in" class="text-blue-400 hover:underline">support@superlms.in</a></p>
+            <p class="text-sm">© 2025 SuperLMS Educatorss Private Limited. All rights reserved.</p>
         </div>
     </footer>
 </body>

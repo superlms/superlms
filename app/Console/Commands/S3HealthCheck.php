@@ -32,7 +32,7 @@ class S3HealthCheck extends Command
 
         // Step path uses a timestamp so concurrent runs don't collide.
         $path     = 's3-health-check/' . now()->format('YmdHis') . '-' . substr(bin2hex(random_bytes(3)), 0, 6) . '.txt';
-        $contents = 'edyonelms s3:health probe @ ' . now()->toIso8601String();
+        $contents = 'superlms s3:health probe @ ' . now()->toIso8601String();
 
         try {
             // 2. PUT

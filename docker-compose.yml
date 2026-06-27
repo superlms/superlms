@@ -10,8 +10,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: runtime
-    image: edyonelms/app:local
-    container_name: edyonelms-app
+    image: superlms/app:local
+    container_name: superlms-app
     restart: unless-stopped
     logging: *default-logging
     env_file:
@@ -33,11 +33,11 @@ services:
       redis:
         condition: service_started
     networks:
-      - edyonelms
+      - superlms
 
   nginx:
     image: nginx:1.27-alpine
-    container_name: edyonelms-nginx
+    container_name: superlms-nginx
     restart: unless-stopped
     logging: *default-logging
     ports:
@@ -50,15 +50,15 @@ services:
     depends_on:
       - app
     networks:
-      - edyonelms
+      - superlms
 
   mysql:
     image: mysql:8.0
-    container_name: edyonelms-mysql
+    container_name: superlms-mysql
     restart: unless-stopped
     logging: *default-logging
     environment:
-      MYSQL_DATABASE: ${DB_DATABASE:-edyonelms}
+      MYSQL_DATABASE: ${DB_DATABASE:-superlms}
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-${DB_PASSWORD:-rootsecret}}
     command:
       - --default-authentication-plugin=caching_sha2_password
@@ -82,11 +82,11 @@ services:
       timeout: 5s
       retries: 10
     networks:
-      - edyonelms
+      - superlms
 
   redis:
     image: redis:7-alpine
-    container_name: edyonelms-redis
+    container_name: superlms-redis
     restart: unless-stopped
     logging: *default-logging
     command: ["redis-server", "--appendonly", "yes"]
@@ -95,7 +95,7 @@ services:
     ports:
       - "6379:6379"
     networks:
-      - edyonelms
+      - superlms
 
 volumes:
   mysql-data:
@@ -103,5 +103,5 @@ volumes:
   vendor-data:
 
 networks:
-  edyonelms:
+  superlms:
     driver: bridge

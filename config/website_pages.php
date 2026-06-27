@@ -15,9 +15,9 @@
 return [
 
     'why-us' => [
-        'tag'      => 'Why EDYONE LMS',
+        'tag'      => 'Why SUPERLMS',
         'title'    => 'The smarter choice for modern schools',
-        'subtitle' => 'Hundreds of schools across India trust EDYONE to run admissions, academics, fees and communication on a single affordable platform — and to equip their campuses with everything from ID cards to smart classrooms and transport. Here is exactly why schools choose us over anyone else.',
+        'subtitle' => 'Hundreds of schools across India trust SUPERLMS to run admissions, academics, fees and communication on a single affordable platform — and to equip their campuses with everything from ID cards to smart classrooms and transport. Here is exactly why schools choose us over anyone else.',
         'items'    => [
             ['icon' => '💰', 'title' => 'Genuinely Affordable', 'desc' => 'Transparent, per-student pricing with no hidden setup fees. Built so that schools of every size can afford world-class technology.'],
             ['icon' => '🧩', 'title' => 'All-in-One Platform', 'desc' => 'Admissions, attendance, timetable, exams, fees, study material and parent communication — everything in one login instead of five different tools.'],
@@ -31,7 +31,7 @@ return [
     'services' => [
         'tag'      => 'Our Services',
         'title'    => 'Everything your school needs, end to end',
-        'subtitle' => 'EDYONE is much more than software. From our all-in-one LMS to ID cards, school loans, labs, smart classrooms, GPS-enabled transport, uniforms, books and online education — we partner with schools across India to digitise, equip and grow every part of their campus. Explore the complete range of services below.',
+        'subtitle' => 'SUPERLMS is much more than software. From our all-in-one LMS to ID cards, school loans, labs, smart classrooms, GPS-enabled transport, uniforms, books and online education — we partner with schools across India to digitise, equip and grow every part of their campus. Explore the complete range of services below.',
         'items'    => [
             ['icon' => '🎓', 'title' => 'School Management System', 'desc' => 'Manage students, staff, classes, sections and the full academic year from one powerful dashboard.'],
             ['icon' => '📝', 'title' => 'Admissions & Enquiries', 'desc' => 'Capture enquiries, run online admissions and convert leads into enrolled students with less paperwork.'],
@@ -47,7 +47,7 @@ return [
 
     'careers' => [
         'tag'      => 'Careers',
-        'title'    => 'Build your career with EDYONE',
+        'title'    => 'Build your career with SUPERLMS',
         'subtitle' => 'Join the team building India\'s most affordable school management platform. Explore our open roles and the salaries they offer, see how our hiring process works, and apply in minutes — we review every application and get back to you.',
         'jobs' => [
             ['role' => 'Business Development Executive', 'department' => 'Sales',        'location' => 'Aligarh / Remote', 'type' => 'Full-time', 'salary' => '₹3–6 LPA + incentives'],
@@ -59,14 +59,14 @@ return [
 
     'become-executive' => [
         'tag'      => 'Partner Program',
-        'title'    => 'Become an Executive with Edyone LMS',
-        'subtitle' => 'Partner with EDYONE to bring affordable school technology to institutions in your region. Work remotely, on your own schedule, with a simple joining process and fast payouts — and earn attractive recurring income for every school you bring on board.',
+        'title'    => 'Become an Executive with SuperLMS',
+        'subtitle' => 'Partner with SUPERLMS to bring affordable school technology to institutions in your region. Work remotely, on your own schedule, with a simple joining process and fast payouts — and earn attractive recurring income for every school you bring on board.',
     ],
 
     'blogs' => [
-        'tag'      => 'The EDYONE Blog',
+        'tag'      => 'The SUPERLMS Blog',
         'title'    => 'Ideas & insights for modern schools',
-        'subtitle' => 'Welcome to the EDYONE blog — your go-to space for practical ideas, product updates and real stories from schools across India. We share hands-on tips on attendance, fees, exams, admissions and parent communication, alongside guides that help school leaders, teachers and administrators run their institutions better, teach smarter and engage families more effectively. Whether you are just going digital or looking to get more out of your LMS, there is something here to help your school grow.',
+        'subtitle' => 'Welcome to the SUPERLMS blog — your go-to space for practical ideas, product updates and real stories from schools across India. We share hands-on tips on attendance, fees, exams, admissions and parent communication, alongside guides that help school leaders, teachers and administrators run their institutions better, teach smarter and engage families more effectively. Whether you are just going digital or looking to get more out of your LMS, there is something here to help your school grow.',
         // Blog posts are now stored in the `blogs` table and managed from the
         // super-admin Blogs screen (no longer config-driven).
     ],
@@ -74,7 +74,7 @@ return [
     'faqs' => [
         'tag'      => 'Help Center',
         'title'    => 'Frequently asked questions',
-        'subtitle' => "Everything you need to know about EDYONE LMS — from pricing and setup to features, security and support — all in one place. Browse the questions below by category to quickly find what you're looking for, whether you're a school leader, teacher or parent exploring the platform. Can't find your answer here? Don't worry — our friendly team is always just a quick message away and happy to help.",
+        'subtitle' => "Everything you need to know about SUPERLMS — from pricing and setup to features, security and support — all in one place. Browse the questions below by category to quickly find what you're looking for, whether you're a school leader, teacher or parent exploring the platform. Can't find your answer here? Don't worry — our friendly team is always just a quick message away and happy to help.",
         // FAQs are now stored in the `faqs` table and managed from the
         // super-admin FAQs screen (no longer config-driven).
     ],

@@ -70,8 +70,8 @@
                                     d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                             </svg>
                         </div>
-                        <a href="mailto:support@edyonelms.in"
-                            class="text-gray-700 hover:text-purple-600 hover:underline">support@edyonelms.in</a>
+                        <a href="mailto:support@superlms.in"
+                            class="text-gray-700 hover:text-purple-600 hover:underline">support@superlms.in</a>
                     </div>
                     <div class="flex items-center space-x-3">
                         <div class="bg-green-100 p-2 rounded-full">

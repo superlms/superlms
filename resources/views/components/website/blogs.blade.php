@@ -1,7 +1,7 @@
 @php
     $def      = config('website_pages.blogs', []);
     // Header copy is fixed content (not editable from super-admin).
-    $tag      = $def['tag']      ?? 'The EDYONE Blog';
+    $tag      = $def['tag']      ?? 'The SUPERLMS Blog';
     $title    = $def['title']    ?? '';
     $subtitle = $def['subtitle'] ?? '';
     $blogs    = $blogs ?? collect();

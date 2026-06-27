@@ -5,7 +5,7 @@
       "Sid": "S3BucketList",
       "Effect": "Allow",
       "Action": "s3:ListBucket",
-      "Resource": "arn:aws:s3:::edyonelms-*"
+      "Resource": "arn:aws:s3:::superlms-*"
     },
     {
       "Sid": "S3ObjectRW",
@@ -15,7 +15,7 @@
         "s3:PutObject",
         "s3:DeleteObject"
       ],
-      "Resource": "arn:aws:s3:::edyonelms-*/*"
+      "Resource": "arn:aws:s3:::superlms-*/*"
     }
   ]
 }

@@ -49,7 +49,7 @@
             <div class="flex-shrink-0 flex flex-col items-center px-4 py-4 border-b border-gray-200">
                 <img src="{{ asset('website-image/Group 11525.png') }}" alt="Logo"
                     class="w-20 h-20 object-contain mb-2">
-                <h2 class="text-sm font-bold text-gray-900 text-center">EDYONE LMS</h2>
+                <h2 class="text-sm font-bold text-gray-900 text-center">SUPERLMS</h2>
             </div>
 
             <!-- Mobile Navigation -->
@@ -88,7 +88,7 @@
         <div class="flex-shrink-0 flex flex-col items-center px-4 py-4">
             <img src="{{ asset('website-image/Group 11525.png') }}" alt="Logo"
                 class="w-20 h-20 object-contain mb-2">
-            <h2 class="text-sm font-bold text-gray-900 text-center">EDYONE LMS</h2>
+            <h2 class="text-sm font-bold text-gray-900 text-center">SUPERLMS</h2>
         </div>
 
         <!-- Scrollable navigation area -->

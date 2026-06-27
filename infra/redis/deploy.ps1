@@ -1,12 +1,12 @@
 # ==========================================================================
-# Phase 7 - deploy the EdyOne LMS cache (ElastiCache Redis, single node).
+# Phase 7 - deploy the superlms cache (ElastiCache Redis, single node).
 #
 # Idempotent. Prereq: VPC stack (Phase 4) exists - imports its subnets and
 # redis security group. Takes ~5-8 min. Run from this folder:  .\deploy.ps1
 # ==========================================================================
 $ErrorActionPreference = "Stop"
 $Region = "ap-south-1"
-$Stack  = "edyonelms-redis"
+$Stack  = "superlms-redis"
 $Tpl    = Join-Path $PSScriptRoot "redis.yaml"
 
 Write-Host "==> Validating template" -ForegroundColor Cyan
@@ -23,4 +23,4 @@ Write-Host "`n==> Stack outputs (exported for Secrets/ECS phases):" -ForegroundC
 aws cloudformation describe-stacks --stack-name $Stack --region $Region `
   --query "Stacks[0].Outputs[].{Key:OutputKey,Value:OutputValue}" --output table
 
-# Tear down later:  aws cloudformation delete-stack --stack-name edyonelms-redis --region ap-south-1
+# Tear down later:  aws cloudformation delete-stack --stack-name superlms-redis --region ap-south-1

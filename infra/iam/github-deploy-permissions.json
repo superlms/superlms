@@ -19,7 +19,7 @@
         "ecr:CompleteLayerUpload",
         "ecr:PutImage"
       ],
-      "Resource": "arn:aws:ecr:ap-south-1:ACCOUNT_ID:repository/edyonelms*"
+      "Resource": "arn:aws:ecr:ap-south-1:ACCOUNT_ID:repository/superlms*"
     },
     {
       "Sid": "ECSDeploy",
@@ -42,7 +42,7 @@
       "Action": "iam:PassRole",
       "Resource": [
         "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
-        "arn:aws:iam::ACCOUNT_ID:role/edyonelms-task-role"
+        "arn:aws:iam::ACCOUNT_ID:role/superlms-task-role"
       ],
       "Condition": {
         "StringEquals": {

@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
-  EdyOne LMS network (Phase 4). 2 AZ, NO NAT gateway (saves ~$32/mo).
+  superlms network (Phase 4). 2 AZ, NO NAT gateway (saves ~$32/mo).
   Public subnets host the ALB and the Fargate tasks (tasks get a public IP
   so they reach ECR/internet via the free Internet Gateway). Private
   subnets host RDS + ElastiCache, which need no internet access.
@@ -24,12 +24,12 @@ Resources:
       CidrBlock: !Ref VpcCidr
       EnableDnsSupport: true
       EnableDnsHostnames: true
-      Tags: [{ Key: Name, Value: edyonelms-vpc }]
+      Tags: [{ Key: Name, Value: superlms-vpc }]
 
   InternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
-      Tags: [{ Key: Name, Value: edyonelms-igw }]
+      Tags: [{ Key: Name, Value: superlms-igw }]
 
   IgwAttachment:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -45,7 +45,7 @@ Resources:
       CidrBlock: 10.0.0.0/24
       AvailabilityZone: !Select [0, !GetAZs ""]
       MapPublicIpOnLaunch: true
-      Tags: [{ Key: Name, Value: edyonelms-public-a }]
+      Tags: [{ Key: Name, Value: superlms-public-a }]
 
   PublicSubnetB:
     Type: AWS::EC2::Subnet
@@ -54,7 +54,7 @@ Resources:
       CidrBlock: 10.0.1.0/24
       AvailabilityZone: !Select [1, !GetAZs ""]
       MapPublicIpOnLaunch: true
-      Tags: [{ Key: Name, Value: edyonelms-public-b }]
+      Tags: [{ Key: Name, Value: superlms-public-b }]
 
   # ── Private subnets (RDS + ElastiCache) ─────────────────────────────────
   PrivateSubnetA:
@@ -63,7 +63,7 @@ Resources:
       VpcId: !Ref Vpc
       CidrBlock: 10.0.10.0/24
       AvailabilityZone: !Select [0, !GetAZs ""]
-      Tags: [{ Key: Name, Value: edyonelms-private-a }]
+      Tags: [{ Key: Name, Value: superlms-private-a }]
 
   PrivateSubnetB:
     Type: AWS::EC2::Subnet
@@ -71,14 +71,14 @@ Resources:
       VpcId: !Ref Vpc
       CidrBlock: 10.0.11.0/24
       AvailabilityZone: !Select [1, !GetAZs ""]
-      Tags: [{ Key: Name, Value: edyonelms-private-b }]
+      Tags: [{ Key: Name, Value: superlms-private-b }]
 
   # ── Routing ─────────────────────────────────────────────────────────────
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref Vpc
-      Tags: [{ Key: Name, Value: edyonelms-public-rt }]
+      Tags: [{ Key: Name, Value: superlms-public-rt }]
 
   PublicDefaultRoute:
     Type: AWS::EC2::Route
@@ -105,7 +105,7 @@ Resources:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref Vpc
-      Tags: [{ Key: Name, Value: edyonelms-private-rt }]
+      Tags: [{ Key: Name, Value: superlms-private-rt }]
 
   PrivateSubnetARouteAssoc:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -128,14 +128,14 @@ Resources:
       SecurityGroupIngress:
         - { IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0 }
         - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0 }
-      Tags: [{ Key: Name, Value: edyonelms-alb-sg }]
+      Tags: [{ Key: Name, Value: superlms-alb-sg }]
 
   EcsSg:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: ECS tasks - only the ALB may reach the container port
       VpcId: !Ref Vpc
-      Tags: [{ Key: Name, Value: edyonelms-ecs-sg }]
+      Tags: [{ Key: Name, Value: superlms-ecs-sg }]
 
   EcsIngressFromAlb:
     Type: AWS::EC2::SecurityGroupIngress
@@ -151,7 +151,7 @@ Resources:
     Properties:
       GroupDescription: RDS MySQL - only ECS tasks may connect
       VpcId: !Ref Vpc
-      Tags: [{ Key: Name, Value: edyonelms-rds-sg }]
+      Tags: [{ Key: Name, Value: superlms-rds-sg }]
 
   RdsIngressFromEcs:
     Type: AWS::EC2::SecurityGroupIngress
@@ -167,7 +167,7 @@ Resources:
     Properties:
       GroupDescription: ElastiCache Redis - only ECS tasks may connect
       VpcId: !Ref Vpc
-      Tags: [{ Key: Name, Value: edyonelms-redis-sg }]
+      Tags: [{ Key: Name, Value: superlms-redis-sg }]
 
   RedisIngressFromEcs:
     Type: AWS::EC2::SecurityGroupIngress
@@ -182,22 +182,22 @@ Resources:
 Outputs:
   VpcId:
     Value: !Ref Vpc
-    Export: { Name: edyonelms-vpc-id }
+    Export: { Name: superlms-vpc-id }
   PublicSubnets:
     Value: !Join [",", [!Ref PublicSubnetA, !Ref PublicSubnetB]]
-    Export: { Name: edyonelms-public-subnets }
+    Export: { Name: superlms-public-subnets }
   PrivateSubnets:
     Value: !Join [",", [!Ref PrivateSubnetA, !Ref PrivateSubnetB]]
-    Export: { Name: edyonelms-private-subnets }
+    Export: { Name: superlms-private-subnets }
   AlbSgId:
     Value: !Ref AlbSg
-    Export: { Name: edyonelms-alb-sg }
+    Export: { Name: superlms-alb-sg }
   EcsSgId:
     Value: !Ref EcsSg
-    Export: { Name: edyonelms-ecs-sg }
+    Export: { Name: superlms-ecs-sg }
   RdsSgId:
     Value: !Ref RdsSg
-    Export: { Name: edyonelms-rds-sg }
+    Export: { Name: superlms-rds-sg }
   RedisSgId:
     Value: !Ref RedisSg
-    Export: { Name: edyonelms-redis-sg }
+    Export: { Name: superlms-redis-sg }

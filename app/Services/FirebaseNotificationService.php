@@ -12,7 +12,7 @@ use Kreait\Firebase\Messaging\MulticastSendReport;
 /**
  * Push delivery for the mobile app (FCM).
  *
- * The React Native app (edyonelmsapp) handles *display* itself via Notifee and
+ * The React Native app (superlmsapp) handles *display* itself via Notifee and
  * keeps its own in-app inbox. So we deliver **data-only** messages — no FCM
  * `notification` block — otherwise Android would also auto-post a tray banner in
  * the background and we'd get duplicates. The app's `push.ts` reads the data

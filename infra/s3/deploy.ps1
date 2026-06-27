@@ -1,12 +1,12 @@
 # ==========================================================================
-# Phase 5 - deploy the EdyOne LMS media stack (private S3 + CloudFront OAC).
+# Phase 5 - deploy the superlms media stack (private S3 + CloudFront OAC).
 #
 # Idempotent. Prereq: 'aws configure' done (Phase 3). CloudFront takes a few
 # minutes to deploy. Run from this folder:  .\deploy.ps1
 # ==========================================================================
 $ErrorActionPreference = "Stop"
 $Region = "ap-south-1"
-$Stack  = "edyonelms-media"
+$Stack  = "superlms-media"
 $Tpl    = Join-Path $PSScriptRoot "s3-cdn.yaml"
 
 Write-Host "==> Validating template" -ForegroundColor Cyan
@@ -31,6 +31,6 @@ Write-Host "  AWS_URL=https://$cdn"
 Write-Host "  AWS_DEFAULT_REGION=$Region"
 Write-Host "  (leave AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY empty - ECS task role provides creds)"
 
-# Tear down later:  aws cloudformation delete-stack --stack-name edyonelms-media --region ap-south-1
+# Tear down later:  aws cloudformation delete-stack --stack-name superlms-media --region ap-south-1
 #   NOTE: bucket has DeletionPolicy=Retain, so it survives stack deletion
 #   (empty + delete it manually if you really want it gone).

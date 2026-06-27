@@ -28,7 +28,7 @@ updates trust policies / re-attaches policies without error.
 | GitHub OIDC provider | Lets GitHub Actions get short-lived AWS creds (no stored keys) | — |
 | `github-actions-deploy` | CI pushes images to ECR + updates ECS services | GitHub `superlms/superlms` `main` only |
 | `ecsTaskExecutionRole` | ECS platform: pull image, read Secrets Manager, write CloudWatch logs | `ecs-tasks.amazonaws.com` |
-| `edyonelms-task-role` | The app itself at runtime: S3 read/write | `ecs-tasks.amazonaws.com` |
+| `superlms-task-role` | The app itself at runtime: S3 read/write | `ecs-tasks.amazonaws.com` |
 
 ## Files
 
@@ -37,8 +37,8 @@ updates trust policies / re-attaches policies without error.
 | `github-oidc-trust.json` | trust policy of `github-actions-deploy` |
 | `github-deploy-permissions.json` | ECR push + ECS deploy + `iam:PassRole` |
 | `ecs-tasks-trust.json` | trust policy shared by both ECS roles |
-| `execution-role-secrets.json` | execution role → read `edyonelms/*` secrets |
-| `app-task-permissions.json` | task role → S3 `edyonelms-*` buckets |
+| `execution-role-secrets.json` | execution role → read `superlms/*` secrets |
+| `app-task-permissions.json` | task role → S3 `superlms-*` buckets |
 
 `ACCOUNT_ID` in every JSON is a placeholder the script replaces at runtime.
 
@@ -51,7 +51,7 @@ updates trust policies / re-attaches policies without error.
 
 ## Notes / scoping
 
-- S3 and Secrets resources are scoped to `edyonelms-*` names. Use that
+- S3 and Secrets resources are scoped to `superlms-*` names. Use that
   prefix when you create the bucket (Phase 5) and secrets (Phase 8).
 - The deploy role is locked to the `main` branch. To allow deploys from
   the Actions tab on other branches, widen the `sub` condition in
