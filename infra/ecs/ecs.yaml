@@ -1,0 +1,275 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  superlms ECS (Phase 10). Fargate (ARM64) cluster + internet-facing ALB +
+  three services from ONE image: web (x2, behind ALB), worker (Fargate Spot),
+  scheduler (x1). Plain config is passed as environment; sensitive values are
+  injected from Secrets Manager (superlms/rds + superlms/app). DB/Redis/S3
+  endpoints are imported from the earlier stacks. Migrations are NOT run here
+  (one-off task, Phase 11). HTTPS/cert is added in Phase 12.
+
+Parameters:
+  ImageTag:
+    Type: String
+    Default: latest
+  AppSecretArn:
+    Type: String
+    Description: Full ARN of the superlms/app secret (incl. random suffix)
+  WebDesiredCount:
+    Type: Number
+    Default: 2
+
+Resources:
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/superlms
+      RetentionInDays: 30
+
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: superlms
+      ClusterSettings:
+        - { Name: containerInsights, Value: enabled }
+
+  CapacityProviders:
+    Type: AWS::ECS::ClusterCapacityProviderAssociations
+    Properties:
+      Cluster: !Ref Cluster
+      CapacityProviders: [FARGATE, FARGATE_SPOT]
+      DefaultCapacityProviderStrategy:
+        - { CapacityProvider: FARGATE, Weight: 1 }
+
+  # ── ALB ──────────────────────────────────────────────────────────────────
+  Alb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: superlms-alb
+      Type: application
+      Scheme: internet-facing
+      SecurityGroups: [!ImportValue superlms-alb-sg]
+      Subnets: !Split [",", !ImportValue superlms-public-subnets]
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: superlms-web-tg
+      VpcId: !ImportValue superlms-vpc-id
+      Port: 80
+      Protocol: HTTP
+      TargetType: ip
+      HealthCheckPath: /up
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher: { HttpCode: "200" }
+      TargetGroupAttributes:
+        - { Key: deregistration_delay.timeout_seconds, Value: "30" }
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref Alb
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  # ── Web task definition (default CMD = supervisord: nginx + php-fpm) ───────
+  WebTaskDef:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: superlms-web
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: "512"
+      Memory: "1024"
+      RuntimePlatform:
+        CpuArchitecture: ARM64
+        OperatingSystemFamily: LINUX
+      ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/ecsTaskExecutionRole
+      TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/superlms-task-role
+      ContainerDefinitions:
+        - Name: web
+          Image: !Sub
+            - "${Uri}:${Tag}"
+            - { Uri: !ImportValue superlms-ecr-uri, Tag: !Ref ImageTag }
+          Essential: true
+          PortMappings:
+            - { ContainerPort: 80 }
+          Environment: &appenv
+            - { Name: APP_NAME, Value: SuperLMS }
+            - { Name: APP_ENV, Value: production }
+            - { Name: APP_DEBUG, Value: "false" }
+            - { Name: APP_TIMEZONE, Value: Asia/Kolkata }
+            - { Name: APP_URL, Value: !Sub ["http://${D}", { D: !GetAtt Alb.DNSName }] }
+            - { Name: APP_LOCALE, Value: en }
+            - { Name: LOG_CHANNEL, Value: stderr }
+            - { Name: LOG_LEVEL, Value: info }
+            - { Name: DB_CONNECTION, Value: mysql }
+            - { Name: DB_HOST, Value: !ImportValue superlms-db-host }
+            - { Name: DB_PORT, Value: "3306" }
+            - { Name: DB_DATABASE, Value: !ImportValue superlms-db-name }
+            - { Name: SESSION_DRIVER, Value: redis }
+            - { Name: SESSION_LIFETIME, Value: "120" }
+            - { Name: QUEUE_CONNECTION, Value: redis }
+            - { Name: CACHE_STORE, Value: redis }
+            - { Name: REDIS_CLIENT, Value: phpredis }
+            - { Name: REDIS_HOST, Value: !ImportValue superlms-redis-host }
+            - { Name: REDIS_PORT, Value: "6379" }
+            - { Name: FILESYSTEM_DISK, Value: s3 }
+            - { Name: AWS_DEFAULT_REGION, Value: ap-south-1 }
+            - { Name: AWS_BUCKET, Value: !ImportValue superlms-media-bucket }
+            - { Name: AWS_URL, Value: !Sub ["https://${D}", { D: !ImportValue superlms-cdn-domain }] }
+            - { Name: AWS_USE_PATH_STYLE_ENDPOINT, Value: "false" }
+            - { Name: ZEPTOMAIL_API_URL, Value: https://api.zeptomail.in/v1.1 }
+            - { Name: ZEPTOMAIL_FROM_EMAIL, Value: noreply@superlms.in }
+            - { Name: ZEPTOMAIL_FROM_NAME, Value: SuperLMS }
+            - { Name: PHONEPE_CLIENT_VERSION, Value: "1" }
+            - { Name: PHONEPE_ENV, Value: production }
+            - { Name: RUN_MIGRATIONS, Value: "false" }
+          Secrets: &appsecrets
+            - { Name: DB_USERNAME, ValueFrom: !Sub ["${A}:username::", { A: !ImportValue superlms-db-secret-arn }] }
+            - { Name: DB_PASSWORD, ValueFrom: !Sub ["${A}:password::", { A: !ImportValue superlms-db-secret-arn }] }
+            - { Name: APP_KEY, ValueFrom: !Sub "${AppSecretArn}:APP_KEY::" }
+            - { Name: ZEPTOMAIL_API_TOKEN, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_API_TOKEN::" }
+            - { Name: ZEPTOMAIL_OTP_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_OTP_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_STUDENT_PASSWORD_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_STUDENT_PASSWORD_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_TEACHER_PASSWORD_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_TEACHER_PASSWORD_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_WELCOME_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_WELCOME_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_FEE_RECEIPT_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_FEE_RECEIPT_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_ANNOUNCEMENT_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_ANNOUNCEMENT_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_PASSWORD_CHANGED_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_PASSWORD_CHANGED_TEMPLATE_KEY::" }
+            - { Name: ZEPTOMAIL_SCHOOL_CREATION_TEMPLATE_KEY, ValueFrom: !Sub "${AppSecretArn}:ZEPTOMAIL_SCHOOL_CREATION_TEMPLATE_KEY::" }
+            - { Name: PHONEPE_CLIENT_ID, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_CLIENT_ID::" }
+            - { Name: PHONEPE_CLIENT_SECRET, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_CLIENT_SECRET::" }
+            - { Name: PHONEPE_WEBHOOK_USERNAME, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_WEBHOOK_USERNAME::" }
+            - { Name: PHONEPE_WEBHOOK_PASSWORD, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_WEBHOOK_PASSWORD::" }
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: web
+
+  # ── Worker task definition (queue:work) ───────────────────────────────────
+  WorkerTaskDef:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: superlms-worker
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: "256"
+      Memory: "512"
+      RuntimePlatform: { CpuArchitecture: ARM64, OperatingSystemFamily: LINUX }
+      ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/ecsTaskExecutionRole
+      TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/superlms-task-role
+      ContainerDefinitions:
+        - Name: worker
+          Image: !Sub
+            - "${Uri}:${Tag}"
+            - { Uri: !ImportValue superlms-ecr-uri, Tag: !Ref ImageTag }
+          Essential: true
+          Command: [php, artisan, queue:work, "--tries=3", "--timeout=120", "--sleep=3", "--max-jobs=1000", "--max-time=3600"]
+          Environment: *appenv
+          Secrets: *appsecrets
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: worker
+
+  # ── Scheduler task definition (schedule:work, exactly 1) ──────────────────
+  SchedulerTaskDef:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: superlms-scheduler
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: "256"
+      Memory: "512"
+      RuntimePlatform: { CpuArchitecture: ARM64, OperatingSystemFamily: LINUX }
+      ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/ecsTaskExecutionRole
+      TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/superlms-task-role
+      ContainerDefinitions:
+        - Name: scheduler
+          Image: !Sub
+            - "${Uri}:${Tag}"
+            - { Uri: !ImportValue superlms-ecr-uri, Tag: !Ref ImageTag }
+          Essential: true
+          Command: [php, artisan, schedule:work]
+          Environment: *appenv
+          Secrets: *appsecrets
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: scheduler
+
+  # ── Services ──────────────────────────────────────────────────────────────
+  WebService:
+    Type: AWS::ECS::Service
+    DependsOn: Listener
+    Properties:
+      ServiceName: superlms-web
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref WebTaskDef
+      DesiredCount: !Ref WebDesiredCount
+      LaunchType: FARGATE
+      HealthCheckGracePeriodSeconds: 60
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 100
+        MaximumPercent: 200
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED   # public subnet + IGW = no NAT needed for ECR pull
+          Subnets: !Split [",", !ImportValue superlms-public-subnets]
+          SecurityGroups: [!ImportValue superlms-ecs-sg]
+      LoadBalancers:
+        - TargetGroupArn: !Ref TargetGroup
+          ContainerName: web
+          ContainerPort: 80
+
+  WorkerService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: superlms-worker
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref WorkerTaskDef
+      DesiredCount: 1
+      CapacityProviderStrategy:
+        - { CapacityProvider: FARGATE_SPOT, Weight: 1 }
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets: !Split [",", !ImportValue superlms-public-subnets]
+          SecurityGroups: [!ImportValue superlms-ecs-sg]
+
+  SchedulerService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: superlms-scheduler
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref SchedulerTaskDef
+      DesiredCount: 1
+      LaunchType: FARGATE
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 0
+        MaximumPercent: 100
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets: !Split [",", !ImportValue superlms-public-subnets]
+          SecurityGroups: [!ImportValue superlms-ecs-sg]
+
+Outputs:
+  AlbUrl:
+    Description: Public URL of the app (until the custom domain in Phase 12)
+    Value: !Sub ["http://${D}", { D: !GetAtt Alb.DNSName }]
+  ClusterName:
+    Value: !Ref Cluster
+    Export: { Name: superlms-ecs-cluster }
