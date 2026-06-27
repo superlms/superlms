@@ -232,18 +232,20 @@ class LmsMigrate extends Command
             ['name' => 'Super Admin', 'description' => 'Administrator with All access']
         );
 
-        // Seed super admin accounts (idempotent — safe to run on every boot)
+        // Seed super admin accounts (idempotent — firstOrCreate only sets the
+        // password on first create, so a later UI password change is NOT reset
+        // on the next deploy). email => initial password.
         $superAdmins = [
-            'edyonelms@gmail.com',
-            'edyonelms1@gmail.com',
+            'superlms.india@gmail.com'   => 'Super2026#@lms',
+            'superlmsofficial@gmail.com' => 'Super2026#@lms',
         ];
 
-        foreach ($superAdmins as $email) {
+        foreach ($superAdmins as $email => $plainPassword) {
             $user = User::firstOrCreate(
                 ['email' => $email],
                 [
                     'name' => 'Super Admin',
-                    'password' => Hash::make('12345678'),
+                    'password' => Hash::make($plainPassword),
                     'role' => 'super-admin',
                     'is_active' => 1,
                     'organization_id' => 0,
