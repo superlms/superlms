@@ -249,11 +249,11 @@
 
         @keyframes marquee {
             from {
-                transform: translateX(-50%);
+                transform: translateX(0);
             }
 
             to {
-                transform: translateX(0);
+                transform: translateX(-50%);
             }
         }
 
@@ -1021,41 +1021,56 @@
             }
         }
 
-        /* ─── Marquee ─── */
+        /* ─── Marquee (school logos — exactly 5 visible, continuous swipe) ─── */
         .marquee-section {
-            padding: 26px 0;
+            padding: 34px 0;
             background: var(--bg3);
             border-top: 1px solid var(--border2);
             border-bottom: 1px solid var(--border2);
             overflow: hidden;
         }
 
+        /* Centered window that fits exactly 5 slots. */
+        .marquee-viewport {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            overflow: hidden;
+            -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+                    mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+        }
+
         .marquee-track {
             display: flex;
-            gap: 56px;
-            animation: marquee var(--marquee-duration, 22s) linear infinite;
+            gap: 0;
+            animation: marquee var(--marquee-duration, 30s) linear infinite;
             width: max-content;
         }
 
+        /* Each slot is 1/5 of the visible window, so exactly 5 logos show. */
         .marquee-item {
+            width: calc(min(100vw, 1200px) / 5);
             display: flex;
             align-items: center;
-            gap: 12px;
-            color: var(--text2);
-            font-size: 14px;
-            font-weight: 500;
-            white-space: nowrap;
+            justify-content: center;
+            flex-shrink: 0;
         }
 
         .marquee-logo {
-            width: 32px;
-            height: 32px;
+            width: clamp(60px, 11vw, 110px);
+            height: clamp(60px, 11vw, 110px);
             border-radius: 50%;
             object-fit: contain;
             background: #fff;
             border: 1px solid var(--border2);
-            padding: 3px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, .06);
+            padding: 10px;
             flex-shrink: 0;
+            transition: transform .25s ease;
+        }
+
+        .marquee-logo:hover {
+            transform: scale(1.06);
         }
 
         /* ─── How It Works ─── */
@@ -2862,12 +2877,9 @@
      MARQUEE — Partner Schools
 ═══════════════════════════════════════════ -->
     <div class="marquee-section">
-        <div style="overflow:hidden;">
+        <div class="marquee-viewport">
             <div class="marquee-track" id="marqueeTrack">
-                <!-- JS will populate school names dynamically -->
-                <div class="marquee-item"><svg width="8" height="8" viewBox="0 0 8 8">
-                        <circle cx="4" cy="4" r="4" fill="#DB57B2" />
-                    </svg> Loading schools…</div>
+                <!-- JS populates school logos dynamically -->
             </div>
         </div>
     </div>
@@ -3801,26 +3813,27 @@
                 if (!track || !data || data.length === 0) return;
 
                 const fallbackLogo = "{{ asset('website-image/Vector 215.png') }}";
-                const colors = ['#DB57B2', '#6F56FE'];
-                // Build items (×2 for seamless loop)
-                let html = '';
-                [data, data].forEach(set => {
-                    set.forEach((school, i) => {
-                        const name = typeof school === 'string' ? school : school.name;
-                        const logo = (typeof school === 'object' && school.logo_url) ? school.logo_url : fallbackLogo;
-                        const c = colors[i % 2];
-                        html +=
-                            `<div class="marquee-item">` +
-                            `<img class="marquee-logo" src="${escText(logo)}" alt="${escText(name)} logo" loading="lazy" onerror="this.onerror=null;this.src='${fallbackLogo}'"/>` +
-                            `<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="${c}"/></svg>` +
-                            `<span>${escText(name)}</span>` +
-                            `</div>`;
-                    });
-                });
-                track.innerHTML = html;
 
-                // 2 seconds per item — duration scales with item count.
-                track.style.setProperty('--marquee-duration', (data.length * 2) + 's');
+                // Repeat the schools until we have a comfortable run (>= 10 logos),
+                // so 5 are always on screen and the loop never shows a gap even
+                // when there are only a few schools.
+                let base = data.slice();
+                while (base.length < 10) base = base.concat(data);
+
+                const itemHtml = (school) => {
+                    const name = typeof school === 'string' ? school : school.name;
+                    const logo = (typeof school === 'object' && school.logo_url) ? school.logo_url : fallbackLogo;
+                    return `<div class="marquee-item">` +
+                        `<img class="marquee-logo" src="${escText(logo)}" alt="${escText(name)} logo" loading="lazy" onerror="this.onerror=null;this.src='${fallbackLogo}'"/>` +
+                        `</div>`;
+                };
+
+                // ×2 for the seamless translateX(0 → -50%) loop.
+                const half = base.map(itemHtml).join('');
+                track.innerHTML = half + half;
+
+                // ~2.4s of travel per logo — duration scales with the run length.
+                track.style.setProperty('--marquee-duration', (base.length * 2.4) + 's');
             })
             .catch(() => {});
 
