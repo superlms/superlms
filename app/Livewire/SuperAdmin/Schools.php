@@ -487,15 +487,24 @@ class Schools extends Component
 
         $plainPassword = null;
 
-        DB::transaction(function () use (&$plainPassword) {
-            $logoUrl = $this->existingLogo;
-
-            if ($this->logo) {
+        // Upload the logo before the transaction so an S3 failure (e.g. a bucket
+        // with ACLs disabled) never rolls back the school record — the logo is
+        // optional, so we log and continue without it.
+        $logoUrl = $this->existingLogo;
+        if ($this->logo) {
+            try {
                 $path    = $this->logo->store('superadmin/schools/logos', 's3');
                 Storage::disk('s3')->setVisibility($path, 'public');
                 $logoUrl = Storage::disk('s3')->url($path);
+            } catch (\Throwable $e) {
+                Log::error('School logo upload failed', [
+                    'school' => $this->schoolName,
+                    'error'  => $e->getMessage(),
+                ]);
             }
+        }
 
+        DB::transaction(function () use (&$plainPassword, $logoUrl) {
             $orgData = [
                 'name'            => $this->schoolName,
                 'email'           => $this->email,
