@@ -485,6 +485,29 @@ class Schools extends Component
     {
         $this->validate($this->schoolRules());
 
+        // Surface the real reason instead of a raw 500 if anything below fails.
+        try {
+            $this->persistSchool();
+        } catch (\Throwable $e) {
+            Log::error('School save failed', [
+                'editId' => $this->editId,
+                'email'  => $this->email,
+                'error'  => $e->getMessage(),
+                'trace'  => $e->getTraceAsString(),
+            ]);
+            $this->notification()->error('Could not save school', $e->getMessage());
+            return;
+        }
+
+        $this->closeModal();
+        $this->loadStats();
+        $this->resetPage();
+        $this->notification()->success('School saved successfully!');
+    }
+
+    /** Create/update the school + its admin user + module access, then email creds. */
+    private function persistSchool(): void
+    {
         $plainPassword = null;
 
         // Upload the logo before the transaction so an S3 failure (e.g. a bucket
@@ -575,11 +598,6 @@ class Schools extends Component
                 }
             }
         }
-
-        $this->closeModal();
-        $this->loadStats();
-        $this->resetPage();
-        $this->notification()->success('School saved successfully!');
     }
 
     public function onDelete($id): void
