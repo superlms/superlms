@@ -24,6 +24,7 @@ Route::prefix('website')->group(function () {
     Route::middleware('throttle:5,1')->group(function () {
         Route::post('/contact',        [WebsiteController::class, 'contact']);
         Route::post('/demo',           [WebsiteController::class, 'demo']);
+        Route::post('/schedule-call',  [WebsiteController::class, 'scheduleCall']);
         Route::post('/school-contact', [WebsiteController::class, 'schoolContact']);
         Route::post('/career-apply',   [WebsiteController::class, 'careerApply']);
         Route::post('/executive-apply', [WebsiteController::class, 'executiveApply']);

@@ -582,6 +582,40 @@
             box-shadow: 0 8px 32px rgba(111, 86, 254, 0.45);
         }
 
+        .btn-schedule {
+            width: 100%;
+            padding: 13px 32px;
+            font-size: 15px;
+            border-radius: 13px;
+            background: transparent;
+            color: var(--violet);
+            border: 1.5px solid var(--violet);
+            font-family: 'DM Sans', sans-serif;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .3s;
+            margin-top: 10px;
+        }
+
+        .btn-schedule:hover {
+            background: var(--secondary-faint);
+        }
+
+        .btn-schedule.active {
+            background: var(--grad1);
+            color: #fff;
+            border-color: transparent;
+        }
+
+        .schedule-fields {
+            border: 1px dashed var(--border);
+            border-radius: var(--radius-sm);
+            padding: 16px 16px 0;
+            margin-bottom: 18px;
+            background: var(--bg3);
+            animation: slideDown .3s ease;
+        }
+
         .form-disclaimer {
             text-align: center;
             font-size: 11px;
@@ -957,7 +991,32 @@
                                 <option>Other</option>
                             </select>
                         </div>
-                        <button type="submit" class="btn-submit">Book My Free Demo</button>
+
+                        {{-- Schedule-call fields: hidden until "Schedule a Call" is chosen --}}
+                        <div id="scheduleFields" class="schedule-fields" hidden>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Preferred Date *</label>
+                                    <input class="form-input" type="date" name="preferred_date" id="preferredDate" />
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Preferred Time Slot *</label>
+                                    <select class="form-select" name="preferred_time" id="preferredTime">
+                                        <option value="">Select a slot</option>
+                                        <option>10:00 AM – 12:00 PM</option>
+                                        <option>12:00 PM – 02:00 PM</option>
+                                        <option>02:00 PM – 04:00 PM</option>
+                                        <option>04:00 PM – 06:00 PM</option>
+                                        <option>06:00 PM – 08:00 PM</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <input type="hidden" name="mode" id="formMode" value="demo" />
+                        <button type="submit" class="btn-submit" id="demoSubmitBtn">Book My Free Demo</button>
+                        <button type="button" class="btn-schedule" id="scheduleToggleBtn"
+                            onclick="toggleScheduleMode()">📞 Schedule a Call Instead</button>
                         <p class="form-disclaimer">No credit card required &nbsp;·&nbsp; No commitment &nbsp;·&nbsp;
                             Completely free</p>
                     </form>
@@ -1011,35 +1070,68 @@
             })
             .catch(() => {});
 
+        // ── Schedule-a-Call toggle ──
+        // Reveals the date + timeslot fields and switches the form into schedule
+        // mode (posts to /schedule-call instead of /demo).
+        function toggleScheduleMode() {
+            const fields   = document.getElementById('scheduleFields');
+            const modeEl   = document.getElementById('formMode');
+            const submit   = document.getElementById('demoSubmitBtn');
+            const toggle   = document.getElementById('scheduleToggleBtn');
+            const dateEl   = document.getElementById('preferredDate');
+            const timeEl   = document.getElementById('preferredTime');
+            const on = modeEl.value !== 'schedule';
+
+            modeEl.value = on ? 'schedule' : 'demo';
+            fields.hidden = !on;
+            dateEl.required = on;
+            timeEl.required = on;
+            submit.textContent = on ? 'Schedule My Call' : 'Book My Free Demo';
+            toggle.textContent = on ? '↩ Book a Demo Instead' : '📞 Schedule a Call Instead';
+            toggle.classList.toggle('active', on);
+
+            // Don't allow past dates.
+            if (on && !dateEl.min) dateEl.min = new Date().toISOString().split('T')[0];
+            if (on) fields.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
         async function handleDemoSubmit(e) {
             e.preventDefault();
             const form = e.target;
             const btn = form.querySelector('.btn-submit');
             const orig = btn.textContent;
+            const isSchedule = document.getElementById('formMode').value === 'schedule';
             btn.textContent = 'Submitting…';
             btn.disabled = true;
 
+            const payload = {
+                full_name: form.name.value,
+                school_name: form.school.value,
+                phone: form.phone.value,
+                email: form.email.value,
+                city: form.city.value,
+                no_of_students: form.students.value,
+                role: form.role.value,
+            };
+            if (isSchedule) {
+                payload.preferred_date = form.preferred_date.value;
+                payload.preferred_time = form.preferred_time.value;
+            }
+
             try {
-                const res = await fetch('/api/website/demo', {
+                const res = await fetch(isSchedule ? '/api/website/schedule-call' : '/api/website/demo', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     },
-                    body: JSON.stringify({
-                        full_name: form.name.value,
-                        school_name: form.school.value,
-                        phone: form.phone.value,
-                        email: form.email.value,
-                        city: form.city.value,
-                        no_of_students: form.students.value,
-                        role: form.role.value,
-                    }),
+                    body: JSON.stringify(payload),
                 });
                 const json = await res.json();
                 if (json.success) {
                     form.reset();
-                    showToast(json.message || 'Demo requested!', true);
+                    if (isSchedule) toggleScheduleMode(); // reset back to demo mode
+                    showToast(json.message || 'Request received!', true);
                 } else {
                     showToast(Object.values(json.errors || {}).flat()[0] || 'Something went wrong.', false);
                 }

@@ -119,13 +119,15 @@
             @forelse ($enquiries as $enquiry)
                 @php
                     $isRemarked = !empty($enquiry->remark);
+                    $isScheduled = $activeTab === 'demo' && !empty($enquiry->preferred_date);
                     $bodyText   = $activeTab === 'demo'
                         ? ($enquiry->role ?? '') . ($enquiry->no_of_students ? ' · ' . $enquiry->no_of_students . ' students' : '')
                         : ($enquiry->description ?? '');
                 @endphp
-                <div class="group bg-white rounded-xl border border-gray-200 hover:border-blue-200 hover:shadow-md transition-all duration-200 overflow-hidden">
+                <div class="group rounded-xl border hover:shadow-md transition-all duration-200 overflow-hidden
+                    {{ $isScheduled ? 'bg-indigo-50/50 border-indigo-200 hover:border-indigo-300' : 'bg-white border-gray-200 hover:border-blue-200' }}">
                     <div class="flex items-stretch">
-                        <div class="w-1 flex-shrink-0 {{ $isRemarked ? 'bg-emerald-500' : 'bg-amber-400' }}"></div>
+                        <div class="w-1 flex-shrink-0 {{ $isScheduled ? 'bg-indigo-500' : ($isRemarked ? 'bg-emerald-500' : 'bg-amber-400') }}"></div>
 
                         <div class="flex-1 p-4 sm:p-5 min-w-0">
                             <div class="flex items-start justify-between gap-4">
@@ -150,6 +152,15 @@
                                                 {{ $isRemarked ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">
                                                 {{ $isRemarked ? 'Remarked' : 'Pending' }}
                                             </span>
+                                            @if ($isScheduled)
+                                                <span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-indigo-100 text-indigo-700">
+                                                    📞 Scheduled Call
+                                                </span>
+                                                <span class="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-700 bg-white border border-indigo-200 px-2 py-0.5 rounded-full">
+                                                    📅 {{ $enquiry->preferred_date?->format('D, d M Y') }}
+                                                    @if ($enquiry->preferred_time)· ⏰ {{ $enquiry->preferred_time }}@endif
+                                                </span>
+                                            @endif
                                             @if ($enquiry->school_name)
                                                 <span class="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
                                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -299,6 +310,15 @@
                                 <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Number of Students</p>
                                 <p class="text-sm text-gray-800">{{ $selectedEnquiry->no_of_students ?? '—' }}</p>
                             </div>
+                            @if ($selectedEnquiry->preferred_date)
+                                <div class="col-span-2 bg-indigo-50 border border-indigo-200 rounded-lg p-3 -mt-1">
+                                    <p class="text-xs text-indigo-500 uppercase tracking-wider mb-1 font-semibold">📞 Scheduled Call</p>
+                                    <p class="text-sm text-indigo-900 font-medium">
+                                        📅 {{ $selectedEnquiry->preferred_date?->format('l, d M Y') }}
+                                        @if ($selectedEnquiry->preferred_time)<br>⏰ {{ $selectedEnquiry->preferred_time }}@endif
+                                    </p>
+                                </div>
+                            @endif
                         @endif
                     </div>
 

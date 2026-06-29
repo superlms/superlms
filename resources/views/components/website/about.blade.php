@@ -783,6 +783,38 @@
             box-shadow: var(--shadow2);
         }
 
+        /* Role card internals — matches the homepage "Every Role" section. */
+        .role-card-title {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 20px;
+        }
+
+        .role-point {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: 13px;
+            color: var(--text2);
+            margin-bottom: 9px;
+        }
+
+        .role-point-check {
+            width: 16px;
+            height: 16px;
+            min-width: 16px;
+            background: rgba(34, 197, 94, .12);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            color: #16A34A;
+            margin-top: 1px;
+        }
+
         /* ══════════════════ SECURITY SECTION ══════════════════ */
         .security-illus-grid {
             display: grid;
@@ -1876,6 +1908,26 @@
                                 ✓</div>Receive school announcements instantly
                         </div>
                     </div>
+                </div>
+                <!-- Accounts -->
+                <div class="role-card" style="background:var(--secondary-faint);border:1px solid var(--border);">
+                    <div class="role-card-title">🧾 For Accounts</div>
+                    <div class="role-point"><div class="role-point-check">✓</div>Automated fee invoicing, dues tracking &amp; online collection</div>
+                    <div class="role-point"><div class="role-point-check">✓</div>Payroll, salary slips &amp; staff expense management</div>
+                    <div class="role-point"><div class="role-point-check">✓</div>Income, expense &amp; fee ledgers with financial reports</div>
+                    <div class="role-point"><div class="role-point-check">✓</div>Online payment reconciliation &amp; instant receipts</div>
+                    <div class="role-point"><div class="role-point-check">✓</div>Export GST-ready accounting &amp; audit data</div>
+                    <div class="role-point"><div class="role-point-check">✓</div>Real-time dues, defaulter &amp; collection dashboards</div>
+                </div>
+                <!-- Exams Management -->
+                <div class="role-card" style="background:var(--primary-faint);border:1px solid var(--border-pink);">
+                    <div class="role-card-title">📝 For Exams Management</div>
+                    <div class="role-point"><div class="role-point-check">✓</div>Build exam schedules, datesheets &amp; seating arrangements</div>
+                    <div class="role-point"><div class="role-point-check">✓</div>Configure grading schemes &amp; marks entry workflows</div>
+                    <div class="role-point"><div class="role-point-check">✓</div>Automated result processing &amp; rank calculation</div>
+                    <div class="role-point"><div class="role-point-check">✓</div>Auto-generate admit cards, marksheets &amp; report cards in bulk</div>
+                    <div class="role-point"><div class="role-point-check">✓</div>Subject &amp; class-wise performance analysis</div>
+                    <div class="role-point"><div class="role-point-check">✓</div>Publish results instantly to students &amp; parents</div>
                 </div>
             </div>
         </div>

@@ -14,6 +14,12 @@ class WebsiteDemo extends Model
         'city',
         'no_of_students',
         'role',
+        'preferred_date',
+        'preferred_time',
         'remark',
+    ];
+
+    protected $casts = [
+        'preferred_date' => 'date',
     ];
 }

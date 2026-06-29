@@ -18,13 +18,13 @@
      on cards keep working normally. */
   .ed-anim-on {
     opacity: 0;
-    transition: opacity .85s cubic-bezier(.16, 1, .3, 1), transform .85s cubic-bezier(.16, 1, .3, 1);
+    transition: opacity .75s cubic-bezier(.16, 1, .3, 1), transform .75s cubic-bezier(.16, 1, .3, 1);
     will-change: opacity, transform;
   }
-  .ed-anim-on.ed-up    { transform: translateY(40px); }
-  .ed-anim-on.ed-left  { transform: translateX(-54px); }
-  .ed-anim-on.ed-right { transform: translateX(54px); }
-  .ed-anim-on.ed-zoom  { transform: scale(.93) translateY(22px); }
+  .ed-anim-on.ed-up    { transform: translateY(32px); }
+  .ed-anim-on.ed-left  { transform: translateX(-48px); }
+  .ed-anim-on.ed-right { transform: translateX(48px); }
+  .ed-anim-on.ed-zoom  { transform: scale(.92) translateY(20px); }
   .ed-anim-on.ed-shown { opacity: 1; transform: none; }   /* must stay after the variants */
   @media (prefers-reduced-motion: reduce) {
     .ed-anim-on { opacity: 1 !important; transform: none !important; transition: none !important; }
@@ -87,12 +87,12 @@
             <div>
                 <div class="footer-col-title">Quick Links</div>
                 <ul class="footer-links">
-                    <li><a href="{{ url('/') }}">→ Home</a></li>
-                    <li><a href="{{ url('web/about') }}">→ About Us</a></li>
-                    <li><a href="{{ url('web/features') }}">→ Features</a></li>
-                    <li><a href="{{ url('web/pricing') }}">→ Pricing</a></li>
-                    <li><a href="{{ url('web/contact') }}">→ Contact Us</a></li>
-                    <li><a href="{{ url('web/demo') }}">→ Request Demo</a></li>
+                    <li><a href="{{ url('/') }}">Home</a></li>
+                    <li><a href="{{ url('web/about') }}">About Us</a></li>
+                    <li><a href="{{ url('web/features') }}">Features</a></li>
+                    <li><a href="{{ url('web/pricing') }}">Pricing</a></li>
+                    <li><a href="{{ url('web/contact') }}">Contact Us</a></li>
+                    <li><a href="{{ url('web/demo') }}">Request Demo</a></li>
                 </ul>
             </div>
 
@@ -100,12 +100,12 @@
             <div>
                 <div class="footer-col-title">Company</div>
                 <ul class="footer-links">
-                    <li><a href="{{ route('website.why-us') }}">→ Why Us</a></li>
-                    <li><a href="{{ route('website.services') }}">→ Services</a></li>
-                    <li><a href="{{ route('website.careers') }}">→ Careers</a></li>
-                    <li><a href="{{ route('website.become-executive') }}">→ Become an Executive</a></li>
-                    <li><a href="{{ route('website.blogs') }}">→ Blogs</a></li>
-                    <li><a href="{{ route('website.faqs') }}">→ FAQs</a></li>
+                    <li><a href="{{ route('website.why-us') }}">Why Us</a></li>
+                    <li><a href="{{ route('website.services') }}">Services</a></li>
+                    <li><a href="{{ route('website.careers') }}">Careers</a></li>
+                    <li><a href="{{ route('website.become-executive') }}">Become an Executive</a></li>
+                    <li><a href="{{ route('website.blogs') }}">Blogs</a></li>
+                    <li><a href="{{ route('website.faqs') }}">FAQs</a></li>
                 </ul>
             </div>
 
@@ -113,9 +113,9 @@
             <div>
                 <div class="footer-col-title">Legal</div>
                 <ul class="footer-links">
-                    <li><a href="{{ route('website.privacy') }}">→ Privacy Policy</a></li>
-                    <li><a href="{{ route('website.terms-conditions') }}">→ Terms of Use</a></li>
-                    <li><a href="{{ route('website.terms-of-use') }}">→ Terms &amp; Conditions</a></li>
+                    <li><a href="{{ route('website.privacy') }}">Privacy Policy</a></li>
+                    <li><a href="{{ route('website.terms-conditions') }}">Terms of Use</a></li>
+                    <li><a href="{{ route('website.terms-of-use') }}">Terms &amp; Conditions</a></li>
                 </ul>
             </div>
 
@@ -137,7 +137,7 @@
 
         </div>
         <div class="footer-bottom">
-            <div class="footer-bottom-text">© 2026 SUPERLMS (SuperLMS Educators Private Limited). All rights reserved. Made with ❤️ in India.</div>
+            <div class="footer-bottom-text">© 2026 SUPERLMS (Super Learnings Private Limited). All rights reserved. Made with ❤️ in India.</div>
             <div class="footer-bottom-links">
                 <a href="{{ route('website.privacy') }}">Privacy Policy</a>
                 <a href="{{ route('website.terms-conditions') }}">Terms of Use</a>

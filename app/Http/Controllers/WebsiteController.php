@@ -279,6 +279,36 @@ class WebsiteController extends Controller
         ]);
     }
 
+    /** POST /api/website/schedule-call — book a call at a preferred date + timeslot */
+    public function scheduleCall(Request $request)
+    {
+        $validated = $request->validate([
+            'full_name'      => 'required|string|max:255',
+            'school_name'    => 'required|string|max:255',
+            'phone'          => ['required', 'string', 'regex:/^[6-9][0-9]{9}$/'],
+            'email'          => 'required|email|max:255',
+            'city'           => 'required|string|max:255',
+            'no_of_students' => 'required|string|max:50',
+            'role'           => 'required|string|max:100',
+            'preferred_date' => 'required|date|after_or_equal:today',
+            'preferred_time' => 'required|string|max:50',
+        ]);
+
+        if ($this->isSpamSubmission($request)) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Call scheduled! Our team will call you at your chosen time.',
+            ]);
+        }
+
+        WebsiteDemo::create($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Call scheduled! Our team will call you at your chosen time.',
+        ]);
+    }
+
     /** POST /api/website/career-apply */
     public function careerApply(Request $request)
     {
