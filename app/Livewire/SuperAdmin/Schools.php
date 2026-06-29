@@ -9,10 +9,12 @@ use App\Models\Student\StudentDetail;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\User;
 use App\Services\ZeptoMailService;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -510,6 +512,13 @@ class Schools extends Component
     {
         $plainPassword = null;
 
+        // Schema drift guard: on deploys where the `migrate` task didn't apply
+        // 2026_06_29_000001 (or lms:migrate never ran), the affiliation/bank/udise
+        // columns are missing and an insert with them 500s with "Unknown column".
+        // Make the write self-healing — add any missing columns first (best effort,
+        // outside the transaction since MySQL DDL implicitly commits).
+        $this->ensureOrganizationColumns();
+
         // Upload the logo before the transaction so an S3 failure (e.g. a bucket
         // with ACLs disabled) never rolls back the school record — the logo is
         // optional, so we log and continue without it.
@@ -542,6 +551,12 @@ class Schools extends Component
                 'logo'            => $logoUrl,
                 'status'          => true,
             ];
+
+            // Final safety net: if a column still can't be created (e.g. the DB
+            // user lacks ALTER), drop it from the payload rather than 500'ing.
+            // The required fields (name/email/code) always exist, so the school
+            // still gets created.
+            $orgData = $this->onlyExistingColumns('organizations', $orgData);
 
             if ($this->editId) {
                 Organization::findOrFail($this->editId)->update($orgData);
@@ -598,6 +613,54 @@ class Schools extends Component
                 }
             }
         }
+    }
+
+    /**
+     * Add any organizations columns the write path needs but that are missing
+     * from the live DB (schema drift). Mirrors the hasColumn-guarded pattern in
+     * the lms:migrate command, but runs at write time so a deploy that skipped
+     * migrations can't break school creation. Best effort — swallows failures
+     * (e.g. missing ALTER privilege); the onlyExistingColumns() net handles the
+     * rest.
+     */
+    private function ensureOrganizationColumns(): void
+    {
+        $needed = [
+            'affiliation_no', 'udise_number', 'bank_name', 'bank_account_no',
+            'bank_ifsc', 'bank_branch', 'bank_holder_name',
+        ];
+
+        $missing = array_filter(
+            $needed,
+            fn($col) => !Schema::hasColumn('organizations', $col),
+        );
+
+        if (empty($missing)) {
+            return;
+        }
+
+        try {
+            Schema::table('organizations', function (Blueprint $table) use ($missing) {
+                foreach ($missing as $col) {
+                    $table->string($col)->nullable();
+                }
+            });
+        } catch (\Throwable $e) {
+            Log::warning('Could not auto-add missing organizations columns', [
+                'missing' => array_values($missing),
+                'error'   => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /** Keep only the keys that are real columns on the given table. */
+    private function onlyExistingColumns(string $table, array $data): array
+    {
+        return array_filter(
+            $data,
+            fn($col) => Schema::hasColumn($table, $col),
+            ARRAY_FILTER_USE_KEY,
+        );
     }
 
     public function onDelete($id): void
