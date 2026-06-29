@@ -7,7 +7,7 @@
                 <img src="{{ asset('website-image/Group 11525.png') }}" alt="Logo"
                     class="w-12 h-12 object-contain mb-2">
             </div>
-            <div class="logo-text">SUPERLMS <span>LMS</span></div>
+            <div class="logo-text">SUPER<span>LMS</span></div>
         </a>
 
     <ul class="nav-links">

@@ -1073,6 +1073,20 @@
             transform: scale(1.06);
         }
 
+        /* When fewer than 5 schools exist: no sliding — just center exactly
+           that many logos in a static grid. */
+        .marquee-track.marquee-static {
+            animation: none;
+            width: 100%;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: clamp(16px, 4vw, 56px);
+        }
+
+        .marquee-track.marquee-static .marquee-item {
+            width: auto;
+        }
+
         /* ─── How It Works ─── */
         .hiw-grid {
             display: grid;
@@ -2031,6 +2045,40 @@
         }
 
         /* ─── FAQ (matches /web/faqs page) ─── */
+        .faq-chips {
+            max-width: 1000px;
+            margin: 36px auto 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .faq-chip {
+            font-size: 13px;
+            font-weight: 600;
+            padding: 8px 13px;
+            border-radius: 50px;
+            border: 1px solid var(--border);
+            background: #fff;
+            color: var(--text2);
+            cursor: pointer;
+            transition: all .2s;
+            white-space: nowrap;
+        }
+
+        .faq-chip:hover {
+            border-color: var(--violet);
+            color: var(--violet);
+        }
+
+        .faq-chip.active {
+            background: var(--grad1);
+            border-color: transparent;
+            color: #fff;
+            box-shadow: 0 6px 16px rgba(111, 86, 254, .25);
+        }
+
         .faq-wrap {
             max-width: 820px;
             margin: 56px auto 0;
@@ -2894,8 +2942,8 @@
                 <div class="section-tag tag-violet">Process</div>
                 <h2 class="section-title">How It <span class="gradient-text">Works</span></h2>
                 <p class="section-subtitle"
-                    style="font-size:clamp(18px, 2vw, 22px); line-height:1.6; max-width:780px;">See how SUPERLMS
-                    bridges technology with effective learning in 3 simple steps.</p>
+                    style="font-size:clamp(19px, 2.2vw, 24px); line-height:1.7; max-width:820px; margin:18px auto 0;">See
+                    how SUPERLMS bridges technology with effective learning in 3 simple steps.</p>
             </div>
 
             <div class="hiw-grid stagger-children">
@@ -3043,8 +3091,9 @@
             <div class="section-center reveal">
                 <div class="section-tag tag-dual">Features</div>
                 <h2 class="section-title">Everything You Need to <span class="gradient-text">Succeed</span></h2>
-                <p class="section-subtitle">A complete suite of tools designed to streamline learning and
-                    administration for every role.</p>
+                <p class="section-subtitle"
+                    style="font-size:clamp(18px, 2vw, 22px); line-height:1.7; max-width:760px; margin:0 auto;">A complete
+                    suite of tools designed to streamline learning and administration for every role.</p>
             </div>
 
             <div class="features-grid stagger-children">
@@ -3091,62 +3140,33 @@
                         one place.</div>
                     <div class="feature-tag tag-p">Administration</div>
                 </div>
+                <div class="feature-card">
+                    <div class="feature-icon-wrap" style="background:rgba(111,86,254,.08);">📚</div>
+                    <div class="feature-title">Digital Content &amp; Library</div>
+                    <div class="feature-desc">Upload chapters, notes, videos and PDFs subject-wise. Students access a
+                        rich digital library anytime, anywhere, on any device — online or offline.</div>
+                    <div class="feature-tag tag-v">Learning</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon-wrap" style="background:rgba(219,87,178,.08);">💬</div>
+                    <div class="feature-title">Communication &amp; Alerts</div>
+                    <div class="feature-desc">Keep parents, teachers and students connected with announcements, push
+                        notifications, homework alerts and instant SMS &amp; WhatsApp updates.</div>
+                    <div class="feature-tag tag-p">Engagement</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon-wrap" style="background:rgba(111,86,254,.1);">🎓</div>
+                    <div class="feature-title">Report Cards &amp; Certificates</div>
+                    <div class="feature-desc">Auto-generated report cards, term results, transfer &amp; bonafide
+                        certificates and ID cards — designed, branded and ready to print in one click.</div>
+                    <div class="feature-tag tag-v">Records</div>
+                </div>
             </div>
 
-            <!-- Modules Mini Grid -->
+            <!-- 44+ more modules note -->
             <div class="reveal" style="margin-top:40px;">
-                <p style="text-align:center;font-size:13px;color:var(--text3);margin-bottom:20px;font-weight:500;">And
+                <p style="text-align:center;font-size:13px;color:var(--text3);font-weight:500;">And
                     44+ more modules — fully included in every plan</p>
-                <div class="modules-mini-grid">
-                    <div class="module-mini">
-                        <div class="module-mini-icon">📊</div>
-                        <div class="module-mini-name">Dashboard</div>
-                    </div>
-                    <div class="module-mini">
-                        <div class="module-mini-icon">✅</div>
-                        <div class="module-mini-name">Attendance</div>
-                    </div>
-                    <div class="module-mini">
-                        <div class="module-mini-icon">💰</div>
-                        <div class="module-mini-name">Fee</div>
-                    </div>
-                    <div class="module-mini">
-                        <div class="module-mini-icon">🗓️</div>
-                        <div class="module-mini-name">Timetable</div>
-                    </div>
-                    <div class="module-mini">
-                        <div class="module-mini-icon">📚</div>
-                        <div class="module-mini-name">Content</div>
-                    </div>
-                    <div class="module-mini">
-                        <div class="module-mini-icon">🧠</div>
-                        <div class="module-mini-name">Quiz</div>
-                    </div>
-                    <div class="module-mini">
-                        <div class="module-mini-icon">📋</div>
-                        <div class="module-mini-name">Report Card</div>
-                    </div>
-                    <div class="module-mini">
-                        <div class="module-mini-icon">📈</div>
-                        <div class="module-mini-name">Performance</div>
-                    </div>
-                    <div class="module-mini">
-                        <div class="module-mini-icon">🏛️</div>
-                        <div class="module-mini-name">Library</div>
-                    </div>
-                    <div class="module-mini">
-                        <div class="module-mini-icon">🚌</div>
-                        <div class="module-mini-name">Transport</div>
-                    </div>
-                    <div class="module-mini">
-                        <div class="module-mini-icon">💼</div>
-                        <div class="module-mini-name">Payroll</div>
-                    </div>
-                    <div class="module-mini">
-                        <div class="module-mini-icon">🎓</div>
-                        <div class="module-mini-name">Certificates</div>
-                    </div>
-                </div>
             </div>
 
             <div style="text-align:center;margin-top:36px;">
@@ -3318,7 +3338,7 @@
             <div class="section-center reveal">
                 <div class="section-tag tag-dual">Available On All Platforms</div>
                 <h2 class="section-title">One Company, <span class="gradient-text">Three Platforms</span></h2>
-                <p class="section-subtitle">One company, three powerful platforms — SuperLMS, SuperLMS, and SuperLMS Safe
+                <p class="section-subtitle">One company, three powerful platforms — Edyone, SuperLMS, and Super Safe
                     — built to keep your entire school ecosystem connected. Access everything from any device, anytime,
                     anywhere.</p>
             </div>
@@ -3332,8 +3352,8 @@
                         <img src="{{ asset('admin-image/c8cd2e7a3c40476d15ae54f52a8565b83bfc20b3.png') }}"
                             alt="Logo" class="w-12 h-12 object-contain mb-2">
                     </div>
-                    <div class="app-card-name">SuperLMS</div>
-                    <div class="app-card-desc">SuperLMS is a comprehensive edtech platform offering academic and
+                    <div class="app-card-name">Edyone</div>
+                    <div class="app-card-desc">Edyone is a comprehensive edtech platform offering academic and
                         competitive exam courses, interactive lessons, practice tests, performance tracking, and smart
                         learning tools for students.</div>
                     <a href="https://superlms.in" target="_blank" rel="noopener noreferrer" class="app-dl-btn app-dl-btn-primary">
@@ -3375,8 +3395,8 @@
                         <img src="{{ asset('admin-image/Group 33079.png') }}" alt="Logo"
                             class="w-12 h-12 object-contain mb-2">
                     </div>
-                    <div class="app-card-name">SuperLMS Safe</div>
-                    <div class="app-card-desc">SuperLMS Safe is a powerful parental control app that monitors screen
+                    <div class="app-card-name">Super Safe</div>
+                    <div class="app-card-desc">Super Safe is a powerful parental control app that monitors screen
                         time, filters inappropriate content, tracks online activity, and helps parents ensure their
                         children's digital safety.</div>
                     <a href="https://superlmssafe.in" target="_blank" rel="noopener noreferrer"
@@ -3397,7 +3417,7 @@
             <div class="section-center reveal">
                 <div class="section-tag tag-pink">Pricing</div>
                 <h2 class="section-title">Simple, <span class="gradient-text">Transparent</span> Pricing</h2>
-                <p class="section-subtitle">One simple plan that unlocks all 50+ modules — no per-feature add-ons, no
+                <p class="section-subtitle" style="max-width:860px;margin:0 auto;">One simple plan that unlocks all 50+ modules — no per-feature add-ons, no
                     setup charges and absolutely no hidden fees. You pay just ₹250 per user a year, billed annually, with
                     free onboarding, data migration and support included. Need something bigger? Our Enterprise plan is
                     custom-built for multi-campus groups with white-label branding and API access — pricing that finally
@@ -3455,7 +3475,7 @@
             </div>
 
             <!-- Slider wrapper -->
-            <div style="position:relative;">
+            <div style="position:relative;margin-top:52px;">
                 <div id="testimonialsSlider" style="overflow:hidden;">
                     <div id="testimonialsTrack"
                         style="display:flex;transition:transform 0.45s cubic-bezier(.4,0,.2,1);">
@@ -3584,47 +3604,56 @@
                 <h2 class="section-title">Frequently Asked <span class="gradient-text">Questions</span></h2>
             </div>
 
-            <div class="faq-wrap reveal">
-                <details class="faq-item" open>
+            {{-- Category chips --}}
+            <div class="faq-chips reveal" id="faqChips">
+                <button type="button" class="faq-chip active" data-cat="all">All</button>
+                <button type="button" class="faq-chip" data-cat="General">General</button>
+                <button type="button" class="faq-chip" data-cat="Getting Started">Getting Started</button>
+                <button type="button" class="faq-chip" data-cat="Features">Features</button>
+                <button type="button" class="faq-chip" data-cat="Security">Security</button>
+            </div>
+
+            <div class="faq-wrap reveal" id="faqWrap" style="margin-top:28px;">
+                <details class="faq-item" data-cat="General" open>
                     <summary class="faq-q">What is SUPERLMS, and who is it designed for?<span class="faq-icon">+</span></summary>
                     <div class="faq-a">SUPERLMS is a comprehensive Learning Management System for schools and
                         educational institutions that streamlines teaching, learning, and administrative tasks like
                         attendance, fees, timetables, and assessments. It's designed for students, teachers, and school
                         administrators.</div>
                 </details>
-                <details class="faq-item">
+                <details class="faq-item" data-cat="Getting Started">
                     <summary class="faq-q">How easy is it to get started with SUPERLMS?<span class="faq-icon">+</span></summary>
                     <div class="faq-a">Getting started with SUPERLMS is straightforward — schools can begin by signing
                         up or requesting a demo, then set up user roles, dashboards, and key modules without steep
                         technical barriers, making onboarding quick and manageable.</div>
                 </details>
-                <details class="faq-item">
+                <details class="faq-item" data-cat="General">
                     <summary class="faq-q">Can SUPERLMS be accessed on mobile devices?<span class="faq-icon">+</span></summary>
                     <div class="faq-a">Yes — SUPERLMS can be accessed on mobile devices. It offers a mobile-friendly
                         app (including an Android APK) so students and educators can log in, view syllabus and content,
                         submit &amp; view homework, and all school related features and interact with the system
                         conveniently from smartphones and tablets.</div>
                 </details>
-                <details class="faq-item">
+                <details class="faq-item" data-cat="Features">
                     <summary class="faq-q">Does SUPERLMS support attendance and fee management?<span class="faq-icon">+</span></summary>
                     <div class="faq-a">Yes — SUPERLMS includes both attendance tracking and fee management as core
                         features. It lets schools record and monitor student attendance easily and handle tuition fees,
                         payment records, and related administrative tasks within the same platform.</div>
                 </details>
-                <details class="faq-item">
+                <details class="faq-item" data-cat="Features">
                     <summary class="faq-q">Is SUPERLMS customizable to suit specific institutional needs?<span class="faq-icon">+</span></summary>
                     <div class="faq-a">Yes — SUPERLMS offers customizable options so institutions can adapt the system
                         to their specific academic structure, workflows, permissions, and feature use cases to better
                         match their operational needs and preferences.</div>
                 </details>
-                <details class="faq-item">
+                <details class="faq-item" data-cat="Security">
                     <summary class="faq-q">What security measures does SUPERLMS have in place?<span class="faq-icon">+</span></summary>
                     <div class="faq-a">SUPERLMS uses secure cloud hosting and encrypted data storage to protect
                         personal and academic information. It enforces secure user authentication, role-based access
                         controls, and privacy safeguards so only authorised school administrators and users can access
                         sensitive data.</div>
                 </details>
-                <details class="faq-item">
+                <details class="faq-item" data-cat="Features">
                     <summary class="faq-q">Can teachers easily share study materials through SUPERLMS?<span class="faq-icon">+</span></summary>
                     <div class="faq-a">Yes! SUPERLMS allows teachers to easily share study materials like PDFs, videos,
                         presentations, and more directly through the platform. Once uploaded, students receive instant
@@ -3709,6 +3738,22 @@
                             if (other !== item) other.open = false;
                         });
                     }
+                });
+            });
+
+            /* ── FAQ category chips (matches /web/faqs page) ── */
+            const faqChips = Array.prototype.slice.call(document.querySelectorAll('#faqChips .faq-chip'));
+            const faqItems = Array.prototype.slice.call(document.querySelectorAll('#faqWrap .faq-item'));
+            faqChips.forEach(chip => {
+                chip.addEventListener('click', () => {
+                    faqChips.forEach(c => c.classList.remove('active'));
+                    chip.classList.add('active');
+                    const cat = chip.getAttribute('data-cat');
+                    faqItems.forEach(item => {
+                        item.open = false; // close any open FAQ when switching
+                        const show = (cat === 'all') || (item.getAttribute('data-cat') === cat);
+                        item.style.display = show ? '' : 'none';
+                    });
                 });
             });
 
@@ -3814,12 +3859,6 @@
 
                 const fallbackLogo = "{{ asset('website-image/Vector 215.png') }}";
 
-                // Repeat the schools until we have a comfortable run (>= 10 logos),
-                // so 5 are always on screen and the loop never shows a gap even
-                // when there are only a few schools.
-                let base = data.slice();
-                while (base.length < 10) base = base.concat(data);
-
                 const itemHtml = (school) => {
                     const name = typeof school === 'string' ? school : school.name;
                     const logo = (typeof school === 'object' && school.logo_url) ? school.logo_url : fallbackLogo;
@@ -3827,6 +3866,20 @@
                         `<img class="marquee-logo" src="${escText(logo)}" alt="${escText(name)} logo" loading="lazy" onerror="this.onerror=null;this.src='${fallbackLogo}'"/>` +
                         `</div>`;
                 };
+
+                // Fewer than 5 schools → show exactly that many in a static, centered
+                // grid (no sliding). 5 or more → continuous one-by-one slide, 5 visible.
+                if (data.length < 5) {
+                    track.classList.add('marquee-static');
+                    track.style.removeProperty('--marquee-duration');
+                    track.innerHTML = data.map(itemHtml).join('');
+                    return;
+                }
+
+                // Repeat the schools until we have a comfortable run (>= 10 logos),
+                // so 5 are always on screen and the loop never shows a gap.
+                let base = data.slice();
+                while (base.length < 10) base = base.concat(data);
 
                 // ×2 for the seamless translateX(0 → -50%) loop.
                 const half = base.map(itemHtml).join('');
