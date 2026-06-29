@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
@@ -405,7 +406,19 @@ class Schools extends Component
     /** Step 1 → 2: validate the school fields, then show module selection. */
     public function goToModuleStep(): void
     {
-        $this->validate($this->schoolRules());
+        try {
+            $this->validate($this->schoolRules());
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            Log::error('School step-1 validation failed', [
+                'email' => $this->email,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            $this->notification()->error('Could not validate school details', $e->getMessage());
+            return;
+        }
         $this->modalStep = 2;
     }
 
@@ -485,11 +498,19 @@ class Schools extends Component
 
     public function saveSchool(): void
     {
-        $this->validate($this->schoolRules());
-
-        // Surface the real reason instead of a raw 500 if anything below fails.
+        // Wrap EVERYTHING (validation included) so no path can return a raw 500.
+        // ValidationException is re-thrown so Livewire still shows inline field
+        // errors; any other failure surfaces its real message in a toast.
         try {
+            $this->validate($this->schoolRules());
             $this->persistSchool();
+
+            $this->closeModal();
+            $this->loadStats();
+            $this->resetPage();
+            $this->notification()->success('School saved successfully!');
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             Log::error('School save failed', [
                 'editId' => $this->editId,
@@ -498,13 +519,7 @@ class Schools extends Component
                 'trace'  => $e->getTraceAsString(),
             ]);
             $this->notification()->error('Could not save school', $e->getMessage());
-            return;
         }
-
-        $this->closeModal();
-        $this->loadStats();
-        $this->resetPage();
-        $this->notification()->success('School saved successfully!');
     }
 
     /** Create/update the school + its admin user + module access, then email creds. */
