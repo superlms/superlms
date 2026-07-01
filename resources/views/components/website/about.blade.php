@@ -2047,7 +2047,7 @@
                 <a href="https://www.instagram.com/annantdagur?igsh=OTMyZnIzaGR2aDVs" target="_blank"
                     rel="noopener noreferrer" class="founder-photo-link">
                     <div class="founder-photo-ring">
-                        <img src="https://forthcoming-scarlet-dgkqbdzkp7.edgeone.app/annant%20image.jpg"
+                        <img src="{{ asset('website-image/annant.jpg') }}"
                             alt="Annant Dagur"
                             onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
                         <div class="founder-photo-fallback">👨‍💼</div>
