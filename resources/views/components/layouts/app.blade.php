@@ -231,12 +231,12 @@
                 if (typeof firebase === 'undefined' || !('serviceWorker' in navigator)) return;
                 try {
                     firebase.initializeApp({
-                        apiKey: 'AIzaSyBRZcETdNS1gcdedGB_IW8KwOSyUUXTa6w',
-                        authDomain: 'superlms-lms-57e8c.firebaseapp.com',
-                        projectId: 'superlms-lms-57e8c',
-                        storageBucket: 'superlms-lms-57e8c.firebasestorage.app',
-                        messagingSenderId: '682389969874',
-                        appId: '1:682389969874:web:f9e4948399cdc52cc5c60b',
+                        apiKey: 'AIzaSyBmS5hLvwYWXVvnAQBsCsvMeT73kJZ0Hzg',
+                        authDomain: 'super-lms-48c90.firebaseapp.com',
+                        projectId: 'super-lms-48c90',
+                        storageBucket: 'super-lms-48c90.firebasestorage.app',
+                        messagingSenderId: '1003028261382',
+                        appId: '1:1003028261382:web:26be364e5bb6792d933187',
                     });
 
                     const messaging = firebase.messaging();
