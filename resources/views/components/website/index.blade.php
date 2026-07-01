@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="google-site-verification" content="GdMracC0ZkQ_UWHR922wYADBk2AS9KO5yALR8BFNFdY" />
     <title>SUPERLMS — India's #1 School Management Platform</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <!-- Google tag (gtag.js) -->
