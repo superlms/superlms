@@ -2286,60 +2286,75 @@
             max-width: 300px;
         }
 
-        /* ─── Scroll Reveal ─── */
+        /* ─── Scroll Reveal (3D depth — blocks tilt up out of the page) ─── */
         .reveal {
             opacity: 0;
-            transform: translateY(32px);
-            transition: opacity .75s cubic-bezier(0.16, 1, 0.3, 1), transform .75s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: perspective(1400px) rotateX(14deg) translateY(44px) translateZ(-60px);
+            transform-origin: center top;
+            transform-style: preserve-3d;
+            backface-visibility: hidden;
+            transition: opacity .85s cubic-bezier(0.16, 1, 0.3, 1), transform .85s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .reveal.visible {
             opacity: 1;
-            transform: translateY(0);
+            transform: perspective(1400px) rotateX(0) translateY(0) translateZ(0);
         }
 
         .reveal-left {
             opacity: 0;
-            transform: translateX(-48px);
-            transition: opacity .75s cubic-bezier(0.16, 1, 0.3, 1), transform .75s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: perspective(1400px) rotateY(-18deg) translateX(-58px) translateZ(-60px);
+            transform-origin: left center;
+            transform-style: preserve-3d;
+            transition: opacity .85s cubic-bezier(0.16, 1, 0.3, 1), transform .85s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .reveal-left.visible {
             opacity: 1;
-            transform: translateX(0);
+            transform: perspective(1400px) rotateY(0) translateX(0) translateZ(0);
         }
 
         .reveal-right {
             opacity: 0;
-            transform: translateX(48px);
-            transition: opacity .75s cubic-bezier(0.16, 1, 0.3, 1), transform .75s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: perspective(1400px) rotateY(18deg) translateX(58px) translateZ(-60px);
+            transform-origin: right center;
+            transform-style: preserve-3d;
+            transition: opacity .85s cubic-bezier(0.16, 1, 0.3, 1), transform .85s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .reveal-right.visible {
             opacity: 1;
-            transform: translateX(0);
+            transform: perspective(1400px) rotateY(0) translateX(0) translateZ(0);
         }
 
         .reveal-scale {
             opacity: 0;
-            transform: scale(0.92) translateY(20px);
-            transition: opacity .7s cubic-bezier(0.16, 1, 0.3, 1), transform .7s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: perspective(1400px) rotateX(16deg) scale(0.9) translateY(28px);
+            transform-origin: center top;
+            transform-style: preserve-3d;
+            transition: opacity .8s cubic-bezier(0.16, 1, 0.3, 1), transform .8s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .reveal-scale.visible {
             opacity: 1;
-            transform: scale(1) translateY(0);
+            transform: perspective(1400px) rotateX(0) scale(1) translateY(0);
+        }
+
+        .stagger-children {
+            perspective: 1400px;
         }
 
         .stagger-children>* {
             opacity: 0;
-            transform: translateY(28px);
-            transition: opacity .65s cubic-bezier(0.16, 1, 0.3, 1), transform .65s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: rotateX(18deg) translateY(34px) translateZ(-40px);
+            transform-origin: center top;
+            backface-visibility: hidden;
+            transition: opacity .7s cubic-bezier(0.16, 1, 0.3, 1), transform .7s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .stagger-children.visible>* {
             opacity: 1;
-            transform: none;
+            transform: rotateX(0) translateY(0) translateZ(0);
         }
 
         .stagger-children.visible>*:nth-child(1) {

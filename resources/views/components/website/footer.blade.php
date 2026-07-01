@@ -16,16 +16,21 @@
      motion. The homepage is skipped — it already has its own reveal system.
      Classes are removed once the entry animation finishes, so hover transforms
      on cards keep working normally. */
+     Uses real 3D transforms (perspective + rotateX/rotateY + translateZ) so blocks
+     tilt up out of the page as they enter — gives the whole site depth. */
   .ed-anim-on {
     opacity: 0;
-    transition: opacity .75s cubic-bezier(.16, 1, .3, 1), transform .75s cubic-bezier(.16, 1, .3, 1);
+    transition: opacity .85s cubic-bezier(.16, 1, .3, 1), transform .85s cubic-bezier(.16, 1, .3, 1);
     will-change: opacity, transform;
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
   }
-  .ed-anim-on.ed-up    { transform: translateY(32px); }
-  .ed-anim-on.ed-left  { transform: translateX(-48px); }
-  .ed-anim-on.ed-right { transform: translateX(48px); }
-  .ed-anim-on.ed-zoom  { transform: scale(.92) translateY(20px); }
-  .ed-anim-on.ed-shown { opacity: 1; transform: none; }   /* must stay after the variants */
+  .ed-anim-on.ed-up    { transform: perspective(1400px) rotateX(14deg) translateY(46px) translateZ(-60px); transform-origin: center top; }
+  .ed-anim-on.ed-left  { transform: perspective(1400px) rotateY(-18deg) translateX(-60px) translateZ(-60px); transform-origin: left center; }
+  .ed-anim-on.ed-right { transform: perspective(1400px) rotateY(18deg) translateX(60px) translateZ(-60px); transform-origin: right center; }
+  .ed-anim-on.ed-zoom  { transform: perspective(1400px) rotateX(16deg) scale(.9) translateY(34px); transform-origin: center top; }
+  .ed-anim-on.ed-flip  { transform: perspective(1400px) rotateX(34deg) translateY(40px); transform-origin: center top; }
+  .ed-anim-on.ed-shown { opacity: 1; transform: perspective(1400px) rotateX(0) rotateY(0) translate3d(0,0,0) scale(1); }   /* must stay after the variants */
   @media (prefers-reduced-motion: reduce) {
     .ed-anim-on { opacity: 1 !important; transform: none !important; transition: none !important; }
   }
@@ -165,7 +170,8 @@
         + '.recent-card, .testimonial-card, .stat-card, .app-card, .module-mini, .role-card, '
         + '.hiw-card, .step-card, .job-card, .team-card-leader, .faq-item, .do-split, .apply-wrap, '
         + '.faq-chips, .svc-nav, .wu-feature-chips, .article-wrap, .recent-wrap, '
-        + '.svc-section, .wu-section, .cta-card, .earn-banner';
+        + '.svc-section, .wu-section, .cta-card, .earn-banner, '
+        + '.form-row, .price-card, .pricing-card, .job-pill, .wmodel-num';
       var EXCLUDE = '.navbar, header, .hero-section, footer, .page-header';
       // Skip anything already handled by the homepage reveal classes, just in case.
       var SKIP = '.reveal, .reveal-left, .reveal-right, .reveal-scale, .stagger-children';
@@ -194,6 +200,9 @@
       document.querySelectorAll(SEL).forEach(function (el) {
         if (el.closest(EXCLUDE) || el.closest(SKIP)) return;
         if (el.classList.contains('ed-anim-on')) return;
+        // Don't animate a block that sits inside an already-tagged block — avoids
+        // nested tilts fighting each other (parents are tagged first in DOM order).
+        if (el.parentElement && el.parentElement.closest('.ed-anim-on')) return;
         if (el.getBoundingClientRect().top < vh * 0.88) return;   // already on screen → no flash
 
         var variant = 'ed-up';
@@ -201,6 +210,8 @@
           variant = 'ed-zoom';
         } else if (el.classList.contains('svc-section') || el.classList.contains('wu-section')) {
           variant = el.classList.contains('reverse') ? 'ed-right' : 'ed-left';
+        } else if (el.classList.contains('section-head')) {
+          variant = 'ed-flip';
         }
 
         var idx = 0, sib = el.previousElementSibling;
