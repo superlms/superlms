@@ -322,46 +322,36 @@
                         @if ($editId && !$announcementFile)
                             @php $ann = \App\Models\Admin\Announcement::find($editId) @endphp
                             @if ($ann && ($ann->announcement_image || $ann->announcement_pdf))
-                                <div class="mb-2 flex flex-wrap gap-3">
+                                <div class="mb-2 flex flex-wrap gap-2">
                                     @if ($ann->announcement_image)
-                                        <div class="relative">
-                                            <a href="{{ $ann->announcement_image }}" target="_blank" rel="noopener"
-                                                title="Open image"
-                                                class="group w-20 h-20 flex flex-col items-center justify-center gap-1 rounded-xl
-                                                       border border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50 transition-all">
-                                                <svg class="w-7 h-7 text-blue-500 group-hover:scale-110 transition-transform"
-                                                     fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        <div class="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-full border border-blue-200 bg-blue-50 text-xs font-medium text-blue-700">
+                                            <a href="{{ $ann->announcement_image }}" target="_blank" rel="noopener" title="Open image"
+                                                class="inline-flex items-center gap-1.5 hover:underline">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                 </svg>
-                                                <span class="text-[10px] font-semibold text-gray-600 group-hover:text-blue-700 tracking-wide">Image</span>
+                                                Image
                                             </a>
                                             <button type="button" wire:click="deleteFile('image')" title="Remove image"
-                                                class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 hover:bg-red-600
-                                                       text-white flex items-center justify-center shadow ring-2 ring-white transition">
-                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+                                                class="w-4 h-4 flex items-center justify-center rounded-full hover:bg-white/70">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                                                 </svg>
                                             </button>
                                         </div>
                                     @endif
                                     @if ($ann->announcement_pdf)
-                                        <div class="relative">
-                                            <a href="{{ $ann->announcement_pdf }}" target="_blank" rel="noopener"
-                                                title="Open PDF"
-                                                class="group w-20 h-20 flex flex-col items-center justify-center gap-1 rounded-xl
-                                                       border border-gray-200 bg-white hover:border-red-300 hover:bg-red-50 transition-all">
-                                                <svg class="w-7 h-7 text-red-500 group-hover:scale-110 transition-transform"
-                                                     fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                        <div class="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-full border border-red-200 bg-red-50 text-xs font-medium text-red-700">
+                                            <a href="{{ $ann->announcement_pdf }}" target="_blank" rel="noopener" title="Open PDF"
+                                                class="inline-flex items-center gap-1.5 hover:underline">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                                 </svg>
-                                                <span class="text-[10px] font-semibold text-gray-600 group-hover:text-red-700 tracking-wide">PDF</span>
+                                                PDF
                                             </a>
                                             <button type="button" wire:click="deleteFile('pdf')" title="Remove PDF"
-                                                class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 hover:bg-red-600
-                                                       text-white flex items-center justify-center shadow ring-2 ring-white transition">
-                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+                                                class="w-4 h-4 flex items-center justify-center rounded-full hover:bg-white/70">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                                                 </svg>
                                             </button>
@@ -371,51 +361,37 @@
                             @endif
                         @endif
 
-                        {{-- Single click-to-upload zone — accepts image OR PDF --}}
-                        <div class="border border-dashed border-gray-300 hover:border-blue-400 rounded-md p-5
-                                    text-center transition-colors cursor-pointer"
-                            onclick="document.getElementById('annFileInput').click()">
-                            <div class="flex items-center justify-center gap-2 mb-1.5">
-                                <svg class="w-7 h-7 text-blue-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                        d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 10-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                                </svg>
-                            </div>
-                            <p class="text-sm text-gray-600">Click to attach a file</p>
-                            <p class="text-xs text-gray-400 mt-0.5">Image (JPG/PNG/GIF/WebP) or PDF · max 5MB</p>
-                            <input id="annFileInput" type="file" wire:model="announcementFile"
-                                accept="image/*,application/pdf" class="hidden">
-                        </div>
+                        {{-- Compact uploader (Standard add-subject style) — image OR PDF --}}
+                        <input id="annFileInput" type="file" wire:model="announcementFile"
+                            accept="image/*,application/pdf"
+                            class="block w-full text-sm text-gray-500 cursor-pointer file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                        <p class="text-xs text-gray-400 mt-1">Image (JPG/PNG/GIF/WebP) or PDF · max 5MB</p>
 
                         <div wire:loading wire:target="announcementFile" class="text-xs text-blue-600 mt-2">Uploading...</div>
 
-                        {{-- Pending upload preview (icon tile, like view modal) --}}
+                        {{-- Pending upload — small chip --}}
                         @if ($announcementFile)
                             @php
                                 $pendingExt  = strtolower($announcementFile->getClientOriginalExtension());
                                 $pendingMime = (string) $announcementFile->getMimeType();
                                 $pendingIsPdf = $pendingExt === 'pdf' || $pendingMime === 'application/pdf';
                             @endphp
-                            <div class="mt-2 border border-gray-200 rounded-md p-3 flex items-center gap-3"
-                                 wire:loading.remove wire:target="announcementFile">
-                                @if ($pendingIsPdf)
-                                    <div class="w-12 h-12 bg-red-50 rounded flex items-center justify-center flex-shrink-0">
-                                        <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                        </svg>
-                                    </div>
-                                @else
-                                    <img src="{{ $announcementFile->temporaryUrl() }}"
-                                         class="w-12 h-12 rounded object-cover border border-gray-200 flex-shrink-0">
-                                @endif
-                                <div class="flex-1 min-w-0">
-                                    <p class="text-sm font-medium text-gray-700 truncate">{{ $announcementFile->getClientOriginalName() }}</p>
-                                    <p class="text-xs text-emerald-600">{{ $pendingIsPdf ? 'PDF' : 'Image' }} ready to upload</p>
-                                </div>
-                                <button type="button" wire:click="$set('announcementFile', null)"
-                                    class="text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded flex-shrink-0">
-                                    Remove
+                            <div wire:loading.remove wire:target="announcementFile"
+                                class="mt-2 inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-full border text-xs font-medium
+                                       {{ $pendingIsPdf ? 'bg-red-50 border-red-200 text-red-700' : 'bg-blue-50 border-blue-200 text-blue-700' }}">
+                                <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    @if ($pendingIsPdf)
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                    @else
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    @endif
+                                </svg>
+                                <span class="max-w-[180px] truncate">{{ $announcementFile->getClientOriginalName() }}</span>
+                                <button type="button" wire:click="$set('announcementFile', null)" title="Remove"
+                                    class="w-4 h-4 flex items-center justify-center rounded-full hover:bg-white/70 flex-shrink-0">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
                                 </button>
                             </div>
                         @endif
@@ -490,77 +466,61 @@
                     </button>
                 </div>
 
-                {{-- Panel Body --}}
-                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+                {{-- Panel Body — simple label/value rows (exam-style) --}}
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                    <div class="grid grid-cols-3 gap-3 text-sm">
+                        <span class="text-xs text-gray-400 uppercase tracking-wider">Title</span>
+                        <span class="col-span-2 text-gray-900 font-semibold">{{ $selectedAnnouncement->announcement_name }}</span>
+                    </div>
 
-                    {{-- Title + Audience --}}
-                    <div>
-                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-2">Title</p>
-                        <h3 class="text-xl font-bold text-gray-900 mb-3">{{ $selectedAnnouncement->announcement_name }}</h3>
-                        <span class="text-xs font-semibold px-2.5 py-1 rounded-full uppercase tracking-wide {{ $typeColors[$selectedAnnouncement->type] ?? 'bg-gray-100 text-gray-700' }}">
-                            {{ $selectedAnnouncement->type === 'user' ? 'Students' : ucfirst($selectedAnnouncement->type) }}
+                    <div class="grid grid-cols-3 gap-3 text-sm">
+                        <span class="text-xs text-gray-400 uppercase tracking-wider">Audience</span>
+                        <span class="col-span-2">
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded-full {{ $typeColors[$selectedAnnouncement->type] ?? 'bg-gray-100 text-gray-700' }}">
+                                {{ $selectedAnnouncement->type === 'user' ? 'Students' : ucfirst($selectedAnnouncement->type) }}
+                            </span>
                         </span>
                     </div>
 
-                    <div class="border-t border-gray-100"></div>
-
-                    {{-- Content --}}
-                    <div>
-                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-2">Content</p>
-                        <p class="text-sm text-gray-700 whitespace-pre-line leading-relaxed">
-                            {{ $selectedAnnouncement->announcement_content }}
-                        </p>
+                    <div class="grid grid-cols-3 gap-3 text-sm">
+                        <span class="text-xs text-gray-400 uppercase tracking-wider">Content</span>
+                        <span class="col-span-2 text-gray-800 whitespace-pre-line leading-relaxed">{{ $selectedAnnouncement->announcement_content }}</span>
                     </div>
 
-                    {{-- Attachments (icon-only tiles — click to open in new tab) --}}
                     @if ($selectedAnnouncement->announcement_image || $selectedAnnouncement->announcement_pdf)
-                        <div>
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-2">Attachments</p>
-                            <div class="flex flex-wrap gap-3">
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">Attachments</span>
+                            <span class="col-span-2 flex flex-wrap gap-2">
                                 @if ($selectedAnnouncement->announcement_image)
-                                    <a href="{{ $selectedAnnouncement->announcement_image }}" target="_blank" rel="noopener"
-                                        title="Open image in new tab"
-                                        class="group w-20 h-20 flex flex-col items-center justify-center gap-1
-                                               rounded-xl border border-gray-200 bg-white hover:border-blue-300
-                                               hover:bg-blue-50 hover:shadow-sm transition-all">
-                                        <svg class="w-7 h-7 text-blue-500 group-hover:scale-110 transition-transform"
-                                             fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    <a href="{{ $selectedAnnouncement->announcement_image }}" target="_blank" rel="noopener" title="Open image"
+                                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-blue-200 bg-blue-50 text-xs font-medium text-blue-700 hover:bg-blue-100">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                         </svg>
-                                        <span class="text-[10px] font-semibold text-gray-600 group-hover:text-blue-700 tracking-wide">Image</span>
+                                        Image
                                     </a>
                                 @endif
                                 @if ($selectedAnnouncement->announcement_pdf)
-                                    <a href="{{ $selectedAnnouncement->announcement_pdf }}" target="_blank" rel="noopener"
-                                        title="Open PDF in new tab"
-                                        class="group w-20 h-20 flex flex-col items-center justify-center gap-1
-                                               rounded-xl border border-gray-200 bg-white hover:border-red-300
-                                               hover:bg-red-50 hover:shadow-sm transition-all">
-                                        <svg class="w-7 h-7 text-red-500 group-hover:scale-110 transition-transform"
-                                             fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                    <a href="{{ $selectedAnnouncement->announcement_pdf }}" target="_blank" rel="noopener" title="Open PDF"
+                                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-red-200 bg-red-50 text-xs font-medium text-red-700 hover:bg-red-100">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                         </svg>
-                                        <span class="text-[10px] font-semibold text-gray-600 group-hover:text-red-700 tracking-wide">PDF</span>
+                                        PDF
                                     </a>
                                 @endif
-                            </div>
+                            </span>
                         </div>
                     @endif
 
-                    <div class="border-t border-gray-100"></div>
+                    <div class="grid grid-cols-3 gap-3 text-sm">
+                        <span class="text-xs text-gray-400 uppercase tracking-wider">Posted By</span>
+                        <span class="col-span-2 text-gray-800">{{ $selectedAnnouncement->user->name }}</span>
+                    </div>
 
-                    {{-- Posted by --}}
-                    <div class="grid grid-cols-2 gap-6">
-                        <div>
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Posted By</p>
-                            <p class="text-sm text-gray-800">{{ $selectedAnnouncement->user->name }}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Posted</p>
-                            <p class="text-sm text-gray-800">{{ $selectedAnnouncement->created_at->diffForHumans() }}</p>
-                        </div>
+                    <div class="grid grid-cols-3 gap-3 text-sm">
+                        <span class="text-xs text-gray-400 uppercase tracking-wider">Posted</span>
+                        <span class="col-span-2 text-gray-800">{{ $selectedAnnouncement->created_at->format('d M Y · g:i A') }}</span>
                     </div>
                 </div>
 
