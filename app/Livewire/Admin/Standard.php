@@ -699,6 +699,17 @@ class Standard extends Component
         $standard = StudentStandard::find($id);
         if (!$standard) return;
 
+        // Block delete while students are assigned to this class. Deleting is not
+        // allowed here — the admin can edit the class, but must first move its
+        // students to another class before it can be removed.
+        if (StudentDetail::where('standard_id', $id)->exists()) {
+            $this->notification()->warning(
+                'Cannot Delete Class',
+                'Students are assigned to this class. You can edit it, but it cannot be deleted until the students are moved to another class.'
+            );
+            return;
+        }
+
         // Block if any sections still exist (req #4)
         if (Section::where('standard_id', $id)->exists()) {
             $this->notification()->warning('Cannot Delete!', 'Please delete all sections of this class first.');
@@ -738,6 +749,17 @@ class Standard extends Component
     {
         $section = Section::find($id);
         if (!$section) return;
+
+        // Block delete while students are assigned to this section. The admin can
+        // edit the section, but must first move its students to another section
+        // before it can be removed.
+        if (StudentDetail::where('section_id', $id)->exists()) {
+            $this->notification()->warning(
+                'Cannot Delete Section',
+                'Students are assigned to this section. You can edit it, but it cannot be deleted until the students are moved to another section.'
+            );
+            return;
+        }
 
         try {
             DB::transaction(function () use ($id, $section) {
