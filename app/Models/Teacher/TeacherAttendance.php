@@ -42,8 +42,8 @@ class TeacherAttendance extends Model
         $statusMap = [
             1 => 'present',
             0 => 'absent',
-            2 => 'late', 
-            3 => 'half_day',
+            2 => 'half_day',
+            3 => 'holiday',
         ];
 
         return $statusMap[$this->status] ?? 'present';
