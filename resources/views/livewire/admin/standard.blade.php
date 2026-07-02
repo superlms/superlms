@@ -1,4 +1,4 @@
-<div>
+<div class="min-h-screen bg-gray-50">
 
     {{-- ══════════════════════════════════════════════════
          HEADER
@@ -153,7 +153,7 @@
     {{-- ══════════════════════════════════════════════════
          CONTENT
     ══════════════════════════════════════════════════ --}}
-    <div class="p-6">
+    <div class="p-4 sm:p-6">
 
         <div wire:loading.flex class="justify-center py-16">
             <div class="text-center">
