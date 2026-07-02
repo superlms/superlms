@@ -64,7 +64,12 @@ return [
     */
 
     'temporary_file_upload' => [
-        'disk' => env('LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK', 'local'), // Example: 'local', 's3' | Default: 'default'
+        // Temp uploads must live on a SHARED store, not a single container's
+        // local disk. On multi-task ECS (or a read-only root FS) a local temp
+        // file written by one container is missing on the follow-up request that
+        // hits another → 500 on every file upload. Default to the app's main
+        // filesystem disk (S3 in production) so all tasks see the same temp files.
+        'disk' => env('LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK', env('FILESYSTEM_DISK', 'local')), // 'local' | 's3'
         'rules' => null,       // Example: ['file', 'mimes:png,jpg']  | Default: ['required', 'file', 'max:12288'] (12MB)
         'directory' => null,   // Example: 'tmp'                      | Default: 'livewire-tmp'
         'middleware' => null,  // Example: 'throttle:5,1'             | Default: 'throttle:60,1'

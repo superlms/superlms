@@ -36,43 +36,36 @@ class TimetablePdfController extends Controller
 
         $daysShort = [1 => 'Mon', 2 => 'Tue', 3 => 'Wed', 4 => 'Thu', 5 => 'Fri', 6 => 'Sat'];
 
-        // One row per (subject, teacher, start, end). Days column shows the range
-        // (first day → last day) of that teacher's coverage for that slot.
-        $rows = $entries
-            ->groupBy(fn($e) => $e->subject_id . '|' . $e->teacher_detail_id . '|' . $e->start_time . '|' . $e->end_time)
-            ->map(function ($items) use ($daysShort) {
-                $first    = $items->first();
-                $dayNums  = $items->pluck('day_of_week')->map(fn($d) => (int) $d)->unique()->sort()->values()->all();
-                $firstDay = $dayNums[0] ?? null;
-                $lastDay  = $dayNums[count($dayNums) - 1] ?? null;
-
-                $daysRange = match (true) {
-                    $firstDay === null              => '—',
-                    $firstDay === $lastDay          => $daysShort[$firstDay] ?? '',
-                    default                          => ($daysShort[$firstDay] ?? '') . ' – ' . ($daysShort[$lastDay] ?? ''),
-                };
-
-                return [
-                    'subject'      => $first->subject?->name ?? '—',
-                    'teacher'      => $first->teacher?->user?->name ?? '—',
-                    'start_time'   => $first->start_time,
-                    'end_time'     => $first->end_time,
-                    'days_range'   => $daysRange,
-                    'sort_key'     => $first->start_time . '|' . ($firstDay ?? 99),
-                ];
-            })
-            ->sortBy('sort_key')
+        // Weekly grid: rows are the distinct time slots (sorted by start time),
+        // columns are the weekdays, and each cell holds the subject + teacher
+        // scheduled for that slot on that day. This is the conventional
+        // school-timetable layout.
+        $slots = $entries
+            ->map(fn($e) => ['start_time' => $e->start_time, 'end_time' => $e->end_time])
+            ->unique(fn($s) => $s['start_time'] . '|' . $s['end_time'])
+            ->sortBy('start_time')
             ->values()
             ->all();
+
+        $grid = [];
+        foreach ($entries as $e) {
+            $key = $e->start_time . '|' . $e->end_time;
+            $grid[$key][(int) $e->day_of_week] = [
+                'subject' => $e->subject?->name ?? '—',
+                'teacher' => $e->teacher?->user?->name ?? '—',
+            ];
+        }
 
         $pdf = Pdf::loadView('pdf.admin.timetable', [
             'organization' => $org,
             'schoolInfo'   => $schoolInfo,
             'standard'     => $standardModel,
             'section'      => $sectionModel,
-            'rows'         => $rows,
+            'days'         => $daysShort,
+            'slots'        => $slots,
+            'grid'         => $grid,
         ])
-            ->setPaper('a4', 'portrait')
+            ->setPaper('a4', 'landscape')
             ->setOption('dpi', 150)
             ->setOption('isHtml5ParserEnabled', true)
             ->setOption('isRemoteEnabled', true)

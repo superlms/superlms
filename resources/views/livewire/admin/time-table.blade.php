@@ -309,9 +309,19 @@
                             </div>
                         @else
                             <div>
-                                <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center justify-between gap-3 mb-3">
                                     <h3 class="text-sm font-semibold text-gray-700">Weekly Grid</h3>
-                                    <span class="text-xs text-gray-500">{{ count($scheduleRows) }} subject{{ count($scheduleRows) === 1 ? '' : 's' }} from this section</span>
+                                    <div class="flex items-center gap-3">
+                                        <button type="button" wire:click="copyMondayToAllDays"
+                                            title="Copy each subject's Monday teacher to Tue–Sat"
+                                            class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                                            </svg>
+                                            Same for all days
+                                        </button>
+                                        <span class="text-xs text-gray-500">{{ count($scheduleRows) }} subject{{ count($scheduleRows) === 1 ? '' : 's' }} from this section</span>
+                                    </div>
                                 </div>
 
                                 {{-- Matrix: # · Subject · Time/Duration · one column per weekday.

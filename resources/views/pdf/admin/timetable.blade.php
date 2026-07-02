@@ -6,102 +6,114 @@
     <title>Timetable — {{ $standard->name }} — {{ $section->name }}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        @page { size: A4 portrait; margin: 22mm 16mm 18mm 16mm; }
+        @page { size: A4 landscape; margin: 14mm 12mm 14mm 12mm; }
 
         body {
             font-family: "DejaVu Sans", "Helvetica", Arial, sans-serif;
             color: #1f2937;
-            font-size: 11pt;
-            line-height: 1.45;
+            font-size: 10pt;
+            line-height: 1.4;
         }
 
         /* ─── HEADER ─────────────────────────────────────────── */
-        .header { text-align: center; }
+        .header { text-align: center; margin-bottom: 6mm; }
         .logo {
             display: block;
-            margin: 0 auto 6mm auto;
-            max-height: 24mm;
-            max-width: 42mm;
+            margin: 0 auto 3mm auto;
+            max-height: 18mm;
+            max-width: 34mm;
         }
         .org-name {
-            font-size: 22pt;
+            font-size: 18pt;
             font-weight: 700;
             letter-spacing: 0.4px;
             text-transform: uppercase;
             color: #111827;
         }
         .org-contact {
-            font-size: 9.5pt;
+            font-size: 8.5pt;
             color: #6b7280;
-            margin-top: 2mm;
+            margin-top: 1.5mm;
         }
-        .org-contact span + span { margin-left: 6mm; }
+        .org-contact span + span { margin-left: 5mm; }
 
         .doc-title {
-            font-size: 15pt;
+            font-size: 13pt;
             font-weight: 700;
-            color: #111827;
-            margin: 10mm 0 5mm 0;
+            color: #1e3a8a;
+            margin-top: 4mm;
+        }
+        .doc-sub {
+            font-size: 8.5pt;
+            color: #6b7280;
+            margin-top: 1mm;
         }
 
-        /* ─── TABLE (screenshot style) ───────────────────────── */
+        /* ─── GRID TABLE ─────────────────────────────────────── */
         table {
             width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            border: 1px solid #cbd5e1;
-            border-radius: 4px;
-            overflow: hidden;
+            border-collapse: collapse;
+            table-layout: fixed;
         }
         thead th {
             background: #1e3a8a;
             color: #ffffff;
             font-weight: 600;
-            font-size: 10pt;
-            letter-spacing: 0.2px;
-            text-align: left;
-            padding: 8px 10px;
-            border-right: 1px solid #2d4ea1;
+            font-size: 9.5pt;
+            text-align: center;
+            padding: 7px 5px;
+            border: 1px solid #1e3a8a;
         }
-        thead th:last-child { border-right: 0; }
+        th.time-col { width: 15%; background: #172a63; }
 
         tbody td {
-            padding: 7px 10px;
-            border-top: 1px solid #e2e8f0;
-            border-right: 1px solid #e2e8f0;
-            font-size: 10.5pt;
-            color: #1f2937;
+            border: 1px solid #d5dbe6;
+            padding: 6px 6px;
+            font-size: 9pt;
             vertical-align: middle;
+            text-align: center;
+            height: 46px;
         }
-        tbody td:last-child { border-right: 0; }
-        tbody tr:first-child td { border-top: 0; }
         tbody tr:nth-child(even) td { background: #f8fafc; }
 
-        td.period {
-            width: 11%;
-            text-align: center;
-            color: #475569;
+        td.time {
+            background: #eef2ff;
             font-weight: 600;
+            color: #3730a3;
+            font-size: 8.5pt;
+            white-space: nowrap;
         }
-        td.subject { font-weight: 600; }
-        td.time   { width: 22%; white-space: nowrap; color: #374151; }
-        td.days   { width: 16%; white-space: nowrap; color: #4338ca; font-weight: 600; }
+        td.time .to { color: #6366f1; font-weight: 400; font-size: 7.5pt; display: block; }
+
+        .cell-subject {
+            font-weight: 700;
+            color: #111827;
+            display: block;
+        }
+        .cell-teacher {
+            color: #6b7280;
+            font-size: 8pt;
+            display: block;
+            margin-top: 1px;
+        }
+        .cell-empty { color: #cbd5e1; font-weight: 400; }
 
         .empty {
             text-align: center;
-            padding: 20mm 6mm;
+            padding: 24mm 6mm;
             color: #94a3b8;
             font-style: italic;
             border: 1px dashed #cbd5e1;
             border-radius: 6px;
+            margin-top: 8mm;
         }
 
         .footer {
             position: fixed;
-            bottom: 6mm; left: 16mm; right: 16mm;
+            bottom: 5mm; left: 12mm; right: 12mm;
             border-top: 1px solid #e5e7eb;
-            padding-top: 2mm;
-            font-size: 8pt;
+            padding-top: 1.5mm;
+            font-size: 7.5pt;
             color: #94a3b8;
             text-align: center;
         }
@@ -138,36 +150,42 @@
             </div>
         @endif
 
-        <div class="doc-title">
-            {{ $standard->name }} &mdash; {{ $section->name }} Timetable
-        </div>
+        <div class="doc-title">{{ $standard->name }} &mdash; {{ $section->name }} · Weekly Timetable</div>
+        <div class="doc-sub">Academic schedule · Monday to Saturday</div>
     </div>
 
-    {{-- ═══════════ TABLE ═══════════ --}}
-    @if (empty($rows))
+    {{-- ═══════════ GRID ═══════════ --}}
+    @if (empty($slots))
         <div class="empty">No timetable entries scheduled for this section.</div>
     @else
         <table>
             <thead>
                 <tr>
-                    <th class="period">Period</th>
-                    <th>Subject</th>
-                    <th>Teacher</th>
-                    <th class="time">Time</th>
-                    <th class="days">Days</th>
+                    <th class="time-col">Time</th>
+                    @foreach ($days as $dayNum => $dayName)
+                        <th>{{ $dayName }}</th>
+                    @endforeach
                 </tr>
             </thead>
             <tbody>
-                @foreach ($rows as $i => $r)
+                @foreach ($slots as $slot)
+                    @php $key = $slot['start_time'] . '|' . $slot['end_time']; @endphp
                     <tr>
-                        <td class="period">{{ $i + 1 }}</td>
-                        <td class="subject">{{ $r['subject'] }}</td>
-                        <td>{{ $r['teacher'] }}</td>
                         <td class="time">
-                            {{ \Carbon\Carbon::parse($r['start_time'])->format('h:i A') }}
-                            &ndash; {{ \Carbon\Carbon::parse($r['end_time'])->format('h:i A') }}
+                            {{ \Carbon\Carbon::parse($slot['start_time'])->format('h:i A') }}
+                            <span class="to">to {{ \Carbon\Carbon::parse($slot['end_time'])->format('h:i A') }}</span>
                         </td>
-                        <td class="days">{{ $r['days_range'] }}</td>
+                        @foreach ($days as $dayNum => $dayName)
+                            @php $cell = $grid[$key][$dayNum] ?? null; @endphp
+                            <td>
+                                @if ($cell)
+                                    <span class="cell-subject">{{ $cell['subject'] }}</span>
+                                    <span class="cell-teacher">{{ $cell['teacher'] }}</span>
+                                @else
+                                    <span class="cell-empty">—</span>
+                                @endif
+                            </td>
+                        @endforeach
                     </tr>
                 @endforeach
             </tbody>
@@ -175,7 +193,7 @@
     @endif
 
     <div class="footer">
-        {{ $organization?->name ?? 'School' }} &nbsp;·&nbsp; Generated on {{ \Carbon\Carbon::now()->format('d M Y, h:i A') }}
+        {{ $organization?->name ?? 'School' }} &nbsp;·&nbsp; {{ $standard->name }} {{ $section->name }} &nbsp;·&nbsp; Generated on {{ \Carbon\Carbon::now()->format('d M Y, h:i A') }}
     </div>
 
 </body>

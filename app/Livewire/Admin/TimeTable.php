@@ -74,9 +74,12 @@ class TimeTable extends Component
     public function mount(): void
     {
         $org = Auth::user()->organization_id;
+        // Order to match the Standard management page (which lists by id),
+        // so classes appear here in the same sequence admins see there —
+        // e.g. Class 1, 2, … 10 instead of alphabetical (2, 10, …).
         $this->standards   = Standard::where('organization_id', $org)
             ->where('is_active', true)
-            ->orderBy('name')
+            ->orderBy('id')
             ->get();
         $this->allTeachers = TeacherDetail::with('user:id,name,email,is_active')
             ->where('organization_id', $org)
@@ -110,7 +113,7 @@ class TimeTable extends Component
         $this->filterSections = $this->filterClass
             ? Section::where('standard_id', $this->filterClass)
                 ->where('is_active', true)
-                ->orderBy('name')
+                ->orderBy('id')
                 ->get()
                 ->toArray()
             : [];
@@ -161,7 +164,7 @@ class TimeTable extends Component
         $this->createSections = $this->createStandardId
             ? Section::where('standard_id', $this->createStandardId)
                 ->where('is_active', true)
-                ->orderBy('name')
+                ->orderBy('id')
                 ->get()
                 ->toArray()
             : [];
@@ -278,6 +281,24 @@ class TimeTable extends Component
         } catch (\Throwable $e) {
             return '';
         }
+    }
+
+    /**
+     * "Same for all days" — copy every subject's Monday teacher across Tue–Sat.
+     * Lets admins set up Monday once and mirror it to the whole week in one click.
+     */
+    public function copyMondayToAllDays(): void
+    {
+        if (empty($this->scheduleRows)) return;
+
+        foreach ($this->scheduleRows as $i => $row) {
+            $mon = $row['day_teachers'][1] ?? '';
+            foreach ($this->defaultDays as $day) {
+                $this->scheduleRows[$i]['day_teachers'][$day] = $mon;
+            }
+        }
+
+        $this->notification()->success('Applied', "Monday's teachers copied to all days.");
     }
 
     // ─── Conflict checks ─────────────────────────────────────────────────
@@ -543,7 +564,7 @@ class TimeTable extends Component
                         'subject_groups' => $subjectGroups,
                     ];
                 })
-                ->sortBy([['standard', 'asc'], ['section', 'asc']])
+                ->sortBy([['standard_id', 'asc'], ['section_id', 'asc']])
                 ->values();
         }
 
