@@ -8,7 +8,6 @@ use App\Models\Teacher\AssignTeacherStandard;
 use App\Models\Teacher\TeacherSubject;
 use App\Models\Teacher\TeacherAttendance;
 use App\Exports\TeachersExport;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Models\Student\Standard;
 use App\Models\Student\Section;
@@ -539,50 +538,26 @@ class Teacher extends Component
 
     // ─── Export ──────────────────────────────────────────────────────────
     /**
-     * Export teachers as a ZIP containing BOTH an Excel (.xlsx) and a PDF file.
-     * Each row carries the full form data plus overall attendance, the subjects
-     * the teacher is assigned to (with class/section) and bank details. Missing
-     * values are shown as a dash. The PDF is a report-card-style document with
-     * the school header on top.
+     * Export teachers as an Excel (.xlsx) file. Each row carries the full form
+     * data plus overall attendance, the subjects the teacher is assigned to
+     * (with class/section) and bank details. Missing values are shown as a dash.
      */
     public function exportTeachers(): StreamedResponse
     {
-        $org        = Auth::user()->organization_id;
-        $orgModel   = Organization::find($org);
-        $schoolInfo = SchoolInfo::where('organization_id', $org)->first();
+        $org = Auth::user()->organization_id;
 
         [$headings, $rows] = $this->teacherExportData($org);
 
         $stamp = now()->format('Y-m-d');
 
-        // Excel (.xlsx) — raw bytes so we can bundle it into the zip.
+        // Excel only (.xlsx).
         $xlsx = Excel::raw(new TeachersExport($headings, $rows), \Maatwebsite\Excel\Excel::XLSX);
 
-        // PDF — report-card style with the school header.
-        $pdf = Pdf::loadView('pdf.admin.teachers', [
-            'organization' => $orgModel,
-            'schoolInfo'   => $schoolInfo,
-            'rows'         => $rows,
-            'generatedAt'  => now(),
-        ])
-            ->setPaper('a4', 'portrait')
-            ->setOption('isHtml5ParserEnabled', true)
-            ->setOption('isRemoteEnabled', true)
-            ->setOption('defaultFont', 'DejaVu Sans')
-            ->output();
-
-        // Bundle both files into one zip.
-        $tmpZip = tempnam(sys_get_temp_dir(), 'teachers_') . '.zip';
-        $zip    = new \ZipArchive();
-        $zip->open($tmpZip, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
-        $zip->addFromString("teachers_{$stamp}.xlsx", $xlsx);
-        $zip->addFromString("teachers_{$stamp}.pdf", $pdf);
-        $zip->close();
-
-        return response()->streamDownload(function () use ($tmpZip) {
-            readfile($tmpZip);
-            @unlink($tmpZip);
-        }, "teachers_{$stamp}.zip", ['Content-Type' => 'application/zip']);
+        return response()->streamDownload(function () use ($xlsx) {
+            echo $xlsx;
+        }, "teachers_{$stamp}.xlsx", [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
     }
 
     /**

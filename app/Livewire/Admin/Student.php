@@ -4,7 +4,6 @@ namespace App\Livewire\Admin;
 
 use App\Helpers\CityGetHelper;
 use App\Models\Admin\Transportation;
-use App\Models\Admin\SchoolInfo;
 use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Student\Section;
@@ -14,7 +13,6 @@ use App\Models\Student\StudentAttendance;
 use App\Models\Organization;
 use App\Models\User;
 use App\Exports\StudentsExport;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -796,52 +794,28 @@ class Student extends Component
     }
 
     /**
-     * Export students as a ZIP containing BOTH an Excel (.xlsx) and a PDF.
-     * Rows carry every Add-Student form field plus admission/roll numbers,
-     * overall attendance (present/total), and academic + transport fee
-     * (paid/total). Students are ordered class-by-class (in class order, then
-     * section, then roll number). Missing values render as a dash. The PDF is a
-     * report-card-style document with the school header and one section per class.
+     * Export students as an Excel (.xlsx) file. Rows carry every Add-Student
+     * form field plus admission/roll numbers, overall attendance (present/total),
+     * and academic + transport fee (paid/total). Students are ordered
+     * class-by-class (in class order, then section, then roll number). Missing
+     * values render as a dash.
      */
     public function exportStudents(): StreamedResponse
     {
-        $org        = Auth::user()->organization_id;
-        $orgModel   = Organization::find($org);
-        $schoolInfo = SchoolInfo::where('organization_id', $org)->first();
+        $org = Auth::user()->organization_id;
 
-        [$headings, $rows, $rowsByClass] = $this->studentExportData($org);
+        [$headings, $rows] = $this->studentExportData($org);
 
         $stamp = now()->format('Y-m-d');
 
-        // Excel (.xlsx) — raw bytes so we can bundle it into the zip.
+        // Excel only (.xlsx).
         $xlsx = Excel::raw(new StudentsExport($headings, $rows), \Maatwebsite\Excel\Excel::XLSX);
 
-        // PDF — report-card style, school header on top, grouped by class.
-        $pdf = Pdf::loadView('pdf.admin.students', [
-            'organization' => $orgModel,
-            'schoolInfo'   => $schoolInfo,
-            'rowsByClass'  => $rowsByClass,
-            'total'        => count($rows),
-            'generatedAt'  => now(),
-        ])
-            ->setPaper('a4', 'landscape')
-            ->setOption('isHtml5ParserEnabled', true)
-            ->setOption('isRemoteEnabled', true)
-            ->setOption('defaultFont', 'DejaVu Sans')
-            ->output();
-
-        // Bundle both files into one zip.
-        $tmpZip = tempnam(sys_get_temp_dir(), 'students_') . '.zip';
-        $zip    = new \ZipArchive();
-        $zip->open($tmpZip, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
-        $zip->addFromString("students_{$stamp}.xlsx", $xlsx);
-        $zip->addFromString("students_{$stamp}.pdf", $pdf);
-        $zip->close();
-
-        return response()->streamDownload(function () use ($tmpZip) {
-            readfile($tmpZip);
-            @unlink($tmpZip);
-        }, "students_{$stamp}.zip", ['Content-Type' => 'application/zip']);
+        return response()->streamDownload(function () use ($xlsx) {
+            echo $xlsx;
+        }, "students_{$stamp}.xlsx", [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
     }
 
     /**
