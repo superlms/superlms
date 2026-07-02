@@ -4,11 +4,18 @@ namespace App\Livewire\Admin;
 
 use App\Helpers\CityGetHelper;
 use App\Models\Admin\Transportation;
+use App\Models\Admin\SchoolInfo;
+use App\Models\Admin\Fee\FeeStructure;
+use App\Models\Admin\Fee\FeePayment;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
+use App\Models\Student\StudentAttendance;
 use App\Models\Organization;
 use App\Models\User;
+use App\Exports\StudentsExport;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -310,32 +317,48 @@ class Student extends Component
         }
 
         $rules = [
-            'studentsName'      => 'required|string|max:255',
-            'studentsEmail'     => 'required|email|max:50',
+            'studentsName'      => 'required|string|max:50',
+            'studentsEmail'     => 'required|email:rfc|max:191',
             'studentsMobile'    => 'required|string|digits:10',
             'dob'               => 'required|date|before:today',
             'studentsGender'    => 'required|string|in:male,female,other',
             // Board is auto-fetched from the selected class — not a form field.
             'studentsClass'     => 'required|integer|exists:standards,id',
             'studentsSection'   => 'required|integer|exists:sections,id',
-            'fatherName'        => 'required|string|max:255',
-            'motherName'        => 'nullable|string|max:255',
+            'fatherName'        => 'required|string|max:50',
+            'motherName'        => 'nullable|string|max:50',
+            'religion'          => 'nullable|string|max:20',
             'dateOfAdmission'   => 'nullable|date|before_or_equal:today',
             'aadharNo'          => 'nullable|digits:12',
             'pincode'           => 'nullable|digits:6',
-            'studentImage'      => 'nullable|image|max:2048',
+            'localAddress'      => 'nullable|string|max:250',
+            'permanentAddress'  => 'nullable|string|max:250',
+            'studentImage'      => 'nullable|image|max:1024', // 1 MB
             'transportationRequired' => 'boolean',
             'selectedRoute'     => $this->transportationRequired
                 ? 'required|integer|exists:transportations,id'
                 : 'nullable',
-            'apparId'           => 'nullable|string',
-            'registrationNumber' => 'nullable|string',
+            'apparId'           => 'nullable|string|max:25',
+            'registrationNumber' => 'nullable|string|max:25',
         ];
 
         $messages = [
             'studentsClass.required'   => 'Please select a class.',
             'studentsSection.required' => 'Please select a section.',
             'selectedRoute.required'   => 'Please select a transport route.',
+            'studentsName.max'         => 'Full name may not be longer than 50 characters.',
+            'studentsEmail.email'      => 'Please enter a valid email address.',
+            'studentsMobile.digits'    => 'Mobile number must be exactly 10 digits.',
+            'aadharNo.digits'          => 'Aadhar number must be exactly 12 digits.',
+            'fatherName.max'           => "Father's name may not be longer than 50 characters.",
+            'motherName.max'           => "Mother's name may not be longer than 50 characters.",
+            'religion.max'             => 'Religion may not be longer than 20 characters.',
+            'apparId.max'              => 'Apaar ID may not be longer than 25 characters.',
+            'registrationNumber.max'   => 'Registration number may not be longer than 25 characters.',
+            'pincode.digits'           => 'Pincode must be exactly 6 digits.',
+            'localAddress.max'         => 'Local address may not be longer than 250 characters.',
+            'permanentAddress.max'     => 'Permanent address may not be longer than 250 characters.',
+            'studentImage.max'         => 'Image must be 1 MB (1024 KB) or smaller.',
         ];
 
         // Email uniqueness — must catch EVERY collision before we hit the
@@ -730,86 +753,173 @@ class Student extends Component
         $this->confirmDelete();
     }
 
+    /**
+     * Export students as a ZIP containing BOTH an Excel (.xlsx) and a PDF.
+     * Rows carry every Add-Student form field plus admission/roll numbers,
+     * overall attendance (present/total), and academic + transport fee
+     * (paid/total). Students are ordered class-by-class (in class order, then
+     * section, then roll number). Missing values render as a dash. The PDF is a
+     * report-card-style document with the school header and one section per class.
+     */
     public function exportStudents(): StreamedResponse
     {
-        $org      = Auth::user()->organization_id;
+        $org        = Auth::user()->organization_id;
+        $orgModel   = Organization::find($org);
+        $schoolInfo = SchoolInfo::where('organization_id', $org)->first();
+
+        [$headings, $rows, $rowsByClass] = $this->studentExportData($org);
+
+        $stamp = now()->format('Y-m-d');
+
+        // Excel (.xlsx) — raw bytes so we can bundle it into the zip.
+        $xlsx = Excel::raw(new StudentsExport($headings, $rows), \Maatwebsite\Excel\Excel::XLSX);
+
+        // PDF — report-card style, school header on top, grouped by class.
+        $pdf = Pdf::loadView('pdf.admin.students', [
+            'organization' => $orgModel,
+            'schoolInfo'   => $schoolInfo,
+            'rowsByClass'  => $rowsByClass,
+            'total'        => count($rows),
+            'generatedAt'  => now(),
+        ])
+            ->setPaper('a4', 'landscape')
+            ->setOption('isHtml5ParserEnabled', true)
+            ->setOption('isRemoteEnabled', true)
+            ->setOption('defaultFont', 'DejaVu Sans')
+            ->output();
+
+        // Bundle both files into one zip.
+        $tmpZip = tempnam(sys_get_temp_dir(), 'students_') . '.zip';
+        $zip    = new \ZipArchive();
+        $zip->open($tmpZip, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->addFromString("students_{$stamp}.xlsx", $xlsx);
+        $zip->addFromString("students_{$stamp}.pdf", $pdf);
+        $zip->close();
+
+        return response()->streamDownload(function () use ($tmpZip) {
+            readfile($tmpZip);
+            @unlink($tmpZip);
+        }, "students_{$stamp}.zip", ['Content-Type' => 'application/zip']);
+    }
+
+    /**
+     * Build the export dataset. Returns [$headings, $flatRows, $rowsByClass]:
+     *   - $flatRows    — one associative row per student (keys are the column
+     *                    headings) for the spreadsheet, ordered class-by-class.
+     *   - $rowsByClass — the same rows grouped under their "Class - Section"
+     *                    label for the PDF, preserving class order.
+     * Attendance and fees are computed with the same logic the Fee module uses;
+     * anything unavailable becomes "-".
+     */
+    private function studentExportData(int $org): array
+    {
+        $dash = fn ($v) => ($v === null || $v === '') ? '-' : $v;
+
+        // Class-by-class order: class → section → numeric roll → name.
         $students = StudentDetail::with(['user', 'standard', 'section', 'organization', 'transportations'])
+            ->where('organization_id', $org)
             ->whereHas('user', fn($q) => $q->where('organization_id', $org))
+            ->orderBy('standard_id')
+            ->orderBy('section_id')
+            ->orderByRaw('CAST(roll_no AS UNSIGNED)')
             ->orderBy('full_name')
             ->get();
 
-        return response()->stream(function () use ($students) {
-            $handle = fopen('php://output', 'w');
+        $ids = $students->pluck('id')->all();
 
-            // Headers — mirror every field on the Add Student form, with
-            // admission_no + roll_no front-and-centre and the organization name.
-            fputcsv($handle, [
-                'S.No',
-                'Admission No',
-                'Roll No',
-                'Organization',
-                'Full Name',
-                'Email',
-                'Mobile',
-                'Gender',
-                'Date of Birth',
-                'Date of Admission',
-                'Religion',
-                'Aadhar No',
-                'Father Name',
-                'Mother Name',
-                'Board (auto)',
-                'Class',
-                'Section',
-                'Apaar ID',
-                'Registration Number',
-                'State',
-                'City',
-                'Pincode',
-                'Local Address',
-                'Permanent Address',
-                'Transportation Required',
-                'Transport Route',
-                'Status',
-            ]);
+        // Attendance totals per student in one aggregate query.
+        $attendance = StudentAttendance::whereIn('student_detail_id', $ids)
+            ->selectRaw('student_detail_id, COUNT(*) as total, SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) as present')
+            ->groupBy('student_detail_id')
+            ->get()
+            ->keyBy('student_detail_id');
 
-            foreach ($students as $index => $s) {
-                $route = $s->transportations->first();
-                fputcsv($handle, [
-                    $index + 1,
-                    $s->admission_no ?? '',
-                    $s->roll_no ?? '',
-                    $s->organization->name ?? '',
-                    $s->full_name ?? '',
-                    $s->user->email ?? '',
-                    $s->phone ?? '',
-                    ucfirst($s->gender ?? ''),
-                    $s->dob?->format('d-m-Y') ?? '',
-                    $s->date_of_admission?->format('d-m-Y') ?? '',
-                    $s->religion ?? '',
-                    $s->aadhar_no ?? '',
-                    $s->father_name ?? '',
-                    $s->mother_name ?? '',
-                    $s->board ?? ($s->standard->board ?? ''),
-                    $s->standard->name ?? '',
-                    $s->section->name ?? '',
-                    $s->appar_id ?? '',
-                    $s->registration_number ?? '',
-                    $s->state ?? '',
-                    $s->city ?? '',
-                    $s->pincode ?? '',
-                    $s->local_address ?? '',
-                    $s->permanent_address ?? '',
-                    $s->transportation_required ? 'Yes' : 'No',
-                    $route->route_name ?? '',
-                    ($s->user->is_active ?? false) ? 'Active' : 'Inactive',
-                ]);
-            }
-            fclose($handle);
-        }, 200, [
-            'Content-Type'        => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="students_' . now()->format('Y-m-d_H-i-s') . '.csv"',
-        ]);
+        // Active fee structures for the org (small set — filtered per student below).
+        $structures = FeeStructure::where('organization_id', $org)
+            ->where('is_active', true)
+            ->get();
+
+        // All fee payments for these students, grouped by student.
+        $payments = FeePayment::where('organization_id', $org)
+            ->whereIn('student_detail_id', $ids)
+            ->get()
+            ->groupBy('student_detail_id');
+
+        $rows        = [];
+        $rowsByClass = [];
+
+        foreach ($students as $i => $s) {
+            // ── Attendance (present / total) ──
+            $att      = $attendance->get($s->id);
+            $attTotal = (int) ($att->total ?? 0);
+            $attPres  = (int) ($att->present ?? 0);
+            $attStr   = $attTotal > 0 ? "{$attPres} / {$attTotal}" : '-';
+
+            // ── Fees (paid / total), matching the Fee module's per-student calc ──
+            $studentStructures = $structures->filter(
+                fn ($st) => (int) $st->standard_id === (int) $s->standard_id
+                    && (is_null($st->section_id) || (int) $st->section_id === (int) $s->section_id)
+            );
+            $academicTotal = (float) $studentStructures->where('fee_type', 'academic')->sum('amount');
+            $transportTotal = $s->transportation_required
+                ? (float) $studentStructures->where('fee_type', 'transport')->sum('amount')
+                : 0.0;
+
+            $studentPayments = $payments->get($s->id, collect());
+            $academicPaid  = (float) $studentPayments->where('fee_type', 'academic')->sum('amount');
+            $transportPaid = (float) $studentPayments->where('fee_type', 'transport')->sum('amount');
+
+            $money = fn ($v) => number_format((float) $v, 0);
+            $academicStr  = ($academicTotal > 0 || $academicPaid > 0)
+                ? '₹' . $money($academicPaid) . ' / ₹' . $money($academicTotal) : '-';
+            $transportStr = $s->transportation_required && ($transportTotal > 0 || $transportPaid > 0)
+                ? '₹' . $money($transportPaid) . ' / ₹' . $money($transportTotal) : '-';
+
+            $route     = $s->transportations->first();
+            $className = $s->standard->name ?? '-';
+            $secName   = $s->section->name ?? '';
+            $classLabel = trim($className . ($secName !== '' ? ' - ' . $secName : ''));
+
+            $row = [
+                'S.No'                    => $i + 1,
+                'Admission No'            => $dash($s->admission_no),
+                'Roll No'                 => $dash($s->roll_no),
+                'Organization'            => $dash($s->organization->name ?? null),
+                'Full Name'               => $dash($s->full_name ?? ($s->user->name ?? null)),
+                'Email'                   => $dash($s->user->email ?? null),
+                'Mobile'                  => $dash($s->phone),
+                'Gender'                  => $dash($s->gender ? ucfirst($s->gender) : null),
+                'Date of Birth'           => $dash($s->dob?->format('d-m-Y')),
+                'Date of Admission'       => $dash($s->date_of_admission?->format('d-m-Y')),
+                'Religion'                => $dash($s->religion),
+                'Aadhar No'               => $dash($s->aadhar_no),
+                'Father Name'             => $dash($s->father_name),
+                'Mother Name'             => $dash($s->mother_name),
+                'Board (auto)'            => $dash($s->board ?? ($s->standard->board ?? null)),
+                'Class'                   => $dash($className),
+                'Section'                 => $dash($secName !== '' ? $secName : null),
+                'Apaar ID'                => $dash($s->appar_id),
+                'Registration Number'     => $dash($s->registration_number),
+                'State'                   => $dash($s->state),
+                'City'                    => $dash($s->city),
+                'Pincode'                 => $dash($s->pincode),
+                'Local Address'           => $dash($s->local_address),
+                'Permanent Address'       => $dash($s->permanent_address),
+                'Transportation Required' => $s->transportation_required ? 'Yes' : 'No',
+                'Transport Route'         => $dash($route->route_name ?? null),
+                'Attendance (P/Total)'    => $attStr,
+                'Academic Fee (Paid/Total)'  => $academicStr,
+                'Transport Fee (Paid/Total)' => $transportStr,
+                'Status'                  => ($s->user->is_active ?? false) ? 'Active' : 'Inactive',
+            ];
+
+            $rows[] = $row;
+            $rowsByClass[$classLabel][] = $row;
+        }
+
+        $headings = $rows ? array_keys($rows[0]) : ['S.No'];
+
+        return [$headings, $rows, $rowsByClass];
     }
 
     /**

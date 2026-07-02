@@ -3,7 +3,7 @@
     {{-- ══════════════════════════════════════════════════
          HEADER
     ══════════════════════════════════════════════════ --}}
-    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 sm:py-5 sticky top-0 z-50">
+    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 pt-4 sm:pt-5 sticky top-0 z-50">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
                 <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Students</h1>
@@ -556,7 +556,7 @@
                         {{-- Profile image (single inline row, teacher style) --}}
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">
-                                Student Profile Photo <span class="text-gray-400 font-normal">(Optional, max 2 MB)</span>
+                                Student Profile Photo <span class="text-gray-400 font-normal">(Optional, max 1 MB)</span>
                             </label>
                             <div class="flex items-center gap-3">
                                 @if ($studentImage)
@@ -582,7 +582,7 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Full Name <span class="text-red-500">*</span></label>
-                                <input wire:model.defer="studentsName" type="text" placeholder="Enter full name"
+                                <input wire:model.defer="studentsName" type="text" maxlength="50" placeholder="Enter full name"
                                     class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
                                            @error('studentsName') border-red-400 @enderror">
                                 @error('studentsName')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
@@ -596,7 +596,8 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Mobile <span class="text-red-500">*</span></label>
-                                <input wire:model.defer="studentsMobile" type="tel" maxlength="10" placeholder="10-digit mobile"
+                                <input wire:model.defer="studentsMobile" type="tel" maxlength="10" inputmode="numeric"
+                                    oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)" placeholder="10-digit mobile"
                                     class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
                                            @error('studentsMobile') border-red-400 @enderror">
                                 @error('studentsMobile')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
@@ -659,19 +660,22 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Religion</label>
-                                <input wire:model.defer="religion" type="text" placeholder="e.g. Hindu, Muslim"
-                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                <input wire:model.defer="religion" type="text" maxlength="20" placeholder="e.g. Hindu, Muslim"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                           @error('religion') border-red-400 @enderror">
+                                @error('religion')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Aadhar Number</label>
-                                <input wire:model.defer="aadharNo" type="text" maxlength="12" placeholder="12-digit Aadhar no."
+                                <input wire:model.defer="aadharNo" type="text" maxlength="12" inputmode="numeric"
+                                    oninput="this.value=this.value.replace(/\D/g,'').slice(0,12)" placeholder="12-digit Aadhar no."
                                     class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
                                            @error('aadharNo') border-red-400 @enderror">
                                 @error('aadharNo')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Father's Name <span class="text-red-500">*</span></label>
-                                <input wire:model.defer="fatherName" type="text" placeholder="Father's full name"
+                                <input wire:model.defer="fatherName" type="text" maxlength="50" placeholder="Father's full name"
                                     class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
                                            @error('fatherName') border-red-400 @enderror">
                                 @error('fatherName')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
@@ -680,20 +684,24 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5">
                                     Mother's Name <span class="text-gray-400 font-normal text-xs">(optional)</span>
                                 </label>
-                                <input wire:model.defer="motherName" type="text" placeholder="Mother's full name"
+                                <input wire:model.defer="motherName" type="text" maxlength="50" placeholder="Mother's full name"
                                     class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
                                            @error('motherName') border-red-400 @enderror">
                                 @error('motherName')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Apaar ID</label>
-                                <input wire:model.defer="apparId" type="text" placeholder="Apaar ID"
-                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                <input wire:model.defer="apparId" type="text" maxlength="25" placeholder="Apaar ID"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                           @error('apparId') border-red-400 @enderror">
+                                @error('apparId')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Registration Number</label>
-                                <input wire:model.defer="registrationNumber" type="text" placeholder="Registration number"
-                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                <input wire:model.defer="registrationNumber" type="text" maxlength="25" placeholder="Registration number"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                           @error('registrationNumber') border-red-400 @enderror">
+                                @error('registrationNumber')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5">State</label>
@@ -720,7 +728,8 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Pincode</label>
-                                <input wire:model.defer="pincode" type="text" maxlength="6" placeholder="6-digit pincode"
+                                <input wire:model.defer="pincode" type="text" maxlength="6" inputmode="numeric"
+                                    oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)" placeholder="6-digit pincode"
                                     class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
                                            @error('pincode') border-red-400 @enderror">
                                 @error('pincode')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
@@ -769,13 +778,17 @@
                         {{-- Full-width address textareas --}}
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Local Address</label>
-                            <textarea wire:model.defer="localAddress" rows="2" placeholder="Current/local address"
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"></textarea>
+                            <textarea wire:model.defer="localAddress" rows="2" maxlength="250" placeholder="Current/local address"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none
+                                       @error('localAddress') border-red-400 @enderror"></textarea>
+                            @error('localAddress')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Permanent Address</label>
-                            <textarea wire:model.defer="permanentAddress" rows="2" placeholder="Permanent address (if different)"
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"></textarea>
+                            <textarea wire:model.defer="permanentAddress" rows="2" maxlength="250" placeholder="Permanent address (if different)"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none
+                                       @error('permanentAddress') border-red-400 @enderror"></textarea>
+                            @error('permanentAddress')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
 
                         @if ($this->isOrphaned)
