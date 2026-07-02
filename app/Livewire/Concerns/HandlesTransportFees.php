@@ -50,6 +50,7 @@ trait HandlesTransportFees
     public ?int $editTxStudentRouteId     = null;   // transportation_id
     public string $editTxStudentName      = '';
     public array $editTxBillableMonths    = [];     // ['apr' => true, 'may' => true, ...]
+    public float $editTxMonthly           = 0;      // route monthly fee (live calc in modal)
 
     public ?int $pendingDeleteTxStudentId = null;   // student_detail_id
     public ?int $pendingDeleteTxRouteId   = null;   // transportation_id
@@ -219,9 +220,12 @@ trait HandlesTransportFees
             ->where('student_detail_id', $studentDetailId)
             ->first();
 
+        $route = Transportation::where('organization_id', $orgId)->find($routeId);
+
         $this->editTxStudentId       = $studentDetailId;
         $this->editTxStudentRouteId  = $routeId;
         $this->editTxStudentName     = $student->full_name ?? '';
+        $this->editTxMonthly         = (float) ($route?->monthly_fee ?? 0);
         $this->editTxBillableMonths  = $this->normalizeBillableMonths($pivot->billable_months ?? null);
         $this->editTxStudentModal    = true;
     }
@@ -232,6 +236,7 @@ trait HandlesTransportFees
         $this->editTxStudentId      = null;
         $this->editTxStudentRouteId = null;
         $this->editTxStudentName    = '';
+        $this->editTxMonthly        = 0;
         $this->editTxBillableMonths = [];
     }
 
@@ -371,7 +376,67 @@ trait HandlesTransportFees
             'paid'         => $paid,
             'remaining'    => max(0, $annual - $paid),
             'payments'     => $payments,
+            'month_status' => $this->monthStatuses($monthly, $months, $paid),
         ];
+    }
+
+    /**
+     * Month-by-month fee status for the fee summary.
+     *
+     * The total paid amount is applied sequentially across the student's
+     * enabled billable months in academic order (Apr→Mar). Each month costs
+     * `monthly`; a month is Paid once fully covered, Partial while partially
+     * covered, else Unpaid — so ₹5,400 at ₹1,000/mo marks 5 months Paid and the
+     * 6th Partial (₹400). Only months up to the current month are returned, and
+     * disabled (non-billable) months are skipped entirely.
+     *
+     * @return array<int, array{key:string,label:string,amount:float,paid:float,status:string}>
+     */
+    public function monthStatuses(float $monthly, array $months, float $paid): array
+    {
+        $monthNum = [
+            'apr' => 4, 'may' => 5, 'jun' => 6, 'jul' => 7, 'aug' => 8, 'sep' => 9,
+            'oct' => 10, 'nov' => 11, 'dec' => 12, 'jan' => 1, 'feb' => 2, 'mar' => 3,
+        ];
+
+        $now           = now();
+        $curMonthStart = $now->copy()->startOfMonth();
+        // Academic year starts in April.
+        $startYear     = $now->month >= 4 ? $now->year : $now->year - 1;
+
+        $remaining = $paid;
+        $rows = [];
+
+        foreach (array_keys($this->monthsOrder) as $key) {
+            if (empty($months[$key])) {
+                continue; // disabled month → not billed, not shown
+            }
+            $mnum       = $monthNum[$key];
+            $year       = $mnum >= 4 ? $startYear : $startYear + 1;
+            $monthStart = \Carbon\Carbon::create($year, $mnum, 1)->startOfMonth();
+
+            if ($monthStart->gt($curMonthStart)) {
+                continue; // only show months up to the current month
+            }
+
+            $alloc     = $monthly > 0 ? min($remaining, $monthly) : 0;
+            $alloc     = max(0, $alloc);
+            $remaining = max(0, $remaining - $alloc);
+
+            $status = ($monthly > 0 && $alloc >= $monthly)
+                ? 'paid'
+                : ($alloc > 0 ? 'partial' : 'unpaid');
+
+            $rows[] = [
+                'key'    => $key,
+                'label'  => $this->monthsOrder[$key],
+                'amount' => $monthly,
+                'paid'   => round($alloc, 2),
+                'status' => $status,
+            ];
+        }
+
+        return $rows;
     }
 
     // ── Add payment ──────────────────────────────────────────────────────────

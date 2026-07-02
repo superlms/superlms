@@ -49,6 +49,7 @@ class Transport extends Component
     public bool   $driver_is_active    = true;
     public $driver_image;                    // uploaded file
     public ?string $driver_image_existing = null;
+    public array  $driver_routes       = [];  // route ids this driver covers (multi-select)
 
     // ─── Transportation (Route) Form ───────────────────────
     public string $route_name          = '';
@@ -155,6 +156,7 @@ class Transport extends Component
         $this->driver_is_active    = $driver->is_active;
         $this->driver_image        = null;
         $this->driver_image_existing = $driver->image;
+        $this->driver_routes       = $driver->transportations()->pluck('id')->map(fn($id) => (string) $id)->toArray();
         $this->driverModal         = true;
     }
 
@@ -203,6 +205,7 @@ class Transport extends Component
                     'experience_years' => $this->experience_years,
                     'is_active'        => $this->driver_is_active,
                 ]);
+                $driverDetailId = $driver->id;
             } else {
                 $user = User::create([
                     'name'            => $this->driver_name,
@@ -213,7 +216,7 @@ class Transport extends Component
                     'organization_id' => $this->organizationId,
                     'is_active'       => true,
                 ]);
-                DriverDetail::create([
+                $driver = DriverDetail::create([
                     'user_id'          => $user->id,
                     'organization_id'  => $this->organizationId,
                     'image'            => $imageUrl,
@@ -225,7 +228,11 @@ class Transport extends Component
                     'experience_years' => $this->experience_years,
                     'is_active'        => true,
                 ]);
+                $driverDetailId = $driver->id;
             }
+
+            // Assign this driver to the selected routes (and unassign deselected).
+            $this->syncDriverRoutes($driverDetailId);
 
             DB::commit();
             $this->loadAvailableDrivers();
@@ -236,6 +243,28 @@ class Transport extends Component
             DB::rollBack();
             $this->notification()->error('Error!', 'Failed to save driver: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Point the selected routes at this driver and release any route that used
+     * to belong to the driver but is no longer selected (driver_detail_id 0 =
+     * "no driver", matching the table's NOT NULL default).
+     */
+    private function syncDriverRoutes(int $driverId): void
+    {
+        $orgId    = $this->organizationId;
+        $selected = array_values(array_filter(array_map('intval', $this->driver_routes)));
+
+        if (!empty($selected)) {
+            Transportation::where('organization_id', $orgId)
+                ->whereIn('id', $selected)
+                ->update(['driver_detail_id' => $driverId]);
+        }
+
+        Transportation::where('organization_id', $orgId)
+            ->where('driver_detail_id', $driverId)
+            ->when(!empty($selected), fn($q) => $q->whereNotIn('id', $selected))
+            ->update(['driver_detail_id' => 0]);
     }
 
     public function confirmDeleteDriver(int $id): void { $this->pendingDeleteDriverId = $id; }
@@ -287,7 +316,7 @@ class Transport extends Component
             'driver_name', 'driver_email', 'driver_phone',
             'license_no', 'driver_vehicle_no', 'driver_vehicle_type',
             'driver_address', 'experience_years', 'driver_is_active',
-            'driver_image', 'driver_image_existing',
+            'driver_image', 'driver_image_existing', 'driver_routes',
         ]);
         $this->driver_is_active = true;
     }
@@ -305,7 +334,8 @@ class Transport extends Component
         $t = Transportation::findOrFail($id);
         $this->editTransportId     = $t->id;
         $this->route_name          = $t->route_name;
-        $this->driver_detail_id    = $t->driver_detail_id;
+        // 0 = "no driver" sentinel → null so the select shows "No driver yet".
+        $this->driver_detail_id    = $t->driver_detail_id ?: null;
         $this->pickup_time         = $t->pickup_time ?? '';
         $this->monthly_fee         = (float) $t->monthly_fee;
         $this->capacity            = (int) $t->capacity;
@@ -317,20 +347,21 @@ class Transport extends Component
     {
         $this->validate([
             'route_name'       => 'required|string|max:255',
-            'driver_detail_id' => 'required|exists:driver_details,id',
+            'driver_detail_id' => 'nullable|exists:driver_details,id',
             'pickup_time'      => 'nullable|string|max:20',
             'monthly_fee'      => 'nullable|numeric|min:0',
             'capacity'         => 'nullable|integer|min:0',
         ]);
 
-        $driver = DriverDetail::find($this->driver_detail_id);
+        $driver = $this->driver_detail_id ? DriverDetail::find($this->driver_detail_id) : null;
 
         $data = [
             'organization_id'  => $this->organizationId,
             'route_name'       => $this->route_name,
             'vehicle_no'       => $driver?->vehicle_no,
             'vehicle_type'     => $driver?->vehicle_type,
-            'driver_detail_id' => $this->driver_detail_id,
+            // driver_detail_id is NOT NULL (default 0) — store 0 for "no driver".
+            'driver_detail_id' => $this->driver_detail_id ?: 0,
             'pickup_time'      => $this->pickup_time ?: null,
             'monthly_fee'      => $this->monthly_fee,
             'capacity'         => $this->capacity,

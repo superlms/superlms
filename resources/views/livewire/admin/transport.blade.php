@@ -9,11 +9,26 @@
             <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Transportation</h1>
             <p class="text-sm text-gray-500 mt-0.5">Manage routes, drivers, students &amp; transport fees</p>
         </div>
-        <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200">
-            <span class="pr-4">Drivers: <strong class="text-gray-800">{{ $this->statistics['drivers'] }}</strong></span>
-            <span class="px-4">Routes: <strong class="text-blue-600">{{ $this->statistics['routes'] }}</strong></span>
-            <span class="px-4">Students: <strong class="text-emerald-600">{{ $this->statistics['students'] }}</strong></span>
-            <span class="pl-4">Revenue: <strong class="text-amber-600">₹{{ number_format($this->statistics['monthly_revenue'], 0) }}</strong></span>
+        <div class="flex flex-wrap items-center gap-3">
+            <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200 mr-1">
+                <span class="pr-4">Drivers: <strong class="text-gray-800">{{ $this->statistics['drivers'] }}</strong></span>
+                <span class="px-4">Routes: <strong class="text-blue-600">{{ $this->statistics['routes'] }}</strong></span>
+                <span class="px-4">Students: <strong class="text-emerald-600">{{ $this->statistics['students'] }}</strong></span>
+                <span class="pl-4">Revenue: <strong class="text-amber-600">₹{{ number_format($this->statistics['monthly_revenue'], 0) }}</strong></span>
+            </div>
+            @if ($activeTab === 'transportation')
+                <button wire:click="createTransport"
+                    class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                    Add Route
+                </button>
+            @elseif ($activeTab === 'drivers')
+                <button wire:click="createDriver"
+                    class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                    Add Driver
+                </button>
+            @endif
         </div>
     </div>
 
@@ -30,7 +45,8 @@
         </div>
     </div>
 
-    {{-- Filter bar (exams-style thin gray) — tab-aware --}}
+    {{-- Filter bar (exams-style thin gray) — tab-aware. Hidden on Fee Summary. --}}
+    @if ($activeTab !== 'fees')
     <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
         <div class="flex flex-wrap items-center gap-3">
             <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
@@ -50,11 +66,6 @@
                     <option value="1">Active</option>
                     <option value="0">Inactive</option>
                 </select>
-                <button wire:click="createTransport"
-                    class="ml-auto inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-md shadow-sm">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                    Add Route
-                </button>
             @elseif ($activeTab === 'drivers')
                 <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search driver name / license / vehicle…"
                     class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-64">
@@ -67,11 +78,6 @@
                     <option value="1">Active</option>
                     <option value="0">Inactive</option>
                 </select>
-                <button wire:click="createDriver"
-                    class="ml-auto inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-md shadow-sm">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                    Add Driver
-                </button>
             @elseif ($activeTab === 'students')
                 <select wire:model.live="filterRoute" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[180px]">
                     <option value="">Select Route *</option>
@@ -81,7 +87,7 @@
                     class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-64">
             @endif
 
-            @if (($search || $filterDriver || $filterRoute || $filterStatus) && $activeTab !== 'fees')
+            @if ($search || $filterDriver || $filterRoute || $filterStatus)
                 <button wire:click="$set('search',''); $set('filterDriver',''); $set('filterRoute',''); $set('filterStatus','')"
                     class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -90,6 +96,7 @@
             @endif
         </div>
     </div>
+    @endif
 </div>
 
 <div class="p-4 sm:p-6">
@@ -122,12 +129,12 @@
                                     @if ($t->driver?->image)
                                         <img src="{{ $t->driver->image }}" class="w-7 h-7 rounded-full object-cover border border-gray-200">
                                     @else
-                                        <div class="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 text-xs font-bold">{{ strtoupper(substr($t->driver->user->name ?? 'D', 0, 1)) }}</div>
+                                        <div class="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 text-xs font-bold">{{ strtoupper(substr($t->driver?->user?->name ?? 'D', 0, 1)) }}</div>
                                     @endif
-                                    <span class="text-gray-700">{{ $t->driver->user->name ?? '—' }}</span>
+                                    <span class="text-gray-700">{{ $t->driver?->user?->name ?? '—' }}</span>
                                 </div>
                             </td>
-                            <td class="px-4 py-3 text-gray-600">{{ $t->driver->vehicle_no ?? '—' }}</td>
+                            <td class="px-4 py-3 text-gray-600">{{ $t->driver?->vehicle_no ?? '—' }}</td>
                             <td class="px-4 py-3 text-gray-600">{{ $t->pickup_time ?: '—' }}</td>
                             <td class="px-4 py-3 text-right text-blue-700 font-semibold">₹{{ number_format($t->monthly_fee, 0) }}</td>
                             <td class="px-4 py-3 text-right text-emerald-700 font-semibold">₹{{ number_format($this->annualFee($t->monthly_fee), 0) }}</td>
@@ -294,7 +301,7 @@
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                         </button>
                                         <button wire:click="editTransportStudent({{ $s->id }}, {{ $s->_route->id }})"
-                                            class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md" title="Edit monthly fee schedule">
+                                            class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md" title="Modify billable months &amp; fee">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                         </button>
                                         <button wire:click="confirmDeleteTransportStudent({{ $s->id }}, {{ $s->_route->id }}, @js($s->full_name))"
@@ -404,6 +411,24 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1.5">Address</label>
                     <textarea wire:model="driver_address" rows="2" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500"></textarea>
                 </div>
+
+                {{-- Assign this driver to one or more routes --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Assign Routes <span class="text-gray-400 font-normal">(select one or more)</span></label>
+                    @if (count($routeOptions) === 0)
+                        <p class="text-xs text-gray-400 border border-dashed border-gray-200 rounded-md p-3">No routes yet. Create routes first, then assign them to this driver.</p>
+                    @else
+                        <div class="border border-gray-200 rounded-md divide-y divide-gray-100 max-h-56 overflow-y-auto">
+                            @foreach ($routeOptions as $r)
+                                <label class="flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 cursor-pointer">
+                                    <input type="checkbox" wire:model="driver_routes" value="{{ $r->id }}" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                    <span class="text-sm text-gray-700">{{ $r->route_name }}</span>
+                                </label>
+                            @endforeach
+                        </div>
+                        <p class="text-[11px] text-gray-400 mt-1">This driver will be set on the selected routes. Unchecking a route releases it (no driver).</p>
+                    @endif
+                </div>
             </div>
             <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
                 <button wire:click="closeDriverModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
@@ -439,14 +464,15 @@
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Driver <span class="text-red-500">*</span></label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Driver <span class="text-gray-400 font-normal">(optional)</span></label>
                         <select wire:model="driver_detail_id" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm bg-white">
-                            <option value="">Select driver…</option>
+                            <option value="">No driver yet</option>
                             @foreach ($availableDrivers as $d)
                                 <option value="{{ $d['id'] }}">{{ $d['name'] }}{{ $d['vehicle_no'] ? ' · ' . $d['vehicle_no'] : '' }}</option>
                             @endforeach
                         </select>
                         @error('driver_detail_id')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                        <p class="text-[11px] text-gray-400 mt-1">You can add routes first and assign a driver later (from the Driver form).</p>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Pickup Time</label>
@@ -506,9 +532,15 @@
                     @endforeach
                 </div>
 
-                <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700">
-                    <strong>{{ collect($editTxBillableMonths)->filter()->count() }}</strong> month(s) active out of 12.
-                    By default June is off (vacation).
+                @php $activeCount = collect($editTxBillableMonths)->filter()->count(); @endphp
+                <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 space-y-1.5">
+                    <div class="flex items-center justify-between text-xs text-blue-700">
+                        <span><strong>{{ $activeCount }}</strong> month(s) active out of 12 · By default June is off (vacation).</span>
+                    </div>
+                    <div class="flex items-center justify-between border-t border-blue-100 pt-1.5">
+                        <span class="text-xs text-blue-600">Monthly ₹{{ number_format($editTxMonthly, 0) }} × {{ $activeCount }}</span>
+                        <span class="text-sm font-bold text-blue-800">Annual: ₹{{ number_format($editTxMonthly * $activeCount, 0) }}</span>
+                    </div>
                 </div>
             </div>
             <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">

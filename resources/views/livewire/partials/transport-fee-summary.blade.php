@@ -66,23 +66,13 @@
                 </div>
             </div>
 
-            {{-- Months strip --}}
-            @if (!empty($summary['months']))
-                <div class="border-t border-gray-100 bg-gray-50/60 px-5 py-3">
-                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                        Billable months ({{ $summary['months_count'] }}/12)
-                    </p>
-                    <div class="flex flex-wrap gap-1.5">
-                        @foreach ($monthsOrder as $key => $label)
-                            @php $on = $summary['months'][$key] ?? false; @endphp
-                            <span class="text-[11px] px-2 py-0.5 rounded-full font-medium border
-                                {{ $on ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-100 text-gray-400 border-gray-200 line-through' }}">
-                                {{ substr($label, 0, 3) }}
-                            </span>
-                        @endforeach
-                    </div>
-                </div>
-            @endif
+            {{-- Billable months summary (count only; disabled months hidden below) --}}
+            <div class="border-t border-gray-100 bg-gray-50/60 px-5 py-2.5">
+                <p class="text-xs text-gray-500">
+                    Billable months this year: <strong class="text-gray-700">{{ $summary['months_count'] }}/12</strong>
+                    <span class="text-gray-400">(June off by default; disabled months are excluded from the schedule)</span>
+                </p>
+            </div>
         </div>
 
         {{-- ─── Fee figure cards (redesigned) ─────────────── --}}
@@ -112,6 +102,38 @@
                     {{ $pct }}% collected
                 </p>
             </div>
+        </div>
+
+        {{-- ─── Monthly fee status (up to current month; disabled months hidden) ─── --}}
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+                <h4 class="text-sm font-semibold text-gray-700">Monthly Fee Status</h4>
+                <span class="text-xs text-gray-400">Up to the current month</span>
+            </div>
+            @if (!empty($summary['month_status']))
+                <div class="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    @foreach ($summary['month_status'] as $m)
+                        @php
+                            $chip = match ($m['status']) {
+                                'paid'    => ['bg-emerald-50 border-emerald-200', 'text-emerald-700', 'bg-emerald-100 text-emerald-700', 'Paid'],
+                                'partial' => ['bg-amber-50 border-amber-200', 'text-amber-700', 'bg-amber-100 text-amber-700', 'Partial'],
+                                default   => ['bg-red-50 border-red-200', 'text-red-700', 'bg-red-100 text-red-700', 'Unpaid'],
+                            };
+                        @endphp
+                        <div class="rounded-lg border p-3 {{ $chip[0] }}">
+                            <div class="flex items-center justify-between mb-1">
+                                <p class="text-sm font-bold text-gray-800">{{ substr($m['label'], 0, 3) }}</p>
+                                <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full {{ $chip[2] }}">{{ $chip[3] }}</span>
+                            </div>
+                            <p class="text-xs {{ $chip[1] }}">
+                                ₹{{ number_format($m['paid'], 0) }} / ₹{{ number_format($m['amount'], 0) }}
+                            </p>
+                        </div>
+                    @endforeach
+                </div>
+            @else
+                <div class="px-5 py-8 text-center text-sm text-gray-400">No billable months have started yet.</div>
+            @endif
         </div>
 
         {{-- ─── Transactions ──────────────────────────────── --}}
