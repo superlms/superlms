@@ -441,6 +441,10 @@ class Student extends Component
                 $student = new User();
             }
 
+            // Pre-edit email — used to notify the student at their NEW address
+            // when an admin changes it. The password is never touched here.
+            $oldStudentEmail = ($student && $student->exists) ? $student->email : null;
+
             $studentData = [
                 'name'            => $this->studentsName,
                 'email'           => $this->studentsEmail,
@@ -562,6 +566,44 @@ class Student extends Component
 
             // ─── After commit ─────────────────────────────────────────────
             if (!$isNew) {
+                // Email changed on an edit → send updated credentials to the NEW
+                // address. Password is unchanged (still whatever was set before),
+                // so we can't re-print it; we tell them to use their existing one.
+                if ($oldStudentEmail && strcasecmp($oldStudentEmail, $student->email) !== 0) {
+                    $emailTemplateKey = config('services.zeptomail.student_password_template_key');
+                    if ($emailTemplateKey) {
+                        $schoolName   = Organization::find($orgId)?->name ?? 'School';
+                        $emailPayload = [
+                            'template_key' => $emailTemplateKey,
+                            'to_email'     => $student->email,
+                            'to_name'      => $student->name,
+                            'merge'        => [
+                                'password'         => 'Use your existing password (unchanged)',
+                                'school_name'      => $schoolName,
+                                'admission_number' => $admissionNo,
+                                'username'         => $student->name,
+                                'name'             => $student->name,
+                                'email'            => $student->email,
+                                'login_url'        => url('/login'),
+                            ],
+                        ];
+
+                        dispatch(function () use ($emailPayload) {
+                            try {
+                                \App\Services\ZeptoMailService::sendTemplate(
+                                    $emailPayload['template_key'],
+                                    $emailPayload['to_email'],
+                                    $emailPayload['to_name'],
+                                    $emailPayload['merge'],
+                                );
+                                logger()->info('Student updated-email credentials sent (after-response) to: ' . $emailPayload['to_email']);
+                            } catch (\Throwable $e) {
+                                logger()->error('Student updated-email credentials failed (after-response) for ' . $emailPayload['to_email'] . ': ' . $e->getMessage());
+                            }
+                        })->afterResponse();
+                    }
+                }
+
                 $this->notification()->success('Student Updated Successfully!');
             } else {
                 // Welcome email — needs to fire (carries password + admission_no

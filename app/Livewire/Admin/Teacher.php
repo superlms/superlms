@@ -257,6 +257,10 @@ class Teacher extends Component
             $plainPassword  = null;
             $teacher        = $isEdit ? User::findOrFail($this->editId) : new User();
 
+            // Remember the pre-edit email so we can notify the teacher at their
+            // NEW address when an admin changes it. Password is never touched here.
+            $oldEmail       = $isEdit ? $teacher->email : null;
+
             // Build base user payload (only User-table columns!)
             // dob + gender are added below via direct property set IFF the
             // columns exist on the users table — lms:migrate adds them but
@@ -362,6 +366,43 @@ class Teacher extends Component
                     })->afterResponse();
                 } else {
                     logger()->warning('ZEPTOMAIL_TEACHER_PASSWORD_TEMPLATE_KEY not configured — skipping welcome email.');
+                }
+            }
+
+            // Email changed on an edit → send updated credentials to the NEW
+            // address. The password is unchanged (still whatever was set before),
+            // so we can't re-print it; we tell them to use their existing one.
+            if ($isEdit && $oldEmail && strcasecmp($oldEmail, $teacher->email) !== 0) {
+                $emailTemplateKey = config('services.zeptomail.teacher_password_template_key');
+                if ($emailTemplateKey) {
+                    $schoolName   = Organization::find(Auth::user()->organization_id)?->name ?? 'School';
+                    $emailPayload = [
+                        'template_key' => $emailTemplateKey,
+                        'to_email'     => $teacher->email,
+                        'to_name'      => $teacher->name,
+                        'merge'        => [
+                            'password'      => 'Use your existing password (unchanged)',
+                            'email_address' => $teacher->email,
+                            'school_name'   => $schoolName,
+                            'username'      => $teacher->name,
+                            'name'          => $teacher->name,
+                            'login_url'     => url('/login'),
+                        ],
+                    ];
+
+                    dispatch(function () use ($emailPayload) {
+                        try {
+                            \App\Services\ZeptoMailService::sendTemplate(
+                                $emailPayload['template_key'],
+                                $emailPayload['to_email'],
+                                $emailPayload['to_name'],
+                                $emailPayload['merge'],
+                            );
+                            logger()->info('Teacher updated-email credentials sent (after-response) to: ' . $emailPayload['to_email']);
+                        } catch (\Throwable $e) {
+                            logger()->error('Teacher updated-email credentials failed (after-response) for ' . $emailPayload['to_email'] . ': ' . $e->getMessage());
+                        }
+                    })->afterResponse();
                 }
             }
 
