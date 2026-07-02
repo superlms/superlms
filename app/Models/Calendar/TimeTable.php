@@ -22,6 +22,7 @@ class TimeTable extends Model
         'end_time',
         'event_type',
         'color',
+        'attachment',
         'recurrence',
         'recurrence_end_date',
         'is_all_day',

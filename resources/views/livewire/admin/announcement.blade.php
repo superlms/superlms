@@ -53,13 +53,31 @@
                         @foreach ([['all', 'All'], ['7', '7d'], ['15', '15d'], ['30', '30d'], ['60', '60d']] as $opt)
                             <button wire:click="$set('dateFilter', '{{ $opt[0] }}')"
                                 class="px-2.5 py-1 text-xs font-medium rounded-md transition-colors
-                                       {{ $dateFilter == $opt[0]
+                                       {{ $dateFilter == $opt[0] && !$specificDate
                                            ? 'bg-blue-600 text-white'
                                            : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
                                 {{ $opt[1] }}
                             </button>
                         @endforeach
                     </div>
+                </div>
+
+                <span class="hidden sm:inline-block w-px h-5 bg-gray-200"></span>
+
+                {{-- Specific date filter --}}
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-500 hidden sm:inline">Date:</span>
+                    <input type="date" wire:model.live="specificDate" max="{{ now()->format('Y-m-d') }}"
+                        class="px-2.5 py-1 text-xs border border-gray-200 rounded-md bg-white text-gray-700
+                               focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+                    @if ($specificDate)
+                        <button wire:click="clearDate" title="Clear date"
+                            class="inline-flex items-center justify-center w-6 h-6 rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-gray-50">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    @endif
                 </div>
 
                 <span class="hidden sm:inline-block w-px h-5 bg-gray-200"></span>
@@ -254,11 +272,15 @@
                 <div class="flex-1 overflow-y-auto px-6 py-6 space-y-5">
 
                     {{-- Title --}}
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">
-                            Title <span class="text-red-500">*</span>
-                        </label>
-                        <input wire:model.defer="announcementName" type="text" placeholder="Announcement title"
+                    <div x-data="{ len: @js(mb_strlen($announcementName ?? '')) }">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-sm font-medium text-gray-700">
+                                Title <span class="text-red-500">*</span>
+                            </label>
+                            <span class="text-xs text-gray-400"><span x-text="len">0</span>/1000</span>
+                        </div>
+                        <input wire:model.defer="announcementName" type="text" maxlength="1000" placeholder="Announcement title"
+                            x-on:input="len = $event.target.value.length"
                             class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-800
                                    focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors
                                    placeholder:text-gray-400" />
@@ -268,11 +290,15 @@
                     </div>
 
                     {{-- Content --}}
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">
-                            Content <span class="text-red-500">*</span>
-                        </label>
-                        <textarea wire:model.defer="announcementContent" rows="6" placeholder="Write your announcement content here..."
+                    <div x-data="{ len: @js(mb_strlen($announcementContent ?? '')) }">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-sm font-medium text-gray-700">
+                                Content <span class="text-red-500">*</span>
+                            </label>
+                            <span class="text-xs text-gray-400"><span x-text="len">0</span>/3000</span>
+                        </div>
+                        <textarea wire:model.defer="announcementContent" rows="6" maxlength="3000" placeholder="Write your announcement content here..."
+                            x-on:input="len = $event.target.value.length"
                             class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-800
                                    focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none transition-colors
                                    placeholder:text-gray-400"></textarea>
@@ -315,7 +341,7 @@
                     {{-- ── Unified attachment uploader — Image OR PDF ── --}}
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">
-                            Attachment <span class="font-normal text-gray-400">(Optional · Image or PDF, max 5MB)</span>
+                            Attachment <span class="font-normal text-gray-400">(Optional · Image or PDF, max 1 MB)</span>
                         </label>
 
                         {{-- Existing attachments when editing (icon tiles, click to open, x to remove) --}}
@@ -365,7 +391,7 @@
                         <input id="annFileInput" type="file" wire:model="announcementFile"
                             accept="image/*,application/pdf"
                             class="block w-full text-sm text-gray-500 cursor-pointer file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                        <p class="text-xs text-gray-400 mt-1">Image (JPG/PNG/GIF/WebP) or PDF · max 5MB</p>
+                        <p class="text-xs text-gray-400 mt-1">Image (JPG/PNG/GIF/WebP) or PDF · max 1 MB</p>
 
                         <div wire:loading wire:target="announcementFile" class="text-xs text-blue-600 mt-2">Uploading...</div>
 

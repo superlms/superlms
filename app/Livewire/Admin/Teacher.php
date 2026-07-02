@@ -5,6 +5,11 @@ namespace App\Livewire\Admin;
 use App\Helpers\CityGetHelper;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\Teacher\AssignTeacherStandard;
+use App\Models\Teacher\TeacherSubject;
+use App\Models\Teacher\TeacherAttendance;
+use App\Exports\TeachersExport;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Maatwebsite\Excel\Facades\Excel;
 use App\Models\Student\Standard;
 use App\Models\Student\Section;
 use App\Models\Admin\SchoolInfo;
@@ -73,9 +78,6 @@ class Teacher extends Component
     // ─── Custom delete overlay (replaces broken WireUI dialog) ──────────
     public bool $showDeleteConfirm = false;
     public $deleteTargetId         = null;
-
-    // ─── Multi-add ───────────────────────────────────────────────────────
-    public bool $saveAndAddAnother = false;
 
     // ─── Search & Filters ────────────────────────────────────────────────
     public string $search        = '';
@@ -208,28 +210,33 @@ class Teacher extends Component
         $this->openImage = false;
     }
 
-    public function onSaveAndAddAnother(): void
-    {
-        $this->saveAndAddAnother = true;
-        $this->onSave();
-    }
-
     // ─── Save ────────────────────────────────────────────────────────────
     public function onSave(): void
     {
         $rules = [
-            'teacherName'      => 'required|string|max:255',
-            'teacherEmail'     => 'required|email|max:191',
-            'teacherMobile'    => 'required|string|digits:10',
+            'teacherName'      => 'required|string|max:50|regex:/^[A-Za-z ]+$/',
+            'teacherEmail'     => 'required|email:rfc|max:191',
+            'teacherMobile'    => 'required|digits:10',
             'dob'              => 'required|date|before:today',
             'teacherGender'    => 'required|string|in:male,female,other',
-            'employeeId'       => 'required|string|max:50',
+            'employeeId'       => 'required|string|max:20',
             'dateOfJoining'    => 'required|date|before_or_equal:today',
-            'qualification'    => 'required|string|max:255',
+            'qualification'    => 'required|string|max:50',
             'address'          => 'required|string|max:1000',
             'pincode'          => 'required|digits:6',
-            'emergencyContact' => 'required|string|digits:10',
-            'teacherImage'     => 'nullable|image|max:2048',
+            'emergencyContact' => 'required|digits:10',
+            'teacherImage'     => 'nullable|image|max:1024', // 1 MB
+        ];
+
+        $messages = [
+            'teacherName.regex'       => 'Name may contain only letters and spaces.',
+            'teacherName.max'         => 'Name may not be longer than 50 characters.',
+            'employeeId.max'          => 'Employee ID may not be longer than 20 characters.',
+            'qualification.max'       => 'Qualification may not be longer than 50 characters.',
+            'teacherImage.max'        => 'Image must be 1 MB or smaller.',
+            'teacherMobile.digits'    => 'Mobile number must be exactly 10 digits.',
+            'emergencyContact.digits' => 'Emergency contact must be exactly 10 digits.',
+            'pincode.digits'          => 'Pincode must be exactly 6 digits.',
         ];
 
         // Unique email (exclude current user when editing, scope to role=teacher)
@@ -243,7 +250,7 @@ class Teacher extends Component
             }
         }
 
-        $this->validate($rules);
+        $this->validate($rules, $messages);
 
         try {
             $isEdit         = (bool) $this->editId;
@@ -295,6 +302,9 @@ class Teacher extends Component
             // admins on different devices create teachers concurrently without
             // half-written records. updateOrCreate is keyed on user_id so a
             // retried/concurrent save is idempotent rather than erroring.
+            // attempts=5 → Laravel auto-retries the whole transaction on a
+            // deadlock/lock-timeout, so many admins on different devices creating
+            // teachers at the same instant all succeed without surfacing errors.
             DB::transaction(function () use ($teacher) {
                 $teacher->save();
 
@@ -314,7 +324,7 @@ class Teacher extends Component
                         'emergency_contact' => $this->emergencyContact,
                     ]
                 );
-            });
+            }, 5);
 
             // Send welcome email on creation only — dispatched after-response so
             // a slow ZeptoMail can never block the user's "Saving…" spinner.
@@ -359,24 +369,14 @@ class Teacher extends Component
                 $isEdit ? 'Teacher Updated Successfully!' : 'Teacher Created Successfully!'
             );
 
-            $keepOpen = $this->saveAndAddAnother && !$isEdit;
-            $this->saveAndAddAnother = false;
-
             // Clear any active search so the newly-added teacher's email doesn't auto-filter the list
             $this->search = '';
-
-            if ($keepOpen) {
-                $this->resetFormFields();
-                $this->open = true;
-            } else {
-                $this->resetForm();
-            }
+            $this->resetForm();
 
             $this->loadTeacherDashboardData();
             $this->resetPage();
             $this->dispatch('onTeacherAddUpdate');
         } catch (\Throwable $e) {
-            $this->saveAndAddAnother = false;
             $this->notification()->error('Error Saving Teacher', $e->getMessage());
             logger()->error('Teacher save error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
         }
@@ -497,71 +497,122 @@ class Teacher extends Component
     }
 
     // ─── Export ──────────────────────────────────────────────────────────
+    /**
+     * Export teachers as a ZIP containing BOTH an Excel (.xlsx) and a PDF file.
+     * Each row carries the full form data plus overall attendance, the subjects
+     * the teacher is assigned to (with class/section) and bank details. Missing
+     * values are shown as a dash. The PDF is a report-card-style document with
+     * the school header on top.
+     */
     public function exportTeachers(): StreamedResponse
     {
-        $org      = Auth::user()->organization_id;
-        $teachers = TeacherDetail::with('user')
-            ->where('organization_id', $org)->get();
+        $org        = Auth::user()->organization_id;
+        $orgModel   = Organization::find($org);
+        $schoolInfo = SchoolInfo::where('organization_id', $org)->first();
 
-        $orgName = Organization::find($org)?->name ?? '';
+        [$headings, $rows] = $this->teacherExportData($org);
 
-        return response()->stream(function () use ($teachers, $orgName) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, [
-                'S.No',
-                'Employee ID',
-                'Full Name',
-                'Email',
-                'Mobile Number',
-                'Gender',
-                'Date of Birth',
-                'Date of Joining',
-                'Qualification',
-                'Emergency Contact',
-                'Address',
-                'City',
-                'State',
-                'Pincode',
-                'Profile Image',
-                'Organization',
-                'Status',
-            ]);
+        $stamp = now()->format('Y-m-d');
 
-            foreach ($teachers as $i => $t) {
-                $dob = $t->user->dob ?? null;
-                if ($dob instanceof \Carbon\Carbon) {
-                    $dob = $dob->format('d-m-Y');
-                }
-                $doj = $t->date_of_joining ?? null;
-                if ($doj instanceof \Carbon\Carbon) {
-                    $doj = $doj->format('d-m-Y');
-                }
+        // Excel (.xlsx) — raw bytes so we can bundle it into the zip.
+        $xlsx = Excel::raw(new TeachersExport($headings, $rows), \Maatwebsite\Excel\Excel::XLSX);
 
-                fputcsv($handle, [
-                    $i + 1,
-                    $t->employee_id ?? '',
-                    $t->user->name ?? '',
-                    $t->user->email ?? '',
-                    $t->user->mobile_number ?? '',
-                    ucfirst($t->user->gender ?? ''),
-                    $dob ?? '',
-                    $doj ?? '',
-                    $t->qualification ?? '',
-                    $t->emergency_contact ?? '',
-                    $t->address ?? '',
-                    $t->city ?? '',
-                    $t->state ?? '',
-                    $t->pincode ?? '',
-                    $t->user->image ?? '',
-                    $orgName,
-                    ($t->user->is_active ?? false) ? 'Active' : 'Inactive',
-                ]);
-            }
-            fclose($handle);
-        }, 200, [
-            'Content-Type'        => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="teachers_' . now()->format('Y-m-d_H-i-s') . '.csv"',
-        ]);
+        // PDF — report-card style with the school header.
+        $pdf = Pdf::loadView('pdf.admin.teachers', [
+            'organization' => $orgModel,
+            'schoolInfo'   => $schoolInfo,
+            'rows'         => $rows,
+            'generatedAt'  => now(),
+        ])
+            ->setPaper('a4', 'portrait')
+            ->setOption('isHtml5ParserEnabled', true)
+            ->setOption('isRemoteEnabled', true)
+            ->setOption('defaultFont', 'DejaVu Sans')
+            ->output();
+
+        // Bundle both files into one zip.
+        $tmpZip = tempnam(sys_get_temp_dir(), 'teachers_') . '.zip';
+        $zip    = new \ZipArchive();
+        $zip->open($tmpZip, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->addFromString("teachers_{$stamp}.xlsx", $xlsx);
+        $zip->addFromString("teachers_{$stamp}.pdf", $pdf);
+        $zip->close();
+
+        return response()->streamDownload(function () use ($tmpZip) {
+            readfile($tmpZip);
+            @unlink($tmpZip);
+        }, "teachers_{$stamp}.zip", ['Content-Type' => 'application/zip']);
+    }
+
+    /**
+     * Build the export dataset: one associative row per teacher (keys double as
+     * the column headings). Attendance, assigned subjects and bank details are
+     * pulled per teacher; anything unavailable becomes "-".
+     */
+    private function teacherExportData(int $org): array
+    {
+        $teachers = TeacherDetail::with('user')->where('organization_id', $org)->get();
+
+        // Teacher bank columns only exist if `lms:migrate` ever added them.
+        $hasBank = Schema::hasColumn('teacher_details', 'bank_name');
+        $dash    = fn ($v) => ($v === null || $v === '') ? '-' : $v;
+
+        $rows = [];
+        foreach ($teachers as $i => $t) {
+            $u = $t->user;
+
+            // Overall attendance
+            $attTotal   = TeacherAttendance::where('teacher_detail_id', $t->id)->count();
+            $attPresent = TeacherAttendance::where('teacher_detail_id', $t->id)->where('status', true)->count();
+            $attPct     = $attTotal > 0 ? round($attPresent / $attTotal * 100, 1) . '%' : '-';
+
+            // Subjects assigned, each with its class (and section)
+            $subjects = TeacherSubject::with(['subject:id,name', 'standard:id,name', 'section:id,name'])
+                ->where('teacher_detail_id', $t->id)
+                ->get()
+                ->map(function ($ts) {
+                    $sub = $ts->subject?->name ?? 'Subject';
+                    $cls = trim(($ts->standard?->name ?? '') . ($ts->section ? ' - ' . $ts->section->name : ''));
+                    return $cls !== '' ? "{$sub} ({$cls})" : $sub;
+                })
+                ->unique()
+                ->implode('; ');
+
+            $dob = $u?->dob;
+            if ($dob instanceof \Carbon\Carbon) $dob = $dob->format('d-m-Y');
+            $doj = $t->date_of_joining;
+            if ($doj instanceof \Carbon\Carbon) $doj = $doj->format('d-m-Y');
+
+            $rows[] = [
+                'S.No'                  => $i + 1,
+                'Employee ID'           => $dash($t->employee_id),
+                'Full Name'             => $dash($u?->name),
+                'Email'                 => $dash($u?->email),
+                'Mobile'                => $dash($u?->mobile_number),
+                'Gender'                => $dash($u?->gender ? ucfirst($u->gender) : null),
+                'Date of Birth'         => $dash($dob),
+                'Date of Joining'       => $dash($doj),
+                'Qualification'         => $dash($t->qualification),
+                'Emergency Contact'     => $dash($t->emergency_contact),
+                'Address'               => $dash($t->address),
+                'City'                  => $dash($t->city),
+                'State'                 => $dash($t->state),
+                'Pincode'               => $dash($t->pincode),
+                'Status'                => ($u?->is_active ? 'Active' : 'Inactive'),
+                'Attendance'            => $attTotal > 0 ? "{$attPresent}/{$attTotal}" : '-',
+                'Attendance %'          => $attPct,
+                'Subjects (with Class)' => $subjects !== '' ? $subjects : '-',
+                'Bank Name'             => $dash($hasBank ? $t->bank_name : null),
+                'Bank Account No'       => $dash($hasBank ? $t->bank_account_no : null),
+                'Bank IFSC'             => $dash($hasBank ? $t->bank_ifsc : null),
+                'Bank Branch'           => $dash($hasBank ? $t->bank_branch : null),
+                'Account Holder'        => $dash($hasBank ? $t->bank_holder_name : null),
+            ];
+        }
+
+        $headings = $rows ? array_keys($rows[0]) : ['S.No'];
+
+        return [$headings, $rows];
     }
 
     // ─── Reset ───────────────────────────────────────────────────────────

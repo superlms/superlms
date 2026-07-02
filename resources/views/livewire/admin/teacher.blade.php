@@ -436,7 +436,7 @@
 
                     {{-- Profile image --}}
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Teacher Profile Image <span class="text-gray-400 font-normal">(Optional, max 2 MB)</span></label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Teacher Profile Image <span class="text-gray-400 font-normal">(Optional, max 1 MB)</span></label>
                         @if ($editId && !$teacherImage)
                             @php $user = \App\Models\User::find($editId) @endphp
                             @if ($user?->image)
@@ -458,7 +458,9 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Full Name <span class="text-red-500">*</span></label>
-                            <input wire:model.defer="teacherName" type="text" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            <input wire:model.defer="teacherName" type="text" maxlength="50"
+                                oninput="this.value=this.value.replace(/[^A-Za-z ]/g,'')"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                             @error('teacherName')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
@@ -468,22 +470,24 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Mobile <span class="text-red-500">*</span></label>
-                            <input wire:model.defer="teacherMobile" type="tel" maxlength="10" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
+                            <input wire:model.defer="teacherMobile" type="tel" maxlength="10" inputmode="numeric"
+                                oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
                             @error('teacherMobile')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Employee ID <span class="text-red-500">*</span></label>
-                            <input wire:model.defer="employeeId" type="text" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
+                            <input wire:model.defer="employeeId" type="text" maxlength="20" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
                             @error('employeeId')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Date of Birth <span class="text-red-500">*</span></label>
-                            <input wire:model.defer="dob" type="date" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
+                            <input wire:model.defer="dob" type="date" min="1940-01-01" max="{{ now()->subYear()->format('Y-m-d') }}" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
                             @error('dob')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Date of Joining <span class="text-red-500">*</span></label>
-                            <input wire:model.defer="dateOfJoining" type="date" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
+                            <input wire:model.defer="dateOfJoining" type="date" min="1970-01-01" max="{{ now()->format('Y-m-d') }}" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
                             @error('dateOfJoining')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
@@ -498,17 +502,21 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Qualification <span class="text-red-500">*</span></label>
-                            <input wire:model.defer="qualification" type="text" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
+                            <input wire:model.defer="qualification" type="text" maxlength="50" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
                             @error('qualification')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Emergency Contact <span class="text-red-500">*</span></label>
-                            <input wire:model.defer="emergencyContact" type="tel" maxlength="10" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
+                            <input wire:model.defer="emergencyContact" type="tel" maxlength="10" inputmode="numeric"
+                                oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
                             @error('emergencyContact')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Pincode <span class="text-red-500">*</span></label>
-                            <input wire:model.defer="pincode" type="text" maxlength="6" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
+                            <input wire:model.defer="pincode" type="text" maxlength="6" inputmode="numeric"
+                                oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
                             @error('pincode')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
@@ -552,13 +560,6 @@
                 {{-- Fixed footer --}}
                 <div class="px-6 py-3.5 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 flex-shrink-0">
                     <button wire:click="closeModal" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md order-3 sm:order-1">Cancel</button>
-                    @if (!$editId)
-                        <button wire:click="onSaveAndAddAnother" type="button" wire:loading.attr="disabled"
-                            class="px-4 py-2 text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-md disabled:opacity-60 flex items-center justify-center gap-1.5 order-2">
-                            <span wire:loading.remove wire:target="onSaveAndAddAnother">Save &amp; Add Another</span>
-                            <span wire:loading wire:target="onSaveAndAddAnother">Saving...</span>
-                        </button>
-                    @endif
                     <button wire:click="onSave" wire:loading.attr="disabled" wire:target="onSave"
                         class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md disabled:opacity-60 flex items-center justify-center gap-1.5 order-1 sm:order-3">
                         <span wire:loading.remove wire:target="onSave">{{ $editId ? 'Update Teacher' : 'Create Teacher' }}</span>

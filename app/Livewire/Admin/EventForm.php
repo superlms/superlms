@@ -10,20 +10,25 @@ use App\Models\Student\Section;
 use App\Models\Student\Subject;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use WireUi\Traits\WireUiActions;
 
 class EventForm extends Component
 {
-    use WireUiActions;
+    use WireUiActions, WithFileUploads;
 
     public $date;
     public $event;
     public $mode = 'create';
-    
+
     // Form fields
     public $title = '';
     public $description = '';
+    // Optional image/PDF attachment (≤ 1 MB)
+    public $attachment;
     public $event_date;
     public $start_time = '';
     public $end_time = '';
@@ -49,12 +54,21 @@ class EventForm extends Component
     public $teachers = [];
 
     protected $rules = [
-        'title' => 'required|string|max:255',
+        'title' => 'required|string|max:1000',
+        'description' => 'nullable|string|max:3000',
         'event_date' => 'required|date',
         'start_time' => 'required_if:is_all_day,false',
         'end_time' => 'required_if:is_all_day,false',
         // Must stay in sync with the time_tables.event_type enum.
         'event_type' => 'required|in:class,lab,meeting,seminar,workshop,sports,exam,holiday,conference,event,other',
+        'attachment' => 'nullable|file|mimes:jpg,jpeg,png,gif,webp,pdf|max:1024', // 1 MB
+    ];
+
+    protected $messages = [
+        'title.max'       => 'Title may not be longer than 1000 characters.',
+        'description.max' => 'Description may not be longer than 3000 characters.',
+        'attachment.max'  => 'Attachment must be 1 MB (1024 KB) or smaller.',
+        'attachment.mimes' => 'Attachment must be an image or PDF.',
     ];
 
     public function mount($date = null, $event = null, $mode = 'create')
@@ -149,32 +163,41 @@ class EventForm extends Component
 
         try {
             $organizationId = Auth::user()->organization_id;
-            
+
+            // The attachment column is added by a migration; guard the write so a
+            // DB that hasn't run it yet keeps working (same pattern as Teacher).
+            $hasAttachmentCol = Schema::hasColumn('time_tables', 'attachment');
+
+            $payload = [
+                'title' => $this->title,
+                'description' => $this->description,
+                'date' => $this->event_date,
+                'start_time' => $this->is_all_day ? null : $this->start_time,
+                'end_time' => $this->is_all_day ? null : $this->end_time,
+                'event_type' => $this->event_type,
+                'color' => $this->color,
+                'is_all_day' => $this->is_all_day,
+            ];
+
+            // Upload a freshly-chosen attachment and drop the previous one.
+            if ($hasAttachmentCol && $this->attachment) {
+                $existingUrl = $this->mode === 'create' ? null : ($this->event->attachment ?? null);
+                if ($existingUrl) {
+                    Storage::disk('s3')->delete(ltrim(parse_url($existingUrl, PHP_URL_PATH), '/'));
+                }
+                $path = $this->attachment->store('admin/calendar/attachments', 's3');
+                Storage::disk('s3')->setVisibility($path, 'public');
+                $payload['attachment'] = Storage::disk('s3')->url($path);
+            }
+
             if ($this->mode === 'create') {
-                $event = TimeTable::create([
+                $event = TimeTable::create(array_merge([
                     'organization_id' => $organizationId,
                     'created_by' => Auth::id(),
-                    'title' => $this->title,
-                    'description' => $this->description,
-                    'date' => $this->event_date,
-                    'start_time' => $this->is_all_day ? null : $this->start_time,
-                    'end_time' => $this->is_all_day ? null : $this->end_time,
-                    'event_type' => $this->event_type,
-                    'color' => $this->color,
-                    'is_all_day' => $this->is_all_day,
-                ]);
+                ], $payload));
             } else {
                 $event = TimeTable::find($this->event->id);
-                $event->update([
-                    'title' => $this->title,
-                    'description' => $this->description,
-                    'date' => $this->event_date,
-                    'start_time' => $this->is_all_day ? null : $this->start_time,
-                    'end_time' => $this->is_all_day ? null : $this->end_time,
-                    'event_type' => $this->event_type,
-                    'color' => $this->color,
-                    'is_all_day' => $this->is_all_day,
-                ]);
+                $event->update($payload);
             }
 
             // Save academic details

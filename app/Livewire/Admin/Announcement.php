@@ -21,31 +21,45 @@ class Announcement extends Component
     public $editId = null;
     public $selectedAnnouncement = null;
     public $dateFilter = 'all';
+    /** Specific calendar date (Y-m-d) — filters to announcements posted that day. */
+    public $specificDate = '';
     /** all | user (Student) | teacher */
     public $typeFilter = 'all';
 
     public bool $showDeleteConfirm = false;
     public $deleteTargetId         = null;
 
-    #[Rule('required|string|max:255')]
+    #[Rule('required|string|max:1000')]
     public $announcementName = '';
 
-    #[Rule('required|string')]
+    #[Rule('required|string|max:3000')]
     public $announcementContent = '';
 
     #[Rule('required|in:all,user,teacher')]
     public $type = 'all';
 
-    #[Rule('nullable|image|max:2048')] // 2MB max
+    #[Rule('nullable|image|max:1024')] // 1MB max
     public $announcementImage;
 
-    #[Rule('nullable|mimes:pdf|max:5120')] // 5MB max
+    #[Rule('nullable|mimes:pdf|max:1024')] // 1MB max
     public $announcementPdf;
 
-    /** Unified uploader — accepts an image (≤2 MB) or PDF (≤5 MB).
+    /** Unified uploader — accepts an image or PDF, ≤1 MB.
      *  On save we route the file into the correct legacy column. */
-    #[Rule('nullable|file|mimes:jpg,jpeg,png,gif,webp,pdf|max:5120')]
+    #[Rule('nullable|file|mimes:jpg,jpeg,png,gif,webp,pdf|max:1024')]
     public $announcementFile;
+
+    /** Human-friendly limit messages that always name the exact ceiling. */
+    protected function messages(): array
+    {
+        return [
+            'announcementName.max'    => 'Title may not be longer than 1000 characters.',
+            'announcementContent.max' => 'Content may not be longer than 3000 characters.',
+            'announcementImage.max'   => 'Image must be 1 MB (1024 KB) or smaller.',
+            'announcementPdf.max'     => 'PDF must be 1 MB (1024 KB) or smaller.',
+            'announcementFile.max'    => 'Attachment must be 1 MB (1024 KB) or smaller.',
+        ];
+    }
 
     public function render()
     {
@@ -56,7 +70,10 @@ class Announcement extends Component
 
         $query = AnnouncementModel::where('organization_id', Auth::user()->organization_id)->latest();
 
-        if ($this->dateFilter !== 'all') {
+        // A specific chosen date takes precedence over the preset period range.
+        if ($this->specificDate) {
+            $query->whereDate('created_at', $this->specificDate);
+        } elseif ($this->dateFilter !== 'all') {
             $days = (int) $this->dateFilter;
             $startDate = Carbon::now()->subDays($days);
             $query->where('created_at', '>=', $startDate);
@@ -83,6 +100,22 @@ class Announcement extends Component
 
     public function updatedDateFilter(): void
     {
+        // Choosing a preset period clears any specific-date selection.
+        $this->specificDate = '';
+        $this->resetPage();
+    }
+
+    public function updatedSpecificDate(): void
+    {
+        // Choosing a specific date supersedes the preset period.
+        $this->dateFilter = 'all';
+        $this->resetPage();
+    }
+
+    public function clearDate(): void
+    {
+        $this->specificDate = '';
+        $this->dateFilter   = 'all';
         $this->resetPage();
     }
 
