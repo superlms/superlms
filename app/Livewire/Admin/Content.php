@@ -64,7 +64,7 @@ class Content extends Component
     public function mount(): void
     {
         $org = Auth::user()->organization_id;
-        $this->standards = Standard::where('organization_id', $org)->where('is_active', true)->orderBy('order')->get();
+        $this->standards = Standard::where('organization_id', $org)->where('is_active', true)->orderBy('id')->get();
         $this->loadStats();
     }
 
@@ -118,7 +118,7 @@ class Content extends Component
         } else {
             $query->whereHas('standards', fn($q) => $q->where('standards.id', $this->filterStandard));
         }
-        $this->filterSubjects = $query->orderBy('name')->get();
+        $this->filterSubjects = $query->orderBy('id')->get();
     }
 
     public function clearFilters(): void

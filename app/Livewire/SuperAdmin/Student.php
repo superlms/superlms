@@ -328,7 +328,7 @@ class Student extends Component
         $this->editRegNo            = $detail->registration_number ?? '';
 
         $this->editStandards = $this->editOrgId
-            ? Standard::where('organization_id', $this->editOrgId)->orderBy('name')->get()
+            ? Standard::where('organization_id', $this->editOrgId)->orderBy('id')->get()
             : [];
 
         $this->editSections = $this->editStandardId
@@ -362,7 +362,7 @@ class Student extends Component
         $this->editRoute      = '';
 
         if ($this->editOrgId) {
-            $this->editStandards    = Standard::where('organization_id', $this->editOrgId)->orderBy('name')->get();
+            $this->editStandards    = Standard::where('organization_id', $this->editOrgId)->orderBy('id')->get();
             $this->editBoard        = Organization::find($this->editOrgId)?->education_board ?? '';
             $this->editRouteOptions = $this->routesForOrg($this->editOrgId);
         } else {
@@ -648,7 +648,7 @@ class Student extends Component
         $this->addRoute      = '';
 
         if ($this->addOrgId) {
-            $this->addStandards    = Standard::where('organization_id', $this->addOrgId)->orderBy('name')->get();
+            $this->addStandards    = Standard::where('organization_id', $this->addOrgId)->orderBy('id')->get();
             $org = Organization::find($this->addOrgId);
             $this->addBoard        = $org?->education_board ?? '';
             $this->addRouteOptions = $this->routesForOrg($this->addOrgId);

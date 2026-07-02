@@ -572,7 +572,7 @@ class Admissions extends Component
 
         $standards = Standard::where('organization_id', $orgId)
             ->where('is_active', true)
-            ->orderBy('order')
+            ->orderBy('id')
             ->get(['id', 'name']);
 
         // Analytics in one aggregate query

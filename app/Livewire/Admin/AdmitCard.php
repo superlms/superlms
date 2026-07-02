@@ -148,7 +148,7 @@ class AdmitCard extends Component
         }
 
         $subjectIds = $query->pluck('subject_id')->unique();
-        $subjects   = Subject::whereIn('id', $subjectIds)->where('is_active', true)->orderBy('name')->get();
+        $subjects   = Subject::whereIn('id', $subjectIds)->where('is_active', true)->orderBy('id')->get();
 
         if ($subjects->isEmpty()) return $this->defaultSubjectRow();
 
@@ -626,7 +626,7 @@ class AdmitCard extends Component
     #[\Livewire\Attributes\Computed]
     public function standards()
     {
-        return Standard::where('organization_id', $this->orgId())->orderBy('name')->get();
+        return Standard::where('organization_id', $this->orgId())->orderBy('id')->get();
     }
 
     #[\Livewire\Attributes\Computed]
@@ -634,7 +634,7 @@ class AdmitCard extends Component
     {
         if (!$this->standardFilter) return collect();
         return Section::where('standard_id', $this->standardFilter)
-            ->where('organization_id', $this->orgId())->orderBy('name')->get();
+            ->where('organization_id', $this->orgId())->orderBy('id')->get();
     }
 
     #[\Livewire\Attributes\Computed]
@@ -642,7 +642,7 @@ class AdmitCard extends Component
     {
         if (!$this->issueStandard) return collect();
         return Section::where('standard_id', $this->issueStandard)
-            ->where('organization_id', $this->orgId())->orderBy('name')->get();
+            ->where('organization_id', $this->orgId())->orderBy('id')->get();
     }
 
     #[\Livewire\Attributes\Computed]
@@ -650,7 +650,7 @@ class AdmitCard extends Component
     {
         if (!$this->bulkStandard) return collect();
         return Section::where('standard_id', $this->bulkStandard)
-            ->where('organization_id', $this->orgId())->orderBy('name')->get();
+            ->where('organization_id', $this->orgId())->orderBy('id')->get();
     }
 
     // ─── Computed: Available students for Issue Modal ────────────────────────────
@@ -673,7 +673,7 @@ class AdmitCard extends Component
     public function allSubjects()
     {
         return Subject::where('organization_id', $this->orgId())
-            ->where('is_active', true)->orderBy('name')->get();
+            ->where('is_active', true)->orderBy('id')->get();
     }
 
     // ─── Print All URL ────────────────────────────────────────────────────────────

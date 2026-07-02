@@ -42,7 +42,7 @@ class Arrangement extends Component
     {
         $this->date = Carbon::today()->format('Y-m-d');
         $org = Auth::user()->organization_id;
-        $this->standards = Standard::where('organization_id', $org)->orderBy('order')->get();
+        $this->standards = Standard::where('organization_id', $org)->orderBy('id')->get();
         $this->loadStats();
     }
 

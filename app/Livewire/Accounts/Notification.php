@@ -100,7 +100,7 @@ class Notification extends Component
         $orgId = $this->orgId();
 
         $standards = Standard::where('organization_id', $orgId)
-            ->where('is_active', true)->orderBy('order')->get();
+            ->where('is_active', true)->orderBy('id')->get();
 
         $totalStudents  = StudentDetail::where('organization_id', $orgId)->count();
         $totalTeachers  = TeacherDetail::where('organization_id', $orgId)->count();

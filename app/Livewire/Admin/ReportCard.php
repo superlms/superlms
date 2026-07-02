@@ -352,8 +352,7 @@ class ReportCard extends Component
     {
         return Standard::where('organization_id', Auth::user()->organization_id)
             ->where('is_active', true)
-            ->orderBy('order')
-            ->orderBy('name')
+            ->orderBy('id')
             ->get();
     }
 
@@ -369,7 +368,7 @@ class ReportCard extends Component
 
         return Section::where('standard_id', $this->filterStandard)
             ->where('is_active', true)
-            ->orderBy('name')
+            ->orderBy('id')
             ->get();
     }
 
@@ -385,7 +384,7 @@ class ReportCard extends Component
 
         return Section::where('standard_id', $this->issueStandard)
             ->where('is_active', true)
-            ->orderBy('name')
+            ->orderBy('id')
             ->get();
     }
 

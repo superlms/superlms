@@ -151,7 +151,7 @@ class AddExam extends Component
 
         $this->allStandards = Standard::where('organization_id', $orgId)
             ->where('is_active', true)
-            ->orderBy('order')
+            ->orderBy('id')
             ->get(['id', 'name', 'code'])
             ->toArray();
 
@@ -508,7 +508,7 @@ class AddExam extends Component
         $this->sylModalSections = Section::where('organization_id', $orgId)
             ->where('standard_id', $value)
             ->where('is_active', true)
-            ->orderBy('name')
+            ->orderBy('id')
             ->get(['id', 'name'])
             ->toArray();
     }
@@ -546,7 +546,7 @@ class AddExam extends Component
         $this->sylModalSubjects = Subject::where('organization_id', $orgId)
             ->whereIn('id', $sectionSubjectIds)
             ->where('is_active', true)
-            ->orderBy('name')
+            ->orderBy('id')
             ->get(['id', 'name'])
             ->toArray();
     }
@@ -724,7 +724,7 @@ class AddExam extends Component
             $filterSections = Section::where('organization_id', $orgId)
                 ->where('standard_id', $this->syllabusFilterStandard)
                 ->where('is_active', true)
-                ->orderBy('name')
+                ->orderBy('id')
                 ->get(['id', 'name'])
                 ->toArray();
         }
@@ -743,7 +743,7 @@ class AddExam extends Component
 
             $filterSubjects = Subject::where('organization_id', $orgId)
                 ->whereIn('id', $subjectIds)
-                ->orderBy('name')
+                ->orderBy('id')
                 ->get(['id', 'name'])
                 ->toArray();
         }

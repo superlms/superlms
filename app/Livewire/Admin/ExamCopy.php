@@ -97,12 +97,12 @@ class ExamCopy extends Component
 
         $this->standards = Standard::where('organization_id', $orgId)
             ->where('is_active', true)
-            ->orderBy('order')
+            ->orderBy('id')
             ->get(['id', 'name']);
 
         $this->subjects = Subject::where('organization_id', $orgId)
             ->where('is_active', true)
-            ->orderBy('name')
+            ->orderBy('id')
             ->get(['id', 'name']);
 
         $this->sections  = collect();
@@ -306,7 +306,7 @@ class ExamCopy extends Component
         if ($value) {
             $this->sections = Section::where('standard_id', $value)
                 ->where('is_active', true)
-                ->orderBy('name')
+                ->orderBy('id')
                 ->get();
             $this->loadSubjectsWithMarks();
         } else {

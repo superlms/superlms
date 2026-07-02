@@ -250,7 +250,7 @@ class TimeTable extends Component
         if ($subjects->isEmpty()) {
             $subjects = Subject::where('organization_id', $org)
                 ->where('is_active', true)
-                ->orderBy('name')
+                ->orderBy('id')
                 ->get();
         }
 

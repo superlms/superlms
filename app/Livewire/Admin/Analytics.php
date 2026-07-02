@@ -62,7 +62,7 @@ class Analytics extends Component
     public function mount(): void
     {
         $this->standards = Standard::where('organization_id', $this->orgId())
-            ->orderBy('order')->get();
+            ->orderBy('id')->get();
         $this->loadAll();
     }
 
@@ -322,7 +322,7 @@ class Analytics extends Component
     {
         $orgId     = $this->orgId();
         $today     = Carbon::today();
-        $standards = Standard::where('organization_id', $orgId)->orderBy('order')->get();
+        $standards = Standard::where('organization_id', $orgId)->orderBy('id')->get();
 
         $labels = $present = $absent = [];
 
@@ -479,7 +479,7 @@ class Analytics extends Component
     protected function loadFeeClassDataStatic(): void
     {
         $orgId     = $this->orgId();
-        $standards = Standard::where('organization_id', $orgId)->orderBy('order')->get();
+        $standards = Standard::where('organization_id', $orgId)->orderBy('id')->get();
         $labels    = $standards->pluck('name')->toArray();
 
         $collected = [];

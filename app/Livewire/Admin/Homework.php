@@ -93,7 +93,7 @@ class Homework extends Component
         
         $this->standards = Standard::where('organization_id', $organizationId)
             ->where('is_active', true)
-            ->orderBy('order')
+            ->orderBy('id')
             ->get();
     }
 
@@ -113,7 +113,7 @@ class Homework extends Component
         if ($this->filterStandard) {
             $this->filterSections = Section::where('standard_id', $this->filterStandard)
                 ->where('is_active', true)
-                ->orderBy('name')
+                ->orderBy('id')
                 ->get();
 
             $this->loadFilterSubjects($this->filterStandard, $this->filterSection);
@@ -157,7 +157,7 @@ class Homework extends Component
         if ($property === 'filterStandard' && $value) {
             $this->filterSections = Section::where('standard_id', $value)
                 ->where('is_active', true)
-                ->orderBy('name')
+                ->orderBy('id')
                 ->get();
             $this->filterSection = '';
 
@@ -197,7 +197,7 @@ class Homework extends Component
         if ($value) {
             $this->sections = Section::where('standard_id', $value)
                 ->where('is_active', true)
-                ->orderBy('name')
+                ->orderBy('id')
                 ->get();
 
             $this->loadSubjectsForStandard($value);
@@ -357,7 +357,7 @@ class Homework extends Component
         if ($homework->standard_id) {
             $this->sections = Section::where('standard_id', $homework->standard_id)
                 ->where('is_active', true)
-                ->orderBy('name')
+                ->orderBy('id')
                 ->get();
 
             $this->loadSubjectsForStandard($homework->standard_id, $homework->section_id);

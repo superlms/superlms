@@ -152,7 +152,7 @@ class Fee extends Component
     public function mount(): void
     {
         $this->standards  = Standard::where('organization_id', $this->orgId())
-            ->where('is_active', true)->orderBy('order')->get();
+            ->where('is_active', true)->orderBy('id')->get();
         $this->submitDate = today()->toDateString();
         $this->loadPenaltySettings();
     }

@@ -157,14 +157,14 @@ class TcCertificate extends Component
     {
         if (!$this->organizationId) return collect();
         return Standard::where('organization_id', $this->organizationId)
-            ->orderBy('name')->get();
+            ->orderBy('id')->get();
     }
 
     private function sectionsFor(string $standardId)
     {
         if (!$standardId) return collect();
         return Section::where('organization_id', $this->organizationId)
-            ->where('standard_id', $standardId)->orderBy('name')->get();
+            ->where('standard_id', $standardId)->orderBy('id')->get();
     }
 
     #[Computed]

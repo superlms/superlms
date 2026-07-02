@@ -215,7 +215,7 @@ class FeeStructure extends Component
         $orgId = $this->orgId();
 
         $standards = Standard::where('organization_id', $orgId)
-            ->where('is_active', true)->orderBy('order')->get();
+            ->where('is_active', true)->orderBy('id')->get();
 
         $sections = $this->filterStructureStandard
             ? Section::where('standard_id', $this->filterStructureStandard)

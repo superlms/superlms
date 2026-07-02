@@ -178,7 +178,7 @@ class Performance extends Component
         $this->students           = [];
         $this->studentPerformance = [];
         if ($value) {
-            $this->sections = Section::where('standard_id', $value)->where('is_active', true)->orderBy('name')->get();
+            $this->sections = Section::where('standard_id', $value)->where('is_active', true)->orderBy('id')->get();
             $this->loadSubjectsForStandard($value);
         } else {
             $this->sections = [];
@@ -377,7 +377,7 @@ class Performance extends Component
         if ($value) {
             $this->perfSections = Section::where('standard_id', $value)
                 ->where('is_active', true)
-                ->orderBy('name')
+                ->orderBy('id')
                 ->get()
                 ->toArray();
         }
@@ -632,14 +632,13 @@ class Performance extends Component
         // Classes: by configured order, but break ties with name asc for stability.
         $this->standards = Standard::where('organization_id', $orgId)
             ->where('is_active', true)
-            ->orderBy('order')
-            ->orderBy('name')
+            ->orderBy('id')
             ->get();
 
         // Subjects: alphabetical asc
         $this->subjects = Subject::where('organization_id', $orgId)
             ->where('is_active', true)
-            ->orderBy('name')
+            ->orderBy('id')
             ->get();
     }
 

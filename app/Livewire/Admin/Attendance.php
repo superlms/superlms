@@ -329,7 +329,7 @@ class Attendance extends Component
     {
         $orgId = Auth::user()->organization_id;
 
-        $standards = Standard::where('organization_id', $orgId)->orderBy('order')->get(['id', 'name']);
+        $standards = Standard::where('organization_id', $orgId)->orderBy('id')->get(['id', 'name']);
         $teachers  = TeacherDetail::with('user:id,name,email,image')->where('organization_id', $orgId)->get();
 
         // Assign-teacher list
@@ -369,9 +369,9 @@ class Attendance extends Component
         }
 
         // ── Student: by date sections ──
-        $sdSections = ($this->sdStandard) ? Section::where('standard_id', $this->sdStandard)->orderBy('name')->get(['id', 'name']) : collect();
-        $ssSections = ($this->ssStandard) ? Section::where('standard_id', $this->ssStandard)->orderBy('name')->get(['id', 'name']) : collect();
-        $scSections = ($this->scStandard) ? Section::where('standard_id', $this->scStandard)->orderBy('name')->get(['id', 'name']) : collect();
+        $sdSections = ($this->sdStandard) ? Section::where('standard_id', $this->sdStandard)->orderBy('id')->get(['id', 'name']) : collect();
+        $ssSections = ($this->ssStandard) ? Section::where('standard_id', $this->ssStandard)->orderBy('id')->get(['id', 'name']) : collect();
+        $scSections = ($this->scStandard) ? Section::where('standard_id', $this->scStandard)->orderBy('id')->get(['id', 'name']) : collect();
 
         // student list for by_student dropdown
         $ssStudents = collect();

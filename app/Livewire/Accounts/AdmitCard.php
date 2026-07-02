@@ -136,7 +136,7 @@ class AdmitCard extends Component
             ->when($sectionId, fn($q) => $q->where('section_id', $sectionId))
             ->pluck('subject_id')->unique();
 
-        $subjects = Subject::whereIn('id', $subjectIds)->where('is_active', true)->orderBy('name')->get();
+        $subjects = Subject::whereIn('id', $subjectIds)->where('is_active', true)->orderBy('id')->get();
 
         return $subjects->isEmpty() ? $this->defaultSubjectRow() : $subjects->map(fn($s) => [
             'subject_id'    => (string) $s->id,
@@ -560,7 +560,7 @@ class AdmitCard extends Component
     public function allSubjects()
     {
         return Subject::where('organization_id', $this->orgId())
-            ->where('is_active', true)->orderBy('name')->get();
+            ->where('is_active', true)->orderBy('id')->get();
     }
 
     // ─── Render ─────────────────────────────────────────────────────────────────
@@ -569,26 +569,26 @@ class AdmitCard extends Component
         $orgId = $this->orgId();
 
         $standards = Standard::where('organization_id', $orgId)
-            ->where('is_active', true)->orderBy('name')->get();
+            ->where('is_active', true)->orderBy('id')->get();
 
         $exams = Exam::where('organization_id', $orgId)->orderByDesc('created_at')->get();
 
         $filterSections = collect();
         if ($this->standardFilter) {
             $filterSections = Section::where('standard_id', $this->standardFilter)
-                ->where('organization_id', $orgId)->orderBy('name')->get();
+                ->where('organization_id', $orgId)->orderBy('id')->get();
         }
 
         $issueSections = collect();
         if ($this->issueStandard) {
             $issueSections = Section::where('standard_id', $this->issueStandard)
-                ->where('organization_id', $orgId)->orderBy('name')->get();
+                ->where('organization_id', $orgId)->orderBy('id')->get();
         }
 
         $bulkSections = collect();
         if ($this->bulkStandard) {
             $bulkSections = Section::where('standard_id', $this->bulkStandard)
-                ->where('organization_id', $orgId)->orderBy('name')->get();
+                ->where('organization_id', $orgId)->orderBy('id')->get();
         }
 
         $admitCards = ModelAdmitCard::with(['studentDetail.standard', 'studentDetail.section', 'exam'])

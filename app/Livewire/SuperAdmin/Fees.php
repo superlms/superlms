@@ -138,7 +138,7 @@ class Fees extends Component
 
         if (!$this->selectedSchool) return;
 
-        $this->standards        = Standard::where('organization_id', $id)->orderBy('name')->get();
+        $this->standards        = Standard::where('organization_id', $id)->orderBy('id')->get();
         $this->updateStandardId = '';
         $this->updateSectionId  = '';
         $this->updateSections   = [];

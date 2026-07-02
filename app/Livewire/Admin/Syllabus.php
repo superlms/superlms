@@ -90,7 +90,7 @@ class Syllabus extends Component
     public function mount(): void
     {
         $org = Auth::user()->organization_id;
-        $this->standards = Standard::where('organization_id', $org)->where('is_active', true)->orderBy('order')->get();
+        $this->standards = Standard::where('organization_id', $org)->where('is_active', true)->orderBy('id')->get();
         $this->loadStats();
     }
 
@@ -151,7 +151,7 @@ class Syllabus extends Component
             $query->whereHas('standards', fn($q) => $q->where('standards.id', $this->filterStandard));
         }
 
-        $this->filterSubjectsList = $query->orderBy('name')->get();
+        $this->filterSubjectsList = $query->orderBy('id')->get();
     }
 
     public function clearFilters(): void
@@ -214,7 +214,7 @@ class Syllabus extends Component
         } else {
             $query->whereHas('standards', fn($q) => $q->where('standards.id', $this->chapterStandardId));
         }
-        $this->chapterSubjects = $query->orderBy('name')->get();
+        $this->chapterSubjects = $query->orderBy('id')->get();
     }
 
     public function addChapterRow(): void
@@ -342,7 +342,7 @@ class Syllabus extends Component
         } else {
             $query->whereHas('standards', fn($q) => $q->where('standards.id', $this->topicStandardId));
         }
-        $this->topicSubjects = $query->orderBy('name')->get();
+        $this->topicSubjects = $query->orderBy('id')->get();
     }
 
     public function updatedTopicSubjectId(): void
@@ -605,7 +605,7 @@ class Syllabus extends Component
             ->whereHas('standards', fn($sq) => $sq->where('standards.id', $this->filterStandard))
             ->when($this->filterSection, fn($q) => $q->whereHas('sections', fn($sq) => $sq->where('sections.id', $this->filterSection)))
             ->where('id', $this->filterSubject)
-            ->orderBy('name')
+            ->orderBy('id')
             ->paginate($this->perPage);
 
         return view('livewire.admin.syllabus', compact('subjects'));
