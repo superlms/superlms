@@ -481,25 +481,47 @@ class Standard extends Component
             'selectedSectionsForSubject.min'      => 'Please select at least one section.',
         ]);
 
-        // Duplicate name OR code within the class
-        $dupName = StandardSubject::where('standard_id', $this->selectedStandardForSubject)
-            ->whereHas('subject', fn($q) => $q->where('name', $this->subjectName)
-                ->when($this->editId, fn($q) => $q->where('id', '!=', $this->editId)))
-            ->exists();
+        $org = Auth::user()->organization_id;
 
-        if ($dupName) {
-            $this->addError('subjectName', 'A subject with this name already exists in the selected class.');
-            return;
+        // For CREATE: a subject with this name may already exist in the class but
+        // be missing its section link (an orphan that shows in no section). Reuse
+        // that subject and just add the missing links, rather than blocking it
+        // forever. (Fixes: "already exists" yet nothing shows in the section.)
+        $existing = null;
+        if (!$this->editId) {
+            $existing = Subject::where('organization_id', $org)
+                ->where('name', $this->subjectName)
+                ->whereHas('standards', fn($q) => $q->where('standard_id', $this->selectedStandardForSubject))
+                ->first();
         }
 
+        // Which subject id (if any) to ignore in the duplicate checks below —
+        // the one being edited, or the same-name subject we're about to reuse.
+        $ignoreId = $this->editId ?: ($existing->id ?? null);
+
+        // A DIFFERENT subject in this class already using this code → block.
         $dupCode = StandardSubject::where('standard_id', $this->selectedStandardForSubject)
             ->whereHas('subject', fn($q) => $q->where('code', $this->subjectCode)
-                ->when($this->editId, fn($q) => $q->where('id', '!=', $this->editId)))
+                ->when($ignoreId, fn($q) => $q->where('id', '!=', $ignoreId)))
             ->exists();
 
         if ($dupCode) {
             $this->addError('subjectCode', 'A subject with this code already exists in the selected class.');
             return;
+        }
+
+        // Reusing an existing subject that is ALREADY linked to every selected
+        // section is a true no-op duplicate → block. Otherwise we fall through
+        // and repair the missing links.
+        if ($existing) {
+            $linked = SectionSubject::where('subject_id', $existing->id)
+                ->where('standard_id', $this->selectedStandardForSubject)
+                ->pluck('section_id')->map(fn($v) => (int) $v)->all();
+            $missing = array_diff(array_map('intval', $this->selectedSectionsForSubject), $linked);
+            if (empty($missing)) {
+                $this->addError('subjectName', 'A subject with this name already exists in the selected section(s).');
+                return;
+            }
         }
 
         $subjectData = [
@@ -537,52 +559,47 @@ class Standard extends Component
         }
 
         try {
-            if ($this->editId) {
-                $subject = Subject::find($this->editId);
-                $subject->update($subjectData);
+            // One transaction so the subject and ALL its class/section links are
+            // saved together — never a subject that exists but is linked to no
+            // section (which is what left subjects invisible before).
+            DB::transaction(function () use ($org, $existing, $subjectData) {
+                if ($this->editId) {
+                    $subject = Subject::find($this->editId);
+                    $subject->update($subjectData);
+                    // Edit replaces this class's section links wholesale.
+                    SectionSubject::where('subject_id', $subject->id)
+                        ->where('standard_id', $this->selectedStandardForSubject)->delete();
+                } elseif ($existing) {
+                    $existing->update($subjectData);   // reuse the same-name subject
+                    $subject = $existing;
+                } else {
+                    $subject = Subject::create($subjectData);
+                }
 
                 StandardSubject::updateOrCreate(
                     ['standard_id' => $this->selectedStandardForSubject, 'subject_id' => $subject->id],
-                    ['organization_id' => Auth::user()->organization_id, 'is_mandatory' => $this->isMandatory]
+                    ['organization_id' => $org, 'is_mandatory' => $this->isMandatory]
                 );
 
-                SectionSubject::where('subject_id', $subject->id)
-                    ->where('standard_id', $this->selectedStandardForSubject)->delete();
-
+                // firstOrCreate → idempotent: no duplicate pivot rows, and any
+                // missing section link is repaired.
                 foreach ($this->selectedSectionsForSubject as $sectionId) {
-                    SectionSubject::create([
-                        'section_id'      => $sectionId,
-                        'subject_id'      => $subject->id,
-                        'standard_id'     => $this->selectedStandardForSubject,
-                        'organization_id' => Auth::user()->organization_id,
-                    ]);
+                    SectionSubject::firstOrCreate(
+                        [
+                            'section_id'  => (int) $sectionId,
+                            'subject_id'  => $subject->id,
+                            'standard_id' => $this->selectedStandardForSubject,
+                        ],
+                        ['organization_id' => $org]
+                    );
                 }
-                $this->notification()->success('Subject updated successfully!');
-            } else {
-                $subject = Subject::create($subjectData);
+            });
 
-                StandardSubject::create([
-                    'standard_id'     => $this->selectedStandardForSubject,
-                    'subject_id'      => $subject->id,
-                    'organization_id' => Auth::user()->organization_id,
-                    'is_mandatory'    => $this->isMandatory,
-                ]);
-
-                foreach ($this->selectedSectionsForSubject as $sectionId) {
-                    SectionSubject::create([
-                        'section_id'      => $sectionId,
-                        'subject_id'      => $subject->id,
-                        'standard_id'     => $this->selectedStandardForSubject,
-                        'organization_id' => Auth::user()->organization_id,
-                    ]);
-                }
-                $this->notification()->success('Subject created successfully!');
-            }
-
+            $this->notification()->success($this->editId ? 'Subject updated successfully!' : 'Subject saved successfully!');
             $this->closeModal();
             $this->activeTab = 'subject';
             $this->mount();
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->notification()->error('Error!', 'Failed to save subject: ' . $e->getMessage());
         }
     }
