@@ -15,6 +15,12 @@ Schedule::command('announcements:purge-old')
     ->dailyAt('03:15')
     ->withoutOverlapping();
 
+// Daily clean-up: permanently delete homework older than 30 days (incl. S3
+// files) — homework added today is gone 30 days later. Adjust with --days=N.
+Schedule::command('homework:purge-old')
+    ->dailyAt('03:20')
+    ->withoutOverlapping();
+
 // Every midnight: for any organization + person-type that already had a card
 // batch issued, generate ID cards for newly-added students / teachers /
 // employees that don't have one yet. See App\Console\Commands\GenerateMissingIdCards.

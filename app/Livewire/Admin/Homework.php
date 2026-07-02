@@ -13,6 +13,7 @@ use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 use Livewire\Attributes\Url;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use WireUi\Traits\WireUiActions;
 use Carbon\Carbon;
@@ -35,6 +36,11 @@ class Homework extends Component
     public $homework_file;
     public $is_active = true;
     public $subject_selection = 'single'; // 'single' or 'all'
+
+    // "All subjects" mode — one homework entry per subject, keyed by subject id:
+    //   [subjectId => ['title' => '', 'description' => '', 'file' => UploadedFile|null]]
+    // A subject left with a blank title is treated as "no homework for it".
+    public $subjectHomeworks = [];
     
     // Temporary URLs for preview
     public $tempFileUrl = null;
@@ -183,8 +189,28 @@ class Homework extends Component
         if ($property === 'subject_selection') {
             if ($value === 'all') {
                 $this->subject_id = ''; // Reset single subject selection
+                $this->syncSubjectHomeworkRows();
             }
         }
+    }
+
+    /**
+     * Keep $subjectHomeworks in sync with the currently loaded $subjects while
+     * in "all subjects" mode — one blank entry per subject, preserving anything
+     * the user has already typed.
+     */
+    private function syncSubjectHomeworkRows(): void
+    {
+        $rows = [];
+        foreach ($this->subjects as $subject) {
+            $existing = $this->subjectHomeworks[$subject->id] ?? [];
+            $rows[$subject->id] = [
+                'title'       => $existing['title'] ?? '',
+                'description' => $existing['description'] ?? '',
+                'file'        => $existing['file'] ?? null,
+            ];
+        }
+        $this->subjectHomeworks = $rows;
     }
 
     public function updatedStandardId($value)
@@ -202,16 +228,24 @@ class Homework extends Component
 
             $this->loadSubjectsForStandard($value);
         }
+
+        if ($this->subject_selection === 'all') {
+            $this->syncSubjectHomeworkRows();
+        }
     }
 
     public function updatedSectionId($value)
     {
         $this->subject_id = '';
-        
+
         if ($value && $this->standard_id) {
             $this->loadSubjectsForStandard($this->standard_id, $value);
         } elseif (!$value && $this->standard_id) {
             $this->loadSubjectsForStandard($this->standard_id);
+        }
+
+        if ($this->subject_selection === 'all') {
+            $this->syncSubjectHomeworkRows();
         }
     }
 
@@ -248,7 +282,9 @@ class Homework extends Component
     public function updatedHomeworkFile()
     {
         $this->validate([
-            'homework_file' => 'file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,txt,jpg,jpeg,png|max:10240',
+            'homework_file' => 'file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,txt,jpg,jpeg,png|max:1024',
+        ], [
+            'homework_file.max' => 'Attachment must be 1 MB (1024 KB) or smaller.',
         ]);
         $this->tempFileUrl = $this->homework_file->getClientOriginalName();
     }
@@ -266,22 +302,33 @@ class Homework extends Component
 
     public function onSave()
     {
+        // "All subjects" bulk create takes its own path (multiple rows).
+        if (!$this->editId && $this->subject_selection === 'all') {
+            $this->saveAllSubjects();
+            return;
+        }
+
+        $fileMessages = ['homework_file.max' => 'Attachment must be 1 MB (1024 KB) or smaller.'];
+
         $this->validate([
             'title' => 'required|string|max:255',
             'standard_id' => 'required|exists:standards,id',
             'section_id' => 'nullable|exists:sections,id',
             'description' => 'required|string',
             'subject_selection' => 'required|in:single,all',
-            'subject_id' => $this->subject_selection === 'single' ? 'required|exists:subjects,id' : 'nullable',
-            'homework_file' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,txt,jpg,jpeg,png|max:10240',
-        ]);
+            'subject_id' => 'required|exists:subjects,id',
+            'homework_file' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,txt,jpg,jpeg,png|max:1024',
+        ], $fileMessages);
 
         try {
+            // section_id / subject_id are NOT NULL (default 0) on home_works, so
+            // "none" is stored as 0 — passing null would violate the constraint
+            // and silently fail the save.
             $data = [
                 'title' => $this->title,
                 'standard_id' => $this->standard_id,
-                'section_id' => $this->section_id ?: null,
-                'subject_id' => $this->subject_selection === 'all' ? null : $this->subject_id,
+                'section_id' => $this->section_id ?: 0,
+                'subject_id' => $this->subject_id,
                 'description' => $this->description,
                 'user_id' => Auth::id(),
                 'organization_id' => Auth::user()->organization_id,
@@ -315,12 +362,93 @@ class Homework extends Component
             }
 
             $this->closeModal();
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->notification()->error(
                 'Error Saving Homework',
                 $e->getMessage()
             );
             logger()->error('Homework save error: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * "All subjects" mode — create one homework row per subject that the admin
+     * actually filled in. A subject whose title is left blank is skipped, i.e.
+     * treated as "no homework for that subject". Each subject can carry its own
+     * title, description and (≤1 MB) attachment.
+     */
+    private function saveAllSubjects(): void
+    {
+        $this->validate([
+            'standard_id' => 'required|exists:standards,id',
+            'section_id'  => 'nullable|exists:sections,id',
+        ]);
+
+        // Collect the filled-in subjects and validate their files up front.
+        $toCreate = [];
+        foreach ($this->subjects as $subject) {
+            $entry = $this->subjectHomeworks[$subject->id] ?? [];
+            $title = trim((string) ($entry['title'] ?? ''));
+
+            if ($title === '') {
+                continue; // blank title → no homework for this subject
+            }
+
+            if (!empty($entry['file'])) {
+                $this->validate([
+                    "subjectHomeworks.{$subject->id}.file" => 'file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,txt,jpg,jpeg,png|max:1024',
+                ], [
+                    "subjectHomeworks.{$subject->id}.file.max" => "{$subject->name}: attachment must be 1 MB (1024 KB) or smaller.",
+                ]);
+            }
+
+            $toCreate[] = [
+                'subject_id'  => $subject->id,
+                'title'       => $title,
+                'description' => trim((string) ($entry['description'] ?? '')),
+                'file'        => $entry['file'] ?? null,
+            ];
+        }
+
+        if (empty($toCreate)) {
+            $this->notification()->error('Please fill homework for at least one subject.');
+            return;
+        }
+
+        try {
+            $org        = Auth::user()->organization_id;
+            $userId     = Auth::id();
+            $sectionId  = $this->section_id ?: 0;
+
+            DB::beginTransaction();
+            foreach ($toCreate as $row) {
+                $data = [
+                    'title'           => $row['title'],
+                    'standard_id'     => $this->standard_id,
+                    'section_id'      => $sectionId,
+                    'subject_id'      => $row['subject_id'],
+                    'description'     => $row['description'],
+                    'user_id'         => $userId,
+                    'organization_id' => $org,
+                ];
+
+                if (!empty($row['file'])) {
+                    $filePath = $row['file']->store('admin/homework/files', 's3');
+                    Storage::disk('s3')->setVisibility($filePath, 'public');
+                    $data['file'] = Storage::disk('s3')->url($filePath);
+                }
+
+                ModalHomework::create($data);
+            }
+            DB::commit();
+
+            $count = count($toCreate);
+            $this->notification()->success("Homework added for {$count} subject(s)!");
+            $this->closeModal();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            $this->notification()->error('Error Saving Homework', $e->getMessage());
+            logger()->error('Homework (all subjects) save error: ' . $e->getMessage());
         }
     }
 
@@ -335,6 +463,7 @@ class Homework extends Component
             'description',
             'homework_file',
             'subject_selection',
+            'subjectHomeworks',
             'tempFileUrl',
             'sections',
             'subjects'
@@ -349,10 +478,12 @@ class Homework extends Component
         $this->editId = $homework->id;
         $this->title = $homework->title;
         $this->standard_id = $homework->standard_id;
-        $this->section_id = $homework->section_id;
-        $this->subject_id = $homework->subject_id;
+        // section_id / subject_id use 0 as the "none" sentinel on this table.
+        $this->section_id = $homework->section_id ?: '';
+        $this->subject_id = $homework->subject_id ?: '';
         $this->description = $homework->description;
-        $this->subject_selection = $homework->subject_id ? 'single' : 'all';
+        // Editing always targets one homework row, so it's always single-subject.
+        $this->subject_selection = 'single';
 
         if ($homework->standard_id) {
             $this->sections = Section::where('standard_id', $homework->standard_id)
@@ -439,12 +570,42 @@ class Homework extends Component
 
     public function render()
     {
+        // Best-effort opportunistic purge — trims homework older than 30 days on
+        // render. The daily `homework:purge-old` schedule guarantees coverage;
+        // this catches dev/preview environments where the scheduler isn't running.
+        $this->purgeOldHomework();
+
         $homeworks = $this->getHomeworks();
-        
+
         // Statistics
         $statistics = $this->getStatistics();
-        
+
         return view('livewire.admin.homework', compact('homeworks', 'statistics'));
+    }
+
+    /**
+     * Hard-delete this organization's homework older than 30 days, cleaning up
+     * associated S3 files. Mirrors the daily console command for envs where the
+     * scheduler may not be running.
+     */
+    protected function purgeOldHomework(): void
+    {
+        $cutoff = Carbon::now()->subDays(30);
+
+        $stale = ModalHomework::where('organization_id', Auth::user()->organization_id)
+            ->where('created_at', '<', $cutoff)
+            ->get();
+
+        foreach ($stale as $row) {
+            if ($row->file) {
+                try {
+                    Storage::disk('s3')->delete(ltrim(parse_url($row->file, PHP_URL_PATH), '/'));
+                } catch (\Throwable $e) {
+                    logger()->warning('Homework purge: failed to delete S3 file for #' . $row->id . ': ' . $e->getMessage());
+                }
+            }
+            $row->delete();
+        }
     }
 
     private function getHomeworks()
