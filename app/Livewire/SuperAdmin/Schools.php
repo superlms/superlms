@@ -709,9 +709,19 @@ class Schools extends Component
 
     public function doDelete($id): void
     {
-        Organization::find($id)?->delete();
-        User::where('organization_id', $id)->where('role', 'admin')->delete();
-        \App\Models\Admin\RateLms::where('organization_id', $id)->delete();
+        // Deleting the organization cascades to ALL of its data (students,
+        // teachers, employees, users and every org-scoped record) via
+        // Organization::purgeSchoolData(). Wrapped in a transaction so the whole
+        // school is removed atomically — never a half-deleted school.
+        try {
+            DB::transaction(function () use ($id) {
+                Organization::find($id)?->delete();
+            });
+        } catch (\Throwable $e) {
+            Log::error("School delete failed for org #{$id}: {$e->getMessage()}");
+            $this->notification()->error('Delete failed', 'Could not fully delete the school. Please try again.');
+            return;
+        }
 
         $this->showDeleteConfirm = false;
         $this->deleteTargetId    = null;
@@ -722,7 +732,7 @@ class Schools extends Component
 
         $this->loadStats();
         $this->resetPage();
-        $this->notification()->success('School deleted successfully!');
+        $this->notification()->success('School and all its data permanently deleted!');
     }
 
     private function resetForm(): void

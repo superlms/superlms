@@ -1540,7 +1540,7 @@
                     </div>
                     <div>
                         <h3 class="text-base font-bold text-gray-900">Delete School?</h3>
-                        <p class="text-sm text-gray-500 mt-1">This will permanently delete the school and its admin account. This action cannot be undone.</p>
+                        <p class="text-sm text-gray-500 mt-1">This permanently deletes the school and <span class="font-semibold text-red-600">everything in it</span> — all students, teachers, employees, user accounts, fees, exams and records. This <span class="font-semibold">cannot be undone</span>.</p>
                     </div>
                     <div class="flex items-center gap-3 w-full mt-1">
                         <button wire:click="cancelDelete"
