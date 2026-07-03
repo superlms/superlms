@@ -42,6 +42,15 @@ class Syllabus extends Component
     public $topicRows         = []; // [{id, name, order}]  id=null → new
     public array $deletedTopicIds = [];
 
+    // ─── Topic quick actions (view / edit / delete from the listing) ─────
+    public bool   $showTopicView   = false;
+    public array  $topicViewData   = [];
+    public bool   $showTopicEdit   = false;
+    public ?int   $editTopicId     = null;
+    public string $editTopicName   = '';
+    public bool   $showTopicDelete = false;
+    public ?int   $deleteTopicId   = null;
+
     // ─── Filters ─────────────────────────────────────────────────────────
     public string $search         = '';
     public string $filterStandard = '';
@@ -529,6 +538,82 @@ class Syllabus extends Component
         if (!in_array($id, $this->expandedSubjects)) {
             $this->expandedSubjects[] = $id;
         }
+    }
+
+    // ─── Topic view / edit / delete (inline from the listing) ────────────
+    public function onViewTopic(int $id): void
+    {
+        $topic = Topic::with('chapter.subject')
+            ->where('organization_id', Auth::user()->organization_id)->find($id);
+        if (!$topic) return;
+
+        $this->topicViewData = [
+            'name'    => $topic->topic_name,
+            'chapter' => $topic->chapter?->name ?? '—',
+            'subject' => $topic->chapter?->subject?->name ?? '—',
+            'order'   => $topic->order,
+        ];
+        $this->showTopicView = true;
+    }
+
+    public function closeTopicView(): void
+    {
+        $this->showTopicView = false;
+        $this->topicViewData = [];
+    }
+
+    public function onEditTopic(int $id): void
+    {
+        $topic = Topic::where('organization_id', Auth::user()->organization_id)->find($id);
+        if (!$topic) return;
+
+        $this->editTopicId   = $topic->id;
+        $this->editTopicName = $topic->topic_name;
+        $this->showTopicEdit = true;
+    }
+
+    public function closeTopicEdit(): void
+    {
+        $this->showTopicEdit = false;
+        $this->editTopicId   = null;
+        $this->editTopicName = '';
+    }
+
+    public function onUpdateTopic(): void
+    {
+        if (!$this->editTopicId || !trim($this->editTopicName)) {
+            $this->notification()->error('Topic name is required.');
+            return;
+        }
+        Topic::where('id', $this->editTopicId)
+            ->where('organization_id', Auth::user()->organization_id)
+            ->update(['topic_name' => trim($this->editTopicName)]);
+        $this->notification()->success('Topic updated!');
+        $this->closeTopicEdit();
+    }
+
+    public function onDeleteTopic(int $id): void
+    {
+        $this->deleteTopicId   = $id;
+        $this->showTopicDelete = true;
+    }
+
+    public function cancelTopicDelete(): void
+    {
+        $this->showTopicDelete = false;
+        $this->deleteTopicId   = null;
+    }
+
+    public function confirmTopicDelete(): void
+    {
+        if ($this->deleteTopicId) {
+            Topic::where('id', $this->deleteTopicId)
+                ->where('organization_id', Auth::user()->organization_id)
+                ->delete();
+            $this->notification()->success('Topic deleted!');
+            $this->loadStats();
+        }
+        $this->cancelTopicDelete();
     }
 
     // ─── Render ──────────────────────────────────────────────────────────

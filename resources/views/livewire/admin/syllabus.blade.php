@@ -140,40 +140,61 @@
                 </div>
             </div>
 
-            {{-- Chapters + their topics (shown via View / header toggle) --}}
-            <div x-show="expandedSubjects.includes({{ $subject->id }})" x-cloak class="p-4 sm:p-5 space-y-3">
-                @forelse ($subject->chapters as $chapter)
-                    <div class="rounded-lg border border-gray-200 bg-gray-50/60 overflow-hidden">
-                        <div class="flex items-center gap-3 px-3.5 py-2.5 bg-white border-b border-gray-100">
-                            <span class="w-7 h-7 rounded-md bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center flex-shrink-0">
-                                {{ $chapter->order }}
-                            </span>
-                            <span class="text-sm font-semibold text-gray-800 flex-1 min-w-0 truncate">{{ $chapter->name }}</span>
-                            <span class="text-[11px] font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full flex-shrink-0">
-                                {{ $chapter->topics->count() }} topic{{ $chapter->topics->count() === 1 ? '' : 's' }}
-                            </span>
-                        </div>
-                        <div class="px-3.5 py-3">
-                            @if ($chapter->topics->count())
-                                <div class="flex flex-wrap gap-1.5">
-                                    @foreach ($chapter->topics as $topic)
-                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs bg-white border border-gray-200 rounded-md text-gray-700">
-                                            <span class="text-[10px] font-semibold text-gray-400">{{ $loop->iteration }}</span>
-                                            {{ $topic->topic_name }}
-                                        </span>
-                                    @endforeach
+            {{-- Chapters + topics — content-style expandable rows.
+                 Chapter-level actions stay in the subject header; each topic gets
+                 its own View / Edit / Delete. --}}
+            <div x-show="expandedSubjects.includes({{ $subject->id }})" x-cloak x-data="{ openCh: [] }">
+                <div class="divide-y divide-gray-200">
+                    @forelse ($subject->chapters as $chapter)
+                        <div>
+                            {{-- Chapter row (expandable) --}}
+                            <div class="px-4 sm:px-6 py-3 flex items-center justify-between hover:bg-gray-50 transition cursor-pointer"
+                                @click="openCh.includes({{ $chapter->id }}) ? openCh = openCh.filter(i => i !== {{ $chapter->id }}) : openCh = [...openCh, {{ $chapter->id }}]">
+                                <div class="flex items-center gap-3 flex-1 min-w-0">
+                                    <svg class="w-4 h-4 text-gray-500 transition-transform duration-200 flex-shrink-0"
+                                        :class="{ 'rotate-90': openCh.includes({{ $chapter->id }}) }"
+                                        fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                    <span class="text-xs font-medium text-gray-500 px-1.5 py-0.5 bg-blue-100 rounded flex-shrink-0">Ch {{ $chapter->order }}</span>
+                                    <h3 class="text-sm font-semibold text-gray-900 truncate">{{ $chapter->name }}</h3>
+                                    <span class="text-xs text-gray-400 flex-shrink-0">{{ $chapter->topics->count() }} topics</span>
                                 </div>
-                            @else
-                                <p class="text-xs text-gray-400 italic">No topics yet — use “Add Topic” to add some.</p>
-                            @endif
+                            </div>
+
+                            {{-- Topics --}}
+                            <div x-show="openCh.includes({{ $chapter->id }})" x-collapse class="bg-gray-50">
+                                @forelse ($chapter->topics as $topic)
+                                    <div class="px-8 sm:px-12 py-2.5 flex items-center justify-between hover:bg-white border-b border-gray-100 last:border-b-0 transition">
+                                        <div class="flex items-center gap-2 flex-1 min-w-0">
+                                            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full flex-shrink-0"></span>
+                                            <span class="text-sm text-gray-800 truncate">{{ $topic->topic_name }}</span>
+                                        </div>
+                                        <div class="flex items-center gap-1 ml-2 flex-shrink-0">
+                                            <button wire:click="onViewTopic({{ $topic->id }})" title="View"
+                                                class="p-1 text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200 transition-colors">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                            </button>
+                                            <button wire:click="onEditTopic({{ $topic->id }})" title="Edit"
+                                                class="p-1 text-emerald-600 hover:bg-emerald-50 rounded-lg border border-emerald-200 transition-colors">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                            </button>
+                                            <button wire:click="onDeleteTopic({{ $topic->id }})" title="Delete"
+                                                class="p-1 text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                @empty
+                                    <div class="px-12 py-4 text-center text-xs text-gray-400">No topics in this chapter — use “Add Topic” to add some.</div>
+                                @endforelse
+                            </div>
                         </div>
-                    </div>
-                @empty
-                    <div class="text-center py-6">
-                        <p class="text-sm text-gray-500">No chapters yet for this subject.</p>
-                        <button wire:click="onManageChapters({{ $subject->id }})" class="mt-2 text-xs font-medium text-blue-600 hover:text-blue-800">Add a chapter →</button>
-                    </div>
-                @endforelse
+                    @empty
+                        <div class="text-center py-6">
+                            <p class="text-sm text-gray-500">No chapters yet for this subject.</p>
+                            <button wire:click="onManageChapters({{ $subject->id }})" class="mt-2 text-xs font-medium text-blue-600 hover:text-blue-800">Add a chapter →</button>
+                        </div>
+                    @endforelse
+                </div>
             </div>
         </div>
     @endforeach
@@ -403,6 +424,92 @@
                 <span wire:loading.remove wire:target="onSaveTopics">Save Topics</span>
                 <span wire:loading wire:target="onSaveTopics">Saving…</span>
             </button>
+        </div>
+    </div>
+</div>
+@endif
+
+{{-- ═══════════════════════════════════════════════════
+     TOPIC VIEW
+═══════════════════════════════════════════════════ --}}
+@if ($showTopicView)
+<div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="closeTopicView"></div>
+    <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+        <div class="flex items-start justify-between mb-4">
+            <h3 class="text-base font-semibold text-gray-900">Topic Details</h3>
+            <button wire:click="closeTopicView" class="text-gray-400 hover:text-gray-700">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div class="space-y-3">
+            <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Topic</p>
+                <p class="text-sm font-semibold text-gray-900">{{ $topicViewData['name'] ?? '—' }}</p>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                    <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Chapter</p>
+                    <p class="text-sm font-medium text-gray-800">{{ $topicViewData['chapter'] ?? '—' }}</p>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                    <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Subject</p>
+                    <p class="text-sm font-medium text-gray-800">{{ $topicViewData['subject'] ?? '—' }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center justify-end mt-5">
+            <button wire:click="closeTopicView" class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md">Close</button>
+        </div>
+    </div>
+</div>
+@endif
+
+{{-- ═══════════════════════════════════════════════════
+     TOPIC EDIT
+═══════════════════════════════════════════════════ --}}
+@if ($showTopicEdit)
+<div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="closeTopicEdit"></div>
+    <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+        <div class="flex items-start justify-between mb-4">
+            <h3 class="text-base font-semibold text-gray-900">Edit Topic</h3>
+            <button wire:click="closeTopicEdit" class="text-gray-400 hover:text-gray-700">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Topic Name <span class="text-red-500">*</span></label>
+        <input type="text" wire:model="editTopicName" wire:keydown.enter="onUpdateTopic"
+            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-emerald-500">
+        <div class="flex items-center justify-end gap-2 mt-5">
+            <button wire:click="closeTopicEdit" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+            <button wire:click="onUpdateTopic" wire:loading.attr="disabled" wire:target="onUpdateTopic"
+                class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-md disabled:opacity-60">Update Topic</button>
+        </div>
+    </div>
+</div>
+@endif
+
+{{-- ═══════════════════════════════════════════════════
+     TOPIC DELETE CONFIRM
+═══════════════════════════════════════════════════ --}}
+@if ($showTopicDelete)
+<div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="cancelTopicDelete"></div>
+    <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
+        <div class="flex items-start gap-4">
+            <div class="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            </div>
+            <div class="flex-1">
+                <h3 class="text-base font-semibold text-gray-900 mb-1">Delete this topic?</h3>
+                <p class="text-sm text-gray-500">This action cannot be undone.</p>
+            </div>
+        </div>
+        <div class="flex items-center justify-end gap-2 mt-5">
+            <button wire:click="cancelTopicDelete" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+            <button wire:click="confirmTopicDelete" wire:loading.attr="disabled" wire:target="confirmTopicDelete"
+                class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:opacity-60">Delete</button>
         </div>
     </div>
 </div>
