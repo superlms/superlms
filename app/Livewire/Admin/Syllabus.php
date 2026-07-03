@@ -20,17 +20,17 @@ class Syllabus extends Component
     // ─── Tabs ────────────────────────────────────────────────────────────
     public string $activeTab = 'view';
 
-    // ─── Chapter Modal ───────────────────────────────────────────────────
+    // ─── Chapter Modal (add + edit unified) ──────────────────────────────
     public $openChapterModal   = false;
     public $chapterStandardId  = '';
     public $chapterSectionId   = '';
     public $chapterSubjectId   = '';
     public $chapterSections    = [];
     public $chapterSubjects    = [];
-    public $chapterRows        = []; // [{name, description, order}]
-    public $editChapterId      = null;
+    public $chapterRows        = []; // [{id, name, order}]  id=null → new
+    public array $deletedChapterIds = [];
 
-    // ─── Topic Modal ─────────────────────────────────────────────────────
+    // ─── Topic Modal (add + edit unified) ────────────────────────────────
     public $openTopicModal    = false;
     public $topicStandardId   = '';
     public $topicSectionId    = '';
@@ -39,18 +39,8 @@ class Syllabus extends Component
     public $topicSections     = [];
     public $topicSubjects     = [];
     public $topicChapters     = [];
-    public $topicRows         = []; // [{name, order}]
-    public $editTopicId       = null;
-
-    // ─── Edit single chapter/topic ───────────────────────────────────────
-    public $editChapterModal  = false;
-    public $editChapterName   = '';
-    public $editChapterDesc   = '';
-    public $editChapterOrder  = 1;
-
-    public $editTopicModal    = false;
-    public $editTopicName     = '';
-    public $editTopicOrder    = 1;
+    public $topicRows         = []; // [{id, name, order}]  id=null → new
+    public array $deletedTopicIds = [];
 
     // ─── Filters ─────────────────────────────────────────────────────────
     public string $search         = '';
@@ -70,14 +60,8 @@ class Syllabus extends Component
     public $totalChapters  = 0;
     public $totalTopics    = 0;
 
-    // ─── Expanded state (Alpine) ─────────────────────────────────────────
+    // ─── Expanded state (Alpine) — which subject cards are opened via View ─
     public array $expandedSubjects = [];
-    public array $expandedChapters = [];
-
-    // ─── Delete confirm overlay (replaces broken WireUI dialog) ───────────
-    public bool   $showDeleteConfirm = false;
-    public string $deleteTargetType  = ''; // 'chapter' | 'topic'
-    public ?int   $deleteTargetId    = null;
 
     protected $queryString = [
         'search'         => ['except' => ''],
@@ -166,10 +150,28 @@ class Syllabus extends Component
     //  CHAPTER MODAL
     // ═══════════════════════════════════════════════════════════════════════
 
+    /** Header "Add Chapter" — blank form; existing chapters appear once a subject is picked. */
     public function onAddChapter(): void
     {
         $this->resetChapterForm();
         $this->openChapterModal = true;
+    }
+
+    /**
+     * Subject-card "Edit"/"Delete" — open the chapter manager preloaded for that subject,
+     * with its existing chapters as editable rows (edit inline, add more, or remove).
+     */
+    public function onManageChapters($subjectId): void
+    {
+        $this->resetChapterForm();
+        $this->chapterStandardId = (string) $this->filterStandard;
+        $this->chapterSections   = $this->chapterStandardId
+            ? Section::where('standard_id', $this->chapterStandardId)->where('is_active', true)->get() : [];
+        $this->chapterSectionId  = (string) $this->filterSection;
+        $this->loadChapterSubjects();
+        $this->chapterSubjectId  = (string) $subjectId;
+        $this->loadChapterRowsFromExisting();
+        $this->openChapterModal  = true;
     }
 
     public function closeChapterModal(): void
@@ -180,24 +182,33 @@ class Syllabus extends Component
 
     private function resetChapterForm(): void
     {
-        $this->reset(['chapterStandardId', 'chapterSectionId', 'chapterSubjectId', 'chapterRows']);
+        $this->reset(['chapterStandardId', 'chapterSectionId', 'chapterSubjectId', 'chapterRows', 'deletedChapterIds']);
         $this->chapterSections = [];
         $this->chapterSubjects = [];
     }
 
     public function updatedChapterStandardId(): void
     {
-        $this->chapterSectionId = '';
-        $this->chapterSubjectId = '';
-        $this->chapterSections  = $this->chapterStandardId
+        $this->chapterSectionId   = '';
+        $this->chapterSubjectId   = '';
+        $this->chapterRows        = [];
+        $this->deletedChapterIds  = [];
+        $this->chapterSections    = $this->chapterStandardId
             ? Section::where('standard_id', $this->chapterStandardId)->where('is_active', true)->get() : [];
         $this->loadChapterSubjects();
     }
 
     public function updatedChapterSectionId(): void
     {
-        $this->chapterSubjectId = '';
+        $this->chapterSubjectId  = '';
+        $this->chapterRows       = [];
+        $this->deletedChapterIds = [];
         $this->loadChapterSubjects();
+    }
+
+    public function updatedChapterSubjectId(): void
+    {
+        $this->loadChapterRowsFromExisting();
     }
 
     private function loadChapterSubjects(): void
@@ -217,21 +228,39 @@ class Syllabus extends Component
         $this->chapterSubjects = $query->orderBy('id')->get();
     }
 
+    /** Load the subject's existing chapters as editable rows (empty when none). */
+    private function loadChapterRowsFromExisting(): void
+    {
+        $this->chapterRows       = [];
+        $this->deletedChapterIds = [];
+        if (!$this->chapterSubjectId) return;
+
+        $org = Auth::user()->organization_id;
+        Chapter::where('organization_id', $org)
+            ->where('subject_id', $this->chapterSubjectId)
+            ->orderBy('order')
+            ->get()
+            ->each(function ($ch) {
+                $this->chapterRows[] = [
+                    'id'    => $ch->id,
+                    'name'  => $ch->name,
+                    'order' => $ch->order,
+                ];
+            });
+    }
+
     public function addChapterRow(): void
     {
-        $nextOrder = count($this->chapterRows) + 1;
-        // Auto-detect next order from existing chapters
-        if ($this->chapterSubjectId) {
-            $maxOrder = Chapter::where('subject_id', $this->chapterSubjectId)
-                ->where('organization_id', Auth::user()->organization_id)
-                ->max('order') ?? 0;
-            $nextOrder = $maxOrder + count($this->chapterRows) + 1;
-        }
-        $this->chapterRows[] = ['name' => '', 'description' => '', 'order' => $nextOrder];
+        $maxOrder = collect($this->chapterRows)->max('order') ?? 0;
+        $this->chapterRows[] = ['id' => null, 'name' => '', 'order' => $maxOrder + 1];
     }
 
     public function removeChapterRow($index): void
     {
+        $row = $this->chapterRows[$index] ?? null;
+        if ($row && !empty($row['id'])) {
+            $this->deletedChapterIds[] = (int) $row['id'];
+        }
         unset($this->chapterRows[$index]);
         $this->chapterRows = array_values($this->chapterRows);
     }
@@ -242,13 +271,13 @@ class Syllabus extends Component
             $this->notification()->error('Please select class and subject.');
             return;
         }
-        if (empty($this->chapterRows)) {
+        if (empty($this->chapterRows) && empty($this->deletedChapterIds)) {
             $this->notification()->error('Please add at least one chapter.');
             return;
         }
 
         foreach ($this->chapterRows as $i => $row) {
-            if (empty($row['name'])) {
+            if (empty(trim($row['name'] ?? ''))) {
                 $this->notification()->error('Chapter ' . ($i + 1) . ': Name is required.');
                 return;
             }
@@ -258,23 +287,44 @@ class Syllabus extends Component
 
         try {
             DB::beginTransaction();
+
+            // Removed existing chapters (staged via the row × buttons) — drop their topics too.
+            if (!empty($this->deletedChapterIds)) {
+                $ids = array_unique($this->deletedChapterIds);
+                Topic::whereIn('chapter_id', $ids)->where('organization_id', $org)->delete();
+                Chapter::whereIn('id', $ids)->where('organization_id', $org)->delete();
+            }
+
+            $created = 0;
+            $updated = 0;
             foreach ($this->chapterRows as $row) {
-                Chapter::create([
-                    'organization_id' => $org,
-                    'standard_id'     => $this->chapterStandardId,
-                    'section_id'      => $this->chapterSectionId ?: null,
-                    'subject_id'      => $this->chapterSubjectId,
-                    'user_id'         => Auth::id(),
-                    'name'            => $row['name'],
-                    'description'     => $row['description'] ?? null,
-                    'order'           => $row['order'] ?? 1,
-                    'is_published'    => true,
-                ]);
+                if (!empty($row['id'])) {
+                    Chapter::where('id', $row['id'])->where('organization_id', $org)->update([
+                        'name'  => trim($row['name']),
+                        'order' => (int) ($row['order'] ?? 1),
+                    ]);
+                    $updated++;
+                } else {
+                    Chapter::create([
+                        'organization_id' => $org,
+                        'standard_id'     => $this->chapterStandardId,
+                        'section_id'      => $this->chapterSectionId ?: null,
+                        'subject_id'      => $this->chapterSubjectId,
+                        'user_id'         => Auth::id(),
+                        'name'            => trim($row['name']),
+                        'order'           => (int) ($row['order'] ?? 1),
+                        'is_published'    => true,
+                    ]);
+                    $created++;
+                }
             }
             DB::commit();
 
-            $count = count($this->chapterRows);
-            $this->notification()->success("Created {$count} chapter(s) successfully!");
+            $deleted = count(array_unique($this->deletedChapterIds));
+            $this->notification()->success(
+                'Chapters saved!',
+                trim(($created ? "{$created} added. " : '') . ($updated ? "{$updated} updated. " : '') . ($deleted ? "{$deleted} deleted." : '')) ?: 'No changes.'
+            );
             $this->closeChapterModal();
             $this->loadStats();
             $this->resetPage();
@@ -303,7 +353,7 @@ class Syllabus extends Component
 
     private function resetTopicForm(): void
     {
-        $this->reset(['topicStandardId', 'topicSectionId', 'topicSubjectId', 'topicChapterId', 'topicRows']);
+        $this->reset(['topicStandardId', 'topicSectionId', 'topicSubjectId', 'topicChapterId', 'topicRows', 'deletedTopicIds']);
         $this->topicSections = [];
         $this->topicSubjects = [];
         $this->topicChapters = [];
@@ -355,25 +405,48 @@ class Syllabus extends Component
             : [];
     }
 
+    /** When a chapter is chosen, preload its existing topics as editable rows. */
     public function updatedTopicChapterId(): void
     {
-        $this->topicRows = [];
-        if ($this->topicChapterId) {
+        $this->loadTopicRowsFromExisting();
+        if (empty($this->topicRows)) {
             $this->addTopicRow();
         }
     }
 
+    private function loadTopicRowsFromExisting(): void
+    {
+        $this->topicRows       = [];
+        $this->deletedTopicIds = [];
+        if (!$this->topicChapterId) return;
+
+        $org = Auth::user()->organization_id;
+        Topic::where('organization_id', $org)
+            ->where('chapter_id', $this->topicChapterId)
+            ->orderBy('order')
+            ->orderBy('id')
+            ->get()
+            ->each(function ($t) {
+                $this->topicRows[] = [
+                    'id'    => $t->id,
+                    'name'  => $t->topic_name,
+                    'order' => $t->order ?: (count($this->topicRows) + 1),
+                ];
+            });
+    }
+
     public function addTopicRow(): void
     {
-        $maxOrder = Topic::where('chapter_id', $this->topicChapterId)
-            ->where('organization_id', Auth::user()->organization_id)
-            ->count();
-        $nextOrder = $maxOrder + count($this->topicRows) + 1;
-        $this->topicRows[] = ['name' => '', 'order' => $nextOrder];
+        $maxOrder = collect($this->topicRows)->max('order') ?? 0;
+        $this->topicRows[] = ['id' => null, 'name' => '', 'order' => $maxOrder + 1];
     }
 
     public function removeTopicRow($index): void
     {
+        $row = $this->topicRows[$index] ?? null;
+        if ($row && !empty($row['id'])) {
+            $this->deletedTopicIds[] = (int) $row['id'];
+        }
         unset($this->topicRows[$index]);
         $this->topicRows = array_values($this->topicRows);
     }
@@ -384,13 +457,13 @@ class Syllabus extends Component
             $this->notification()->error('Please select class, subject and chapter.');
             return;
         }
-        if (empty($this->topicRows)) {
+        if (empty($this->topicRows) && empty($this->deletedTopicIds)) {
             $this->notification()->error('Please add at least one topic.');
             return;
         }
 
         foreach ($this->topicRows as $i => $row) {
-            if (empty($row['name'])) {
+            if (empty(trim($row['name'] ?? ''))) {
                 $this->notification()->error('Topic ' . ($i + 1) . ': Name is required.');
                 return;
             }
@@ -400,17 +473,38 @@ class Syllabus extends Component
 
         try {
             DB::beginTransaction();
+
+            if (!empty($this->deletedTopicIds)) {
+                Topic::whereIn('id', array_unique($this->deletedTopicIds))
+                    ->where('organization_id', $org)->delete();
+            }
+
+            $created = 0;
+            $updated = 0;
             foreach ($this->topicRows as $row) {
-                Topic::create([
-                    'organization_id' => $org,
-                    'chapter_id'      => $this->topicChapterId,
-                    'topic_name'      => $row['name'],
-                ]);
+                if (!empty($row['id'])) {
+                    Topic::where('id', $row['id'])->where('organization_id', $org)->update([
+                        'topic_name' => trim($row['name']),
+                        'order'      => (int) ($row['order'] ?? 1),
+                    ]);
+                    $updated++;
+                } else {
+                    Topic::create([
+                        'organization_id' => $org,
+                        'chapter_id'      => $this->topicChapterId,
+                        'topic_name'      => trim($row['name']),
+                        'order'           => (int) ($row['order'] ?? 1),
+                    ]);
+                    $created++;
+                }
             }
             DB::commit();
 
-            $count = count($this->topicRows);
-            $this->notification()->success("Created {$count} topic(s) successfully!");
+            $deleted = count(array_unique($this->deletedTopicIds));
+            $this->notification()->success(
+                'Topics saved!',
+                trim(($created ? "{$created} added. " : '') . ($updated ? "{$updated} updated. " : '') . ($deleted ? "{$deleted} deleted." : '')) ?: 'No changes.'
+            );
             $this->closeTopicModal();
             $this->loadStats();
             $this->resetPage();
@@ -421,140 +515,7 @@ class Syllabus extends Component
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    //  INLINE EDIT CHAPTER
-    // ═══════════════════════════════════════════════════════════════════════
-
-    public function onEditChapter($id): void
-    {
-        $chapter = Chapter::find($id);
-        if (!$chapter) return;
-
-        $this->editChapterId    = $chapter->id;
-        $this->editChapterName  = $chapter->name;
-        $this->editChapterDesc  = $chapter->description ?? '';
-        $this->editChapterOrder = $chapter->order;
-        $this->editChapterModal = true;
-    }
-
-    public function closeEditChapterModal(): void
-    {
-        $this->editChapterModal = false;
-        $this->reset(['editChapterId', 'editChapterName', 'editChapterDesc', 'editChapterOrder']);
-    }
-
-    public function onUpdateChapter(): void
-    {
-        if (!$this->editChapterId || !$this->editChapterName) {
-            $this->notification()->error('Chapter name is required.');
-            return;
-        }
-
-        try {
-            Chapter::where('id', $this->editChapterId)->update([
-                'name'        => $this->editChapterName,
-                'description' => $this->editChapterDesc ?: null,
-                'order'       => $this->editChapterOrder,
-            ]);
-            $this->notification()->success('Chapter updated!');
-            $this->closeEditChapterModal();
-        } catch (\Exception $e) {
-            $this->notification()->error('Error: ' . $e->getMessage());
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    //  INLINE EDIT TOPIC
-    // ═══════════════════════════════════════════════════════════════════════
-
-    public function onEditTopic($id): void
-    {
-        $topic = Topic::find($id);
-        if (!$topic) return;
-
-        $this->editTopicId    = $topic->id;
-        $this->editTopicName  = $topic->topic_name;
-        $this->editTopicModal = true;
-    }
-
-    public function closeEditTopicModal(): void
-    {
-        $this->editTopicModal = false;
-        $this->reset(['editTopicId', 'editTopicName']);
-    }
-
-    public function onUpdateTopic(): void
-    {
-        if (!$this->editTopicId || !$this->editTopicName) {
-            $this->notification()->error('Topic name is required.');
-            return;
-        }
-
-        try {
-            Topic::where('id', $this->editTopicId)->update([
-                'topic_name' => $this->editTopicName,
-            ]);
-            $this->notification()->success('Topic updated!');
-            $this->closeEditTopicModal();
-        } catch (\Exception $e) {
-            $this->notification()->error('Error: ' . $e->getMessage());
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    //  DELETE
-    // ═══════════════════════════════════════════════════════════════════════
-
-    public function deleteChapter($id): void
-    {
-        $this->deleteTargetType  = 'chapter';
-        $this->deleteTargetId    = (int) $id;
-        $this->showDeleteConfirm = true;
-    }
-
-    public function deleteTopic($id): void
-    {
-        $this->deleteTargetType  = 'topic';
-        $this->deleteTargetId    = (int) $id;
-        $this->showDeleteConfirm = true;
-    }
-
-    public function cancelDelete(): void
-    {
-        $this->showDeleteConfirm = false;
-        $this->deleteTargetType  = '';
-        $this->deleteTargetId    = null;
-    }
-
-    public function confirmDelete(): void
-    {
-        if (!$this->deleteTargetId || !$this->deleteTargetType) {
-            $this->cancelDelete();
-            return;
-        }
-
-        try {
-            if ($this->deleteTargetType === 'chapter') {
-                DB::beginTransaction();
-                $chapter = Chapter::with('topics')->findOrFail($this->deleteTargetId);
-                $chapter->topics()->delete();
-                $chapter->delete();
-                DB::commit();
-                $this->notification()->success('Chapter deleted!');
-            } else {
-                Topic::findOrFail($this->deleteTargetId)->delete();
-                $this->notification()->success('Topic deleted!');
-            }
-            $this->loadStats();
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            $this->notification()->error('Error: ' . $e->getMessage());
-        }
-
-        $this->cancelDelete();
-    }
-
-    // ─── Toggle expand ───────────────────────────────────────────────────
+    // ─── View expand (subject cards) ─────────────────────────────────────
     public function toggleSubject(int $id): void
     {
         $this->expandedSubjects = in_array($id, $this->expandedSubjects)
@@ -562,11 +523,12 @@ class Syllabus extends Component
             : array_merge($this->expandedSubjects, [$id]);
     }
 
-    public function toggleChapter(int $id): void
+    /** Subject-card "View" — ensure the card is expanded to show all chapters. */
+    public function onViewSubject(int $id): void
     {
-        $this->expandedChapters = in_array($id, $this->expandedChapters)
-            ? array_values(array_diff($this->expandedChapters, [$id]))
-            : array_merge($this->expandedChapters, [$id]);
+        if (!in_array($id, $this->expandedSubjects)) {
+            $this->expandedSubjects[] = $id;
+        }
     }
 
     // ─── Render ──────────────────────────────────────────────────────────
