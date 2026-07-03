@@ -242,7 +242,9 @@ class Book extends Component
     public function updatedBookLogo()
     {
         $this->validate([
-            'book_logo' => 'image|max:2048',
+            'book_logo' => 'image|max:1024',
+        ], [
+            'book_logo.max' => 'Cover image must be 1 MB (1024 KB) or smaller.',
         ]);
         $this->tempLogoUrl = $this->book_logo->temporaryUrl();
     }
@@ -250,7 +252,9 @@ class Book extends Component
     public function updatedPdfFile()
     {
         $this->validate([
-            'pdf_file' => 'file|mimes:pdf|max:10240',
+            'pdf_file' => 'file|mimes:pdf|max:5120',
+        ], [
+            'pdf_file.max' => 'PDF must be 5 MB (5120 KB) or smaller.',
         ]);
         $this->tempPdfUrl = $this->pdf_file->getClientOriginalName();
     }
@@ -272,7 +276,7 @@ class Book extends Component
 
         $this->validate([
             'title' => [
-                'required', 'string', 'max:255',
+                'required', 'string', 'max:100',
                 Rule::unique('books', 'title')
                     ->where(fn($q) => $q
                         ->where('organization_id', $orgId)
@@ -284,11 +288,14 @@ class Book extends Component
             'standard_id' => 'required|exists:standards,id',
             'section_id'  => 'nullable|exists:sections,id',
             'subject_id'  => 'required|exists:subjects,id',
-            'book_logo'   => 'nullable|image|max:2048',
-            'pdf_file'    => 'nullable|file|mimes:pdf|max:10240',
+            'book_logo'   => 'nullable|image|max:1024',
+            'pdf_file'    => 'nullable|file|mimes:pdf|max:5120',
             'is_active'   => 'boolean',
         ], [
-            'title.unique' => 'A book with this name already exists for this class and section.',
+            'title.max'      => 'Book title may not be longer than 100 characters.',
+            'title.unique'   => 'A book with this name already exists for this class and section.',
+            'book_logo.max'  => 'Cover image must be 1 MB (1024 KB) or smaller.',
+            'pdf_file.max'   => 'PDF must be 5 MB (5120 KB) or smaller.',
         ]);
 
         try {
@@ -475,6 +482,28 @@ class Book extends Component
         $this->showViewModal = false;
         $this->viewBook = null;
         $this->viewModalTitle = '';
+    }
+
+    /**
+     * Stream the book's PDF to the browser as a download (force save).
+     */
+    public function downloadBook($id)
+    {
+        $book = ModalBook::find($id);
+
+        if (!$book || !$book->pdf_file) {
+            $this->notification()->error('No PDF available for this book.');
+            return;
+        }
+
+        $path = ltrim(parse_url($book->pdf_file, PHP_URL_PATH), '/');
+        $filename = \Illuminate\Support\Str::slug($book->title ?: 'book') . '.pdf';
+
+        try {
+            return Storage::disk('s3')->download($path, $filename);
+        } catch (\Exception $e) {
+            $this->notification()->error('Download failed', $e->getMessage());
+        }
     }
 
     public function render()

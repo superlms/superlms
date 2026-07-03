@@ -102,7 +102,7 @@
                 <p class="text-sm text-gray-400 mt-1">Click "Add Book" to add the first book for this class.</p>
             </div>
         @else
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
                 @foreach ($books as $book)
                     <div class="group bg-white rounded-none border border-gray-200 hover:border-blue-200 hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col">
 
@@ -136,12 +136,12 @@
                         </div>
 
                         {{-- Body --}}
-                        <div class="p-3 flex-1 flex flex-col">
-                            <h3 class="text-sm font-semibold text-gray-900 line-clamp-2 mb-1.5 group-hover:text-blue-700 transition-colors" title="{{ $book->title }}">
+                        <div class="p-2.5 flex-1 flex flex-col">
+                            <h3 class="text-xs font-semibold text-gray-900 line-clamp-2 mb-1 group-hover:text-blue-700 transition-colors" title="{{ $book->title }}">
                                 {{ $book->title }}
                             </h3>
 
-                            <div class="space-y-0.5 mb-3 text-xs text-gray-500 flex-1">
+                            <div class="space-y-0.5 mb-2 text-[11px] text-gray-500 flex-1">
                                 <p class="flex items-center gap-1.5 truncate">
                                     <svg class="w-3 h-3 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -157,30 +157,32 @@
                             </div>
 
                             {{-- Action bar --}}
-                            <div class="flex items-center justify-between gap-1 pt-2 border-t border-gray-100">
-                                <button wire:click="onViewBook({{ $book->id }})" title="View"
-                                    class="p-1.5 rounded-md text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                    </svg>
-                                </button>
+                            <div class="flex items-center justify-between gap-0.5 pt-2 border-t border-gray-100">
                                 @if ($book->pdf_file)
-                                    <a href="{{ $book->pdf_file }}" target="_blank" rel="noopener" title="Open PDF"
-                                        class="p-1.5 rounded-md text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors">
+                                    <a href="{{ $book->pdf_file }}" target="_blank" rel="noopener" title="View in new tab"
+                                        class="p-1 rounded-md text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-colors">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                         </svg>
                                     </a>
+                                    <button wire:click="downloadBook({{ $book->id }})" title="Download PDF"
+                                        class="p-1 rounded-md text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                                        </svg>
+                                    </button>
+                                @else
+                                    <span class="text-[10px] text-gray-300 italic px-1">No PDF</span>
                                 @endif
                                 <button wire:click="onEditBook({{ $book->id }})" title="Edit"
-                                    class="p-1.5 rounded-md text-gray-500 hover:bg-amber-50 hover:text-amber-600 transition-colors">
+                                    class="p-1 rounded-md text-gray-500 hover:bg-amber-50 hover:text-amber-600 transition-colors">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                     </svg>
                                 </button>
                                 <button wire:click="onDeleteBook({{ $book->id }})" title="Delete"
-                                    class="p-1.5 rounded-md text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors">
+                                    class="p-1 rounded-md text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                     </svg>
@@ -218,8 +220,8 @@
                 <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Book Title <span class="text-red-500">*</span></label>
-                        <input wire:model.defer="title" type="text" placeholder="e.g. NCERT Mathematics — Class 8"
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Book Title <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(max 100 characters)</span></label>
+                        <input wire:model.defer="title" type="text" maxlength="100" placeholder="e.g. NCERT Mathematics — Class 8"
                             class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                         @error('title')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
@@ -257,42 +259,46 @@
                         @error('subject_id')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
 
+                    @php $existingBook = $editId ? \App\Models\Admin\Book::find($editId) : null; @endphp
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {{-- Cover Image (student-style inline: thumb + file input) --}}
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Cover Image <span class="text-gray-400 font-normal">(Optional, max 2 MB)</span></label>
-                            @if ($editId && !$book_logo)
-                                @php $existing = \App\Models\Admin\Book::find($editId); @endphp
-                                @if ($existing && $existing->book_logo)
-                                    <div class="mb-2 border border-gray-200 rounded-md p-2 flex items-center gap-2">
-                                        <img src="{{ $existing->book_logo }}" class="w-12 h-16 object-cover rounded border border-gray-200">
-                                        <span class="text-xs text-gray-700 flex-1">Current cover</span>
-                                        <button wire:click="$set('book_logo', null)" type="button" class="text-xs text-red-600">Remove</button>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Cover Image <span class="text-gray-400 font-normal">(Optional, max 1 MB)</span></label>
+                            <div class="flex items-center gap-3">
+                                @if ($tempLogoUrl)
+                                    <img src="{{ $tempLogoUrl }}" class="w-12 h-16 rounded object-cover border border-gray-200 flex-shrink-0">
+                                @elseif ($existingBook && $existingBook->book_logo)
+                                    <img src="{{ $existingBook->book_logo }}" class="w-12 h-16 rounded object-cover border border-gray-200 flex-shrink-0">
+                                @else
+                                    <div class="w-12 h-16 rounded bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                        </svg>
                                     </div>
                                 @endif
-                            @endif
-                            @if ($tempLogoUrl)
-                                <img src="{{ $tempLogoUrl }}" class="w-16 h-20 object-cover rounded border border-gray-200 mb-2">
-                            @endif
-                            <input type="file" wire:model="book_logo" accept="image/*" class="w-full text-xs">
-                            <div wire:loading wire:target="book_logo" class="text-xs text-blue-600 mt-1">Uploading...</div>
+                                <input type="file" wire:model="book_logo" accept="image/*" class="flex-1 text-sm">
+                            </div>
+                            <div wire:loading wire:target="book_logo" class="text-xs text-blue-600 mt-1">Uploading…</div>
                             @error('book_logo')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
+
+                        {{-- PDF (student-style inline: icon + file input) --}}
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">PDF <span class="text-gray-400 font-normal">(Optional, max 10 MB)</span></label>
-                            @if ($editId && !$pdf_file)
-                                @php $existing = $existing ?? \App\Models\Admin\Book::find($editId); @endphp
-                                @if ($existing && $existing->pdf_file)
-                                    <div class="mb-2 border border-gray-200 rounded-md p-2 flex items-center gap-2">
-                                        <div class="w-8 h-8 bg-red-50 rounded flex items-center justify-center">
-                                            <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                                        </div>
-                                        <span class="text-xs text-gray-700 flex-1 truncate">Current PDF</span>
-                                        <button wire:click="$set('pdf_file', null)" type="button" class="text-xs text-red-600">Remove</button>
-                                    </div>
-                                @endif
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">PDF <span class="text-gray-400 font-normal">(Optional, max 5 MB)</span></label>
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded bg-red-50 flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <input type="file" wire:model="pdf_file" accept=".pdf" class="flex-1 text-sm">
+                            </div>
+                            @if ($tempPdfUrl)
+                                <p class="text-xs text-gray-600 mt-1 truncate">Selected: {{ $tempPdfUrl }}</p>
+                            @elseif ($existingBook && $existingBook->pdf_file)
+                                <p class="text-xs text-gray-500 mt-1">Current PDF attached — upload to replace</p>
                             @endif
-                            <input type="file" wire:model="pdf_file" accept=".pdf" class="w-full text-xs">
-                            <div wire:loading wire:target="pdf_file" class="text-xs text-blue-600 mt-1">Uploading...</div>
+                            <div wire:loading wire:target="pdf_file" class="text-xs text-blue-600 mt-1">Uploading…</div>
                             @error('pdf_file')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                     </div>
