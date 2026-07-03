@@ -5,8 +5,12 @@ namespace App\Livewire\Admin;
 use App\Models\Admin\AdminAttendance;
 use App\Models\Admin\AdminEmployee;
 use App\Models\Admin\AdminSalaryPayment;
+use App\Models\Admin\DriverDetail;
 use App\Models\Teacher\TeacherAttendance;
+use App\Models\Teacher\TeacherDetail;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -45,6 +49,11 @@ class Payroll extends Component
     public        $empExistingPhoto   = null;
     public        $empTeacherDetailId = null;
 
+    // ─── Employee list filters ────────────────────────────────────────────────
+    public string $empSearch     = '';
+    public string $empTypeFilter = '';
+    public string $empSort       = 'name_asc';
+
     // ─── Employee Detail Modal ────────────────────────────────────────────────
     public bool $showEmpDetailModal = false;
     public      $selectedEmployee   = null;
@@ -53,14 +62,19 @@ class Payroll extends Component
     public string $attendanceMonth      = '';
     public string $attendanceDate       = '';
     public string $filterAttendanceType = '';
+    public string $attSearch            = '';
+    public array  $attendanceDraft      = []; // admin_employee_id => status (non-teacher only)
+    public string $analyticsEmpId       = ''; // month day-by-day view
 
     // ─── Salary ───────────────────────────────────────────────────────────────
     public string $salaryMonth        = '';
     public string $filterSalaryType   = '';
+    public string $salarySearch       = '';
     public bool   $showPayModal       = false;
     public        $payEmployeeId      = null;
     public        $payAmount          = '';
     public string $payMode            = 'cash';
+    public string $payPaidBy          = '';
     public string $payDate            = '';
     public string $payTransactionId   = '';
     public string $payRemark          = '';
@@ -69,14 +83,70 @@ class Payroll extends Component
     // ─── Payments History ─────────────────────────────────────────────────────
     public string $filterPaymentEmpId = '';
     public string $filterPaymentMonth = '';
+    public string $paymentSearch      = '';
 
     // ─────────────────────────────────────────────────────────────────────────
     public function mount(): void
     {
         $this->attendanceMonth = now()->format('Y-m');
         $this->attendanceDate  = now()->format('Y-m-d');
-        $this->salaryMonth     = now()->format('Y-m');
+        // Salary defaults to the PREVIOUS month — that's the payable, fully-attended month.
+        $this->salaryMonth     = now()->subMonthNoOverflow()->format('Y-m');
         $this->payDate         = now()->format('Y-m-d');
+    }
+
+    /**
+     * Make sure every teacher and driver in the org has a payroll row, so they
+     * show up here automatically without being re-added by hand.
+     */
+    private function ensurePayrollEmployees(): void
+    {
+        $org = $this->orgId();
+
+        // Teachers → link via teacher_detail_id
+        $linkedTeachers = AdminEmployee::forOrganization($org)
+            ->whereNotNull('teacher_detail_id')->pluck('teacher_detail_id')->all();
+        TeacherDetail::with('user')
+            ->where('organization_id', $org)
+            ->when(count($linkedTeachers), fn($q) => $q->whereNotIn('id', $linkedTeachers))
+            ->get()
+            ->each(function ($td) use ($org) {
+                if (!$td->user) return;
+                AdminEmployee::create([
+                    'organization_id'   => $org,
+                    'teacher_detail_id' => $td->id,
+                    'name'              => $td->user->name,
+                    'email'             => $td->user->email ?? null,
+                    'mobile'            => $td->phone ?? null,
+                    'designation'       => 'Teacher',
+                    'type'              => 'teacher',
+                    'salary'            => 0,
+                    'joining_date'      => $td->date_of_joining,
+                ]);
+            });
+
+        // Drivers → link via driver_detail_id (skip gracefully until the migration lands)
+        if (!Schema::hasColumn('admin_employees', 'driver_detail_id')) {
+            return;
+        }
+        $linkedDrivers = AdminEmployee::forOrganization($org)
+            ->whereNotNull('driver_detail_id')->pluck('driver_detail_id')->all();
+        DriverDetail::with('user')
+            ->where('organization_id', $org)
+            ->when(count($linkedDrivers), fn($q) => $q->whereNotIn('id', $linkedDrivers))
+            ->get()
+            ->each(function ($dd) use ($org) {
+                AdminEmployee::create([
+                    'organization_id'  => $org,
+                    'driver_detail_id' => $dd->id,
+                    'name'             => $dd->user->name ?? ('Driver #' . $dd->id),
+                    'email'            => $dd->user->email ?? null,
+                    'mobile'           => $dd->phone ?? null,
+                    'designation'      => 'Driver',
+                    'type'             => 'driver',
+                    'salary'           => 0,
+                ]);
+            });
     }
 
     // ─── Employee CRUD ────────────────────────────────────────────────────────
@@ -190,7 +260,7 @@ class Payroll extends Component
 
     public function viewEmployee($id): void
     {
-        $this->selectedEmployee   = AdminEmployee::with('teacherDetail')
+        $this->selectedEmployee   = AdminEmployee::with(['teacherDetail', 'driverDetail'])
             ->forOrganization($this->orgId())
             ->find($id);
         $this->showEmpDetailModal = true;
@@ -233,40 +303,46 @@ class Payroll extends Component
 
     // ─── Attendance ───────────────────────────────────────────────────────────
 
-    public function markAttendance($empId, string $status): void
+    /** Reload the draft (non-teacher rows) from what's already saved for the date. */
+    public function updatedAttendanceDate(): void
     {
-        $emp = AdminEmployee::find($empId);
-        if (!$emp) return;
-
-        if ($emp->isTeacher() && $emp->teacher_detail_id) {
-            $intStatus = AdminEmployee::TEACHER_STATUS_MAP[$status] ?? 1;
-            TeacherAttendance::updateOrCreate(
-                [
-                    'teacher_detail_id' => $emp->teacher_detail_id,
-                    'attendance_date'   => $this->attendanceDate,
-                ],
-                [
-                    'organization_id' => $this->orgId(),
-                    'status'          => $intStatus,
-                    'marked_by'       => Auth::id(),
-                ]
-            );
-        } else {
-            AdminAttendance::updateOrCreate(
-                [
-                    'admin_employee_id' => $empId,
-                    'date'              => $this->attendanceDate,
-                ],
-                [
-                    'organization_id' => $this->orgId(),
-                    'status'          => $status,
-                ]
-            );
-        }
-
-        $this->notification()->success('Attendance marked!');
+        $this->attendanceDraft = [];
     }
 
+    /** Pick a status for an employee in the draft; nothing is saved until Submit. */
+    public function setDraft(int $empId, string $status): void
+    {
+        $this->attendanceDraft[$empId] = $status;
+    }
+
+    /** Persist all drafted (non-teacher) attendance for the selected date. */
+    public function submitAttendance(): void
+    {
+        $org = $this->orgId();
+        $count = 0;
+
+        foreach ($this->attendanceDraft as $empId => $status) {
+            $emp = AdminEmployee::forOrganization($org)->find($empId);
+            // Teachers are marked from the Teacher Attendance module — never here.
+            if (!$emp || $emp->isTeacher()) continue;
+
+            AdminAttendance::updateOrCreate(
+                ['admin_employee_id' => $empId, 'date' => $this->attendanceDate],
+                ['organization_id' => $org, 'status' => $status]
+            );
+            $count++;
+        }
+
+        if ($count === 0) {
+            $this->notification()->error('Nothing to submit — pick a status for at least one employee.');
+            return;
+        }
+
+        $this->attendanceDraft = [];
+        $this->notification()->success('Attendance marked successfully', "{$count} employee(s) updated for " . Carbon::parse($this->attendanceDate)->format('d M Y') . '.');
+    }
+
+    /** Saved status for a non-teacher on the current date (teachers read from teacher module). */
     public function getAttendanceStatus($empId): ?string
     {
         $emp = AdminEmployee::find($empId);
@@ -276,10 +352,64 @@ class Payroll extends Component
 
     // ─── Salary ───────────────────────────────────────────────────────────────
 
+    /** Salary is payable only once the month is over. Current/future month → locked. */
+    private function canPayMonth(): bool
+    {
+        return $this->salaryMonth < now()->format('Y-m');
+    }
+
+    /**
+     * Attendance-based payable for an employee in the selected salary month.
+     * Present / leave / unmarked days are paid in full; each absent is a full
+     * per-day cut and each half day a half cut.
+     */
+    private function salaryBreakdown(AdminEmployee $emp, $adminGrouped, $teacherGrouped): array
+    {
+        $base = (float) $emp->salary;
+        $daysInMonth = (int) Carbon::parse($this->salaryMonth . '-01')->daysInMonth;
+
+        if ($emp->isTeacher() && isset($teacherGrouped[$emp->id])) {
+            $records = $teacherGrouped[$emp->id];
+            $present = $records->where('status', 1)->count();
+            $absent  = $records->where('status', 0)->count();
+            $halfDay = $records->whereIn('status', [2, 3])->count();
+            $leave   = 0;
+        } else {
+            $records = $adminGrouped->get($emp->id, collect());
+            $present = $records->where('status', 'present')->count();
+            $absent  = $records->where('status', 'absent')->count();
+            $halfDay = $records->where('status', 'half_day')->count();
+            $leave   = $records->where('status', 'leave')->count();
+        }
+
+        $perDay    = $daysInMonth > 0 ? $base / $daysInMonth : 0;
+        $deduction = ($absent + 0.5 * $halfDay) * $perDay;
+        $payable   = max(0, round($base - $deduction));
+
+        return compact('present', 'absent', 'halfDay', 'leave', 'payable') + ['base' => $base];
+    }
+
     public function openPayModal($empId): void
     {
+        if (!$this->canPayMonth()) {
+            $this->notification()->error('Salary for ' . Carbon::parse($this->salaryMonth . '-01')->format('M Y') . ' can be paid only after the month ends.');
+            return;
+        }
+
         $emp = AdminEmployee::forOrganization($this->orgId())->find($empId);
         if (!$emp) return;
+
+        // Attendance-based payable for this month.
+        $adminGrouped = AdminAttendance::forOrganization($this->orgId())
+            ->forMonth($this->salaryMonth)->where('admin_employee_id', $empId)
+            ->get()->groupBy('admin_employee_id');
+        $teacherGrouped = [];
+        if ($emp->isTeacher() && $emp->teacher_detail_id) {
+            $recs = TeacherAttendance::where('teacher_detail_id', $emp->teacher_detail_id)
+                ->whereRaw("DATE_FORMAT(attendance_date, '%Y-%m') = ?", [$this->salaryMonth])->get();
+            $teacherGrouped[$emp->id] = $recs;
+        }
+        $breakdown = $this->salaryBreakdown($emp, $adminGrouped, $teacherGrouped);
 
         $existing = AdminSalaryPayment::where('admin_employee_id', $empId)
             ->where('organization_id', $this->orgId())
@@ -287,8 +417,9 @@ class Payroll extends Component
             ->first();
 
         $this->payEmployeeId    = $empId;
-        $this->payAmount        = $existing?->amount ?? $emp->salary;
+        $this->payAmount        = $existing?->amount ?? $breakdown['payable'];
         $this->payMode          = $existing?->payment_mode ?? 'cash';
+        $this->payPaidBy        = $existing?->paid_by ?? (Auth::user()->name ?? '');
         $this->payDate          = $existing?->payment_date?->format('Y-m-d') ?? now()->format('Y-m-d');
         $this->payTransactionId = $existing?->transaction_id ?? '';
         $this->payRemark        = $existing?->remark ?? '';
@@ -303,6 +434,7 @@ class Payroll extends Component
             'payEmployeeId',
             'payAmount',
             'payMode',
+            'payPaidBy',
             'payDate',
             'payTransactionId',
             'payRemark',
@@ -313,12 +445,20 @@ class Payroll extends Component
 
     public function savePayment(): void
     {
+        if (!$this->canPayMonth()) {
+            $this->notification()->error('This month is not payable yet.');
+            return;
+        }
+
         $this->validate([
             'payAmount' => 'required|numeric|min:0',
             'payMode'   => 'required|string',
+            'payPaidBy' => 'required|string|max:255',
             'payDate'   => 'required|date',
-        ]);
+        ], [], ['payPaidBy' => 'paid by']);
 
+        // For online / bank transfer the money moves to the employee's account and
+        // the payment is credited immediately; other modes are recorded as paid too.
         AdminSalaryPayment::updateOrCreate(
             [
                 'admin_employee_id' => $this->payEmployeeId,
@@ -328,6 +468,7 @@ class Payroll extends Component
             [
                 'amount'         => $this->payAmount,
                 'payment_mode'   => $this->payMode,
+                'paid_by'        => $this->payPaidBy,
                 'status'         => 'paid',
                 'payment_date'   => $this->payDate,
                 'transaction_id' => $this->payTransactionId ?: null,
@@ -336,7 +477,12 @@ class Payroll extends Component
         );
 
         $this->closePayModal();
-        $this->notification()->success('Salary payment recorded!');
+
+        if (in_array($this->payMode, ['online', 'bank_transfer'])) {
+            $this->notification()->success('Salary credited to employee account!');
+        } else {
+            $this->notification()->success('Salary payment recorded!');
+        }
     }
 
     // ─── Render ───────────────────────────────────────────────────────────────
@@ -345,135 +491,148 @@ class Payroll extends Component
     {
         $orgId = $this->orgId();
 
+        // Auto-provision payroll rows for teachers/drivers.
+        $this->ensurePayrollEmployees();
+
         // ── Employees — single query, reuse everywhere ─────────────────────────
-        $allEmployees = AdminEmployee::forOrganization($orgId)
-            ->orderBy('name')
-            ->get();
+        $allEmployees = AdminEmployee::forOrganization($orgId)->orderBy('name')->get();
 
-        // Filter for attendance tab
-        $employees = $this->filterAttendanceType
-            ? $allEmployees->where('type', $this->filterAttendanceType)->values()
-            : $allEmployees;
+        // Employees tab: search + type + sort
+        $employeesList = $allEmployees
+            ->when($this->empTypeFilter, fn($c) => $c->where('type', $this->empTypeFilter))
+            ->when($this->empSearch, function ($c) {
+                $t = mb_strtolower(trim($this->empSearch));
+                return $c->filter(fn($e) => str_contains(mb_strtolower($e->name), $t)
+                    || str_contains(mb_strtolower((string) $e->designation), $t)
+                    || str_contains(mb_strtolower((string) $e->mobile), $t));
+            });
+        $employeesList = match ($this->empSort) {
+            'name_desc'   => $employeesList->sortByDesc('name'),
+            'salary_asc'  => $employeesList->sortBy('salary'),
+            'salary_desc' => $employeesList->sortByDesc('salary'),
+            'type'        => $employeesList->sortBy('type'),
+            default       => $employeesList->sortBy('name'),
+        };
+        $employeesList = $employeesList->values();
 
-        // Filter for salary tab (reuse same collection — no extra query)
-        $salaryEmployees = $this->filterSalaryType
-            ? $allEmployees->where('type', $this->filterSalaryType)->values()
-            : $allEmployees;
+        // Attendance tab list: search + type
+        $attEmployees = $allEmployees
+            ->when($this->filterAttendanceType, fn($c) => $c->where('type', $this->filterAttendanceType))
+            ->when($this->attSearch, function ($c) {
+                $t = mb_strtolower(trim($this->attSearch));
+                return $c->filter(fn($e) => str_contains(mb_strtolower($e->name), $t));
+            })->values();
 
-        // Reuse for payment filter dropdown
+        // Salary tab list: search + type
+        $salaryEmployees = $allEmployees
+            ->when($this->filterSalaryType, fn($c) => $c->where('type', $this->filterSalaryType))
+            ->when($this->salarySearch, function ($c) {
+                $t = mb_strtolower(trim($this->salarySearch));
+                return $c->filter(fn($e) => str_contains(mb_strtolower($e->name), $t));
+            })->values();
+
         $allEmployeesForFilter = $allEmployees;
 
-        // ── Employee Stats — single grouped query ──────────────────────────────
-        $empTypeCounts = AdminEmployee::forOrganization($orgId)
-            ->selectRaw('type, count(*) as total')
-            ->groupBy('type')
-            ->pluck('total', 'type');
-
+        // ── Stats (for employees tab header) ───────────────────────────────────
         $empStats = [
-            'total'      => $empTypeCounts->sum(),
-            'teacher'    => $empTypeCounts->get('teacher', 0),
-            'management' => $empTypeCounts->get('management', 0),
-            'employee'   => $empTypeCounts->get('employee', 0),
-            'driver'     => $empTypeCounts->get('driver', 0),
+            'total'      => $allEmployees->count(),
+            'teacher'    => $allEmployees->where('type', 'teacher')->count(),
+            'management' => $allEmployees->where('type', 'management')->count(),
+            'employee'   => $allEmployees->where('type', 'employee')->count(),
+            'driver'     => $allEmployees->where('type', 'driver')->count(),
         ];
 
-        // ── Teacher IDs — reused in both attendance sections ───────────────────
-        $teacherIds = $allEmployees
-            ->where('type', 'teacher')
-            ->whereNotNull('teacher_detail_id')
-            ->pluck('teacher_detail_id');
+        // ── Teacher maps ───────────────────────────────────────────────────────
+        $teacherIds = $allEmployees->where('type', 'teacher')->whereNotNull('teacher_detail_id')->pluck('teacher_detail_id');
+        $teacherEmpMap = $allEmployees->whereNotNull('teacher_detail_id')->pluck('id', 'teacher_detail_id');
 
-        // teacher_detail_id → employee_id map (no N+1)
-        $teacherEmpMap = $allEmployees
-            ->whereNotNull('teacher_detail_id')
-            ->pluck('id', 'teacher_detail_id');
-
-        // ── Attendance Counts — 1 query each for admin + teacher ───────────────
-        $attCounts = AdminAttendance::forOrganization($orgId)
-            ->where('date', $this->attendanceDate)
-            ->selectRaw('status, count(*) as total')
-            ->groupBy('status')
-            ->pluck('total', 'status');
-
-        $presentCount = $attCounts->get('present', 0);
-        $absentCount  = $attCounts->get('absent', 0);
-        $halfDayCount = $attCounts->get('half_day', 0);
-        $leaveCount   = $attCounts->get('leave', 0);
-
-        if ($teacherIds->isNotEmpty()) {
-            $teacherAttCounts = TeacherAttendance::whereIn('teacher_detail_id', $teacherIds)
-                ->whereDate('attendance_date', $this->attendanceDate)
-                ->selectRaw('status, count(*) as total')
-                ->groupBy('status')
-                ->pluck('total', 'status');
-
-            $presentCount += $teacherAttCounts->get(1, 0);
-            $absentCount  += $teacherAttCounts->get(0, 0);
-            $halfDayCount += $teacherAttCounts->get(2, 0) + $teacherAttCounts->get(3, 0);
-        }
-
-        // ── Monthly Attendance ────────────────────────────────────────────────
+        // ── Monthly attendance (attendanceMonth) for day-by-day analytics ──────
         $monthAttendance = AdminAttendance::forOrganization($orgId)
-            ->forMonth($this->attendanceMonth)
-            ->get()
-            ->groupBy('admin_employee_id');
+            ->forMonth($this->attendanceMonth)->get()->groupBy('admin_employee_id');
 
-        // Teacher monthly attendance — no N+1
         $teacherMonthAttendance = [];
         if ($teacherIds->isNotEmpty()) {
-            $raw = TeacherAttendance::whereIn('teacher_detail_id', $teacherIds)
+            TeacherAttendance::whereIn('teacher_detail_id', $teacherIds)
                 ->whereRaw("DATE_FORMAT(attendance_date, '%Y-%m') = ?", [$this->attendanceMonth])
-                ->get()
-                ->groupBy('teacher_detail_id');
+                ->get()->groupBy('teacher_detail_id')
+                ->each(function ($records, $tdId) use (&$teacherMonthAttendance, $teacherEmpMap) {
+                    if ($empId = $teacherEmpMap->get($tdId)) $teacherMonthAttendance[$empId] = $records;
+                });
+        }
 
-            foreach ($raw as $tdId => $records) {
-                $empId = $teacherEmpMap->get($tdId);
-                if ($empId) {
-                    $teacherMonthAttendance[$empId] = $records;
+        // Day-by-day analytics for the selected employee
+        $analyticsDays = [];
+        if ($this->analyticsEmpId) {
+            $emp = $allEmployees->firstWhere('id', (int) $this->analyticsEmpId);
+            if ($emp) {
+                $daysInMonth = (int) Carbon::parse($this->attendanceMonth . '-01')->daysInMonth;
+                $isTeacher   = $emp->isTeacher() && isset($teacherMonthAttendance[$emp->id]);
+                $records     = $isTeacher ? $teacherMonthAttendance[$emp->id] : $monthAttendance->get($emp->id, collect());
+
+                for ($d = 1; $d <= $daysInMonth; $d++) {
+                    $dateStr = sprintf('%s-%02d', $this->attendanceMonth, $d);
+                    if ($isTeacher) {
+                        $rec = $records->first(fn($r) => Carbon::parse($r->attendance_date)->format('Y-m-d') === $dateStr);
+                        $status = $rec ? (['0' => 'absent', '1' => 'present', '2' => 'half_day', '3' => 'half_day'][(string) $rec->status] ?? null) : null;
+                    } else {
+                        $rec = $records->first(fn($r) => Carbon::parse($r->date)->format('Y-m-d') === $dateStr);
+                        $status = $rec?->status;
+                    }
+                    $analyticsDays[] = ['day' => $d, 'date' => $dateStr, 'status' => $status];
                 }
             }
         }
 
-        // ── Salary Stats — single grouped query ───────────────────────────────
-        $salaryStats = AdminSalaryPayment::forOrganization($orgId)
-            ->forMonth($this->salaryMonth)
-            ->selectRaw('status, count(*) as cnt, sum(amount) as total')
-            ->groupBy('status')
-            ->get()
-            ->keyBy('status');
+        // ── Salary month attendance → breakdowns ───────────────────────────────
+        $salaryAdminGrouped = AdminAttendance::forOrganization($orgId)
+            ->forMonth($this->salaryMonth)->get()->groupBy('admin_employee_id');
+        $salaryTeacherGrouped = [];
+        if ($teacherIds->isNotEmpty()) {
+            TeacherAttendance::whereIn('teacher_detail_id', $teacherIds)
+                ->whereRaw("DATE_FORMAT(attendance_date, '%Y-%m') = ?", [$this->salaryMonth])
+                ->get()->groupBy('teacher_detail_id')
+                ->each(function ($records, $tdId) use (&$salaryTeacherGrouped, $teacherEmpMap) {
+                    if ($empId = $teacherEmpMap->get($tdId)) $salaryTeacherGrouped[$empId] = $records;
+                });
+        }
 
-        $paidThisMonth    = (int) ($salaryStats->get('paid')?->cnt ?? 0);
-        $totalPaidAmount  = (float) ($salaryStats->get('paid')?->total ?? 0);
-        $pendingThisMonth = $allEmployees->count() - $paidThisMonth;
+        $salaryBreakdowns = [];
+        foreach ($salaryEmployees as $emp) {
+            $salaryBreakdowns[$emp->id] = $this->salaryBreakdown($emp, $salaryAdminGrouped, $salaryTeacherGrouped);
+        }
 
         $monthSalaryPayments = AdminSalaryPayment::forOrganization($orgId)
-            ->forMonth($this->salaryMonth)
-            ->get()
-            ->keyBy('admin_employee_id');
+            ->forMonth($this->salaryMonth)->get()->keyBy('admin_employee_id');
+
+        $canPaySalaryMonth   = $this->canPayMonth();
+        $totalPayable        = collect($salaryBreakdowns)->sum('payable');
+        $totalPaidAmount     = (float) ($monthSalaryPayments->where('status', 'paid')->sum('amount'));
 
         // ── Payments History ──────────────────────────────────────────────────
         $payments = AdminSalaryPayment::forOrganization($orgId)
             ->with('employee')
             ->when($this->filterPaymentEmpId, fn($q) => $q->where('admin_employee_id', $this->filterPaymentEmpId))
             ->when($this->filterPaymentMonth,  fn($q) => $q->forMonth($this->filterPaymentMonth))
-            ->latest()
-            ->get();
+            ->latest()->get()
+            ->when($this->paymentSearch, function ($c) {
+                $t = mb_strtolower(trim($this->paymentSearch));
+                return $c->filter(fn($p) => str_contains(mb_strtolower((string) $p->employee?->name), $t));
+            })->values();
 
         return view('livewire.admin.payroll', compact(
-            'employees',
+            'employeesList',
+            'attEmployees',
+            'salaryEmployees',
             'empStats',
-            'presentCount',
-            'absentCount',
-            'halfDayCount',
-            'leaveCount',
             'monthAttendance',
             'teacherMonthAttendance',
-            'salaryEmployees',
-            'paidThisMonth',
-            'pendingThisMonth',
+            'analyticsDays',
+            'salaryBreakdowns',
+            'monthSalaryPayments',
+            'canPaySalaryMonth',
+            'totalPayable',
             'totalPaidAmount',
             'payments',
-            'monthSalaryPayments',
             'allEmployeesForFilter',
         ));
     }

@@ -17,6 +17,7 @@ class AdminSalaryPayment extends Model
         'month',
         'amount',
         'payment_mode',
+        'paid_by',
         'status',
         'payment_date',
         'transaction_id',

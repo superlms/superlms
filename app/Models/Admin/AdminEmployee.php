@@ -17,6 +17,7 @@ class AdminEmployee extends Model
         'name',
         'organization_id',
         'teacher_detail_id',
+        'driver_detail_id',
         'email',
         'mobile',
         'designation',
@@ -45,6 +46,11 @@ class AdminEmployee extends Model
     public function teacherDetail()
     {
         return $this->belongsTo(TeacherDetail::class);
+    }
+
+    public function driverDetail()
+    {
+        return $this->belongsTo(DriverDetail::class);
     }
 
     public function idCard()
