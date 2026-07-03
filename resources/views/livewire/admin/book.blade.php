@@ -104,7 +104,7 @@
         @else
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
                 @foreach ($books as $book)
-                    <div class="group bg-white rounded-none border border-gray-200 hover:border-blue-200 hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col">
+                    <div class="group bg-white rounded-lg border border-gray-200 hover:border-blue-200 hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col">
 
                         {{-- Cover (book-shaped 3:4 aspect, full bleed top) --}}
                         <div class="relative aspect-[3/4] bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
@@ -136,7 +136,7 @@
                         </div>
 
                         {{-- Body --}}
-                        <div class="p-2.5 flex-1 flex flex-col">
+                        <div class="p-2.5 flex-1 flex flex-col border-t border-gray-100">
                             <h3 class="text-xs font-semibold text-gray-900 line-clamp-2 mb-1 group-hover:text-blue-700 transition-colors" title="{{ $book->title }}">
                                 {{ $book->title }}
                             </h3>
@@ -217,7 +217,7 @@
                     </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                <div class="flex-1 overflow-y-auto overflow-x-hidden px-6 py-6 space-y-4">
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Book Title <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(max 100 characters)</span></label>
@@ -264,7 +264,7 @@
                         {{-- Cover Image (student-style inline: thumb + file input) --}}
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Cover Image <span class="text-gray-400 font-normal">(Optional, max 1 MB)</span></label>
-                            <div class="flex items-center gap-3">
+                            <div class="flex items-center gap-3 min-w-0">
                                 @if ($tempLogoUrl)
                                     <img src="{{ $tempLogoUrl }}" class="w-12 h-16 rounded object-cover border border-gray-200 flex-shrink-0">
                                 @elseif ($existingBook && $existingBook->book_logo)
@@ -276,7 +276,7 @@
                                         </svg>
                                     </div>
                                 @endif
-                                <input type="file" wire:model="book_logo" accept="image/*" class="flex-1 text-sm">
+                                <input type="file" wire:model="book_logo" accept="image/*" class="flex-1 min-w-0 w-full text-sm">
                             </div>
                             <div wire:loading wire:target="book_logo" class="text-xs text-blue-600 mt-1">Uploading…</div>
                             @error('book_logo')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
@@ -285,13 +285,13 @@
                         {{-- PDF (student-style inline: icon + file input) --}}
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">PDF <span class="text-gray-400 font-normal">(Optional, max 5 MB)</span></label>
-                            <div class="flex items-center gap-3">
+                            <div class="flex items-center gap-3 min-w-0">
                                 <div class="w-12 h-12 rounded bg-red-50 flex items-center justify-center flex-shrink-0">
                                     <svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                     </svg>
                                 </div>
-                                <input type="file" wire:model="pdf_file" accept=".pdf" class="flex-1 text-sm">
+                                <input type="file" wire:model="pdf_file" accept=".pdf" class="flex-1 min-w-0 w-full text-sm">
                             </div>
                             @if ($tempPdfUrl)
                                 <p class="text-xs text-gray-600 mt-1 truncate">Selected: {{ $tempPdfUrl }}</p>
