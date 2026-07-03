@@ -4,6 +4,7 @@ namespace App\Livewire\Admin;
 
 use App\Models\Admin\ContactAdminStudent;
 use App\Models\Admin\ContactAdminTeacher;
+use App\Models\SchoolWebsiteEnquiry;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Carbon\Carbon;
@@ -17,7 +18,7 @@ class Enqueries extends Component
     use WithPagination, WireUiActions;
 
     // ─── Tabs ────────────────────────────────────────────────────────────────
-    public string $activeTab = 'teacher'; // 'teacher' | 'student'
+    public string $activeTab = 'student'; // 'student' | 'teacher' | 'website'
 
     // ─── State ──────────────────────────────────────────────────────────────
     public $selectedEnquiry  = null;
@@ -38,11 +39,12 @@ class Enqueries extends Component
     // ─── Stats ──────────────────────────────────────────────────────────────
     public int $totalTeacher  = 0;
     public int $totalStudent  = 0;
+    public int $totalWebsite  = 0;
     public int $pendingCount  = 0;
     public int $repliedCount  = 0;
 
     protected $queryString = [
-        'activeTab'    => ['except' => 'teacher'],
+        'activeTab'    => ['except' => 'student'],
         'filterDays'   => ['except' => ''],
         'search'       => ['except' => ''],
         'statusFilter' => ['except' => ''],
@@ -82,13 +84,19 @@ class Enqueries extends Component
 
         $this->totalTeacher = (int) ($teacher->total ?? 0);
         $this->totalStudent = (int) ($student->total ?? 0);
+        $this->totalWebsite = SchoolWebsiteEnquiry::where('organization_id', $orgId)->count();
 
+        // Pending/Replied only apply to teacher & student enquiries.
+        // Website enquiries come from the public site and have no reply flow.
         if ($this->activeTab === 'teacher') {
             $this->pendingCount = (int) ($teacher->pending ?? 0);
             $this->repliedCount = (int) ($teacher->replied ?? 0);
-        } else {
+        } elseif ($this->activeTab === 'student') {
             $this->pendingCount = (int) ($student->pending ?? 0);
             $this->repliedCount = (int) ($student->replied ?? 0);
+        } else {
+            $this->pendingCount = 0;
+            $this->repliedCount = 0;
         }
     }
 
@@ -113,9 +121,28 @@ class Enqueries extends Component
 
     private function getEnquiries()
     {
-        return $this->activeTab === 'student'
-            ? $this->getStudentEnquiries()
-            : $this->getTeacherEnquiries();
+        return match ($this->activeTab) {
+            'student' => $this->getStudentEnquiries(),
+            'website' => $this->getWebsiteEnquiries(),
+            default   => $this->getTeacherEnquiries(),
+        };
+    }
+
+    private function getWebsiteEnquiries()
+    {
+        return SchoolWebsiteEnquiry::where('organization_id', Auth::user()->organization_id)
+            ->when($this->filterDays, fn($q) => $q->where('created_at', '>=', Carbon::now()->subDays((int) $this->filterDays)))
+            ->when($this->search, function ($query) {
+                $query->where(function ($q) {
+                    $q->where('name', 'like', '%' . $this->search . '%')
+                        ->orWhere('email', 'like', '%' . $this->search . '%')
+                        ->orWhere('phone', 'like', '%' . $this->search . '%')
+                        ->orWhere('subject', 'like', '%' . $this->search . '%')
+                        ->orWhere('message', 'like', '%' . $this->search . '%');
+                });
+            })
+            ->latest()
+            ->paginate(10);
     }
 
     private function getTeacherEnquiries()
@@ -181,17 +208,27 @@ class Enqueries extends Component
 
     public function viewEnquiry($id): void
     {
-        $this->selectedEnquiry = $this->activeTab === 'teacher'
-            ? ContactAdminTeacher::where('organization_id', Auth::user()->organization_id)
-                ->with(['user:id,name,email', 'organization:id,name'])->findOrFail($id)
-            : ContactAdminStudent::where('organization_id', Auth::user()->organization_id)
-                ->with(['user:id,name,email', 'organization:id,name'])->findOrFail($id);
+        $orgId = Auth::user()->organization_id;
+
+        $this->selectedEnquiry = match ($this->activeTab) {
+            'website' => SchoolWebsiteEnquiry::where('organization_id', $orgId)->findOrFail($id),
+            'teacher' => ContactAdminTeacher::where('organization_id', $orgId)
+                ->with(['user:id,name,email', 'organization:id,name'])->findOrFail($id),
+            default   => ContactAdminStudent::where('organization_id', $orgId)
+                ->with(['user:id,name,email', 'organization:id,name'])->findOrFail($id),
+        };
 
         $this->showDetailModal = true;
     }
 
     public function openReplyModal($id): void
     {
+        // Website enquiries have no reply flow — just open the detail view.
+        if ($this->activeTab === 'website') {
+            $this->viewEnquiry($id);
+            return;
+        }
+
         $this->viewEnquiry($id);
         $this->showDetailModal = false;
         $this->adminReply      = $this->selectedEnquiry->admin_text ?? '';
@@ -257,7 +294,11 @@ class Enqueries extends Component
 
     public function confirmDelete(): void
     {
-        $modelClass = $this->activeTab === 'teacher' ? ContactAdminTeacher::class : ContactAdminStudent::class;
+        $modelClass = match ($this->activeTab) {
+            'website' => SchoolWebsiteEnquiry::class,
+            'teacher' => ContactAdminTeacher::class,
+            default   => ContactAdminStudent::class,
+        };
         $enquiry    = $modelClass::find($this->deleteTargetId);
 
         if ($enquiry) {
