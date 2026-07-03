@@ -248,7 +248,7 @@ class Quiz extends Component
                     'topic_id'        => $topicId,
                     'created_by'      => Auth::id(),
                     'question_text'   => $row['question_text'],
-                    'time_limit'      => $row['time_limit'] ?? 30,
+                    'time_limit'      => (int) ($row['time_limit'] ?: 0), // 0 = no time limit
                     'is_active'       => true,
                 ]);
 
@@ -356,7 +356,7 @@ class Quiz extends Component
             foreach ($this->editMcqs as $mcq) {
                 McqQuestion::where('id', $mcq['id'])->update([
                     'question_text' => $mcq['question_text'],
-                    'time_limit'    => $mcq['time_limit'] ?? 30,
+                    'time_limit'    => (int) ($mcq['time_limit'] ?: 0), // 0 = no time limit
                 ]);
 
                 foreach ($mcq['options'] as $opt) {

@@ -201,8 +201,8 @@
                                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500">
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-500 mb-1">Time (sec)</label>
-                            <input type="number" wire:model="mcqRows.{{ $qi }}.time_limit" min="5" max="300"
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Time (sec, optional)</label>
+                            <input type="number" wire:model="mcqRows.{{ $qi }}.time_limit" min="0" max="3600" placeholder="No limit"
                                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500">
                         </div>
                     </div>
@@ -268,7 +268,7 @@
                                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500">
                         </div>
                         <div>
-                            <input type="number" wire:model="editMcqs.{{ $qi }}.time_limit" min="5"
+                            <input type="number" wire:model="editMcqs.{{ $qi }}.time_limit" min="0" max="3600" placeholder="No limit (sec)"
                                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500">
                         </div>
                     </div>

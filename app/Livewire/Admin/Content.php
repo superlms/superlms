@@ -270,6 +270,19 @@ class Content extends Component
             return;
         }
 
+        // Limits: text max 10,000 chars, image max 500 KB. Rules run regardless
+        // of the selected content type so an oversized upload can never slip in.
+        $this->validate([
+            'contentText'  => 'nullable|string|max:10000',
+            'contentUrl'   => 'nullable|url|max:2000',
+            'contentImage' => 'nullable|image|max:500', // max is in KB → 500 KB
+        ], [
+            'contentText.max'    => 'Text cannot exceed 10,000 characters.',
+            'contentUrl.url'     => 'Please enter a valid URL.',
+            'contentImage.image' => 'The file must be an image.',
+            'contentImage.max'   => 'Image must be 500 KB or smaller.',
+        ]);
+
         try {
             if ($this->contentTargetType === 'chapter') {
                 $record = Chapter::findOrFail($this->contentTargetId);
