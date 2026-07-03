@@ -174,7 +174,12 @@
                                 </svg>
                                 Edit
                             </button>
-                            <a href="{{ route('admin.timetable.pdf', ['organization' => auth()->user()->organization_id, 'standard' => $card['standard_id'], 'section' => $card['section_id']]) }}"
+                            @php
+                                $ttPdfUrl = $viewMode === 'teacher'
+                                    ? route('admin.timetable.teacher.pdf', ['organization' => auth()->user()->organization_id, 'teacher' => $filterTeacher])
+                                    : route('admin.timetable.pdf', ['organization' => auth()->user()->organization_id, 'standard' => $card['standard_id'], 'section' => $card['section_id']]);
+                            @endphp
+                            <a href="{{ $ttPdfUrl }}"
                                 target="_blank"
                                 class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -227,12 +232,6 @@
                                                         </div>
                                                         <div class="min-w-0">
                                                             <div class="text-gray-800 font-medium leading-tight">{{ $t['teacher_name'] }}</div>
-                                                            {{-- In teacher view the Days column already covers this, so skip the per-teacher days line. --}}
-                                                            @if ($viewMode !== 'teacher')
-                                                                <div class="text-[11px] text-gray-500 leading-tight">
-                                                                    {{ collect($t['days'])->map(fn($d) => $daysOfWeek[$d] ?? $d)->implode(', ') }}
-                                                                </div>
-                                                            @endif
                                                         </div>
                                                     </div>
                                                 @endforeach

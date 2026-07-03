@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>Timetable — {{ $standard->name }} — {{ $section->name }}</title>
+    <title>Timetable — {{ $teacher->user?->name ?? 'Teacher' }}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         @page { size: A4 landscape; margin: 12mm 12mm 14mm 12mm; }
@@ -14,50 +14,39 @@
             font-size: 10pt;
         }
 
-        /* ─── Header ─────────────────────────────────────────── */
         .head {
-            border-bottom: 2px solid #4f46e5;
+            border-bottom: 2px solid #0d9488;
             padding-bottom: 4mm;
             margin-bottom: 5mm;
         }
         .head-table { width: 100%; }
         .head-table td { vertical-align: middle; }
         .logo { max-height: 16mm; max-width: 30mm; }
-        .org-name {
-            font-size: 17pt;
-            font-weight: 700;
-            color: #111827;
-            letter-spacing: 0.3px;
-        }
+        .org-name { font-size: 17pt; font-weight: 700; color: #111827; letter-spacing: 0.3px; }
         .org-contact { font-size: 8pt; color: #6b7280; margin-top: 1mm; }
         .org-contact span + span::before { content: "  •  "; color: #d1d5db; }
         .doc-badge {
             display: inline-block;
-            background: #eef2ff;
-            color: #4338ca;
+            background: #f0fdfa;
+            color: #0f766e;
             font-size: 8.5pt;
             font-weight: 700;
             padding: 2mm 4mm;
             border-radius: 3mm;
         }
-        .doc-badge .sub { color: #6366f1; font-weight: 400; }
+        .doc-badge .sub { color: #14b8a6; font-weight: 400; }
 
-        /* ─── Grid ───────────────────────────────────────────── */
-        table.grid {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: fixed;
-        }
+        table.grid { width: 100%; border-collapse: collapse; table-layout: fixed; }
         table.grid thead th {
-            background: #4f46e5;
+            background: #0d9488;
             color: #ffffff;
             font-weight: 700;
             font-size: 9.5pt;
             text-align: center;
             padding: 7px 5px;
-            border: 1px solid #4f46e5;
+            border: 1px solid #0d9488;
         }
-        table.grid thead th.time-col { width: 15%; background: #4338ca; border-color: #4338ca; }
+        table.grid thead th.time-col { width: 15%; background: #0f766e; border-color: #0f766e; }
 
         table.grid tbody td {
             border: 1px solid #e5e7eb;
@@ -70,13 +59,13 @@
         table.grid tbody tr:nth-child(even) td { background: #f9fafb; }
 
         td.time {
-            background: #eef2ff !important;
+            background: #f0fdfa !important;
             font-weight: 700;
-            color: #3730a3;
+            color: #0f766e;
             font-size: 8.5pt;
             white-space: nowrap;
         }
-        td.time .to { color: #6366f1; font-weight: 400; font-size: 7.5pt; display: block; margin-top: 1px; }
+        td.time .to { color: #14b8a6; font-weight: 400; font-size: 7.5pt; display: block; margin-top: 1px; }
 
         .subject { font-weight: 700; color: #111827; display: block; }
         .teacher { color: #6b7280; font-size: 8pt; display: block; margin-top: 1px; }
@@ -116,6 +105,7 @@
         }
         $schoolEmail  = $schoolInfo->school_email  ?? $organization?->email         ?? null;
         $schoolMobile = $schoolInfo->school_mobile ?? $organization?->mobile_number ?? null;
+        $teacherName  = $teacher->user?->name ?? 'Teacher';
     @endphp
 
     <div class="head">
@@ -134,14 +124,14 @@
                     @endif
                 </td>
                 <td style="text-align: right;">
-                    <span class="doc-badge">{{ $standard->name }} · {{ $section->name }} <span class="sub">— Weekly Timetable</span></span>
+                    <span class="doc-badge">{{ $teacherName }} <span class="sub">— Weekly Timetable</span></span>
                 </td>
             </tr>
         </table>
     </div>
 
     @if (empty($slots))
-        <div class="empty">No timetable entries scheduled for this section.</div>
+        <div class="empty">No classes scheduled for this teacher.</div>
     @else
         <table class="grid">
             <thead>
@@ -167,7 +157,7 @@
                                     <span class="subject">{{ $cell['subject'] }}</span>
                                     <span class="teacher">{{ $cell['teacher'] }}</span>
                                 @else
-                                    <span class="lunch">Lunch</span>
+                                    <span class="lunch">Free</span>
                                 @endif
                             </td>
                         @endforeach
@@ -178,7 +168,7 @@
     @endif
 
     <div class="foot">
-        {{ $organization?->name ?? 'School' }} &nbsp;•&nbsp; {{ $standard->name }} {{ $section->name }} &nbsp;•&nbsp; Generated {{ \Carbon\Carbon::now()->format('d M Y, h:i A') }}
+        {{ $organization?->name ?? 'School' }} &nbsp;•&nbsp; {{ $teacherName }} &nbsp;•&nbsp; Generated {{ \Carbon\Carbon::now()->format('d M Y, h:i A') }}
     </div>
 
 </body>

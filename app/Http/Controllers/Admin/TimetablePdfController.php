@@ -74,4 +74,61 @@ class TimetablePdfController extends Controller
         $filename = 'timetable_' . str_replace(' ', '_', $standardModel->name) . '_' . str_replace(' ', '_', $sectionModel->name) . '.pdf';
         return $pdf->download($filename);
     }
+
+    /**
+     * Download a teacher's own weekly timetable as PDF.
+     * Route: GET /admin/{organization}/timetable/teacher/{teacher}/pdf
+     */
+    public function downloadTeacher(int $organization, int $teacher): Response
+    {
+        $orgId = Auth::user()?->organization_id;
+        abort_if(!$orgId || $orgId !== $organization, 403);
+
+        $org        = Organization::find($orgId);
+        $schoolInfo = SchoolInfo::where('organization_id', $orgId)->first();
+        $teacherModel = \App\Models\Teacher\TeacherDetail::with('user:id,name')
+            ->where('organization_id', $orgId)->findOrFail($teacher);
+
+        $entries = TeacherTimeTable::with(['standard:id,name', 'section:id,name', 'subject:id,name,code'])
+            ->where('organization_id', $orgId)
+            ->where('teacher_detail_id', $teacher)
+            ->get();
+
+        $daysShort = [1 => 'Mon', 2 => 'Tue', 3 => 'Wed', 4 => 'Thu', 5 => 'Fri', 6 => 'Sat'];
+
+        $slots = $entries
+            ->map(fn($e) => ['start_time' => $e->start_time, 'end_time' => $e->end_time])
+            ->unique(fn($s) => $s['start_time'] . '|' . $s['end_time'])
+            ->sortBy('start_time')
+            ->values()
+            ->all();
+
+        // Cell = class · section + subject (the teacher's own schedule).
+        $grid = [];
+        foreach ($entries as $e) {
+            $key = $e->start_time . '|' . $e->end_time;
+            $where = trim(($e->standard?->name ?? '') . ($e->section ? ' · ' . $e->section->name : ''));
+            $grid[$key][(int) $e->day_of_week] = [
+                'subject' => $e->subject?->name ?? '—',
+                'teacher' => $where !== '' ? $where : '—',
+            ];
+        }
+
+        $pdf = Pdf::loadView('pdf.admin.teacher-timetable', [
+            'organization' => $org,
+            'schoolInfo'   => $schoolInfo,
+            'teacher'      => $teacherModel,
+            'days'         => $daysShort,
+            'slots'        => $slots,
+            'grid'         => $grid,
+        ])
+            ->setPaper('a4', 'landscape')
+            ->setOption('dpi', 150)
+            ->setOption('isHtml5ParserEnabled', true)
+            ->setOption('isRemoteEnabled', true)
+            ->setOption('defaultFont', 'DejaVu Sans');
+
+        $name = $teacherModel->user?->name ?? ('teacher_' . $teacher);
+        return $pdf->download('timetable_' . str_replace(' ', '_', $name) . '.pdf');
+    }
 }

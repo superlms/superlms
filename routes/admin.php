@@ -75,6 +75,9 @@ Route::middleware(['auth:web', 'admin', 'module'])->group(function () {
         Route::get('/timetable/{standard}/{section}/pdf', [TimetablePdfController::class, 'download'])
             ->whereNumber(['standard', 'section'])
             ->name('admin.timetable.pdf');
+        Route::get('/timetable/teacher/{teacher}/pdf', [TimetablePdfController::class, 'downloadTeacher'])
+            ->whereNumber('teacher')
+            ->name('admin.timetable.teacher.pdf');
         Route::get('/arrangement', Arrangement::class)->name('admin.arrangement');
         Route::get('/fee', Fee::class)->name('admin.fee');
         Route::get('/fee-structure', FeeStructure::class)->name('admin.fee-structure');
