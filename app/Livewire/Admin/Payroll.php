@@ -65,6 +65,7 @@ class Payroll extends Component
     public string $attSearch            = '';
     public array  $attendanceDraft      = []; // admin_employee_id => status (non-teacher only)
     public string $analyticsEmpId       = ''; // month day-by-day view
+    public string $attendanceMode       = 'view'; // 'view' | 'mark'
 
     // ─── Salary ───────────────────────────────────────────────────────────────
     public string $salaryMonth        = '';
@@ -303,7 +304,28 @@ class Payroll extends Component
 
     // ─── Attendance ───────────────────────────────────────────────────────────
 
-    /** Reload the draft (non-teacher rows) from what's already saved for the date. */
+    /** Switching tabs always drops back to the read-only attendance view. */
+    public function updatedActiveTab(): void
+    {
+        $this->attendanceMode  = 'view';
+        $this->attendanceDraft = [];
+    }
+
+    /** Open the marking screen. */
+    public function startMarking(): void
+    {
+        $this->attendanceMode  = 'mark';
+        $this->attendanceDraft = [];
+    }
+
+    /** Leave the marking screen without saving. */
+    public function cancelMarking(): void
+    {
+        $this->attendanceMode  = 'view';
+        $this->attendanceDraft = [];
+    }
+
+    /** Clear the draft when the date changes so we don't carry marks across dates. */
     public function updatedAttendanceDate(): void
     {
         $this->attendanceDraft = [];
@@ -315,7 +337,7 @@ class Payroll extends Component
         $this->attendanceDraft[$empId] = $status;
     }
 
-    /** Persist all drafted (non-teacher) attendance for the selected date. */
+    /** Persist all drafted (non-teacher) attendance, then return to the view screen. */
     public function submitAttendance(): void
     {
         $org = $this->orgId();
@@ -339,6 +361,7 @@ class Payroll extends Component
         }
 
         $this->attendanceDraft = [];
+        $this->attendanceMode  = 'view';
         $this->notification()->success('Attendance marked successfully', "{$count} employee(s) updated for " . Carbon::parse($this->attendanceDate)->format('d M Y') . '.');
     }
 
@@ -348,6 +371,28 @@ class Payroll extends Component
         $emp = AdminEmployee::find($empId);
         if (!$emp) return null;
         return $emp->getAttendanceStatusForDate($this->attendanceDate);
+    }
+
+    // ─── Filter clears (student-style bars) ────────────────────────────────────
+    public function clearEmpFilters(): void
+    {
+        $this->reset(['empSearch', 'empTypeFilter']);
+        $this->empSort = 'name_asc';
+    }
+
+    public function clearAttFilters(): void
+    {
+        $this->reset(['attSearch', 'filterAttendanceType']);
+    }
+
+    public function clearSalaryFilters(): void
+    {
+        $this->reset(['salarySearch', 'filterSalaryType']);
+    }
+
+    public function clearPaymentFilters(): void
+    {
+        $this->reset(['paymentSearch', 'filterPaymentEmpId', 'filterPaymentMonth']);
     }
 
     // ─── Salary ───────────────────────────────────────────────────────────────
