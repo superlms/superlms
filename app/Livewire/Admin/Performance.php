@@ -253,6 +253,17 @@ class Performance extends Component
         $this->editingStudents[$studentId] = !($this->editingStudents[$studentId] ?? false);
     }
 
+    /** Explicitly mark/unmark a student absent in the draft (clears their marks). */
+    public function toggleAbsent(int $studentId): void
+    {
+        if (!isset($this->studentMarks[$studentId])) return;
+        $now = !($this->studentMarks[$studentId]['is_absent'] ?? false);
+        $this->studentMarks[$studentId]['is_absent'] = $now;
+        if ($now) {
+            $this->studentMarks[$studentId]['marks_obtained'] = '';
+        }
+    }
+
     public function updatedUploadExam(mixed $value): void
     {
         $this->editingStudents  = [];
@@ -318,44 +329,73 @@ class Performance extends Component
         ]);
 
         $max = max(1, (int) $this->uploadTotalMarks);
+        $orgId = Auth::user()->organization_id;
+
+        // A student "has input" when a numeric mark was typed or they were flagged absent.
+        $hasInput = fn($m) => (($m['marks_obtained'] ?? '') !== '' && is_numeric($m['marks_obtained']))
+            || !empty($m['is_absent']);
+
+        // Guard against an accidental all-absent save: only auto-mark blanks absent
+        // once at least one student has marks (or was explicitly flagged absent).
+        $anyInput = collect($this->studentMarks)->contains(fn($m) => $hasInput($m));
+        if (!$anyInput) {
+            $this->notification()->warning('Nothing to save', 'Enter marks for at least one student — the rest will be marked absent.');
+            return;
+        }
 
         try {
-            $savedCount = 0;
-            foreach ($this->studentMarks as $studentId => $marks) {
-                if (!isset($marks['marks_obtained']) || $marks['marks_obtained'] === '' || !is_numeric($marks['marks_obtained'])) {
-                    continue;
-                }
-                $obt = max(0, min($max, (float) $marks['marks_obtained']));
-                $pct = $max > 0 ? ($obt / $max) * 100 : 0;
+            $savedCount  = 0;
+            $absentCount = 0;
 
-                ExamCopy::updateOrCreate(
-                    [
-                        'exam_id'           => $this->uploadExam,
-                        'standard_id'       => $this->uploadStandard,
-                        'section_id'        => $this->uploadSection,
-                        'subject_id'        => $this->uploadSubject,
-                        'student_detail_id' => $studentId,
-                    ],
-                    [
-                        'organization_id' => Auth::user()->organization_id,
+            foreach ($this->studentMarks as $studentId => $marks) {
+                $raw            = $marks['marks_obtained'] ?? '';
+                $explicitAbsent = !empty($marks['is_absent']);
+                $hasMarks       = ($raw !== '' && $raw !== null && is_numeric($raw));
+
+                $key = [
+                    'exam_id'           => $this->uploadExam,
+                    'standard_id'       => $this->uploadStandard,
+                    'section_id'        => $this->uploadSection,
+                    'subject_id'        => $this->uploadSubject,
+                    'student_detail_id' => $studentId,
+                ];
+
+                if ($hasMarks && !$explicitAbsent) {
+                    $obt = max(0, min($max, (float) $raw));
+                    $pct = $max > 0 ? ($obt / $max) * 100 : 0;
+                    ExamCopy::updateOrCreate($key, [
+                        'organization_id' => $orgId,
                         'marks_obtained'  => $obt,
                         'max_marks'       => $max,
                         'percentage'      => round($pct, 2),
                         'grade'           => $this->calculateGrade($pct),
+                        'is_absent'       => false,
                         'remarks'         => $marks['remarks'] ?? '',
-                    ]
-                );
-                $savedCount++;
+                    ]);
+                    $savedCount++;
+                } else {
+                    // Blank or explicitly flagged → mark absent.
+                    ExamCopy::updateOrCreate($key, [
+                        'organization_id' => $orgId,
+                        'marks_obtained'  => 0,
+                        'max_marks'       => $max,
+                        'percentage'      => 0,
+                        'grade'           => 'AB',
+                        'is_absent'       => true,
+                        'remarks'         => $marks['remarks'] ?? '',
+                    ]);
+                    $absentCount++;
+                }
             }
 
-            if ($savedCount > 0) {
-                $this->notification()->success('Saved!', "Marks for {$savedCount} student(s) saved successfully.");
-                $this->loadStudentMarks();
-                $this->editingStudents = [];
-                $this->loadStats();
-            } else {
-                $this->notification()->warning('Nothing to save', 'Please enter marks for at least one student.');
+            $msg = "Marks for {$savedCount} student(s) saved.";
+            if ($absentCount > 0) {
+                $msg .= " {$absentCount} student(s) marked absent.";
             }
+            $this->notification()->success('Saved!', $msg);
+            $this->loadStudentMarks();
+            $this->editingStudents = [];
+            $this->loadStats();
         } catch (\Exception $e) {
             logger()->error('Performance uploadMarks: ' . $e->getMessage());
             $this->notification()->error('Error saving marks', $e->getMessage());
@@ -692,16 +732,20 @@ class Performance extends Component
                 ->where('student_detail_id', $student->id)
                 ->first();
 
+            $isAbsent = $existing ? (bool) $existing->is_absent : false;
+
             $this->studentMarks[$student->id] = [
                 'student_id'     => $student->id,
                 'student_name'   => $student->user->name ?? $student->full_name ?? 'N/A',
                 'roll_no'        => $student->roll_no,
                 'admission_no'   => $student->admission_no,
                 'image'          => $student->image,
-                'marks_obtained' => $existing ? (string) $existing->marks_obtained : '',
+                // Absent students keep the input blank (so a "0" isn't shown/re-saved as a mark).
+                'marks_obtained' => $existing && !$isAbsent ? (string) $existing->marks_obtained : '',
                 'max_marks'      => $existing ? (int) $existing->max_marks : $max,
                 'grade'          => $existing ? $existing->grade : '',
                 'remarks'        => $existing ? ($existing->remarks ?? '') : '',
+                'is_absent'      => $isAbsent,
                 'saved'          => $existing ? true : false,
                 'exam_copy_id'   => $existing ? $existing->id : null,
             ];

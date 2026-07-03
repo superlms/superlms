@@ -266,11 +266,19 @@
                                 </td>
                                 <td class="px-4 py-3 text-sm font-medium text-gray-700">{{ $ec->max_marks }}</td>
                                 <td class="px-4 py-3">
-                                    <span class="font-semibold text-gray-800">{{ $ec->marks_obtained }}</span>
-                                    <div class="text-xs text-gray-400">{{ $ec->percentage }}%</div>
+                                    @if ($ec->is_absent)
+                                        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-700">Absent</span>
+                                    @else
+                                        <span class="font-semibold text-gray-800">{{ $ec->marks_obtained }}</span>
+                                        <div class="text-xs text-gray-400">{{ $ec->percentage }}%</div>
+                                    @endif
                                 </td>
                                 <td class="px-4 py-3">
-                                    <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full {{ $gradeBadge($ec->grade) }}">{{ $ec->grade }}</span>
+                                    @if ($ec->is_absent)
+                                        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-700">AB</span>
+                                    @else
+                                        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full {{ $gradeBadge($ec->grade) }}">{{ $ec->grade }}</span>
+                                    @endif
                                 </td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center justify-center gap-1">
@@ -578,8 +586,8 @@
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @foreach ($studentMarks as $studentId => $marks)
-                                @php $isSaved = $marks['saved'] ?? false; @endphp
-                                <tr class="{{ $isSaved ? 'bg-emerald-50/40' : 'bg-white' }} hover:bg-gray-50">
+                                @php $isSaved = $marks['saved'] ?? false; $isAbsent = $marks['is_absent'] ?? false; @endphp
+                                <tr class="{{ $isAbsent ? 'bg-red-50/40' : ($isSaved ? 'bg-emerald-50/40' : 'bg-white') }} hover:bg-gray-50">
                                     <td class="px-4 py-3 text-gray-400 text-xs">{{ $loop->iteration }}</td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center gap-2.5">
@@ -603,11 +611,23 @@
                                         <span class="text-sm font-semibold text-gray-700">{{ $uploadTotalMarks }}</span>
                                     </td>
                                     <td class="px-4 py-3">
-                                        {{-- Deferred wire:model so values sync on Save click (no debounce race). --}}
-                                        <input type="number"
-                                            wire:model="studentMarks.{{ $studentId }}.marks_obtained"
-                                            class="w-24 px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
-                                            min="0" max="{{ $uploadTotalMarks }}" step="0.01" placeholder="Obtained">
+                                        @if ($isAbsent)
+                                            <div class="flex items-center gap-2">
+                                                <span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-700">Absent</span>
+                                                <button type="button" wire:click="toggleAbsent({{ $studentId }})"
+                                                    class="text-[11px] font-medium text-blue-600 hover:text-blue-800">Undo</button>
+                                            </div>
+                                        @else
+                                            {{-- Deferred wire:model so values sync on Save click (no debounce race). --}}
+                                            <div class="flex items-center gap-2">
+                                                <input type="number"
+                                                    wire:model="studentMarks.{{ $studentId }}.marks_obtained"
+                                                    class="w-24 px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                                                    min="0" max="{{ $uploadTotalMarks }}" step="0.01" placeholder="Obtained">
+                                                <button type="button" wire:click="toggleAbsent({{ $studentId }})"
+                                                    class="text-[11px] font-medium text-red-500 hover:text-red-700 whitespace-nowrap">Absent</button>
+                                            </div>
+                                        @endif
                                     </td>
                                     <td class="px-4 py-3">
                                         <input type="text"
@@ -627,6 +647,7 @@
             <p class="text-xs text-gray-400">
                 @if (count($studentMarks) > 0)
                     {{ count($studentMarks) }} students · {{ collect($studentMarks)->where('saved', true)->count() }} saved
+                    <span class="text-amber-600">· students left blank will be marked <strong>Absent</strong> on save</span>
                 @else
                     Total marks: <strong class="text-gray-700">{{ $uploadTotalMarks }}</strong>
                 @endif
@@ -677,6 +698,11 @@
                     <span class="col-span-2 text-gray-800 font-medium">{{ $value }}</span>
                 </div>
             @endforeach
+            @if ($ec->is_absent)
+                <div class="mt-2 p-3 bg-red-50 rounded-md border border-red-100 text-center">
+                    <p class="text-sm font-bold text-red-700">Student was Absent for this exam</p>
+                </div>
+            @endif
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
                 <div class="p-3 bg-emerald-50 rounded-md border border-emerald-100 text-center">
                     <p class="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 mb-1">Total</p>
@@ -684,7 +710,7 @@
                 </div>
                 <div class="p-3 bg-blue-50 rounded-md border border-blue-100 text-center">
                     <p class="text-[10px] font-semibold uppercase tracking-wider text-blue-600 mb-1">Obtained</p>
-                    <p class="text-2xl font-bold text-blue-700">{{ $ec->marks_obtained }}</p>
+                    <p class="text-2xl font-bold text-blue-700">{{ $ec->is_absent ? 'AB' : $ec->marks_obtained }}</p>
                 </div>
                 <div class="p-3 bg-purple-50 rounded-md border border-purple-100 text-center">
                     <p class="text-[10px] font-semibold uppercase tracking-wider text-purple-600 mb-1">%</p>
