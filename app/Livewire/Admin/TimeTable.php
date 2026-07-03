@@ -36,7 +36,8 @@ class TimeTable extends Component
     public string $createStandardId = '';
     public string $createSectionId  = '';
     public array  $createSections   = [];
-    public array  $scheduleRows     = []; // one row per section_subject
+    public array  $sectionSubjects  = []; // [['id'=>, 'name'=>], ...] for the subject dropdown
+    public array  $scheduleRows     = []; // one row per (subject · time slot · teacher)
 
     // ─── Delete confirm ──────────────────────────────────────────────────
     public bool   $showDeleteConfirm = false;
@@ -156,7 +157,8 @@ class TimeTable extends Component
     private function resetForm(): void
     {
         $this->reset(['createStandardId', 'createSectionId', 'scheduleRows']);
-        $this->createSections = [];
+        $this->createSections  = [];
+        $this->sectionSubjects = [];
     }
 
     public function updatedCreateStandardId(): void
@@ -168,71 +170,22 @@ class TimeTable extends Component
                 ->get()
                 ->toArray()
             : [];
-        $this->createSectionId = '';
-        $this->scheduleRows    = [];
+        $this->createSectionId  = '';
+        $this->sectionSubjects  = [];
+        $this->scheduleRows     = [];
     }
 
     public function updatedCreateSectionId(): void
     {
+        $this->loadSectionSubjects();
         $this->buildScheduleRowsFromSection();
         $this->prefillRowsFromExisting();
     }
 
-    /** Prefills scheduleRows from existing teacher_time_tables entries (auto-switches to edit mode). */
-    private function prefillRowsFromExisting(): void
+    /** Subjects available for the chosen section (drives the per-row Subject dropdown). */
+    private function loadSectionSubjects(): void
     {
-        if (!$this->createStandardId || !$this->createSectionId) return;
-
-        $org  = Auth::user()->organization_id;
-        $rows = TeacherTimeTable::with('subject:id,name')
-            ->where('organization_id', $org)
-            ->where('standard_id', $this->createStandardId)
-            ->where('section_id',  $this->createSectionId)
-            ->get();
-        if ($rows->isEmpty()) return;
-
-        $this->isEdit = true;
-
-        // One grid row per (subject, time slot); each weekday cell holds its own teacher.
-        $groups = $rows->groupBy(fn($r) => $r->subject_id . '|' . substr($r->start_time, 0, 5) . '|' . substr($r->end_time, 0, 5));
-        foreach ($groups as $group) {
-            $first = $group->first();
-
-            $dayTeachers = $this->emptyDayTeachers();
-            foreach ($group as $entry) {
-                $day = (int) $entry->day_of_week;
-                if (isset($dayTeachers[$day])) {
-                    $dayTeachers[$day] = (int) $entry->teacher_detail_id;
-                }
-            }
-
-            $rowData = [
-                'subject_id'   => (int) $first->subject_id,
-                'subject_name' => $first->subject?->name ?? 'Subject',
-                'start_time'   => substr($first->start_time, 0, 5),
-                'end_time'     => substr($first->end_time, 0, 5),
-                'day_teachers' => $dayTeachers,
-            ];
-
-            $idx = array_search((int) $first->subject_id, array_column($this->scheduleRows, 'subject_id'), true);
-            if ($idx === false) {
-                $this->scheduleRows[] = $rowData;
-            } else {
-                $this->scheduleRows[$idx] = $rowData;
-            }
-        }
-    }
-
-    /** Mon–Sat map with no teacher chosen yet. */
-    private function emptyDayTeachers(): array
-    {
-        return array_fill_keys($this->defaultDays, '');
-    }
-
-    /** Pre-populates one grid row per subject mapped to the chosen section. */
-    private function buildScheduleRowsFromSection(): void
-    {
-        $this->scheduleRows = [];
+        $this->sectionSubjects = [];
         if (!$this->createStandardId || !$this->createSectionId) return;
 
         $org = Auth::user()->organization_id;
@@ -254,15 +207,94 @@ class TimeTable extends Component
                 ->get();
         }
 
-        foreach ($subjects as $s) {
+        $this->sectionSubjects = $subjects
+            ->map(fn($s) => ['id' => (int) $s->id, 'name' => $s->name])
+            ->all();
+    }
+
+    /** Prefills scheduleRows from existing teacher_time_tables entries (auto-switches to edit mode). */
+    private function prefillRowsFromExisting(): void
+    {
+        if (!$this->createStandardId || !$this->createSectionId) return;
+
+        $org  = Auth::user()->organization_id;
+        $rows = TeacherTimeTable::with('subject:id,name')
+            ->where('organization_id', $org)
+            ->where('standard_id', $this->createStandardId)
+            ->where('section_id',  $this->createSectionId)
+            ->get();
+        if ($rows->isEmpty()) return;
+
+        $this->isEdit = true;
+
+        // One form row per (subject · time slot · teacher); the selected weekdays collapse
+        // back into that row's Days multi-select.
+        $this->scheduleRows = [];
+        $groups = $rows->groupBy(fn($r) =>
+            $r->subject_id . '|' . substr($r->start_time, 0, 5) . '|' . substr($r->end_time, 0, 5) . '|' . $r->teacher_detail_id
+        );
+        foreach ($groups as $group) {
+            $first = $group->first();
             $this->scheduleRows[] = [
-                'subject_id'   => (int) $s->id,
-                'subject_name' => $s->name,
-                'start_time'   => '09:00',
-                'end_time'     => '10:00',
-                'day_teachers' => $this->emptyDayTeachers(),
+                'subject_id'   => (int) $first->subject_id,
+                'subject_name' => $first->subject?->name ?? 'Subject',
+                'start_time'   => substr($first->start_time, 0, 5),
+                'end_time'     => substr($first->end_time, 0, 5),
+                'teacher_id'   => (int) $first->teacher_detail_id,
+                'days'         => $group->pluck('day_of_week')->map(fn($d) => (int) $d)->unique()->sort()->values()->all(),
             ];
         }
+    }
+
+    /** A blank schedule row with sensible defaults. */
+    private function blankRow(): array
+    {
+        return [
+            'subject_id'   => (int) ($this->sectionSubjects[0]['id'] ?? 0),
+            'subject_name' => $this->sectionSubjects[0]['name'] ?? '',
+            'start_time'   => '09:00',
+            'end_time'     => '10:00',
+            'teacher_id'   => '',
+            'days'         => [],
+        ];
+    }
+
+    /** Pre-populates one row per subject mapped to the chosen section. */
+    private function buildScheduleRowsFromSection(): void
+    {
+        $this->scheduleRows = [];
+        foreach ($this->sectionSubjects as $s) {
+            $this->scheduleRows[] = [
+                'subject_id'   => (int) $s['id'],
+                'subject_name' => $s['name'],
+                'start_time'   => '09:00',
+                'end_time'     => '10:00',
+                'teacher_id'   => '',
+                'days'         => [],
+            ];
+        }
+    }
+
+    /** Keep subject_name in sync when the row's subject dropdown changes. */
+    public function updatedScheduleRows($value, $key): void
+    {
+        if (!str_ends_with($key, '.subject_id')) return;
+        $idx = (int) explode('.', $key)[0];
+        if (!isset($this->scheduleRows[$idx])) return;
+        $name = collect($this->sectionSubjects)->firstWhere('id', (int) $value)['name'] ?? '';
+        $this->scheduleRows[$idx]['subject_name'] = $name;
+    }
+
+    public function addRow(): void
+    {
+        $this->scheduleRows[] = $this->blankRow();
+    }
+
+    public function removeRow(int $index): void
+    {
+        if (!isset($this->scheduleRows[$index])) return;
+        unset($this->scheduleRows[$index]);
+        $this->scheduleRows = array_values($this->scheduleRows);
     }
 
     /** Lesson length for a row, e.g. "1h 30m" — shown next to the time inputs. */
@@ -283,47 +315,74 @@ class TimeTable extends Component
         }
     }
 
+    // ─── Day availability ────────────────────────────────────────────────
     /**
-     * "Same for all days" — copy every subject's Monday teacher across Tue–Sat.
-     * Lets admins set up Monday once and mirror it to the whole week in one click.
+     * Days already taken by ANOTHER row that overlaps this row's time slot.
+     * A class can only be in one place at a time, so if 09:00–10:00 is filled by
+     * Hindi on Mon/Tue/Thu, those weekdays are gone for any other 09:00–10:00 subject.
      */
-    public function copyMondayToAllDays(): void
+    public function occupiedDaysForRow(int $rowIndex): array
     {
-        if (empty($this->scheduleRows)) return;
+        $row = $this->scheduleRows[$rowIndex] ?? null;
+        if (!$row) return [];
 
-        foreach ($this->scheduleRows as $i => $row) {
-            $mon = $row['day_teachers'][1] ?? '';
-            foreach ($this->defaultDays as $day) {
-                $this->scheduleRows[$i]['day_teachers'][$day] = $mon;
+        $start = substr($row['start_time'] ?? '', 0, 5);
+        $end   = substr($row['end_time'] ?? '', 0, 5);
+        if (!$start || !$end || $start >= $end) return [];
+
+        $occupied = [];
+        foreach ($this->scheduleRows as $j => $other) {
+            if ($j === $rowIndex) continue;
+            $os = substr($other['start_time'] ?? '', 0, 5);
+            $oe = substr($other['end_time'] ?? '', 0, 5);
+            if (!$os || !$oe || $os >= $oe) continue;
+            if ($os >= $end || $oe <= $start) continue; // no time overlap
+            foreach (($other['days'] ?? []) as $d) {
+                $occupied[(int) $d] = true;
             }
         }
 
-        $this->notification()->success('Applied', "Monday's teachers copied to all days.");
+        return array_keys($occupied);
+    }
+
+    /**
+     * Weekdays this row may still pick: Mon–Sat minus days occupied by an overlapping
+     * row. Days already selected in THIS row always stay (they aren't "occupied by others").
+     */
+    public function availableDaysForRow(int $rowIndex): array
+    {
+        $occupied = $this->occupiedDaysForRow($rowIndex);
+        $selected = array_map('intval', $this->scheduleRows[$rowIndex]['days'] ?? []);
+        $avail = array_diff($this->defaultDays, $occupied);
+        return array_values(array_unique(array_merge($avail, $selected)));
     }
 
     // ─── Conflict checks ─────────────────────────────────────────────────
     /**
-     * Per-cell availability check for the teacher chosen for (subject row × weekday).
-     * Returns a short reason string when that teacher (or the class) is already busy,
-     * otherwise null. Drives the inline "not available" hint in each day cell.
+     * Availability check for a whole row: is the chosen teacher already busy — in
+     * another class/section (saved), or on another subject in this same form — at an
+     * overlapping time on any of this row's selected days? Returns a short reason or null.
      */
-    public function getCellConflict(int $rowIndex, int $day): ?string
+    public function getRowConflict(int $rowIndex): ?string
     {
         $row = $this->scheduleRows[$rowIndex] ?? null;
         if (!$row) return null;
 
-        $teacherId = (int) ($row['day_teachers'][$day] ?? 0);
+        $teacherId = (int) ($row['teacher_id'] ?? 0);
         if (!$teacherId) return null;
 
         $start = substr($row['start_time'] ?? '', 0, 5);
         $end   = substr($row['end_time'] ?? '', 0, 5);
         if (!$start || !$end || $start >= $end) return null;
 
-        // 1) Teacher already booked elsewhere (another class/section) at this time on this day.
+        $days = array_map('intval', $row['days'] ?? []);
+        if (empty($days)) return null;
+
+        // 1) Teacher already booked elsewhere (another class/section) at this time.
         //    The current section is excluded — it gets wiped & recreated on save.
-        $q = TeacherTimeTable::with(['standard:id,name', 'section:id,name', 'subject:id,name'])
+        $q = TeacherTimeTable::with(['standard:id,name', 'section:id,name'])
             ->where('teacher_detail_id', $teacherId)
-            ->where('day_of_week', $day)
+            ->whereIn('day_of_week', $days)
             ->where('start_time', '<', $end)
             ->where('end_time',   '>', $start);
 
@@ -336,19 +395,23 @@ class TimeTable extends Component
 
         if ($clash = $q->first()) {
             $where = trim(($clash->standard?->name ?? '') . ' ' . ($clash->section?->name ?? ''));
-            return 'Busy with ' . ($where !== '' ? $where : 'another class');
+            $dn    = $this->daysOfWeek[(int) $clash->day_of_week] ?? $clash->day_of_week;
+            return 'Busy with ' . ($where !== '' ? $where : 'another class') . " ({$dn})";
         }
 
-        // 2) The class itself is double-booked: another subject in this same section
-        //    is scheduled at an overlapping time on this day (within the form).
+        // 2) Same teacher used on another subject in this form at an overlapping time & day.
         foreach ($this->scheduleRows as $j => $other) {
             if ($j === $rowIndex) continue;
-            if (empty($other['day_teachers'][$day])) continue;
+            if ((int) ($other['teacher_id'] ?? 0) !== $teacherId) continue;
             $os = substr($other['start_time'] ?? '', 0, 5);
             $oe = substr($other['end_time'] ?? '', 0, 5);
             if (!$os || !$oe) continue;
             if ($os >= $end || $oe <= $start) continue;
-            return 'Class clash with ' . ($other['subject_name'] ?? 'another subject');
+            $shared = array_intersect($days, array_map('intval', $other['days'] ?? []));
+            if (!empty($shared)) {
+                $dn = $this->daysOfWeek[(int) reset($shared)] ?? reset($shared);
+                return "Teacher already on another subject at this time ({$dn})";
+            }
         }
 
         return null;
@@ -360,18 +423,20 @@ class TimeTable extends Component
         if (!$this->createStandardId) { $this->notification()->error('Please select a class.'); return; }
         if (!$this->createSectionId)  { $this->notification()->error('Please select a section.'); return; }
 
-        // Keep only rows that have a teacher chosen on at least one day.
+        // Keep only rows that have a subject, a teacher and at least one day.
         $rowsToSave = collect($this->scheduleRows)
             ->map(function ($row, $idx) {
                 $row['__idx'] = $idx;
                 return $row;
             })
-            ->filter(fn($r) => collect($this->defaultDays)->contains(fn($d) => !empty($r['day_teachers'][$d] ?? null)))
+            ->filter(fn($r) => (int) ($r['subject_id'] ?? 0) > 0
+                && (int) ($r['teacher_id'] ?? 0) > 0
+                && !empty($r['days'] ?? []))
             ->values()
             ->all();
 
         if (empty($rowsToSave) && !$this->isEdit) {
-            $this->notification()->error('Assign at least one teacher to save the timetable.');
+            $this->notification()->error('Add at least one row with a subject, teacher and days to save.');
             return;
         }
 
@@ -380,12 +445,17 @@ class TimeTable extends Component
             if (!$row['start_time'] || !$row['end_time'] || $row['start_time'] >= $row['end_time']) {
                 $this->notification()->error("{$n}: invalid time range."); return;
             }
-            foreach ($this->defaultDays as $day) {
-                if (empty($row['day_teachers'][$day] ?? null)) continue;
-                if ($conflict = $this->getCellConflict((int) $row['__idx'], $day)) {
-                    $dayName = $this->daysOfWeekFull[$day] ?? (string) $day;
-                    $this->notification()->error("{$n} ({$dayName}): {$conflict}"); return;
-                }
+            // Class double-booking guard (defensive — the Days dropdown already hides taken days).
+            $occupiedClash = array_intersect(
+                array_map('intval', $row['days']),
+                $this->occupiedDaysForRow((int) $row['__idx'])
+            );
+            if (!empty($occupiedClash)) {
+                $dn = $this->daysOfWeekFull[(int) reset($occupiedClash)] ?? reset($occupiedClash);
+                $this->notification()->error("{$n} ({$dn}): the class is already scheduled at this time."); return;
+            }
+            if ($conflict = $this->getRowConflict((int) $row['__idx'])) {
+                $this->notification()->error("{$n}: {$conflict}"); return;
             }
         }
 
@@ -425,10 +495,12 @@ class TimeTable extends Component
             };
 
             foreach ($rowsToSave as $row) {
-                foreach ($this->defaultDays as $day) {
-                    $teacherId = (int) ($row['day_teachers'][$day] ?? 0);
-                    if (!$teacherId) continue;
-                    $tryCreate($teacherId, (int) $row['subject_id'], (int) $day, $row['start_time'], $row['end_time']);
+                $teacherId = (int) ($row['teacher_id'] ?? 0);
+                if (!$teacherId) continue;
+                foreach ($row['days'] as $day) {
+                    $day = (int) $day;
+                    if (!in_array($day, $this->defaultDays, true)) continue;
+                    $tryCreate($teacherId, (int) $row['subject_id'], $day, $row['start_time'], $row['end_time']);
                 }
             }
 
@@ -451,6 +523,7 @@ class TimeTable extends Component
         $this->createStandardId = (string) $standardId;
         $this->updatedCreateStandardId();
         $this->createSectionId  = (string) $sectionId;
+        $this->loadSectionSubjects();
         $this->buildScheduleRowsFromSection();
         $this->prefillRowsFromExisting();
 

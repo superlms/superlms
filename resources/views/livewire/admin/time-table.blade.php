@@ -1,4 +1,5 @@
 <div class="min-h-screen bg-gray-50">
+    <style>[x-cloak]{display:none !important;}</style>
 
     {{-- ══════════════════════════════════════════════════
          HEADER + TABS + FILTER BAR (exams-style)
@@ -265,7 +266,7 @@
                     <div>
                         <h2 class="text-lg font-semibold text-gray-900">{{ $isEdit ? 'Edit Timetable' : 'New Timetable' }}</h2>
                         <p class="text-xs text-gray-500 mt-0.5">
-                            {{ $isEdit ? 'Update teacher, time and days for each subject' : 'Pick class & section, then assign teacher & time per subject' }}
+                            {{ $isEdit ? 'Update subject, time, teacher and days for each row' : 'Pick class & section, then add rows: subject, time, teacher and days' }}
                         </p>
                     </div>
                     <button wire:click="closePanel" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
@@ -302,7 +303,7 @@
 
                     {{-- Subject Schedules --}}
                     @if ($createStandardId && $createSectionId)
-                        @if (empty($scheduleRows))
+                        @if (empty($sectionSubjects))
                             <div class="text-center py-10 border-2 border-dashed border-gray-200 rounded-lg">
                                 <p class="text-sm text-gray-500">No subjects mapped to this section.</p>
                                 <p class="text-xs text-gray-400 mt-1">Add subjects to the section first to schedule them here.</p>
@@ -310,84 +311,153 @@
                         @else
                             <div>
                                 <div class="flex items-center justify-between gap-3 mb-3">
-                                    <h3 class="text-sm font-semibold text-gray-700">Weekly Grid</h3>
-                                    <div class="flex items-center gap-3">
-                                        <button type="button" wire:click="copyMondayToAllDays"
-                                            title="Copy each subject's Monday teacher to Tue–Sat"
-                                            class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
-                                            </svg>
-                                            Same for all days
-                                        </button>
-                                        <span class="text-xs text-gray-500">{{ count($scheduleRows) }} subject{{ count($scheduleRows) === 1 ? '' : 's' }} from this section</span>
-                                    </div>
+                                    <h3 class="text-sm font-semibold text-gray-700">Schedule Rows</h3>
+                                    <span class="text-xs text-gray-500">{{ count($scheduleRows) }} row{{ count($scheduleRows) === 1 ? '' : 's' }}</span>
                                 </div>
 
-                                {{-- Matrix: # · Subject · Time/Duration · one column per weekday.
-                                     Each day cell picks the teacher for that subject on that day. --}}
+                                {{-- Row-based table: # · Duration · Subject · Start · End · Teacher · Days.
+                                     Each row is one subject at one time slot, taught by one teacher on the
+                                     selected days. The Days dropdown hides weekdays already taken by another
+                                     row at the same time (a class can't be in two places at once). --}}
                                 <div class="border border-gray-200 rounded-lg overflow-x-auto">
-                                    <table class="w-full min-w-[860px] border-collapse">
+                                    <table class="w-full min-w-[920px] border-collapse">
                                         <thead class="bg-gray-100 border-b border-gray-200">
                                             <tr class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
                                                 <th class="px-2 py-2 text-left w-8">#</th>
-                                                <th class="px-2 py-2 text-left min-w-[120px]">Subject</th>
-                                                <th class="px-2 py-2 text-left min-w-[140px]">Time / Duration</th>
-                                                @foreach ($daysOfWeek as $dayNum => $dayName)
-                                                    <th class="px-2 py-2 text-center min-w-[110px]">{{ $dayName }}</th>
-                                                @endforeach
+                                                <th class="px-2 py-2 text-left w-20">Duration</th>
+                                                <th class="px-2 py-2 text-left min-w-[150px]">Subject</th>
+                                                <th class="px-2 py-2 text-left w-24">Start Time</th>
+                                                <th class="px-2 py-2 text-left w-24">End Time</th>
+                                                <th class="px-2 py-2 text-left min-w-[160px]">Teacher</th>
+                                                <th class="px-2 py-2 text-left min-w-[170px]">Days</th>
+                                                <th class="px-2 py-2 w-8"></th>
                                             </tr>
                                         </thead>
                                         <tbody class="divide-y divide-gray-200">
                                             @foreach ($scheduleRows as $i => $row)
-                                                <tr class="bg-white align-top">
+                                                @php
+                                                    $dur           = $this->rowDuration($i);
+                                                    $rowConflict   = $this->getRowConflict($i);
+                                                    $availableDays = $this->availableDaysForRow($i);
+                                                    $selectedDays  = collect($row['days'] ?? [])->map(fn($d) => (int) $d);
+                                                @endphp
+                                                <tr class="bg-white align-top" wire:key="row-{{ $i }}">
+                                                    {{-- 1. Serial --}}
                                                     <td class="px-2 py-2 text-sm text-gray-500">{{ $i + 1 }}</td>
+
+                                                    {{-- 2. Duration (calculated from start/end) --}}
                                                     <td class="px-2 py-2">
-                                                        <div class="text-sm font-semibold text-gray-800" title="{{ $row['subject_name'] }}">
-                                                            {{ $row['subject_name'] }}
-                                                        </div>
+                                                        <span class="text-xs font-semibold {{ $dur ? 'text-blue-600' : 'text-red-500' }}">
+                                                            {{ $dur ?: '—' }}
+                                                        </span>
                                                     </td>
+
+                                                    {{-- 3. Subject --}}
                                                     <td class="px-2 py-2">
-                                                        <div class="flex items-center gap-1">
-                                                            <input type="time" wire:model.live="scheduleRows.{{ $i }}.start_time"
-                                                                class="w-[88px] px-1.5 py-1 text-xs border border-gray-300 rounded-md bg-white focus:ring-1 focus:ring-blue-500">
-                                                            <span class="text-gray-400 text-xs">–</span>
-                                                            <input type="time" wire:model.live="scheduleRows.{{ $i }}.end_time"
-                                                                class="w-[88px] px-1.5 py-1 text-xs border border-gray-300 rounded-md bg-white focus:ring-1 focus:ring-blue-500">
-                                                        </div>
-                                                        @php $dur = $this->rowDuration($i); @endphp
-                                                        <div class="mt-1 text-[10px] font-medium {{ $dur ? 'text-blue-600' : 'text-red-500' }}">
-                                                            {{ $dur ? $dur : 'Invalid range' }}
-                                                        </div>
+                                                        <select wire:model.live="scheduleRows.{{ $i }}.subject_id"
+                                                            class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:ring-1 focus:ring-blue-500">
+                                                            @foreach ($sectionSubjects as $s)
+                                                                <option value="{{ $s['id'] }}">{{ $s['name'] }}</option>
+                                                            @endforeach
+                                                        </select>
                                                     </td>
-                                                    @foreach ($daysOfWeek as $dayNum => $dayName)
-                                                        @php $cellConflict = $this->getCellConflict($i, $dayNum); @endphp
-                                                        <td class="px-1.5 py-2">
-                                                            <select wire:model.live="scheduleRows.{{ $i }}.day_teachers.{{ $dayNum }}"
-                                                                class="w-full px-1.5 py-1 text-[11px] border rounded-md bg-white focus:ring-1 focus:ring-blue-500 {{ $cellConflict ? 'border-red-400 bg-red-50' : 'border-gray-300' }}">
-                                                                <option value="">—</option>
-                                                                @foreach ($allTeachers as $t)
-                                                                    <option value="{{ $t->id }}">{{ $t->user?->name ?? '—' }}</option>
+
+                                                    {{-- 4. Start time --}}
+                                                    <td class="px-2 py-2">
+                                                        <input type="time" wire:model.live="scheduleRows.{{ $i }}.start_time"
+                                                            class="w-full px-1.5 py-1 text-xs border border-gray-300 rounded-md bg-white focus:ring-1 focus:ring-blue-500">
+                                                    </td>
+
+                                                    {{-- 5. End time --}}
+                                                    <td class="px-2 py-2">
+                                                        <input type="time" wire:model.live="scheduleRows.{{ $i }}.end_time"
+                                                            class="w-full px-1.5 py-1 text-xs border border-gray-300 rounded-md bg-white focus:ring-1 focus:ring-blue-500">
+                                                    </td>
+
+                                                    {{-- 6. Teacher --}}
+                                                    <td class="px-2 py-2">
+                                                        <select wire:model.live="scheduleRows.{{ $i }}.teacher_id"
+                                                            class="w-full px-2 py-1.5 text-xs border rounded-md bg-white focus:ring-1 focus:ring-blue-500 {{ $rowConflict ? 'border-red-400 bg-red-50' : 'border-gray-300' }}">
+                                                            <option value="">Select teacher</option>
+                                                            @foreach ($allTeachers as $t)
+                                                                <option value="{{ $t->id }}">{{ $t->user?->name ?? '—' }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                        @if ($rowConflict)
+                                                            <div class="mt-1 flex items-start gap-0.5 text-[10px] leading-tight text-red-600 font-medium">
+                                                                <svg class="w-2.5 h-2.5 mt-px flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                                                </svg>
+                                                                <span>{{ $rowConflict }}</span>
+                                                            </div>
+                                                        @endif
+                                                    </td>
+
+                                                    {{-- 7. Days (multi-select dropdown; occupied days excluded) --}}
+                                                    <td class="px-2 py-2">
+                                                        <div x-data="{ open: false }" @click.outside="open = false" class="relative">
+                                                            <button type="button" @click="open = !open"
+                                                                class="w-full flex items-center justify-between gap-1 px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white hover:bg-gray-50 focus:ring-1 focus:ring-blue-500">
+                                                                <span class="truncate {{ $selectedDays->isEmpty() ? 'text-gray-400' : 'text-gray-800 font-medium' }}">
+                                                                    @if ($selectedDays->isEmpty())
+                                                                        Select days
+                                                                    @else
+                                                                        {{ $selectedDays->sort()->map(fn($d) => $daysOfWeek[$d] ?? $d)->implode(', ') }}
+                                                                    @endif
+                                                                </span>
+                                                                <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                                                                </svg>
+                                                            </button>
+                                                            <div x-show="open" x-cloak x-transition
+                                                                class="absolute z-20 mt-1 w-40 bg-white border border-gray-200 rounded-md shadow-lg py-1">
+                                                                @foreach ($daysOfWeek as $dayNum => $dayName)
+                                                                    @if (in_array($dayNum, $availableDays, true))
+                                                                        <label class="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 cursor-pointer">
+                                                                            <input type="checkbox" value="{{ $dayNum }}"
+                                                                                wire:model.live="scheduleRows.{{ $i }}.days"
+                                                                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5">
+                                                                            {{ $daysOfWeekFull[$dayNum] ?? $dayName }}
+                                                                        </label>
+                                                                    @endif
                                                                 @endforeach
-                                                            </select>
-                                                            @if ($cellConflict)
-                                                                <div class="mt-1 flex items-start gap-0.5 text-[9px] leading-tight text-red-600 font-medium">
-                                                                    <svg class="w-2.5 h-2.5 mt-px flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                                                    </svg>
-                                                                    <span>{{ $cellConflict }}</span>
-                                                                </div>
-                                                            @endif
-                                                        </td>
-                                                    @endforeach
+                                                                @php $hiddenCount = count($daysOfWeek) - count($availableDays); @endphp
+                                                                @if ($hiddenCount > 0)
+                                                                    <p class="px-3 py-1 text-[10px] text-gray-400 border-t border-gray-100 mt-1">
+                                                                        {{ $hiddenCount }} day{{ $hiddenCount === 1 ? '' : 's' }} taken at this time
+                                                                    </p>
+                                                                @endif
+                                                            </div>
+                                                        </div>
+                                                    </td>
+
+                                                    {{-- Remove row --}}
+                                                    <td class="px-2 py-2 text-center">
+                                                        <button type="button" wire:click="removeRow({{ $i }})"
+                                                            class="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title="Remove row">
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                                            </svg>
+                                                        </button>
+                                                    </td>
                                                 </tr>
                                             @endforeach
                                         </tbody>
                                     </table>
                                 </div>
-                                <p class="text-[11px] text-gray-500 mt-2">
-                                    Pick a teacher in each day cell. Leave it on “—” to skip that subject on that day. Cells turn red when the teacher is already busy or the class is double-booked.
-                                </p>
+
+                                <div class="flex items-center justify-between gap-3 mt-3">
+                                    <button type="button" wire:click="addRow"
+                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                                        </svg>
+                                        Add Row
+                                    </button>
+                                    <p class="text-[11px] text-gray-500">
+                                        Days already taken by another subject at the same time won’t appear in the list. A teacher busy in another class turns the row red.
+                                    </p>
+                                </div>
                             </div>
                         @endif
                     @else
