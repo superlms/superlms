@@ -1,6 +1,12 @@
 <div class="min-h-screen bg-gray-50">
 
     {{-- ══════════════════════════════════════════════════
+         STICKY HEADER — header + tabs + filters stay pinned
+         on scroll (same behaviour as the Students page).
+    ══════════════════════════════════════════════════ --}}
+    <div class="sticky top-0 z-40">
+
+    {{-- ══════════════════════════════════════════════════
          HEADER
     ══════════════════════════════════════════════════ --}}
     <div class="bg-white border-b border-gray-200 px-6 py-5">
@@ -149,6 +155,7 @@
             @endif
         </div>
     </div>
+    </div>{{-- end sticky header --}}
 
     {{-- ══════════════════════════════════════════════════
          CONTENT

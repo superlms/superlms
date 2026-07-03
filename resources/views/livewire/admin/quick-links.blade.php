@@ -1,7 +1,7 @@
 <div class="bg-gray-50">
 
     {{-- ─── Filter bar — Quick Links heading + Sort + static rows/cols info. ─── --}}
-    <div class="bg-white border-b border-gray-200 px-3 sm:px-6 py-2.5 sm:py-3">
+    <div class="bg-white border-b border-gray-200 px-3 sm:px-6 py-2.5 sm:py-3 sticky top-0 z-30">
         <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
 
             {{-- Page heading (first item in the filter row). --}}
