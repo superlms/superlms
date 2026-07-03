@@ -49,10 +49,10 @@ class TimeTable extends Component
     public $allTeachers = [];
 
     // ─── Stats ───────────────────────────────────────────────────────────
-    public int $totalSchedules = 0;
-    public int $totalTeachers  = 0;
-    public int $totalClasses   = 0;
-    public int $totalSubjects  = 0;
+    public int $totalClasses      = 0; // classes (standards)
+    public int $totalSections     = 0; // sections across all classes
+    public int $timetableCreated  = 0; // sections that have a timetable
+    public int $remainingSections = 0; // sections still without one
 
     public array $daysOfWeek = [
         1 => 'Mon', 2 => 'Tue', 3 => 'Wed',
@@ -92,12 +92,20 @@ class TimeTable extends Component
     private function loadStats(): void
     {
         $org = Auth::user()->organization_id;
-        $this->totalSchedules = TeacherTimeTable::where('organization_id', $org)->count();
-        $this->totalTeachers  = $this->allTeachers->count();
-        $this->totalClasses   = $this->standards->count();
-        $this->totalSubjects  = Subject::where('organization_id', $org)
+
+        $this->totalClasses  = $this->standards->count();
+        $this->totalSections = Section::whereIn('standard_id', $this->standards->pluck('id'))
             ->where('is_active', true)
             ->count();
+
+        // Distinct (class, section) pairs that already have at least one entry.
+        $this->timetableCreated = TeacherTimeTable::where('organization_id', $org)
+            ->select('standard_id', 'section_id')
+            ->distinct()
+            ->get()
+            ->count();
+
+        $this->remainingSections = max(0, $this->totalSections - $this->timetableCreated);
     }
 
     // ─── Tab switch ──────────────────────────────────────────────────────

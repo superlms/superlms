@@ -13,10 +13,10 @@
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-3 divide-x divide-gray-200">
-                        <span class="pr-4">Schedules: <strong class="text-gray-800">{{ $totalSchedules }}</strong></span>
-                        <span class="px-4">Teachers: <strong class="text-emerald-600">{{ $totalTeachers }}</strong></span>
-                        <span class="px-4">Classes: <strong class="text-blue-600">{{ $totalClasses }}</strong></span>
-                        <span class="pl-4">Subjects: <strong class="text-purple-600">{{ $totalSubjects }}</strong></span>
+                        <span class="pr-4">Total Classes: <strong class="text-blue-600">{{ $totalClasses }}</strong></span>
+                        <span class="px-4">Total Sections: <strong class="text-gray-800">{{ $totalSections }}</strong></span>
+                        <span class="px-4">Timetable Created: <strong class="text-emerald-600">{{ $timetableCreated }}</strong></span>
+                        <span class="pl-4">Remaining: <strong class="text-amber-600">{{ $remainingSections }}</strong></span>
                     </div>
                     <button wire:click="onCreateTimetable"
                         class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
@@ -30,10 +30,10 @@
             </div>
 
             <div class="flex lg:hidden items-center gap-3 text-xs text-gray-500 mt-3 flex-wrap">
-                <span>Schedules: <strong class="text-gray-800">{{ $totalSchedules }}</strong></span>
-                <span>Teachers: <strong class="text-emerald-600">{{ $totalTeachers }}</strong></span>
                 <span>Classes: <strong class="text-blue-600">{{ $totalClasses }}</strong></span>
-                <span>Subjects: <strong class="text-purple-600">{{ $totalSubjects }}</strong></span>
+                <span>Sections: <strong class="text-gray-800">{{ $totalSections }}</strong></span>
+                <span>Created: <strong class="text-emerald-600">{{ $timetableCreated }}</strong></span>
+                <span>Remaining: <strong class="text-amber-600">{{ $remainingSections }}</strong></span>
             </div>
         </div>
 
@@ -227,9 +227,12 @@
                                                         </div>
                                                         <div class="min-w-0">
                                                             <div class="text-gray-800 font-medium leading-tight">{{ $t['teacher_name'] }}</div>
-                                                            <div class="text-[11px] text-gray-500 leading-tight">
-                                                                {{ collect($t['days'])->map(fn($d) => $daysOfWeek[$d] ?? $d)->implode(', ') }}
-                                                            </div>
+                                                            {{-- In teacher view the Days column already covers this, so skip the per-teacher days line. --}}
+                                                            @if ($viewMode !== 'teacher')
+                                                                <div class="text-[11px] text-gray-500 leading-tight">
+                                                                    {{ collect($t['days'])->map(fn($d) => $daysOfWeek[$d] ?? $d)->implode(', ') }}
+                                                                </div>
+                                                            @endif
                                                         </div>
                                                     </div>
                                                 @endforeach
