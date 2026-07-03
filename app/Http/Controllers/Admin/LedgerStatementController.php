@@ -22,9 +22,15 @@ class LedgerStatementController extends Controller
     {
         $orgId = Auth::user()->organization_id;
 
-        // Resolve the window. ?month wins; otherwise start/end; otherwise the
-        // current calendar month. Guard against reversed ranges.
-        if ($request->filled('month')) {
+        // Resolve the window. ?overall wins (all-time, no window); then ?month;
+        // then start/end; otherwise the current calendar month. Guard against
+        // reversed ranges.
+        $overall = $request->boolean('overall');
+
+        if ($overall) {
+            $start = null;
+            $end   = null;
+        } elseif ($request->filled('month')) {
             try {
                 $m     = Carbon::createFromFormat('Y-m', $request->month);
                 $start = $m->copy()->startOfMonth();
@@ -42,7 +48,7 @@ class LedgerStatementController extends Controller
                 : now()->endOfDay();
         }
 
-        if ($start->gt($end)) {
+        if ($start && $end && $start->gt($end)) {
             [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
         }
 
@@ -86,13 +92,16 @@ class LedgerStatementController extends Controller
             'totalExpense' => round($totalExpense, 2),
             'start'        => $start,
             'end'          => $end,
+            'overall'      => $overall,
             'generatedAt'  => now(),
             'netBalance'   => LedgerService::netBalance($orgId),
         ];
 
         $pdf = Pdf::loadView('admin.ledger-statement', $data)->setPaper('a4', 'portrait');
 
-        $fileName = 'ledger_statement_' . $start->format('Ymd') . '_' . $end->format('Ymd') . '.pdf';
+        $fileName = $overall
+            ? 'ledger_statement_all_' . now()->format('Ymd') . '.pdf'
+            : 'ledger_statement_' . $start->format('Ymd') . '_' . $end->format('Ymd') . '.pdf';
 
         return $pdf->stream($fileName);
     }

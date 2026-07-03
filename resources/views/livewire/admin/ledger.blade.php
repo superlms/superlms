@@ -61,17 +61,37 @@
                         class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 </div>
                 <div class="flex items-center gap-1.5">
-                    <label class="text-xs text-gray-500">Month</label>
-                    <input type="month" wire:change="setMonth($event.target.value)"
+                    <label class="text-xs text-gray-500">Day</label>
+                    <input type="date" wire:model.live="singleDate"
                         class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <label class="text-xs text-gray-500">Month</label>
+                    <select wire:change="setMonth($event.target.value)"
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Select month</option>
+                        @foreach ($monthOptions as $opt)
+                            <option value="{{ $opt['value'] }}"
+                                @selected(!$isOverall && $startDate === \Carbon\Carbon::parse($opt['value'].'-01')->startOfMonth()->toDateString() && $endDate === \Carbon\Carbon::parse($opt['value'].'-01')->endOfMonth()->toDateString())>
+                                {{ $opt['label'] }}
+                            </option>
+                        @endforeach
+                    </select>
                 </div>
 
                 <button wire:click="thisMonth"
                     class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-md hover:bg-gray-100">
                     This Month
                 </button>
+                <button wire:click="overall"
+                    class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md border
+                        {{ $isOverall ? 'text-white bg-blue-600 border-blue-600 hover:bg-blue-700' : 'text-gray-700 bg-white border-gray-200 hover:bg-gray-100' }}">
+                    Overall
+                </button>
 
-                <a href="{{ route('admin.ledger.statement', ['organization' => auth()->user()->organization_id, 'start_date' => $startDate, 'end_date' => $endDate]) }}"
+                <a href="{{ $isOverall
+                        ? route('admin.ledger.statement', ['organization' => auth()->user()->organization_id, 'overall' => 1])
+                        : route('admin.ledger.statement', ['organization' => auth()->user()->organization_id, 'start_date' => $startDate, 'end_date' => $endDate]) }}"
                     target="_blank"
                     class="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-blue-600 bg-white border border-blue-200 rounded-md hover:bg-blue-50">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -101,7 +121,9 @@
                         <tr>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Particulars</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">By</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">From</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">To</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Mode</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Credit</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Expense</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Balance</th>
@@ -111,7 +133,12 @@
                     <tbody class="divide-y divide-gray-100">
                         @forelse ($entries as $row)
                             <tr class="hover:bg-gray-50 transition-colors">
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{{ $row['date']->format('d M Y') }}</td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                    {{ $row['date']->format('d M Y') }}
+                                    @if (!empty($row['time']))
+                                        <span class="block text-[11px] text-gray-400">{{ $row['time'] }}</span>
+                                    @endif
+                                </td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-2">
                                         <p class="text-sm font-medium text-gray-900">{{ $row['reason'] }}</p>
@@ -121,7 +148,9 @@
                                         </span>
                                     </div>
                                 </td>
-                                <td class="px-4 py-3 text-sm text-gray-600">{{ $row['party'] }}</td>
+                                <td class="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{{ $row['from'] ?? '—' }}</td>
+                                <td class="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{{ $row['to'] ?? '—' }}</td>
+                                <td class="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{{ $row['mode'] ?: '—' }}</td>
                                 <td class="px-4 py-3 text-right text-sm font-semibold text-emerald-600">
                                     {{ $row['type'] === 'credit' ? '₹' . number_format($row['amount'], 2) : '—' }}
                                 </td>
@@ -148,7 +177,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="px-4 py-16 text-center">
+                                <td colspan="9" class="px-4 py-16 text-center">
                                     <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
                                         <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m-6 4h6m-6 4h4M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z" />
@@ -208,15 +237,39 @@
                         </div>
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">By</label>
-                        <input wire:model.defer="mParty" type="text" placeholder="Person / source name"
-                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                        @error('mParty')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                                {{ $modalType === 'expense' ? 'From' : 'By / From' }}
+                            </label>
+                            <input wire:model.defer="mParty" type="text"
+                                placeholder="{{ $modalType === 'expense' ? 'Paid from (source / account)' : 'Received from (payer)' }}"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('mParty')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Mode</label>
+                            <select wire:model.defer="mMode"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                @foreach ($modes as $mode)
+                                    <option value="{{ $mode }}">{{ $mode }}</option>
+                                @endforeach
+                            </select>
+                            @error('mMode')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
                     </div>
 
+                    @if ($modalType === 'expense')
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">To</label>
+                            <input wire:model.defer="mPartyTo" type="text" placeholder="Paid to (payee / vendor)"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('mPartyTo')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                    @endif
+
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Reason <span class="text-red-500">*</span></label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Remark <span class="text-red-500">*</span></label>
                         <textarea wire:model.defer="mReason" rows="3" placeholder="What is this for?"
                             class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm resize-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
                         @error('mReason')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror

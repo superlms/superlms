@@ -14,6 +14,8 @@ class LedgerTransaction extends Model
         'amount',
         'txn_date',
         'party',
+        'mode',
+        'party_to',
         'reason',
         'created_by',
     ];
