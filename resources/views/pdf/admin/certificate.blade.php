@@ -44,8 +44,6 @@
 </head>
 <body>
 <div class="page">
-    <div class="frame"><div class="frame-inner"></div></div>
-
     <div class="content">
         @php
             $logoSrc = null;

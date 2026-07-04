@@ -356,7 +356,7 @@ class TcCertificate extends Component
 
     public function editTc(int $id): void
     {
-        $tc = TcCertificate::findOrFail($id);
+        $tc = TransferCertificate::findOrFail($id);
 
         $this->editTcId                = $tc->id;
         $this->tc_student_id           = $tc->student_detail_id;

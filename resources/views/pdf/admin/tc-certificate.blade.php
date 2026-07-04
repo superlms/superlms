@@ -268,7 +268,7 @@
         <tr>
             <td>Class Teacher</td>
             <td>Issuer</td>
-            <td>Principal</td>
+            <td>Principle</td>
         </tr>
     </table>
 
