@@ -74,7 +74,7 @@
 @unless($isPdf ?? false)
 <div class="no-print" style="position:fixed;top:0;left:0;right:0;z-index:100;background:#1e293b;padding:8px 16px;display:flex;align-items:center;gap:10px;">
     <button onclick="window.print()" style="background:#4f46e5;color:#fff;border:none;padding:6px 18px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">Print</button>
-    <button onclick="window.close()" style="background:#64748b;color:#fff;border:none;padding:6px 18px;border-radius:6px;cursor:pointer;font-size:13px;">Close</button>
+    <button onclick="window.opener ? window.close() : history.back()" style="background:#64748b;color:#fff;border:none;padding:6px 18px;border-radius:6px;cursor:pointer;font-size:13px;">Back</button>
     <span style="color:#94a3b8;font-size:12px;margin-left:8px;">Admit Card – {{ $admitCard->student_name }}</span>
     <form method="POST" action="{{ route('admin.admit-card.destroy', [$organization->serial_number ?? $organization->id, $admitCard->id]) }}"
           style="margin-left:auto;" onsubmit="return confirm('Delete this admit card? The student will move back to the not-issued list.');">
