@@ -57,6 +57,73 @@
         </nav>
     </div>
 
+    {{-- ══════════ ATTENDANCE FILTER (full-width, exams-style) ══════════ --}}
+    @if ($activeTab === 'attendance' && $attendanceMode === 'view')
+        <div class="bg-gray-50 border-b border-gray-200 px-4 sm:px-6 py-3">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                    Filter by:
+                </div>
+
+                {{-- Mode 1: a single date --}}
+                <div class="flex items-center gap-1.5">
+                    <label class="text-xs text-gray-500">Date</label>
+                    <input type="date" wire:model.live="attendanceDate" max="{{ now()->format('Y-m-d') }}"
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                </div>
+
+                <span class="text-gray-300 text-xs">or</span>
+
+                {{-- Modes 2 & 3: employee (+ optional month) --}}
+                <select wire:model.live="filterAttendanceType" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <option value="">Employee type</option>
+                    <option value="teacher">Teacher</option>
+                    <option value="management">Management</option>
+                    <option value="employee">Employee</option>
+                    <option value="driver">Driver</option>
+                </select>
+                <select wire:model.live="attEmpId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[170px]">
+                    <option value="">Select employee</option>
+                    @foreach ($attEmployees as $emp)
+                        <option value="{{ $emp->id }}">{{ $emp->name }} ({{ ucfirst($emp->type) }})</option>
+                    @endforeach
+                </select>
+
+                {{-- Employee sub-filters: month (blank = whole year) + status --}}
+                @if ($attEmpId)
+                    <div class="flex items-center gap-1.5">
+                        <label class="text-xs text-gray-500">Month</label>
+                        <input type="month" wire:model.live="attMonth" max="{{ now()->format('Y-m') }}"
+                            class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" />
+                    </div>
+                    @unless ($attMonth)
+                        <select wire:model.live="attYear" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            @for ($y = (int) now()->year; $y >= (int) now()->year - 5; $y--)
+                                <option value="{{ $y }}">{{ $y }}</option>
+                            @endfor
+                        </select>
+                    @endunless
+                    <select wire:model.live="attStatus" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <option value="">All status</option>
+                        <option value="present">Present</option>
+                        <option value="absent">Absent</option>
+                        <option value="half_day">Half day</option>
+                        <option value="leave">Leave</option>
+                        <option value="holiday">Holiday</option>
+                    </select>
+                @endif
+
+                @if ($attendanceDate || $filterAttendanceType || $attEmpId || $attMonth || $attStatus)
+                    <button wire:click="clearAttFilters" class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        Clear
+                    </button>
+                @endif
+            </div>
+        </div>
+    @endif
+
     <div class="p-4 sm:p-6 space-y-5">
 
         {{-- ══════════ EMPLOYEES TAB ══════════ --}}
@@ -163,35 +230,6 @@
         {{-- ══════════ ATTENDANCE TAB ══════════ --}}
         @if ($activeTab === 'attendance')
 
-            {{-- Filter section (student-style gray bar) --}}
-            <div class="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
-                <div class="flex flex-wrap items-center gap-3">
-                    <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-                        Filter by:
-                    </div>
-                    <input wire:model.live.debounce.300ms="attSearch" type="text" placeholder="Search employee…"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                    <div class="flex items-center gap-1.5">
-                        <label class="text-xs text-gray-500">Date</label>
-                        <input type="date" wire:model.live="attendanceDate" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" />
-                    </div>
-                    <select wire:model.live="filterAttendanceType" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                        <option value="">All Types</option>
-                        <option value="teacher">Teacher</option>
-                        <option value="management">Management</option>
-                        <option value="employee">Employee</option>
-                        <option value="driver">Driver</option>
-                    </select>
-                    @if ($attSearch || $filterAttendanceType)
-                        <button wire:click="clearAttFilters" class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                            Clear
-                        </button>
-                    @endif
-                </div>
-            </div>
-
             @if ($attendanceMode === 'mark')
                 {{-- ─── MARK SCREEN ─── --}}
                 <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -267,8 +305,8 @@
                         </button>
                     </div>
                 </div>
-            @else
-                {{-- ─── VIEW SCREEN (who was present on the date) ─── --}}
+            @elseif ($attView === 'date')
+                {{-- ─── DATE VIEW: everyone's status on the chosen date ─── --}}
                 <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                     <div class="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
                         <h3 class="text-sm font-semibold text-gray-700">Attendance — {{ \Carbon\Carbon::parse($attendanceDate)->format('d M Y') }}</h3>
@@ -318,69 +356,74 @@
                     </div>
                 </div>
 
-                {{-- Month + employee day-by-day analytics --}}
+            @elseif ($attView === 'employee' && $attEmp)
+                {{-- ─── EMPLOYEE VIEW: chosen month, or the whole year day-by-day ─── --}}
+                @php
+                    $cP = $attCounts['present'] ?? 0; $cA = $attCounts['absent'] ?? 0;
+                    $cH = $attCounts['half_day'] ?? 0; $cL = $attCounts['leave'] ?? 0;
+                    $cHol = $attCounts['holiday'] ?? 0; $cM = $attCounts['marked'] ?? 0;
+                    $pct = $cM > 0 ? round(($cP + 0.5 * $cH) / $cM * 100) : 0;
+                @endphp
                 <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                     <div class="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-indigo-50 flex flex-wrap items-center justify-between gap-3">
-                        <h3 class="text-sm font-semibold text-gray-700">Day-by-day Attendance</h3>
-                        <div class="flex items-center gap-2">
-                            <input type="month" wire:model.live="attendanceMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" />
-                            <select wire:model.live="analyticsEmpId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[180px]">
-                                <option value="">Select employee…</option>
-                                @foreach ($allEmployeesForFilter as $emp)
-                                    <option value="{{ $emp->id }}">{{ $emp->name }} ({{ ucfirst($emp->type) }})</option>
-                                @endforeach
-                            </select>
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-700">{{ $attEmp->name }} <span class="font-normal text-gray-400">· {{ $attPeriodLabel }}</span></h3>
+                            <p class="text-[11px] text-gray-400 capitalize">{{ $attEmp->type }}{{ $attEmp->designation ? ' · ' . $attEmp->designation : '' }}</p>
                         </div>
+                        <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">{{ $pct }}% present</span>
                     </div>
                     <div class="p-4">
-                        @if (!$analyticsEmpId)
-                            <p class="text-sm text-gray-400 text-center py-6">Select a month and an employee to see their day-by-day attendance.</p>
-                        @else
-                            @php
-                                $sumP = collect($analyticsDays)->where('status', 'present')->count();
-                                $sumA = collect($analyticsDays)->where('status', 'absent')->count();
-                                $sumH = collect($analyticsDays)->where('status', 'half_day')->count();
-                                $sumL = collect($analyticsDays)->where('status', 'leave')->count();
-                            @endphp
+                        {{-- Summary --}}
+                        <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 text-center mb-4">
+                            <div class="rounded-lg bg-emerald-50 border border-emerald-100 py-2"><p class="text-lg font-bold text-emerald-600">{{ $cP }}</p><p class="text-[10px] text-emerald-500 uppercase">Present</p></div>
+                            <div class="rounded-lg bg-red-50 border border-red-100 py-2"><p class="text-lg font-bold text-red-600">{{ $cA }}</p><p class="text-[10px] text-red-500 uppercase">Absent</p></div>
+                            <div class="rounded-lg bg-amber-50 border border-amber-100 py-2"><p class="text-lg font-bold text-amber-600">{{ $cH }}</p><p class="text-[10px] text-amber-500 uppercase">Half</p></div>
+                            <div class="rounded-lg bg-blue-50 border border-blue-100 py-2"><p class="text-lg font-bold text-blue-600">{{ $cL }}</p><p class="text-[10px] text-blue-500 uppercase">Leave</p></div>
+                            <div class="rounded-lg bg-gray-50 border border-gray-200 py-2"><p class="text-lg font-bold text-gray-500">{{ $cHol }}</p><p class="text-[10px] text-gray-400 uppercase">Holiday</p></div>
+                            <div class="rounded-lg bg-gray-100 border border-gray-200 py-2"><p class="text-lg font-bold text-gray-800">{{ $cM }}</p><p class="text-[10px] text-gray-400 uppercase">Marked</p></div>
+                        </div>
 
-                            {{-- Overall (all-time) summary --}}
-                            @if ($analyticsOverall)
-                                <div class="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3">
-                                    <div class="flex items-center justify-between mb-2">
-                                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Overall <span class="font-normal text-gray-400">(all time)</span></p>
-                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">{{ $analyticsOverall['percent'] }}% present</span>
-                                    </div>
-                                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">
-                                        <div class="rounded-lg bg-white border border-gray-200 py-2"><p class="text-lg font-bold text-emerald-600">{{ $analyticsOverall['present'] }}</p><p class="text-[10px] text-gray-400 uppercase">Present</p></div>
-                                        <div class="rounded-lg bg-white border border-gray-200 py-2"><p class="text-lg font-bold text-red-600">{{ $analyticsOverall['absent'] }}</p><p class="text-[10px] text-gray-400 uppercase">Absent</p></div>
-                                        <div class="rounded-lg bg-white border border-gray-200 py-2"><p class="text-lg font-bold text-amber-600">{{ $analyticsOverall['halfDay'] }}</p><p class="text-[10px] text-gray-400 uppercase">Half</p></div>
-                                        <div class="rounded-lg bg-white border border-gray-200 py-2"><p class="text-lg font-bold text-blue-600">{{ $analyticsOverall['leave'] }}</p><p class="text-[10px] text-gray-400 uppercase">Leave</p></div>
-                                        <div class="rounded-lg bg-white border border-gray-200 py-2"><p class="text-lg font-bold text-gray-800">{{ $analyticsOverall['marked'] }}</p><p class="text-[10px] text-gray-400 uppercase">Marked</p></div>
-                                    </div>
+                        {{-- Day-by-day, grouped by month --}}
+                        @forelse ($attByMonth as $ym => $days)
+                            <div class="mb-4">
+                                <p class="text-xs font-semibold text-gray-600 mb-1.5">{{ \Carbon\Carbon::parse($ym . '-01')->format('F Y') }}</p>
+                                <div class="grid grid-cols-7 sm:grid-cols-10 md:grid-cols-12 gap-1.5">
+                                    @foreach ($days as $d)
+                                        @php
+                                            $cell = ['present' => 'bg-emerald-100 text-emerald-700 border-emerald-200', 'absent' => 'bg-red-100 text-red-700 border-red-200', 'half_day' => 'bg-amber-100 text-amber-700 border-amber-200', 'leave' => 'bg-blue-100 text-blue-700 border-blue-200'][$d['status']] ?? 'bg-gray-50 text-gray-400 border-gray-200';
+                                            $mark = ['present' => 'P', 'absent' => 'A', 'half_day' => 'H', 'leave' => 'L'][$d['status']] ?? '·';
+                                        @endphp
+                                        <div class="rounded-md border {{ $cell }} p-1.5 text-center" title="{{ \Carbon\Carbon::parse($d['date'])->format('D, d M Y') }} · {{ ucfirst(str_replace('_', ' ', $d['status'])) }}">
+                                            <div class="text-[10px] opacity-70 leading-none">{{ $d['day'] }}</div>
+                                            <div class="text-xs font-bold leading-tight mt-0.5">{{ $mark }}</div>
+                                        </div>
+                                    @endforeach
                                 </div>
-                            @endif
+                            </div>
+                        @empty
+                            <p class="text-sm text-gray-400 text-center py-6">No days match this filter.</p>
+                        @endforelse
 
-                            {{-- This month --}}
-                            <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">This month <span class="font-normal text-gray-400">({{ \Carbon\Carbon::parse($attendanceMonth . '-01')->format('M Y') }})</span></p>
-                            <div class="flex flex-wrap gap-2 mb-4 text-xs">
-                                <span class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 font-medium">Present {{ $sumP }}</span>
-                                <span class="px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-100 font-medium">Absent {{ $sumA }}</span>
-                                <span class="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100 font-medium">Half {{ $sumH }}</span>
-                                <span class="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100 font-medium">Leave {{ $sumL }}</span>
-                            </div>
-                            <div class="grid grid-cols-7 sm:grid-cols-10 md:grid-cols-12 gap-1.5">
-                                @foreach ($analyticsDays as $d)
-                                    @php
-                                        $cell = ['present' => 'bg-emerald-100 text-emerald-700 border-emerald-200', 'absent' => 'bg-red-100 text-red-700 border-red-200', 'half_day' => 'bg-amber-100 text-amber-700 border-amber-200', 'leave' => 'bg-blue-100 text-blue-700 border-blue-200'][$d['status']] ?? 'bg-gray-50 text-gray-400 border-gray-200';
-                                        $mark = ['present' => 'P', 'absent' => 'A', 'half_day' => 'H', 'leave' => 'L'][$d['status']] ?? '·';
-                                    @endphp
-                                    <div class="rounded-md border {{ $cell }} p-1.5 text-center" title="{{ \Carbon\Carbon::parse($d['date'])->format('d M Y') }}">
-                                        <div class="text-[10px] opacity-70 leading-none">{{ $d['day'] }}</div>
-                                        <div class="text-xs font-bold leading-tight mt-0.5">{{ $mark }}</div>
-                                    </div>
-                                @endforeach
-                            </div>
-                        @endif
+                        <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-400 mt-1">
+                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-200 border border-emerald-300 align-middle"></span> Present</span>
+                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-red-200 border border-red-300 align-middle"></span> Absent</span>
+                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-amber-200 border border-amber-300 align-middle"></span> Half</span>
+                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-blue-200 border border-blue-300 align-middle"></span> Leave</span>
+                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-gray-100 border border-gray-300 align-middle"></span> Holiday / not marked</span>
+                        </div>
+                    </div>
+                </div>
+            @else
+                {{-- ─── PROMPT (nothing selected yet) ─── --}}
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-10 sm:p-12 text-center">
+                    <div class="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <svg class="w-7 h-7 text-blue-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    </div>
+                    <p class="text-sm text-gray-600 font-medium">Use the filters above to view attendance.</p>
+                    <div class="text-xs text-gray-400 mt-2 space-y-0.5">
+                        <p>• Pick a <strong>Date</strong> to see everyone's status that day.</p>
+                        <p>• Pick <strong>Type → Employee → Month</strong> for that employee's chosen month.</p>
+                        <p>• Pick <strong>Type → Employee</strong> (no month) for their whole year, then narrow by month or status.</p>
                     </div>
                 </div>
             @endif

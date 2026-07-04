@@ -59,12 +59,17 @@ class Payroll extends Component
     public      $selectedEmployee   = null;
 
     // ─── Attendance ───────────────────────────────────────────────────────────
-    public string $attendanceMonth      = '';
-    public string $attendanceDate       = '';
-    public string $filterAttendanceType = '';
-    public string $attSearch            = '';
+    // Three view modes, inferred from the filters that are set:
+    //   • date only              → everyone's status on that date
+    //   • employee (+ month)     → that employee's chosen month
+    //   • employee (no month)    → that employee's whole year, day by day
+    public string $attendanceDate       = ''; // date-mode filter + the date being marked
+    public string $filterAttendanceType = ''; // employee type filter (narrows the dropdown)
+    public string $attEmpId             = ''; // selected employee (employee-mode)
+    public string $attMonth             = ''; // optional month for employee-mode
+    public string $attYear              = ''; // year for the whole-year employee view
+    public string $attStatus            = ''; // status filter: present|absent|half_day|leave|holiday
     public array  $attendanceDraft      = []; // admin_employee_id => status (non-teacher only)
-    public string $analyticsEmpId       = ''; // month day-by-day view
     public string $attendanceMode       = 'view'; // 'view' | 'mark'
 
     // ─── Salary ───────────────────────────────────────────────────────────────
@@ -89,11 +94,10 @@ class Payroll extends Component
     // ─────────────────────────────────────────────────────────────────────────
     public function mount(): void
     {
-        $this->attendanceMonth = now()->format('Y-m');
-        $this->attendanceDate  = now()->format('Y-m-d');
+        $this->attYear = (string) now()->year;
         // Salary defaults to the PREVIOUS month — that's the payable, fully-attended month.
-        $this->salaryMonth     = now()->subMonthNoOverflow()->format('Y-m');
-        $this->payDate         = now()->format('Y-m-d');
+        $this->salaryMonth = now()->subMonthNoOverflow()->format('Y-m');
+        $this->payDate     = now()->format('Y-m-d');
     }
 
     /**
@@ -322,9 +326,12 @@ class Payroll extends Component
         $this->attendanceDraft = [];
     }
 
-    /** Open the marking screen. */
+    /** Open the marking screen (defaults the mark date to today). */
     public function startMarking(): void
     {
+        if ($this->attendanceDate === '') {
+            $this->attendanceDate = now()->format('Y-m-d');
+        }
         $this->attendanceMode  = 'mark';
         $this->attendanceDraft = [];
     }
@@ -336,10 +343,21 @@ class Payroll extends Component
         $this->attendanceDraft = [];
     }
 
-    /** Clear the draft when the date changes so we don't carry marks across dates. */
+    /** Clear the draft when the date changes; picking a date switches to date-mode. */
     public function updatedAttendanceDate(): void
     {
         $this->attendanceDraft = [];
+        if ($this->attendanceDate !== '') {
+            $this->attEmpId = '';
+        }
+    }
+
+    /** Picking an employee switches to employee-mode (clears the date filter). */
+    public function updatedAttEmpId(): void
+    {
+        if ($this->attEmpId !== '') {
+            $this->attendanceDate = '';
+        }
     }
 
     /** Pick a status for an employee in the draft; nothing is saved until Submit. */
@@ -393,7 +411,76 @@ class Payroll extends Component
 
     public function clearAttFilters(): void
     {
-        $this->reset(['attSearch', 'filterAttendanceType']);
+        $this->reset(['filterAttendanceType', 'attEmpId', 'attMonth', 'attStatus', 'attendanceDate']);
+        $this->attYear = (string) now()->year;
+    }
+
+    /**
+     * Build the selected employee's day-by-day attendance for the active period
+     * (a single month if attMonth is set, otherwise the whole attYear up to today).
+     * Returns per-month day chips plus overall counts. Days with no record are
+     * treated as "holiday".
+     */
+    private function buildEmployeeDays(AdminEmployee $emp): array
+    {
+        $today = Carbon::today();
+
+        if ($this->attMonth) {
+            $start = Carbon::parse($this->attMonth . '-01')->startOfMonth();
+            $end   = $start->copy()->endOfMonth();
+        } else {
+            $year  = (int) ($this->attYear ?: now()->year);
+            $start = Carbon::create($year, 1, 1)->startOfDay();
+            $end   = Carbon::create($year, 12, 31)->endOfDay();
+        }
+        if ($end->gt($today)) $end = $today->copy();
+
+        $counts  = ['present' => 0, 'absent' => 0, 'half_day' => 0, 'leave' => 0, 'holiday' => 0, 'marked' => 0];
+        $byMonth = [];
+        if ($start->gt($end)) {
+            return ['counts' => $counts, 'byMonth' => $byMonth];
+        }
+
+        // Load the period's records once, keyed by Y-m-d.
+        $map = [];
+        if ($emp->isTeacher() && $emp->teacher_detail_id) {
+            TeacherAttendance::where('teacher_detail_id', $emp->teacher_detail_id)
+                ->whereBetween('attendance_date', [$start->toDateString(), $end->toDateString()])
+                ->get()->each(function ($r) use (&$map) {
+                    $map[Carbon::parse($r->attendance_date)->format('Y-m-d')] =
+                        ['0' => 'absent', '1' => 'present', '2' => 'half_day', '3' => 'half_day'][(string) $r->status] ?? null;
+                });
+        } else {
+            AdminAttendance::forOrganization($this->orgId())->where('admin_employee_id', $emp->id)
+                ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
+                ->get()->each(function ($r) use (&$map) {
+                    $map[Carbon::parse($r->date)->format('Y-m-d')] = $r->status;
+                });
+        }
+
+        for ($d = $start->copy(); $d->lte($end); $d->addDay()) {
+            $ds     = $d->format('Y-m-d');
+            $status = $map[$ds] ?? 'holiday';
+
+            if ($status === 'holiday') {
+                $counts['holiday']++;
+            } else {
+                $counts[$status] = ($counts[$status] ?? 0) + 1;
+                $counts['marked']++;
+            }
+
+            // Status filter narrows only what's displayed, not the counts.
+            if ($this->attStatus && $status !== $this->attStatus) continue;
+
+            $byMonth[$d->format('Y-m')][] = [
+                'date'   => $ds,
+                'day'    => (int) $d->format('j'),
+                'status' => $status,
+                'dow'    => $d->format('D'),
+            ];
+        }
+
+        return ['counts' => $counts, 'byMonth' => $byMonth];
     }
 
     public function clearSalaryFilters(): void
@@ -573,13 +660,11 @@ class Payroll extends Component
         };
         $employeesList = $employeesList->values();
 
-        // Attendance tab list: search + type
+        // Attendance tab list (type filter) — used by the mark screen and the
+        // date-mode view, and as the options for the employee dropdown.
         $attEmployees = $allEmployees
             ->when($this->filterAttendanceType, fn($c) => $c->where('type', $this->filterAttendanceType))
-            ->when($this->attSearch, function ($c) {
-                $t = mb_strtolower(trim($this->attSearch));
-                return $c->filter(fn($e) => str_contains(mb_strtolower($e->name), $t));
-            })->values();
+            ->values();
 
         // Salary tab list: search + type
         $salaryEmployees = $allEmployees
@@ -604,64 +689,30 @@ class Payroll extends Component
         $teacherIds = $allEmployees->where('type', 'teacher')->whereNotNull('teacher_detail_id')->pluck('teacher_detail_id');
         $teacherEmpMap = $allEmployees->whereNotNull('teacher_detail_id')->pluck('id', 'teacher_detail_id');
 
-        // ── Monthly attendance (attendanceMonth) for day-by-day analytics ──────
-        $monthAttendance = AdminAttendance::forOrganization($orgId)
-            ->forMonth($this->attendanceMonth)->get()->groupBy('admin_employee_id');
+        // ── Attendance view (only renders once a filter is chosen) ─────────────
+        //   attView === 'date'     → everyone's status on attendanceDate
+        //   attView === 'employee' → the picked employee's month / whole year
+        $attView        = null;
+        $attEmp         = null;
+        $attByMonth     = [];
+        $attCounts      = [];
+        $attPeriodLabel = '';
 
-        $teacherMonthAttendance = [];
-        if ($teacherIds->isNotEmpty()) {
-            TeacherAttendance::whereIn('teacher_detail_id', $teacherIds)
-                ->whereRaw("DATE_FORMAT(attendance_date, '%Y-%m') = ?", [$this->attendanceMonth])
-                ->get()->groupBy('teacher_detail_id')
-                ->each(function ($records, $tdId) use (&$teacherMonthAttendance, $teacherEmpMap) {
-                    if ($empId = $teacherEmpMap->get($tdId)) $teacherMonthAttendance[$empId] = $records;
-                });
-        }
-
-        // Day-by-day analytics for the selected employee
-        $analyticsDays = [];
-        if ($this->analyticsEmpId) {
-            $emp = $allEmployees->firstWhere('id', (int) $this->analyticsEmpId);
-            if ($emp) {
-                $daysInMonth = (int) Carbon::parse($this->attendanceMonth . '-01')->daysInMonth;
-                $isTeacher   = $emp->isTeacher() && isset($teacherMonthAttendance[$emp->id]);
-                $records     = $isTeacher ? $teacherMonthAttendance[$emp->id] : $monthAttendance->get($emp->id, collect());
-
-                for ($d = 1; $d <= $daysInMonth; $d++) {
-                    $dateStr = sprintf('%s-%02d', $this->attendanceMonth, $d);
-                    if ($isTeacher) {
-                        $rec = $records->first(fn($r) => Carbon::parse($r->attendance_date)->format('Y-m-d') === $dateStr);
-                        $status = $rec ? (['0' => 'absent', '1' => 'present', '2' => 'half_day', '3' => 'half_day'][(string) $rec->status] ?? null) : null;
-                    } else {
-                        $rec = $records->first(fn($r) => Carbon::parse($r->date)->format('Y-m-d') === $dateStr);
-                        $status = $rec?->status;
-                    }
-                    $analyticsDays[] = ['day' => $d, 'date' => $dateStr, 'status' => $status];
+        if ($this->attendanceMode === 'view') {
+            if ($this->attEmpId) {
+                $attEmp = $allEmployees->firstWhere('id', (int) $this->attEmpId);
+                if ($attEmp) {
+                    $attView        = 'employee';
+                    $built          = $this->buildEmployeeDays($attEmp);
+                    $attByMonth     = $built['byMonth'];
+                    $attCounts      = $built['counts'];
+                    $attPeriodLabel = $this->attMonth
+                        ? Carbon::parse($this->attMonth . '-01')->format('F Y')
+                        : ('Year ' . ($this->attYear ?: now()->year));
                 }
-            }
-        }
-
-        // ── Overall (all-time) attendance for the selected employee ────────────
-        $analyticsOverall = null;
-        if ($this->analyticsEmpId) {
-            $emp = $allEmployees->firstWhere('id', (int) $this->analyticsEmpId);
-            if ($emp) {
-                if ($emp->isTeacher() && $emp->teacher_detail_id) {
-                    $recs    = TeacherAttendance::where('teacher_detail_id', $emp->teacher_detail_id)->get();
-                    $present = $recs->where('status', 1)->count();
-                    $absent  = $recs->where('status', 0)->count();
-                    $halfDay = $recs->whereIn('status', [2, 3])->count();
-                    $leave   = 0;
-                } else {
-                    $recs    = AdminAttendance::forOrganization($orgId)->where('admin_employee_id', $emp->id)->get();
-                    $present = $recs->where('status', 'present')->count();
-                    $absent  = $recs->where('status', 'absent')->count();
-                    $halfDay = $recs->where('status', 'half_day')->count();
-                    $leave   = $recs->where('status', 'leave')->count();
-                }
-                $marked  = $present + $absent + $halfDay + $leave;
-                $percent = $marked > 0 ? round(($present + 0.5 * $halfDay) / $marked * 100) : 0;
-                $analyticsOverall = compact('present', 'absent', 'halfDay', 'leave', 'marked', 'percent');
+            } elseif ($this->attendanceDate) {
+                $attView        = 'date';
+                $attPeriodLabel = Carbon::parse($this->attendanceDate)->format('d M Y');
             }
         }
 
@@ -706,10 +757,11 @@ class Payroll extends Component
             'attEmployees',
             'salaryEmployees',
             'empStats',
-            'monthAttendance',
-            'teacherMonthAttendance',
-            'analyticsDays',
-            'analyticsOverall',
+            'attView',
+            'attEmp',
+            'attByMonth',
+            'attCounts',
+            'attPeriodLabel',
             'salaryBreakdowns',
             'monthSalaryPayments',
             'canPaySalaryMonth',
