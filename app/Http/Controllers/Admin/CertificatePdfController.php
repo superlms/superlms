@@ -8,6 +8,7 @@ use App\Models\Admin\TransferCertificate;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class CertificatePdfController extends Controller
 {
@@ -17,7 +18,12 @@ class CertificatePdfController extends Controller
      */
     public function downloadCert(int $id): Response
     {
-        $cert = Certificate::with(['student', 'organization'])->findOrFail($id);
+        // Diagnostic breadcrumb: confirms the route matched and reached the
+        // controller (vs. a routing / infra 404 that never gets here).
+        Log::info('cert.download hit', ['id' => $id, 'user' => Auth::id(), 'org' => Auth::user()?->organization_id]);
+
+        $cert = Certificate::with(['student', 'organization'])->find($id);
+        abort_if(! $cert, 404, "Certificate #{$id} not found.");
 
         abort_if($cert->organization_id !== Auth::user()?->organization_id, 403);
 
@@ -39,7 +45,10 @@ class CertificatePdfController extends Controller
      */
     public function downloadTc(int $id): Response
     {
-        $tc = TransferCertificate::with(['student', 'organization'])->findOrFail($id);
+        Log::info('tc.download hit', ['id' => $id, 'user' => Auth::id(), 'org' => Auth::user()?->organization_id]);
+
+        $tc = TransferCertificate::with(['student', 'organization'])->find($id);
+        abort_if(! $tc, 404, "Transfer certificate #{$id} not found.");
 
         abort_if($tc->organization_id !== Auth::user()?->organization_id, 403);
 
