@@ -18,14 +18,16 @@
                         <span class="pl-4">Classes: <strong class="text-amber-500">{{ $statistics['by_class'] ?? 0 }}</strong></span>
                     </div>
 
-                    <button wire:click="onAddHomework"
-                        class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                        </svg>
-                        <span class="hidden sm:inline">Add Homework</span>
-                        <span class="sm:hidden">New</span>
-                    </button>
+                    @if ($activeTab === 'homework')
+                        <button wire:click="onAddHomework"
+                            class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span class="hidden sm:inline">Add Homework</span>
+                            <span class="sm:hidden">New</span>
+                        </button>
+                    @endif
                 </div>
             </div>
 
@@ -38,7 +40,17 @@
             </div>
         </div>
 
-        {{-- Filter bar --}}
+        {{-- Tabs --}}
+        <div class="border-t border-gray-200 px-4 sm:px-6">
+            <div class="flex gap-1">
+                <button wire:click="switchTab('homework')"
+                    class="px-4 py-3 text-sm font-medium border-b-2 transition-colors {{ $activeTab === 'homework' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">Homework</button>
+                <button wire:click="switchTab('status')"
+                    class="px-4 py-3 text-sm font-medium border-b-2 transition-colors {{ $activeTab === 'status' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">Homework Status</button>
+            </div>
+        </div>
+
+        {{-- Filter bar (tab-aware) --}}
         <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
             <div class="flex flex-wrap items-center gap-3">
                 <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
@@ -48,45 +60,71 @@
                     Filter by:
                 </div>
 
-                <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search title, description, teacher..."
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                @if ($activeTab === 'homework')
+                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search title, description, teacher..."
+                        class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
 
-                <select wire:model.live="filterTeacher" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                    <option value="">All Teachers</option>
-                    @foreach ($teachers as $teacher)
-                        <option value="{{ $teacher->id }}">{{ $teacher->name }}</option>
-                    @endforeach
-                </select>
+                    <select wire:model.live="filterTeacher" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <option value="">All Teachers</option>
+                        @foreach ($teachers as $teacher)
+                            <option value="{{ $teacher->id }}">{{ $teacher->name }}</option>
+                        @endforeach
+                    </select>
 
-                <select wire:model.live="filterStandard" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                    <option value="">All Standards</option>
-                    @foreach ($standards as $standard)
-                        <option value="{{ $standard->id }}">{{ $standard->name }}</option>
-                    @endforeach
-                </select>
+                    <select wire:model.live="filterStandard" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <option value="">All Standards</option>
+                        @foreach ($standards as $standard)
+                            <option value="{{ $standard->id }}">{{ $standard->name }}</option>
+                        @endforeach
+                    </select>
 
-                <select wire:model.live="filterSection" @disabled(!$filterStandard)
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
-                    <option value="">All Sections</option>
-                    @foreach ($filterSections as $section)
-                        <option value="{{ $section->id }}">{{ $section->name }}</option>
-                    @endforeach
-                </select>
+                    <select wire:model.live="filterSection" @disabled(!$filterStandard)
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
+                        <option value="">All Sections</option>
+                        @foreach ($filterSections as $section)
+                            <option value="{{ $section->id }}">{{ $section->name }}</option>
+                        @endforeach
+                    </select>
 
-                <select wire:model.live="filterSubject" @disabled(!$filterStandard)
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
-                    <option value="">All Subjects</option>
-                    @foreach ($filterSubjects as $subject)
-                        <option value="{{ $subject->id }}">{{ $subject->name }}</option>
-                    @endforeach
-                </select>
+                    <select wire:model.live="filterSubject" @disabled(!$filterStandard)
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
+                        <option value="">All Subjects</option>
+                        @foreach ($filterSubjects as $subject)
+                            <option value="{{ $subject->id }}">{{ $subject->name }}</option>
+                        @endforeach
+                    </select>
 
-                @if ($search || $filterTeacher || $filterStandard || $filterSection || $filterSubject)
-                    <button wire:click="clearFilters"
-                        class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                        Clear
-                    </button>
+                    @if ($search || $filterTeacher || $filterStandard || $filterSection || $filterSubject)
+                        <button wire:click="clearFilters"
+                            class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            Clear
+                        </button>
+                    @endif
+                @else
+                    {{-- Homework Status: class → section → student --}}
+                    <select wire:model.live="hwStatusStandard" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <option value="">Select class…</option>
+                        @foreach ($standards as $standard)
+                            <option value="{{ $standard->id }}">{{ $standard->name }}</option>
+                        @endforeach
+                    </select>
+                    <span class="text-gray-300">→</span>
+                    <select wire:model.live="hwStatusSection" @disabled(!$hwStatusStandard)
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
+                        <option value="">Select section…</option>
+                        @foreach ($hwStatusSections as $section)
+                            <option value="{{ $section->id }}">{{ $section->name }}</option>
+                        @endforeach
+                    </select>
+                    <span class="text-gray-300">→</span>
+                    <select wire:model.live="hwStatusStudent" @disabled(!$hwStatusSection)
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
+                        <option value="">Select student…</option>
+                        @foreach ($hwStatusStudents as $st)
+                            <option value="{{ $st->id }}">{{ $st->full_name }}{{ $st->roll_no ? ' · Roll ' . $st->roll_no : '' }}</option>
+                        @endforeach
+                    </select>
                 @endif
             </div>
         </div>
@@ -96,6 +134,18 @@
          BODY / TABLE
     ══════════════════════════════════════════════════ --}}
     <div class="p-4 sm:p-6">
+
+    @if ($activeTab === 'homework')
+    @if (!$isFiltered)
+        {{-- Filter-first: nothing shown until a filter is applied --}}
+        <div class="bg-white rounded-xl border border-gray-200 p-12 text-center">
+            <div class="w-12 h-12 mx-auto mb-3 bg-blue-50 rounded-full flex items-center justify-center">
+                <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+            </div>
+            <p class="text-sm font-semibold text-gray-800">Apply a filter to view homework</p>
+            <p class="text-xs text-gray-400 mt-1">Search, or pick a teacher / class / section / subject above to list homework.</p>
+        </div>
+    @else
     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full">
@@ -193,6 +243,65 @@
             </div>
         @endif
     </div>
+    @endif
+
+    @else
+    {{-- ═══════════════════ HOMEWORK STATUS REGISTER ═══════════════════ --}}
+    @if (!$hwStatusStandard || !$hwStatusSection || !$hwStatusStudent)
+        <div class="bg-white rounded-xl border border-gray-200 p-12 text-center">
+            <div class="w-12 h-12 mx-auto mb-3 bg-blue-50 rounded-full flex items-center justify-center">
+                <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+            </div>
+            <p class="text-sm font-semibold text-gray-800">Track a student's homework</p>
+            <p class="text-xs text-gray-400 mt-1">Choose a class, section and student above to see the last {{ $hwStatusDays }} days.</p>
+        </div>
+    @else
+        {{-- Legend --}}
+        <div class="flex flex-wrap items-center gap-4 text-xs text-gray-500 mb-3">
+            <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-emerald-100 border border-emerald-300"></span> Completed (marked in app)</span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-100 border border-red-300"></span> Not completed</span>
+        </div>
+
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm min-w-[640px]">
+                    <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+                        <tr>
+                            <th class="px-4 py-3 text-left w-14">#</th>
+                            <th class="px-4 py-3 text-left w-40">Date</th>
+                            <th class="px-4 py-3 text-left w-32">Day</th>
+                            <th class="px-4 py-3 text-left">Subjects</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @foreach ($statusRows as $i => $row)
+                            <tr class="hover:bg-gray-50/70">
+                                <td class="px-4 py-3 text-gray-400">{{ $i + 1 }}</td>
+                                <td class="px-4 py-3 font-medium text-gray-800">{{ $row['date'] }}</td>
+                                <td class="px-4 py-3 text-gray-600">{{ $row['day'] }}</td>
+                                <td class="px-4 py-3">
+                                    @forelse ($row['items'] as $it)
+                                        <span title="{{ $it['title'] }}"
+                                            class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 mr-1.5 mb-1.5 rounded-full border {{ $it['complete'] ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200' }}">
+                                            @if ($it['complete'])
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                            @else
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                            @endif
+                                            {{ $it['subject'] }}
+                                        </span>
+                                    @empty
+                                        <span class="text-xs text-gray-300">No homework</span>
+                                    @endforelse
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @endif
+    @endif
     </div>
 
     {{-- ══════════════════════════════════════════════════

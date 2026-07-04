@@ -164,6 +164,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('/delete/{homework_id}', [HomeWorkController::class, 'destroyHomeWork']);
             Route::get('/get/{homework_id}', [HomeWorkController::class, 'showSingleHomeWork']);
             Route::post('/student', [HomeWorkController::class, 'studentHomeWork']);
+            // Student marks a homework done / not done (body: completed=true|false).
+            Route::post('/complete/{homework_id}', [HomeWorkController::class, 'markComplete']);
         });
 
         //Quiz Routes All

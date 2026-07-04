@@ -4,6 +4,7 @@ namespace App\Http\Controllers\v1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Admin\HomeWork;
+use App\Models\Admin\HomeWorkCompletion;
 use App\Models\Admin\TeacherTimeTable;
 use App\Models\Student\StudentDetail;
 use App\Models\Teacher\TeacherDetail;
@@ -289,6 +290,12 @@ class HomeWorkController extends Controller
             $perPage   = (int) $request->get('per_page', 100);
             $homeworks = $query->paginate($perPage);
 
+            // Which of these has this student already marked complete?
+            $completedIds = HomeWorkCompletion::where('user_id', $user->id)
+                ->whereIn('home_work_id', $homeworks->getCollection()->pluck('id'))
+                ->pluck('home_work_id')
+                ->flip();
+
             return $this->responseService->success(
                 [
                     'student_info' => [
@@ -298,7 +305,9 @@ class HomeWorkController extends Controller
                         'section'  => $studentDetail->section->name ?? null,
                         'roll_no'  => $studentDetail->roll_no,
                     ],
-                    'homeworks'  => $homeworks->getCollection()->map(fn($h) => $this->formatHomework($h))->values(),
+                    'homeworks'  => $homeworks->getCollection()->map(fn($h) => $this->formatHomework($h) + [
+                        'is_completed' => $completedIds->has($h->id),
+                    ])->values(),
                     'pagination' => [
                         'current_page' => $homeworks->currentPage(),
                         'last_page'    => $homeworks->lastPage(),
@@ -314,6 +323,54 @@ class HomeWorkController extends Controller
         } catch (Exception $e) {
             return $this->responseService->errorResponse(
                 'Failed to retrieve student homework: ' . $e->getMessage(),
+                500
+            );
+        }
+    }
+
+    /**
+     * Student toggles a homework as done / not done from the app.
+     * POST /homework/complete/{homework_id}  body: { completed: true|false }  (defaults true)
+     * Presence of a completion row = "completed"; the admin Homework Status tab reads these.
+     */
+    public function markComplete(Request $request, $homeworkId)
+    {
+        try {
+            $user = Auth::user();
+
+            $homework = HomeWork::where('organization_id', $user->organization_id)->find($homeworkId);
+            if (!$homework) {
+                return $this->responseService->errorResponse('homework not found', 404);
+            }
+
+            $completed = $request->has('completed') ? $request->boolean('completed') : true;
+
+            if ($completed) {
+                $studentDetail = StudentDetail::where('user_id', $user->id)
+                    ->where('organization_id', $user->organization_id)
+                    ->first(['id']);
+
+                HomeWorkCompletion::updateOrCreate(
+                    ['home_work_id' => $homework->id, 'user_id' => $user->id],
+                    [
+                        'organization_id'   => $user->organization_id,
+                        'student_detail_id' => $studentDetail?->id,
+                        'completed_at'      => now(),
+                    ]
+                );
+            } else {
+                HomeWorkCompletion::where('home_work_id', $homework->id)
+                    ->where('user_id', $user->id)
+                    ->delete();
+            }
+
+            return $this->responseService->success(
+                ['id' => $homework->id, 'is_completed' => $completed],
+                $completed ? 'Homework marked as complete' : 'Homework marked as incomplete'
+            );
+        } catch (Exception $e) {
+            return $this->responseService->errorResponse(
+                'Failed to update homework status: ' . $e->getMessage(),
                 500
             );
         }

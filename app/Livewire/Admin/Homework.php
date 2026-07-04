@@ -3,9 +3,11 @@
 namespace App\Livewire\Admin;
 
 use App\Models\Admin\HomeWork as ModalHomework;
+use App\Models\Admin\HomeWorkCompletion;
 use App\Models\Organization;
 use App\Models\Student\Standard;
 use App\Models\Student\Section;
+use App\Models\Student\StudentDetail;
 use App\Models\Student\Subject;
 use App\Models\User;
 use Livewire\Component;
@@ -26,6 +28,18 @@ class Homework extends Component
     public $showViewModal = false;
     public $editId = null;
     public $embedded = false;
+
+    // Tabs: 'homework' (assignments) | 'status' (per-student completion tracker)
+    public string $activeTab = 'homework';
+
+    // ── Homework Status tab filters ──
+    public $hwStatusStandard = '';
+    public $hwStatusSection  = '';
+    public $hwStatusStudent  = '';
+    public $hwStatusSections  = [];
+    public $hwStatusStudents  = [];
+    // How many days back the status register covers (today → this many days ago).
+    public int $hwStatusDays = 14;
     
     // Form fields
     public $title = '';
@@ -547,6 +561,109 @@ class Homework extends Component
         $this->resetPage();
     }
 
+    // ═══════════════════════════ TABS + STATUS TRACKER ═══════════════════════════
+
+    public function switchTab(string $tab): void
+    {
+        $this->activeTab = in_array($tab, ['homework', 'status'], true) ? $tab : 'homework';
+    }
+
+    public function updatedHwStatusStandard($value): void
+    {
+        $this->hwStatusSection = '';
+        $this->hwStatusStudent = '';
+        $this->hwStatusStudents = [];
+        $this->hwStatusSections = $value
+            ? Section::where('standard_id', $value)->where('is_active', true)->orderBy('id')->get()
+            : [];
+    }
+
+    public function updatedHwStatusSection($value): void
+    {
+        $this->hwStatusStudent = '';
+        $this->hwStatusStudents = ($value && $this->hwStatusStandard)
+            ? StudentDetail::where('organization_id', Auth::user()->organization_id)
+                ->where('standard_id', $this->hwStatusStandard)
+                ->where('section_id', $value)
+                ->whereNotNull('user_id')
+                ->orderBy('full_name')
+                ->get(['id', 'user_id', 'full_name', 'roll_no'])
+            : [];
+    }
+
+    /** True once class, section and student are all chosen. */
+    public function hwStatusReady(): bool
+    {
+        return $this->hwStatusStandard && $this->hwStatusSection && $this->hwStatusStudent;
+    }
+
+    /**
+     * Build the day-by-day register for the selected student: one row per day from
+     * today back `hwStatusDays` days. Each row lists the subjects that had homework
+     * that day, each flagged complete (the student marked it done in the app) or not.
+     *
+     * @return array<int, array{date:string,day:string,items:array}>
+     */
+    private function buildStatusRows(): array
+    {
+        if (!$this->hwStatusReady()) {
+            return [];
+        }
+
+        $orgId   = Auth::user()->organization_id;
+        $student = StudentDetail::where('organization_id', $orgId)->find($this->hwStatusStudent);
+        if (!$student) {
+            return [];
+        }
+
+        $startDate = Carbon::today()->subDays($this->hwStatusDays);
+
+        $homeworks = ModalHomework::with('subject:id,name')
+            ->where('organization_id', $orgId)
+            ->where('standard_id', $this->hwStatusStandard)
+            ->where('section_id', $this->hwStatusSection)
+            ->whereDate('created_at', '>=', $startDate->toDateString())
+            ->orderBy('created_at')
+            ->get();
+
+        // home_work_ids this student has marked done.
+        $completedSet = [];
+        if ($student->user_id) {
+            $completedSet = HomeWorkCompletion::where('user_id', $student->user_id)
+                ->whereIn('home_work_id', $homeworks->pluck('id'))
+                ->pluck('home_work_id')
+                ->flip()
+                ->toArray();
+        }
+
+        $byDate = $homeworks->groupBy(fn($h) => Carbon::parse($h->created_at)->toDateString());
+
+        $rows = [];
+        for ($i = 0; $i <= $this->hwStatusDays; $i++) {
+            $date = Carbon::today()->subDays($i);
+            $items = $byDate->get($date->toDateString(), collect())->map(fn($h) => [
+                'subject'  => $h->subject->name ?? 'General',
+                'title'    => $h->title,
+                'complete' => isset($completedSet[$h->id]),
+            ])->values()->all();
+
+            $rows[] = [
+                'date' => $date->format('d M Y'),
+                'day'  => $date->format('l'),
+                'items' => $items,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /** The Homework tab only lists rows once at least one filter is set. */
+    private function hasActiveFilter(): bool
+    {
+        return $this->search !== '' || $this->filterTeacher !== '' || $this->filterStandard !== ''
+            || $this->filterSection !== '' || $this->filterSubject !== '';
+    }
+
     public function onViewHomework($id)
     {
         $homework = ModalHomework::with(['standard', 'section', 'subject', 'user'])->find($id);
@@ -575,12 +692,17 @@ class Homework extends Component
         // this catches dev/preview environments where the scheduler isn't running.
         $this->purgeOldHomework();
 
-        $homeworks = $this->getHomeworks();
+        // Homework tab: only query once the admin has applied a filter.
+        $isFiltered = $this->hasActiveFilter();
+        $homeworks  = ($this->activeTab === 'homework' && $isFiltered) ? $this->getHomeworks() : null;
+
+        // Status tab: per-student day-by-day register.
+        $statusRows = $this->activeTab === 'status' ? $this->buildStatusRows() : [];
 
         // Statistics
         $statistics = $this->getStatistics();
 
-        return view('livewire.admin.homework', compact('homeworks', 'statistics'));
+        return view('livewire.admin.homework', compact('homeworks', 'statistics', 'isFiltered', 'statusRows'));
     }
 
     /**

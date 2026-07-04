@@ -37,4 +37,9 @@ class HomeWork extends Model
     {
         return $this->belongsTo(Subject::class);
     }
+
+    public function completions()
+    {
+        return $this->hasMany(HomeWorkCompletion::class, 'home_work_id');
+    }
 }
