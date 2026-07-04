@@ -1,4 +1,5 @@
-<div class="min-h-screen bg-gray-50">
+<div class="min-h-screen bg-gray-50" x-data="{ showView: false, viewRow: {} }">
+    <style>[x-cloak]{display:none !important;}</style>
 
     {{-- ══════════════════════════════════════════════════
          HEADER (full-width, sticky, analytics + actions)
@@ -30,9 +31,11 @@
                     </button>
                 </div>
             </div>
+        </div>
 
-            {{-- Stats strip on its own row so it can never push the buttons down --}}
-            <div class="flex items-center gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-500 mt-3 flex-wrap sm:divide-x sm:divide-gray-200">
+        {{-- Analytics strip — divided from the header, sits above the filters --}}
+        <div class="border-t border-gray-200 px-4 sm:px-6 py-3">
+            <div class="flex items-center gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-500 flex-wrap sm:divide-x sm:divide-gray-200">
                 <span class="sm:pr-4">Net: <strong class="{{ $netBalance >= 0 ? 'text-emerald-600' : 'text-red-600' }}">₹{{ number_format($netBalance, 2) }}</strong></span>
                 <span class="sm:px-4">Credit: <strong class="text-emerald-600">₹{{ number_format($periodCredit, 2) }}</strong></span>
                 <span class="sm:px-4">Expense: <strong class="text-red-600">₹{{ number_format($periodExpense, 2) }}</strong></span>
@@ -162,15 +165,42 @@
                                 </td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center justify-center gap-1">
+                                        {{-- View is available for every row (auto + manual) --}}
+                                        <button title="View details"
+                                            @click="viewRow = {
+                                                date: @js($row['date']->format('d M Y')),
+                                                time: @js($row['time'] ?? null),
+                                                reason: @js($row['reason']),
+                                                source: @js($row['source']),
+                                                from: @js($row['from'] ?? '—'),
+                                                to: @js($row['to'] ?? '—'),
+                                                collectedBy: @js($row['collected_by'] ?? null),
+                                                mode: @js($row['mode'] ?: '—'),
+                                                type: @js($row['type']),
+                                                amount: @js(number_format($row['amount'], 2)),
+                                                balance: @js(number_format($row['balance'], 2)),
+                                            }; showView = true"
+                                            class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                            </svg>
+                                        </button>
+
+                                        {{-- Edit & Delete only for manually-added entries --}}
                                         @if (!empty($row['manual_id']))
+                                            <button wire:click="openEdit({{ $row['manual_id'] }})" title="Edit entry"
+                                                class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
+                                            </button>
                                             <button wire:click="confirmDelete({{ $row['manual_id'] }})" title="Delete entry"
                                                 class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                 </svg>
                                             </button>
-                                        @else
-                                            <span class="text-gray-300 text-xs">—</span>
                                         @endif
                                     </div>
                                 </td>
@@ -207,7 +237,7 @@
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-900">Add {{ $modalType === 'expense' ? 'Expense' : 'Credit' }}</h2>
+                        <h2 class="text-lg font-semibold text-gray-900">{{ $editingId ? 'Edit' : 'Add' }} {{ $modalType === 'expense' ? 'Expense' : 'Credit' }}</h2>
                         <p class="text-xs text-gray-500 mt-0.5">
                             {{ $modalType === 'expense' ? 'Record money going out' : 'Record money coming in' }}
                         </p>
@@ -220,7 +250,7 @@
                 <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
                     <div class="rounded-lg px-3.5 py-2.5 text-sm font-medium
                         {{ $modalType === 'expense' ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700' }}">
-                        This entry will be added to <strong>{{ $modalType === 'expense' ? 'Expenses' : 'Credits' }}</strong>.
+                        This entry is recorded under <strong>{{ $modalType === 'expense' ? 'Expenses' : 'Credits' }}</strong>.
                     </div>
 
                     <div class="grid grid-cols-2 gap-3">
@@ -239,9 +269,7 @@
 
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">
-                                {{ $modalType === 'expense' ? 'From' : 'By / From' }}
-                            </label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">From</label>
                             <input wire:model.defer="mParty" type="text"
                                 placeholder="{{ $modalType === 'expense' ? 'Paid from (source / account)' : 'Received from (payer)' }}"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
@@ -259,7 +287,14 @@
                         </div>
                     </div>
 
-                    @if ($modalType === 'expense')
+                    @if ($modalType === 'credit')
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Collected by</label>
+                            <input wire:model.defer="mCollectedBy" type="text" placeholder="Staff member who collected the money"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('mCollectedBy')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                    @else
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">To</label>
                             <input wire:model.defer="mPartyTo" type="text" placeholder="Paid to (payee / vendor)"
@@ -280,7 +315,7 @@
                     <button wire:click="closeModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
                     <button wire:click="saveManual" wire:loading.attr="disabled" wire:target="saveManual"
                         class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
-                        <span wire:loading.remove wire:target="saveManual">Save {{ $modalType === 'expense' ? 'Expense' : 'Credit' }}</span>
+                        <span wire:loading.remove wire:target="saveManual">{{ $editingId ? 'Update' : 'Save' }} {{ $modalType === 'expense' ? 'Expense' : 'Credit' }}</span>
                         <span wire:loading wire:target="saveManual">Saving...</span>
                     </button>
                 </div>
@@ -317,4 +352,87 @@
             </div>
         </div>
     @endif
+
+    {{-- VIEW TRANSACTION SLIDE-IN PANEL (client-side, works for every row) --}}
+    <div x-cloak x-show="showView" class="fixed inset-0 z-50 overflow-hidden">
+        <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" @click="showView = false"></div>
+        <div class="absolute top-0 right-0 bottom-0 w-full max-w-md bg-white shadow-2xl flex flex-col"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                <div class="min-w-0">
+                    <h2 class="text-lg font-semibold text-gray-900">Transaction Details</h2>
+                    <p class="text-xs text-gray-500 mt-0.5 truncate" x-text="viewRow.reason"></p>
+                </div>
+                <button @click="showView = false" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto px-6 py-6 space-y-3">
+                <div class="rounded-lg px-3.5 py-3 border"
+                    :class="viewRow.type === 'expense' ? 'bg-red-50 border-red-100' : 'bg-emerald-50 border-emerald-100'">
+                    <p class="text-xs uppercase tracking-wider mb-0.5"
+                        :class="viewRow.type === 'expense' ? 'text-red-400' : 'text-emerald-500'"
+                        x-text="viewRow.type === 'expense' ? 'Expense' : 'Credit'"></p>
+                    <p class="text-xl font-bold"
+                        :class="viewRow.type === 'expense' ? 'text-red-600' : 'text-emerald-600'">
+                        ₹<span x-text="viewRow.amount"></span>
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Date</p>
+                        <p class="text-sm font-medium text-gray-800">
+                            <span x-text="viewRow.date"></span>
+                            <span class="text-gray-400" x-show="viewRow.time" x-text="viewRow.time ? '· ' + viewRow.time : ''"></span>
+                        </p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Source</p>
+                        <p class="text-sm font-medium text-gray-800" x-text="viewRow.source"></p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">From</p>
+                        <p class="text-sm font-medium text-gray-800" x-text="viewRow.from"></p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">To</p>
+                        <p class="text-sm font-medium text-gray-800" x-text="viewRow.to"></p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-100" x-show="viewRow.collectedBy">
+                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Collected by</p>
+                        <p class="text-sm font-medium text-gray-800" x-text="viewRow.collectedBy"></p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Mode</p>
+                        <p class="text-sm font-medium text-gray-800" x-text="viewRow.mode"></p>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                    <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Particulars</p>
+                    <p class="text-sm font-medium text-gray-800" x-text="viewRow.reason"></p>
+                </div>
+
+                <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                    <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Running balance</p>
+                    <p class="text-sm font-semibold text-blue-600">₹<span x-text="viewRow.balance"></span></p>
+                </div>
+            </div>
+
+            <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                <button @click="showView = false" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Close</button>
+            </div>
+        </div>
+    </div>
 </div>

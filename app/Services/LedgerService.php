@@ -220,6 +220,8 @@ class LedgerService
                     'party'     => $m->party ?: '—',
                     'reason'    => $m->reason ?: 'Manual entry',
                     'manual_id' => $m->id,
+                    // For credits, party_to carries the "Collected by" staff name.
+                    'collected_by' => $m->type === 'credit' ? ($m->party_to ?: null) : null,
                 ]);
             });
 

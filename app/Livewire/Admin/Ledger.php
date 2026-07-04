@@ -27,6 +27,10 @@ class Ledger extends Component
     public string $mPartyTo  = '';   // "To" (expenses)
     public string $mMode     = '';   // payment mode
     public string $mReason   = '';
+    public string $mCollectedBy = ''; // credit only: staff member who collected the money
+
+    /** Manual entry currently being edited (null = adding a new one). */
+    public ?int $editingId = null;
 
     /** Selectable payment modes for manual entries. */
     public array $modes = ['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Card', 'Other'];
@@ -98,53 +102,93 @@ class Ledger extends Component
     protected function openModal(string $type): void
     {
         $this->resetValidation();
-        $this->modalType = $type;
-        $this->mDate     = now()->toDateString();
-        $this->mAmount   = '';
-        $this->mParty    = '';
-        $this->mPartyTo  = '';
-        $this->mMode     = 'Cash';
-        $this->mReason   = '';
-        $this->showModal = true;
+        $this->editingId    = null;
+        $this->modalType    = $type;
+        $this->mDate        = now()->toDateString();
+        $this->mAmount      = '';
+        $this->mParty       = '';
+        $this->mPartyTo     = '';
+        $this->mCollectedBy = '';
+        $this->mMode        = 'Cash';
+        $this->mReason      = '';
+        $this->showModal    = true;
+    }
+
+    /** Load an existing manual entry into the same slide-in for editing. */
+    public function openEdit(int $id): void
+    {
+        $txn = LedgerTransaction::where('organization_id', Auth::user()->organization_id)->find($id);
+        if (!$txn) return;
+
+        $this->resetValidation();
+        $this->editingId    = $txn->id;
+        $this->modalType    = $txn->type === 'expense' ? 'expense' : 'credit';
+        $this->mDate        = Carbon::parse($txn->txn_date)->toDateString();
+        $this->mAmount      = $txn->amount;
+        $this->mParty       = $txn->party ?? '';
+        // party_to doubles as "To" (expense) or "Collected by" (credit).
+        $this->mPartyTo     = $this->modalType === 'expense' ? ($txn->party_to ?? '') : '';
+        $this->mCollectedBy = $this->modalType === 'credit'  ? ($txn->party_to ?? '') : '';
+        $this->mMode        = $txn->mode ?: 'Cash';
+        $this->mReason      = $txn->reason ?? '';
+        $this->showModal    = true;
     }
 
     public function closeModal(): void
     {
         $this->showModal = false;
+        $this->editingId = null;
     }
 
     public function saveManual(): void
     {
         $this->validate([
-            'mDate'    => 'required|date',
-            'mAmount'  => 'required|numeric|min:0.01',
-            'mParty'   => 'nullable|string|max:255',
-            'mPartyTo' => 'nullable|string|max:255',
-            'mMode'    => 'nullable|string|max:50',
-            'mReason'  => 'required|string|max:1000',
+            'mDate'        => 'required|date',
+            'mAmount'      => 'required|numeric|min:0.01',
+            'mParty'       => 'nullable|string|max:255',
+            'mPartyTo'     => 'nullable|string|max:255',
+            'mCollectedBy' => 'nullable|string|max:255',
+            'mMode'        => 'nullable|string|max:50',
+            'mReason'      => 'required|string|max:1000',
         ], [], [
-            'mDate'    => 'date',
-            'mAmount'  => 'amount',
-            'mParty'   => $this->modalType === 'expense' ? 'from' : 'by',
-            'mPartyTo' => 'to',
-            'mMode'    => 'mode',
-            'mReason'  => 'remark',
+            'mDate'        => 'date',
+            'mAmount'      => 'amount',
+            'mParty'       => 'from',
+            'mPartyTo'     => 'to',
+            'mCollectedBy' => 'collected by',
+            'mMode'        => 'mode',
+            'mReason'      => 'remark',
         ]);
 
-        LedgerTransaction::create([
-            'organization_id' => Auth::user()->organization_id,
-            'type'            => $this->modalType === 'expense' ? 'expense' : 'credit',
-            'amount'          => $this->mAmount,
-            'txn_date'        => $this->mDate,
-            'party'           => $this->mParty ?: null,
-            'party_to'        => $this->modalType === 'expense' ? ($this->mPartyTo ?: null) : null,
-            'mode'            => $this->mMode ?: null,
-            'reason'          => $this->mReason,
-            'created_by'      => Auth::id(),
-        ]);
+        $isExpense = $this->modalType === 'expense';
+
+        // party_to stores the payee "To" for expenses, or "Collected by" for credits.
+        $payload = [
+            'type'     => $isExpense ? 'expense' : 'credit',
+            'amount'   => $this->mAmount,
+            'txn_date' => $this->mDate,
+            'party'    => $this->mParty ?: null,
+            'party_to' => $isExpense ? ($this->mPartyTo ?: null) : ($this->mCollectedBy ?: null),
+            'mode'     => $this->mMode ?: null,
+            'reason'   => $this->mReason,
+        ];
+
+        if ($this->editingId) {
+            LedgerTransaction::where('organization_id', Auth::user()->organization_id)
+                ->where('id', $this->editingId)
+                ->update($payload);
+            $msg = ($isExpense ? 'Expense' : 'Credit') . ' updated successfully.';
+        } else {
+            LedgerTransaction::create($payload + [
+                'organization_id' => Auth::user()->organization_id,
+                'created_by'      => Auth::id(),
+            ]);
+            $msg = ($isExpense ? 'Expense' : 'Credit') . ' added successfully.';
+        }
 
         $this->showModal = false;
-        session()->flash('ledger_msg', ($this->modalType === 'expense' ? 'Expense' : 'Credit') . ' added successfully.');
+        $this->editingId = null;
+        session()->flash('ledger_msg', $msg);
     }
 
     // ─── Delete (manual entries only) ────────────────────────────────────────
