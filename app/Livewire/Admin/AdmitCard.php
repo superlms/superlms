@@ -64,8 +64,10 @@ class AdmitCard extends Component
 
     private function orgSlug(): string
     {
-        $org = Auth::user()->organization;
-        return (string) ($org->serial_number ?? $org->id);
+        // The admin routes require the URL's organization segment to equal the
+        // signed-in user's organization_id (see EnsureIsAdmin) — anything else
+        // gets redirected to quick-links.
+        return (string) Auth::user()->organization_id;
     }
 
     // ─── Filter watchers ─────────────────────────────────────────────────────────
