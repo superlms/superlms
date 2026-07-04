@@ -28,6 +28,12 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
                     Add Driver
                 </button>
+            @elseif ($activeTab === 'fees' && $feeStudentId)
+                <button wire:click="openPaymentPanel"
+                    class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                    Pay Now
+                </button>
             @endif
         </div>
     </div>
@@ -296,17 +302,13 @@
                                 <td class="px-4 py-3 text-right font-semibold {{ $s->_remaining > 0 ? 'text-red-600' : 'text-gray-400' }}">₹{{ number_format($s->_remaining, 0) }}</td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center justify-center gap-1">
-                                        <button wire:click="selectFeeStudent({{ $s->id }}); $set('activeTab','fees')"
-                                            class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md" title="View fee summary">
+                                        <button wire:click="viewTransportStudentDetail({{ $s->id }}, {{ $s->_route->id }})"
+                                            class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md" title="View transport detail">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                         </button>
                                         <button wire:click="editTransportStudent({{ $s->id }}, {{ $s->_route->id }})"
                                             class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md" title="Modify billable months &amp; fee">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                        </button>
-                                        <button wire:click="confirmDeleteTransportStudent({{ $s->id }}, {{ $s->_route->id }}, @js($s->full_name))"
-                                            class="p-1.5 text-red-600 hover:bg-red-50 rounded-md" title="Remove from transport">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                         </button>
                                     </div>
                                 </td>
@@ -361,7 +363,7 @@
                         <label class="block text-xs font-medium text-gray-600 mb-1">Driver Photo</label>
                         <input type="file" wire:model="driver_image" accept="image/*"
                             class="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border border-gray-300 rounded-md">
-                        <p class="text-xs text-gray-400 mt-1">JPG/PNG up to 2MB.</p>
+                        <p class="text-xs text-gray-400 mt-1">JPG/PNG up to 1MB.</p>
                         <div wire:loading wire:target="driver_image" class="text-xs text-blue-600 mt-1">Uploading…</div>
                         @error('driver_image')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                     </div>
@@ -380,7 +382,8 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Phone</label>
-                        <input type="text" wire:model="driver_phone" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500">
+                        <input type="text" wire:model="driver_phone" maxlength="10" inputmode="numeric" placeholder="10-digit mobile" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500">
+                        @error('driver_phone')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">License No.</label>
@@ -464,29 +467,27 @@
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Driver <span class="text-gray-400 font-normal">(optional)</span></label>
-                        <select wire:model="driver_detail_id" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm bg-white">
-                            <option value="">No driver yet</option>
-                            @foreach ($availableDrivers as $d)
-                                <option value="{{ $d['id'] }}">{{ $d['name'] }}{{ $d['vehicle_no'] ? ' · ' . $d['vehicle_no'] : '' }}</option>
-                            @endforeach
-                        </select>
-                        @error('driver_detail_id')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
-                        <p class="text-[11px] text-gray-400 mt-1">You can add routes first and assign a driver later (from the Driver form).</p>
-                    </div>
-                    <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Pickup Time</label>
                         <input type="time" wire:model="pickup_time" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500">
+                        @error('pickup_time')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Drop Time</label>
+                        <input type="time" wire:model="drop_time" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500">
+                        @error('drop_time')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Monthly Fee (₹)</label>
                         <input type="number" min="0" step="0.01" wire:model="monthly_fee" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500">
+                        @error('monthly_fee')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Capacity</label>
                         <input type="number" min="0" wire:model="capacity" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500">
+                        @error('capacity')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                     </div>
                 </div>
+                <p class="text-[11px] text-gray-400">Assign a driver to this route from the Driver form.</p>
                 <label class="flex items-center gap-2 text-sm text-gray-700">
                     <input type="checkbox" wire:model="transport_is_active" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"> Active route
                 </label>
@@ -550,6 +551,93 @@
                     <span wire:loading.remove wire:target="saveTransportStudentMonths">Save</span>
                     <span wire:loading wire:target="saveTransportStudentMonths">Saving…</span>
                 </button>
+            </div>
+        </div>
+    </div>
+@endif
+
+{{-- ══════════ TRANSPORT STUDENT DETAIL SLIDE-IN ══════════ --}}
+@if ($viewTxStudentModal && $viewTxStudentData)
+    @php $v = $viewTxStudentData; @endphp
+    <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeViewTxStudent"></div>
+        <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900">Transport Detail</h2>
+                    <p class="text-xs text-gray-500 mt-0.5 truncate">{{ $v['name'] }}</p>
+                </div>
+                <button wire:click="closeViewTxStudent" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                {{-- Student --}}
+                <div class="flex items-center gap-4">
+                    @if ($v['image'])
+                        <img src="{{ $v['image'] }}" class="w-14 h-14 rounded-full object-cover border-2 border-white shadow flex-shrink-0">
+                    @else
+                        <div class="w-14 h-14 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 text-lg font-bold flex-shrink-0">{{ strtoupper(substr($v['name'], 0, 1)) }}</div>
+                    @endif
+                    <div class="min-w-0">
+                        <h3 class="text-base font-bold text-gray-900 truncate">{{ $v['name'] }}</h3>
+                        <p class="text-sm text-gray-500 truncate">{{ $v['admission'] }} · {{ $v['class'] ?: '—' }}</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-100"><p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Email</p><p class="text-sm font-medium text-gray-800 truncate">{{ $v['email'] }}</p></div>
+                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-100"><p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Mobile</p><p class="text-sm font-medium text-gray-800">{{ $v['mobile'] }}</p></div>
+                </div>
+
+                {{-- Transport detail --}}
+                <div class="border border-gray-200 rounded-xl p-4 bg-gray-50/60">
+                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Transport</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div><p class="text-xs text-gray-400">Route</p><p class="text-sm font-semibold text-gray-800">{{ $v['route'] }}</p></div>
+                        <div><p class="text-xs text-gray-400">Driver</p><p class="text-sm font-semibold text-gray-800">{{ $v['driver'] }}</p></div>
+                        <div><p class="text-xs text-gray-400">Pickup Time</p><p class="text-sm font-semibold text-gray-800">{{ $v['pickup_time'] }}</p></div>
+                        <div><p class="text-xs text-gray-400">Drop Time</p><p class="text-sm font-semibold text-gray-800">{{ $v['drop_time'] }}</p></div>
+                    </div>
+                </div>
+
+                {{-- Fee figures --}}
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div class="bg-white rounded-lg border border-gray-200 p-3"><p class="text-[10px] text-gray-400 uppercase">Monthly</p><p class="text-base font-bold text-gray-800">₹{{ number_format($v['monthly'], 0) }}</p></div>
+                    <div class="bg-white rounded-lg border border-gray-200 p-3"><p class="text-[10px] text-blue-500 uppercase">Annual ×{{ $v['months_count'] }}</p><p class="text-base font-bold text-blue-600">₹{{ number_format($v['annual'], 0) }}</p></div>
+                    <div class="bg-white rounded-lg border border-gray-200 p-3"><p class="text-[10px] text-emerald-500 uppercase">Paid</p><p class="text-base font-bold text-emerald-600">₹{{ number_format($v['paid'], 0) }}</p></div>
+                    <div class="bg-white rounded-lg border border-gray-200 p-3"><p class="text-[10px] {{ $v['remaining'] > 0 ? 'text-red-500' : 'text-gray-400' }} uppercase">Remaining</p><p class="text-base font-bold {{ $v['remaining'] > 0 ? 'text-red-600' : 'text-gray-400' }}">₹{{ number_format($v['remaining'], 0) }}</p></div>
+                </div>
+
+                {{-- Month status --}}
+                <div>
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Monthly Fee Status <span class="font-normal text-gray-400">(up to current month)</span></p>
+                    @if (!empty($v['month_status']))
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            @foreach ($v['month_status'] as $m)
+                                @php
+                                    $chip = match ($m['status']) {
+                                        'paid'    => ['bg-emerald-50 border-emerald-200', 'text-emerald-700', 'Paid'],
+                                        'partial' => ['bg-amber-50 border-amber-200', 'text-amber-700', 'Partial'],
+                                        default   => ['bg-red-50 border-red-200', 'text-red-700', 'Unpaid'],
+                                    };
+                                @endphp
+                                <div class="rounded-lg border p-2.5 {{ $chip[0] }}">
+                                    <div class="flex items-center justify-between mb-0.5">
+                                        <p class="text-sm font-bold text-gray-800">{{ substr($m['label'], 0, 3) }}</p>
+                                        <span class="text-[10px] font-semibold {{ $chip[1] }}">{{ $chip[2] }}</span>
+                                    </div>
+                                    <p class="text-xs {{ $chip[1] }}">₹{{ number_format($m['paid'], 0) }} / ₹{{ number_format($m['amount'], 0) }}</p>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <p class="text-sm text-gray-400">No billable months have started yet.</p>
+                    @endif
+                </div>
+            </div>
+            <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                <button wire:click="closeViewTxStudent" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Close</button>
             </div>
         </div>
     </div>

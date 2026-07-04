@@ -33,6 +33,11 @@ trait HandlesTransportFees
     // ── Fee Summary tab state ────────────────────────────────────────────────
     public string $feeStudentSearch = '';
     public ?int   $feeStudentId     = null;
+    public string $feeFilterRoute   = '';   // fee summary: route → student selects
+
+    // ── View transport-student detail (read-only slide-in) ───────────────────
+    public bool   $viewTxStudentModal = false;
+    public ?array $viewTxStudentData  = null;
 
     // Payment form
     public bool   $showPaymentPanel = false;
@@ -305,6 +310,61 @@ trait HandlesTransportFees
         $this->cancelDeleteTransportStudent();
     }
 
+    // ── View a transport student's detail (read-only slide-in) ──────────────
+
+    public function viewTransportStudentDetail(int $studentDetailId, int $routeId): void
+    {
+        $orgId = $this->txOrgId();
+
+        $student = StudentDetail::with(['user:id,name,image', 'standard:id,name', 'section:id,name'])
+            ->where('organization_id', $orgId)->find($studentDetailId);
+        $route = Transportation::with('driver.user')->where('organization_id', $orgId)->find($routeId);
+        if (!$student || !$route) {
+            $this->notification()->error('Error', 'Details not available.');
+            return;
+        }
+
+        $pivot = DB::table('transportation_students')
+            ->where('organization_id', $orgId)
+            ->where('transportation_id', $routeId)
+            ->where('student_detail_id', $studentDetailId)
+            ->first();
+
+        $monthly = (float) $route->monthly_fee;
+        $months  = $this->normalizeBillableMonths($pivot->billable_months ?? null);
+        $annual  = $this->studentAnnualFee($monthly, $months);
+        $paid    = (float) TransportFeePayment::where('organization_id', $orgId)
+            ->where('student_detail_id', $studentDetailId)
+            ->where('transportation_id', $routeId)
+            ->sum('amount');
+
+        $this->viewTxStudentData = [
+            'name'         => $student->full_name,
+            'admission'    => $student->admission_no,
+            'class'        => ($student->standard->name ?? '') . ($student->section ? '-' . $student->section->name : ''),
+            'email'        => $student->email ?: '—',
+            'mobile'       => $student->phone ?: '—',
+            'image'        => $student->user->image ?? null,
+            'route'        => $route->route_name,
+            'driver'       => $route->driver?->user?->name ?? '—',
+            'pickup_time'  => $route->pickup_time ?: '—',
+            'drop_time'    => $route->drop_time ?: '—',
+            'monthly'      => $monthly,
+            'months_count' => $this->billableMonthsCount($months),
+            'annual'       => $annual,
+            'paid'         => $paid,
+            'remaining'    => max(0, $annual - $paid),
+            'month_status' => $this->monthStatuses($monthly, $months, $paid),
+        ];
+        $this->viewTxStudentModal = true;
+    }
+
+    public function closeViewTxStudent(): void
+    {
+        $this->viewTxStudentModal = false;
+        $this->viewTxStudentData  = null;
+    }
+
     // ── Tab 4: Fee Summary for a single student ─────────────────────────────────
 
     public function selectFeeStudent(int $id): void
@@ -317,6 +377,32 @@ trait HandlesTransportFees
     {
         $this->feeStudentId = null;
         $this->feeStudentSearch = '';
+    }
+
+    /** Route options for the fee-summary route filter (host-independent). */
+    public function feeRouteOptions()
+    {
+        return Transportation::where('organization_id', $this->txOrgId())
+            ->orderBy('route_name')->get(['id', 'route_name']);
+    }
+
+    /** Students of the route currently chosen in the fee-summary filter. */
+    public function feeRouteStudents()
+    {
+        if (empty($this->feeFilterRoute)) {
+            return collect();
+        }
+        return StudentDetail::with(['standard:id,name', 'section:id,name'])
+            ->where('organization_id', $this->txOrgId())
+            ->whereHas('transportations', fn($q) => $q->where('transportations.id', $this->feeFilterRoute))
+            ->orderBy('full_name')
+            ->get();
+    }
+
+    /** Reset the picked student when the route filter changes. */
+    public function updatedFeeFilterRoute(): void
+    {
+        $this->feeStudentId = null;
     }
 
     /** Search results for the fee-summary student picker. */

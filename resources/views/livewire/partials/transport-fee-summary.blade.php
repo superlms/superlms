@@ -3,28 +3,28 @@
 @php $summary = $this->feeSummary(); @endphp
 
 @if (!$feeStudentId)
-    {{-- ─── Student picker ───────────────────────────────── --}}
-    <div class="max-w-xl mx-auto bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+    {{-- ─── Filter: route → student ──────────────────────── --}}
+    <div class="max-w-2xl mx-auto bg-white rounded-xl border border-gray-200 shadow-sm p-6">
         <h3 class="text-base font-semibold text-gray-900 mb-1">Student Transport Fee</h3>
-        <p class="text-sm text-gray-500 mb-4">Search a student using transport to view fee summary, receipts &amp; record payments.</p>
-        <div class="relative">
-            <input wire:model.live.debounce.300ms="feeStudentSearch" type="text"
-                placeholder="Search by name or admission number…"
-                class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                autocomplete="off">
-            @if (strlen($feeStudentSearch) >= 2)
-                @php $results = $this->feeStudentResults(); @endphp
-                <div class="mt-2 border border-gray-200 rounded-lg shadow-sm max-h-72 overflow-y-auto divide-y divide-gray-100">
-                    @forelse ($results as $r)
-                        <div wire:click="selectFeeStudent({{ $r->id }})" class="px-4 py-3 hover:bg-blue-50 cursor-pointer">
-                            <p class="text-sm font-medium text-gray-800">{{ $r->full_name }}</p>
-                            <p class="text-xs text-gray-400">{{ $r->admission_no }} · {{ $r->standard->name ?? '' }}{{ $r->section ? '-' . $r->section->name : '' }}</p>
-                        </div>
-                    @empty
-                        <div class="px-4 py-3 text-sm text-gray-400">No transport students match.</div>
-                    @endforelse
-                </div>
-            @endif
+        <p class="text-sm text-gray-500 mb-4">Pick a route and student to view fee summary, receipts &amp; record payments.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">Route</label>
+                <select wire:model.live="feeFilterRoute" class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm bg-white focus:ring-1 focus:ring-blue-500">
+                    <option value="">Select route…</option>
+                    @foreach ($this->feeRouteOptions() as $r)<option value="{{ $r->id }}">{{ $r->route_name }}</option>@endforeach
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">Student</label>
+                <select wire:model.live="feeStudentId" @disabled(empty($feeFilterRoute))
+                    class="w-full border border-gray-300 rounded-lg px-3.5 py-2.5 text-sm bg-white focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <option value="">{{ $feeFilterRoute ? 'Select student…' : 'Pick a route first' }}</option>
+                    @foreach ($this->feeRouteStudents() as $s)
+                        <option value="{{ $s->id }}">{{ $s->full_name }} · {{ $s->admission_no }}</option>
+                    @endforeach
+                </select>
+            </div>
         </div>
     </div>
 @elseif ($summary)
@@ -66,12 +66,16 @@
                 </div>
             </div>
 
-            {{-- Billable months summary (count only; disabled months hidden below) --}}
-            <div class="border-t border-gray-100 bg-gray-50/60 px-5 py-2.5">
-                <p class="text-xs text-gray-500">
-                    Billable months this year: <strong class="text-gray-700">{{ $summary['months_count'] }}/12</strong>
-                    <span class="text-gray-400">(June off by default; disabled months are excluded from the schedule)</span>
-                </p>
+            {{-- Contact + route details --}}
+            <div class="border-t border-gray-100 bg-gray-50/60 px-5 py-3">
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
+                    <div class="min-w-0"><p class="text-gray-400">Email</p><p class="font-medium text-gray-700 truncate">{{ $summary['student']->email ?: '—' }}</p></div>
+                    <div><p class="text-gray-400">Mobile</p><p class="font-medium text-gray-700">{{ $summary['student']->phone ?: '—' }}</p></div>
+                    <div><p class="text-gray-400">Pickup</p><p class="font-medium text-gray-700">{{ $summary['route']?->pickup_time ?: '—' }}</p></div>
+                    <div><p class="text-gray-400">Drop</p><p class="font-medium text-gray-700">{{ $summary['route']?->drop_time ?: '—' }}</p></div>
+                    <div><p class="text-gray-400">Monthly</p><p class="font-medium text-gray-700">₹{{ number_format($summary['monthly'], 0) }}</p></div>
+                    <div><p class="text-gray-400">Billable</p><p class="font-medium text-gray-700">{{ $summary['months_count'] }}/12</p></div>
+                </div>
             </div>
         </div>
 
@@ -108,7 +112,16 @@
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
                 <h4 class="text-sm font-semibold text-gray-700">Monthly Fee Status</h4>
-                <span class="text-xs text-gray-400">Up to the current month</span>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs text-gray-400">Up to the current month</span>
+                    @if ($summary['route'])
+                        <button wire:click="editTransportStudent({{ $summary['student']->id }}, {{ $summary['route']->id }})"
+                            class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 border border-emerald-200 rounded-md px-2.5 py-1 hover:bg-emerald-50">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            Edit months
+                        </button>
+                    @endif
+                </div>
             </div>
             @if (!empty($summary['month_status']))
                 <div class="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
