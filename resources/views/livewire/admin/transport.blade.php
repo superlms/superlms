@@ -328,7 +328,7 @@
 
 {{-- ═══════════════════════ FEE SUMMARY TAB ═══════════════════════ --}}
 @if ($activeTab === 'fees')
-    @include('livewire.partials.transport-fee-summary')
+    @include('livewire.partials.transport-fee-summary', ['feeChromeInHeader' => true])
 @endif
 
 </div>

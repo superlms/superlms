@@ -7,11 +7,20 @@
                 <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Transportation</h1>
                 <p class="text-sm text-gray-500 mt-0.5">Manage drivers &amp; routes</p>
             </div>
-            <div class="flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200">
-                <span class="pr-4">Drivers: <strong class="text-gray-800">{{ $this->statistics['drivers'] }}</strong></span>
-                <span class="px-4">Routes: <strong class="text-blue-600">{{ $this->statistics['routes'] }}</strong></span>
-                <span class="px-4">Students: <strong class="text-emerald-600">{{ $this->statistics['students'] }}</strong></span>
-                <span class="pl-4 hidden sm:inline">Revenue: <strong class="text-amber-600">₹{{ number_format($this->statistics['monthly_revenue'], 0) }}</strong></span>
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200">
+                    <span class="pr-4">Drivers: <strong class="text-gray-800">{{ $this->statistics['drivers'] }}</strong></span>
+                    <span class="px-4">Routes: <strong class="text-blue-600">{{ $this->statistics['routes'] }}</strong></span>
+                    <span class="px-4">Students: <strong class="text-emerald-600">{{ $this->statistics['students'] }}</strong></span>
+                    <span class="pl-4 hidden sm:inline">Revenue: <strong class="text-amber-600">₹{{ number_format($this->statistics['monthly_revenue'], 0) }}</strong></span>
+                </div>
+                @if ($activeTab === 'fees' && $feeStudentId)
+                    <button wire:click="openPaymentPanel"
+                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                        Pay Now
+                    </button>
+                @endif
             </div>
         </div>
         <div class="border-t border-gray-200 px-4 sm:px-6">
@@ -189,7 +198,7 @@
 
         {{-- ═══════════════════════ FEE SUMMARY TAB ═══════════════════════ --}}
         @if ($activeTab === 'fees')
-            @include('livewire.partials.transport-fee-summary')
+            @include('livewire.partials.transport-fee-summary', ['feeChromeInHeader' => true])
         @endif
 
         {{-- ═══════════════════════ DRIVERS TAB ═══════════════════════ --}}

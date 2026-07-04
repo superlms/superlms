@@ -25,7 +25,21 @@
                 <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Attendance</h1>
                 <p class="text-sm text-gray-500 mt-0.5">Mark &amp; review teacher and student attendance</p>
             </div>
-            @if ($mainTab === 'class_teachers')
+            @if ($mainTab === 'teacher')
+                @if ($teacherView === 'mark')
+                    <button wire:click="closeTeacherMark"
+                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold rounded-lg border border-gray-200 shadow-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                        Back to Records
+                    </button>
+                @else
+                    <button wire:click="openTeacherMark"
+                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+                        Mark Attendance
+                    </button>
+                @endif
+            @elseif ($mainTab === 'class_teachers')
                 <button wire:click="openAssignPanel"
                     class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -53,18 +67,56 @@
              TEACHER ATTENDANCE
         ═══════════════════════════════════════════════════════════════════ --}}
         @if ($mainTab === 'teacher')
-            <div class="flex flex-wrap items-center gap-2 mb-5">
-                <button wire:click="switchTeacherView('mark')"
-                    class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg border transition-colors {{ $teacherView === 'mark' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50' }}">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
-                    Mark Attendance
-                </button>
-                <span class="w-px h-6 bg-gray-200 mx-1"></span>
-                @foreach (['by_date' => 'By Date', 'by_month' => 'By Month', 'by_teacher' => 'By Teacher'] as $k => $label)
-                    <button wire:click="switchTeacherView('{{ $k }}')"
-                        class="px-3.5 py-1.5 text-sm font-medium rounded-full border transition-colors {{ $teacherView === $k ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}">{{ $label }}</button>
-                @endforeach
-            </div>
+            {{-- ─── Exams-style filter bar (records mode only) ─── --}}
+            @unless ($teacherView === 'mark')
+                <div class="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 mb-5">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                            Filter by:
+                        </div>
+
+                        {{-- Step 1 · view --}}
+                        <div class="inline-flex rounded-md border border-gray-200 bg-white p-0.5">
+                            @foreach (['by_date' => 'By Date', 'by_month' => 'By Month', 'by_teacher' => 'By Teacher'] as $k => $label)
+                                <button wire:click="switchTeacherView('{{ $k }}')"
+                                    class="px-3 py-1 text-xs font-semibold rounded transition-colors {{ $teacherView === $k ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50' }}">{{ $label }}</button>
+                            @endforeach
+                        </div>
+
+                        {{-- Step 2+ · contextual selectors --}}
+                        @if ($teacherView === 'by_date')
+                            <span class="text-gray-300">→</span>
+                            <input type="date" wire:model.live="tDate" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        @elseif ($teacherView === 'by_month')
+                            <span class="text-gray-300">→</span>
+                            <input type="month" wire:model.live="tMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            <span class="text-gray-300">→</span>
+                            <select wire:model.live="tTeacherId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                                <option value="">Select teacher…</option>
+                                @foreach ($teachers as $t)<option value="{{ $t->id }}">{{ $t->user->name ?? '—' }}</option>@endforeach
+                            </select>
+                        @elseif ($teacherView === 'by_teacher')
+                            <span class="text-gray-300">→</span>
+                            <select wire:model.live="tTeacherId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                                <option value="">Select teacher…</option>
+                                @foreach ($teachers as $t)<option value="{{ $t->id }}">{{ $t->user->name ?? '—' }}</option>@endforeach
+                            </select>
+                            <span class="text-gray-300">→</span>
+                            <select wire:model.live="tRange" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                                <option value="monthly">Monthly</option>
+                                <option value="yearly">Yearly</option>
+                            </select>
+                            <span class="text-gray-300">→</span>
+                            @if ($tRange === 'yearly')
+                                <input type="number" min="2000" max="2100" wire:model.live="tYear" class="w-24 text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            @else
+                                <input type="month" wire:model.live="tMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            @endif
+                        @endif
+                    </div>
+                </div>
+            @endunless
 
             {{-- ─── MARK ─── --}}
             @if ($teacherView === 'mark')
@@ -137,10 +189,6 @@
             {{-- ─── BY DATE ─── --}}
             @if ($teacherView === 'by_date')
                 <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-5">
-                    <div class="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
-                        <label class="text-sm text-gray-600">Date</label>
-                        <input type="date" wire:model.live="tDate" class="text-sm border border-gray-300 rounded-md px-3 py-1.5">
-                    </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm min-w-[560px]">
                             <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
@@ -187,21 +235,6 @@
 
             {{-- ─── BY MONTH ─── --}}
             @if ($teacherView === 'by_month')
-                <div class="bg-white rounded-xl border border-gray-200 p-5 mb-5">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Month</label>
-                            <input type="month" wire:model.live="tMonth" class="w-full text-sm border border-gray-300 rounded-md px-3 py-2">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Teacher</label>
-                            <select wire:model.live="tTeacherId" class="w-full text-sm border border-gray-300 rounded-md px-3 py-2 bg-white">
-                                <option value="">Select teacher…</option>
-                                @foreach ($teachers as $t)<option value="{{ $t->id }}">{{ $t->user->name ?? '—' }}</option>@endforeach
-                            </select>
-                        </div>
-                    </div>
-                </div>
                 @if ($tMonthCalendar)
                     @include('livewire.admin._partials.attendance-calendar', ['calendar' => $tMonthCalendar])
                 @else
@@ -211,36 +244,6 @@
 
             {{-- ─── BY TEACHER (monthly / yearly) ─── --}}
             @if ($teacherView === 'by_teacher')
-                <div class="bg-white rounded-xl border border-gray-200 p-5 mb-5">
-                    <div class="flex flex-wrap items-end gap-4">
-                        <div class="min-w-[200px]">
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Teacher</label>
-                            <select wire:model.live="tTeacherId" class="w-full text-sm border border-gray-300 rounded-md px-3 py-2 bg-white">
-                                <option value="">Select teacher…</option>
-                                @foreach ($teachers as $t)<option value="{{ $t->id }}">{{ $t->user->name ?? '—' }}</option>@endforeach
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">View</label>
-                            <div class="flex gap-1">
-                                <button wire:click="$set('tRange','monthly')" class="px-3 py-2 text-sm font-medium rounded-md border {{ $tRange === 'monthly' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200' }}">Monthly</button>
-                                <button wire:click="$set('tRange','yearly')" class="px-3 py-2 text-sm font-medium rounded-md border {{ $tRange === 'yearly' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200' }}">Yearly</button>
-                            </div>
-                        </div>
-                        @if ($tRange === 'monthly')
-                            <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Month</label>
-                                <input type="month" wire:model.live="tMonth" class="text-sm border border-gray-300 rounded-md px-3 py-2">
-                            </div>
-                        @else
-                            <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Year</label>
-                                <input type="number" min="2000" max="2100" wire:model.live="tYear" class="w-28 text-sm border border-gray-300 rounded-md px-3 py-2">
-                            </div>
-                        @endif
-                    </div>
-                </div>
-
                 @if (!$tTeacherId)
                     <div class="bg-white rounded-xl border border-gray-200 py-12 text-center text-gray-400 text-sm">Select a teacher to view analytics.</div>
                 @elseif ($tRange === 'yearly' && $tTeacherYearly)
@@ -474,37 +477,36 @@
              CLASS TEACHERS
         ═══════════════════════════════════════════════════════════════════ --}}
         @if ($mainTab === 'class_teachers')
-            {{-- Filters --}}
-            <div class="bg-white rounded-xl border border-gray-200 p-4 mb-5">
-                <div class="flex flex-wrap items-end gap-3">
-                    <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mr-1">
+            {{-- Filters (exams-style bar) --}}
+            <div class="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 mb-5">
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
                         <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
                         Filter by:
                     </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 mb-1">Class</label>
-                        <select wire:model.live="ctFilterStandard" class="text-sm bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                            <option value="">All Classes</option>
-                            @foreach ($standards as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 mb-1">Section</label>
-                        <select wire:model.live="ctFilterSection" @disabled(!$ctFilterStandard) class="text-sm bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
-                            <option value="">All Sections</option>
-                            @foreach ($ctSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-500 mb-1">Teacher</label>
-                        <select wire:model.live="ctFilterTeacher" class="text-sm bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                            <option value="">All Teachers</option>
-                            @foreach ($teachers as $t)<option value="{{ $t->id }}">{{ $t->user->name ?? '—' }}</option>@endforeach
-                        </select>
-                    </div>
+
+                    <select wire:model.live="ctFilterStandard" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <option value="">All Classes</option>
+                        @foreach ($standards as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
+                    </select>
+
+                    <span class="text-gray-300">→</span>
+
+                    <select wire:model.live="ctFilterSection" @disabled(!$ctFilterStandard) class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
+                        <option value="">All Sections</option>
+                        @foreach ($ctSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
+                    </select>
+
+                    <span class="text-gray-300">→</span>
+
+                    <select wire:model.live="ctFilterTeacher" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <option value="">All Teachers</option>
+                        @foreach ($teachers as $t)<option value="{{ $t->id }}">{{ $t->user->name ?? '—' }}</option>@endforeach
+                    </select>
+
                     @if ($ctFilterStandard || $ctFilterSection || $ctFilterTeacher)
                         <button wire:click="clearCtFilters"
-                            class="ml-auto inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                            class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             Clear
                         </button>
