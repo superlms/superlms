@@ -93,6 +93,18 @@ class Users extends Component
             ->all();
     }
 
+    /** Grant every functionality in the catalog. */
+    public function selectAllPermissions(): void
+    {
+        $this->permissions = array_keys($this->permissionCatalog());
+    }
+
+    /** Revoke every functionality. */
+    public function clearAllPermissions(): void
+    {
+        $this->permissions = [];
+    }
+
     // ─── Panel controls ──────────────────────────────────────────────────
     public function openCreate(): void
     {
@@ -121,14 +133,14 @@ class Users extends Component
     protected function validateStepOne(): void
     {
         $rules = [
-            'fullName'          => 'required|string|max:255',
-            'email'             => 'required|email|max:191',
-            'mobile'            => 'required|digits:10',
-            'alternativeMobile' => 'nullable|digits:10',
+            'fullName'          => 'required|string|min:2|max:100',
+            'email'             => 'required|email:rfc|max:191',
+            'mobile'            => ['required', 'regex:/^[6-9]\d{9}$/'],
+            'alternativeMobile' => ['nullable', 'regex:/^[6-9]\d{9}$/', 'different:mobile'],
             'dob'               => 'required|date|before:today',
             'dateOfJoining'     => 'required|date|before_or_equal:today',
             'gender'            => 'required|in:male,female,other',
-            'image'             => 'nullable|image|max:2048',
+            'image'             => 'nullable|image|mimes:jpg,jpeg,png,webp|max:1024',
         ];
 
         if ($this->editId) {
@@ -137,10 +149,34 @@ class Users extends Component
             $rules['email'] .= '|unique:users,email';
         }
 
-        $this->validate($rules, [
-            'mobile.digits'            => 'Mobile number must be exactly 10 digits.',
-            'alternativeMobile.digits' => 'Alternative mobile must be exactly 10 digits.',
-        ]);
+        $this->validate($rules, $this->validationMessages());
+    }
+
+    /** Shared, human-readable messages for the personal-details + image rules. */
+    protected function validationMessages(): array
+    {
+        return [
+            'fullName.min'              => 'Name must be at least 2 characters.',
+            'fullName.max'             => 'Name may not be longer than 100 characters.',
+            'email.email'              => 'Enter a valid email address.',
+            'email.max'                => 'Email may not be longer than 191 characters.',
+            'email.unique'             => 'This email is already in use.',
+            'mobile.required'          => 'Mobile number is required.',
+            'mobile.regex'             => 'Enter a valid 10-digit mobile number.',
+            'alternativeMobile.regex'  => 'Enter a valid 10-digit mobile number.',
+            'alternativeMobile.different' => 'Alternative mobile must differ from the primary mobile.',
+            'image.image'              => 'The file must be an image.',
+            'image.mimes'              => 'Image must be a JPG, PNG or WEBP file.',
+            'image.max'                => 'Image must be 1 MB (1024 KB) or smaller.',
+        ];
+    }
+
+    /** Validate the image the moment it is picked, so oversized files fail fast. */
+    public function updatedImage(): void
+    {
+        $this->validateOnly('image', [
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:1024',
+        ], $this->validationMessages());
     }
 
     // ─── Save ────────────────────────────────────────────────────────────

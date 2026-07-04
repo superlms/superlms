@@ -56,95 +56,85 @@
          LIST
     ══════════════════════════════════════════════════ --}}
     <div class="p-4 sm:p-6">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            @forelse ($users as $u)
-                <div
-                    class="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md
-                    transition-all duration-200 overflow-hidden flex flex-col">
-
-                    {{-- Header: avatar + name + email --}}
-                    <div class="pt-5 pb-3 px-4 flex flex-col items-center text-center border-b border-gray-100 relative">
-                        <button wire:click="toggleStatus({{ $u->id }})"
-                            class="absolute top-3 right-3 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium
-                            {{ $u->is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600' }}">
-                            {{ $u->is_active ? 'Active' : 'Inactive' }}
-                        </button>
-
-                        @if ($u->image)
-                            <img src="{{ $u->image }}"
-                                class="w-16 h-16 rounded-full object-cover border-2 border-gray-200 shadow-sm mb-2">
-                        @else
-                            <div
-                                class="w-16 h-16 rounded-full bg-purple-100 border-2 border-purple-200
-                                flex items-center justify-center mb-2 shadow-sm">
-                                <span class="text-xl font-bold text-purple-600">
-                                    {{ strtoupper(substr($u->name, 0, 1)) }}
-                                </span>
-                            </div>
-                        @endif
-
-                        <h3 class="text-sm font-bold text-gray-900 leading-tight">{{ $u->name }}</h3>
-                        <p class="text-xs text-gray-400 truncate w-full mt-0.5">{{ $u->email }}</p>
-                    </div>
-
-                    {{-- Body: details --}}
-                    <div class="p-4 space-y-2 flex-1">
-                        <div class="flex items-center gap-2 text-xs text-gray-500">
-                            <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                            </svg>
-                            <span class="truncate">{{ $u->mobile_number ?: '—' }}{{ $u->alternative_mobile ? ' · ' . $u->alternative_mobile : '' }}</span>
-                        </div>
-                        <div class="flex items-center gap-2 text-xs text-gray-500">
-                            <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                            </svg>
-                            <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[11px] font-medium">
-                                {{ count((array) $u->permissions) }} functionalities
-                            </span>
-                        </div>
-                    </div>
-
-                    {{-- Actions --}}
-                    <div class="flex items-center border-t border-gray-100 divide-x divide-gray-100">
-                        <button wire:click="view({{ $u->id }})"
-                            class="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium
-                                   text-blue-600 hover:bg-blue-50 transition-colors">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                            View
-                        </button>
-                        <button wire:click="edit({{ $u->id }})"
-                            class="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium
-                                   text-amber-600 hover:bg-amber-50 transition-colors">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                            Edit
-                        </button>
-                        <button wire:click="confirmDeletePrompt({{ $u->id }})"
-                            class="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium
-                                   text-red-600 hover:bg-red-50 transition-colors">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                            Delete
-                        </button>
-                    </div>
-                </div>
-            @empty
-                <div class="col-span-full bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center text-gray-400">
-                    No sub-admins yet. Click “Add User” to create one.
-                </div>
-            @endforelse
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm min-w-[720px]">
+                    <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+                        <tr>
+                            <th class="px-4 py-3 text-left w-12">#</th>
+                            <th class="px-4 py-3 text-left">User</th>
+                            <th class="px-4 py-3 text-left">Contact</th>
+                            <th class="px-4 py-3 text-center w-32">Access</th>
+                            <th class="px-4 py-3 text-center w-28">Status</th>
+                            <th class="px-4 py-3 text-center w-32">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @forelse ($users as $i => $u)
+                            <tr wire:key="user-{{ $u->id }}" class="hover:bg-gray-50/70">
+                                <td class="px-4 py-3 text-gray-400">{{ $users->firstItem() + $i }}</td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-3">
+                                        @if ($u->image)
+                                            <img src="{{ $u->image }}" class="w-9 h-9 rounded-full object-cover border border-gray-200">
+                                        @else
+                                            <div class="w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-xs">{{ strtoupper(substr($u->name, 0, 1)) }}</div>
+                                        @endif
+                                        <div class="min-w-0">
+                                            <p class="font-medium text-gray-800 truncate">{{ $u->name }}</p>
+                                            <p class="text-xs text-gray-400 truncate">{{ $u->email }}</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 text-gray-600">
+                                    {{ $u->mobile_number ?: '—' }}
+                                    @if ($u->alternative_mobile)<span class="text-gray-300"> · </span><span class="text-gray-400">{{ $u->alternative_mobile }}</span>@endif
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-xs font-medium">
+                                        {{ count((array) $u->permissions) }} functionalities
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    <button wire:click="toggleStatus({{ $u->id }})"
+                                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $u->is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600' }}">
+                                        {{ $u->is_active ? 'Active' : 'Inactive' }}
+                                    </button>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center justify-center gap-1.5">
+                                        <button wire:click="view({{ $u->id }})" title="View"
+                                            class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                        </button>
+                                        <button wire:click="edit({{ $u->id }})" title="Edit"
+                                            class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                        </button>
+                                        <button wire:click="confirmDeletePrompt({{ $u->id }})" title="Delete"
+                                            class="p-1.5 rounded-md border border-red-200 text-red-500 hover:bg-red-50">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" class="px-4 py-12 text-center text-gray-400">
+                                    No sub-admins{{ ($search || $filterStatus !== '') ? ' for this filter' : ' yet' }}.
+                                    @if (!$search && $filterStatus === '')
+                                        <button wire:click="openCreate" class="block mx-auto mt-2 text-sm text-purple-600 hover:text-purple-800 font-medium">Add a user →</button>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            @if ($users->hasPages())
+                <div class="px-4 py-3 border-t border-gray-100">{{ $users->links() }}</div>
+            @endif
         </div>
-        <div class="mt-4">{{ $users->links() }}</div>
     </div>
 
     {{-- ══════════════════════════════════════════════════
@@ -197,8 +187,8 @@
                                 @endif
                             </div>
                             <div>
-                                <label class="text-sm font-medium text-gray-700">Profile Image</label>
-                                <input type="file" wire:model="image" accept="image/*" class="mt-1 block text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-purple-50 file:text-purple-700 file:text-xs file:font-medium hover:file:bg-purple-100" />
+                                <label class="text-sm font-medium text-gray-700">Profile Image <span class="text-gray-400 font-normal">(JPG/PNG/WEBP, max 1 MB)</span></label>
+                                <input type="file" wire:model="image" accept=".jpg,.jpeg,.png,.webp" class="mt-1 block text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-purple-50 file:text-purple-700 file:text-xs file:font-medium hover:file:bg-purple-100" />
                                 <div wire:loading wire:target="image" class="text-xs text-gray-400 mt-1">Uploading…</div>
                                 @error('image') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
                             </div>
@@ -206,25 +196,25 @@
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Full Name <span class="text-rose-500">*</span></label>
-                            <input type="text" wire:model="fullName" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="e.g. Rahul Sharma">
+                            <input type="text" wire:model.blur="fullName" maxlength="100" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="e.g. Rahul Sharma">
                             @error('fullName') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
                         </div>
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Email <span class="text-rose-500">*</span></label>
-                            <input type="email" wire:model="email" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="user@example.com">
+                            <input type="email" wire:model.blur="email" maxlength="191" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="user@example.com">
                             @error('email') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Mobile <span class="text-rose-500">*</span></label>
-                                <input type="text" wire:model="mobile" maxlength="10" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="10-digit">
+                                <input type="text" wire:model.blur="mobile" maxlength="10" inputmode="numeric" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="10-digit">
                                 @error('mobile') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Alternative Mobile</label>
-                                <input type="text" wire:model="alternativeMobile" maxlength="10" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="optional">
+                                <input type="text" wire:model.blur="alternativeMobile" maxlength="10" inputmode="numeric" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="optional">
                                 @error('alternativeMobile') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
                             </div>
                         </div>
@@ -270,8 +260,23 @@
                         </div>
 
                         <div class="flex items-center justify-between">
-                            <span class="text-sm font-medium text-gray-700">Functionalities</span>
-                            <span class="text-xs text-gray-400">{{ count($permissions) }} selected</span>
+                            <span class="text-sm font-medium text-gray-700">
+                                Functionalities
+                                <span class="text-xs text-gray-400 font-normal">({{ count($permissions) }}/{{ count($catalog) }} selected)</span>
+                            </span>
+                            @if (count($catalog) > 0 && count($permissions) >= count($catalog))
+                                <button type="button" wire:click="clearAllPermissions"
+                                    class="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 hover:text-purple-800">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                    Clear all
+                                </button>
+                            @else
+                                <button type="button" wire:click="selectAllPermissions"
+                                    class="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 hover:text-purple-800">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                    Select all
+                                </button>
+                            @endif
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
