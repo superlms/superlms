@@ -139,6 +139,9 @@ Route::middleware(['auth:web', 'admin', 'module'])->group(function () {
         // Seating Plan printable chart
         Route::get('/seating-plan/{id}/print', [\App\Http\Controllers\Admin\SeatingPlanPrintController::class, 'print'])
             ->name('admin.seating-plan.print');
+        // Per-room seating chart as a downloadable PDF
+        Route::get('/seating-plan/{id}/room/{roomId}/pdf', [\App\Http\Controllers\Admin\SeatingPlanPrintController::class, 'roomPdf'])
+            ->name('admin.seating-plan.room-pdf');
 
         // ID Card printable / download
         Route::get('/id-card/{type}/{id}/print', [\App\Http\Controllers\Admin\IdCardPrintController::class, 'print'])

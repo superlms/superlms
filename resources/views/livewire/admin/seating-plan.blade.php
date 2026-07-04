@@ -8,12 +8,33 @@
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                     <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Exam Seating Management</h1>
-                    <p class="text-sm text-gray-500 mt-0.5">Rooms, invigilators &amp; auto-generated exam seating plans</p>
+                    <p class="text-sm text-gray-500 mt-0.5">Rooms, auto-generated seating plans &amp; datesheets</p>
                 </div>
-                <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200">
-                    <span class="pr-4">Rooms: <strong class="text-gray-800">{{ $rooms->count() }}</strong></span>
-                    <span class="px-4">Invigilators: <strong class="text-emerald-600">{{ $invigilators->count() }}</strong></span>
-                    <span class="pl-4">Plans: <strong class="text-blue-600">{{ $plans->total() }}</strong></span>
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200 mr-1">
+                        <span class="pr-4">Rooms: <strong class="text-gray-800">{{ $rooms->count() }}</strong></span>
+                        <span class="px-4">Plans: <strong class="text-blue-600">{{ $plans->total() }}</strong></span>
+                        <span class="pl-4">Datesheets: <strong class="text-emerald-600">{{ $datesheets->count() }}</strong></span>
+                    </div>
+                    @if ($activeTab === 'plans')
+                        <button wire:click="openGeneratePanel"
+                            class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                            Generate Plan
+                        </button>
+                    @elseif ($activeTab === 'rooms')
+                        <button wire:click="openRoomPanel"
+                            class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                            Add Room
+                        </button>
+                    @elseif ($activeTab === 'datesheet')
+                        <button wire:click="openDatesheetCreate"
+                            class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                            Create Datesheet
+                        </button>
+                    @endif
                 </div>
             </div>
         </div>
@@ -23,9 +44,9 @@
             <div class="flex gap-1 overflow-x-auto">
                 @php
                     $tabs = [
-                        'plans'        => 'Seating Plans',
-                        'rooms'        => 'Rooms',
-                        'invigilators' => 'Invigilators',
+                        'plans'     => 'Seating Plans',
+                        'rooms'     => 'Rooms',
+                        'datesheet' => 'Datesheet',
                     ];
                 @endphp
                 @foreach ($tabs as $key => $label)
@@ -45,16 +66,9 @@
              TAB: SEATING PLANS
         ══════════════════════════════════════════════ --}}
         @if ($activeTab === 'plans')
-            <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+            <div class="flex flex-wrap items-center gap-3 mb-5">
                 <input wire:model.live.debounce.300ms="planSearch" type="text" placeholder="Search plans…"
                     class="text-sm bg-white border border-gray-200 rounded-md px-3 py-2 text-gray-700 w-64 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                <button wire:click="openGeneratePanel"
-                    class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Generate Plan
-                </button>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -131,47 +145,31 @@
              TAB: ROOMS
         ══════════════════════════════════════════════ --}}
         @if ($activeTab === 'rooms')
-            <div class="flex items-center justify-between mb-5">
-                <p class="text-sm text-gray-500">{{ $rooms->count() }} room(s) configured</p>
-                <button wire:click="openRoomPanel"
-                    class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add Room
-                </button>
-            </div>
+            <p class="text-sm text-gray-500 mb-4">{{ $rooms->count() }} room(s) configured</p>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                 @forelse ($rooms as $room)
-                    <div class="bg-white rounded-xl border border-gray-200 p-5 hover:border-blue-200 hover:shadow-md transition-all">
-                        <div class="flex items-start justify-between gap-2">
+                    <div class="bg-white rounded-lg border border-gray-200 p-3 hover:border-blue-200 hover:shadow-sm transition-all">
+                        <div class="flex items-start justify-between gap-1.5">
                             <div class="min-w-0">
-                                <h3 class="text-base font-semibold text-gray-900 truncate">{{ $room->room_name }}</h3>
+                                <h3 class="text-sm font-semibold text-gray-900 truncate">{{ $room->room_name }}</h3>
                                 @if ($room->building)
-                                    <p class="text-xs text-gray-500 mt-0.5">{{ $room->building }}</p>
+                                    <p class="text-[11px] text-gray-400 truncate">{{ $room->building }}</p>
                                 @endif
                             </div>
-                            <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full {{ $room->is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500' }}">
-                                {{ $room->is_active ? 'Active' : 'Inactive' }}
-                            </span>
+                            <span class="w-2 h-2 rounded-full flex-shrink-0 mt-1 {{ $room->is_active ? 'bg-emerald-500' : 'bg-gray-300' }}" title="{{ $room->is_active ? 'Active' : 'Inactive' }}"></span>
                         </div>
-                        <div class="flex items-center gap-3 mt-3 text-sm text-gray-600">
-                            <span class="inline-flex items-center gap-1">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
-                                {{ $room->rows }} × {{ $room->columns }}
-                            </span>
+                        <div class="flex items-center gap-1.5 mt-2 text-xs text-gray-500">
+                            <span>{{ $room->rows }}×{{ $room->columns }}</span>
                             <span class="text-gray-300">•</span>
-                            <span class="font-semibold text-gray-800">{{ $room->capacity }} seats</span>
+                            <span class="font-semibold text-gray-700">{{ $room->capacity }} seats</span>
                         </div>
-                        <div class="flex items-center gap-1.5 mt-4 pt-3 border-t border-gray-100">
+                        <div class="flex items-center gap-1 mt-2.5 pt-2 border-t border-gray-100">
                             <button wire:click="openRoomPanel({{ $room->id }})"
-                                class="flex-1 text-xs font-medium px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200">Edit</button>
+                                class="flex-1 text-[11px] font-medium px-2 py-1 rounded-md border border-gray-200 text-gray-600 hover:bg-amber-50 hover:text-amber-600">Edit</button>
                             <button wire:click="confirmDeleteRoom({{ $room->id }})"
-                                class="px-2 py-1.5 rounded-md border border-red-200 text-red-500 hover:bg-red-50" title="Delete">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
+                                class="px-1.5 py-1 rounded-md border border-red-200 text-red-500 hover:bg-red-50" title="Delete">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             </button>
                         </div>
                     </div>
@@ -185,61 +183,55 @@
         @endif
 
         {{-- ══════════════════════════════════════════════
-             TAB: INVIGILATORS
+             TAB: DATESHEET
         ══════════════════════════════════════════════ --}}
-        @if ($activeTab === 'invigilators')
-            <div class="flex items-center justify-between mb-5">
-                <p class="text-sm text-gray-500">{{ $invigilators->count() }} invigilator(s)</p>
-                <button wire:click="openInvigilatorPanel"
-                    class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add Invigilator
-                </button>
-            </div>
-
+        @if ($activeTab === 'datesheet')
             <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div class="divide-y divide-gray-100">
-                    @forelse ($invigilators as $inv)
-                        <div class="flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-gray-50">
-                            <div class="flex items-center gap-3 min-w-0">
-                                <div class="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                                    <span class="text-sm font-bold text-emerald-600">{{ strtoupper(substr($inv->name, 0, 1)) }}</span>
-                                </div>
-                                <div class="min-w-0">
-                                    <p class="text-sm font-semibold text-gray-800 truncate">{{ $inv->name }}</p>
-                                    <p class="text-xs text-gray-500 truncate">
-                                        {{ $inv->phone ?: ($inv->email ?: '—') }}
-                                        · max {{ $inv->max_rooms }} rooms
-                                        · {{ count($inv->available_dates ?? []) }} date(s)
-                                    </p>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-1.5 flex-shrink-0">
-                                <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full {{ $inv->is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500' }}">
-                                    {{ $inv->is_active ? 'Active' : 'Inactive' }}
-                                </span>
-                                <button wire:click="openInvigilatorPanel({{ $inv->id }})"
-                                    class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-amber-50 hover:text-amber-600" title="Edit">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                    </svg>
-                                </button>
-                                <button wire:click="confirmDeleteInvigilator({{ $inv->id }})"
-                                    class="p-1.5 rounded-md border border-red-200 text-red-500 hover:bg-red-50" title="Delete">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                    @empty
-                        <div class="text-center py-16">
-                            <p class="text-base font-semibold text-gray-800">No invigilators yet</p>
-                            <p class="text-sm text-gray-400 mt-1">Add invigilators with available dates &amp; max-room limits.</p>
-                        </div>
-                    @endforelse
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm min-w-[640px]">
+                        <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+                            <tr>
+                                <th class="px-4 py-3 text-left w-12">#</th>
+                                <th class="px-4 py-3 text-left">Exam</th>
+                                <th class="px-4 py-3 text-left">Class &amp; Section</th>
+                                <th class="px-4 py-3 text-center w-28">Papers</th>
+                                <th class="px-4 py-3 text-center w-32">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @forelse ($datesheets as $i => $ds)
+                                <tr wire:key="ds-{{ $ds->id }}" class="hover:bg-gray-50/70">
+                                    <td class="px-4 py-3 text-gray-400">{{ $i + 1 }}</td>
+                                    <td class="px-4 py-3 font-medium text-gray-800">{{ $ds->exam->exam_name ?? '—' }}</td>
+                                    <td class="px-4 py-3">
+                                        <span class="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                                            {{ $ds->standard->name ?? '—' }}@if ($ds->section)<span class="text-blue-400"> · </span>{{ $ds->section->name }}@else <span class="text-blue-400">· All sections</span>@endif
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-center text-gray-600">{{ $ds->papers_count }}</td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center justify-center gap-1.5">
+                                            <button wire:click="viewDatesheet({{ $ds->id }})" title="View"
+                                                class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                            </button>
+                                            <button wire:click="confirmDeleteDatesheet({{ $ds->id }})" title="Delete"
+                                                class="p-1.5 rounded-md border border-red-200 text-red-500 hover:bg-red-50">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="5" class="px-4 py-12 text-center text-gray-400">
+                                        No datesheets yet.
+                                        <button wire:click="openDatesheetCreate" class="block mx-auto mt-2 text-sm text-blue-600 hover:text-blue-800 font-medium">Create a datesheet →</button>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
             </div>
         @endif
@@ -287,7 +279,6 @@
                             foreach ($roomAssignments as $a) {
                                 if ($a->seat) $cells[$a->seat->row_no][$a->seat->col_no] = $a;
                             }
-                            $roomInvs = $planInvigilators->where('room_id', $room->id);
                             $filled = $roomAssignments->whereNotNull('student_id')->count();
                         @endphp
                         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -296,12 +287,11 @@
                                     <h3 class="text-base font-semibold text-gray-900">{{ $room->room_name }}</h3>
                                     <p class="text-xs text-gray-500">{{ $room->building }} · {{ $filled }}/{{ $room->capacity }} seats filled</p>
                                 </div>
-                                <div class="text-right">
-                                    <p class="text-[10px] uppercase tracking-wide text-gray-400">Invigilator(s)</p>
-                                    <p class="text-xs font-medium text-gray-700">
-                                        {{ $roomInvs->map(fn($i) => $i->invigilator->name ?? '')->filter()->implode(', ') ?: '— not assigned —' }}
-                                    </p>
-                                </div>
+                                <a href="{{ route('admin.seating-plan.room-pdf', ['id' => $viewingPlan->id, 'roomId' => $room->id]) }}" target="_blank"
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white border border-gray-200 rounded-md text-gray-700 hover:bg-gray-50">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                    Room PDF
+                                </a>
                             </div>
                             <div class="p-4 overflow-x-auto">
                                 <p class="text-[10px] uppercase tracking-wide text-gray-400 text-center mb-2">⬆ Front (Board)</p>
@@ -399,66 +389,144 @@
     @endif
 
     {{-- ══════════════════════════════════════════════════
-         INVIGILATOR SLIDE-IN PANEL
+         DATESHEET CREATE SLIDE-IN PANEL
     ══════════════════════════════════════════════════ --}}
-    @if ($showInvigilatorPanel)
+    @if ($showDatesheetPanel)
         <div class="fixed inset-0 z-50 overflow-hidden">
-            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeInvigilatorPanel"></div>
-            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
-                {{-- Panel Header --}}
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeDatesheetPanel"></div>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-900">{{ $editInvigilatorId ? 'Edit Invigilator' : 'Add Invigilator' }}</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">Set availability dates &amp; max rooms for fair duty distribution.</p>
+                        <h2 class="text-lg font-semibold text-gray-900">Create Datesheet</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">Pick an exam and class, then set the date, time &amp; shift per subject.</p>
                     </div>
-                    <button wire:click="closeInvigilatorPanel"
+                    <button wire:click="closeDatesheetPanel"
                         class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
                 <div class="flex-1 overflow-y-auto px-6 py-6 space-y-5">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Name <span class="text-red-500">*</span></label>
-                        <input type="text" wire:model="invigilatorForm.name" placeholder="e.g. Mr. Verma"
-                            class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                        @error('invigilatorForm.name')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
-                            <input type="email" wire:model="invigilatorForm.email"
-                                class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                            @error('invigilatorForm.email')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Exam <span class="text-red-500">*</span></label>
+                            <select wire:model="dsExamId" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:ring-1 focus:ring-blue-500">
+                                <option value="">Select exam…</option>
+                                @foreach ($exams as $exam)<option value="{{ $exam->id }}">{{ $exam->exam_name }}</option>@endforeach
+                            </select>
+                            @error('dsExamId')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Phone</label>
-                            <input type="text" wire:model="invigilatorForm.phone"
-                                class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Class <span class="text-red-500">*</span></label>
+                            <select wire:model.live="dsStandardId" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:ring-1 focus:ring-blue-500">
+                                <option value="">Select class…</option>
+                                @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
+                            </select>
+                            @error('dsStandardId')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Section</label>
+                            <select wire:model.live="dsSectionId" @disabled(!$dsStandardId) class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:ring-1 focus:ring-blue-500 disabled:opacity-50">
+                                <option value="">All sections</option>
+                                @foreach ($dsSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
+                            </select>
                         </div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Available Dates <span class="text-gray-400 font-normal">(comma-separated YYYY-MM-DD)</span></label>
-                        <textarea wire:model="invigilatorForm.available_dates_csv" rows="2" placeholder="2026-06-01, 2026-06-02, 2026-06-05"
-                            class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Max Rooms <span class="text-red-500">*</span></label>
-                        <input type="number" min="1" max="20" wire:model="invigilatorForm.max_rooms"
-                            class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                        @error('invigilatorForm.max_rooms')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
-                    </div>
-                    <label class="flex items-center gap-2 text-sm text-gray-700">
-                        <input type="checkbox" wire:model="invigilatorForm.is_active" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                        Active
-                    </label>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Notes</label>
-                        <textarea wire:model="invigilatorForm.notes" rows="2" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
-                    </div>
+
+                    @if (!$dsStandardId)
+                        <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500 text-center">Select a class to load its subjects.</div>
+                    @elseif (empty($dsPapers))
+                        <div class="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700 text-center">No subjects mapped to this class/section.</div>
+                    @else
+                        <div class="border border-gray-200 rounded-lg overflow-hidden">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left">Subject</th>
+                                        <th class="px-3 py-2 text-left w-36">Date</th>
+                                        <th class="px-3 py-2 text-left w-28">Start</th>
+                                        <th class="px-3 py-2 text-left w-28">End</th>
+                                        <th class="px-3 py-2 text-left w-28">Shift</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    @foreach ($dsPapers as $subjectId => $p)
+                                        <tr wire:key="dsp-{{ $subjectId }}">
+                                            <td class="px-3 py-2 font-medium text-gray-800">{{ $p['name'] }}</td>
+                                            <td class="px-3 py-2"><input type="date" wire:model="dsPapers.{{ $subjectId }}.exam_date" class="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs"></td>
+                                            <td class="px-3 py-2"><input type="time" wire:model="dsPapers.{{ $subjectId }}.start_time" class="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs"></td>
+                                            <td class="px-3 py-2"><input type="time" wire:model="dsPapers.{{ $subjectId }}.end_time" class="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs"></td>
+                                            <td class="px-3 py-2">
+                                                <select wire:model="dsPapers.{{ $subjectId }}.shift" class="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs bg-white">
+                                                    <option value="1">Shift 1</option>
+                                                    <option value="2">Shift 2</option>
+                                                </select>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="text-xs text-gray-400">Leave a subject's date blank to skip it.</p>
+                    @endif
                 </div>
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
-                    <button wire:click="closeInvigilatorPanel" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                    <button wire:click="saveInvigilator" class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md">{{ $editInvigilatorId ? 'Update' : 'Add' }}</button>
+                    <button wire:click="closeDatesheetPanel" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                    <button wire:click="saveDatesheet" wire:loading.attr="disabled" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md disabled:opacity-60">
+                        <span wire:loading.remove wire:target="saveDatesheet">Save Datesheet</span>
+                        <span wire:loading wire:target="saveDatesheet">Saving…</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- ══════════════════════════════════════════════════
+         DATESHEET VIEW SLIDE-IN PANEL
+    ══════════════════════════════════════════════════ --}}
+    @if ($viewingDatesheet)
+        <div class="fixed inset-0 z-50 overflow-hidden">
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeDatesheetView"></div>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900">{{ $viewingDatesheet->exam->exam_name ?? 'Datesheet' }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">{{ $viewingDatesheet->standard->name ?? '' }}{{ $viewingDatesheet->section ? ' · ' . $viewingDatesheet->section->name : ' · All sections' }}</p>
+                    </div>
+                    <button wire:click="closeDatesheetView"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+                <div class="flex-1 overflow-y-auto px-6 py-6">
+                    <div class="border border-gray-200 rounded-lg overflow-hidden">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+                                <tr>
+                                    <th class="px-3 py-2 text-left">Subject</th>
+                                    <th class="px-3 py-2 text-left">Date</th>
+                                    <th class="px-3 py-2 text-left">Time</th>
+                                    <th class="px-3 py-2 text-center">Shift</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @forelse ($viewingDatesheet->papers as $p)
+                                    <tr>
+                                        <td class="px-3 py-2 font-medium text-gray-800">{{ $p->subject->name ?? '—' }}</td>
+                                        <td class="px-3 py-2 text-gray-600">{{ $p->exam_date?->format('d M Y') ?: '—' }}</td>
+                                        <td class="px-3 py-2 text-gray-600">
+                                            {{ $p->start_time ? \Carbon\Carbon::parse($p->start_time)->format('h:i A') : '—' }}
+                                            @if ($p->end_time) – {{ \Carbon\Carbon::parse($p->end_time)->format('h:i A') }}@endif
+                                        </td>
+                                        <td class="px-3 py-2 text-center">
+                                            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">Shift {{ $p->shift }}</span>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="4" class="px-3 py-8 text-center text-gray-400">No papers.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

@@ -3,6 +3,8 @@
 namespace App\Livewire\Admin;
 
 use App\Models\Admin\Exam;
+use App\Models\Admin\ExamDatesheet;
+use App\Models\Admin\ExamDatesheetPaper;
 use App\Models\Admin\Seating\InvigilatorAssignment;
 use App\Models\Admin\Seating\SeatAssignment;
 use App\Models\Admin\Seating\SeatingInvigilator;
@@ -12,6 +14,7 @@ use App\Models\Admin\Seating\SeatingSeat;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
+use App\Models\Student\Subject;
 use App\Services\Seating\SeatingPlannerService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +26,17 @@ class SeatingPlan extends Component
 {
     use WithPagination, WireUiActions;
 
-    public string $activeTab = 'plans'; // plans, rooms, invigilators, generate
+    public string $activeTab = 'plans'; // plans, rooms, datesheet
+
+    // ─── Datesheet ──────────────────────────────────────────────────────────
+    public bool $showDatesheetPanel = false;
+    public ?int $editDatesheetId = null;
+    public $dsExamId = '';
+    public $dsStandardId = '';
+    public $dsSectionId = '';
+    public array $dsPapers = [];   // [subject_id => ['name','exam_date','start_time','end_time','shift']]
+    public ?int $viewingDatesheetId = null;
+    public ?int $pendingDeleteDatesheetId = null;
 
     // ─── Room form ──────────────────────────────────────────────────────────
     public bool $showRoomPanel = false;
@@ -329,6 +342,29 @@ class SeatingPlan extends Component
             return;
         }
 
+        // ── Overflow "Exam Hall" ──────────────────────────────────────────────
+        // e.g. 5 rooms × 30 = 150 capacity but 160 students → add an Exam Hall
+        // sized to hold the extra 10 so everyone is seated. One reusable hall per
+        // org, resized to fit the current overflow each time a plan is generated.
+        $capacity = (int) $rooms->sum('capacity');
+        $overflow = $students->count() - $capacity;
+        if ($overflow > 0) {
+            $cols       = 6;
+            $rowsNeeded = (int) ceil($overflow / $cols);
+            $hall = SeatingRoom::firstOrNew([
+                'organization_id' => $orgId,
+                'room_name'       => 'Exam Hall',
+            ]);
+            $hall->building = 'Overflow';
+            $hall->rows     = max(1, $rowsNeeded);
+            $hall->columns  = $cols;
+            $hall->capacity = $hall->rows * $cols;
+            $hall->is_active = true;
+            $hall->save();
+            $this->regenerateSeats($hall);
+            $rooms->push($hall->load('seats'));
+        }
+
         $result = $planner->plan($studentInput, $rooms);
 
         DB::transaction(function () use ($result, $rooms, $orgId) {
@@ -417,6 +453,132 @@ class SeatingPlan extends Component
         $this->pendingDeletePlanId = null;
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    //  DATESHEET
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function openDatesheetCreate(): void
+    {
+        $this->resetErrorBag();
+        $this->editDatesheetId = null;
+        $this->dsExamId = '';
+        $this->dsStandardId = '';
+        $this->dsSectionId = '';
+        $this->dsPapers = [];
+        $this->showDatesheetPanel = true;
+    }
+
+    public function closeDatesheetPanel(): void
+    {
+        $this->showDatesheetPanel = false;
+        $this->editDatesheetId = null;
+    }
+
+    public function updatedDsStandardId(): void
+    {
+        $this->dsSectionId = '';
+        $this->loadDsSubjects();
+    }
+
+    public function updatedDsSectionId(): void
+    {
+        $this->loadDsSubjects();
+    }
+
+    /** Load the subjects for the chosen class/section as blank datesheet rows. */
+    private function loadDsSubjects(): void
+    {
+        $this->dsPapers = [];
+        if (!$this->dsStandardId) return;
+
+        $orgId = Auth::user()->organization_id;
+
+        if ($this->dsSectionId) {
+            $subjects = Subject::join('section_subjects', 'subjects.id', '=', 'section_subjects.subject_id')
+                ->where('section_subjects.section_id', $this->dsSectionId)
+                ->where('section_subjects.standard_id', $this->dsStandardId)
+                ->where('subjects.organization_id', $orgId)->where('subjects.is_active', true)
+                ->select('subjects.*')->distinct()->orderBy('subjects.name')->get();
+        } else {
+            $subjects = Subject::join('standard_subjects', 'subjects.id', '=', 'standard_subjects.subject_id')
+                ->where('standard_subjects.standard_id', $this->dsStandardId)
+                ->where('subjects.organization_id', $orgId)->where('subjects.is_active', true)
+                ->select('subjects.*')->distinct()->orderBy('subjects.name')->get();
+        }
+
+        foreach ($subjects as $s) {
+            $this->dsPapers[$s->id] = [
+                'name' => $s->name, 'exam_date' => '', 'start_time' => '', 'end_time' => '', 'shift' => 1,
+            ];
+        }
+    }
+
+    public function saveDatesheet(): void
+    {
+        $this->validate([
+            'dsExamId'     => 'required|integer|exists:exams,id',
+            'dsStandardId' => 'required|integer|exists:standards,id',
+            'dsSectionId'  => 'nullable|integer|exists:sections,id',
+        ]);
+
+        $filled = collect($this->dsPapers)->filter(fn($p) => !empty($p['exam_date']));
+        if ($filled->isEmpty()) {
+            $this->notification()->error('Set a date for at least one subject.');
+            return;
+        }
+
+        $orgId = Auth::user()->organization_id;
+
+        DB::transaction(function () use ($orgId) {
+            $ds = ExamDatesheet::updateOrCreate(
+                [
+                    'organization_id' => $orgId,
+                    'exam_id'         => $this->dsExamId,
+                    'standard_id'     => $this->dsStandardId,
+                    'section_id'      => $this->dsSectionId ?: null,
+                ],
+                []
+            );
+
+            ExamDatesheetPaper::where('exam_datesheet_id', $ds->id)->delete();
+
+            foreach ($this->dsPapers as $subjectId => $p) {
+                if (empty($p['exam_date'])) continue;
+                ExamDatesheetPaper::create([
+                    'exam_datesheet_id' => $ds->id,
+                    'subject_id'        => $subjectId,
+                    'exam_date'         => $p['exam_date'],
+                    'start_time'        => $p['start_time'] ?: null,
+                    'end_time'          => $p['end_time'] ?: null,
+                    'shift'             => (int) ($p['shift'] ?? 1),
+                ]);
+            }
+        });
+
+        $this->notification()->success('Datesheet saved.');
+        $this->closeDatesheetPanel();
+    }
+
+    public function viewDatesheet(int $id): void { $this->viewingDatesheetId = $id; }
+    public function closeDatesheetView(): void { $this->viewingDatesheetId = null; }
+
+    public function confirmDeleteDatesheet(int $id): void { $this->pendingDeleteDatesheetId = $id; }
+    public function cancelDeleteDatesheet(): void { $this->pendingDeleteDatesheetId = null; }
+    public function executeDeleteDatesheet(): void
+    {
+        if ($this->pendingDeleteDatesheetId) {
+            $ds = ExamDatesheet::where('id', $this->pendingDeleteDatesheetId)
+                ->where('organization_id', Auth::user()->organization_id)->first();
+            if ($ds) {
+                ExamDatesheetPaper::where('exam_datesheet_id', $ds->id)->delete();
+                $ds->delete();
+                $this->notification()->success('Datesheet deleted.');
+            }
+            if ($this->viewingDatesheetId === $this->pendingDeleteDatesheetId) $this->viewingDatesheetId = null;
+        }
+        $this->pendingDeleteDatesheetId = null;
+    }
+
     public function render()
     {
         $orgId = Auth::user()->organization_id;
@@ -449,9 +611,26 @@ class SeatingPlan extends Component
             }
         }
 
+        // ── Datesheet tab data ──
+        $datesheets = ExamDatesheet::with(['exam:id,exam_name', 'standard:id,name', 'section:id,name'])
+            ->withCount('papers')
+            ->where('organization_id', $orgId)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $dsSections = $this->dsStandardId
+            ? Section::where('standard_id', $this->dsStandardId)->where('is_active', true)->orderBy('id')->get(['id', 'name'])
+            : collect();
+
+        $viewingDatesheet = $this->viewingDatesheetId
+            ? ExamDatesheet::with(['exam:id,exam_name', 'standard:id,name', 'section:id,name', 'papers.subject:id,name'])
+                ->where('organization_id', $orgId)->find($this->viewingDatesheetId)
+            : null;
+
         return view('livewire.admin.seating-plan', compact(
             'rooms', 'invigilators', 'exams', 'standards', 'plans',
-            'viewingPlan', 'planRooms', 'planAssignments', 'planInvigilators'
+            'viewingPlan', 'planRooms', 'planAssignments', 'planInvigilators',
+            'datesheets', 'dsSections', 'viewingDatesheet'
         ));
     }
 }
