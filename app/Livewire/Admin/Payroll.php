@@ -186,11 +186,22 @@ class Payroll extends Component
         $this->validate([
             'empName'        => 'required|string|max:255',
             'empEmail'       => 'nullable|email|max:255',
-            'empMobile'      => 'nullable|string|max:15',
+            'empMobile'      => 'nullable|regex:/^[6-9]\d{9}$/',
             'empType'        => 'required|in:teacher,management,employee,driver',
-            'empSalary'      => 'required|numeric|min:0',
-            'empDesignation' => 'nullable|string|max:255',
-            'empPhoto'       => 'nullable|image|max:2048',
+            'empSalary'      => 'required|numeric|min:0|max:99999999',
+            'empDesignation' => 'nullable|string|max:100',
+            'empAddress'     => 'nullable|string|max:500',
+            'empBankName'    => 'nullable|string|max:100',
+            'empHolderName'  => 'nullable|string|max:100',
+            'empAccountNo'   => 'nullable|regex:/^\d{6,20}$/',
+            'empBranch'      => 'nullable|string|max:100',
+            'empIfsc'        => 'nullable|regex:/^[A-Za-z]{4}0[A-Za-z0-9]{6}$/',
+            'empPhoto'       => 'nullable|image|max:1024', // 1 MB
+        ], [
+            'empMobile.regex'    => 'Enter a valid 10-digit mobile number.',
+            'empAccountNo.regex' => 'Account number must be 6–20 digits.',
+            'empIfsc.regex'      => 'Enter a valid IFSC code (e.g. HDFC0001234).',
+            'empPhoto.max'       => 'Photo must be 1 MB or smaller.',
         ]);
 
         $data = [
@@ -496,11 +507,13 @@ class Payroll extends Component
         }
 
         $this->validate([
-            'payAmount' => 'required|numeric|min:0',
-            'payMode'   => 'required|string',
-            'payPaidBy' => 'required|string|max:255',
-            'payDate'   => 'required|date',
-        ], [], ['payPaidBy' => 'paid by']);
+            'payAmount'        => 'required|numeric|min:0|max:99999999',
+            'payMode'          => 'required|in:cash,online,bank_transfer,cheque',
+            'payPaidBy'        => 'required|string|max:255',
+            'payDate'          => 'required|date',
+            'payTransactionId' => 'nullable|string|max:100',
+            'payRemark'        => 'nullable|string|max:500',
+        ], [], ['payPaidBy' => 'paid by', 'payTransactionId' => 'transaction id']);
 
         // For online / bank transfer the money moves to the employee's account and
         // the payment is credited immediately; other modes are recorded as paid too.
@@ -628,6 +641,30 @@ class Payroll extends Component
             }
         }
 
+        // ── Overall (all-time) attendance for the selected employee ────────────
+        $analyticsOverall = null;
+        if ($this->analyticsEmpId) {
+            $emp = $allEmployees->firstWhere('id', (int) $this->analyticsEmpId);
+            if ($emp) {
+                if ($emp->isTeacher() && $emp->teacher_detail_id) {
+                    $recs    = TeacherAttendance::where('teacher_detail_id', $emp->teacher_detail_id)->get();
+                    $present = $recs->where('status', 1)->count();
+                    $absent  = $recs->where('status', 0)->count();
+                    $halfDay = $recs->whereIn('status', [2, 3])->count();
+                    $leave   = 0;
+                } else {
+                    $recs    = AdminAttendance::forOrganization($orgId)->where('admin_employee_id', $emp->id)->get();
+                    $present = $recs->where('status', 'present')->count();
+                    $absent  = $recs->where('status', 'absent')->count();
+                    $halfDay = $recs->where('status', 'half_day')->count();
+                    $leave   = $recs->where('status', 'leave')->count();
+                }
+                $marked  = $present + $absent + $halfDay + $leave;
+                $percent = $marked > 0 ? round(($present + 0.5 * $halfDay) / $marked * 100) : 0;
+                $analyticsOverall = compact('present', 'absent', 'halfDay', 'leave', 'marked', 'percent');
+            }
+        }
+
         // ── Salary month attendance → breakdowns ───────────────────────────────
         $salaryAdminGrouped = AdminAttendance::forOrganization($orgId)
             ->forMonth($this->salaryMonth)->get()->groupBy('admin_employee_id');
@@ -672,6 +709,7 @@ class Payroll extends Component
             'monthAttendance',
             'teacherMonthAttendance',
             'analyticsDays',
+            'analyticsOverall',
             'salaryBreakdowns',
             'monthSalaryPayments',
             'canPaySalaryMonth',

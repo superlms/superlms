@@ -342,6 +342,26 @@
                                 $sumH = collect($analyticsDays)->where('status', 'half_day')->count();
                                 $sumL = collect($analyticsDays)->where('status', 'leave')->count();
                             @endphp
+
+                            {{-- Overall (all-time) summary --}}
+                            @if ($analyticsOverall)
+                                <div class="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Overall <span class="font-normal text-gray-400">(all time)</span></p>
+                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">{{ $analyticsOverall['percent'] }}% present</span>
+                                    </div>
+                                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">
+                                        <div class="rounded-lg bg-white border border-gray-200 py-2"><p class="text-lg font-bold text-emerald-600">{{ $analyticsOverall['present'] }}</p><p class="text-[10px] text-gray-400 uppercase">Present</p></div>
+                                        <div class="rounded-lg bg-white border border-gray-200 py-2"><p class="text-lg font-bold text-red-600">{{ $analyticsOverall['absent'] }}</p><p class="text-[10px] text-gray-400 uppercase">Absent</p></div>
+                                        <div class="rounded-lg bg-white border border-gray-200 py-2"><p class="text-lg font-bold text-amber-600">{{ $analyticsOverall['halfDay'] }}</p><p class="text-[10px] text-gray-400 uppercase">Half</p></div>
+                                        <div class="rounded-lg bg-white border border-gray-200 py-2"><p class="text-lg font-bold text-blue-600">{{ $analyticsOverall['leave'] }}</p><p class="text-[10px] text-gray-400 uppercase">Leave</p></div>
+                                        <div class="rounded-lg bg-white border border-gray-200 py-2"><p class="text-lg font-bold text-gray-800">{{ $analyticsOverall['marked'] }}</p><p class="text-[10px] text-gray-400 uppercase">Marked</p></div>
+                                    </div>
+                                </div>
+                            @endif
+
+                            {{-- This month --}}
+                            <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">This month <span class="font-normal text-gray-400">({{ \Carbon\Carbon::parse($attendanceMonth . '-01')->format('M Y') }})</span></p>
                             <div class="flex flex-wrap gap-2 mb-4 text-xs">
                                 <span class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 font-medium">Present {{ $sumP }}</span>
                                 <span class="px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-100 font-medium">Absent {{ $sumA }}</span>
@@ -590,6 +610,7 @@
                         @endif
                         <input type="file" wire:model="empPhoto" accept="image/*"
                             class="block w-full min-w-0 text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors">
+                        <p class="text-[11px] text-gray-400 mt-0.5">JPG/PNG · max 1 MB</p>
                         @error('empPhoto')<p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>@enderror
                     </div>
 
