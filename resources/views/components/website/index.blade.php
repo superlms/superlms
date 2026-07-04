@@ -3366,7 +3366,7 @@
                     <div class="app-card-icon"
                         style="background:linear-gradient(135deg,rgba(34,197,94,0.12),rgba(34,197,94,0.05));">
                         <img src="{{ asset('admin-image/c8cd2e7a3c40476d15ae54f52a8565b83bfc20b3.png') }}"
-                            alt="Logo" class="w-12 h-12 object-contain mb-2">
+                            alt="Logo" class="w-12 h-12 object-contain mb-2" style="width:48px;height:48px;object-fit:contain;">
                     </div>
                     <div class="app-card-name">Edyone</div>
                     <div class="app-card-desc">Edyone is a comprehensive edtech platform offering academic and
@@ -3387,7 +3387,7 @@
                     <div class="app-card-icon"
                         style="background:linear-gradient(135deg,rgba(111,86,254,0.12),rgba(219,87,178,0.08));">
                         <img src="{{ asset('website-image/Group 11525.png') }}" alt="Logo"
-                            class="w-12 h-12 object-contain mb-2">
+                            class="w-12 h-12 object-contain mb-2" style="width:48px;height:48px;object-fit:contain;">
                     </div>
                     <div class="app-card-name">SuperLMS</div>
                     <div class="app-card-desc">SuperLMS is a complete school management system enabling attendance
@@ -3409,7 +3409,7 @@
                     <div class="app-card-icon"
                         style="background:linear-gradient(135deg,rgba(219,87,178,0.12),rgba(219,87,178,0.05));">
                         <img src="{{ asset('admin-image/Group 33079.png') }}" alt="Logo"
-                            class="w-12 h-12 object-contain mb-2">
+                            class="w-12 h-12 object-contain mb-2" style="width:48px;height:48px;object-fit:contain;">
                     </div>
                     <div class="app-card-name">Super Safe</div>
                     <div class="app-card-desc">Super Safe is a powerful parental control app that monitors screen

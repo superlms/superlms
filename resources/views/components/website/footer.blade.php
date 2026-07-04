@@ -46,7 +46,7 @@
                     style="text-decoration:none;display:flex;align-items:center;gap:10px;margin-bottom:2px;">
                     <div class="flex-shrink-0 flex">
                         <img src="{{ asset('website-image/Group 11525.png') }}" alt="Logo"
-                            class="w-12 h-12 object-contain mb-2">
+                            class="w-12 h-12 object-contain mb-2" style="width:48px;height:48px;object-fit:contain;">
                     </div>
                     <div class="logo-text">SUPER<span>LMS</span></div>
                 </a>
