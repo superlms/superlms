@@ -39,6 +39,20 @@
                         Mark Attendance
                     </button>
                 @endif
+            @elseif ($mainTab === 'student')
+                @if ($studentView === 'mark')
+                    <button wire:click="closeStudentMark"
+                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold rounded-lg border border-gray-200 shadow-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                        Back to Records
+                    </button>
+                @else
+                    <button wire:click="openStudentMark"
+                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+                        Mark Attendance
+                    </button>
+                @endif
             @elseif ($mainTab === 'class_teachers')
                 <button wire:click="openAssignPanel"
                     class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm">
@@ -103,6 +117,7 @@
                             @foreach ($teachers as $t)<option value="{{ $t->id }}">{{ $t->user->name ?? '—' }}</option>@endforeach
                         </select>
                     @elseif ($teacherView === 'by_teacher')
+                        {{-- Method 3 · teacher → a specific month OR the complete year --}}
                         <span class="text-gray-300">→</span>
                         <select wire:model.live="tTeacherId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                             <option value="">Select teacher…</option>
@@ -110,8 +125,8 @@
                         </select>
                         <span class="text-gray-300">→</span>
                         <select wire:model.live="tRange" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                            <option value="monthly">Monthly</option>
-                            <option value="yearly">Yearly</option>
+                            <option value="monthly">By Month</option>
+                            <option value="yearly">Complete Year</option>
                         </select>
                         <span class="text-gray-300">→</span>
                         @if ($tRange === 'yearly')
@@ -123,44 +138,56 @@
 
                 {{-- ─── STUDENT ─── --}}
                 @elseif ($mainTab === 'student')
-                    <div class="inline-flex rounded-md border border-gray-200 bg-white p-0.5">
-                        @foreach (['mark' => 'Mark', 'by_date' => 'By Date', 'by_month' => 'By Month', 'by_student' => 'By Student'] as $k => $label)
-                            <button wire:click="switchStudentView('{{ $k }}')"
-                                class="px-3 py-1 text-xs font-semibold rounded transition-colors {{ $studentView === $k ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50' }}">{{ $label }}</button>
-                        @endforeach
-                    </div>
-                    <span class="text-gray-300">→</span>
-                    <select wire:model.live="stStandard" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                        <option value="">Select class…</option>
-                        @foreach ($standards as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
-                    </select>
-                    <span class="text-gray-300">→</span>
-                    <select wire:model.live="stSection" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                        <option value="">Select section…</option>
-                        @foreach ($stSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
-                    </select>
-                    @if ($studentView === 'mark' || $studentView === 'by_date')
+                    @if ($studentView === 'mark')
+                        {{-- Mark flow: pick class → section → date, then the list appears below --}}
+                        <span class="text-xs font-semibold text-gray-500">Choose class &amp; section to mark:</span>
+                        <select wire:model.live="stStandard" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            <option value="">Select class…</option>
+                            @foreach ($standards as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
+                        </select>
+                        <span class="text-gray-300">→</span>
+                        <select wire:model.live="stSection" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            <option value="">Select section…</option>
+                            @foreach ($stSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
+                        </select>
                         <span class="text-gray-300">→</span>
                         <input type="date" wire:model.live="stDate" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     @else
+                        <div class="inline-flex rounded-md border border-gray-200 bg-white p-0.5">
+                            @foreach (['by_date' => 'By Date', 'by_student' => 'By Student'] as $k => $label)
+                                <button wire:click="switchStudentView('{{ $k }}')"
+                                    class="px-3 py-1 text-xs font-semibold rounded transition-colors {{ $studentView === $k ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50' }}">{{ $label }}</button>
+                            @endforeach
+                        </div>
                         <span class="text-gray-300">→</span>
-                        <select wire:model.live="stStudentId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                            <option value="">Select student…</option>
-                            @foreach ($stStudents as $s)<option value="{{ $s->id }}">{{ $s->user->name ?? $s->full_name }}</option>@endforeach
+                        <select wire:model.live="stStandard" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            <option value="">Select class…</option>
+                            @foreach ($standards as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
                         </select>
-                        @if ($studentView === 'by_month' || $stRange === 'monthly')
+                        <span class="text-gray-300">→</span>
+                        <select wire:model.live="stSection" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            <option value="">Select section…</option>
+                            @foreach ($stSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
+                        </select>
+                        @if ($studentView === 'by_date')
                             <span class="text-gray-300">→</span>
-                            <input type="month" wire:model.live="stMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                        @endif
-                        @if ($studentView === 'by_student')
+                            <input type="date" wire:model.live="stDate" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        @else
+                            <span class="text-gray-300">→</span>
+                            <select wire:model.live="stStudentId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                                <option value="">Select student…</option>
+                                @foreach ($stStudents as $s)<option value="{{ $s->id }}">{{ $s->user->name ?? $s->full_name }}</option>@endforeach
+                            </select>
                             <span class="text-gray-300">→</span>
                             <select wire:model.live="stRange" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                                <option value="monthly">Monthly</option>
-                                <option value="yearly">Yearly</option>
+                                <option value="monthly">By Month</option>
+                                <option value="yearly">Complete Year</option>
                             </select>
+                            <span class="text-gray-300">→</span>
                             @if ($stRange === 'yearly')
-                                <span class="text-gray-300">→</span>
                                 <input type="number" min="2000" max="2100" wire:model.live="stYear" class="w-24 text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            @else
+                                <input type="month" wire:model.live="stMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                             @endif
                         @endif
                     @endif
@@ -473,19 +500,10 @@
                 @endif
             @endif
 
-            {{-- ─── BY MONTH ─── --}}
-            @if ($studentView === 'by_month')
-                @if ($sMonthCalendar)
-                    @include('livewire.admin._partials.attendance-calendar', ['calendar' => $sMonthCalendar])
-                @else
-                    <div class="bg-white rounded-xl border border-gray-200 py-12 text-center text-gray-400 text-sm">Select class, section &amp; student to view the monthly attendance.</div>
-                @endif
-            @endif
-
-            {{-- ─── BY STUDENT (monthly / yearly) ─── --}}
+            {{-- ─── BY STUDENT (student → month OR complete year) ─── --}}
             @if ($studentView === 'by_student')
                 @if (!$stStudentId)
-                    <div class="bg-white rounded-xl border border-gray-200 py-12 text-center text-gray-400 text-sm">Select a student to view analytics.</div>
+                    <div class="bg-white rounded-xl border border-gray-200 py-12 text-center text-gray-400 text-sm">Select class, section &amp; student to view the attendance.</div>
                 @elseif ($stRange === 'yearly' && $sStudentYearly)
                     @include('livewire.admin._partials.attendance-yearly', ['yearly' => $sStudentYearly])
                 @elseif ($sStudentCalendar)

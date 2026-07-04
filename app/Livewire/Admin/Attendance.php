@@ -41,7 +41,8 @@ class Attendance extends Component
     public array  $teacherMark = [];           // [teacher_detail_id => ['status','remark']]
 
     // ── Student (shared selectors across its views) ─────────────────────────
-    public string $studentView = 'mark';       // mark | by_date | by_month | by_student
+    public string $studentView = 'by_date';    // mark | by_date | by_student
+    public string $studentReturnView = 'by_date'; // view to return to after Mark → Save
     public $stStandard = '';
     public $stSection  = '';
     public $stStudentId = '';
@@ -136,6 +137,22 @@ class Attendance extends Component
     {
         $this->studentView = $v;
         if ($v === 'mark') $this->loadStudentMark();
+    }
+
+    /** Header "Mark Attendance" — remember the current record view, then enter mark mode. */
+    public function openStudentMark(): void
+    {
+        if ($this->studentView !== 'mark') {
+            $this->studentReturnView = $this->studentView;
+        }
+        $this->studentView = 'mark';
+        $this->loadStudentMark();
+    }
+
+    /** Header "Back to Records" — leave mark mode without saving. */
+    public function closeStudentMark(): void
+    {
+        $this->studentView = $this->studentReturnView ?: 'by_date';
     }
 
     // ═══════════════════════════════ TEACHER: MARK ═══════════════════════════
@@ -290,8 +307,11 @@ class Attendance extends Component
             logger()->warning('attendanceMarked push failed: ' . $e->getMessage());
         }
 
+        // Return to the record view we came from ("redirect to previous screen").
+        $this->studentView = $this->studentReturnView ?: 'by_date';
+
         $this->notification()->success(
-            'Attendance marked',
+            'Attendance successful',
             'Student attendance saved for ' . Carbon::parse($this->stDate)->format('d M Y') . '.'
         );
     }
