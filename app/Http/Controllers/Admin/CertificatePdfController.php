@@ -49,10 +49,11 @@ class CertificatePdfController extends Controller
      * Download Achievement / Participation certificate as PDF
      * Route: GET /admin/certificates/{id}/download
      */
-    public function downloadCert(int $id): Response
+    public function downloadCert($organization, int $id): Response
     {
-        // Diagnostic breadcrumb: confirms the route matched and reached the
-        // controller (vs. a routing / infra 404 that never gets here).
+        // NOTE: the route is /{organization}/certificates/{id}/download — TWO params.
+        // Scalar controller args are filled positionally, so $organization MUST be
+        // declared first or $id would receive the organization value (the #4-vs-#1 bug).
         Log::info('cert.download hit', ['id' => $id, 'user' => Auth::id(), 'org' => Auth::user()?->organization_id]);
 
         $cert = Certificate::with(['student', 'organization'])->find($id);
@@ -76,8 +77,9 @@ class CertificatePdfController extends Controller
      * Download Transfer Certificate as PDF
      * Route: GET /admin/tc/{id}/download
      */
-    public function downloadTc(int $id): Response
+    public function downloadTc($organization, int $id): Response
     {
+        // Same two-param route shape as downloadCert — $organization first (positional).
         Log::info('tc.download hit', ['id' => $id, 'user' => Auth::id(), 'org' => Auth::user()?->organization_id]);
 
         $tc = TransferCertificate::with(['student', 'organization'])->find($id);
