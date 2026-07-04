@@ -3,7 +3,7 @@
     {{-- ══════════════════════════════════════════════════
          HEADER (sticky: title + contextual stats + dynamic Add + tabs + filter bar)
     ══════════════════════════════════════════════════ --}}
-    <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
+    <div class="bg-white border-b border-gray-200">
         <div class="px-4 sm:px-6 py-4 sm:py-5">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
@@ -59,30 +59,47 @@
             </div>
         </div>
 
-        {{-- Tabs (with icons, exam-style) --}}
+        {{-- Tabs as cards (Lists-style) --}}
         @php
             $feeTabs = [
-                'fee_structure'  => ['Fee Structure',  'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4'],
-                'fee_submission' => ['Fee Submission', 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z'],
-                'view_fee'       => ['View Fee',        'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'],
-                'analytics'      => ['Analytics',       'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'],
-                'payments'       => ['Payments',        'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z'],
-                'penalties'      => ['Penalties',       'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'],
-                'cycle'          => ['Fee Cycle',       'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'],
-                'concession'     => ['Concession',      'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z'],
-                'account_users'  => ['Account Users',   'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z'],
+                'fee_structure'  => ['Fee Structure',  'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4', 'Class-wise fee heads & amounts', 'blue'],
+                'fee_submission' => ['Fee Submission', 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z', 'Collect & record student fees', 'emerald'],
+                'view_fee'       => ['View Fee',        'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', "A student's full fee ledger", 'indigo'],
+                'analytics'      => ['Analytics',       'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', 'Collections & dues overview', 'rose'],
+                'payments'       => ['Payments',        'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z', 'All recorded fee payments', 'cyan'],
+                'penalties'      => ['Penalties',       'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z', 'Late-fee penalties', 'amber'],
+                'cycle'          => ['Fee Cycle',       'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15', 'Installments & due dates', 'purple'],
+                'concession'     => ['Concession',      'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z', 'Discounts & waivers', 'teal'],
+                'account_users'  => ['Account Users',   'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', 'Cashier / account logins', 'orange'],
+            ];
+            $feeColorMap = [
+                'blue'    => ['bg' => 'bg-blue-50',    'text' => 'text-blue-600'],
+                'emerald' => ['bg' => 'bg-emerald-50', 'text' => 'text-emerald-600'],
+                'indigo'  => ['bg' => 'bg-indigo-50',  'text' => 'text-indigo-600'],
+                'rose'    => ['bg' => 'bg-rose-50',    'text' => 'text-rose-600'],
+                'cyan'    => ['bg' => 'bg-cyan-50',    'text' => 'text-cyan-600'],
+                'amber'   => ['bg' => 'bg-amber-50',   'text' => 'text-amber-600'],
+                'purple'  => ['bg' => 'bg-purple-50',  'text' => 'text-purple-600'],
+                'teal'    => ['bg' => 'bg-teal-50',    'text' => 'text-teal-600'],
+                'orange'  => ['bg' => 'bg-orange-50',  'text' => 'text-orange-600'],
             ];
         @endphp
-        <div class="border-t border-gray-200 px-4 sm:px-6 py-3">
-            <div class="flex flex-wrap gap-2">
-                @foreach ($feeTabs as $tab => [$label, $icon])
+        <div class="border-t border-gray-200 px-4 sm:px-6 py-4">
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                @foreach ($feeTabs as $tab => [$label, $icon, $desc, $color])
+                    @php $c = $feeColorMap[$color] ?? $feeColorMap['blue']; @endphp
                     <button wire:click="showTab('{{ $tab }}')"
-                        class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap border transition-colors
+                        class="text-left bg-white rounded-xl border p-3.5 flex items-start gap-3 transition-all
                             {{ $activeTab === $tab
-                                ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
-                                : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200 hover:text-gray-800' }}">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $icon }}" /></svg>
-                        {{ $label }}
+                                ? 'border-blue-500 ring-2 ring-blue-200 shadow-sm'
+                                : 'border-gray-200 hover:border-gray-300 hover:shadow-sm' }}">
+                        <div class="w-10 h-10 rounded-lg {{ $c['bg'] }} flex items-center justify-center flex-shrink-0">
+                            <svg class="w-5 h-5 {{ $c['text'] }}" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $icon }}" /></svg>
+                        </div>
+                        <div class="min-w-0">
+                            <h3 class="text-sm font-semibold text-gray-900">{{ $label }}</h3>
+                            <p class="text-xs text-gray-500 mt-0.5 leading-snug">{{ $desc }}</p>
+                        </div>
                     </button>
                 @endforeach
             </div>
