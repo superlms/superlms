@@ -20,7 +20,7 @@ class Fee extends Component
 {
     use WireUiActions, WithPagination;
 
-    public string $activeTab = 'fee_structure';
+    public string $activeTab = ''; // '' = card menu (landing); otherwise the open tab
 
     // ─── Fee Structure ─────────────────────────────────────────────────────────
     public $structureStandardId = '';
@@ -145,7 +145,7 @@ class Fee extends Component
     public $students    = [];
 
     protected $queryString = [
-        'activeTab'  => ['except' => 'fee_structure'],
+        'activeTab'  => ['except' => ''],
         'search'     => ['except' => ''],
     ];
 
@@ -161,6 +161,14 @@ class Fee extends Component
     private function orgId(): int
     {
         return Auth::user()->organization_id;
+    }
+
+    /** Return to the card menu (landing). */
+    public function backToMenu(): void
+    {
+        $this->activeTab = '';
+        $this->resetPage();
+        $this->search = '';
     }
 
     public function showTab(string $tab): void

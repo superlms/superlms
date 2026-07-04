@@ -6,9 +6,17 @@
     <div class="bg-white border-b border-gray-200">
         <div class="px-4 sm:px-6 py-4 sm:py-5">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                    <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Fees</h1>
-                    <p class="text-sm text-gray-500 mt-0.5">Manage fee structures, submissions, cycles and analytics</p>
+                <div class="flex items-center gap-3">
+                    @if ($activeTab !== '')
+                        <button wire:click="backToMenu" title="Back to fee sections"
+                            class="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700 flex-shrink-0">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                        </button>
+                    @endif
+                    <div>
+                        <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Fees</h1>
+                        <p class="text-sm text-gray-500 mt-0.5">Manage fee structures, submissions, cycles and analytics</p>
+                    </div>
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2">
@@ -84,15 +92,14 @@
                 'orange'  => ['bg' => 'bg-orange-50',  'text' => 'text-orange-600'],
             ];
         @endphp
-        <div class="border-t border-gray-200 px-4 sm:px-6 py-4">
+        @if ($activeTab === '')
+        <div class="border-t border-gray-200 px-4 sm:px-6 py-6">
+            <p class="text-sm text-gray-500 mb-4">Choose what you want to manage:</p>
             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                 @foreach ($feeTabs as $tab => [$label, $icon, $desc, $color])
                     @php $c = $feeColorMap[$color] ?? $feeColorMap['blue']; @endphp
                     <button wire:click="showTab('{{ $tab }}')"
-                        class="text-left bg-white rounded-xl border p-3.5 flex items-start gap-3 transition-all
-                            {{ $activeTab === $tab
-                                ? 'border-blue-500 ring-2 ring-blue-200 shadow-sm'
-                                : 'border-gray-200 hover:border-gray-300 hover:shadow-sm' }}">
+                        class="text-left bg-white rounded-xl border border-gray-200 p-3.5 flex items-start gap-3 transition-all hover:border-gray-300 hover:shadow-md">
                         <div class="w-10 h-10 rounded-lg {{ $c['bg'] }} flex items-center justify-center flex-shrink-0">
                             <svg class="w-5 h-5 {{ $c['text'] }}" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $icon }}" /></svg>
                         </div>
@@ -104,6 +111,7 @@
                 @endforeach
             </div>
         </div>
+        @endif
 
         {{-- ══════════ PER-TAB FILTER BAR (gray-50, exam-style) ══════════ --}}
         @if ($activeTab === 'fee_submission')
