@@ -42,11 +42,16 @@ class AdmitCardController extends Controller
     {
         $orgId = Auth::user()->organization_id;
 
+        // A specific set of cards (from the print-selection modal), or filters.
+        $ids = array_filter(explode(',', (string) $request->query('ids')));
+
         $admitCards = AdmitCard::with(['studentDetail.standard', 'studentDetail.section', 'organization'])
             ->where('organization_id', $orgId)
-            ->when($request->exam_id, fn($q) => $q->where('exam_id', $request->exam_id))
-            ->when($request->standard_id, fn($q) => $q->where('standard_id', $request->standard_id))
-            ->when($request->section_id, fn($q) => $q->where('section_id', $request->section_id))
+            ->when($ids, fn($q) => $q->whereIn('id', $ids))
+            ->when(!$ids && $request->exam_id, fn($q) => $q->where('exam_id', $request->exam_id))
+            ->when(!$ids && $request->standard_id, fn($q) => $q->where('standard_id', $request->standard_id))
+            ->when(!$ids && $request->section_id, fn($q) => $q->where('section_id', $request->section_id))
+            ->orderBy('roll_number')
             ->get();
 
         $admitCards->each(fn($card) => $card->seating_label = $this->resolveSeating($card));
@@ -54,6 +59,21 @@ class AdmitCardController extends Controller
         $organization = Auth::user()->organization;
 
         return view('admin.admit-card-print-all', compact('admitCards', 'organization'));
+    }
+
+    /**
+     * Delete an admit card from the print/view page, then return to the listing.
+     * POST /{organization}/admit-card/{id}/delete
+     */
+    public function destroy(Request $request, $organization, $id)
+    {
+        AdmitCard::where('organization_id', Auth::user()->organization_id)
+            ->where('id', $id)
+            ->delete();
+
+        return redirect()
+            ->route('admin.admit-card', ['organization' => $organization])
+            ->with('success', 'Admit card deleted.');
     }
 
     private function getAdmitCard($id)

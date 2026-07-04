@@ -76,6 +76,11 @@
     <button onclick="window.print()" style="background:#4f46e5;color:#fff;border:none;padding:6px 18px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">Print</button>
     <button onclick="window.close()" style="background:#64748b;color:#fff;border:none;padding:6px 18px;border-radius:6px;cursor:pointer;font-size:13px;">Close</button>
     <span style="color:#94a3b8;font-size:12px;margin-left:8px;">Admit Card – {{ $admitCard->student_name }}</span>
+    <form method="POST" action="{{ route('admin.admit-card.destroy', [$organization->serial_number ?? $organization->id, $admitCard->id]) }}"
+          style="margin-left:auto;" onsubmit="return confirm('Delete this admit card? The student will move back to the not-issued list.');">
+        @csrf
+        <button type="submit" style="background:#dc2626;color:#fff;border:none;padding:6px 18px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">Delete Admit Card</button>
+    </form>
 </div>
 <div style="height:44px;" class="no-print"></div>
 @endunless
@@ -115,7 +120,7 @@
 
     {{-- ── ADMIT CARD TITLE ── --}}
     <div class="title-band">Admit Card</div>
-    <div class="title-sub">{{ $admitCard->academic_year }} &nbsp;|&nbsp; Exam: {{ $admitCard->exam_name }}</div>
+    <div class="title-sub">{{ $admitCard->academic_year }}/ Exam: {{ $admitCard->exam_name }}</div>
 
     {{-- ── STUDENT INFO + PHOTO + SUBJECTS BOX ── --}}
     <div class="card-box">
@@ -176,14 +181,12 @@
         <table class="subject-table">
             <thead>
                 <tr>
-                    <th style="width:62px;">Subject Code</th>
+                    <th style="width:70px;">Subject Code</th>
                     <th>Course Name</th>
-                    <th style="width:52px;">Total<br>Marks</th>
-                    <th style="width:52px;">Pass<br>Marks</th>
-                    <th style="width:82px;">Date</th>
-                    <th style="width:70px;">Day</th>
-                    <th style="width:92px;">Seating Plan</th>
-                    <th style="width:74px;">Status</th>
+                    <th style="width:90px;">Date</th>
+                    <th style="width:80px;">Day</th>
+                    <th style="width:100px;">Seating Plan</th>
+                    <th style="width:80px;">Status</th>
                 </tr>
             </thead>
             <tbody>
@@ -203,14 +206,10 @@
                         }
                     }
                     $subjectStatus = $subject['status'] ?? 'eligible';
-                    $totalMarks = $subject['total_marks'] ?? $subject['max_marks'] ?? $admitCard->exam?->total_marks;
-                    $passMarks  = $subject['passing_marks'] ?? $subject['pass_marks'] ?? $admitCard->exam?->passing_marks;
                 @endphp
                 <tr>
                     <td>{{ $code }}</td>
                     <td>{{ $subject['subject_name'] ?? '—' }}</td>
-                    <td>{{ $totalMarks !== null ? rtrim(rtrim(number_format($totalMarks, 2), '0'), '.') : '—' }}</td>
-                    <td>{{ $passMarks !== null ? rtrim(rtrim(number_format($passMarks, 2), '0'), '.') : '—' }}</td>
                     <td>{{ $examDate ? $examDate->format('d/m/Y') : '—' }}</td>
                     <td>{{ $examDate ? $examDate->format('l') : '—' }}</td>
                     <td>{{ $seatingPlan ?: '—' }}</td>

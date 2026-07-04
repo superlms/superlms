@@ -4,6 +4,7 @@ namespace App\Livewire\Admin;
 
 use App\Models\Student\AdmitCard as ModelAdmitCard;
 use App\Models\Admin\Exam;
+use App\Models\Admin\ExamDatesheet;
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Student\Section;
@@ -12,11 +13,22 @@ use App\Models\Student\Standard;
 use App\Models\Student\StudentAttendance;
 use App\Models\Student\StudentDetail;
 use App\Models\Student\Subject;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
 
+/**
+ * Admit Cards — student-centric.
+ *
+ * Pick an exam + class (+ section) in the filter bar to list every student in
+ * that class, coloured by whether an admit card has been issued. Non-issued
+ * students get an "Issue" button; issued students can be viewed, printed or
+ * deleted. The subject schedule (subject, date, time), seat and room on each
+ * card all come from the seating-plan module (exam datesheet + seating plan) —
+ * nothing is entered by hand here.
+ */
 class AdmitCard extends Component
 {
     use WithPagination, WireUiActions;
@@ -26,47 +38,20 @@ class AdmitCard extends Component
     public string $examFilter     = '';
     public string $standardFilter = '';
     public string $sectionFilter  = '';
-    public string $statusFilter   = '';
+    public string $statusFilter   = ''; // '' | issued | not_issued
     public int    $perPage        = 15;
 
-    // ─── Issue Admit Card Modal ──────────────────────────────────────────────────
-    public bool   $showIssueModal    = false;
-    public string $issueExam         = '';
-    public string $issueStandard     = '';
-    public string $issueSection      = '';
-    public array  $issueStudents     = [];
-    public array  $issueSubjects     = [];
-    public string $issueInstructions = '';
-    public string $issueReportingTime = '08:30';
+    // ─── Generate modal (criteria only) ──────────────────────────────────────────
+    public bool   $showGenerateModal = false;
+    public string $genExam       = '';
+    public string $genStandard   = '';
+    public string $genSection    = '';
+    public string $genCriteria   = 'none'; // attendance | fee | none
+    public        $genPercentage = 75;
 
-    // ─── Bulk Generate Full Screen ───────────────────────────────────────────────
-    public bool   $showBulkScreen      = false;
-    public string $bulkExam            = '';
-    public string $bulkStandard        = '';
-    public string $bulkSection         = '';
-    public string $bulkGenerateType    = 'attendance'; // attendance | fee
-    public int    $bulkPercentage      = 75;
-    public array  $bulkSubjects        = [];
-    public string $bulkInstructions    = '';
-    public string $bulkReportingTime   = '08:30';
-
-    // ─── Edit Modal ──────────────────────────────────────────────────────────────
-    public bool   $showEditModal     = false;
-    public ?int   $editCardId        = null;
-    public string $editAdmitCardNumber = '';
-    public string $editStudentSearch   = '';
-    public ?int   $editStudentId       = null;
-    public string $editExamId          = '';
-    public string $editRollNumber      = '';
-    public string $editExamRollNumber  = '';
-    public string $editReportingTime   = '08:30';
-    public string $editExamCenter      = '';
-    public string $editExamCenterAddress = '';
-    public string $editSeatNumber      = '';
-    public string $editRoomNumber      = '';
-    public string $editInstructions    = '';
-    public string $editStatus          = 'active';
-    public array  $editSubjects        = [];
+    // ─── Print-selection modal ───────────────────────────────────────────────────
+    public bool  $showPrintModal = false;
+    public array $printSelected  = [];
 
     // ─── Delete ─────────────────────────────────────────────────────────────────
     public bool  $showDeleteModal  = false;
@@ -77,374 +62,241 @@ class AdmitCard extends Component
         return Auth::user()->organization_id;
     }
 
-    // ─── Lifecycle ──────────────────────────────────────────────────────────────
-    public function mount(): void
+    private function orgSlug(): string
     {
-        $this->issueSubjects = $this->defaultSubjectRow();
-        $this->bulkSubjects  = $this->defaultSubjectRow();
-        $this->editSubjects  = $this->defaultSubjectRow();
+        $org = Auth::user()->organization;
+        return (string) ($org->serial_number ?? $org->id);
     }
 
-    private function defaultSubjectRow(): array
-    {
-        return [[
-            'subject_id'    => '',
-            'subject_name'  => '',
-            'exam_date'     => now()->addDays(7)->format('Y-m-d'),
-            'exam_time'     => '09:00',
-            'exam_duration' => '3 Hours',
-            'status'        => 'eligible',
-        ]];
-    }
-
-    // ─── Filter Watchers ────────────────────────────────────────────────────────
+    // ─── Filter watchers ─────────────────────────────────────────────────────────
     public function updatedSearch(): void          { $this->resetPage(); }
-    public function updatedExamFilter(): void      { $this->resetPage(); }
-    public function updatedStandardFilter(): void  { $this->sectionFilter = ''; $this->resetPage(); }
-    public function updatedSectionFilter(): void   { $this->resetPage(); }
-    public function updatedStatusFilter(): void    { $this->resetPage(); }
+    public function updatedExamFilter(): void       { $this->resetPage(); }
+    public function updatedStandardFilter(): void   { $this->sectionFilter = ''; $this->resetPage(); }
+    public function updatedSectionFilter(): void    { $this->resetPage(); }
+    public function updatedStatusFilter(): void     { $this->resetPage(); }
 
-    // ─── Issue Modal Watchers ────────────────────────────────────────────────────
-    public function updatedIssueStandard(): void
+    public function resetFilters(): void
     {
-        $this->issueSection   = '';
-        $this->issueStudents  = [];
-        $this->issueSubjects  = $this->loadClassSubjects($this->issueStandard, '');
+        $this->reset(['search', 'examFilter', 'standardFilter', 'sectionFilter', 'statusFilter']);
+        $this->resetPage();
     }
 
-    public function updatedIssueSection(): void
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  GENERATE (bulk, by criteria)
+    // ═══════════════════════════════════════════════════════════════════════════
+    public function openGenerateModal(): void
     {
-        $this->issueStudents = [];
-        $this->issueSubjects = $this->loadClassSubjects($this->issueStandard, $this->issueSection);
+        $this->resetValidation();
+        $this->genExam       = $this->examFilter;
+        $this->genStandard   = $this->standardFilter;
+        $this->genSection    = $this->sectionFilter;
+        $this->genCriteria   = 'none';
+        $this->genPercentage = 75;
+        $this->showGenerateModal = true;
     }
 
-    public function updatedIssueExam(): void
+    public function closeGenerateModal(): void
     {
-        $this->issueStudents = [];
-    }
-
-    // ─── Bulk Screen Watchers ────────────────────────────────────────────────────
-    public function updatedBulkStandard(): void
-    {
-        $this->bulkSection  = '';
-        $this->bulkSubjects = $this->loadClassSubjects($this->bulkStandard, '');
-    }
-
-    public function updatedBulkSection(): void
-    {
-        $this->bulkSubjects = $this->loadClassSubjects($this->bulkStandard, $this->bulkSection);
-    }
-
-    // ─── Load class subjects ─────────────────────────────────────────────────────
-    private function loadClassSubjects(string $standardId, string $sectionId): array
-    {
-        if (!$standardId) return $this->defaultSubjectRow();
-
-        $query = SectionSubject::where('organization_id', $this->orgId())
-            ->where('standard_id', $standardId);
-
-        if ($sectionId) {
-            $query->where('section_id', $sectionId);
-        }
-
-        $subjectIds = $query->pluck('subject_id')->unique();
-        $subjects   = Subject::whereIn('id', $subjectIds)->where('is_active', true)->orderBy('id')->get();
-
-        if ($subjects->isEmpty()) return $this->defaultSubjectRow();
-
-        return $subjects->map(fn($s) => [
-            'subject_id'    => (string) $s->id,
-            'subject_name'  => $s->name,
-            'exam_date'     => now()->addDays(7)->format('Y-m-d'),
-            'exam_time'     => '09:00',
-            'exam_duration' => '3 Hours',
-            'status'        => 'eligible',
-        ])->toArray();
-    }
-
-    // ─── Subject row actions (Issue) ────────────────────────────────────────────
-    public function addIssueSubject(): void
-    {
-        $this->issueSubjects[] = [
-            'subject_id' => '', 'subject_name' => '',
-            'exam_date'  => now()->addDays(7)->format('Y-m-d'),
-            'exam_time'  => '09:00', 'exam_duration' => '3 Hours', 'status' => 'eligible',
-        ];
-    }
-
-    public function removeIssueSubject(int $index): void
-    {
-        if (count($this->issueSubjects) > 1) {
-            unset($this->issueSubjects[$index]);
-            $this->issueSubjects = array_values($this->issueSubjects);
-        }
-    }
-
-    public function syncIssueSubjectName(int $index): void
-    {
-        $id = $this->issueSubjects[$index]['subject_id'] ?? null;
-        if ($id) {
-            $sub = Subject::find($id);
-            if ($sub) $this->issueSubjects[$index]['subject_name'] = $sub->name;
-        }
-    }
-
-    // ─── Subject row actions (Bulk) ─────────────────────────────────────────────
-    public function addBulkSubject(): void
-    {
-        $this->bulkSubjects[] = [
-            'subject_id' => '', 'subject_name' => '',
-            'exam_date'  => now()->addDays(7)->format('Y-m-d'),
-            'exam_time'  => '09:00', 'exam_duration' => '3 Hours', 'status' => 'eligible',
-        ];
-    }
-
-    public function removeBulkSubject(int $index): void
-    {
-        if (count($this->bulkSubjects) > 1) {
-            unset($this->bulkSubjects[$index]);
-            $this->bulkSubjects = array_values($this->bulkSubjects);
-        }
-    }
-
-    public function syncBulkSubjectName(int $index): void
-    {
-        $id = $this->bulkSubjects[$index]['subject_id'] ?? null;
-        if ($id) {
-            $sub = Subject::find($id);
-            if ($sub) $this->bulkSubjects[$index]['subject_name'] = $sub->name;
-        }
-    }
-
-    // ─── Subject row actions (Edit) ─────────────────────────────────────────────
-    public function addEditSubject(): void
-    {
-        $this->editSubjects[] = [
-            'subject_id' => '', 'subject_name' => '',
-            'exam_date'  => now()->addDays(7)->format('Y-m-d'),
-            'exam_time'  => '09:00', 'exam_duration' => '3 Hours', 'status' => 'eligible',
-        ];
-    }
-
-    public function removeEditSubject(int $index): void
-    {
-        if (count($this->editSubjects) > 1) {
-            unset($this->editSubjects[$index]);
-            $this->editSubjects = array_values($this->editSubjects);
-        }
-    }
-
-    public function syncEditSubjectName(int $index): void
-    {
-        $id = $this->editSubjects[$index]['subject_id'] ?? null;
-        if ($id) {
-            $sub = Subject::find($id);
-            if ($sub) $this->editSubjects[$index]['subject_name'] = $sub->name;
-        }
-    }
-
-    // ─── Student selection (Issue Modal) ────────────────────────────────────────
-    public function toggleIssueStudent(int $id): void
-    {
-        if (in_array($id, $this->issueStudents)) {
-            $this->issueStudents = array_values(array_diff($this->issueStudents, [$id]));
-        } else {
-            $this->issueStudents[] = $id;
-        }
-    }
-
-    public function selectAllIssueStudents(): void
-    {
-        $this->issueStudents = $this->issueAvailableStudents->pluck('id')->toArray();
-    }
-
-    public function deselectAllIssueStudents(): void
-    {
-        $this->issueStudents = [];
-    }
-
-    // ─── Issue Modal Open/Close ──────────────────────────────────────────────────
-    public function openIssueModal(): void
-    {
-        $this->showIssueModal     = true;
-        $this->issueExam          = '';
-        $this->issueStandard      = '';
-        $this->issueSection       = '';
-        $this->issueStudents      = [];
-        $this->issueSubjects      = $this->defaultSubjectRow();
-        $this->issueInstructions  = '';
-        $this->issueReportingTime = '08:30';
-    }
-
-    public function closeIssueModal(): void
-    {
-        $this->showIssueModal = false;
+        $this->showGenerateModal = false;
         $this->resetValidation();
     }
 
-    // ─── Issue Admit Cards ───────────────────────────────────────────────────────
-    public function issueAdmitCards(): void
+    public function updatedGenStandard(): void
+    {
+        $this->genSection = '';
+    }
+
+    public function generateAdmitCards(): void
     {
         $this->validate([
-            'issueExam'          => 'required|exists:exams,id',
-            'issueStandard'      => 'required|exists:standards,id',
-            'issueStudents'      => 'required|array|min:1',
-            'issueSubjects'      => 'required|array|min:1',
-            'issueSubjects.*.subject_id'    => 'required|exists:subjects,id',
-            'issueSubjects.*.subject_name'  => 'required|string',
-            'issueSubjects.*.exam_date'     => 'required|date',
-            'issueSubjects.*.exam_time'     => 'required',
-            'issueSubjects.*.exam_duration' => 'required|string',
+            'genExam'       => 'required|exists:exams,id',
+            'genStandard'   => 'required|exists:standards,id',
+            'genPercentage' => 'required_unless:genCriteria,none|integer|min:1|max:100',
+        ], [], [
+            'genExam'       => 'exam',
+            'genStandard'   => 'class',
+            'genPercentage' => 'percentage',
         ]);
 
         try {
-            $org      = Auth::user()->organization;
-            $exam     = Exam::findOrFail($this->issueExam);
+            $exam = Exam::findOrFail($this->genExam);
+
             $students = StudentDetail::with(['standard', 'section'])
-                ->whereIn('id', $this->issueStudents)->get();
+                ->where('organization_id', $this->orgId())
+                ->where('standard_id', $this->genStandard)
+                ->when($this->genSection, fn ($q) => $q->where('section_id', $this->genSection))
+                ->whereDoesntHave('admitCards', fn ($q) => $q->where('exam_id', $this->genExam))
+                ->get();
 
-            $generated = 0;
-            foreach ($students as $student) {
-                if (ModelAdmitCard::where('student_detail_id', $student->id)
-                    ->where('exam_id', $this->issueExam)->exists()) continue;
-
-                $card = ModelAdmitCard::create([
-                    'student_detail_id'   => $student->id,
-                    'exam_id'             => $this->issueExam,
-                    'organization_id'     => $org->id,
-                    'admit_card_number'   => ModelAdmitCard::generateAdmitCardNumber($org->id, $this->issueExam),
-                    'student_name'        => $student->full_name,
-                    'father_name'         => $student->father_name,
-                    'mother_name'         => $student->mother_name,
-                    'roll_number'         => $student->roll_no ?? 'N/A',
-                    'standard_id'         => $student->standard_id,
-                    'section_id'          => $student->section_id,
-                    'exam_name'           => $exam->exam_name,
-                    'academic_year'       => $exam->academic_year,
-                    'reporting_time'      => $this->issueReportingTime,
-                    'exam_center'         => '',
-                    'exam_center_address' => '',
-                    'instructions'        => $this->issueInstructions,
-                    'allowed_items'       => [],
-                    'prohibited_items'    => [],
-                    'subjects'            => $this->issueSubjects,
-                    'status'              => 'active',
-                    'issue_date'          => now(),
-                    'created_by'          => Auth::id(),
-                ]);
-                $generated++;
-            }
-
-            $this->closeIssueModal();
-            $this->notification()->success('Success!', "Issued {$generated} admit card(s) successfully!");
-            $this->resetPage();
-        } catch (\Exception $e) {
-            $this->notification()->error('Error!', 'Failed: ' . $e->getMessage());
-        }
-    }
-
-    // ─── Bulk Screen Open/Close ──────────────────────────────────────────────────
-    public function openBulkScreen(): void
-    {
-        $this->showBulkScreen    = true;
-        $this->bulkExam          = '';
-        $this->bulkStandard      = '';
-        $this->bulkSection       = '';
-        $this->bulkGenerateType  = 'attendance';
-        $this->bulkPercentage    = 75;
-        $this->bulkSubjects      = $this->defaultSubjectRow();
-        $this->bulkInstructions  = '';
-        $this->bulkReportingTime = '08:30';
-    }
-
-    public function closeBulkScreen(): void
-    {
-        $this->showBulkScreen = false;
-        $this->resetValidation();
-    }
-
-    // ─── Bulk Generate ───────────────────────────────────────────────────────────
-    public function bulkGenerateAdmitCards(): void
-    {
-        $this->validate([
-            'bulkExam'          => 'required|exists:exams,id',
-            'bulkStandard'      => 'required|exists:standards,id',
-            'bulkPercentage'    => 'required_unless:bulkGenerateType,none|integer|min:1|max:100',
-            'bulkSubjects'      => 'required|array|min:1',
-            'bulkSubjects.*.subject_id'    => 'required|exists:subjects,id',
-            'bulkSubjects.*.subject_name'  => 'required|string',
-            'bulkSubjects.*.exam_date'     => 'required|date',
-            'bulkSubjects.*.exam_time'     => 'required',
-            'bulkSubjects.*.exam_duration' => 'required|string',
-        ]);
-
-        try {
-            $org  = Auth::user()->organization;
-            $exam = Exam::findOrFail($this->bulkExam);
-
-            $studentQuery = StudentDetail::with(['standard', 'section'])
-                ->where('organization_id', $org->id)
-                ->where('standard_id', $this->bulkStandard)
-                ->when($this->bulkSection, fn($q) => $q->where('section_id', $this->bulkSection))
-                ->whereDoesntHave('admitCards', fn($q) => $q->where('exam_id', $this->bulkExam));
-
-            $students = $studentQuery->get();
-
-            // Filter by criteria
             $eligible = $students->filter(function ($student) {
-                if ($this->bulkGenerateType === 'none') {
-                    return true;
-                }
-                if ($this->bulkGenerateType === 'attendance') {
-                    return $this->meetsAttendanceCriteria($student->id);
-                }
-                return $this->meetsFeeCriteria($student);
+                return match ($this->genCriteria) {
+                    'attendance' => $this->meetsAttendanceCriteria($student->id),
+                    'fee'        => $this->meetsFeeCriteria($student),
+                    default      => true,
+                };
             });
 
             $generated = 0;
             foreach ($eligible as $student) {
-                ModelAdmitCard::create([
-                    'student_detail_id'   => $student->id,
-                    'exam_id'             => $this->bulkExam,
-                    'organization_id'     => $org->id,
-                    'admit_card_number'   => ModelAdmitCard::generateAdmitCardNumber($org->id, $this->bulkExam),
-                    'student_name'        => $student->full_name,
-                    'father_name'         => $student->father_name,
-                    'mother_name'         => $student->mother_name,
-                    'roll_number'         => $student->roll_no ?? 'N/A',
-                    'standard_id'         => $student->standard_id,
-                    'section_id'          => $student->section_id,
-                    'exam_name'           => $exam->exam_name,
-                    'academic_year'       => $exam->academic_year,
-                    'reporting_time'      => $this->bulkReportingTime,
-                    'exam_center'         => '',
-                    'exam_center_address' => '',
-                    'instructions'        => $this->bulkInstructions,
-                    'allowed_items'       => [],
-                    'prohibited_items'    => [],
-                    'subjects'            => $this->bulkSubjects,
-                    'status'              => 'active',
-                    'issue_date'          => now(),
-                    'created_by'          => Auth::id(),
-                ]);
-                $generated++;
+                if ($this->createCardFor($student, $exam)) {
+                    $generated++;
+                }
             }
 
-            $skipped = $students->count() - $eligible->count();
-            $this->closeBulkScreen();
-            $this->notification()->success('Success!', "Generated {$generated} admit cards. {$skipped} skipped (below {$this->bulkPercentage}%).");
+            $skipped = $students->count() - $generated;
+            $this->closeGenerateModal();
+            $this->notification()->success('Done!', "Issued {$generated} admit card(s)." . ($skipped > 0 ? " {$skipped} did not meet the criteria." : ''));
             $this->resetPage();
         } catch (\Exception $e) {
             $this->notification()->error('Error!', 'Failed: ' . $e->getMessage());
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  ISSUE A SINGLE STUDENT (from the listing)
+    // ═══════════════════════════════════════════════════════════════════════════
+    public function issueOne(int $studentId): void
+    {
+        if (!$this->examFilter) {
+            $this->notification()->error('Pick an exam', 'Select an exam in the filter first.');
+            return;
+        }
+
+        try {
+            $exam    = Exam::where('organization_id', $this->orgId())->findOrFail($this->examFilter);
+            $student = StudentDetail::where('organization_id', $this->orgId())->findOrFail($studentId);
+
+            if ($this->createCardFor($student, $exam)) {
+                $this->notification()->success('Issued!', "Admit card issued for {$student->full_name}.");
+            } else {
+                $this->notification()->info('Already issued', 'This student already has an admit card for this exam.');
+            }
+        } catch (\Exception $e) {
+            $this->notification()->error('Error!', $e->getMessage());
+        }
+    }
+
+    /**
+     * Create one admit card, pulling the subject schedule from the exam datesheet.
+     * Seat / room are resolved live from the seating plan at print time.
+     */
+    private function createCardFor(StudentDetail $student, Exam $exam): bool
+    {
+        if (ModelAdmitCard::where('student_detail_id', $student->id)->where('exam_id', $exam->id)->exists()) {
+            return false;
+        }
+
+        $subjects = $this->subjectsFromDatesheet($exam->id, (int) $student->standard_id, $student->section_id ? (int) $student->section_id : null);
+
+        ModelAdmitCard::create([
+            'student_detail_id'   => $student->id,
+            'exam_id'             => $exam->id,
+            'organization_id'     => $this->orgId(),
+            'admit_card_number'   => ModelAdmitCard::generateAdmitCardNumber($this->orgId(), $exam->id),
+            'student_name'        => $student->full_name,
+            'father_name'         => $student->father_name,
+            'mother_name'         => $student->mother_name,
+            'roll_number'         => $student->roll_no ?? 'N/A',
+            'standard_id'         => $student->standard_id,
+            'section_id'          => $student->section_id,
+            'exam_name'           => $exam->exam_name,
+            'academic_year'       => $exam->academic_year,
+            'reporting_time'      => null,
+            'exam_center'         => '',
+            'exam_center_address' => '',
+            'instructions'        => '',
+            'allowed_items'       => [],
+            'prohibited_items'    => [],
+            'subjects'            => $subjects,
+            'status'              => 'active',
+            'issue_date'          => now(),
+            'created_by'          => Auth::id(),
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Build the admit-card subject rows from the exam datesheet for this class.
+     * Prefers a section-specific datesheet, then a class-wide one; falls back to
+     * the class's mapped subjects (no schedule) if no datesheet exists yet.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function subjectsFromDatesheet(int $examId, int $standardId, ?int $sectionId): array
+    {
+        $base = ExamDatesheet::with('papers.subject')
+            ->where('organization_id', $this->orgId())
+            ->where('exam_id', $examId)
+            ->where('standard_id', $standardId);
+
+        $ds = null;
+        if ($sectionId) {
+            $ds = (clone $base)->where('section_id', $sectionId)->first();
+        }
+        $ds ??= (clone $base)->whereNull('section_id')->first()
+            ?? (clone $base)->first();
+
+        if ($ds && $ds->papers->isNotEmpty()) {
+            return $ds->papers->map(fn ($p) => [
+                'subject_id'    => (string) $p->subject_id,
+                'subject_name'  => $p->subject->name ?? '',
+                'exam_date'     => optional($p->exam_date)->format('Y-m-d') ?? '',
+                'exam_time'     => $p->start_time ? Carbon::parse($p->start_time)->format('H:i') : '',
+                'exam_end_time' => $p->end_time ? Carbon::parse($p->end_time)->format('H:i') : '',
+                'exam_duration' => $this->durationLabel($p->start_time, $p->end_time),
+                'shift'         => $p->shift,
+                'status'        => 'eligible',
+            ])->values()->toArray();
+        }
+
+        // Fallback — list the class's subjects with a blank schedule.
+        $q = SectionSubject::where('organization_id', $this->orgId())->where('standard_id', $standardId);
+        if ($sectionId) {
+            $q->where('section_id', $sectionId);
+        }
+        $subjects = Subject::whereIn('id', $q->pluck('subject_id')->unique())
+            ->where('is_active', true)->orderBy('id')->get();
+
+        return $subjects->map(fn ($s) => [
+            'subject_id'    => (string) $s->id,
+            'subject_name'  => $s->name,
+            'exam_date'     => '',
+            'exam_time'     => '',
+            'exam_end_time' => '',
+            'exam_duration' => '',
+            'shift'         => 1,
+            'status'        => 'eligible',
+        ])->toArray();
+    }
+
+    private function durationLabel($start, $end): string
+    {
+        if (!$start || !$end) {
+            return '';
+        }
+        try {
+            $mins = Carbon::parse($end)->diffInMinutes(Carbon::parse($start));
+            if ($mins <= 0) {
+                return '';
+            }
+            $h = intdiv($mins, 60);
+            $m = $mins % 60;
+            $label = $h ? $h . ($h === 1 ? ' Hour' : ' Hours') : '';
+            return trim($label . ($m ? " {$m} Min" : ''));
+        } catch (\Throwable $e) {
+            return '';
         }
     }
 
     private function meetsAttendanceCriteria(int $studentId): bool
     {
-        $total   = StudentAttendance::where('student_detail_id', $studentId)->count();
-        if ($total === 0) return true;
+        $total = StudentAttendance::where('student_detail_id', $studentId)->count();
+        if ($total === 0) {
+            return true;
+        }
         $present = StudentAttendance::where('student_detail_id', $studentId)->where('status', 1)->count();
-        return ($present / $total * 100) >= $this->bulkPercentage;
+        return ($present / $total * 100) >= $this->genPercentage;
     }
 
     private function meetsFeeCriteria(StudentDetail $student): bool
@@ -452,7 +304,7 @@ class AdmitCard extends Component
         $structures = FeeStructure::where('organization_id', $this->orgId())
             ->where('is_active', true)
             ->where('standard_id', $student->standard_id)
-            ->where(fn($q) => $q->whereNull('section_id')->orWhere('section_id', $student->section_id))
+            ->where(fn ($q) => $q->whereNull('section_id')->orWhere('section_id', $student->section_id))
             ->get();
 
         $academic  = $structures->where('fee_type', 'academic')->sum('amount');
@@ -461,102 +313,61 @@ class AdmitCard extends Component
             : 0;
         $totalFee = $academic + $transport;
 
-        if ($totalFee <= 0) return true;
+        if ($totalFee <= 0) {
+            return true;
+        }
 
         $paid = FeePayment::where('organization_id', $this->orgId())
             ->where('student_detail_id', $student->id)
             ->sum('amount');
 
-        return ($paid / $totalFee * 100) >= $this->bulkPercentage;
+        return ($paid / $totalFee * 100) >= $this->genPercentage;
     }
 
-    // ─── Edit Modal ──────────────────────────────────────────────────────────────
-    public function openEditModal(int $id): void
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  PRINT-SELECTION MODAL
+    // ═══════════════════════════════════════════════════════════════════════════
+    public function openPrintModal(): void
     {
-        $card = ModelAdmitCard::with(['studentDetail'])->findOrFail($id);
-
-        $this->editCardId              = $id;
-        $this->editAdmitCardNumber     = $card->admit_card_number;
-        $this->editStudentId           = $card->student_detail_id;
-        $this->editStudentSearch       = $card->studentDetail?->full_name . ' (' . $card->studentDetail?->admission_no . ')';
-        $this->editExamId              = (string) $card->exam_id;
-        $this->editRollNumber          = $card->roll_number;
-        $this->editExamRollNumber      = $card->exam_roll_number ?? '';
-        $this->editReportingTime       = $card->reporting_time?->format('H:i') ?? '08:30';
-        $this->editExamCenter          = $card->exam_center ?? '';
-        $this->editExamCenterAddress   = $card->exam_center_address ?? '';
-        $this->editSeatNumber          = $card->seat_number ?? '';
-        $this->editRoomNumber          = $card->room_number ?? '';
-        $this->editInstructions        = $card->instructions ?? '';
-        $this->editStatus              = $card->status;
-        $this->editSubjects            = !empty($card->subjects) ? $card->subjects : $this->defaultSubjectRow();
-        $this->showEditModal           = true;
-    }
-
-    public function closeEditModal(): void
-    {
-        $this->showEditModal = false;
-        $this->editCardId    = null;
-        $this->resetValidation();
-    }
-
-    public function saveEditCard(): void
-    {
-        $this->validate([
-            'editAdmitCardNumber' => 'required|string|max:50|unique:admit_cards,admit_card_number,' . $this->editCardId,
-            'editRollNumber'      => 'required|string|max:50',
-            'editStatus'          => 'required|in:active,inactive,used',
-            'editSubjects'        => 'required|array|min:1',
-            'editSubjects.*.subject_id'    => 'required|exists:subjects,id',
-            'editSubjects.*.subject_name'  => 'required|string',
-            'editSubjects.*.exam_date'     => 'required|date',
-            'editSubjects.*.exam_time'     => 'required',
-            'editSubjects.*.exam_duration' => 'required|string',
-        ]);
-
-        try {
-            ModelAdmitCard::findOrFail($this->editCardId)->update([
-                'admit_card_number'   => $this->editAdmitCardNumber,
-                'roll_number'         => $this->editRollNumber,
-                'exam_roll_number'    => $this->editExamRollNumber ?: null,
-                'reporting_time'      => $this->editReportingTime,
-                'exam_center'         => $this->editExamCenter,
-                'exam_center_address' => $this->editExamCenterAddress,
-                'seat_number'         => $this->editSeatNumber ?: null,
-                'room_number'         => $this->editRoomNumber ?: null,
-                'instructions'        => $this->editInstructions,
-                'status'              => $this->editStatus,
-                'subjects'            => $this->editSubjects,
-                'updated_by'          => Auth::id(),
-            ]);
-
-            $this->closeEditModal();
-            $this->notification()->success('Updated!', 'Admit card updated successfully.');
-        } catch (\Exception $e) {
-            $this->notification()->error('Error!', $e->getMessage());
+        if (!$this->examFilter || !$this->standardFilter) {
+            $this->notification()->error('Pick exam & class', 'Select an exam and a class in the filter first.');
+            return;
         }
+        $this->printSelected  = $this->printableCards->pluck('id')->map(fn ($id) => (string) $id)->toArray();
+        $this->showPrintModal = true;
     }
 
-    // ─── Edit student search ─────────────────────────────────────────────────────
-    #[\Livewire\Attributes\Computed]
-    public function editStudentSuggestions()
+    public function closePrintModal(): void
     {
-        if (strlen($this->editStudentSearch) < 2) return collect();
-        return StudentDetail::where('organization_id', $this->orgId())
-            ->where(fn($q) => $q->where('full_name', 'like', '%' . $this->editStudentSearch . '%')
-                ->orWhere('admission_no', 'like', '%' . $this->editStudentSearch . '%'))
-            ->limit(8)->get();
+        $this->showPrintModal = false;
     }
 
-    public function selectEditStudent(int $id): void
+    public function selectAllPrint(): void
     {
-        $s = StudentDetail::findOrFail($id);
-        $this->editStudentId     = $id;
-        $this->editStudentSearch = $s->full_name . ' (' . $s->admission_no . ')';
-        $this->editRollNumber    = $s->roll_no ?? '';
+        $this->printSelected = $this->printableCards->pluck('id')->map(fn ($id) => (string) $id)->toArray();
     }
 
-    // ─── Delete ─────────────────────────────────────────────────────────────────
+    public function deselectAllPrint(): void
+    {
+        $this->printSelected = [];
+    }
+
+    public function printSelectedCards(): void
+    {
+        $ids = array_filter($this->printSelected);
+        if (empty($ids)) {
+            $this->notification()->error('Nothing selected', 'Select at least one student to print.');
+            return;
+        }
+
+        $url = route('admin.admit-card.print-all', $this->orgSlug()) . '?' . http_build_query(['ids' => implode(',', $ids)]);
+        $this->showPrintModal = false;
+        $this->dispatch('open-in-new-tab', url: $url);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  DELETE
+    // ═══════════════════════════════════════════════════════════════════════════
     public function confirmDelete(int $id): void
     {
         $this->pendingDeleteId = $id;
@@ -575,7 +386,7 @@ class AdmitCard extends Component
             ModelAdmitCard::where('id', $this->pendingDeleteId)
                 ->where('organization_id', $this->orgId())
                 ->delete();
-            $this->notification()->success('Deleted!', 'Admit card deleted.');
+            $this->notification()->success('Deleted!', 'Admit card removed — student is back in the not-issued list.');
         } catch (\Exception $e) {
             $this->notification()->error('Error!', $e->getMessage());
         } finally {
@@ -583,30 +394,26 @@ class AdmitCard extends Component
         }
     }
 
-    // ─── Reset Filters ───────────────────────────────────────────────────────────
-    public function resetFilters(): void
-    {
-        $this->reset(['search', 'examFilter', 'standardFilter', 'sectionFilter', 'statusFilter']);
-        $this->resetPage();
-    }
-
-    // ─── Computed: Analytics ────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  COMPUTED
+    // ═══════════════════════════════════════════════════════════════════════════
     #[\Livewire\Attributes\Computed]
     public function analytics(): array
     {
         $orgId = $this->orgId();
 
-        $cardQuery = ModelAdmitCard::where('organization_id', $orgId);
-        if ($this->examFilter)     $cardQuery->where('exam_id', $this->examFilter);
-        if ($this->standardFilter) $cardQuery->where('standard_id', $this->standardFilter);
-        if ($this->sectionFilter)  $cardQuery->where('section_id', $this->sectionFilter);
-
-        $issued = (clone $cardQuery)->count();
-
         $studentQuery = StudentDetail::where('organization_id', $orgId);
         if ($this->standardFilter) $studentQuery->where('standard_id', $this->standardFilter);
         if ($this->sectionFilter)  $studentQuery->where('section_id', $this->sectionFilter);
         $total = $studentQuery->count();
+
+        $issued = 0;
+        if ($this->examFilter) {
+            $cardQuery = ModelAdmitCard::where('organization_id', $orgId)->where('exam_id', $this->examFilter);
+            if ($this->standardFilter) $cardQuery->where('standard_id', $this->standardFilter);
+            if ($this->sectionFilter)  $cardQuery->where('section_id', $this->sectionFilter);
+            $issued = $cardQuery->count();
+        }
 
         return [
             'total'     => $total,
@@ -615,12 +422,11 @@ class AdmitCard extends Component
         ];
     }
 
-    // ─── Computed: Exams & Standards ────────────────────────────────────────────
     #[\Livewire\Attributes\Computed]
     public function exams()
     {
         return Exam::where('organization_id', $this->orgId())
-            ->where('is_published', true)->orderByDesc('start_date')->get();
+            ->orderByDesc('start_date')->get();
     }
 
     #[\Livewire\Attributes\Computed]
@@ -638,81 +444,65 @@ class AdmitCard extends Component
     }
 
     #[\Livewire\Attributes\Computed]
-    public function issueSections()
+    public function genSections()
     {
-        if (!$this->issueStandard) return collect();
-        return Section::where('standard_id', $this->issueStandard)
+        if (!$this->genStandard) return collect();
+        return Section::where('standard_id', $this->genStandard)
             ->where('organization_id', $this->orgId())->orderBy('id')->get();
     }
 
+    /** Issued cards for the current exam + class (+ section) — used by print modal. */
     #[\Livewire\Attributes\Computed]
-    public function bulkSections()
+    public function printableCards()
     {
-        if (!$this->bulkStandard) return collect();
-        return Section::where('standard_id', $this->bulkStandard)
-            ->where('organization_id', $this->orgId())->orderBy('id')->get();
-    }
-
-    // ─── Computed: Available students for Issue Modal ────────────────────────────
-    #[\Livewire\Attributes\Computed]
-    public function issueAvailableStudents()
-    {
-        if (!$this->issueExam || !$this->issueStandard) return collect();
-
-        return StudentDetail::with(['standard', 'section'])
+        if (!$this->examFilter || !$this->standardFilter) return collect();
+        return ModelAdmitCard::with('studentDetail:id,full_name,admission_no')
             ->where('organization_id', $this->orgId())
-            ->where('standard_id', $this->issueStandard)
-            ->when($this->issueSection, fn($q) => $q->where('section_id', $this->issueSection))
-            ->whereDoesntHave('admitCards', fn($q) => $q->where('exam_id', $this->issueExam))
-            ->orderBy('full_name')
+            ->where('exam_id', $this->examFilter)
+            ->where('standard_id', $this->standardFilter)
+            ->when($this->sectionFilter, fn ($q) => $q->where('section_id', $this->sectionFilter))
+            ->orderBy('roll_number')
             ->get();
     }
 
-    // ─── Computed: All subjects for org ─────────────────────────────────────────
-    #[\Livewire\Attributes\Computed]
-    public function allSubjects()
-    {
-        return Subject::where('organization_id', $this->orgId())
-            ->where('is_active', true)->orderBy('id')->get();
-    }
-
-    // ─── Print All URL ────────────────────────────────────────────────────────────
-    public function getPrintAllUrl(): string
-    {
-        $org    = Auth::user()->organization;
-        $slug   = $org->serial_number ?? $org->id;
-        $base   = route('admin.admit-card.print-all', $slug);
-        $params = array_filter([
-            'exam_id'     => $this->examFilter,
-            'standard_id' => $this->standardFilter,
-            'section_id'  => $this->sectionFilter,
-        ]);
-        return $params ? $base . '?' . http_build_query($params) : $base;
-    }
-
-    // ─── Render ─────────────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  RENDER
+    // ═══════════════════════════════════════════════════════════════════════════
     public function render()
     {
-        $admitCards = ModelAdmitCard::with([
-            'studentDetail.standard',
-            'studentDetail.section',
-            'exam',
-        ])
-            ->where('organization_id', $this->orgId())
-            ->when($this->search, fn($q) => $q->where(fn($s) =>
-                $s->where('admit_card_number', 'like', "%{$this->search}%")
-                  ->orWhere('student_name', 'like', "%{$this->search}%")
-                  ->orWhere('roll_number', 'like', "%{$this->search}%")
-            ))
-            ->when($this->examFilter,     fn($q) => $q->where('exam_id', $this->examFilter))
-            ->when($this->standardFilter, fn($q) => $q->where('standard_id', $this->standardFilter))
-            ->when($this->sectionFilter,  fn($q) => $q->where('section_id', $this->sectionFilter))
-            ->when($this->statusFilter,   fn($q) => $q->where('status', $this->statusFilter))
-            ->latest()
-            ->paginate($this->perPage);
+        $org       = Auth::user()->organization;
+        $ready     = $this->examFilter && $this->standardFilter;
+        $students  = null;
+        $issued    = collect();
 
-        $org = Auth::user()->organization;
+        if ($ready) {
+            $students = StudentDetail::with(['standard:id,name', 'section:id,name'])
+                ->where('organization_id', $this->orgId())
+                ->where('standard_id', $this->standardFilter)
+                ->when($this->sectionFilter, fn ($q) => $q->where('section_id', $this->sectionFilter))
+                ->when($this->search, fn ($q) => $q->where(fn ($s) =>
+                    $s->where('full_name', 'like', "%{$this->search}%")
+                      ->orWhere('roll_no', 'like', "%{$this->search}%")
+                      ->orWhere('admission_no', 'like', "%{$this->search}%")
+                ))
+                ->when($this->statusFilter === 'issued', fn ($q) =>
+                    $q->whereHas('admitCards', fn ($a) => $a->where('exam_id', $this->examFilter)))
+                ->when($this->statusFilter === 'not_issued', fn ($q) =>
+                    $q->whereDoesntHave('admitCards', fn ($a) => $a->where('exam_id', $this->examFilter)))
+                ->orderByRaw('CAST(roll_no AS UNSIGNED), roll_no')
+                ->paginate($this->perPage);
 
-        return view('livewire.admin.admit-card', compact('admitCards', 'org'));
+            $issued = ModelAdmitCard::where('organization_id', $this->orgId())
+                ->where('exam_id', $this->examFilter)
+                ->whereIn('student_detail_id', collect($students->items())->pluck('id'))
+                ->get()->keyBy('student_detail_id');
+        }
+
+        return view('livewire.admin.admit-card', [
+            'students' => $students,
+            'issued'   => $issued,
+            'ready'    => $ready,
+            'org'      => $org,
+        ]);
     }
 }

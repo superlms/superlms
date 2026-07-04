@@ -162,5 +162,7 @@ Route::middleware(['auth:web', 'admin', 'module'])->group(function () {
             ->name('admin.admit-card.download');
         Route::get('/admit-card/print-all', [\App\Http\Controllers\Admin\AdmitCardController::class, 'printAll'])
             ->name('admin.admit-card.print-all');
+        Route::post('/admit-card/{id}/delete', [\App\Http\Controllers\Admin\AdmitCardController::class, 'destroy'])
+            ->name('admin.admit-card.destroy');
     });
 });
