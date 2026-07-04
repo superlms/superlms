@@ -37,6 +37,7 @@ class Attendance extends Component
     public string $tMonth = '';                // by_month + by_teacher(monthly)
     public $tYear         = '';                // by_teacher(yearly)
     public string $tRange = 'monthly';         // by_teacher: monthly | yearly
+    public string $tByDateStatus = '';         // by_date: '' | present | absent | half_day | holiday | not_marked
     public array  $teacherMark = [];           // [teacher_detail_id => ['status','remark']]
 
     // ── Student (shared selectors across its views) ─────────────────────────
@@ -59,6 +60,7 @@ class Attendance extends Component
     public ?int $pendingDeleteAssignId = null;
 
     // ── Class Teachers tab filters ───────────────────────────────────────────
+    public string $ctMode    = 'by_class';     // by_class | by_teacher
     public $ctFilterStandard = '';
     public $ctFilterSection  = '';
     public $ctFilterTeacher  = '';
@@ -375,6 +377,12 @@ class Attendance extends Component
 
     public function updatedCtFilterStandard(): void { $this->ctFilterSection = ''; }
 
+    /** Switching between the "By Class" and "By Teacher" lookup methods resets the filters. */
+    public function updatedCtMode(): void
+    {
+        $this->clearCtFilters();
+    }
+
     public function clearCtFilters(): void
     {
         $this->ctFilterStandard = '';
@@ -512,6 +520,11 @@ class Attendance extends Component
                 ];
             });
             $tByDateStats = $this->tallyLabels($tByDateRows->pluck('status'));
+            // Present/absent (etc.) filter narrows the displayed rows; the stats
+            // above stay computed on the full list so the totals remain meaningful.
+            if ($this->tByDateStatus !== '') {
+                $tByDateRows = $tByDateRows->where('status', $this->tByDateStatus)->values();
+            }
         }
 
         // ── Teacher: by month (calendar for a teacher) ──

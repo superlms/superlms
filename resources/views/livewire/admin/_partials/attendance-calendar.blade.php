@@ -1,5 +1,8 @@
-{{-- Monthly attendance calendar + totals. Expects $calendar = ['weeks'=>[], 'totals'=>[]] --}}
+{{-- Monthly attendance calendar + totals. Expects $calendar = ['weeks'=>[], 'totals'=>[]].
+     $compact (optional): when true, render a slim inline present/absent summary inside
+     the calendar card instead of the big analytics-card grid + legend. --}}
 @php
+    $compact = $compact ?? false;
     $t = $calendar['totals'];
     // Percent is provided by the admin builder; fall back for callers (Accounts)
     // whose totals only carry working/present/half counts.
@@ -9,6 +12,61 @@
             : 0
     );
 @endphp
+
+@if ($compact)
+    {{-- ── Compact month card: small inline analytics + calendar ── --}}
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm">
+            <span class="font-semibold text-gray-700 mr-1">This month</span>
+            <span class="text-emerald-600">Present <strong>{{ $t['present_days'] ?? 0 }}</strong></span>
+            <span class="text-red-600">Absent <strong>{{ $t['absent_days'] ?? 0 }}</strong></span>
+            <span class="text-amber-600">Half <strong>{{ $t['half_days'] ?? 0 }}</strong></span>
+            <span class="text-indigo-600">Holiday <strong>{{ $t['holidays'] ?? 0 }}</strong></span>
+            <span class="text-gray-500 ml-auto">Working <strong>{{ $t['working_days'] ?? 0 }}</strong> · <strong class="text-gray-800">{{ $calPercent }}%</strong></span>
+        </div>
+        <div class="p-4 overflow-x-auto">
+            <table class="w-full min-w-[560px] border-collapse">
+                <thead>
+                    <tr>
+                        @foreach (['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $dow)
+                            <th class="text-xs font-semibold text-gray-400 uppercase pb-2 text-center">{{ $dow }}</th>
+                        @endforeach
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($calendar['weeks'] as $week)
+                        <tr>
+                            @foreach ($week as $cell)
+                                <td class="p-1 align-top">
+                                    @if ($cell)
+                                        @php
+                                            $cls = match ($cell['status']) {
+                                                'present'  => 'bg-emerald-50 border-emerald-200 text-emerald-700',
+                                                'absent'   => 'bg-red-50 border-red-200 text-red-700',
+                                                'half_day' => 'bg-amber-50 border-amber-200 text-amber-700',
+                                                'holiday'  => 'bg-indigo-50 border-indigo-200 text-indigo-700',
+                                                default    => 'bg-gray-50 border-gray-200 text-gray-300',
+                                            };
+                                            $label = match ($cell['status']) {
+                                                'present'  => 'P', 'absent' => 'A', 'half_day' => 'HD', 'holiday' => 'H', default => '·',
+                                            };
+                                        @endphp
+                                        <div class="h-16 rounded-lg border {{ $cls }} flex flex-col items-center justify-center">
+                                            <span class="text-sm font-bold">{{ $cell['day'] }}</span>
+                                            <span class="text-[10px] font-semibold uppercase">{{ $label }}</span>
+                                        </div>
+                                    @else
+                                        <div class="h-16"></div>
+                                    @endif
+                                </td>
+                            @endforeach
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+@else
 <div class="space-y-5">
     {{-- Totals --}}
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -94,3 +152,4 @@
         </table>
     </div>
 </div>
+@endif
