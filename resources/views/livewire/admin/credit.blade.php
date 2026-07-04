@@ -52,30 +52,6 @@
 
             {{-- ════════ QUERIES TAB ════════ --}}
             @if ($activeTab === 'queries')
-                <div class="px-5 py-3 border-b border-gray-100 bg-gray-50">
-                    <div class="flex flex-wrap items-center gap-3">
-                        <div class="relative flex-1 min-w-[200px] max-w-sm">
-                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
-                                fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                            </svg>
-                            <input wire:model.live.debounce.300ms="search" type="text"
-                                placeholder="Search heading, reason..."
-                                class="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg
-                                       focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
-                        </div>
-                        <select wire:model.live="statusFilter"
-                            class="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500">
-                            <option value="">All Status</option>
-                            <option value="pending">Pending</option>
-                            <option value="processing">Processing</option>
-                            <option value="approved">Approved</option>
-                            <option value="denied">Denied</option>
-                        </select>
-                    </div>
-                </div>
-
                 <div class="overflow-x-auto">
                     <table class="w-full">
                         <thead class="bg-gray-50 border-b border-gray-200">
@@ -225,170 +201,160 @@
         </div>
     </div>
 
-    {{-- ══════════ VIEW QUERY MODAL ══════════ --}}
-    <x-view-modal :show="$showViewModal && $selectedQuery !== null"
-        title="Credit Query Details"
-        closeAction="closeViewModal"
-        maxWidth="max-w-2xl">
-
-        @if ($selectedQuery)
-            @php
-                $q = $selectedQuery;
-                $sc = match($q->status) {
-                    'approved'   => 'bg-emerald-50 text-emerald-700 border-emerald-100',
-                    'denied'     => 'bg-red-50 text-red-700 border-red-100',
-                    'processing' => 'bg-blue-50 text-blue-700 border-blue-100',
-                    default      => 'bg-amber-50 text-amber-700 border-amber-100',
-                };
-            @endphp
-
-            <div class="flex items-center justify-between mb-4">
-                <span class="text-xs px-3 py-1 rounded-full font-medium border {{ $sc }}">
-                    {{ ucfirst($q->status) }}
-                </span>
-                <span class="text-xs text-gray-400">{{ $q->created_at->format('d M Y, g:i A') }}</span>
-            </div>
-
-            <div class="bg-gray-50 rounded-xl p-4 mb-4 text-left">
-                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Heading</p>
-                <p class="text-sm font-semibold text-gray-800">{{ $q->heading }}</p>
-                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mt-3 mb-1">Reason</p>
-                <p class="text-sm text-gray-700 whitespace-pre-line">{{ $q->reason }}</p>
-            </div>
-
-            <div class="grid grid-cols-3 gap-3 mb-4">
-                <div class="bg-blue-50 rounded-xl p-3 text-center">
-                    <p class="text-xs text-blue-400 font-medium mb-1">Amount</p>
-                    <p class="text-lg font-bold text-blue-700">₹{{ number_format($q->amount, 0) }}</p>
-                </div>
-                <div class="bg-gray-50 rounded-xl p-3 text-center">
-                    <p class="text-xs text-gray-400 font-medium mb-1">Start Date</p>
-                    <p class="text-sm font-semibold text-gray-700">{{ $q->start_date->format('d M Y') }}</p>
-                </div>
-                <div class="bg-gray-50 rounded-xl p-3 text-center">
-                    <p class="text-xs text-gray-400 font-medium mb-1">End Date</p>
-                    <p class="text-sm font-semibold text-gray-700">{{ $q->end_date->format('d M Y') }}</p>
-                </div>
-            </div>
-
-            @if ($q->status === 'approved')
-                @php $org = auth()->user()->organization; @endphp
-                <div class="border border-emerald-200 bg-emerald-50/50 rounded-xl p-4 mb-4 text-left">
-                    <p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-3">Approval Details</p>
-                    <div class="grid grid-cols-2 gap-2 text-xs text-gray-600">
-                        <div>Penalties/Day: <strong class="text-gray-800">₹{{ number_format($q->penalties_per_day ?? 0, 0) }}</strong></div>
-                        <div>Approved on: <strong class="text-gray-800">{{ $q->approved_at?->format('d M Y') ?? '—' }}</strong></div>
+    {{-- ══════════ VIEW QUERY SLIDE-IN PANEL ══════════ --}}
+    @if ($showViewModal && $selectedQuery)
+        @php
+            $q = $selectedQuery;
+            $sc = match($q->status) {
+                'approved'   => 'bg-emerald-50 text-emerald-700 border-emerald-100',
+                'denied'     => 'bg-red-50 text-red-700 border-red-100',
+                'processing' => 'bg-blue-50 text-blue-700 border-blue-100',
+                default      => 'bg-amber-50 text-amber-700 border-amber-100',
+            };
+        @endphp
+        <div class="fixed inset-0 z-[9999] overflow-hidden">
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeViewModal"></div>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900">Credit Query Details</h2>
+                        <p class="text-xs text-gray-500 mt-0.5 truncate">{{ $q->heading }}</p>
                     </div>
-                </div>
-
-                @if ($org && $org->bank_name)
-                    <div class="border border-gray-200 rounded-xl p-4 mb-4 text-left">
-                        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Your Bank Details on File</p>
-                        <div class="space-y-2">
-                            @foreach([
-                                'Bank'    => $org->bank_name,
-                                'Acc No'  => $org->bank_account_no,
-                                'IFSC'    => $org->bank_ifsc,
-                                'Branch'  => $org->bank_branch,
-                                'Holder'  => $org->bank_holder_name,
-                            ] as $lbl => $val)
-                                <div class="flex gap-4">
-                                    <span class="text-xs text-gray-400 w-20 flex-shrink-0">{{ $lbl }}</span>
-                                    <span class="text-sm font-semibold font-mono text-gray-800">{{ $val ?? '—' }}</span>
-                                </div>
-                            @endforeach
-                        </div>
-                    </div>
-                @endif
-            @endif
-
-            @if ($q->admin_remark)
-                <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-left">
-                    <p class="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-1">Admin Remark</p>
-                    <p class="text-sm text-gray-700">{{ $q->admin_remark }}</p>
-                </div>
-            @endif
-        @endif
-
-        <x-slot:footer>
-            <button wire:click="closeViewModal"
-                class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                Close
-            </button>
-        </x-slot:footer>
-    </x-view-modal>
-
-    {{-- ══════════ ASK / EDIT CREDIT MODAL ══════════ --}}
-    @if ($showCreditModal)
-        <div class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] pointer-events-auto">
-                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-                    <h3 class="text-base font-semibold text-gray-900">
-                        {{ $editQueryId ? 'Edit Credit Query' : 'Ask for Credit' }}
-                    </h3>
-                    <button wire:click="closeCreditModal" class="text-gray-400 hover:text-gray-600 transition-colors">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
+                    <button wire:click="closeViewModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
-                <div class="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs px-3 py-1 rounded-full font-medium border {{ $sc }}">{{ ucfirst($q->status) }}</span>
+                        <span class="text-xs text-gray-400">{{ $q->created_at->format('d M Y, g:i A') }}</span>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-xl border border-gray-100 p-4">
+                        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Heading</p>
+                        <p class="text-sm font-semibold text-gray-800">{{ $q->heading }}</p>
+                        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mt-3 mb-1">Reason</p>
+                        <p class="text-sm text-gray-700 whitespace-pre-line">{{ $q->reason }}</p>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="bg-blue-50 rounded-xl p-3 text-center">
+                            <p class="text-xs text-blue-400 font-medium mb-1">Amount</p>
+                            <p class="text-lg font-bold text-blue-700">₹{{ number_format($q->amount, 0) }}</p>
+                        </div>
+                        <div class="bg-gray-50 rounded-xl p-3 text-center">
+                            <p class="text-xs text-gray-400 font-medium mb-1">Start Date</p>
+                            <p class="text-sm font-semibold text-gray-700">{{ $q->start_date->format('d M Y') }}</p>
+                        </div>
+                        <div class="bg-gray-50 rounded-xl p-3 text-center">
+                            <p class="text-xs text-gray-400 font-medium mb-1">End Date</p>
+                            <p class="text-sm font-semibold text-gray-700">{{ $q->end_date->format('d M Y') }}</p>
+                        </div>
+                    </div>
+
+                    @if ($q->status === 'approved')
+                        @php $org = auth()->user()->organization; @endphp
+                        <div class="border border-emerald-200 bg-emerald-50/50 rounded-xl p-4">
+                            <p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-3">Approval Details</p>
+                            <div class="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                                <div>Penalties/Day: <strong class="text-gray-800">₹{{ number_format($q->penalties_per_day ?? 0, 0) }}</strong></div>
+                                <div>Approved on: <strong class="text-gray-800">{{ $q->approved_at?->format('d M Y') ?? '—' }}</strong></div>
+                            </div>
+                        </div>
+
+                        @if ($org && $org->bank_name)
+                            <div class="border border-gray-200 rounded-xl p-4">
+                                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Your Bank Details on File</p>
+                                <div class="space-y-2">
+                                    @foreach([
+                                        'Bank'    => $org->bank_name,
+                                        'Acc No'  => $org->bank_account_no,
+                                        'IFSC'    => $org->bank_ifsc,
+                                        'Branch'  => $org->bank_branch,
+                                        'Holder'  => $org->bank_holder_name,
+                                    ] as $lbl => $val)
+                                        <div class="flex gap-4">
+                                            <span class="text-xs text-gray-400 w-20 flex-shrink-0">{{ $lbl }}</span>
+                                            <span class="text-sm font-semibold font-mono text-gray-800">{{ $val ?? '—' }}</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+                    @endif
+
+                    @if ($q->admin_remark)
+                        <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+                            <p class="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-1">Admin Remark</p>
+                            <p class="text-sm text-gray-700">{{ $q->admin_remark }}</p>
+                        </div>
+                    @endif
+                </div>
+
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                    <button wire:click="closeViewModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Close</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- ══════════ ASK / EDIT CREDIT SLIDE-IN PANEL ══════════ --}}
+    @if ($showCreditModal)
+        <div class="fixed inset-0 z-[9999] overflow-hidden">
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeCreditModal"></div>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div>
-                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                            Amount Required (₹) <span class="text-red-400">*</span>
-                        </label>
+                        <h2 class="text-lg font-semibold text-gray-900">{{ $editQueryId ? 'Edit Credit Query' : 'Ask for Credit' }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">{{ $editQueryId ? 'Update your pending credit request' : 'Submit a new credit request' }}</p>
+                    </div>
+                    <button wire:click="closeCreditModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Amount Required (₹) <span class="text-red-500">*</span></label>
                         <input wire:model="creditAmount" type="number" min="1" step="1" placeholder="e.g. 50000"
-                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
-                                   focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
+                            class="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500"/>
                         @error('creditAmount') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                                Start Date <span class="text-red-400">*</span>
-                            </label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Start Date <span class="text-red-500">*</span></label>
                             <input wire:model.live="creditStartDate" type="date"
-                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
-                                       focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
+                                class="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500"/>
                             @error('creditStartDate') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                         </div>
                         <div>
-                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                                End Date <span class="text-red-400">*</span>
-                            </label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">End Date <span class="text-red-500">*</span></label>
                             <input wire:model="creditEndDate" type="date"
-                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
-                                       focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
+                                class="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500"/>
                             @error('creditEndDate') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                         </div>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                            Heading <span class="text-red-400">*</span>
-                        </label>
-                        <input wire:model="creditHeading" type="text" placeholder="Brief heading for this credit request"
-                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
-                                   focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Heading <span class="text-red-500">*</span></label>
+                        <input wire:model="creditHeading" type="text" maxlength="255" placeholder="Brief heading for this credit request"
+                            class="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500"/>
                         @error('creditHeading') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                            Reason for Credit <span class="text-red-400">*</span>
-                        </label>
-                        <textarea wire:model="creditReason" rows="4" placeholder="Explain why you need this credit..."
-                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg resize-none
-                                   focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Reason for Credit <span class="text-red-500">*</span></label>
+                        <textarea wire:model="creditReason" rows="4" maxlength="2000" placeholder="Explain why you need this credit..."
+                            class="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-md resize-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
                         @error('creditReason') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                     </div>
                 </div>
-                <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0">
-                    <button wire:click="closeCreditModal"
-                        class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
-                        Cancel
-                    </button>
-                    <button wire:click="saveCreditQuery"
-                        class="px-5 py-2 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
-                        {{ $editQueryId ? 'Update Query' : 'Submit Request' }}
+
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                    <button wire:click="closeCreditModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                    <button wire:click="saveCreditQuery" wire:loading.attr="disabled" wire:target="saveCreditQuery"
+                        class="px-5 py-2 text-sm font-semibold bg-gray-900 hover:bg-gray-800 text-white rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                        <span wire:loading.remove wire:target="saveCreditQuery">{{ $editQueryId ? 'Update Query' : 'Submit Request' }}</span>
+                        <span wire:loading wire:target="saveCreditQuery">Saving…</span>
                     </button>
                 </div>
             </div>

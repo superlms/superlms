@@ -32,15 +32,6 @@ class Credit extends Component
     // ── Delete confirm ───────────────────────────────────────────────────────
     public ?int $pendingDeleteId = null;
 
-    // ── Filters ──────────────────────────────────────────────────────────────
-    public string $search       = '';
-    public string $statusFilter = '';
-
-    protected $queryString = [
-        'search'       => ['except' => ''],
-        'statusFilter' => ['except' => ''],
-    ];
-
     // Auto-set end date when start date changes (start + 20 days)
     public function updatedCreditStartDate(string $value): void
     {
@@ -99,7 +90,7 @@ class Credit extends Component
             'creditStartDate' => 'required|date',
             'creditEndDate'   => 'required|date|after:creditStartDate',
             'creditHeading'   => 'required|string|max:255',
-            'creditReason'    => 'required|string|min:10',
+            'creditReason'    => 'required|string|min:10|max:2000',
         ]);
 
         $data = [
@@ -165,11 +156,6 @@ class Credit extends Component
         $orgId = Auth::user()->organization_id;
 
         $queries = CreditQuery::forOrg($orgId)
-            ->when($this->search, fn($q) => $q->where(fn($s) =>
-                $s->where('heading', 'like', "%{$this->search}%")
-                  ->orWhere('reason', 'like', "%{$this->search}%")
-            ))
-            ->when($this->statusFilter, fn($q) => $q->where('status', $this->statusFilter))
             ->latest()
             ->paginate(10);
 
