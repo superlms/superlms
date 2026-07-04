@@ -225,48 +225,38 @@
                     </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-3">
                     <div class="flex items-center justify-between">
                         <span class="text-xs px-3 py-1 rounded-full font-medium border {{ $sc }}">{{ ucfirst($q->status) }}</span>
                         <span class="text-xs text-gray-400">{{ $q->created_at->format('d M Y, g:i A') }}</span>
                     </div>
 
-                    <div class="bg-gray-50 rounded-xl border border-gray-100 p-4">
-                        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Heading</p>
-                        <p class="text-sm font-semibold text-gray-800">{{ $q->heading }}</p>
-                        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mt-3 mb-1">Reason</p>
-                        <p class="text-sm text-gray-700 whitespace-pre-line">{{ $q->reason }}</p>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-100"><p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Amount</p><p class="text-sm font-semibold text-gray-800">₹{{ number_format($q->amount, 0) }}</p></div>
+                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-100"><p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Start</p><p class="text-sm font-medium text-gray-800">{{ $q->start_date->format('d M Y') }}</p></div>
+                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-100"><p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">End</p><p class="text-sm font-medium text-gray-800">{{ $q->end_date->format('d M Y') }}</p></div>
                     </div>
 
-                    <div class="grid grid-cols-3 gap-3">
-                        <div class="bg-blue-50 rounded-xl p-3 text-center">
-                            <p class="text-xs text-blue-400 font-medium mb-1">Amount</p>
-                            <p class="text-lg font-bold text-blue-700">₹{{ number_format($q->amount, 0) }}</p>
-                        </div>
-                        <div class="bg-gray-50 rounded-xl p-3 text-center">
-                            <p class="text-xs text-gray-400 font-medium mb-1">Start Date</p>
-                            <p class="text-sm font-semibold text-gray-700">{{ $q->start_date->format('d M Y') }}</p>
-                        </div>
-                        <div class="bg-gray-50 rounded-xl p-3 text-center">
-                            <p class="text-xs text-gray-400 font-medium mb-1">End Date</p>
-                            <p class="text-sm font-semibold text-gray-700">{{ $q->end_date->format('d M Y') }}</p>
-                        </div>
+                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Heading</p>
+                        <p class="text-sm font-medium text-gray-800">{{ $q->heading }}</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Reason</p>
+                        <p class="text-sm text-gray-700 whitespace-pre-line">{{ $q->reason }}</p>
                     </div>
 
                     @if ($q->status === 'approved')
                         @php $org = auth()->user()->organization; @endphp
-                        <div class="border border-emerald-200 bg-emerald-50/50 rounded-xl p-4">
-                            <p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-3">Approval Details</p>
-                            <div class="grid grid-cols-2 gap-2 text-xs text-gray-600">
-                                <div>Penalties/Day: <strong class="text-gray-800">₹{{ number_format($q->penalties_per_day ?? 0, 0) }}</strong></div>
-                                <div>Approved on: <strong class="text-gray-800">{{ $q->approved_at?->format('d M Y') ?? '—' }}</strong></div>
-                            </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="bg-gray-50 rounded-lg p-3 border border-gray-100"><p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Penalties/Day</p><p class="text-sm font-medium text-gray-800">₹{{ number_format($q->penalties_per_day ?? 0, 0) }}</p></div>
+                            <div class="bg-gray-50 rounded-lg p-3 border border-gray-100"><p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Approved On</p><p class="text-sm font-medium text-gray-800">{{ $q->approved_at?->format('d M Y') ?? '—' }}</p></div>
                         </div>
 
                         @if ($org && $org->bank_name)
-                            <div class="border border-gray-200 rounded-xl p-4">
-                                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Your Bank Details on File</p>
-                                <div class="space-y-2">
+                            <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                                <p class="text-xs text-gray-400 uppercase tracking-wider mb-2">Bank Details on File</p>
+                                <div class="grid grid-cols-2 gap-x-4 gap-y-2">
                                     @foreach([
                                         'Bank'    => $org->bank_name,
                                         'Acc No'  => $org->bank_account_no,
@@ -274,10 +264,7 @@
                                         'Branch'  => $org->bank_branch,
                                         'Holder'  => $org->bank_holder_name,
                                     ] as $lbl => $val)
-                                        <div class="flex gap-4">
-                                            <span class="text-xs text-gray-400 w-20 flex-shrink-0">{{ $lbl }}</span>
-                                            <span class="text-sm font-semibold font-mono text-gray-800">{{ $val ?? '—' }}</span>
-                                        </div>
+                                        <div class="min-w-0"><p class="text-[11px] text-gray-400">{{ $lbl }}</p><p class="text-sm font-medium font-mono text-gray-800 truncate">{{ $val ?: '—' }}</p></div>
                                     @endforeach
                                 </div>
                             </div>
@@ -285,8 +272,8 @@
                     @endif
 
                     @if ($q->admin_remark)
-                        <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
-                            <p class="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-1">Admin Remark</p>
+                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Admin Remark</p>
                             <p class="text-sm text-gray-700">{{ $q->admin_remark }}</p>
                         </div>
                     @endif

@@ -94,7 +94,8 @@ class Payroll extends Component
     // ─────────────────────────────────────────────────────────────────────────
     public function mount(): void
     {
-        $this->attYear = (string) now()->year;
+        // Default to the current academic year's start (April → March).
+        $this->attYear = (string) (now()->month >= 4 ? now()->year : now()->year - 1);
         // Salary defaults to the PREVIOUS month — that's the payable, fully-attended month.
         $this->salaryMonth = now()->subMonthNoOverflow()->format('Y-m');
         $this->payDate     = now()->format('Y-m-d');
@@ -429,9 +430,10 @@ class Payroll extends Component
             $start = Carbon::parse($this->attMonth . '-01')->startOfMonth();
             $end   = $start->copy()->endOfMonth();
         } else {
+            // Academic year: April (attYear) → March (attYear + 1).
             $year  = (int) ($this->attYear ?: now()->year);
-            $start = Carbon::create($year, 1, 1)->startOfDay();
-            $end   = Carbon::create($year, 12, 31)->endOfDay();
+            $start = Carbon::create($year, 4, 1)->startOfDay();
+            $end   = Carbon::create($year + 1, 3, 31)->endOfDay();
         }
         if ($end->gt($today)) $end = $today->copy();
 
@@ -706,9 +708,12 @@ class Payroll extends Component
                     $built          = $this->buildEmployeeDays($attEmp);
                     $attByMonth     = $built['byMonth'];
                     $attCounts      = $built['counts'];
-                    $attPeriodLabel = $this->attMonth
-                        ? Carbon::parse($this->attMonth . '-01')->format('F Y')
-                        : ('Year ' . ($this->attYear ?: now()->year));
+                    if ($this->attMonth) {
+                        $attPeriodLabel = Carbon::parse($this->attMonth . '-01')->format('F Y');
+                    } else {
+                        $ay = (int) ($this->attYear ?: now()->year);
+                        $attPeriodLabel = Carbon::create($ay, 4, 1)->format('M Y') . ' – ' . Carbon::create($ay + 1, 3, 1)->format('M Y');
+                    }
                 }
             } elseif ($this->attendanceDate) {
                 $attView        = 'date';

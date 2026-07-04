@@ -10,8 +10,10 @@
         ];
     @endphp
 
+    {{-- ══════════ STICKY: HEADER + TABS + FILTERS ══════════ --}}
+    <div class="sticky top-0 z-40">
     {{-- ══════════ HEADER ══════════ --}}
-    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 sm:py-5 sticky top-0 z-40">
+    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 sm:py-5">
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             <div>
                 <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Payroll</h1>
@@ -57,25 +59,59 @@
         </nav>
     </div>
 
-    {{-- ══════════ ATTENDANCE FILTER (full-width, exams-style) ══════════ --}}
-    @if ($activeTab === 'attendance' && $attendanceMode === 'view')
+    {{-- ══════════ FILTER BAND (full-width, exams-style, per tab) ══════════ --}}
+    @php $filterIcon = 'M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z'; @endphp
+
+    @if ($activeTab === 'employees')
         <div class="bg-gray-50 border-b border-gray-200 px-4 sm:px-6 py-3">
             <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $filterIcon }}" /></svg>
                     Filter by:
                 </div>
+                <input wire:model.live.debounce.300ms="empSearch" type="text" placeholder="Search name, designation, mobile…"
+                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-64 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <select wire:model.live="empTypeFilter" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <option value="">All Types</option>
+                    <option value="teacher">Teacher</option>
+                    <option value="management">Management</option>
+                    <option value="employee">Employee</option>
+                    <option value="driver">Driver</option>
+                </select>
+                <span class="text-gray-300">·</span>
+                <div class="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
+                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>
+                    Sort:
+                </div>
+                <select wire:model.live="empSort" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <option value="name_asc">Name (A–Z)</option>
+                    <option value="name_desc">Name (Z–A)</option>
+                    <option value="salary_asc">Salary (Low–High)</option>
+                    <option value="salary_desc">Salary (High–Low)</option>
+                    <option value="type">Type</option>
+                </select>
+                @if ($empSearch || $empTypeFilter || $empSort !== 'name_asc')
+                    <button wire:click="clearEmpFilters" class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        Clear
+                    </button>
+                @endif
+            </div>
+        </div>
 
-                {{-- Mode 1: a single date --}}
+    @elseif ($activeTab === 'attendance' && $attendanceMode === 'view')
+        <div class="bg-gray-50 border-b border-gray-200 px-4 sm:px-6 py-3">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $filterIcon }}" /></svg>
+                    Filter by:
+                </div>
                 <div class="flex items-center gap-1.5">
                     <label class="text-xs text-gray-500">Date</label>
                     <input type="date" wire:model.live="attendanceDate" max="{{ now()->format('Y-m-d') }}"
                         class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 </div>
-
                 <span class="text-gray-300 text-xs">or</span>
-
-                {{-- Modes 2 & 3: employee (+ optional month) --}}
                 <select wire:model.live="filterAttendanceType" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     <option value="">Employee type</option>
                     <option value="teacher">Teacher</option>
@@ -89,8 +125,6 @@
                         <option value="{{ $emp->id }}">{{ $emp->name }} ({{ ucfirst($emp->type) }})</option>
                     @endforeach
                 </select>
-
-                {{-- Employee sub-filters: month (blank = whole year) + status --}}
                 @if ($attEmpId)
                     <div class="flex items-center gap-1.5">
                         <label class="text-xs text-gray-500">Month</label>
@@ -98,9 +132,10 @@
                             class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" />
                     </div>
                     @unless ($attMonth)
-                        <select wire:model.live="attYear" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                            @for ($y = (int) now()->year; $y >= (int) now()->year - 5; $y--)
-                                <option value="{{ $y }}">{{ $y }}</option>
+                        @php $acadStart = now()->month >= 4 ? now()->year : now()->year - 1; @endphp
+                        <select wire:model.live="attYear" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" title="Academic year (Apr–Mar)">
+                            @for ($y = $acadStart; $y >= $acadStart - 5; $y--)
+                                <option value="{{ $y }}">{{ $y }}–{{ substr($y + 1, 2) }}</option>
                             @endfor
                         </select>
                     @endunless
@@ -113,7 +148,6 @@
                         <option value="holiday">Holiday</option>
                     </select>
                 @endif
-
                 @if ($attendanceDate || $filterAttendanceType || $attEmpId || $attMonth || $attStatus)
                     <button wire:click="clearAttFilters" class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -122,49 +156,74 @@
                 @endif
             </div>
         </div>
+
+    @elseif ($activeTab === 'salary')
+        <div class="bg-gray-50 border-b border-gray-200 px-4 sm:px-6 py-3">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $filterIcon }}" /></svg>
+                    Filter by:
+                </div>
+                <input wire:model.live.debounce.300ms="salarySearch" type="text" placeholder="Search employee…"
+                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <div class="flex items-center gap-1.5">
+                    <label class="text-xs text-gray-500">Month</label>
+                    <input type="month" wire:model.live="salaryMonth" max="{{ now()->format('Y-m') }}" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" />
+                </div>
+                <select wire:model.live="filterSalaryType" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <option value="">All Types</option>
+                    <option value="teacher">Teacher</option>
+                    <option value="management">Management</option>
+                    <option value="employee">Employee</option>
+                    <option value="driver">Driver</option>
+                </select>
+                @if ($salarySearch || $filterSalaryType)
+                    <button wire:click="clearSalaryFilters" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        Clear
+                    </button>
+                @endif
+                @unless ($canPaySalaryMonth)
+                    <span class="ml-auto inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        {{ \Carbon\Carbon::parse($salaryMonth . '-01')->format('M Y') }} payable after month ends
+                    </span>
+                @endunless
+            </div>
+        </div>
+
+    @elseif ($activeTab === 'payments')
+        <div class="bg-gray-50 border-b border-gray-200 px-4 sm:px-6 py-3">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $filterIcon }}" /></svg>
+                    Filter by:
+                </div>
+                <input wire:model.live.debounce.300ms="paymentSearch" type="text" placeholder="Search employee…"
+                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <select wire:model.live="filterPaymentEmpId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[160px]">
+                    <option value="">All Employees</option>
+                    @foreach ($allEmployeesForFilter as $emp)<option value="{{ $emp->id }}">{{ $emp->name }}</option>@endforeach
+                </select>
+                <div class="flex items-center gap-1.5">
+                    <label class="text-xs text-gray-500">Month</label>
+                    <input type="month" wire:model.live="filterPaymentMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" />
+                </div>
+                @if ($paymentSearch || $filterPaymentEmpId || $filterPaymentMonth)
+                    <button wire:click="clearPaymentFilters" class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        Clear
+                    </button>
+                @endif
+            </div>
+        </div>
     @endif
+    </div>{{-- /sticky header+tabs+filters --}}
 
     <div class="p-4 sm:p-6 space-y-5">
 
         {{-- ══════════ EMPLOYEES TAB ══════════ --}}
         @if ($activeTab === 'employees')
-
-            {{-- Filter section (student-style gray bar) --}}
-            <div class="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
-                <div class="flex flex-wrap items-center gap-3">
-                    <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-                        Filter by:
-                    </div>
-                    <input wire:model.live.debounce.300ms="empSearch" type="text" placeholder="Search name, designation, mobile…"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-64 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                    <select wire:model.live="empTypeFilter" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                        <option value="">All Types</option>
-                        <option value="teacher">Teacher</option>
-                        <option value="management">Management</option>
-                        <option value="employee">Employee</option>
-                        <option value="driver">Driver</option>
-                    </select>
-                    <span class="text-gray-300">·</span>
-                    <div class="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
-                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>
-                        Sort:
-                    </div>
-                    <select wire:model.live="empSort" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                        <option value="name_asc">Name (A–Z)</option>
-                        <option value="name_desc">Name (Z–A)</option>
-                        <option value="salary_asc">Salary (Low–High)</option>
-                        <option value="salary_desc">Salary (High–Low)</option>
-                        <option value="type">Type</option>
-                    </select>
-                    @if ($empSearch || $empTypeFilter || $empSort !== 'name_asc')
-                        <button wire:click="clearEmpFilters" class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                            Clear
-                        </button>
-                    @endif
-                </div>
-            </div>
 
             {{-- Employee list (table) --}}
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -432,41 +491,6 @@
         {{-- ══════════ SALARY TAB ══════════ --}}
         @if ($activeTab === 'salary')
 
-            {{-- Filter section (student-style gray bar) --}}
-            <div class="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
-                <div class="flex flex-wrap items-center gap-3">
-                    <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-                        Filter by:
-                    </div>
-                    <input wire:model.live.debounce.300ms="salarySearch" type="text" placeholder="Search employee…"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                    <div class="flex items-center gap-1.5">
-                        <label class="text-xs text-gray-500">Month</label>
-                        <input type="month" wire:model.live="salaryMonth" max="{{ now()->format('Y-m') }}" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" />
-                    </div>
-                    <select wire:model.live="filterSalaryType" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                        <option value="">All Types</option>
-                        <option value="teacher">Teacher</option>
-                        <option value="management">Management</option>
-                        <option value="employee">Employee</option>
-                        <option value="driver">Driver</option>
-                    </select>
-                    @if ($salarySearch || $filterSalaryType)
-                        <button wire:click="clearSalaryFilters" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                            Clear
-                        </button>
-                    @endif
-                    @unless ($canPaySalaryMonth)
-                        <span class="ml-auto inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                            {{ \Carbon\Carbon::parse($salaryMonth . '-01')->format('M Y') }} payable after month ends
-                        </span>
-                    @endunless
-                </div>
-            </div>
-
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div class="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-teal-50 flex items-center justify-between">
                     <h3 class="text-sm font-semibold text-gray-700">Salary — {{ \Carbon\Carbon::parse($salaryMonth . '-01')->format('M Y') }} <span class="text-xs font-normal text-gray-400">(calculated from attendance)</span></h3>
@@ -554,32 +578,6 @@
 
         {{-- ══════════ PAYMENTS TAB ══════════ --}}
         @if ($activeTab === 'payments')
-
-            {{-- Filter section (student-style gray bar) --}}
-            <div class="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
-                <div class="flex flex-wrap items-center gap-3">
-                    <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-                        Filter by:
-                    </div>
-                    <input wire:model.live.debounce.300ms="paymentSearch" type="text" placeholder="Search employee…"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                    <select wire:model.live="filterPaymentEmpId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[160px]">
-                        <option value="">All Employees</option>
-                        @foreach ($allEmployeesForFilter as $emp)<option value="{{ $emp->id }}">{{ $emp->name }}</option>@endforeach
-                    </select>
-                    <div class="flex items-center gap-1.5">
-                        <label class="text-xs text-gray-500">Month</label>
-                        <input type="month" wire:model.live="filterPaymentMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" />
-                    </div>
-                    @if ($paymentSearch || $filterPaymentEmpId || $filterPaymentMonth)
-                        <button wire:click="clearPaymentFilters" class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                            Clear
-                        </button>
-                    @endif
-                </div>
-            </div>
 
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div class="overflow-x-auto">
