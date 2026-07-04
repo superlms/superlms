@@ -195,9 +195,9 @@
                 {{-- ─── CLASS TEACHERS ─── --}}
                 @else
                     <div class="inline-flex rounded-md border border-gray-200 bg-white p-0.5">
-                        <button wire:click="$set('ctMode', 'by_class')"
+                        <button wire:click="setCtMode('by_class')"
                             class="px-3 py-1 text-xs font-semibold rounded transition-colors {{ $ctMode === 'by_class' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50' }}">By Class</button>
-                        <button wire:click="$set('ctMode', 'by_teacher')"
+                        <button wire:click="setCtMode('by_teacher')"
                             class="px-3 py-1 text-xs font-semibold rounded transition-colors {{ $ctMode === 'by_teacher' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50' }}">By Teacher</button>
                     </div>
                     @if ($ctMode === 'by_class')
