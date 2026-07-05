@@ -127,6 +127,7 @@
 
     @livewireScripts
     @livewireCalendarScripts
+    @include('partials.auto-refresh')
 
     {{-- ─── Scroll-aware collapsing page header (admin & accounts) ───
          Hides the title/stats/tabs while scrolling down (keeping only the

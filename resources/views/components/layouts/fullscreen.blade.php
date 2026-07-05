@@ -16,6 +16,7 @@
 <body class="h-full">
     {{ $slot }}
     @livewireScripts
+    @include('partials.auto-refresh')
 </body>
 
 </html>
