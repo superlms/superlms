@@ -6,6 +6,7 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>@yield('title')</title>
 
+    @include('partials.pwa-head')
     @livewireStyles
     @wireUiScripts
     @vite(['resources/css/app.css', 'resources/js/app.js'])

@@ -13,6 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link rel="icon" type="image/png" href="{{ asset('website-image/Group 11525.png') }}">
+  @include('partials.pwa-head')
 
   @vite(['resources/css/app.css', 'resources/js/app.js'])
   <!-- Google tag (gtag.js) -->

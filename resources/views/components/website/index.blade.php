@@ -11,6 +11,7 @@
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-7S4FD1GMPK"></script>
     <link rel="icon" type="image/png" href="{{ asset('website-image/Group 11525.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('website-image/Group 11525.png') }}">
+    @include('partials.pwa-head')
     <meta property="og:title" content="SUPERLMS — India's #1 School Management Platform" />
     <meta property="og:description" content="Smart attendance, automated timetables, fee management, and real-time progress tracking — all in one powerful platform trusted by schools across India." />
     <meta property="og:image" content="{{ asset('website-image/Group 11525.png') }}" />
