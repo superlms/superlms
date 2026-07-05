@@ -1,7 +1,18 @@
 {{-- Progressive Web App: installable "add to home screen" web app.
-     Root-relative URLs keep the manifest + service worker same-origin even
-     when static assets are served from a CDN. --}}
-<link rel="manifest" href="/manifest.webmanifest">
+     A role-specific manifest is served so installing from the admin / super-admin
+     / accounts area produces a separate app that opens straight into that role
+     (and shows that role's login when the session has expired). --}}
+@php
+    $pwaRole = 'site';
+    if (request()->routeIs('super-admin.*') || request()->routeIs('pwa.superadmin')) {
+        $pwaRole = 'superadmin';
+    } elseif (request()->routeIs('accounts.*') || request()->routeIs('pwa.accounts')) {
+        $pwaRole = 'accounts';
+    } elseif (request()->routeIs('admin.*') || request()->routeIs('pwa.admin')) {
+        $pwaRole = 'admin';
+    }
+@endphp
+<link rel="manifest" href="{{ route('pwa.manifest', ['role' => $pwaRole]) }}">
 <meta name="theme-color" content="#4f46e5">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
