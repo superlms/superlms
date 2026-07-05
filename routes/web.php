@@ -44,10 +44,14 @@ Route::get('/pwa/manifest/{role}', function (string $role) {
     $key = array_key_exists($role, $apps) ? $role : 'site';
     [$name, $short, $start] = $apps[$key];
 
+    // Bump this when an install gets "stuck" (browser shows Open-in-app after the
+    // icon was removed) — a new id makes the browser offer Install again.
+    $idVersion = 'v2';
+
     $manifest = [
         'name'             => $name,
         'short_name'       => $short,
-        'id'               => '/pwa/' . $key,
+        'id'               => '/pwa/' . $key . '/' . $idVersion,
         'start_url'        => $start,
         'scope'            => '/',
         'display'          => 'standalone',
