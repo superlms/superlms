@@ -109,7 +109,7 @@
                         <div class="px-5 py-3 border-t border-gray-100 flex items-center gap-1.5">
                             <button wire:click="viewPlan({{ $plan->id }})"
                                 class="flex-1 text-xs font-medium px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">View</button>
-                            <a href="{{ route('admin.seating-plan.print', $plan->id) }}" target="_blank"
+                            <a href="{{ route('admin.seating-plan.print', ['organization' => auth()->user()->organization_id, 'id' => $plan->id]) }}" target="_blank"
                                 class="flex-1 text-center text-xs font-medium px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50">Print</a>
                             @if ($plan->status !== 'published')
                                 <button wire:click="publishPlan({{ $plan->id }})"
@@ -261,7 +261,7 @@
                         <p class="text-xs text-gray-400 mt-0.5">{{ $viewingPlan->notes }}</p>
                     @endif
                     <div class="flex items-center gap-2 mt-3">
-                        <a href="{{ route('admin.seating-plan.print', $viewingPlan->id) }}" target="_blank"
+                        <a href="{{ route('admin.seating-plan.print', ['organization' => auth()->user()->organization_id, 'id' => $viewingPlan->id]) }}" target="_blank"
                             class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gray-900 text-white rounded-md hover:bg-gray-800">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                             Print / PDF
@@ -290,7 +290,7 @@
                                     <h3 class="text-base font-semibold text-gray-900">{{ $room->room_name }}</h3>
                                     <p class="text-xs text-gray-500">{{ $room->building }} · {{ $filled }}/{{ $room->capacity }} seats filled</p>
                                 </div>
-                                <a href="{{ route('admin.seating-plan.room-pdf', ['id' => $viewingPlan->id, 'roomId' => $room->id]) }}" target="_blank"
+                                <a href="{{ route('admin.seating-plan.room-pdf', ['organization' => auth()->user()->organization_id, 'id' => $viewingPlan->id, 'roomId' => $room->id]) }}" target="_blank"
                                     class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white border border-gray-200 rounded-md text-gray-700 hover:bg-gray-50">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                                     Room PDF
