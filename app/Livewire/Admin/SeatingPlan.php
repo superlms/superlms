@@ -56,10 +56,13 @@ class SeatingPlan extends Component
     ];
 
     // ─── Generate plan form ─────────────────────────────────────────────────
+    // Datesheet-driven: pick an exam, the datesheet tells us which classes have
+    // papers on which dates. One seating plan is generated per exam session
+    // (date + shift) across the selected classes.
     public bool $showGeneratePanel = false;
     public array $generateForm = [
-        'exam_id' => '', 'name' => '', 'exam_date' => '',
-        'session' => '', 'standard_ids' => [], 'room_ids' => [],
+        'exam_id' => '', 'name' => '',
+        'standard_ids' => [], 'room_ids' => [],
     ];
 
     // ─── Confirm delete state ───────────────────────────────────────────────
@@ -75,8 +78,7 @@ class SeatingPlan extends Component
 
     public function mount(): void
     {
-        // Default exam date = today
-        $this->generateForm['exam_date'] = now()->toDateString();
+        //
     }
 
     public function switchTab(string $tab): void
@@ -283,13 +285,15 @@ class SeatingPlan extends Component
     public function openGeneratePanel(): void
     {
         $this->resetErrorBag();
+        $orgId = Auth::user()->organization_id;
         $this->generateForm = [
             'exam_id'      => '',
             'name'         => '',
-            'exam_date'    => now()->toDateString(),
-            'session'      => '',
             'standard_ids' => [],
-            'room_ids'     => [],
+            // Rooms: all active rooms selected by default; user can change.
+            'room_ids'     => SeatingRoom::where('organization_id', $orgId)
+                ->where('is_active', true)->pluck('id')
+                ->map(fn($id) => (string) $id)->all(),
         ];
         $this->showGeneratePanel = true;
     }
@@ -299,129 +303,282 @@ class SeatingPlan extends Component
         $this->showGeneratePanel = false;
     }
 
+    /** When the exam is picked, auto-select every class that has a datesheet for it. */
+    public function updatedGenerateFormExamId(): void
+    {
+        $this->preselectDatesheetClasses();
+
+        // Suggest a plan name from the exam if the user hasn't typed one.
+        if (empty($this->generateForm['name']) && $this->generateForm['exam_id']) {
+            $exam = Exam::where('organization_id', Auth::user()->organization_id)
+                ->find($this->generateForm['exam_id']);
+            if ($exam) {
+                $this->generateForm['name'] = $exam->exam_name . ' — Seating';
+            }
+        }
+    }
+
+    /** Classes (standards) that have at least one dated paper for the chosen exam. */
+    private function datesheetStandardIds(): array
+    {
+        $orgId  = Auth::user()->organization_id;
+        $examId = (int) ($this->generateForm['exam_id'] ?? 0);
+        if (!$examId) return [];
+
+        return ExamDatesheet::where('organization_id', $orgId)
+            ->where('exam_id', $examId)
+            ->whereHas('papers', fn($q) => $q->whereNotNull('exam_date'))
+            ->pluck('standard_id')->unique()->values()->all();
+    }
+
+    private function preselectDatesheetClasses(): void
+    {
+        // Store as strings so the checkbox bindings render as checked.
+        $this->generateForm['standard_ids'] = array_map('strval', $this->datesheetStandardIds());
+    }
+
+    public function selectAllClasses(): void
+    {
+        $this->preselectDatesheetClasses();
+    }
+
+    public function clearAllClasses(): void
+    {
+        $this->generateForm['standard_ids'] = [];
+    }
+
+    public function selectAllRooms(): void
+    {
+        $orgId = Auth::user()->organization_id;
+        $this->generateForm['room_ids'] = SeatingRoom::where('organization_id', $orgId)
+            ->where('is_active', true)->pluck('id')->map(fn($id) => (string) $id)->all();
+    }
+
+    public function clearAllRooms(): void
+    {
+        $this->generateForm['room_ids'] = [];
+    }
+
     public function generatePlan(SeatingPlannerService $planner): void
     {
         $this->validate([
             'generateForm.exam_id'        => 'required|integer|exists:exams,id',
             'generateForm.name'           => 'required|string|max:150',
-            'generateForm.exam_date'      => 'required|date',
             'generateForm.standard_ids'   => 'required|array|min:1',
             'generateForm.standard_ids.*' => 'integer',
             'generateForm.room_ids'       => 'required|array|min:1',
             'generateForm.room_ids.*'     => 'integer',
         ]);
 
-        $orgId = Auth::user()->organization_id;
+        $orgId      = Auth::user()->organization_id;
+        $examId     = (int) $this->generateForm['exam_id'];
+        $baseName   = trim($this->generateForm['name']);
+        $standardIds = array_map('intval', $this->generateForm['standard_ids']);
 
-        // Fetch students for the chosen classes
-        $students = StudentDetail::with(['standard:id,name', 'section:id,name'])
-            ->whereIn('standard_id', $this->generateForm['standard_ids'])
+        // 1. Pull the datesheets (with papers) for this exam + selected classes.
+        $datesheets = ExamDatesheet::with('papers.subject:id,name')
             ->where('organization_id', $orgId)
-            ->whereNotNull('user_id')
+            ->where('exam_id', $examId)
+            ->whereIn('standard_id', $standardIds)
             ->get();
 
-        if ($students->isEmpty()) {
-            $this->notification()->error('No students found for selected classes.');
+        if ($datesheets->isEmpty()) {
+            $this->notification()->error('No datesheet found for the selected exam & classes. Create a datesheet first.');
             return;
         }
 
-        $studentInput = $students->map(fn($s) => [
-            'id'          => $s->user_id,
-            'name'        => $s->full_name,
-            'class_label' => ($s->standard->name ?? '?') . '-' . ($s->section->name ?? '-'),
-        ])->toArray();
+        // 2. Group papers into exam sessions keyed by date + shift. Each session
+        //    lists which class/section is examined and the subject involved.
+        $sessions = []; // "Y-m-d|shift" => ['date','shift','entries'=>[['standard_id','section_id','subject']]]
+        foreach ($datesheets as $ds) {
+            foreach ($ds->papers as $p) {
+                if (empty($p->exam_date)) continue;
+                $dateStr = $p->exam_date->toDateString();
+                $shift   = (int) ($p->shift ?: 1);
+                $key     = $dateStr . '|' . $shift;
 
-        $rooms = SeatingRoom::with('seats')
+                $sessions[$key]['date']  = $dateStr;
+                $sessions[$key]['shift'] = $shift;
+                $sessions[$key]['entries'][] = [
+                    'standard_id' => $ds->standard_id,
+                    'section_id'  => $ds->section_id,
+                    'subject'     => $p->subject->name ?? '',
+                ];
+            }
+        }
+
+        if (empty($sessions)) {
+            $this->notification()->error('The datesheet has no dated papers to seat.');
+            return;
+        }
+
+        // 3. Rooms selected for seating (active only).
+        $baseRooms = SeatingRoom::with('seats')
             ->whereIn('id', $this->generateForm['room_ids'])
             ->where('organization_id', $orgId)
             ->where('is_active', true)
             ->get();
 
-        if ($rooms->isEmpty()) {
+        if ($baseRooms->isEmpty()) {
             $this->notification()->error('No active rooms selected.');
             return;
         }
 
-        // ── Overflow "Exam Hall" ──────────────────────────────────────────────
-        // e.g. 5 rooms × 30 = 150 capacity but 160 students → add an Exam Hall
-        // sized to hold the extra 10 so everyone is seated. One reusable hall per
-        // org, resized to fit the current overflow each time a plan is generated.
-        $capacity = (int) $rooms->sum('capacity');
-        $overflow = $students->count() - $capacity;
-        if ($overflow > 0) {
-            $cols       = 6;
-            $rowsNeeded = (int) ceil($overflow / $cols);
-            $hall = SeatingRoom::firstOrNew([
-                'organization_id' => $orgId,
-                'room_name'       => 'Exam Hall',
-            ]);
-            $hall->building = 'Overflow';
-            $hall->rows     = max(1, $rowsNeeded);
-            $hall->columns  = $cols;
-            $hall->capacity = $hall->rows * $cols;
-            $hall->is_active = true;
-            $hall->save();
-            $this->regenerateSeats($hall);
-            $rooms->push($hall->load('seats'));
-        }
+        ksort($sessions); // chronological order
 
-        $result = $planner->plan($studentInput, $rooms);
+        $invigilators   = SeatingInvigilator::where('organization_id', $orgId)->get();
+        $firstPlanId    = null;
+        $createdPlans   = 0;
+        $seatedTotal    = 0;
+        $skippedNoStud  = 0;
 
-        DB::transaction(function () use ($result, $rooms, $orgId) {
-            $plan = SeatingPlanModel::create([
-                'organization_id' => $orgId,
-                'exam_id'         => $this->generateForm['exam_id'],
-                'name'            => $this->generateForm['name'],
-                'exam_date'       => $this->generateForm['exam_date'],
-                'session'         => $this->generateForm['session'] ?: null,
-                'status'          => 'draft',
-                'generated_at'    => now(),
-                'total_students'  => $result['totals']['students'],
-                'total_seats'     => $result['totals']['seats'],
-                'conflict_count'  => $result['totals']['conflicts'],
-            ]);
+        try {
+        foreach ($sessions as $session) {
+            // 3a. Students examined in this session: union of the classes/sections
+            //     that have a paper on this date+shift.
+            $students = StudentDetail::with(['standard:id,name', 'section:id,name'])
+                ->where('organization_id', $orgId)
+                ->whereNotNull('user_id')
+                ->where(function ($q) use ($session) {
+                    foreach ($session['entries'] as $e) {
+                        $q->orWhere(function ($qq) use ($e) {
+                            $qq->where('standard_id', $e['standard_id']);
+                            if (!empty($e['section_id'])) {
+                                $qq->where('section_id', $e['section_id']);
+                            }
+                        });
+                    }
+                })
+                ->get()
+                ->unique('user_id')
+                ->values();
 
-            $rows = [];
-            $now = now();
-            foreach ($result['assignments'] as $a) {
-                if (!$a['seat_id']) continue;
-                $rows[] = [
-                    'seating_plan_id' => $plan->id,
-                    'seat_id'         => $a['seat_id'],
-                    'room_id'         => $a['room_id'],
-                    'student_id'      => $a['student_id'],
-                    'class_label'     => $a['class_label'],
-                    'has_conflict'    => $a['has_conflict'] ? 1 : 0,
-                    'is_locked'       => 0,
-                    'created_at'      => $now,
-                    'updated_at'      => $now,
-                ];
+            if ($students->isEmpty()) {
+                $skippedNoStud++;
+                continue;
             }
-            if ($rows) SeatAssignment::insert($rows);
 
-            // Auto-assign invigilators
-            $invigilators = SeatingInvigilator::where('organization_id', $orgId)->get();
-            $invMap = (new SeatingPlannerService())->assignInvigilators($rooms, $invigilators, $plan->exam_date->toDateString());
-            $invRows = [];
-            foreach ($invMap as $roomId => $invigilatorIds) {
-                foreach ($invigilatorIds as $iid) {
-                    $invRows[] = [
+            $studentInput = $students->map(fn($s) => [
+                'id'          => $s->user_id,
+                'name'        => $s->full_name,
+                'class_label' => ($s->standard->name ?? '?') . '-' . ($s->section->name ?? '-'),
+            ])->toArray();
+
+            // 3b. Rooms for this session (clone the base list; add an overflow hall
+            //     unique to this session if capacity is short).
+            $rooms = $baseRooms->map(fn($r) => $r)->values();
+            $capacity = (int) $rooms->sum('capacity');
+            $overflow = $students->count() - $capacity;
+            if ($overflow > 0) {
+                $rooms->push($this->overflowHall($orgId, $session, $overflow));
+            }
+
+            $result = $planner->plan($studentInput, $rooms);
+
+            DB::transaction(function () use ($result, $rooms, $orgId, $examId, $baseName, $session, $invigilators, $planner, &$firstPlanId, &$createdPlans, &$seatedTotal) {
+                $label   = \Carbon\Carbon::parse($session['date'])->format('d M Y');
+                $subject = collect($session['entries'])->pluck('subject')->filter()->unique()->implode(', ');
+                $name    = $baseName . ' — ' . $label . ($session['shift'] > 1 ? ' (Shift ' . $session['shift'] . ')' : '');
+
+                $plan = SeatingPlanModel::create([
+                    'organization_id' => $orgId,
+                    'exam_id'         => $examId,
+                    'name'            => $name,
+                    'exam_date'       => $session['date'],
+                    'session'         => 'Shift ' . $session['shift'],
+                    'status'          => 'draft',
+                    'generated_at'    => now(),
+                    'total_students'  => $result['totals']['students'],
+                    'total_seats'     => $result['totals']['seats'],
+                    'conflict_count'  => $result['totals']['conflicts'],
+                    'notes'           => $subject !== '' ? 'Subjects: ' . $subject : null,
+                ]);
+
+                $now  = now();
+                $rows = [];
+                foreach ($result['assignments'] as $a) {
+                    if (!$a['seat_id']) continue;
+                    $rows[] = [
                         'seating_plan_id' => $plan->id,
-                        'room_id'         => $roomId,
-                        'invigilator_id'  => $iid,
+                        'seat_id'         => $a['seat_id'],
+                        'room_id'         => $a['room_id'],
+                        'student_id'      => $a['student_id'],
+                        'class_label'     => $a['class_label'],
+                        'has_conflict'    => $a['has_conflict'] ? 1 : 0,
+                        'is_locked'       => 0,
                         'created_at'      => $now,
                         'updated_at'      => $now,
                     ];
                 }
-            }
-            if ($invRows) InvigilatorAssignment::insert($invRows);
+                if ($rows) SeatAssignment::insert($rows);
 
-            $this->viewingPlanId = $plan->id;
-        });
+                // Auto-assign invigilators for this session's date.
+                $invMap  = $planner->assignInvigilators($rooms, $invigilators, $session['date']);
+                $invRows = [];
+                foreach ($invMap as $roomId => $invigilatorIds) {
+                    foreach ($invigilatorIds as $iid) {
+                        $invRows[] = [
+                            'seating_plan_id' => $plan->id,
+                            'room_id'         => $roomId,
+                            'invigilator_id'  => $iid,
+                            'created_at'      => $now,
+                            'updated_at'      => $now,
+                        ];
+                    }
+                }
+                if ($invRows) InvigilatorAssignment::insert($invRows);
 
-        $this->notification()->success("Plan generated. {$result['totals']['students']} students seated, {$result['totals']['conflicts']} conflicts.");
+                $firstPlanId = $firstPlanId ?? $plan->id;
+                $createdPlans++;
+                $seatedTotal += $result['totals']['students'];
+            });
+        }
+        } catch (\Throwable $e) {
+            report($e);
+            $this->notification()->error('Could not generate the seating plan: ' . $e->getMessage());
+            return;
+        }
+
+        if ($createdPlans === 0) {
+            $this->notification()->error('No students found for the selected classes on any datesheet date.');
+            return;
+        }
+
+        $this->viewingPlanId = $firstPlanId;
+        $msg = "{$createdPlans} seating plan(s) generated · {$seatedTotal} student-seatings.";
+        if ($skippedNoStud > 0) {
+            $msg .= " {$skippedNoStud} date(s) skipped (no students).";
+        }
+        $this->notification()->success($msg);
         $this->closeGeneratePanel();
         $this->activeTab = 'plans';
+    }
+
+    /**
+     * Get (or resize) an overflow "Exam Hall" sized to the session's overflow.
+     * The hall is unique per exam session so generating multiple plans in one
+     * batch never clobbers an earlier plan's seats (seat rows cascade-delete
+     * when a hall's seats are regenerated).
+     */
+    private function overflowHall(int $orgId, array $session, int $overflow): SeatingRoom
+    {
+        $cols       = 6;
+        $rowsNeeded = max(1, (int) ceil($overflow / $cols));
+        $hallName   = 'Exam Hall ' . $session['date'] . ' S' . $session['shift'];
+
+        $hall = SeatingRoom::firstOrNew([
+            'organization_id' => $orgId,
+            'room_name'       => $hallName,
+        ]);
+        $hall->building  = 'Overflow';
+        $hall->rows      = $rowsNeeded;
+        $hall->columns   = $cols;
+        $hall->capacity  = $rowsNeeded * $cols;
+        $hall->is_active = true;
+        $hall->save();
+        $this->regenerateSeats($hall);
+
+        return $hall->load('seats');
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -627,10 +784,14 @@ class SeatingPlan extends Component
                 ->where('organization_id', $orgId)->find($this->viewingDatesheetId)
             : null;
 
+        // Classes that have a datesheet for the exam chosen in the Generate panel
+        // (used to highlight / default-select the class checkboxes).
+        $datesheetStdIds = $this->showGeneratePanel ? $this->datesheetStandardIds() : [];
+
         return view('livewire.admin.seating-plan', compact(
             'rooms', 'invigilators', 'exams', 'standards', 'plans',
             'viewingPlan', 'planRooms', 'planAssignments', 'planInvigilators',
-            'datesheets', 'dsSections', 'viewingDatesheet'
+            'datesheets', 'dsSections', 'viewingDatesheet', 'datesheetStdIds'
         ));
     }
 }

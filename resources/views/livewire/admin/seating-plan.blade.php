@@ -255,8 +255,11 @@
                 <div class="px-6 pt-6 pb-4 bg-white border-b border-gray-200 flex-shrink-0">
                     <h2 class="text-lg font-bold text-gray-900">{{ $viewingPlan->name }}</h2>
                     <p class="text-sm text-gray-500 mt-0.5">
-                        {{ $viewingPlan->exam->exam_name ?? '' }} · {{ $viewingPlan->exam_date?->format('d M Y') }}{{ $viewingPlan->session ? ' · ' . ucfirst($viewingPlan->session) : '' }}
+                        {{ $viewingPlan->exam->exam_name ?? '' }} · {{ $viewingPlan->exam_date?->format('d M Y') }}{{ $viewingPlan->session ? ' · ' . $viewingPlan->session : '' }}
                     </p>
+                    @if ($viewingPlan->notes)
+                        <p class="text-xs text-gray-400 mt-0.5">{{ $viewingPlan->notes }}</p>
+                    @endif
                     <div class="flex items-center gap-2 mt-3">
                         <a href="{{ route('admin.seating-plan.print', $viewingPlan->id) }}" target="_blank"
                             class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gray-900 text-white rounded-md hover:bg-gray-800">
@@ -543,7 +546,7 @@
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div>
                         <h2 class="text-lg font-semibold text-gray-900">Generate Seating Plan</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">Algorithm interleaves classes so adjacent students differ; invigilators auto-assigned by date.</p>
+                        <p class="text-xs text-gray-500 mt-0.5">Reads the exam datesheet — one plan per exam date/shift is created automatically. Invigilators auto-assigned by date.</p>
                     </div>
                     <button wire:click="closeGeneratePanel"
                         class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
@@ -553,52 +556,67 @@
                 <div class="flex-1 overflow-y-auto px-6 py-6 space-y-5">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Exam <span class="text-red-500">*</span></label>
-                        <select wire:model="generateForm.exam_id" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                        <select wire:model.live="generateForm.exam_id" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                             <option value="">Select exam…</option>
                             @foreach ($exams as $exam)
                                 <option value="{{ $exam->id }}">{{ $exam->exam_name }} ({{ $exam->academic_year }})</option>
                             @endforeach
                         </select>
                         @error('generateForm.exam_id')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                        @if ($generateForm['exam_id'])
+                            <p class="text-xs mt-1.5 {{ count($datesheetStdIds) ? 'text-emerald-600' : 'text-amber-600' }}">
+                                @if (count($datesheetStdIds))
+                                    Datesheet found for {{ count($datesheetStdIds) }} class(es) — selected below by default.
+                                @else
+                                    No datesheet for this exam yet. Create one in the Datesheet tab first.
+                                @endif
+                            </p>
+                        @endif
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Plan Name <span class="text-red-500">*</span></label>
-                        <input type="text" wire:model="generateForm.name" placeholder="e.g. Maths Paper — 01 Jun"
+                        <input type="text" wire:model="generateForm.name" placeholder="e.g. Final Exam 2026"
                             class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                        <p class="text-xs text-gray-400 mt-1">The exam date is appended per plan, e.g. “{{ $generateForm['name'] ?: 'Final Exam' }} — 01 Jun 2026”.</p>
                         @error('generateForm.name')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                     </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Exam Date <span class="text-red-500">*</span></label>
-                            <input type="date" wire:model="generateForm.exam_date"
-                                class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                            @error('generateForm.exam_date')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Session</label>
-                            <select wire:model="generateForm.session" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                                <option value="">—</option>
-                                <option value="morning">Morning</option>
-                                <option value="afternoon">Afternoon</option>
-                            </select>
-                        </div>
-                    </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Classes <span class="text-red-500">*</span></label>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-sm font-medium text-gray-700">Classes <span class="text-red-500">*</span></label>
+                            <div class="flex items-center gap-2 text-xs">
+                                <button type="button" wire:click="selectAllClasses" class="text-blue-600 hover:text-blue-800 font-medium">Datesheet classes</button>
+                                <span class="text-gray-300">|</span>
+                                <button type="button" wire:click="clearAllClasses" class="text-gray-500 hover:text-gray-700 font-medium">Clear</button>
+                            </div>
+                        </div>
                         <div class="border border-gray-200 rounded-md p-3 max-h-40 overflow-y-auto space-y-1.5">
                             @forelse ($standards as $std)
-                                <label class="flex items-center gap-2 text-sm text-gray-700">
-                                    <input type="checkbox" value="{{ $std->id }}" wire:model="generateForm.standard_ids" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                                    {{ $std->name }}
+                                @php $hasDs = in_array($std->id, $datesheetStdIds); @endphp
+                                <label class="flex items-center justify-between gap-2 text-sm {{ $hasDs ? 'text-gray-700' : 'text-gray-400' }}">
+                                    <span class="flex items-center gap-2">
+                                        <input type="checkbox" value="{{ $std->id }}" wire:model="generateForm.standard_ids" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                        {{ $std->name }}
+                                    </span>
+                                    @if ($hasDs)
+                                        <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">datesheet</span>
+                                    @endif
                                 </label>
                             @empty
                                 <p class="text-xs text-gray-400">No classes found.</p>
                             @endforelse
                         </div>
+                        <p class="text-xs text-gray-400 mt-1">Only classes with a datesheet for this exam can be seated. Others are shown greyed for reference.</p>
                         @error('generateForm.standard_ids')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Rooms <span class="text-red-500">*</span></label>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-sm font-medium text-gray-700">Rooms <span class="text-red-500">*</span></label>
+                            <div class="flex items-center gap-2 text-xs">
+                                <button type="button" wire:click="selectAllRooms" class="text-blue-600 hover:text-blue-800 font-medium">Select all</button>
+                                <span class="text-gray-300">|</span>
+                                <button type="button" wire:click="clearAllRooms" class="text-gray-500 hover:text-gray-700 font-medium">Clear</button>
+                            </div>
+                        </div>
                         <div class="border border-gray-200 rounded-md p-3 max-h-40 overflow-y-auto space-y-1.5">
                             @forelse ($rooms->where('is_active', true) as $room)
                                 <label class="flex items-center justify-between gap-2 text-sm text-gray-700">
@@ -612,6 +630,7 @@
                                 <p class="text-xs text-gray-400">No active rooms. Add rooms first.</p>
                             @endforelse
                         </div>
+                        <p class="text-xs text-gray-400 mt-1">If capacity is short on a date, an overflow “Exam Hall” is added automatically.</p>
                         @error('generateForm.room_ids')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                     </div>
                 </div>
