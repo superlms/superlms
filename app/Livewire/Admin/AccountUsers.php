@@ -16,7 +16,8 @@ class AccountUsers extends Component
 {
     use WireUiActions, WithPagination, WithFileUploads;
 
-    public bool $modalOpen = false;
+    public bool $showPanel = false;      // add / edit slide-in
+    public bool $showViewPanel = false;  // view slide-in
     public bool $isEditing = false;
     public ?int $editUserId = null;
 
@@ -29,7 +30,11 @@ class AccountUsers extends Component
     public string $department = 'accounts';
     public string $employee_id = '';
     public string $address = '';
+
     public string $search = '';
+    public string $filterStatus = '';
+
+    public array $viewData = [];
 
     public $userImage = null;
     public ?string $existingImage = null;
@@ -68,11 +73,28 @@ class AccountUsers extends Component
         return Auth::user()->organization_id;
     }
 
-    public function openAddModal()
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFilterStatus(): void
+    {
+        $this->resetPage();
+    }
+
+    public function clearFilters(): void
+    {
+        $this->search = '';
+        $this->filterStatus = '';
+        $this->resetPage();
+    }
+
+    public function openAdd()
     {
         $this->resetForm();
         $this->isEditing = false;
-        $this->modalOpen = true;
+        $this->showPanel = true;
     }
 
     public function editUser($userId)
@@ -95,7 +117,42 @@ class AccountUsers extends Component
         $this->existingImage = $user->schoolUser->image ?? null;
         $this->password      = '';
         $this->userImage     = null;
-        $this->modalOpen     = true;
+        $this->resetErrorBag();
+        $this->showPanel     = true;
+    }
+
+    public function viewUser($userId)
+    {
+        $user = User::with('schoolUser')->find($userId);
+        if (!$user || $user->organization_id !== $this->orgId()) {
+            return;
+        }
+
+        $this->viewData = [
+            'name'             => $user->name,
+            'email'            => $user->email,
+            'mobile_number'    => $user->mobile_number,
+            'alternate_mobile' => $user->schoolUser->alternate_mobile ?? null,
+            'designation'      => $user->schoolUser->designation ?? null,
+            'department'       => $user->schoolUser->department ?? null,
+            'employee_id'      => $user->schoolUser->employee_id ?? null,
+            'address'          => $user->schoolUser->address ?? null,
+            'image'            => $user->schoolUser->image ?? null,
+            'is_active'        => (bool) $user->is_active,
+        ];
+        $this->showViewPanel = true;
+    }
+
+    public function closePanel(): void
+    {
+        $this->showPanel = false;
+        $this->resetForm();
+    }
+
+    public function closeViewPanel(): void
+    {
+        $this->showViewPanel = false;
+        $this->viewData = [];
     }
 
     public function saveUser()
@@ -180,7 +237,7 @@ class AccountUsers extends Component
             $this->notification()->success('User Created', 'Account user created successfully.');
         }
 
-        $this->modalOpen = false;
+        $this->showPanel = false;
         $this->resetForm();
     }
 
@@ -237,20 +294,32 @@ class AccountUsers extends Component
 
     public function render()
     {
-        $users = User::where('organization_id', $this->orgId())
-            ->where('role', 'accounts')
+        $base = User::where('organization_id', $this->orgId())->where('role', 'accounts');
+
+        $analytics = [
+            'total'    => (clone $base)->count(),
+            'active'   => (clone $base)->where('is_active', true)->count(),
+            'inactive' => (clone $base)->where('is_active', false)->count(),
+        ];
+
+        $users = (clone $base)
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
                     $q->where('name', 'like', '%' . $this->search . '%')
-                        ->orWhere('email', 'like', '%' . $this->search . '%');
+                        ->orWhere('email', 'like', '%' . $this->search . '%')
+                        ->orWhere('mobile_number', 'like', '%' . $this->search . '%');
                 });
+            })
+            ->when($this->filterStatus !== '', function ($query) {
+                $query->where('is_active', (bool) $this->filterStatus);
             })
             ->with('schoolUser')
             ->latest()
             ->paginate(10);
 
         return view('livewire.admin.account-users', [
-            'users' => $users,
+            'users'     => $users,
+            'analytics' => $analytics,
         ]);
     }
 }
