@@ -10,6 +10,7 @@ use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
@@ -123,19 +124,26 @@ class Fee extends Component
     public $waiveReason = '';
 
     // ─── Fee Cycle (installments) ───────────────────────────────────────────────
+    // An installment is defined only by its % of the fee — the rupee amount is
+    // computed per class from each class's own fee structure (see the calculator).
     public $cycleFeeType    = 'academic';
     public $cycleSerial     = 1;        // installment no. 1–8
-    public $cycleStartDate  = '';
-    public $cycleEndDate    = '';
     public $cycleDueDate     = '';
     public $cyclePenaltyPerDay = '0';
     public $cycleFeePercent  = '';
-    public $cycleBaseAmount  = '';      // annual/total fee used to compute the slice
-    public $cycleAmount      = 0;       // base × percent (auto-computed)
     public $cycleYear        = '2026-27';
     public $editCycleId      = null;
     public bool $cycleModalOpen = false;
     public ?int $pendingDeleteCycleId = null;
+
+    // Installment calculator (per-class breakdown)
+    public $calcStandardId = '';
+    public $calcSectionId  = '';
+    public $calcSerial     = '';   // optional: focus a single installment
+
+    // ─── Account Users (nested component — filters proxied via events) ──────────
+    public string $acctSearch = '';
+    public string $acctStatus = '';
 
     // ─── Shared ───────────────────────────────────────────────────────────────
     public $search      = '';
@@ -171,11 +179,38 @@ class Fee extends Component
         $this->search = '';
     }
 
+    // ─── Account Users proxy (button + filters live in the fee header) ──────────
+    public function acctAdd(): void
+    {
+        $this->dispatch('acct-add')->to(AccountUsers::class);
+    }
+
+    public function updatedAcctSearch(): void
+    {
+        $this->dispatch('acct-filter', search: $this->acctSearch, status: $this->acctStatus)->to(AccountUsers::class);
+    }
+
+    public function updatedAcctStatus(): void
+    {
+        $this->dispatch('acct-filter', search: $this->acctSearch, status: $this->acctStatus)->to(AccountUsers::class);
+    }
+
+    public function acctClearFilters(): void
+    {
+        $this->acctSearch = '';
+        $this->acctStatus = '';
+        $this->dispatch('acct-filter', search: '', status: '')->to(AccountUsers::class);
+    }
+
     public function showTab(string $tab): void
     {
         $this->activeTab = $tab;
         $this->resetPage();
         $this->search = '';
+        // Account-users filters live in this header; reset them on every switch
+        // so they match the freshly-mounted nested component.
+        $this->acctSearch = '';
+        $this->acctStatus = '';
 
         if ($tab === 'analytics') {
             $this->loadAnalytics();
@@ -1091,14 +1126,9 @@ class Fee extends Component
             if (!$c) return;
             $this->cycleFeeType       = $c->fee_type;
             $this->cycleSerial        = $c->payment_serial;
-            $this->cycleStartDate     = optional($c->start_date)->toDateString();
-            $this->cycleEndDate       = optional($c->end_date)->toDateString();
             $this->cycleDueDate       = optional($c->due_date)->toDateString();
             $this->cyclePenaltyPerDay = $c->penalty_per_day;
             $this->cycleFeePercent    = $c->fee_percent;
-            $this->cycleAmount        = (float) $c->amount;
-            // Re-derive base from stored amount & percent so the % preview is live.
-            $this->cycleBaseAmount    = $c->fee_percent > 0 ? round($c->amount * 100 / $c->fee_percent, 2) : '';
             $this->cycleYear          = $c->academic_year;
         }
         $this->cycleModalOpen = true;
@@ -1113,26 +1143,14 @@ class Fee extends Component
     private function resetCycleForm(): void
     {
         $this->reset([
-            'editCycleId', 'cycleSerial', 'cycleStartDate', 'cycleEndDate', 'cycleDueDate',
-            'cyclePenaltyPerDay', 'cycleFeePercent', 'cycleBaseAmount', 'cycleAmount',
+            'editCycleId', 'cycleSerial', 'cycleDueDate',
+            'cyclePenaltyPerDay', 'cycleFeePercent',
         ]);
         $this->cycleFeeType = 'academic';
         $this->cycleSerial  = 1;
         $this->cyclePenaltyPerDay = '0';
-        $this->cycleAmount  = 0;
         $this->cycleYear    = '2026-27';
         $this->resetValidation();
-    }
-
-    /** Recompute amount = base × percent / 100 whenever either input changes. */
-    public function updatedCycleFeePercent(): void  { $this->recomputeCycleAmount(); }
-    public function updatedCycleBaseAmount(): void   { $this->recomputeCycleAmount(); }
-
-    private function recomputeCycleAmount(): void
-    {
-        $base    = (float) $this->cycleBaseAmount;
-        $percent = (float) $this->cycleFeePercent;
-        $this->cycleAmount = round($base * $percent / 100, 2);
     }
 
     public function saveCycle(): void
@@ -1140,25 +1158,23 @@ class Fee extends Component
         $this->validate([
             'cycleFeeType'    => 'required|string|max:20',
             'cycleSerial'     => 'required|integer|min:1|max:8',
-            'cycleStartDate'  => 'required|date',
-            'cycleEndDate'    => 'required|date|after_or_equal:cycleStartDate',
+            'cycleDueDate'    => 'required|date',
             'cycleFeePercent' => 'required|numeric|min:0|max:100',
-            'cycleBaseAmount' => 'required|numeric|min:0',
             'cycleYear'       => 'required|string|max:20',
         ]);
-
-        $this->recomputeCycleAmount();
 
         $payload = [
             'organization_id' => $this->orgId(),
             'fee_type'        => $this->cycleFeeType,
             'payment_serial'  => $this->cycleSerial,
-            'start_date'      => $this->cycleStartDate,
-            'end_date'        => $this->cycleEndDate,
-            'due_date'        => $this->cycleDueDate ?: $this->cycleEndDate,
+            'start_date'      => null,
+            'end_date'        => null,
+            'due_date'        => $this->cycleDueDate,
             'penalty_per_day' => $this->cyclePenaltyPerDay ?: 0,
             'fee_percent'     => $this->cycleFeePercent,
-            'amount'          => $this->cycleAmount,
+            // Amount is computed per class from fee_percent × the class's own fee
+            // (see FeeController::upcomingInstallments); no single stored amount.
+            'amount'          => 0,
             'academic_year'   => $this->cycleYear,
             'is_active'       => true,
         ];
@@ -1217,6 +1233,56 @@ class Fee extends Component
                 ->orderBy('fee_type')
                 ->orderBy('payment_serial')
                 ->get();
+
+            // Existing installments of the fee type being added/edited — shown in
+            // the form so the user can see previous installments' % and due dates.
+            $data['cycleExisting'] = FeeCycle::forOrg($orgId)
+                ->where('fee_type', $this->cycleFeeType ?: 'academic')
+                ->where('academic_year', $this->cycleYear ?: '')
+                ->orderBy('payment_serial')
+                ->get();
+
+            // ── Per-class installment calculator ──
+            $data['calcSections'] = $this->calcStandardId
+                ? Section::where('standard_id', $this->calcStandardId)->where('is_active', true)->orderBy('id')->get()
+                : collect();
+
+            $calcTotalFee = 0.0;
+            $calcRows     = [];
+            if ($this->calcStandardId) {
+                $calcTotalFee = (float) FeeStructure::where('organization_id', $orgId)
+                    ->academic()->active()
+                    ->forClass((int) $this->calcStandardId, $this->calcSectionId ? (int) $this->calcSectionId : null)
+                    ->sum('amount');
+
+                $acadCycles = FeeCycle::forOrg($orgId)->active()
+                    ->where('fee_type', 'academic')
+                    ->orderBy('payment_serial')->get();
+
+                $cum = 0.0;
+                foreach ($acadCycles as $cy) {
+                    $pct = (float) $cy->fee_percent;
+                    $amt = round($calcTotalFee * $pct / 100, 2);
+                    $cum += $amt;
+                    $calcRows[] = [
+                        'serial'     => (int) $cy->payment_serial,
+                        'percent'    => $pct,
+                        'due_date'   => optional($cy->due_date)->format('d M Y'),
+                        'amount'     => $amt,
+                        'cumulative' => round($cum, 2),
+                        'remaining'  => round(max(0, $calcTotalFee - $cum), 2),
+                    ];
+                }
+            }
+            $data['calcTotalFee'] = $calcTotalFee;
+            $data['calcRows']     = $calcRows;
+        }
+
+        if ($this->activeTab === 'account_users') {
+            $accBase = User::where('organization_id', $orgId)->where('role', 'accounts');
+            $data['acctTotal']    = (clone $accBase)->count();
+            $data['acctActive']   = (clone $accBase)->where('is_active', true)->count();
+            $data['acctInactive'] = (clone $accBase)->where('is_active', false)->count();
         }
 
         if ($this->activeTab === 'concession') {

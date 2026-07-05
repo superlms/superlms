@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
@@ -73,23 +74,16 @@ class AccountUsers extends Component
         return Auth::user()->organization_id;
     }
 
-    public function updatedSearch(): void
+    /** Filters live in the parent (Fee) header and are proxied here via events. */
+    #[On('acct-filter')]
+    public function applyFilter(string $search = '', string $status = ''): void
     {
+        $this->search = $search;
+        $this->filterStatus = $status;
         $this->resetPage();
     }
 
-    public function updatedFilterStatus(): void
-    {
-        $this->resetPage();
-    }
-
-    public function clearFilters(): void
-    {
-        $this->search = '';
-        $this->filterStatus = '';
-        $this->resetPage();
-    }
-
+    #[On('acct-add')]
     public function openAdd()
     {
         $this->resetForm();

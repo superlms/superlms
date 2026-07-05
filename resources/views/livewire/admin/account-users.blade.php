@@ -1,56 +1,7 @@
 <div>
 
-    {{-- ══════════════════════════════════════════════════
-         HEADER (heading + analytics + Add button)
-    ══════════════════════════════════════════════════ --}}
-    <div class="bg-white border-b border-gray-200">
-        <div class="px-4 sm:px-6 py-4 sm:py-5">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                    <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Accounts user</h1>
-                    <p class="text-sm text-gray-500 mt-0.5">Manage accounts panel logins for your school</p>
-                </div>
-                <div class="flex items-center gap-4">
-                    <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200">
-                        <span class="pr-4">Total: <strong class="text-gray-800">{{ $analytics['total'] }}</strong></span>
-                        <span class="px-4">Active: <strong class="text-emerald-600">{{ $analytics['active'] }}</strong></span>
-                        <span class="pl-4">Inactive: <strong class="text-rose-500">{{ $analytics['inactive'] }}</strong></span>
-                    </div>
-                    <button wire:click="openAdd"
-                        class="inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                        Add User
-                    </button>
-                </div>
-            </div>
-            <div class="flex lg:hidden items-center gap-4 text-xs text-gray-500 mt-3 flex-wrap">
-                <span>Total: <strong class="text-gray-800">{{ $analytics['total'] }}</strong></span>
-                <span>Active: <strong class="text-emerald-600">{{ $analytics['active'] }}</strong></span>
-                <span>Inactive: <strong class="text-rose-500">{{ $analytics['inactive'] }}</strong></span>
-            </div>
-        </div>
-
-        {{-- Filter bar (attached to header, exam-style) --}}
-        <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
-            <div class="flex flex-wrap items-center gap-3">
-                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-                    Filter by:
-                </div>
-                <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search name, email, mobile..."
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-purple-500 focus:border-purple-500" />
-                <select wire:model.live="filterStatus"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
-                    <option value="">All Status</option>
-                    <option value="1">Active</option>
-                    <option value="0">Inactive</option>
-                </select>
-                @if ($search || $filterStatus !== '')
-                    <button wire:click="clearFilters" class="text-xs text-purple-600 hover:text-purple-800 font-medium">Clear</button>
-                @endif
-            </div>
-        </div>
-    </div>
+    {{-- Header (title + Add button) and the search/status filter live in the
+         parent Fee page's sticky header — controlled here via Livewire events. --}}
 
     {{-- ══════════════════════════════════════════════════
          LIST
