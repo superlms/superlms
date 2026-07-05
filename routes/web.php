@@ -27,33 +27,67 @@ Route::get('/app/superadmin', function () {
 })->name('pwa.superadmin');
 
 Route::get('/app/accounts', function () {
-    return auth('web')->check()
-        ? redirect()->route('accounts.dashboard')
+    $u = auth('web')->user();
+    return ($u && $u->organization_id)
+        ? redirect()->route('accounts.dashboard', ['organization' => $u->organization_id])
         : redirect()->route('accounts.login');
 })->name('pwa.accounts');
 
-// Role-specific web-app manifests, served with the correct MIME type so each
-// role installs as its own separate app (distinct id + start_url).
+// Role-specific web-app manifests (correct MIME). Each role installs as its own
+// separate app with its OWN scope, so installing one (e.g. admin) doesn't make
+// the browser treat the whole site as that app — the other roles stay usable in
+// the browser and installable on their own.
+//   - admin    → scope /{org}/  (needs the logged-in org; manifest is fetched
+//                 with credentials so we can read it). Falls back to a broad
+//                 scope only while logged out.
+//   - accounts → scope /accounts
+//   - superadmin/site → scope / (their routes live at the site root)
+// Bump $idVersion if an install ever gets "stuck" on a device.
 Route::get('/pwa/manifest/{role}', function (string $role) {
-    $apps = [
-        'admin'      => ['SuperLMS Admin',       'Admin',    route('pwa.admin', [], false)],
-        'superadmin' => ['SuperLMS Super Admin', 'Super',    route('pwa.superadmin', [], false)],
-        'accounts'   => ['SuperLMS Accounts',    'Accounts', route('pwa.accounts', [], false)],
-        'site'       => ['SuperLMS',             'SuperLMS', '/'],
-    ];
-    $key = array_key_exists($role, $apps) ? $role : 'site';
-    [$name, $short, $start] = $apps[$key];
+    $idVersion = 'v3';
+    $u = auth('web')->user();
 
-    // Bump this when an install gets "stuck" (browser shows Open-in-app after the
-    // icon was removed) — a new id makes the browser offer Install again.
-    $idVersion = 'v2';
+    if ($role === 'admin') {
+        if ($u && $u->organization_id) {
+            $org      = $u->organization_id;
+            $name     = 'SuperLMS Admin';
+            $short    = 'Admin';
+            $id       = '/pwa/admin-' . $org;
+            $start    = route('admin.launch', ['organization' => $org], false);
+            $scope    = '/' . $org . '/';
+        } else {
+            $name  = 'SuperLMS Admin';
+            $short = 'Admin';
+            $id    = '/pwa/admin';
+            $start = route('pwa.admin', [], false);
+            $scope = '/';
+        }
+    } elseif ($role === 'accounts') {
+        $name  = 'SuperLMS Accounts';
+        $short = 'Accounts';
+        $id    = '/pwa/accounts';
+        $start = route('accounts.launch', [], false);
+        $scope = '/accounts';
+    } elseif ($role === 'superadmin') {
+        $name  = 'SuperLMS Super Admin';
+        $short = 'Super';
+        $id    = '/pwa/superadmin';
+        $start = route('pwa.superadmin', [], false);
+        $scope = '/';
+    } else {
+        $name  = 'SuperLMS';
+        $short = 'SuperLMS';
+        $id    = '/pwa/site';
+        $start = '/';
+        $scope = '/';
+    }
 
     $manifest = [
         'name'             => $name,
         'short_name'       => $short,
-        'id'               => '/pwa/' . $key . '/' . $idVersion,
+        'id'               => $id . '/' . $idVersion,
         'start_url'        => $start,
-        'scope'            => '/',
+        'scope'            => $scope,
         'display'          => 'standalone',
         'display_override' => ['standalone', 'minimal-ui'],
         'orientation'      => 'any',
@@ -66,7 +100,9 @@ Route::get('/pwa/manifest/{role}', function (string $role) {
     ];
 
     return response(json_encode($manifest, JSON_UNESCAPED_SLASHES))
-        ->header('Content-Type', 'application/manifest+json');
+        ->header('Content-Type', 'application/manifest+json')
+        // Per-user (admin org) — never let a shared cache serve one org's manifest to another.
+        ->header('Cache-Control', 'private, no-store');
 })->name('pwa.manifest');
 
 //SuperLMS Website (must be before admin — avoids {organization} wildcard swallowing /web/* routes)

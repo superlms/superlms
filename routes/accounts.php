@@ -27,6 +27,15 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('accounts')->group(function () {
 
+    // Public PWA launch entry — inside the /accounts scope so the installed
+    // accounts app stays independent. Logged in → dashboard; expired → login.
+    Route::get('/launch', function () {
+        $u = auth('web')->user();
+        return ($u && $u->organization_id)
+            ? redirect()->route('accounts.dashboard', ['organization' => $u->organization_id])
+            : redirect()->route('accounts.login');
+    })->name('accounts.launch');
+
     // Guest routes
     Route::middleware(['guest:web'])->group(function () {
         Route::get('/', Login::class)->name('accounts.login');

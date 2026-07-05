@@ -12,7 +12,7 @@
         $pwaRole = 'admin';
     }
 @endphp
-<link rel="manifest" href="{{ route('pwa.manifest', ['role' => $pwaRole]) }}">
+<link rel="manifest" href="{{ route('pwa.manifest', ['role' => $pwaRole]) }}" crossorigin="use-credentials">
 <meta name="theme-color" content="#4f46e5">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">

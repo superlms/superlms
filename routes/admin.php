@@ -60,6 +60,16 @@ Route::middleware(['guest:web'])->group(function () {
     Route::get('reset-password', ResetPassword::class)->name('reset.password');
 });
 
+// Public PWA launch entry — lives inside the admin app's /{organization}/ scope
+// so the installed admin app doesn't claim super-admin/accounts URLs. Logged in
+// → the school home; session expired → the admin login screen.
+Route::get('/{organization}/launch', function () {
+    $u = auth('web')->user();
+    return ($u && $u->organization_id)
+        ? redirect()->route('admin.home', ['organization' => $u->organization_id])
+        : redirect()->route('admin.login');
+})->name('admin.launch');
+
 Route::middleware(['auth:web', 'admin', 'module'])->group(function () {
     Route::prefix('/{organization}')->group(function () {
         Route::get('/home', Home::class)->name('admin.home');
