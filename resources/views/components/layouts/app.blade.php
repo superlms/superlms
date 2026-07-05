@@ -158,11 +158,18 @@
                     if (header.dataset.lmsSig === sig) return;
                     header.dataset.lmsSig = sig;
 
-                    kids.forEach(function (k) { k.classList.remove('lms-collapsible', 'lms-filterbar'); });
+                    kids.forEach(function (k) { k.classList.remove('lms-collapsible', 'lms-filterbar'); k.style.maxHeight = ''; });
 
                     // No filter bar (or it's the first child) → collapse the whole header.
                     var collapseEnd = filterIdx <= 0 ? kids.length : filterIdx;
-                    for (var j = 0; j < collapseEnd; j++) { kids[j].classList.add('lms-collapsible'); }
+                    for (var j = 0; j < collapseEnd; j++) {
+                        kids[j].classList.add('lms-collapsible');
+                        // Pin an accurate max-height so the collapse animates from the
+                        // element's REAL height instead of a fixed 50rem — otherwise most
+                        // of the transition is spent on invisible range and the filter bar
+                        // slides up with a lag.
+                        kids[j].style.maxHeight = (kids[j].scrollHeight + 16) + 'px';
+                    }
                     if (filterIdx > 0) { kids[filterIdx].classList.add('lms-filterbar'); }
                 }
 
@@ -216,6 +223,17 @@
                             }
                         }
                     }, { passive: true });
+
+                    // Responsive rows change height across breakpoints — re-measure the
+                    // pinned max-heights on resize so the header never gets clipped.
+                    var rzT;
+                    window.addEventListener('resize', function () {
+                        clearTimeout(rzT);
+                        rzT = setTimeout(function () {
+                            var header = getHeader(container);
+                            if (header) { header.removeAttribute('data-lms-sig'); mark(header); }
+                        }, 150);
+                    });
                 }
 
                 document.addEventListener('DOMContentLoaded', init);
