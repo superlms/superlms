@@ -131,10 +131,10 @@
     @include('partials.auto-refresh')
 
     {{-- ─── Scroll-aware collapsing page header (admin & accounts) ───
-         Hides the title/stats/tabs while scrolling down (keeping only the
-         sticky filter bar pinned), and restores them on scroll up. Works
-         generically across every admin page that uses the shared
-         `sticky top-0` header + gray (`bg-gray-50`) filter bar pattern. --}}
+         Hides the title/stats/tabs once you scroll down past them (keeping only
+         the sticky filter bar pinned), and restores them ONLY when scrolled back
+         to the very top. Works generically across every admin page that uses the
+         shared `sticky top-0` header + gray (`bg-gray-50`) filter bar pattern. --}}
     @if (Auth::user() && in_array(Auth::user()->role, ['admin', 'sub-admin', 'accounts', 'super-admin', 'sub-super-admin']))
         <script>
             (function () {
@@ -171,43 +171,50 @@
                     if (!container || container.dataset.lmsScroll === '1') return;
                     container.dataset.lmsScroll = '1';
 
-                    var lastY = container.scrollTop;
-                    // While a collapse/expand is animating, the content height
-                    // changes and the browser nudges scrollTop. Without a lock
-                    // that nudge reads as a direction change and the header
-                    // flickers. We ignore scroll for a short window after each
-                    // toggle so it can settle.
+                    // While a collapse/expand animates, the content height changes
+                    // and the browser nudges scrollTop. We ignore scroll for a short
+                    // window after each toggle so it can settle (prevents flicker).
                     var lockUntil = 0;
                     function now() {
                         return (window.performance && performance.now) ? performance.now() : Date.now();
                     }
+
+                    // Height of the parts that collapse away — the collapse trigger
+                    // must sit ABOVE this, otherwise the scrollTop drop from
+                    // collapsing lands us back at the top and re-shows the header.
+                    function collapsibleHeight(header) {
+                        var h = 0, els = header.querySelectorAll('.lms-collapsible');
+                        for (var i = 0; i < els.length; i++) { h += els[i].offsetHeight; }
+                        return h;
+                    }
+
                     container.addEventListener('scroll', function () {
                         var header = getHeader(container);
-                        var y = container.scrollTop;
-                        if (!header) { lastY = y; return; }
+                        if (!header) return;
                         mark(header);
 
+                        // Ignore the reflow nudge while a toggle is animating.
+                        if (now() < lockUntil) return;
+
+                        var y = container.scrollTop;
                         var collapsed = header.classList.contains('lms-header-collapsed');
 
-                        // At the very top, always show the full header.
-                        if (y <= 8) {
-                            if (collapsed) { header.classList.remove('lms-header-collapsed'); lockUntil = now() + 400; }
-                            lastY = y;
-                            return;
+                        if (collapsed) {
+                            // Reappear ONLY when scrolled all the way back to the top.
+                            if (y <= 1) {
+                                header.classList.remove('lms-header-collapsed');
+                                lockUntil = now() + 400;
+                            }
+                        } else {
+                            // Position-based (not delta) so it also hides on a slow
+                            // scroll. Threshold clears the collapsible height so the
+                            // collapse doesn't bounce back to the top.
+                            var threshold = Math.max(60, collapsibleHeight(header) + 24);
+                            if (y > threshold) {
+                                header.classList.add('lms-header-collapsed');
+                                lockUntil = now() + 400;
+                            }
                         }
-
-                        // Ignore reflow-induced scrolls during the animation.
-                        if (now() < lockUntil) { lastY = y; return; }
-
-                        // Collapse on scroll-down. Do NOT bring the header back on
-                        // an upward scroll mid-list (that covered the content) —
-                        // it only reappears at the very top, handled above.
-                        var dy = y - lastY;
-                        if (dy > 6 && y > 90 && !collapsed) {
-                            header.classList.add('lms-header-collapsed');
-                            lockUntil = now() + 400;
-                        }
-                        lastY = y;
                     }, { passive: true });
                 }
 
