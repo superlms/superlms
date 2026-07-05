@@ -34,7 +34,8 @@
         /* ─── Scroll-aware collapsing page header (admin) ───
            On scroll-down the title/stats/tabs collapse away and only the
            sticky filter bar stays pinned at the top, giving the content the
-           full screen. Scroll-up brings the header back. Driven by JS that
+           full screen. The header comes back only when you scroll all the way
+           to the top (not on an upward scroll mid-list). Driven by JS that
            toggles `.lms-header-collapsed` on the page header. */
         #main-scroll .lms-collapsible {
             overflow: hidden;
@@ -198,12 +199,12 @@
                         // Ignore reflow-induced scrolls during the animation.
                         if (now() < lockUntil) { lastY = y; return; }
 
+                        // Collapse on scroll-down. Do NOT bring the header back on
+                        // an upward scroll mid-list (that covered the content) —
+                        // it only reappears at the very top, handled above.
                         var dy = y - lastY;
                         if (dy > 6 && y > 90 && !collapsed) {
                             header.classList.add('lms-header-collapsed');
-                            lockUntil = now() + 400;
-                        } else if (dy < -6 && collapsed) {
-                            header.classList.remove('lms-header-collapsed');
                             lockUntil = now() + 400;
                         }
                         lastY = y;
