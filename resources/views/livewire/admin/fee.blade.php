@@ -397,20 +397,28 @@
                                 <td class="px-3 py-2 font-mono text-xs text-blue-700">{{ $txn['receipt_number'] }}</td>
                                 <td class="px-3 py-2 text-right font-semibold">₹{{ number_format($txn['amount'], 2) }}</td>
                                 <td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-[11px] {{ $txn['fee_type'] === 'academic' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600' }}">{{ ucfirst($txn['fee_type']) }}</span></td>
-                                <td class="px-3 py-2 capitalize text-gray-600">{{ str_replace('_', ' ', $txn['payment_mode']) }}</td>
+                                <td class="px-3 py-2 capitalize {{ !empty($txn['is_concession']) ? 'text-amber-600 font-medium' : 'text-gray-600' }}">{{ str_replace('_', ' ', $txn['payment_mode']) }}</td>
                                 <td class="px-3 py-2">
-                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $isApp ? 'bg-purple-50 text-purple-600' : 'bg-gray-100 text-gray-600' }}">
-                                        {{ $isApp ? 'Mobile App' : 'Counter' }}
-                                    </span>
+                                    @if (!empty($txn['is_concession']))
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-600">Concession</span>
+                                    @else
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $isApp ? 'bg-purple-50 text-purple-600' : 'bg-gray-100 text-gray-600' }}">
+                                            {{ $isApp ? 'Mobile App' : 'Counter' }}
+                                        </span>
+                                    @endif
                                 </td>
                                 <td class="px-3 py-2 text-gray-600">{{ \Carbon\Carbon::parse($txn['payment_date'])->format('d M Y') }}</td>
                                 <td class="px-3 py-2 text-xs text-gray-600">{{ $txn['submitted_by'] }}</td>
                                 <td class="px-3 py-2 text-center">
-                                    <a href="{{ route('admin.fee.receipt', ['organization' => auth()->user()->organization_id, 'id' => $txn['id']]) }}" target="_blank"
-                                        class="text-xs px-2.5 py-1 border border-gray-300 rounded hover:bg-gray-100 text-gray-600 inline-flex items-center gap-1">
-                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2z"/></svg>
-                                        Receipt
-                                    </a>
+                                    @if (!empty($txn['is_concession']))
+                                        <span class="text-xs text-gray-400">—</span>
+                                    @else
+                                        <a href="{{ route('admin.fee.receipt', ['organization' => auth()->user()->organization_id, 'id' => $txn['id']]) }}" target="_blank"
+                                            class="text-xs px-2.5 py-1 border border-gray-300 rounded hover:bg-gray-100 text-gray-600 inline-flex items-center gap-1">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2z"/></svg>
+                                            Receipt
+                                        </a>
+                                    @endif
                                 </td>
                             </tr>
                         @empty

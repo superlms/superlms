@@ -13,6 +13,7 @@ use App\Models\Student\StudentDetail;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
@@ -177,6 +178,13 @@ class Fee extends Component
         $this->activeTab = '';
         $this->resetPage();
         $this->search = '';
+    }
+
+    /** Fired by the embedded fee-structure component's Analytics button. */
+    #[On('fee-open-analytics')]
+    public function openAnalyticsTab(): void
+    {
+        $this->showTab('analytics');
     }
 
     // ─── Account Users proxy (button + filters live in the fee header) ──────────
@@ -525,24 +533,42 @@ class Fee extends Component
             ->where('student_detail_id', $this->selectedStudentId)
             ->get()->toArray();
 
-        // Net payable = total structure − concessions − amount already paid
+        // Net payable = total structure − concessions − amount already paid.
+        // Each concession is also surfaced as a "concession" entry in the ledger
+        // below (as a payment of type concession), but it reduces the fee via
+        // this discount — NOT via the paid sum — so there's no double counting.
         $totalStructure = collect($this->classStructures)->sum(fn ($s) => (float) $s['amount']);
         $discount = 0.0;
+        $concessionRows = [];
         foreach ($this->studentConcessions as $c) {
-            $discount += $c['concession_type'] === 'percent'
+            $amt = $c['concession_type'] === 'percent'
                 ? round($totalStructure * ((float) $c['value']) / 100, 2)
                 : min((float) $c['value'], $totalStructure);
+            $discount += $amt;
+            $concessionRows[] = [
+                'id'             => null,
+                'receipt_number' => 'CONCESSION',
+                'amount'         => $amt,
+                'fee_type'       => $c['fee_type'] === 'all' ? 'academic' : $c['fee_type'],
+                'payment_mode'   => 'concession',
+                'submitted_by'   => !empty($c['reason']) ? $c['reason'] : 'Concession',
+                'payment_date'   => $c['created_at'] ?? now()->toDateString(),
+                'is_concession'  => true,
+            ];
         }
 
-        // Load payment history for this student (admin/accounts + app payments)
-        $this->studentTransactions = FeePayment::with(['standard', 'section'])
+        // Load real payment history for this student (admin/accounts + app payments)
+        $realTransactions = FeePayment::with(['standard', 'section'])
             ->where('organization_id', $this->orgId())
             ->where('student_detail_id', $this->selectedStudentId)
             ->orderByDesc('payment_date')
             ->get()->toArray();
 
-        $paid = collect($this->studentTransactions)->sum(fn ($t) => (float) $t['amount']);
+        $paid = collect($realTransactions)->sum(fn ($t) => (float) $t['amount']);
         $this->netPayable = max(0, round($totalStructure - $discount - $paid, 2));
+
+        // Ledger = real payments + concessions shown as concession-type entries.
+        $this->studentTransactions = array_merge($realTransactions, $concessionRows);
     }
 
     public function openSubmitPanel(): void

@@ -90,6 +90,12 @@ class FeeStructure extends Component
         $this->resetPage();
     }
 
+    /** Open the parent Fee page's Analytics tab (only meaningful when embedded). */
+    public function openAnalytics(): void
+    {
+        $this->dispatch('fee-open-analytics')->to(\App\Livewire\Admin\Fee::class);
+    }
+
     // ─── Fee row management ──────────────────────────────────────────────────────
     public function addFeeRow(): void
     {
@@ -341,6 +347,14 @@ class FeeStructure extends Component
     public function updatedFilterStructureStandard(): void { $this->filterStructureSection = ''; $this->resetPage(); }
     public function updatedFilterStructureSection(): void { $this->resetPage(); }
     public function updatedSearch(): void { $this->resetPage(); }
+
+    public function clearStructureFilters(): void
+    {
+        $this->filterStructureStandard = '';
+        $this->filterStructureSection  = '';
+        $this->search = '';
+        $this->resetPage();
+    }
 
     public function render()
     {
