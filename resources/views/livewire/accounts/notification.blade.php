@@ -29,13 +29,13 @@
                     <p class="text-lg font-bold text-blue-700">{{ $totalTeachers }}</p>
                 </div>
             </div>
-            <div class="flex items-center gap-3 bg-purple-50 rounded-xl px-4 py-3 border border-purple-100">
-                <div class="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center flex-shrink-0">
+            <div class="flex items-center gap-3 bg-emerald-50 rounded-xl px-4 py-3 border border-emerald-100">
+                <div class="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center flex-shrink-0">
                     <x-icon name="device-phone-mobile" class="w-4 h-4 text-white" />
                 </div>
                 <div>
                     <p class="text-xs text-gray-500 font-medium">Registered Devices</p>
-                    <p class="text-lg font-bold text-purple-700">{{ $registeredDevices }}</p>
+                    <p class="text-lg font-bold text-emerald-700">{{ $registeredDevices }}</p>
                 </div>
             </div>
         </div>

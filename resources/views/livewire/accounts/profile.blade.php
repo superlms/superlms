@@ -42,12 +42,12 @@
                     <img src="{{ $user['image'] }}" alt="{{ $user['name'] }}"
                         class="w-16 h-16 rounded-full object-cover ring-2 ring-gray-100"
                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                    <div class="w-16 h-16 rounded-full bg-purple-50 items-center justify-center ring-2 ring-purple-100" style="display:none;">
-                        <span class="text-xl font-semibold text-purple-600">{{ strtoupper(substr($user['name'] ?? 'U', 0, 1)) }}</span>
+                    <div class="w-16 h-16 rounded-full bg-emerald-50 items-center justify-center ring-2 ring-emerald-100" style="display:none;">
+                        <span class="text-xl font-semibold text-emerald-600">{{ strtoupper(substr($user['name'] ?? 'U', 0, 1)) }}</span>
                     </div>
                 @else
-                    <div class="w-16 h-16 rounded-full bg-purple-50 flex items-center justify-center ring-2 ring-purple-100">
-                        <span class="text-xl font-semibold text-purple-600">{{ strtoupper(substr($user['name'] ?? 'U', 0, 1)) }}</span>
+                    <div class="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center ring-2 ring-emerald-100">
+                        <span class="text-xl font-semibold text-emerald-600">{{ strtoupper(substr($user['name'] ?? 'U', 0, 1)) }}</span>
                     </div>
                 @endif
             </div>
@@ -56,7 +56,7 @@
                 <p class="text-sm text-gray-400 truncate">{{ $user['email'] ?? '-' }}</p>
             </div>
             <div class="flex items-center gap-2 flex-shrink-0">
-                <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-600">
+                <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-600">
                     {{ ucfirst($user['role'] ?? '-') }}
                 </span>
                 @if (!empty($schoolUser))
