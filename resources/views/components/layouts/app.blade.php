@@ -62,6 +62,14 @@
         #main-scroll .lms-header-collapsed .lms-filterbar {
             margin-top: 0 !important;
         }
+
+        /* When re-applying the collapse state right after a Livewire DOM morph
+           (the 5s auto-refresh), transitions are suspended for one frame so the
+           header snaps to its previous state instead of animating/blinking. */
+        #main-scroll .lms-header-noanim,
+        #main-scroll .lms-header-noanim .lms-collapsible {
+            transition: none !important;
+        }
     </style>
 </head>
 
@@ -141,6 +149,15 @@
                 if (window.__lmsHdr) return;
                 window.__lmsHdr = 1;
 
+                // While a collapse/expand animates, the content height changes and
+                // the browser nudges scrollTop. We ignore scroll for a short window
+                // after each toggle so it can settle (prevents flicker). Hoisted to
+                // IIFE scope so the morph guard can also arm it.
+                var lockUntil = 0;
+                function now() {
+                    return (window.performance && performance.now) ? performance.now() : Date.now();
+                }
+
                 function getHeader(container) {
                     return container.querySelector('.sticky.top-0');
                 }
@@ -173,27 +190,60 @@
                     if (filterIdx > 0) { kids[filterIdx].classList.add('lms-filterbar'); }
                 }
 
+                // Height of the parts that collapse away — the collapse trigger
+                // must sit ABOVE this, otherwise the scrollTop drop from
+                // collapsing lands us back at the top and re-shows the header.
+                function collapsibleHeight(header) {
+                    var h = 0, els = header.querySelectorAll('.lms-collapsible');
+                    for (var i = 0; i < els.length; i++) { h += els[i].offsetHeight; }
+                    return h;
+                }
+
+                // A Livewire DOM morph (e.g. the 5s auto-refresh) re-renders the
+                // header from server HTML, which does NOT carry the client-only
+                // collapse classes/inline max-heights — so the header pops back in
+                // and the filter/rows re-animate (a blink). We capture the collapsed
+                // state before the morph and re-apply it synchronously afterwards,
+                // in the same JS task (before paint) with transitions suspended, so
+                // the header snaps back to exactly where it was — no flash.
+                function reapplyHeaderState(wasCollapsed) {
+                    var container = document.getElementById('main-scroll');
+                    if (!container) return;
+                    var header = getHeader(container);
+                    if (!header) return;
+                    header.classList.add('lms-header-noanim');
+                    header.removeAttribute('data-lms-sig'); // force re-mark: morph reset children
+                    mark(header);                            // measured while expanded → correct max-heights
+                    if (wasCollapsed) {
+                        header.classList.add('lms-header-collapsed');
+                    } else {
+                        header.classList.remove('lms-header-collapsed');
+                    }
+                    void header.offsetHeight;                // flush styles before re-enabling transitions
+                    header.classList.remove('lms-header-noanim');
+                    lockUntil = now() + 400;                 // ignore the reflow nudge from scroll restore
+                }
+
+                function registerMorphGuard() {
+                    if (window.__lmsHdrHook) return;
+                    if (!window.Livewire || typeof window.Livewire.hook !== 'function') return;
+                    window.__lmsHdrHook = 1;
+                    window.Livewire.hook('commit', function (payload) {
+                        var container = document.getElementById('main-scroll');
+                        var header = container && getHeader(container);
+                        var wasCollapsed = !!(header && header.classList.contains('lms-header-collapsed'));
+                        if (typeof payload.succeed === 'function') {
+                            payload.succeed(function () { reapplyHeaderState(wasCollapsed); });
+                        }
+                    });
+                }
+
                 function init() {
+                    registerMorphGuard();
+
                     var container = document.getElementById('main-scroll');
                     if (!container || container.dataset.lmsScroll === '1') return;
                     container.dataset.lmsScroll = '1';
-
-                    // While a collapse/expand animates, the content height changes
-                    // and the browser nudges scrollTop. We ignore scroll for a short
-                    // window after each toggle so it can settle (prevents flicker).
-                    var lockUntil = 0;
-                    function now() {
-                        return (window.performance && performance.now) ? performance.now() : Date.now();
-                    }
-
-                    // Height of the parts that collapse away — the collapse trigger
-                    // must sit ABOVE this, otherwise the scrollTop drop from
-                    // collapsing lands us back at the top and re-shows the header.
-                    function collapsibleHeight(header) {
-                        var h = 0, els = header.querySelectorAll('.lms-collapsible');
-                        for (var i = 0; i < els.length; i++) { h += els[i].offsetHeight; }
-                        return h;
-                    }
 
                     container.addEventListener('scroll', function () {
                         var header = getHeader(container);
@@ -237,6 +287,7 @@
                 }
 
                 document.addEventListener('DOMContentLoaded', init);
+                document.addEventListener('livewire:init', registerMorphGuard);
                 document.addEventListener('livewire:navigated', function () {
                     var c = document.getElementById('main-scroll');
                     if (c) {
@@ -245,6 +296,7 @@
                     }
                     init();
                 });
+                if (window.Livewire) registerMorphGuard();
                 if (document.readyState !== 'loading') init();
             })();
         </script>
