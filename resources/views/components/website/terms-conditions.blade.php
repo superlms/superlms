@@ -468,6 +468,9 @@
             color: var(--text3);
             line-height: 1.85;
             margin-bottom: 12px;
+            /* Section bodies are stored as plain text — keep their line breaks
+               and bullet lines instead of collapsing them into one paragraph. */
+            white-space: pre-line;
         }
 
         .policy-section ul {
