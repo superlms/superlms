@@ -99,21 +99,17 @@
                                 @endif
 
                                 <h3 class="text-sm font-bold text-gray-900 leading-tight">{{ $school->name }}</h3>
-                                <p class="text-xs text-gray-400 truncate w-full mt-0.5">{{ $school->email }}</p>
                             </div>
 
                             <div class="p-4 space-y-2 flex-1">
-                                @if ($school->affiliation_no)
-                                    <div class="flex items-center gap-2 text-xs text-gray-500">
-                                        <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none"
-                                            stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                        </svg>
-                                        <span class="truncate">Affiliation: <strong
-                                                class="text-gray-700">{{ $school->affiliation_no }}</strong></span>
-                                    </div>
-                                @endif
+                                <div class="flex items-center gap-2 text-xs text-gray-500">
+                                    <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none"
+                                        stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                    <span class="truncate">{{ $school->email ?? '—' }}</span>
+                                </div>
                                 <div class="flex items-center gap-2 text-xs text-gray-500">
                                     <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none"
                                         stroke="currentColor" viewBox="0 0 24 24">
@@ -122,18 +118,16 @@
                                     </svg>
                                     <span>{{ $school->mobile_number ?? '—' }}</span>
                                 </div>
-                                @if ($school->address)
-                                    <div class="flex items-start gap-2 text-xs text-gray-500">
-                                        <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0 mt-0.5" fill="none"
-                                            stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        </svg>
-                                        <span class="line-clamp-2">{{ $school->address }}</span>
-                                    </div>
-                                @endif
+                                <div class="flex items-start gap-2 text-xs text-gray-500">
+                                    <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0 mt-0.5" fill="none"
+                                        stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                    <span class="line-clamp-2">{{ $school->address ?? '—' }}</span>
+                                </div>
                             </div>
 
                             <div class="flex items-center border-t border-gray-100 divide-x divide-gray-100">
