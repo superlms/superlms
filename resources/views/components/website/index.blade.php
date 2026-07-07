@@ -1016,18 +1016,21 @@
         /* ─── Marquee (school logos — 5 visible, steps one logo right→left every
                second; the centre logo is largest, its neighbours smaller) ─── */
         .marquee-section {
-            padding: 44px 0;
+            padding: 20px 0;
             background: var(--bg3);
             border-top: 1px solid var(--border2);
             border-bottom: 1px solid var(--border2);
             overflow: hidden;
         }
 
-        /* Centered window that fits exactly 5 slots. */
+        /* Centered window that fits exactly 5 slots. Vertical padding lives
+           INSIDE the overflow-hidden window so the scaled-up centre logo has
+           head-room and never gets cropped top/bottom. */
         .marquee-viewport {
             width: 100%;
             max-width: 1200px;
             margin: 0 auto;
+            padding: 26px 0;
             overflow: hidden;
             -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
                     mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
@@ -4004,7 +4007,7 @@
                         paintSizes(0);
                         sliding = false;
                     }, 600);
-                }, 1000);
+                }, 2500);
             })
             .catch(() => {});
 
