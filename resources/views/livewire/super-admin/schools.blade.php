@@ -1232,6 +1232,7 @@
                                     <option value="UP BOARD">UP BOARD</option>
                                     <option value="UP BOARD (ENGLISH MEDIUM)">UP BOARD (ENGLISH MEDIUM)</option>
                                     <option value="UP BOARD (HINDI MEDIUM)">UP BOARD (HINDI MEDIUM)</option>
+                                    <option value="UP BOARD (HINDI &amp; ENGLISH MEDIUM)">UP BOARD (HINDI &amp; ENGLISH MEDIUM)</option>
                                 </select>
                                 @error('educationBoard') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                             </div>
