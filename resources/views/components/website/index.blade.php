@@ -249,16 +249,6 @@
             }
         }
 
-        @keyframes marquee {
-            from {
-                transform: translateX(0);
-            }
-
-            to {
-                transform: translateX(-50%);
-            }
-        }
-
         @keyframes barGrow {
             from {
                 width: 0;
@@ -1023,9 +1013,10 @@
             }
         }
 
-        /* ─── Marquee (school logos — exactly 5 visible, continuous swipe) ─── */
+        /* ─── Marquee (school logos — 5 visible, steps one logo right→left every
+               second; the centre logo is largest, its neighbours smaller) ─── */
         .marquee-section {
-            padding: 34px 0;
+            padding: 44px 0;
             background: var(--bg3);
             border-top: 1px solid var(--border2);
             border-bottom: 1px solid var(--border2);
@@ -1045,8 +1036,8 @@
         .marquee-track {
             display: flex;
             gap: 0;
-            animation: marquee var(--marquee-duration, 30s) linear infinite;
             width: max-content;
+            will-change: transform;
         }
 
         /* Each slot is 1/5 of the visible window, so exactly 5 logos show. */
@@ -1059,8 +1050,8 @@
         }
 
         .marquee-logo {
-            width: clamp(60px, 11vw, 110px);
-            height: clamp(60px, 11vw, 110px);
+            width: clamp(50px, 9vw, 90px);
+            height: clamp(50px, 9vw, 90px);
             border-radius: 50%;
             object-fit: contain;
             background: #fff;
@@ -1068,11 +1059,18 @@
             box-shadow: 0 4px 14px rgba(0, 0, 0, .06);
             padding: 10px;
             flex-shrink: 0;
-            transition: transform .25s ease;
+            transition: transform .5s ease, box-shadow .5s ease;
         }
 
-        .marquee-logo:hover {
-            transform: scale(1.06);
+        /* Positional emphasis: centre biggest, the pair next to it in between. */
+        .marquee-item.pos-near .marquee-logo {
+            transform: scale(1.12);
+        }
+
+        .marquee-item.pos-center .marquee-logo {
+            transform: scale(1.35);
+            box-shadow: 0 10px 26px rgba(111, 86, 254, .22);
+            border-color: var(--violet, #6F56FE);
         }
 
         /* When fewer than 5 schools exist: no sliding — just center exactly
@@ -2958,9 +2956,11 @@
             <div class="section-center reveal">
                 <div class="section-tag tag-violet">Process</div>
                 <h2 class="section-title">How It <span class="gradient-text">Works</span></h2>
-                <p class="section-subtitle"
-                    style="font-size:clamp(19px, 2.2vw, 24px); line-height:1.7; max-width:820px; margin:18px auto 0;">See
-                    how SUPERLMS bridges technology with effective learning in 3 simple steps.</p>
+                <p class="section-subtitle" style="max-width:780px; margin:18px auto 0;">Getting your school onto
+                    SUPERLMS is easier than you think. You share your school's data once, our team sets everything up
+                    for you, and every student, teacher and administrator gets their own secure account — so classes,
+                    attendance, fees and homework start running online from day one. No technical knowledge needed at
+                    your end; here's how a school goes live in 3 simple steps.</p>
             </div>
 
             <div class="hiw-grid stagger-children">
@@ -3108,9 +3108,11 @@
             <div class="section-center reveal">
                 <div class="section-tag tag-dual">Features</div>
                 <h2 class="section-title">Everything You Need to <span class="gradient-text">Succeed</span></h2>
-                <p class="section-subtitle"
-                    style="font-size:clamp(18px, 2vw, 22px); line-height:1.7; max-width:760px; margin:0 auto;">A complete
-                    suite of tools designed to streamline learning and administration for every role.</p>
+                <p class="section-subtitle" style="max-width:780px; margin:0 auto;">A complete suite of 50+ modules
+                    designed to streamline learning and administration for every role — admissions, attendance, fees,
+                    exams, homework, timetables, transport, payroll and much more. One login for administrators,
+                    teachers, students and parents, so your whole school runs from a single platform instead of five
+                    different apps.</p>
             </div>
 
             <div class="features-grid stagger-children">
@@ -3470,7 +3472,7 @@
                 </div>
             </div>
 
-            <div style="text-align:center;margin-top:24px;">
+            <div style="text-align:center;margin-top:56px;">
                 <a href="{{ url('web/pricing') }}" class="btn btn-outline btn-lg">View Full Pricing &amp; All Modules
                     →</a>
             </div>
@@ -3521,8 +3523,9 @@
             <div class="section-center reveal">
                 <div class="section-tag tag-violet">Our Team</div>
                 <h2 class="section-title">Meet the <span class="gradient-text">Minds Behind</span> SUPERLMS</h2>
-                <p class="section-subtitle">Built by educators, engineers, and designers passionate about making
-                    quality education accessible to every school.</p>
+                <p class="section-subtitle" style="max-width:720px;">Founded by Annant Dagur with one mission — to put
+                    quality, affordable school-management technology within reach of every institution in India, from
+                    big city campuses to small-town classrooms.</p>
             </div>
 
             <!-- Founder Spotlight (single, wide feature card) -->
@@ -3568,6 +3571,67 @@
                     <a href="{{ url('web/about') }}" class="btn btn-outline btn-lg"
                         style="margin-top:16px;display:inline-block;">Learn Our Story →</a>
                 </div>
+            </div>
+        </div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════
+     WHY US — conclusion of the /web/why-us page
+═══════════════════════════════════════════ -->
+    <section class="section" style="background:var(--bg3);">
+        <div style="max-width:1060px;margin:0 auto;">
+            <div class="section-center reveal">
+                <div class="section-tag tag-violet">Why Us</div>
+                <h2 class="section-title">Why Schools <span class="gradient-text">Choose</span> SUPERLMS</h2>
+                <p class="section-subtitle" style="max-width:780px;">The bottom line: SUPERLMS is the one partner your
+                    school needs. You get every module in one place at genuinely affordable, transparent per-student
+                    pricing — full power on the web and dedicated apps on every phone. Our team handles the entire
+                    setup and data upload, real humans support you on call, chat and WhatsApp, and everything is
+                    designed around Indian boards, fees and school workflows — not adapted from somewhere else.</p>
+            </div>
+            <div class="reveal" style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:36px;">
+                <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:50px;background:#fff;border:1px solid var(--border);font-size:13.5px;font-weight:600;color:var(--text2);">🧩 All-in-One</span>
+                <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:50px;background:#fff;border:1px solid var(--border);font-size:13.5px;font-weight:600;color:var(--text2);">💰 Genuinely Affordable</span>
+                <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:50px;background:#fff;border:1px solid var(--border);font-size:13.5px;font-weight:600;color:var(--text2);">🔁 Hybrid Web + App</span>
+                <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:50px;background:#fff;border:1px solid var(--border);font-size:13.5px;font-weight:600;color:var(--text2);">🛠️ We Set It Up</span>
+                <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:50px;background:#fff;border:1px solid var(--border);font-size:13.5px;font-weight:600;color:var(--text2);">🛟 Real Human Support</span>
+                <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:50px;background:#fff;border:1px solid var(--border);font-size:13.5px;font-weight:600;color:var(--text2);">🇮🇳 Built for India</span>
+            </div>
+            <div class="reveal" style="text-align:center;margin-top:36px;">
+                <a href="{{ url('web/why-us') }}" class="btn btn-outline btn-lg">See Why Schools Switch →</a>
+            </div>
+        </div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════
+     SERVICES — conclusion of the /web/services page
+═══════════════════════════════════════════ -->
+    <section class="section" style="background:#fff;">
+        <div style="max-width:1060px;margin:0 auto;">
+            <div class="section-center reveal">
+                <div class="section-tag tag-pink">Our Services</div>
+                <h2 class="section-title">Beyond Software — <span class="gradient-text">Complete School
+                        Solutions</span></h2>
+                <p class="section-subtitle" style="max-width:780px;">In short: SUPERLMS goes far beyond an LMS. From
+                    running your classes online to printing ID cards, arranging school loans, setting up labs and smart
+                    classrooms, managing transport, supplying uniforms &amp; books, and taking your teaching fully
+                    online — everything your campus needs comes from one trusted partner, so you never juggle multiple
+                    vendors again.</p>
+            </div>
+            <div class="reveal" style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:36px;">
+                <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:50px;background:var(--bg3);border:1px solid var(--border);font-size:13.5px;font-weight:600;color:var(--text2);">🎓 School LMS</span>
+                <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:50px;background:var(--bg3);border:1px solid var(--border);font-size:13.5px;font-weight:600;color:var(--text2);">🆔 ID Cards</span>
+                <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:50px;background:var(--bg3);border:1px solid var(--border);font-size:13.5px;font-weight:600;color:var(--text2);">🏦 School Loans</span>
+                <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:50px;background:var(--bg3);border:1px solid var(--border);font-size:13.5px;font-weight:600;color:var(--text2);">🔬 Labs Setup</span>
+                <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:50px;background:var(--bg3);border:1px solid var(--border);font-size:13.5px;font-weight:600;color:var(--text2);">🖥️ Smart Classrooms</span>
+                <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:50px;background:var(--bg3);border:1px solid var(--border);font-size:13.5px;font-weight:600;color:var(--text2);">🚌 Smart Transport</span>
+                <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:50px;background:var(--bg3);border:1px solid var(--border);font-size:13.5px;font-weight:600;color:var(--text2);">👕 Uniforms &amp; Books</span>
+                <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:50px;background:var(--bg3);border:1px solid var(--border);font-size:13.5px;font-weight:600;color:var(--text2);">💻 Online Education</span>
+            </div>
+            <div class="reveal" style="text-align:center;margin-top:36px;">
+                <a href="{{ url('web/services') }}" class="btn btn-outline btn-lg">Explore All Services →</a>
             </div>
         </div>
     </section>
@@ -3621,10 +3685,9 @@
                 <h2 class="section-title">Frequently Asked <span class="gradient-text">Questions</span></h2>
             </div>
 
-            {{-- Category chips --}}
+            {{-- Category chips (no "All" — the first category is selected by default) --}}
             <div class="faq-chips reveal" id="faqChips">
-                <button type="button" class="faq-chip active" data-cat="all">All</button>
-                <button type="button" class="faq-chip" data-cat="General">General</button>
+                <button type="button" class="faq-chip active" data-cat="General">General</button>
                 <button type="button" class="faq-chip" data-cat="Getting Started">Getting Started</button>
                 <button type="button" class="faq-chip" data-cat="Features">Features</button>
                 <button type="button" class="faq-chip" data-cat="Security">Security</button>
@@ -3761,18 +3824,27 @@
             /* ── FAQ category chips (matches /web/faqs page) ── */
             const faqChips = Array.prototype.slice.call(document.querySelectorAll('#faqChips .faq-chip'));
             const faqItems = Array.prototype.slice.call(document.querySelectorAll('#faqWrap .faq-item'));
+
+            const applyFaqFilter = (cat) => {
+                faqItems.forEach(item => {
+                    const show = (cat === 'all') || (item.getAttribute('data-cat') === cat);
+                    item.style.display = show ? '' : 'none';
+                    if (!show) item.open = false;
+                });
+            };
+
             faqChips.forEach(chip => {
                 chip.addEventListener('click', () => {
                     faqChips.forEach(c => c.classList.remove('active'));
                     chip.classList.add('active');
-                    const cat = chip.getAttribute('data-cat');
-                    faqItems.forEach(item => {
-                        item.open = false; // close any open FAQ when switching
-                        const show = (cat === 'all') || (item.getAttribute('data-cat') === cat);
-                        item.style.display = show ? '' : 'none';
-                    });
+                    faqItems.forEach(item => { item.open = false; }); // close any open FAQ when switching
+                    applyFaqFilter(chip.getAttribute('data-cat'));
                 });
             });
+
+            // No "All" tab — start filtered to the default (first) active chip.
+            const activeChip = faqChips.find(c => c.classList.contains('active'));
+            if (activeChip) applyFaqFilter(activeChip.getAttribute('data-cat'));
 
             /* ── Scroll-reveal (IntersectionObserver) ── */
             const observer = new IntersectionObserver(entries => {
@@ -3885,25 +3957,54 @@
                 };
 
                 // Fewer than 5 schools → show exactly that many in a static, centered
-                // grid (no sliding). 5 or more → continuous one-by-one slide, 5 visible.
+                // grid (no sliding).
                 if (data.length < 5) {
                     track.classList.add('marquee-static');
-                    track.style.removeProperty('--marquee-duration');
                     track.innerHTML = data.map(itemHtml).join('');
                     return;
                 }
 
-                // Repeat the schools until we have a comfortable run (>= 10 logos),
-                // so 5 are always on screen and the loop never shows a gap.
+                // 5 or more → stepped carousel: every second the row slides one
+                // logo right→left; the logo in the centre slot is emphasised.
+                // Repeat the list so there is always a logo waiting off-screen.
                 let base = data.slice();
-                while (base.length < 10) base = base.concat(data);
+                while (base.length < 7) base = base.concat(data);
+                track.innerHTML = base.map(itemHtml).join('');
 
-                // ×2 for the seamless translateX(0 → -50%) loop.
-                const half = base.map(itemHtml).join('');
-                track.innerHTML = half + half;
+                // `shift` = how many slots the row is about to move; child i sits
+                // in visible slot (i - shift). Slot 2 is the centre of the 5.
+                const paintSizes = (shift) => {
+                    Array.prototype.forEach.call(track.children, (el, i) => {
+                        const slot = i - shift;
+                        el.classList.remove('pos-center', 'pos-near');
+                        if (slot === 2) el.classList.add('pos-center');
+                        else if (slot === 1 || slot === 3) el.classList.add('pos-near');
+                    });
+                };
 
-                // ~2.4s of travel per logo — duration scales with the run length.
-                track.style.setProperty('--marquee-duration', (base.length * 2.4) + 's');
+                paintSizes(0);
+                let sliding = false;
+
+                setInterval(() => {
+                    if (document.hidden || sliding || !track.children.length) return;
+                    sliding = true;
+
+                    const slotW = track.children[0].getBoundingClientRect().width;
+                    paintSizes(1); // sizes morph towards their post-slide slots
+                    track.style.transition = 'transform .55s cubic-bezier(.4, 0, .2, 1)';
+                    track.style.transform = 'translateX(-' + slotW + 'px)';
+
+                    setTimeout(() => {
+                        // Move the logo that just left the window to the end and
+                        // snap back — invisible reset, loop runs forever.
+                        track.style.transition = 'none';
+                        track.appendChild(track.children[0]);
+                        track.style.transform = 'translateX(0)';
+                        void track.offsetWidth; // flush so the next slide animates
+                        paintSizes(0);
+                        sliding = false;
+                    }, 600);
+                }, 1000);
             })
             .catch(() => {});
 
