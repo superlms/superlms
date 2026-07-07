@@ -24,14 +24,16 @@ class EnsureIsAccounts
                 : redirect()->route('accounts.login');
         }
 
-        // If authenticated but not an accounts user
+        // If authenticated on the accounts guard but not an accounts user,
+        // drop this guard's session (other panels stay logged in).
         if ($user->role !== 'accounts') {
-            return redirect()->route('admin.login');
+            Auth::guard('accounts')->logout();
+            return redirect()->route('accounts.login');
         }
 
         // Check organization for accounts users
         if (!$user->organization_id) {
-            Auth::logout();
+            Auth::guard('accounts')->logout();
             return redirect()->route('accounts.login')
                 ->withErrors(['email' => 'No organization assigned to this account.']);
         }

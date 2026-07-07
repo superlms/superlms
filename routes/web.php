@@ -14,20 +14,20 @@ Route::get('/payment/return/{merchantOrderId}', [PhonePeController::class, 'paym
 // → that role's login screen. Registered before website.php so the
 // {organization} wildcard doesn't swallow them.
 Route::get('/app/admin', function () {
-    $u = auth('web')->user();
+    $u = auth('admin')->user();
     return ($u && $u->organization_id)
         ? redirect()->route('admin.home', ['organization' => $u->organization_id])
         : redirect()->route('admin.login');
 })->name('pwa.admin');
 
 Route::get('/app/superadmin', function () {
-    return auth('web')->check()
+    return auth('superadmin')->check()
         ? redirect()->route('super-admin.dashboard')
         : redirect()->route('super-admin.login');
 })->name('pwa.superadmin');
 
 Route::get('/app/accounts', function () {
-    $u = auth('web')->user();
+    $u = auth('accounts')->user();
     return ($u && $u->organization_id)
         ? redirect()->route('accounts.dashboard', ['organization' => $u->organization_id])
         : redirect()->route('accounts.login');
@@ -45,7 +45,7 @@ Route::get('/app/accounts', function () {
 // Bump $idVersion if an install ever gets "stuck" on a device.
 Route::get('/pwa/manifest/{role}', function (string $role) {
     $idVersion = 'v3';
-    $u = auth('web')->user();
+    $u = auth('admin')->user();
 
     if ($role === 'admin') {
         if ($u && $u->organization_id) {

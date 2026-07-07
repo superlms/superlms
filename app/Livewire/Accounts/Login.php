@@ -39,19 +39,21 @@ class Login extends Component
             return;
         }
 
-        if (!Auth::attempt(['email' => $this->email, 'password' => $this->password])) {
+        // Panel-specific guard: signing in here never touches the admin or
+        // super-admin sessions in the same browser.
+        if (!Auth::guard('accounts')->attempt(['email' => $this->email, 'password' => $this->password])) {
             $this->addError('password', 'Incorrect password.');
             return;
         }
 
         if ($user->role !== 'accounts') {
-            Auth::logout();
+            Auth::guard('accounts')->logout();
             $this->addError('email', 'You do not have accounts panel access.');
             return;
         }
 
         if (!$user->organization_id) {
-            Auth::logout();
+            Auth::guard('accounts')->logout();
             $this->addError('email', 'No organization assigned to this account.');
             return;
         }
@@ -65,7 +67,7 @@ class Login extends Component
         } catch (\Exception $e) {
             logger()->error('OTP send failed during login: ' . $e->getMessage());
             $this->addError('email', 'Failed to send OTP. Please try again.' . $e->getMessage());
-            Auth::logout();
+            Auth::guard('accounts')->logout();
             return;
         }
 

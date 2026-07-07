@@ -24,14 +24,16 @@ class EnsureIsAdmin
                 : redirect()->route('admin.login');
         }
 
-        // If authenticated but neither an admin nor a sub-admin
+        // If authenticated on the admin guard but neither an admin nor a
+        // sub-admin, drop this guard's session (other panels stay logged in).
         if (!in_array($user->role, ['admin', 'sub-admin'], true)) {
-            return redirect()->route('super-admin.dashboard');
+            Auth::guard('admin')->logout();
+            return redirect()->route('admin.login');
         }
 
         // Both admins and sub-admins must belong to an organization.
         if (!$user->organization_id) {
-            Auth::logout();
+            Auth::guard('admin')->logout();
             return redirect()->route('admin.login')
                 ->withErrors(['email' => 'No organization assigned to this account.']);
         }

@@ -35,12 +35,12 @@ use App\Livewire\Components\Profile;
 use Illuminate\Support\Facades\Route;
 
 // Super Admin Routes
-Route::middleware(['guest:web'])->group(function () {
+Route::middleware(['guest:superadmin'])->group(function () {
     Route::get('admin', Login::class)->name('super-admin.login');
     Route::get('forgot-password', ForgotPassword::class)->name('super-admin.forgot-password');
 });
 
-Route::middleware(['auth:web', 'super-admin'])->group(function () {
+Route::middleware(['auth:superadmin', 'super-admin'])->group(function () {
     Route::get('quick-links', QuickLinks::class)->name('super-admin.quick-links');
     Route::get('dashboard', Dashboard::class)->name('super-admin.dashboard');
     Route::get('schools', Schools::class)->name('super-admin.schools');

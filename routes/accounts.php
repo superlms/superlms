@@ -30,25 +30,25 @@ Route::prefix('accounts')->group(function () {
     // Public PWA launch entry — inside the /accounts scope so the installed
     // accounts app stays independent. Logged in → dashboard; expired → login.
     Route::get('/launch', function () {
-        $u = auth('web')->user();
+        $u = auth('accounts')->user();
         return ($u && $u->organization_id)
             ? redirect()->route('accounts.dashboard', ['organization' => $u->organization_id])
             : redirect()->route('accounts.login');
     })->name('accounts.launch');
 
     // Guest routes
-    Route::middleware(['guest:web'])->group(function () {
+    Route::middleware(['guest:accounts'])->group(function () {
         Route::get('/', Login::class)->name('accounts.login');
         Route::get('/reset-password', ResetPassword::class)->name('accounts.reset-password');
     });
 
     // OTP verification (auth but not fully verified)
-    Route::middleware(['auth:web'])->group(function () {
+    Route::middleware(['auth:accounts'])->group(function () {
         Route::get('/verify-otp', VerifyOtp::class)->name('accounts.verify-otp');
     });
 
     // Protected routes
-    Route::middleware(['auth:web', 'accounts', 'module'])->group(function () {
+    Route::middleware(['auth:accounts', 'accounts', 'module'])->group(function () {
         Route::prefix('/{organization}')->group(function () {
             Route::get('/dashboard', Dashboard::class)->name('accounts.dashboard');
             Route::get('/payroll', Payroll::class)->name('accounts.payroll');

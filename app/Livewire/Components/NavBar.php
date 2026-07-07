@@ -137,22 +137,24 @@ class NavBar extends Component
         $this->confirmLogout();
     }
 
+    // Each panel signs out of ITS guard only, so logging out of (say) the
+    // super-admin panel never kills an admin/accounts session open elsewhere.
     public function superAdminLogout(): mixed
     {
-        Auth::logout();
+        Auth::guard('superadmin')->logout();
         return redirect()->route('super-admin.login');
     }
 
     public function adminLogout(): mixed
     {
-        Auth::logout();
+        Auth::guard('admin')->logout();
         return redirect()->route('admin.login');
     }
 
     public function accountsLogout(): mixed
     {
         session()->forget('accounts_otp_verified');
-        Auth::logout();
+        Auth::guard('accounts')->logout();
         return redirect()->route('accounts.login');
     }
 

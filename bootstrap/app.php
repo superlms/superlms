@@ -47,7 +47,36 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [SecurityHeaders::class]);
         $middleware->api(append: [SecurityHeaders::class]);
 
-        $middleware->redirectGuestsTo('/api/unauthenticate');
+        // Guests: web panels go to their own login screen; API keeps its JSON 403.
+        $middleware->redirectGuestsTo(function (Request $request) {
+            if ($request->routeIs('super-admin.*')) {
+                return route('super-admin.login');
+            }
+            if ($request->routeIs('accounts.*')) {
+                return route('accounts.login');
+            }
+            if ($request->routeIs('admin.*')) {
+                return route('admin.login');
+            }
+            return '/api/unauthenticate';
+        });
+
+        // Already-authenticated users hitting a login page go back into their panel.
+        $middleware->redirectUsersTo(function (Request $request) {
+            if ($request->routeIs('super-admin.*')) {
+                return route('super-admin.quick-links');
+            }
+            if ($request->routeIs('accounts.*')) {
+                $u = auth('accounts')->user();
+                return $u && $u->organization_id
+                    ? route('accounts.dashboard', ['organization' => $u->organization_id])
+                    : '/';
+            }
+            $u = auth('admin')->user();
+            return $u && $u->organization_id
+                ? route('admin.quick-links', ['organization' => $u->organization_id])
+                : '/';
+        });
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

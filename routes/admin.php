@@ -55,7 +55,7 @@ use App\Livewire\Components\Profile;
 use App\Livewire\ResetPassword;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['guest:web'])->group(function () {
+Route::middleware(['guest:admin'])->group(function () {
     Route::get('login', Login::class)->name('admin.login');
     Route::get('reset-password', ResetPassword::class)->name('reset.password');
 });
@@ -64,13 +64,13 @@ Route::middleware(['guest:web'])->group(function () {
 // so the installed admin app doesn't claim super-admin/accounts URLs. Logged in
 // → the school home; session expired → the admin login screen.
 Route::get('/{organization}/launch', function () {
-    $u = auth('web')->user();
+    $u = auth('admin')->user();
     return ($u && $u->organization_id)
         ? redirect()->route('admin.home', ['organization' => $u->organization_id])
         : redirect()->route('admin.login');
 })->name('admin.launch');
 
-Route::middleware(['auth:web', 'admin', 'module'])->group(function () {
+Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
     Route::prefix('/{organization}')->group(function () {
         Route::get('/home', Home::class)->name('admin.home');
         Route::get('/quick-links', QuickLinks::class)->name('admin.quick-links');

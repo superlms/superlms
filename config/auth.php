@@ -40,6 +40,25 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Independent session guards for each panel. All three share the same
+        // session cookie but store their login under separate keys, so being
+        // signed in as super-admin in one tab does NOT touch the admin session
+        // used by an installed admin PWA (and vice versa).
+        'admin' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
+
+        'superadmin' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
+
+        'accounts' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
     ],
 
     /*

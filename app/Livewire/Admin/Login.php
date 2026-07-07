@@ -130,7 +130,9 @@ class Login extends Component
             return;
         }
 
-        Auth::login($user);
+        // Panel-specific guard: signing in here never touches the super-admin
+        // or accounts sessions in the same browser.
+        Auth::guard('admin')->login($user);
 
         $landingRoute = 'admin.quick-links';
         if ($user->role === 'sub-admin') {

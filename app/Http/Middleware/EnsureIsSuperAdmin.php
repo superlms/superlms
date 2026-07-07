@@ -46,8 +46,10 @@ class EnsureIsSuperAdmin
             return redirect()->route($this->firstAllowedRoute($user));
         }
 
-        // Any other role → bounce to their admin area
-        return redirect()->route('admin.quick-links', ['organization' => $user->organization_id]);
+        // Any other role on the superadmin guard → drop this guard's session
+        // (admin/accounts sessions in the same browser stay logged in).
+        Auth::guard('superadmin')->logout();
+        return redirect()->route('super-admin.login');
     }
 
     /**

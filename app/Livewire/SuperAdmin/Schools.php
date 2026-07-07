@@ -703,7 +703,9 @@ class Schools extends Component
             return null;
         }
 
-        Auth::login($admin);
+        // Log into the ADMIN guard only — the super-admin session stays intact,
+        // so closing the admin tab returns to a still-logged-in super-admin.
+        Auth::guard('admin')->login($admin);
         return redirect()->route('admin.home', ['organization' => $admin->organization_id]);
     }
 

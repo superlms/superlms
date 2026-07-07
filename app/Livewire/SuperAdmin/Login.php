@@ -106,7 +106,9 @@ class Login extends Component
 
         try {
             OtpMailService::verifyOtp($user, $entered);
-            Auth::login($user);
+            // Panel-specific guard: signing in here never touches the admin
+            // or accounts sessions in the same browser.
+            Auth::guard('superadmin')->login($user);
             return redirect()->route('super-admin.quick-links');
         } catch (\Exception $e) {
             $this->otp = ['', '', '', '', '', ''];
