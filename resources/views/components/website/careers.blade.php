@@ -216,11 +216,12 @@
         <div class="apply-grid">
           <div class="field">
             <label>Full Name <span class="req">*</span></label>
-            <input type="text" name="full_name" required placeholder="Your full name">
+            <input type="text" name="full_name" required maxlength="50" placeholder="Your full name">
           </div>
           <div class="field">
             <label>Email <span class="req">*</span></label>
-            <input type="email" name="email" required placeholder="you@example.com">
+            <input type="email" name="email" required maxlength="50" pattern="[^@\s]+@[^@\s]+\.[^@\s]+"
+              title="Enter a valid email address" placeholder="you@example.com">
           </div>
           <div class="field">
             <label>Mobile Number <span class="req">*</span></label>
@@ -229,15 +230,15 @@
           </div>
           <div class="field">
             <label>Experience <span class="req">*</span></label>
-            <input type="text" name="experience" required placeholder="e.g. 2 years in sales / Fresher">
+            <input type="text" name="experience" required maxlength="200" placeholder="e.g. 2 years in sales / Fresher">
           </div>
           <div class="field full">
             <label>Address <span class="req">*</span></label>
-            <textarea name="address" required placeholder="Your city, area and state"></textarea>
+            <textarea name="address" required maxlength="200" placeholder="Your city, area and state"></textarea>
           </div>
           <div class="field full">
             <label>About You / Why you want to join</label>
-            <textarea name="description" placeholder="Tell us a little about yourself and why you'd be a great fit (optional)"></textarea>
+            <textarea name="description" maxlength="500" placeholder="Tell us a little about yourself and why you'd be a great fit (optional)"></textarea>
           </div>
           <div class="field full">
             <label>Attach Resume <span class="req">*</span></label>
