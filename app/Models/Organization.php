@@ -25,6 +25,7 @@ class Organization extends Model
         'mobile_number',
         'state',
         'education_board',
+        'medium',
         'school_code',
         'affiliation_no',
         'udise_number',

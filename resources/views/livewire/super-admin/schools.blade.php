@@ -58,7 +58,15 @@
                         <option value="inactive">Inactive</option>
                     </select>
 
-                    @if ($search || $statusFilter)
+                    <select wire:model.live="mediumFilter"
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">All mediums</option>
+                        <option value="english">English Medium</option>
+                        <option value="hindi">Hindi Medium</option>
+                        <option value="both">Hindi &amp; English</option>
+                    </select>
+
+                    @if ($search || $statusFilter || $mediumFilter)
                         <button wire:click="clearFilters"
                             class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -99,6 +107,17 @@
                                 @endif
 
                                 <h3 class="text-sm font-bold text-gray-900 leading-tight">{{ $school->name }}</h3>
+                                @if ($school->medium)
+                                    <span
+                                        class="mt-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold
+                                        {{ $school->medium === 'hindi'
+                                            ? 'bg-orange-50 text-orange-700 border border-orange-100'
+                                            : ($school->medium === 'both'
+                                                ? 'bg-purple-50 text-purple-700 border border-purple-100'
+                                                : 'bg-blue-50 text-blue-700 border border-blue-100') }}">
+                                        {{ $school->medium === 'both' ? 'Hindi & English' : ucfirst($school->medium) . ' Medium' }}
+                                    </span>
+                                @endif
                             </div>
 
                             <div class="p-4 space-y-2 flex-1">
@@ -230,7 +249,7 @@
                         </svg>
                     </div>
                     <p class="text-gray-500 text-sm">No schools found</p>
-                    @if ($search || $statusFilter)
+                    @if ($search || $statusFilter || $mediumFilter)
                         <button wire:click="clearFilters"
                             class="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium">
                             Clear filters
@@ -1229,6 +1248,17 @@
                                     <option value="UP BOARD (HINDI &amp; ENGLISH MEDIUM)">UP BOARD (HINDI &amp; ENGLISH MEDIUM)</option>
                                 </select>
                                 @error('educationBoard') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Medium</label>
+                                <select wire:model.defer="medium"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">Select medium</option>
+                                    <option value="english">English Medium</option>
+                                    <option value="hindi">Hindi Medium</option>
+                                    <option value="both">Hindi &amp; English Medium</option>
+                                </select>
+                                @error('medium') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                             </div>
                             <div class="sm:col-span-2">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>

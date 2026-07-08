@@ -43,6 +43,7 @@ class Schools extends Component
 
     public string $search       = '';
     public string $statusFilter = ''; // '' | 'active' | 'inactive'
+    public string $mediumFilter = ''; // '' | 'english' | 'hindi' | 'both'
 
     // ── Add-school flow ────────────────────────────────────────────────────────
     public int   $modalStep       = 1; // 1 = details, 2 = module selection (create only)
@@ -68,6 +69,7 @@ class Schools extends Component
     public $mobileNumber   = '';
     public $state          = '';
     public $educationBoard = '';
+    public $medium         = '';
     public $schoolCode     = '';
     public $affiliationNo  = '';
     public $udiseNumber    = '';
@@ -140,9 +142,14 @@ class Schools extends Component
         $this->resetPage();
     }
 
+    public function updatedMediumFilter(): void
+    {
+        $this->resetPage();
+    }
+
     public function clearFilters(): void
     {
-        $this->reset(['search', 'statusFilter']);
+        $this->reset(['search', 'statusFilter', 'mediumFilter']);
         $this->resetPage();
     }
 
@@ -455,6 +462,7 @@ class Schools extends Component
             'mobileNumber'   => 'required|string|max:15',
             'state'          => 'required|string',
             'educationBoard' => 'required|string',
+            'medium'         => 'nullable|in:english,hindi,both',
             'schoolCode'     => [
                 'required',
                 'string',
@@ -482,6 +490,7 @@ class Schools extends Component
         $this->mobileNumber   = $school->mobile_number;
         $this->state          = $school->state;
         $this->educationBoard = $school->education_board;
+        $this->medium         = $school->medium ?? '';
         $this->schoolCode     = $school->school_code;
         $this->affiliationNo  = $school->affiliation_no;
         $this->udiseNumber    = $school->udise_number;
@@ -558,6 +567,7 @@ class Schools extends Component
                 'mobile_number'   => $this->mobileNumber,
                 'state'           => $this->state,
                 'education_board' => $this->educationBoard,
+                'medium'          => $this->medium ?: null,
                 'school_code'     => $this->schoolCode,
                 'affiliation_no'  => $this->affiliationNo,
                 'udise_number'    => $this->udiseNumber,
@@ -641,8 +651,8 @@ class Schools extends Component
     private function ensureOrganizationColumns(): void
     {
         $needed = [
-            'affiliation_no', 'udise_number', 'bank_name', 'bank_account_no',
-            'bank_ifsc', 'bank_branch', 'bank_holder_name',
+            'affiliation_no', 'udise_number', 'medium', 'bank_name',
+            'bank_account_no', 'bank_ifsc', 'bank_branch', 'bank_holder_name',
         ];
 
         $missing = array_filter(
@@ -745,6 +755,7 @@ class Schools extends Component
             'mobileNumber',
             'state',
             'educationBoard',
+            'medium',
             'schoolCode',
             'affiliationNo',
             'udiseNumber',
@@ -773,6 +784,7 @@ class Schools extends Component
                     ->orWhere('affiliation_no', 'like', "%{$this->search}%")
             ))
             ->when($this->statusFilter !== '', fn($q) => $q->where('status', $this->statusFilter === 'active'))
+            ->when($this->mediumFilter !== '', fn($q) => $q->where('medium', $this->mediumFilter))
             ->latest()
             ->paginate(12);
 

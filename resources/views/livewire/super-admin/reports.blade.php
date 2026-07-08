@@ -23,18 +23,19 @@
     </div>
 
     @php
-        // [key, label, accent text, accent bg, isMoney]
+        // [label, accent text, accent bg, isMoney, icon, border accent]
         $metricMeta = [
-            'students'  => ['New Students',   'text-blue-600',    'bg-blue-50',    false],
-            'teachers'  => ['New Teachers',   'text-indigo-600',  'bg-indigo-50',  false],
-            'schools'   => ['New Schools',    'text-purple-600',  'bg-purple-50',  false],
-            'revenue'   => ['Platform Revenue','text-emerald-600','bg-emerald-50', true],
-            'fees'      => ['Fees Collected', 'text-amber-600',   'bg-amber-50',   true],
-            'credit'    => ['Credit Apps',    'text-rose-600',    'bg-rose-50',    false],
-            'support'   => ['Support Tickets','text-sky-600',     'bg-sky-50',     false],
-            'enquiries' => ['Enquiries',      'text-cyan-600',    'bg-cyan-50',    false],
+            'students'  => ['New Students',    'text-blue-600',    'bg-blue-50',    false, '🎓', 'border-l-blue-400'],
+            'teachers'  => ['New Teachers',    'text-indigo-600',  'bg-indigo-50',  false, '👩‍🏫', 'border-l-indigo-400'],
+            'schools'   => ['New Schools',     'text-purple-600',  'bg-purple-50',  false, '🏫', 'border-l-purple-400'],
+            'revenue'   => ['Platform Revenue','text-emerald-600', 'bg-emerald-50', true,  '💰', 'border-l-emerald-400'],
+            'fees'      => ['Fees Collected',  'text-amber-600',   'bg-amber-50',   true,  '🧾', 'border-l-amber-400'],
+            'credit'    => ['Credit Apps',     'text-rose-600',    'bg-rose-50',    false, '💳', 'border-l-rose-400'],
+            'support'   => ['Support Tickets', 'text-sky-600',     'bg-sky-50',     false, '🛟', 'border-l-sky-400'],
+            'enquiries' => ['Enquiries',       'text-cyan-600',    'bg-cyan-50',    false, '📩', 'border-l-cyan-400'],
         ];
         $fmt = fn($v, $money) => $money ? '₹' . number_format((float) $v) : number_format((int) $v);
+        $periodLabel = $range === 'monthly' ? 'last 12 mo' : 'last 30 days';
     @endphp
 
     <div class="p-4 sm:p-6 space-y-6">
@@ -43,13 +44,20 @@
         <div>
             <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">All-Time Totals</p>
             <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
-                @foreach ($metricMeta as $k => [$label, $txt, $bg, $isMoney])
-                    <div class="rounded-xl border border-gray-200 bg-white p-4">
-                        <div class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium {{ $bg }} {{ $txt }} mb-2">
-                            {{ $label }}
+                @foreach ($metricMeta as $k => [$label, $txt, $bg, $isMoney, $icon, $accent])
+                    <div class="group rounded-xl border border-gray-200 bg-white p-4 transition-all duration-200
+                                hover:shadow-md hover:-translate-y-0.5 hover:border-gray-300">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium {{ $bg }} {{ $txt }}">
+                                {{ $label }}
+                            </div>
+                            <span class="text-base opacity-60 group-hover:opacity-100 transition-opacity">{{ $icon }}</span>
                         </div>
                         <div class="text-lg sm:text-xl font-bold text-gray-900 truncate">
                             {{ $fmt($snapshot[$k] ?? 0, $isMoney) }}
+                        </div>
+                        <div class="mt-1 text-[11px] {{ ($totals[$k] ?? 0) > 0 ? $txt . ' font-semibold' : 'text-gray-400' }} truncate">
+                            {{ ($totals[$k] ?? 0) > 0 ? '+' . $fmt($totals[$k], $isMoney) : 'No change' }} · {{ $periodLabel }}
                         </div>
                     </div>
                 @endforeach
@@ -62,9 +70,10 @@
                 {{ $range === 'monthly' ? 'Last 12 Months' : 'Last 30 Days' }} — Period Totals
             </p>
             <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
-                @foreach ($metricMeta as $k => [$label, $txt, $bg, $isMoney])
-                    <div class="rounded-lg border border-gray-200 bg-white px-3 py-2.5">
-                        <div class="text-[11px] text-gray-500">{{ $label }}</div>
+                @foreach ($metricMeta as $k => [$label, $txt, $bg, $isMoney, $icon, $accent])
+                    <div class="rounded-lg border border-gray-200 border-l-4 {{ $accent }} bg-white px-3 py-2.5
+                                transition-colors hover:bg-gray-50/60">
+                        <div class="text-[11px] text-gray-500">{{ $icon }} {{ $label }}</div>
                         <div class="text-base sm:text-lg font-bold {{ $txt }} truncate">
                             {{ $fmt($totals[$k] ?? 0, $isMoney) }}
                         </div>
@@ -105,11 +114,16 @@
                                 $revPct  = min(100, ($row['revenue'] / ($peaks['revenue'] ?? 1)) * 100);
                                 $feePct  = min(100, ($row['fees'] / ($peaks['fees'] ?? 1)) * 100);
                             @endphp
-                            <tr class="hover:bg-gray-50 {{ $isEmpty ? 'opacity-60' : '' }}">
+                            <tr class="odd:bg-white even:bg-gray-50/50 hover:bg-emerald-50/40 transition-colors {{ $isEmpty ? 'opacity-60' : '' }}">
                                 <td class="px-4 py-2.5 whitespace-nowrap">
                                     <span class="font-semibold text-gray-800">{{ $row['label'] }}</span>
                                     @if ($row['sub'])
                                         <span class="text-xs text-gray-400 ml-1">{{ $row['sub'] }}</span>
+                                    @endif
+                                    @if ($loop->first)
+                                        <span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">
+                                            {{ $range === 'monthly' ? 'This month' : 'Today' }}
+                                        </span>
                                     @endif
                                 </td>
                                 <td class="text-center px-3 py-2.5 {{ $row['students'] ? 'text-blue-700 font-semibold' : 'text-gray-300' }}">{{ $row['students'] ?: '—' }}</td>
