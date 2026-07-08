@@ -228,12 +228,12 @@ class WebsiteController extends Controller
     public function contact(Request $request)
     {
         $validated = $request->validate([
-            'full_name'    => 'required|string|max:255',
-            'school_name'  => 'required|string|max:255',
-            'phone_number' => ['required', 'string', 'regex:/^[6-9][0-9]{9}$/'],
-            'email'        => 'required|email|max:255',
+            'full_name'    => 'required|string|max:40',
+            'school_name'  => 'required|string|max:100',
+            'phone_number' => ['required', 'string', 'max:10', 'regex:/^[6-9][0-9]{9}$/'],
+            'email'        => 'required|email|max:75',
             'subject'      => 'required|string|max:255',
-            'description'  => 'required|string|max:5000',
+            'description'  => 'required|string|max:2000',
         ]);
 
         if ($this->isSpamSubmission($request)) {
@@ -255,11 +255,11 @@ class WebsiteController extends Controller
     public function demo(Request $request)
     {
         $validated = $request->validate([
-            'full_name'      => 'required|string|max:255',
-            'school_name'    => 'required|string|max:255',
-            'phone'          => ['required', 'string', 'regex:/^[6-9][0-9]{9}$/'],
-            'email'          => 'required|email|max:255',
-            'city'           => 'required|string|max:255',
+            'full_name'      => 'required|string|max:40',
+            'school_name'    => 'required|string|max:100',
+            'phone'          => ['required', 'string', 'max:10', 'regex:/^[6-9][0-9]{9}$/'],
+            'email'          => 'required|email|max:75',
+            'city'           => 'required|string|max:50',
             'no_of_students' => 'required|string|max:50',
             'role'           => 'required|string|max:100',
         ]);
@@ -283,11 +283,11 @@ class WebsiteController extends Controller
     public function scheduleCall(Request $request)
     {
         $validated = $request->validate([
-            'full_name'      => 'required|string|max:255',
-            'school_name'    => 'required|string|max:255',
-            'phone'          => ['required', 'string', 'regex:/^[6-9][0-9]{9}$/'],
-            'email'          => 'required|email|max:255',
-            'city'           => 'required|string|max:255',
+            'full_name'      => 'required|string|max:40',
+            'school_name'    => 'required|string|max:100',
+            'phone'          => ['required', 'string', 'max:10', 'regex:/^[6-9][0-9]{9}$/'],
+            'email'          => 'required|email|max:75',
+            'city'           => 'required|string|max:50',
             'no_of_students' => 'required|string|max:50',
             'role'           => 'required|string|max:100',
             'preferred_date' => 'required|date|after_or_equal:today',

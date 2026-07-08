@@ -834,12 +834,12 @@
                         <div class="form-group">
                             <label class="form-label">Full Name *</label>
                             <input class="form-input" type="text" name="name" placeholder="Your full name"
-                                required />
+                                required maxlength="40" />
                         </div>
                         <div class="form-group">
                             <label class="form-label">School Name *</label>
                             <input class="form-input" type="text" name="school" placeholder="Your school name"
-                                required />
+                                required maxlength="100" />
                         </div>
                     </div>
                     <div class="form-row">
@@ -853,7 +853,7 @@
                         <div class="form-group">
                             <label class="form-label">Email *</label>
                             <input class="form-input" type="email" name="email" placeholder="your@email.com"
-                                required pattern="[^@\s]+@[^@\s]+\.[^@\s]+"
+                                required maxlength="75" pattern="[^@\s]+@[^@\s]+\.[^@\s]+"
                                 title="Enter a valid email address" />
                         </div>
                     </div>
@@ -870,7 +870,7 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Message *</label>
-                        <textarea class="form-textarea" name="message" placeholder="Tell us how we can help..." required></textarea>
+                        <textarea class="form-textarea" name="message" placeholder="Tell us how we can help..." required maxlength="2000"></textarea>
                     </div>
                     <button type="submit" class="btn-submit">Send Message</button>
                 </form>

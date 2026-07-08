@@ -940,12 +940,12 @@
                             <div class="form-group">
                                 <label class="form-label">Your Name *</label>
                                 <input class="form-input" type="text" name="name" placeholder="Full name"
-                                    required />
+                                    required maxlength="40" />
                             </div>
                             <div class="form-group">
                                 <label class="form-label">School Name *</label>
                                 <input class="form-input" type="text" name="school"
-                                    placeholder="School / Institution" required />
+                                    placeholder="School / Institution" required maxlength="100" />
                             </div>
                         </div>
                         <div class="form-row">
@@ -959,14 +959,15 @@
                             <div class="form-group">
                                 <label class="form-label">Email *</label>
                                 <input class="form-input" type="email" name="email" placeholder="Email address"
-                                    required pattern="[^@\s]+@[^@\s]+\.[^@\s]+"
+                                    required maxlength="75" pattern="[^@\s]+@[^@\s]+\.[^@\s]+"
                                     title="Enter a valid email address" />
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
                                 <label class="form-label">City *</label>
-                                <input class="form-input" type="text" name="city" placeholder="Your city" required />
+                                <input class="form-input" type="text" name="city" placeholder="Your city" required
+                                    maxlength="50" />
                             </div>
                             <div class="form-group">
                                 <label class="form-label">No. of Students *</label>
