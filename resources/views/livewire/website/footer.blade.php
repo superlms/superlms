@@ -61,9 +61,11 @@
         <div class="text-sm space-y-4 text-left md:text-right">
             <!-- Email -->
             <div class="flex items-center md:justify-end gap-3">
-                <span class="text-lg">📧</span>
                 <a href="mailto:support@superlms.in"
-                    class="hover:underline break-all font-medium">support@superlms.in</a>
+                    class="flex items-center gap-3 hover:underline break-all font-medium">
+                    <span class="text-lg">📧</span>
+                    <span>support@superlms.in</span>
+                </a>
             </div>
 
             <!-- Phone -->

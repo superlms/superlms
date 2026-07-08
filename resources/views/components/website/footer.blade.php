@@ -128,9 +128,11 @@
             <div>
                 <div class="footer-col-title">Contact</div>
                 <div style="display:flex;flex-direction:column;gap:10px;">
-                    <div style="display:flex;gap:8px;align-items:flex-start;color:var(--text3);font-size:12px;">
+                    <a href="mailto:support@superlms.in"
+                        style="display:flex;gap:8px;align-items:flex-start;color:var(--text3);font-size:12px;text-decoration:none;"
+                        onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
                         <span>📧</span><span>support@superlms.in</span>
-                    </div>
+                    </a>
                     <div style="display:flex;gap:8px;align-items:flex-start;color:var(--text3);font-size:12px;">
                         <span>📱</span><span>+91 9084748563</span>
                     </div>
