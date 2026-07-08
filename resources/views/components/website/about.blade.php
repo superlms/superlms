@@ -1352,10 +1352,12 @@
             <div class="section-tag tag-dual reveal">About Us</div>
             <h1 class="section-title reveal" style="margin-top:16px;">Your All in One Solution for<br /><span
                     class="gradient-text">Learning &amp; Management</span></h1>
-            <p class="section-subtitle reveal">SUPERLMS brings learning, administration, and communication together in
-                one powerful, unified platform. More than just a learning management system, it streamlines academics,
-                automates operations, and connects educators, students, and parents seamlessly. Trusted by many schools
-                across India, it delivers efficiency, transparency, and measurable impact from day one.</p>
+            <p class="section-subtitle reveal">SUPERLMS is a cloud-based, all-in-one school management and learning
+                platform that brings academics, administration, and communication onto a single platform. Instead of
+                juggling registers, spreadsheets, WhatsApp groups, and paper records, schools get attendance,
+                timetables, fees, assignments, exams, report cards, and parent communication in one connected
+                ecosystem — trusted by schools across India, from small rural institutions to large multi-campus
+                academies, with more than 50,000 students actively learning on the platform.</p>
         </div>
     </div>
 
@@ -1366,12 +1368,14 @@
                 <div class="section-tag tag-violet">Our Mission</div>
                 <h2 class="section-title">Making Education <span class="gradient-text">Accessible</span> &amp;
                     Affordable</h2>
-                <p style="color:var(--text3);line-height:1.8;margin-bottom:20px;font-size:15px;">Founded with a vision
-                    to democratize quality education management, SUPERLMS was built by educators and technology
-                    enthusiasts who understood the real challenges schools face every day.</p>
-                <p style="color:var(--text3);line-height:1.8;margin-bottom:32px;font-size:15px;">Our platform serves
-                    schools from small rural institutions to large urban academies — offering the same powerful features
-                    at pricing that makes sense for every budget.</p>
+                <p style="color:var(--text3);line-height:1.8;margin-bottom:20px;font-size:15px;">Our mission is simple:
+                    make quality school-management technology accessible and affordable for every institution in India —
+                    not just large, well-funded schools, but also small-town and rural institutions that are often
+                    priced out of modern EdTech tools.</p>
+                <p style="color:var(--text3);line-height:1.8;margin-bottom:32px;font-size:15px;">We believe a school in
+                    a small town deserves the same powerful digital tools as a large city academy, at a price point that
+                    actually makes sense for its budget. This belief shapes every feature we build and every pricing
+                    decision we make.</p>
                 <a href="{{ url('web/demo') }}" class="btn btn-primary btn-lg">Start Your Journey →</a>
             </div>
             <div class="right" style="display:flex;justify-content:center;align-items:center;">
@@ -1411,14 +1415,14 @@
                         </g>
                         <rect x="20" y="250" width="130" height="40" rx="10" fill="white"
                             stroke="#EDE8FF" stroke-width="1" />
-                        <text x="85" y="268" text-anchor="middle" font-size="10" fill="#6F56FE" font-weight="600">3+
-                            Years</text>
-                        <text x="85" y="281" text-anchor="middle" font-size="9" fill="#A99CC0">of Excellence</text>
+                        <text x="85" y="268" text-anchor="middle" font-size="10" fill="#6F56FE" font-weight="600">Since
+                            2024</text>
+                        <text x="85" y="281" text-anchor="middle" font-size="9" fill="#A99CC0">Aligarh, India</text>
                         <rect x="170" y="250" width="130" height="40" rx="10" fill="white"
                             stroke="#EDE8FF" stroke-width="1" />
                         <text x="235" y="268" text-anchor="middle" font-size="10" fill="#DB57B2"
-                            font-weight="600">many Schools</text>
-                        <text x="235" y="281" text-anchor="middle" font-size="9" fill="#A99CC0">trust SUPERLMS</text>
+                            font-weight="600">50,000+ Students</text>
+                        <text x="235" y="281" text-anchor="middle" font-size="9" fill="#A99CC0">learning on SUPERLMS</text>
                         <defs>
                             <linearGradient id="gm1" x1="0" y1="0" x2="1"
                                 y2="1">
@@ -1510,14 +1514,13 @@
                                 stroke="#EDE8FF" stroke-width="1" />
                             <text x="332" y="72" text-anchor="middle" font-size="10" fill="#DB57B2"
                                 font-weight="700">2026–27</text>
-                            <text x="332" y="86" text-anchor="middle" font-size="8" fill="#A99CC0">many
-                                Schools</text>
-                            <text x="332" y="97" text-anchor="middle" font-size="8" fill="#A99CC0">Pan-India</text>
+                            <text x="332" y="86" text-anchor="middle" font-size="8" fill="#A99CC0">Schools across</text>
+                            <text x="332" y="97" text-anchor="middle" font-size="8" fill="#A99CC0">India</text>
                             <rect x="40" y="300" width="95" height="46" rx="10" fill="white"
                                 stroke="#EDE8FF" stroke-width="1" />
                             <text x="87" y="320" text-anchor="middle" font-size="16">🏫</text>
                             <text x="87" y="338" text-anchor="middle" font-size="8" fill="#6F56FE"
-                                font-weight="600">many Schools</text>
+                                font-weight="600">Growing Network</text>
                             <rect x="152" y="316" width="95" height="34" rx="10" fill="url(#sg1)"
                                 opacity="0.1" stroke="url(#sg1)" stroke-width="0.5" />
                             <text x="200" y="337" text-anchor="middle" font-size="9" fill="#6F56FE"
@@ -1540,8 +1543,8 @@
                     <div class="story-stat-bubble b2">
                         <span style="font-size:16px;">🏫</span>
                         <div>
-                            <div style="font-size:11px;font-weight:700;color:var(--pink-dark);">many Schools</div>
-                            <div style="font-size:10px;color:var(--text3);">Pan-India presence</div>
+                            <div style="font-size:11px;font-weight:700;color:var(--pink-dark);">Growing Network</div>
+                            <div style="font-size:10px;color:var(--text3);">of schools across India</div>
                         </div>
                     </div>
                     <div class="story-stat-bubble b3">
@@ -1557,48 +1560,50 @@
                 <div style="animation:slideInRight .9s ease .1s forwards;opacity:0;">
                     <div class="section-tag tag-pink">Our Story</div>
                     <h2 class="section-title">From a Basic <span class="gradient-text">Idea to a Platform</span></h2>
-                    <p class="story-para">SUPERLMS was started in 2024 in a small office in Aligarh, Uttar Pradesh —
-                        not from a corporate strategy, but from a real frustration. Our founders saw teachers spending
-                        endless hours on paper attendance, principals chasing parents for fees, and students missing
-                        timely feedback.</p>
-                    <p class="story-para">The first version of SUPERLMS launched quietly with just one partner
-                        schools and a core team of three. Within months, it grew to 5+ schools, expanding organically as
-                        one principal recommended us to another and teachers shared screenshots in WhatsApp groups.</p>
-                    <p class="story-para">By the end of 2025, we introduced dedicated iOS and Android apps, integrated
-                        biometric attendance, and real-time WhatsApp notifications for parents. Today, SUPERLMS
-                        supports over vast schools and uncounted number of students across India with fully integrated
-                        modules, transforming how schools manage academics, attendance, communication, and finance.</p>
+                    <p class="story-para">SUPERLMS began in 2024 out of a small office in Aligarh, Uttar Pradesh — not
+                        as a corporate initiative, but as a response to a very real, everyday problem. Our founding team
+                        watched teachers spend hours on paper attendance registers, principals repeatedly chase parents
+                        for pending fees, and students miss timely feedback on their progress simply because the tools
+                        available to schools hadn't kept pace with the rest of the world.</p>
+                    <p class="story-para">The first version of SUPERLMS launched quietly with a single partner school
+                        and a core team of three people. Word spread organically — one principal recommending the
+                        platform to another, teachers sharing their experience in WhatsApp groups — and the school base
+                        grew steadily from there.</p>
+                    <p class="story-para">By the end of 2025, we had introduced dedicated Android and iOS applications,
+                        integrated biometric attendance, and real-time WhatsApp notifications for parents. Today,
+                        SUPERLMS supports a growing network of schools across India, with fully integrated modules that
+                        continue to evolve based on direct feedback from the educators who use them every day.</p>
                     <div class="story-highlights">
                         <div class="story-highlight">
                             <div class="sh-icon">🌱</div>
                             <div>
                                 <div class="sh-title">Bootstrapped Growth</div>
-                                <div class="sh-desc">From 5 to many schools through word-of-mouth and product quality
-                                    alone.</div>
+                                <div class="sh-desc">From a handful of schools to a nationwide presence — driven almost
+                                    entirely by word-of-mouth and product quality.</div>
                             </div>
                         </div>
                         <div class="story-highlight">
                             <div class="sh-icon">🇮🇳</div>
                             <div>
                                 <div class="sh-title">Made in India</div>
-                                <div class="sh-desc">Designed by educators who deeply understand Indian school
-                                    challenges.</div>
+                                <div class="sh-desc">Designed from the ground up by a team that understands the
+                                    day-to-day realities of Indian schools.</div>
                             </div>
                         </div>
                         <div class="story-highlight">
                             <div class="sh-icon">💡</div>
                             <div>
                                 <div class="sh-title">Innovation-First</div>
-                                <div class="sh-desc">Quarterly product updates, new features, and improvements — all
-                                    free.</div>
+                                <div class="sh-desc">New features, updates, and improvements released regularly —
+                                    included in every plan at no extra cost.</div>
                             </div>
                         </div>
                         <div class="story-highlight">
                             <div class="sh-icon">🤝</div>
                             <div>
                                 <div class="sh-title">Community-Driven</div>
-                                <div class="sh-desc">Every major feature was co-designed with our school partner
-                                    network.</div>
+                                <div class="sh-desc">Every major feature is shaped in collaboration with our network of
+                                    partner schools.</div>
                             </div>
                         </div>
                     </div>
@@ -1621,50 +1626,49 @@
                     <div class="about-item-icon" style="background:var(--secondary-faint);">📊</div>
                     <div>
                         <div class="about-item-title">Streamlines Academic Management</div>
-                        <div class="about-item-desc">Integrates attendance, timetable, fee management, and note sharing
-                            into one unified platform. Administrators save 4–6 hours daily on manual tasks.</div>
+                        <div class="about-item-desc">Attendance, timetables, fee management, and note-sharing, all in
+                            one unified platform — saving administrators several hours of manual work every day.</div>
                     </div>
                 </div>
                 <div class="card-about-item">
                     <div class="about-item-icon" style="background:var(--primary-faint);">🌟</div>
                     <div>
-                        <div class="about-item-title">Enhances Learning Experience</div>
-                        <div class="about-item-desc">With real-time progress analysis, resource sharing, and
-                            interactive tools, SUPERLMS empowers educators and students to engage in a smarter digital
-                            environment.</div>
+                        <div class="about-item-title">Enhances the Learning Experience</div>
+                        <div class="about-item-desc">Real-time progress tracking, digital resource sharing, and
+                            interactive assessment tools that help both teachers and students engage more
+                            effectively.</div>
                     </div>
                 </div>
                 <div class="card-about-item">
                     <div class="about-item-icon" style="background:var(--secondary-faint);">💡</div>
                     <div>
-                        <div class="about-item-title">Affordable for All Institutions</div>
-                        <div class="about-item-desc">Our flexible pricing starts at just ₹20.83/month, making advanced
-                            features available to institutions of all sizes — from rural schools to large urban
-                            academies.</div>
+                        <div class="about-item-title">Keeps Costs Affordable</div>
+                        <div class="about-item-desc">Flexible, transparent pricing designed to make advanced
+                            school-management features available to institutions of every size and budget.</div>
                     </div>
                 </div>
                 <div class="card-about-item">
                     <div class="about-item-icon" style="background:var(--primary-faint);">🔒</div>
                     <div>
                         <div class="about-item-title">Secure &amp; Reliable Infrastructure</div>
-                        <div class="about-item-desc">Enterprise-grade security with 99.9% uptime SLA, daily backups,
-                            SSL encryption, and GDPR-compliant data handling keeps your data always safe.</div>
+                        <div class="about-item-desc">Enterprise-grade security, daily backups, SSL encryption, and data
+                            handling aligned with Indian data protection law keep your data always safe.</div>
                     </div>
                 </div>
                 <div class="card-about-item">
                     <div class="about-item-icon" style="background:var(--secondary-faint);">📱</div>
                     <div>
-                        <div class="about-item-title">Multi-Platform Accessibility</div>
-                        <div class="about-item-desc">Dedicated iOS and Android apps ensure students and parents stay
-                            connected 24/7, even in low-bandwidth environments.</div>
+                        <div class="about-item-title">Multi-Platform Access</div>
+                        <div class="about-item-desc">Dedicated Android and iOS apps so students, teachers, and parents
+                            stay connected anytime — even in low-bandwidth areas.</div>
                     </div>
                 </div>
                 <div class="card-about-item">
                     <div class="about-item-icon" style="background:var(--primary-faint);">🤝</div>
                     <div>
                         <div class="about-item-title">Dedicated Onboarding &amp; Support</div>
-                        <div class="about-item-desc">Every school gets a dedicated onboarding specialist. Average
-                            support response time under 2 hours. Enterprise accounts get a dedicated account manager.
+                        <div class="about-item-desc">Every school is assigned an onboarding specialist, with fast,
+                            responsive support throughout their journey on the platform.
                         </div>
                     </div>
                 </div>
@@ -1699,9 +1703,9 @@
                     <div
                         style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;color:var(--text);margin-bottom:10px;">
                         Data Migration</div>
-                    <div style="font-size:13px;color:var(--text3);line-height:1.75;">Existing student records, teacher
-                        information, fee structures, and historical data are migrated securely. Zero data loss, fully
-                        verified before go-live.</div>
+                    <div style="font-size:13px;color:var(--text3);line-height:1.75;">Existing student records, staff
+                        information, fee structures, and historical data are migrated securely and verified before
+                        go-live — with an emphasis on zero data loss.</div>
                 </div>
                 <div class="card-wmodel">
                     <div class="wmodel-num">03</div>
@@ -1729,8 +1733,8 @@
                     <div
                         style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;color:var(--text);margin-bottom:10px;">
                         Continuous Updates</div>
-                    <div style="font-size:13px;color:var(--text3);line-height:1.75;">SUPERLMS is updated every month
-                        with new features, security patches, and performance improvements — all included at no extra
+                    <div style="font-size:13px;color:var(--text3);line-height:1.75;">Monthly feature releases, security
+                        patches, and performance improvements — included in every plan at no additional
                         cost.</div>
                 </div>
                 <div class="card-wmodel">
@@ -1739,8 +1743,8 @@
                     <div
                         style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;color:var(--text);margin-bottom:10px;">
                         Ongoing Support</div>
-                    <div style="font-size:13px;color:var(--text3);line-height:1.75;">Dedicated support via phone,
-                        WhatsApp, email, and in-app chat. Average response time under 2 hours on business days.</div>
+                    <div style="font-size:13px;color:var(--text3);line-height:1.75;">Dedicated support available via
+                        phone, WhatsApp, email, and in-app chat — with fast response times on business days.</div>
                 </div>
             </div>
         </div>
@@ -1916,7 +1920,7 @@
                     <div class="role-point"><div class="role-point-check">✓</div>Payroll, salary slips &amp; staff expense management</div>
                     <div class="role-point"><div class="role-point-check">✓</div>Income, expense &amp; fee ledgers with financial reports</div>
                     <div class="role-point"><div class="role-point-check">✓</div>Online payment reconciliation &amp; instant receipts</div>
-                    <div class="role-point"><div class="role-point-check">✓</div>Export GST-ready accounting &amp; audit data</div>
+                    <div class="role-point"><div class="role-point-check">✓</div>Audit-ready accounting &amp; financial exports</div>
                     <div class="role-point"><div class="role-point-check">✓</div>Real-time dues, defaulter &amp; collection dashboards</div>
                 </div>
                 <!-- Exams Management -->
@@ -1962,9 +1966,9 @@
                             <circle cx="140" cy="130" r="4" fill="#6F56FE" />
                             <rect x="138" y="130" width="4" height="8" rx="2" fill="#6F56FE" />
                             <text x="80" y="85" font-size="9" fill="#7A6EA0" font-weight="500">SSL Encrypted</text>
-                            <text x="165" y="85" font-size="9" fill="#7A6EA0" font-weight="500">99.9% Uptime</text>
-                            <text x="90" y="190" font-size="9" fill="#7A6EA0" font-weight="500">GDPR
-                                Compliant</text>
+                            <text x="165" y="85" font-size="9" fill="#7A6EA0" font-weight="500">Daily Backups</text>
+                            <text x="90" y="190" font-size="9" fill="#7A6EA0" font-weight="500">DPDP
+                                Aligned</text>
                             <circle cx="74" cy="78" r="6" fill="#DB57B2" opacity="0.7" />
                             <circle cx="204" cy="78" r="6" fill="#6F56FE" opacity="0.7" />
                             <circle cx="90" cy="183" r="6" fill="url(#gs1)" opacity="0.8" />
@@ -1997,9 +2001,9 @@
                             🛡️</div>
                         <div>
                             <div style="font-weight:600;color:var(--text);margin-bottom:4px;font-size:14px;">Role-Based
-                                Access</div>
+                                Access Control</div>
                             <div style="font-size:13px;color:var(--text3);line-height:1.6;">Granular permissions ensure
-                                only the right people see the right data.</div>
+                                each user only sees the data relevant to their role.</div>
                         </div>
                     </div>
                     <div class="card-slide-right">
@@ -2008,9 +2012,9 @@
                             ☁️</div>
                         <div>
                             <div style="font-weight:600;color:var(--text);margin-bottom:4px;font-size:14px;">Daily
-                                Cloud Backups</div>
+                                Geo-Redundant Backups</div>
                             <div style="font-size:13px;color:var(--text3);line-height:1.6;">Automated daily backups
-                                stored in geo-redundant cloud locations. Recoverable within minutes.</div>
+                                stored in geo-redundant cloud locations, recoverable within minutes.</div>
                         </div>
                     </div>
                     <div class="card-slide-right">
@@ -2018,12 +2022,56 @@
                             style="width:40px;height:40px;min-width:40px;border-radius:10px;background:var(--secondary-faint);display:flex;align-items:center;justify-content:center;font-size:18px;">
                             ✅</div>
                         <div>
-                            <div style="font-weight:600;color:var(--text);margin-bottom:4px;font-size:14px;">GDPR &amp;
-                                IT Act Compliant</div>
-                            <div style="font-size:13px;color:var(--text3);line-height:1.6;">Fully compliant with Indian
-                                IT Act 2000, Indian DPDP Act, and international data regulations.</div>
+                            <div style="font-weight:600;color:var(--text);margin-bottom:4px;font-size:14px;">
+                                Compliance-Aligned Data Handling</div>
+                            <div style="font-size:13px;color:var(--text3);line-height:1.6;">Data handling in keeping
+                                with the Indian Information Technology Act, 2000, and the Digital Personal Data
+                                Protection Act, 2023.</div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ══════════════════ OUR PLATFORMS SECTION ══════════════════ -->
+    <section class="section"
+        style="background:linear-gradient(135deg,var(--primary-faint),var(--secondary-faint));border-top:1px solid var(--border2);border-bottom:1px solid var(--border2);">
+        <div style="max-width:1060px;margin:0 auto;">
+            <div class="reveal" style="text-align:center;">
+                <div class="section-tag tag-dual">Our Platforms</div>
+                <h2 class="section-title" style="margin-top:16px;">One Company, <span class="gradient-text">Three
+                        Connected Platforms</span></h2>
+                <p class="section-subtitle" style="margin:0 auto;">SUPERLMS is one of three connected platforms
+                    operated by Super Learnings Private Limited, designed to support schools, students, and families
+                    end-to-end — beyond the classroom, into the home.</p>
+            </div>
+            <div class="wmodel-grid stagger">
+                <div class="card-wmodel">
+                    <div style="font-size:28px;margin-bottom:14px;">🏫</div>
+                    <div
+                        style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;color:var(--text);margin-bottom:10px;">
+                        SUPERLMS</div>
+                    <div style="font-size:13px;color:var(--text3);line-height:1.75;">Our core school management system
+                        for attendance, fees, timetables, academics, and communication between administrators,
+                        teachers, students, and parents.</div>
+                </div>
+                <div class="card-wmodel">
+                    <div style="font-size:28px;margin-bottom:14px;">📚</div>
+                    <div
+                        style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;color:var(--text);margin-bottom:10px;">
+                        Edyone</div>
+                    <div style="font-size:13px;color:var(--text3);line-height:1.75;">A companion EdTech platform
+                        offering academic and competitive-exam courses, interactive lessons, practice tests, and smart
+                        learning tools for students.</div>
+                </div>
+                <div class="card-wmodel">
+                    <div style="font-size:28px;margin-bottom:14px;">🛡️</div>
+                    <div
+                        style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;color:var(--text);margin-bottom:10px;">
+                        Super Safe</div>
+                    <div style="font-size:13px;color:var(--text3);line-height:1.75;">A parental-control application
+                        focused on screen-time monitoring, content filtering, and online safety for children.</div>
                 </div>
             </div>
         </div>
@@ -2036,9 +2084,10 @@
                 <div class="section-tag tag-violet" style="display:inline-flex;">Our Team</div>
                 <h2 class="section-title" style="margin-top:16px;">Built by Entrepreneurs, <span
                         class="gradient-text">For Schools &amp; Students</span></h2>
-                <p class="section-subtitle" style="margin:16px auto 36px;">Our team combines deep expertise in
-                    education, technology, and design. Every feature we build is informed by real teachers, real
-                    principals, and real school challenges.</p>
+                <p class="section-subtitle" style="margin:16px auto 36px;">SUPERLMS is built by a team of educators,
+                    engineers, and designers based in Aligarh, Uttar Pradesh — the same team that speaks directly with
+                    teachers, principals, and parents to understand what schools actually need, rather than guessing
+                    from a distance.</p>
             </div>
 
             <!-- Founder Spotlight (single, wide feature card — matches homepage) -->
@@ -2056,11 +2105,11 @@
                 <div class="founder-content">
                     <span class="founder-badge">Founder &amp; CEO</span>
                     <h3 class="founder-name">Annant Dagur</h3>
-                    <p class="founder-bio">The visionary behind SUPERLMS. Annant started SUPERLMS with one mission — to
-                        make quality, affordable school-management technology accessible to every institution in India,
-                        from large city schools to small towns. He works closely with educators on the ground, turning
-                        their everyday challenges into simple, powerful features that thousands of students, teachers and
-                        parents now rely on.</p>
+                    <p class="founder-bio">Annant founded SUPERLMS with a clear goal: to make affordable, powerful
+                        school-management technology accessible to every institution in India, from large city schools
+                        to small towns. He continues to work closely with educators on the ground, shaping their
+                        everyday challenges into practical features used by thousands of students, teachers, and
+                        parents.</p>
                     <div class="founder-quote">“Great technology should empower every teacher and reach every child —
                         not just the privileged few.”</div>
                     <a href="https://www.instagram.com/annantdagur?igsh=OTMyZnIzaGR2aDVs" target="_blank"
@@ -2081,10 +2130,19 @@
                 <div
                     style="font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:600;color:var(--text);margin-bottom:12px;">
                     Join Our Growing Team</div>
-                <p style="color:var(--text3);font-size:14px;line-height:1.75;margin-bottom:24px;">Join our growing team
-                    of passionate educators, engineers, and designers dedicated to transforming education through
-                    technology. Whether you prefer working remotely, you'll collaborate on meaningful projects that
-                    impact schools and students across the country.</p>
+                <p style="color:var(--text3);font-size:14px;line-height:1.75;margin-bottom:24px;">We are actively
+                    growing our team of educators, engineers, and designers who want to work on technology that has a
+                    direct, visible impact on schools and students across the country. Whether you're a school exploring
+                    a new management system, a parent curious about how SUPERLMS works, or someone interested in joining
+                    our team — we'd love to hear from you.</p>
+                <div
+                    style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px 24px;margin-bottom:24px;font-size:13px;color:var(--text3);">
+                    <a href="mailto:support@superlms.in"
+                        style="color:var(--violet);text-decoration:none;font-weight:600;">📧 support@superlms.in</a>
+                    <a href="tel:+919084748563"
+                        style="color:var(--violet);text-decoration:none;font-weight:600;">📱 +91 90847 48563</a>
+                    <span>📍 Braj Vihar Colony, Jattari, Khair, Aligarh, Uttar Pradesh – 202137</span>
+                </div>
                 <a href="{{ url('web/contact') }}" class="btn btn-primary btn-lg">Get in Touch →</a>
             </div>
 
