@@ -12,7 +12,14 @@
                         <p class="text-xs text-gray-500 mt-0.5 truncate">Manage job openings and applications submitted from the website.</p>
                     </div>
                 </div>
-                <div class="flex items-center gap-2 flex-shrink-0">
+                <div class="flex items-center gap-4 flex-shrink-0">
+                    {{-- Query analytics (become-executive style header stats) --}}
+                    <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200">
+                        <span class="pr-4">Total: <strong class="text-gray-800">{{ $analytics['total'] }}</strong></span>
+                        <span class="px-4">New: <strong class="text-amber-500">{{ $analytics['new'] }}</strong></span>
+                        <span class="px-4">Reviewed: <strong class="text-emerald-600">{{ $analytics['reviewed'] }}</strong></span>
+                        <span class="pl-4">This Month: <strong class="text-blue-600">{{ $analytics['this_month'] }}</strong></span>
+                    </div>
                     <button wire:click="openJobCreate"
                         class="inline-flex items-center gap-1.5 px-5 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
@@ -21,15 +28,13 @@
                 </div>
             </div>
 
-            {{-- Analytics (queries tab) --}}
-            @if ($activeTab === 'applications')
-                <div class="flex items-center gap-3 sm:gap-4 text-xs text-gray-500 mt-3 flex-wrap">
-                    <span>Total: <strong class="text-gray-800">{{ $analytics['total'] }}</strong></span>
-                    <span>New: <strong class="text-amber-500">{{ $analytics['new'] }}</strong></span>
-                    <span>Reviewed: <strong class="text-emerald-600">{{ $analytics['reviewed'] }}</strong></span>
-                    <span>This Month: <strong class="text-blue-600">{{ $analytics['this_month'] }}</strong></span>
-                </div>
-            @endif
+            {{-- Mobile/Tablet stats --}}
+            <div class="flex lg:hidden items-center gap-3 sm:gap-4 text-xs text-gray-500 mt-3 flex-wrap">
+                <span>Total: <strong class="text-gray-800">{{ $analytics['total'] }}</strong></span>
+                <span>New: <strong class="text-amber-500">{{ $analytics['new'] }}</strong></span>
+                <span>Reviewed: <strong class="text-emerald-600">{{ $analytics['reviewed'] }}</strong></span>
+                <span>This Month: <strong class="text-blue-600">{{ $analytics['this_month'] }}</strong></span>
+            </div>
         </div>
 
         {{-- Tabs --}}
@@ -114,7 +119,7 @@
 
     {{-- ══════════════════ TAB 1 — JOB OPENINGS ══════════════════ --}}
     @if ($activeTab === 'jobs')
-        <div class="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+        <div class="p-4 sm:p-6">
             @if (empty($jobs))
                 <div class="text-center py-20 bg-white rounded-xl border border-gray-200">
                     <div class="w-14 h-14 mx-auto mb-3 bg-indigo-50 rounded-full flex items-center justify-center">
@@ -128,37 +133,66 @@
             @else
                 <div class="space-y-3">
                     @foreach ($jobs as $index => $job)
-                        <div class="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow flex items-start justify-between gap-4" wire:key="job-{{ $index }}">
-                            <div class="min-w-0">
-                                <div class="text-base font-semibold text-gray-900">{{ $job['role'] ?: '—' }}</div>
-                                @if (!empty($job['salary']))
-                                    <div class="text-sm font-semibold text-indigo-600 mt-0.5">💰 {{ $job['salary'] }}</div>
-                                @endif
-                                <div class="flex flex-wrap items-center gap-1.5 mt-2">
-                                    @if (!empty($job['department']))
-                                        <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600">{{ $job['department'] }}</span>
-                                    @endif
-                                    @if (!empty($job['location']))
-                                        <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-pink-50 text-pink-600">{{ $job['location'] }}</span>
-                                    @endif
-                                    @if (!empty($job['type']))
-                                        <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{{ $job['type'] }}</span>
-                                    @endif
+                        <div class="group bg-white rounded-xl border border-gray-200 hover:border-indigo-200 hover:shadow-md transition-all duration-200 overflow-hidden" wire:key="job-{{ $index }}">
+                            <div class="flex items-stretch">
+                                <div class="w-1 flex-shrink-0 bg-indigo-400"></div>
+
+                                <div class="flex-1 p-4 sm:p-5 min-w-0">
+                                    <div class="flex items-start justify-between gap-4">
+                                        <div class="flex items-start gap-3 flex-1 min-w-0">
+                                            <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-indigo-50">
+                                                <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                                </svg>
+                                            </div>
+
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex flex-wrap items-center gap-2 mb-1">
+                                                    <h3 class="text-base font-semibold text-gray-900">{{ $job['role'] ?: '—' }}</h3>
+                                                    @if (!empty($job['type']))
+                                                        <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-indigo-100 text-indigo-700">{{ $job['type'] }}</span>
+                                                    @endif
+                                                    @if (!empty($job['salary']))
+                                                        <span class="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">💰 {{ $job['salary'] }}</span>
+                                                    @endif
+                                                </div>
+
+                                                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 mt-1.5">
+                                                    @if (!empty($job['department']))
+                                                        <span class="inline-flex items-center gap-1">
+                                                            <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                                                            <span class="font-medium text-gray-600">{{ $job['department'] }}</span>
+                                                        </span>
+                                                    @endif
+                                                    @if (!empty($job['department']) && !empty($job['location']))
+                                                        <span class="text-gray-300">•</span>
+                                                    @endif
+                                                    @if (!empty($job['location']))
+                                                        <span class="inline-flex items-center gap-1">
+                                                            <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                                            {{ $job['location'] }}
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="flex items-center gap-1 flex-shrink-0">
+                                            <button wire:click="openJobEdit({{ $index }})" title="Edit"
+                                                class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
+                                            </button>
+                                            <button wire:click="confirmJobDelete({{ $index }})" title="Delete"
+                                                class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="flex items-center gap-1 flex-shrink-0">
-                                <button wire:click="openJobEdit({{ $index }})" title="Edit"
-                                    class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                    </svg>
-                                </button>
-                                <button wire:click="confirmJobDelete({{ $index }})" title="Delete"
-                                    class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                </button>
                             </div>
                         </div>
                     @endforeach
@@ -277,8 +311,12 @@
     @endif
 
     {{-- ══════════════════ JOB SLIDE-IN PANEL ══════════════════ --}}
+    {{-- Teleported to <body> so the overlay sits above the fixed navbar/sidebar
+         (see faqs.blade.php) — otherwise the panel's close button is dead under
+         the navbar and outside clicks never reach the backdrop. --}}
     @if ($showJobPanel)
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        @teleport('body')
+        <div class="fixed inset-0 z-[70] overflow-hidden" x-data @keydown.escape.window="$wire.closeJobPanel()">
             <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closeJobPanel"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-lg bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -333,11 +371,13 @@
                 </div>
             </div>
         </div>
+        @endteleport
     @endif
 
     {{-- ══════════════════ APPLICATION VIEW SLIDE-IN PANEL ══════════════════ --}}
     @if ($viewing)
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        @teleport('body')
+        <div class="fixed inset-0 z-[70] overflow-hidden" x-data @keydown.escape.window="$wire.closeApplication()">
             <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closeApplication"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -411,10 +451,12 @@
                 </div>
             </div>
         </div>
+        @endteleport
     @endif
 
     {{-- ══════════════════ DELETE JOB CONFIRM ══════════════════ --}}
     @if ($pendingJobDelete !== null)
+        @teleport('body')
         <div class="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-[9999] px-4">
             <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
                 <div class="px-5 py-4 border-b border-gray-100 bg-red-50 flex items-center gap-3">
@@ -432,10 +474,12 @@
                 </div>
             </div>
         </div>
+        @endteleport
     @endif
 
     {{-- ══════════════════ DELETE APPLICATION CONFIRM ══════════════════ --}}
     @if ($pendingAppDelete !== null)
+        @teleport('body')
         <div class="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-[9999] px-4">
             <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
                 <div class="px-5 py-4 border-b border-gray-100 bg-red-50 flex items-center gap-3">
@@ -453,6 +497,7 @@
                 </div>
             </div>
         </div>
+        @endteleport
     @endif
 
     {{-- Open document in a new browser tab (second screen) --}}
