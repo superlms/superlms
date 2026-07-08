@@ -75,6 +75,17 @@
                     <span wire:loading.remove wire:target="login">Login</span>
                     <span wire:loading wire:target="login">Sending OTP…</span>
                 </button>
+
+                <p class="mt-4 text-xs text-gray-500 text-center leading-relaxed">
+                    By signing in you agree to our
+                    <a href="{{ route('website.terms-conditions') }}" target="_blank" rel="noopener noreferrer"
+                        class="text-emerald-600 hover:text-emerald-800 hover:underline font-medium">Terms &amp; Conditions</a>,
+                    <a href="{{ route('website.privacy') }}" target="_blank" rel="noopener noreferrer"
+                        class="text-emerald-600 hover:text-emerald-800 hover:underline font-medium">Privacy Policy</a>
+                    and
+                    <a href="{{ route('website.terms-of-use') }}" target="_blank" rel="noopener noreferrer"
+                        class="text-emerald-600 hover:text-emerald-800 hover:underline font-medium">Terms of Use</a>.
+                </p>
             </div>
         </div>
     </div>
