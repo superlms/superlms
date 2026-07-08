@@ -375,196 +375,190 @@
         </div>
     </div>
 
-    {{-- ══════════ VIEW QUERY PANEL ══════════ --}}
+    {{-- ══════════════════════════════════════════════════
+         VIEW QUERY — student-style slide-in panel
+         (teleported to <body> so the layout's fixed
+          navbar/sidebar never paint above it)
+    ══════════════════════════════════════════════════ --}}
     @if ($showViewModal && $selectedQuery)
-        <div class="fixed inset-0 z-[9999] flex items-start justify-end bg-black/30 backdrop-blur-sm"
-            wire:click.self="closeViewModal">
-            <div class="relative w-full max-w-xl h-screen bg-white shadow-2xl flex flex-col"
-                x-data x-transition:enter="transition ease-out duration-300"
-                x-transition:enter-start="translate-x-full opacity-0"
-                x-transition:enter-end="translate-x-0 opacity-100">
+        @php
+            $q   = $selectedQuery;
+            $org = $q->organization;
+            $sc2 = match($q->status) {
+                'approved'   => 'bg-emerald-50 text-emerald-700 border-emerald-100',
+                'denied'     => 'bg-red-50 text-red-600 border-red-100',
+                'processing' => 'bg-blue-50 text-blue-700 border-blue-100',
+                default      => 'bg-amber-50 text-amber-700 border-amber-100',
+            };
+            $dot2 = match($q->status) {
+                'approved'   => 'bg-emerald-500',
+                'denied'     => 'bg-red-500',
+                'processing' => 'bg-blue-500',
+                default      => 'bg-amber-400',
+            };
+            $lateDays     = $q->status === 'approved' && $q->end_date->isPast() ? max(0, $q->end_date->diffInDays(now())) : 0;
+            $totalPenalty = ($q->penalties_per_day ?? 0) * $lateDays;
+            $totalReceive = $q->amount + $totalPenalty;
+        @endphp
+        @teleport('body')
+        <div class="fixed inset-0 z-[70] overflow-hidden" x-data @keydown.escape.window="$wire.closeViewModal()">
+            <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closeViewModal"></div>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col">
 
-                {{-- Sticky Header --}}
-                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white flex-shrink-0">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <div class="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
-                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
-                            </svg>
-                        </div>
-                        <div class="min-w-0">
-                            <h2 class="text-sm font-bold text-gray-900">Credit Query</h2>
-                            <p class="text-xs text-gray-400 truncate">{{ $selectedQuery->organization->name }}</p>
-                        </div>
-                        @php
-                            $sc2 = match($selectedQuery->status) {
-                                'approved'   => 'bg-emerald-100 text-emerald-700 border-emerald-200',
-                                'denied'     => 'bg-red-100 text-red-700 border-red-200',
-                                'processing' => 'bg-blue-100 text-blue-700 border-blue-200',
-                                default      => 'bg-amber-100 text-amber-700 border-amber-200',
-                            };
-                        @endphp
-                        <span class="inline-flex items-center text-xs px-2.5 py-1 rounded-full font-semibold border {{ $sc2 }} flex-shrink-0">
-                            {{ ucfirst($selectedQuery->status) }}
-                        </span>
-                        @if ($selectedQuery->collected_at)
-                            <span class="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-semibold bg-teal-100 text-teal-700 border border-teal-200 flex-shrink-0">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                                </svg>
-                                Collected
-                            </span>
-                        @endif
+                {{-- Header --}}
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900">Credit Query Details</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">Request, approval &amp; collection info</p>
                     </div>
                     <button wire:click="closeViewModal"
-                        class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0 ml-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
                 </div>
 
-                {{-- Scrollable Body --}}
-                <div class="flex-1 overflow-y-auto p-6 space-y-5">
-                    @php $q = $selectedQuery; $org = $q->organization; @endphp
+                {{-- Body --}}
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-5 text-sm text-gray-700">
 
-                    {{-- School Card --}}
-                    <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                    {{-- Profile strip --}}
+                    <div class="flex items-center gap-4 pb-4 border-b border-gray-100">
                         @if ($org->logo)
-                            <img src="{{ $org->logo }}" class="w-14 h-14 rounded-2xl object-cover border border-gray-200 flex-shrink-0">
+                            <img src="{{ $org->logo }}" class="w-16 h-16 rounded-full object-cover border border-gray-200">
                         @else
-                            <div class="w-14 h-14 rounded-2xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                                <span class="text-xl font-bold text-indigo-600">{{ strtoupper(substr($org->name,0,1)) }}</span>
+                            <div class="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center">
+                                <span class="text-xl font-bold text-indigo-600">{{ strtoupper(substr($org->name ?? 'S', 0, 1)) }}</span>
                             </div>
                         @endif
                         <div class="min-w-0">
-                            <p class="text-base font-bold text-gray-900 truncate">{{ $org->name }}</p>
-                            <p class="text-sm text-gray-500 truncate">{{ $org->email }}</p>
-                            <p class="text-xs text-gray-400">{{ $org->mobile_number ?? '' }}</p>
-                            <div class="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                                <span>Students: <strong class="text-gray-600">{{ $org->total_students ?? 0 }}</strong></span>
-                                <span>Teachers: <strong class="text-gray-600">{{ $org->total_teachers ?? 0 }}</strong></span>
+                            <h3 class="text-lg font-semibold text-gray-900 truncate">{{ $org->name ?? '—' }}</h3>
+                            <p class="text-xs text-gray-500 mt-0.5 truncate">{{ $org->email ?? '—' }}</p>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium border {{ $sc2 }}">
+                                    <span class="w-1.5 h-1.5 rounded-full {{ $dot2 }}"></span> {{ ucfirst($q->status) }}
+                                </span>
+                                @if ($q->collected_at)
+                                    <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-teal-50 text-teal-700 rounded-full font-medium border border-teal-100">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        Collected
+                                    </span>
+                                @endif
+                                <span class="text-xs text-gray-400 font-mono">{{ $q->created_at->format('d M Y') }}</span>
                             </div>
                         </div>
                     </div>
 
-                    {{-- Date + Period Grid --}}
-                    <div class="grid grid-cols-2 gap-3 text-xs">
-                        <div class="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                            <p class="text-gray-400 font-medium mb-1">Submitted</p>
-                            <p class="text-gray-800 font-semibold">{{ $q->created_at->format('d M Y') }}</p>
-                            <p class="text-gray-500">{{ $q->created_at->diffForHumans() }}</p>
-                        </div>
-                        <div class="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                            <p class="text-gray-400 font-medium mb-1">Period</p>
-                            <p class="text-gray-800 font-semibold">{{ $q->start_date->format('d M Y') }}</p>
-                            <p class="text-gray-500">to {{ $q->end_date->format('d M Y') }}</p>
-                        </div>
+                    {{-- Request Information --}}
+                    <div>
+                        <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Request Information</h4>
+                        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div class="sm:col-span-2"><dt class="text-xs text-gray-400">Heading</dt><dd class="font-medium">{{ $q->heading ?? '—' }}</dd></div>
+                            <div><dt class="text-xs text-gray-400">Amount Requested</dt><dd class="font-semibold text-indigo-700">₹{{ number_format($q->amount, 0) }}</dd></div>
+                            <div><dt class="text-xs text-gray-400">Penalties / Day</dt><dd class="font-medium">₹{{ number_format($q->penalties_per_day ?? 0, 0) }}</dd></div>
+                            <div><dt class="text-xs text-gray-400">Start Date</dt><dd class="font-medium">{{ $q->start_date->format('d M Y') }}</dd></div>
+                            <div><dt class="text-xs text-gray-400">End Date</dt><dd class="font-medium">{{ $q->end_date->format('d M Y') }}</dd></div>
+                            <div><dt class="text-xs text-gray-400">Submitted</dt><dd class="font-medium">{{ $q->created_at->format('d M Y') }} <span class="text-xs text-gray-400">({{ $q->created_at->diffForHumans() }})</span></dd></div>
+                            @if ($q->collected_at)
+                                <div><dt class="text-xs text-gray-400">Collected On</dt><dd class="font-medium text-teal-700">{{ $q->collected_at->format('d M Y') }}</dd></div>
+                            @endif
+                        </dl>
                     </div>
 
-                    {{-- Heading & Reason --}}
-                    <div class="bg-blue-50 border border-blue-100 rounded-xl p-4">
-                        <p class="text-xs text-blue-400 font-semibold uppercase tracking-wide mb-1">Heading</p>
-                        <p class="text-sm font-bold text-blue-900 mb-3">{{ $q->heading }}</p>
-                        <p class="text-xs text-blue-400 font-semibold uppercase tracking-wide mb-1">Reason</p>
-                        <p class="text-sm text-blue-800 whitespace-pre-line leading-relaxed">{{ $q->reason }}</p>
-                    </div>
-
-                    {{-- Amount --}}
-                    <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-center">
-                        <p class="text-xs text-indigo-400 font-semibold uppercase tracking-wide mb-1">Amount Requested</p>
-                        <p class="text-3xl font-bold text-indigo-700">₹{{ number_format($q->amount, 0) }}</p>
-                        @if ($q->collected_at)
-                            <p class="text-xs text-teal-600 mt-1.5 font-semibold">
-                                ✓ Collected on {{ $q->collected_at->format('d M Y') }}
-                            </p>
-                        @endif
+                    {{-- Reason --}}
+                    <div>
+                        <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Reason</h4>
+                        <p class="font-medium whitespace-pre-line leading-relaxed">{{ $q->reason ?? '—' }}</p>
                     </div>
 
                     {{-- Approval Details --}}
                     @if ($q->status === 'approved')
-                        @php
-                            $lateDays     = $q->end_date->isPast() ? max(0, $q->end_date->diffInDays(now())) : 0;
-                            $totalPenalty = ($q->penalties_per_day ?? 0) * $lateDays;
-                            $totalReceive = $q->amount + $totalPenalty;
-                        @endphp
-                        <div class="border border-emerald-200 bg-emerald-50 rounded-xl p-4">
-                            <p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-3">Approval Details</p>
-                            <div class="grid grid-cols-2 gap-2 text-xs text-gray-600">
-                                <div>Penalties/Day: <strong class="text-gray-800">₹{{ number_format($q->penalties_per_day ?? 0, 0) }}</strong></div>
-                                <div>Late Days: <strong class="text-red-600">{{ $lateDays }} {{ $lateDays === 1 ? 'day' : 'days' }}</strong></div>
-                                <div>Total Penalty: <strong class="text-red-600">₹{{ number_format($totalPenalty, 0) }}</strong></div>
-                                <div>Amount Credit: <strong class="text-gray-800">₹{{ number_format($q->amount, 0) }}</strong></div>
-                                <div>Total to Receive: <strong class="text-emerald-700">₹{{ number_format($totalReceive, 0) }}</strong></div>
-                                <div>Approved on: <strong class="text-gray-800">{{ $q->approved_at?->format('d M Y') ?? '—' }}</strong></div>
-                            </div>
+                        <div>
+                            <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Approval Details</h4>
+                            <dl class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                <div><dt class="text-xs text-gray-400">Approved On</dt><dd class="font-medium">{{ $q->approved_at?->format('d M Y') ?? '—' }}</dd></div>
+                                <div><dt class="text-xs text-gray-400">Late Days</dt><dd class="font-medium {{ $lateDays > 0 ? 'text-red-600' : '' }}">{{ $lateDays }} {{ $lateDays === 1 ? 'day' : 'days' }}</dd></div>
+                                <div><dt class="text-xs text-gray-400">Total Penalty</dt><dd class="font-medium {{ $totalPenalty > 0 ? 'text-red-600' : '' }}">₹{{ number_format($totalPenalty, 0) }}</dd></div>
+                                <div><dt class="text-xs text-gray-400">Amount Credit</dt><dd class="font-medium">₹{{ number_format($q->amount, 0) }}</dd></div>
+                                <div><dt class="text-xs text-gray-400">Total to Receive</dt><dd class="font-semibold text-emerald-700">₹{{ number_format($totalReceive, 0) }}</dd></div>
+                                @if ($q->approvedBy)
+                                    <div><dt class="text-xs text-gray-400">Approved By</dt><dd class="font-medium">{{ $q->approvedBy->name }}</dd></div>
+                                @endif
+                            </dl>
                         </div>
 
                         {{-- School Bank Details --}}
                         @if ($org->bank_name)
-                            <div class="border border-gray-200 rounded-xl p-4">
-                                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">School Bank Details</p>
-                                <div class="space-y-2">
-                                    @foreach([
-                                        'Bank'   => $org->bank_name,
-                                        'Acc No' => $org->bank_account_no,
-                                        'IFSC'   => $org->bank_ifsc,
-                                        'Branch' => $org->bank_branch,
-                                        'Holder' => $org->bank_holder_name,
-                                    ] as $lbl => $val)
-                                        <div class="flex gap-4">
-                                            <span class="text-xs text-gray-400 w-16 flex-shrink-0">{{ $lbl }}</span>
-                                            <span class="text-sm font-semibold font-mono text-gray-800">{{ $val ?? '—' }}</span>
-                                        </div>
-                                    @endforeach
-                                </div>
+                            <div>
+                                <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">School Bank Details</h4>
+                                <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div><dt class="text-xs text-gray-400">Bank</dt><dd class="font-medium">{{ $org->bank_name ?? '—' }}</dd></div>
+                                    <div><dt class="text-xs text-gray-400">Account Holder</dt><dd class="font-medium">{{ $org->bank_holder_name ?? '—' }}</dd></div>
+                                    <div><dt class="text-xs text-gray-400">Account No</dt><dd class="font-medium font-mono">{{ $org->bank_account_no ?? '—' }}</dd></div>
+                                    <div><dt class="text-xs text-gray-400">IFSC</dt><dd class="font-medium font-mono">{{ $org->bank_ifsc ?? '—' }}</dd></div>
+                                    <div><dt class="text-xs text-gray-400">Branch</dt><dd class="font-medium">{{ $org->bank_branch ?? '—' }}</dd></div>
+                                </dl>
                             </div>
                         @endif
                     @endif
 
+                    {{-- School Information --}}
+                    <div>
+                        <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">School Information</h4>
+                        <dl class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            <div><dt class="text-xs text-gray-400">Mobile</dt><dd class="font-medium">{{ $org->mobile_number ?? '—' }}</dd></div>
+                            <div><dt class="text-xs text-gray-400">Students</dt><dd class="font-medium">{{ $org->total_students ?? 0 }}</dd></div>
+                            <div><dt class="text-xs text-gray-400">Teachers</dt><dd class="font-medium">{{ $org->total_teachers ?? 0 }}</dd></div>
+                        </dl>
+                    </div>
+
                     {{-- Admin Remark --}}
                     @if ($q->admin_remark)
-                        <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
-                            <p class="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-1">Remark</p>
-                            <p class="text-sm text-gray-700">{{ $q->admin_remark }}</p>
+                        <div>
+                            <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Admin Remark</h4>
+                            <p class="font-medium whitespace-pre-line">{{ $q->admin_remark }}</p>
                         </div>
                     @endif
                 </div>
 
-                {{-- Sticky Footer --}}
-                <div class="px-6 py-4 border-t border-gray-200 bg-white flex gap-3 flex-shrink-0">
-                    @if ($selectedQuery->status !== 'approved')
-                        <button wire:click="openApproveModal({{ $selectedQuery->id }})"
-                            class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                            </svg>
-                            Approve
-                        </button>
-                    @elseif (!$selectedQuery->collected_at)
-                        <button wire:click="openCollectModal({{ $selectedQuery->id }})"
-                            class="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
-                            </svg>
-                            Mark Collected
-                        </button>
-                    @endif
-                    <button wire:click="closeViewModal"
-                        class="px-5 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors flex-shrink-0">
+                {{-- Footer --}}
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
+                    <div>
+                        @if ($q->status !== 'approved')
+                            <button type="button" wire:click="openApproveModal({{ $q->id }})"
+                                class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 rounded-md">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                                Approve
+                            </button>
+                        @elseif (!$q->collected_at)
+                            <button type="button" wire:click="openCollectModal({{ $q->id }})"
+                                class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-teal-700 hover:bg-teal-50 rounded-md">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                                Mark Collected
+                            </button>
+                        @endif
+                    </div>
+                    <button type="button" wire:click="closeViewModal"
+                        class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">
                         Close
                     </button>
                 </div>
-
             </div>
         </div>
+        @endteleport
     @endif
 
     {{-- ══════════ APPROVE PANEL ══════════ --}}
     @if ($showApproveModal)
-        <div class="fixed inset-0 z-[9999] flex items-start justify-end bg-black/30 backdrop-blur-sm"
+        @teleport('body')
+        <div class="fixed inset-0 z-[75] flex items-start justify-end bg-black/30 backdrop-blur-sm"
             wire:click.self="closeApproveModal">
             <div class="relative w-full max-w-lg h-screen bg-white shadow-2xl flex flex-col"
                 x-data x-transition:enter="transition ease-out duration-300"
@@ -658,11 +652,13 @@
 
             </div>
         </div>
+        @endteleport
     @endif
 
     {{-- ══════════ STATUS / REMARK PANEL ══════════ --}}
     @if ($showStatusModal)
-        <div class="fixed inset-0 z-[9999] flex items-start justify-end bg-black/30 backdrop-blur-sm"
+        @teleport('body')
+        <div class="fixed inset-0 z-[75] flex items-start justify-end bg-black/30 backdrop-blur-sm"
             wire:click.self="closeStatusModal">
             <div class="relative w-full max-w-md h-screen bg-white shadow-2xl flex flex-col"
                 x-data x-transition:enter="transition ease-out duration-300"
@@ -735,11 +731,13 @@
 
             </div>
         </div>
+        @endteleport
     @endif
 
     {{-- ══════════ POLICY FORM PANEL ══════════ --}}
     @if ($showPolicyForm)
-        <div class="fixed inset-0 z-[9999] flex items-start justify-end bg-black/30 backdrop-blur-sm"
+        @teleport('body')
+        <div class="fixed inset-0 z-[75] flex items-start justify-end bg-black/30 backdrop-blur-sm"
             wire:click.self="closePolicyForm">
             <div class="relative w-full max-w-xl h-screen bg-white shadow-2xl flex flex-col"
                 x-data x-transition:enter="transition ease-out duration-300"
@@ -842,11 +840,13 @@
 
             </div>
         </div>
+        @endteleport
     @endif
 
     {{-- ══════════ MARK AS COLLECTED CONFIRM ══════════ --}}
     @if ($showCollectModal)
-        <div class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        @teleport('body')
+        <div class="fixed inset-0 z-[85] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
                 x-data x-transition:enter="transition ease-out duration-200"
                 x-transition:enter-start="opacity-0 scale-95"
@@ -877,11 +877,13 @@
                 </div>
             </div>
         </div>
+        @endteleport
     @endif
 
     {{-- ══════════ DELETE QUERY CONFIRM ══════════ --}}
     @if ($pendingDeleteQueryId)
-        <div class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        @teleport('body')
+        <div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
                 <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -903,11 +905,13 @@
                 </div>
             </div>
         </div>
+        @endteleport
     @endif
 
     {{-- ══════════ DELETE POLICY CONFIRM ══════════ --}}
     @if ($pendingDeletePolicyId)
-        <div class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        @teleport('body')
+        <div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
                 <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -929,6 +933,7 @@
                 </div>
             </div>
         </div>
+        @endteleport
     @endif
 
 </div>

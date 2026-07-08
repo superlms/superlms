@@ -12,6 +12,7 @@ class SuperAdminSalaryPayment extends Model
         'amount',
         'month',
         'payment_mode',
+        'paid_by',
         'status',
         'payment_date',
         'transaction_id',
