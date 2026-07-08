@@ -37,7 +37,8 @@
                     <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
                     Filter by:
                 </div>
-                <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search name, email, mobile..."
+                <input wire:model.live.debounce.300ms="search" wire:key="users-search" type="text" name="users_list_search"
+                    autocomplete="off" placeholder="Search name, email, mobile..."
                     class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-purple-500 focus:border-purple-500" />
                 <select wire:model.live="filterStatus"
                     class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
@@ -210,8 +211,9 @@
          SLIDE-IN PANEL — Create / Edit (2 steps)
     ══════════════════════════════════════════════════ --}}
     @if ($showPanel)
-        <div class="fixed inset-0 z-50 overflow-hidden">
-            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closePanel"></div>
+        @teleport('body')
+        <div class="fixed inset-0 z-[70] overflow-hidden">
+            <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closePanel"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
 
                 {{-- Panel Header --}}
@@ -288,14 +290,20 @@
                             </div>
                         </div>
 
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                            <input type="text" wire:model="address" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="optional">
+                            @error('address') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
+                        </div>
+
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Date of Birth <span class="text-rose-500">*</span></label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Date of Birth <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
                                 <input type="date" wire:model="dob" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
                                 @error('dob') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Date of Joining <span class="text-rose-500">*</span></label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Date of Joining <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
                                 <input type="date" wire:model="dateOfJoining" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
                                 @error('dateOfJoining') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
                             </div>
@@ -325,12 +333,36 @@
                     {{-- STEP 2 --}}
                     <div class="{{ $step === 2 ? '' : 'hidden' }} space-y-4">
                         <div class="bg-purple-50 border border-purple-100 rounded-lg px-4 py-3 text-sm text-purple-700">
-                            Select the functionalities this user can access. They will only see and use the screens you grant here.
+                            First choose the organization this user is limited to, then select the functionalities they can access. They will only see and use the screens you grant here.
+                        </div>
+
+                        {{-- Organization scope --}}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Organization Access</label>
+                            <select wire:model.live="allowedOrgId" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                <option value="">All Organizations (full access, like now)</option>
+                                @foreach ($organizations as $org)
+                                    <option value="{{ $org->id }}">{{ $org->name }}</option>
+                                @endforeach
+                            </select>
+                            <p class="text-xs text-gray-400 mt-1">
+                                {{ $allowedOrgId ? 'This user will use the granted functionalities for the selected school only.' : 'This user will use the granted functionalities for every school.' }}
+                            </p>
+                            @error('allowedOrgId') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
                         </div>
 
                         <div class="flex items-center justify-between">
                             <span class="text-sm font-medium text-gray-700">Functionalities</span>
-                            <span class="text-xs text-gray-400">{{ count($permissions) }} selected</span>
+                            <div class="flex items-center gap-3">
+                                <span class="text-xs text-gray-400">{{ count($permissions) }} selected</span>
+                                @if (count($permissions) < count($catalog))
+                                    <button type="button" wire:click="selectAllPermissions"
+                                        class="text-xs font-semibold text-purple-600 hover:text-purple-800">Select All</button>
+                                @else
+                                    <button type="button" wire:click="deselectAllPermissions"
+                                        class="text-xs font-semibold text-purple-600 hover:text-purple-800">Unselect All</button>
+                                @endif
+                            </div>
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -365,14 +397,16 @@
                 </div>
             </div>
         </div>
+        @endteleport
     @endif
 
     {{-- ══════════════════════════════════════════════════
          SLIDE-IN PANEL — View
     ══════════════════════════════════════════════════ --}}
     @if ($showViewPanel)
-        <div class="fixed inset-0 z-50 overflow-hidden">
-            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeViewPanel"></div>
+        @teleport('body')
+        <div class="fixed inset-0 z-[70] overflow-hidden">
+            <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closeViewPanel"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-md bg-white shadow-2xl flex flex-col">
                 {{-- Panel Header --}}
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -400,9 +434,11 @@
                     <dl class="space-y-3 text-sm">
                         <div class="flex justify-between"><dt class="text-gray-500">Mobile</dt><dd class="text-gray-800 font-medium">{{ $viewData['mobile'] ?? '—' }}</dd></div>
                         <div class="flex justify-between"><dt class="text-gray-500">Alt. Mobile</dt><dd class="text-gray-800 font-medium">{{ $viewData['alternative_mobile'] ?: '—' }}</dd></div>
+                        <div class="flex justify-between gap-4"><dt class="text-gray-500 flex-shrink-0">Address</dt><dd class="text-gray-800 font-medium text-right">{{ $viewData['address'] ?: '—' }}</dd></div>
                         <div class="flex justify-between"><dt class="text-gray-500">Date of Birth</dt><dd class="text-gray-800 font-medium">{{ $viewData['dob'] ?? '—' }}</dd></div>
                         <div class="flex justify-between"><dt class="text-gray-500">Date of Joining</dt><dd class="text-gray-800 font-medium">{{ $viewData['date_of_joining'] ?? '—' }}</dd></div>
                         <div class="flex justify-between"><dt class="text-gray-500">Gender</dt><dd class="text-gray-800 font-medium capitalize">{{ $viewData['gender'] ?: '—' }}</dd></div>
+                        <div class="flex justify-between gap-4"><dt class="text-gray-500 flex-shrink-0">Organization Access</dt><dd class="text-gray-800 font-medium text-right">{{ $viewData['organization'] ?? 'All Organizations' }}</dd></div>
                         <div class="flex justify-between"><dt class="text-gray-500">Last Login</dt><dd class="text-gray-800 font-medium">{{ $viewData['last_login_at'] ?? 'Never' }}</dd></div>
                     </dl>
 
@@ -421,13 +457,15 @@
                 </div>
             </div>
         </div>
+        @endteleport
     @endif
 
     {{-- ══════════════════════════════════════════════════
          DELETE CONFIRM OVERLAY
     ══════════════════════════════════════════════════ --}}
     @if ($showDeleteConfirm)
-        <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        @teleport('body')
+        <div class="fixed inset-0 z-[80] flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/30 backdrop-blur-[1.5px]" wire:click="cancelDelete"></div>
             <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
                 <div class="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center mx-auto mb-4">
@@ -441,5 +479,6 @@
                 </div>
             </div>
         </div>
+        @endteleport
     @endif
 </div>

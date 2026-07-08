@@ -25,6 +25,7 @@ class Users extends Component
     public $email             = '';
     public $mobile            = '';
     public $alternativeMobile = '';
+    public $address           = '';
     public $dob               = '';
     public $dateOfJoining     = '';
     public $gender            = '';
@@ -36,6 +37,9 @@ class Users extends Component
 
     // ─── Permissions ─────────────────────────────────────────────────────
     public array $permissions = [];
+
+    // Organization scope: '' = all organizations, otherwise an organization id
+    public $allowedOrgId = '';
 
     // ─── View panel ──────────────────────────────────────────────────────
     public bool $showViewPanel = false;
@@ -116,8 +120,9 @@ class Users extends Component
             'email'             => 'required|email|max:191',
             'mobile'            => 'required|digits:10',
             'alternativeMobile' => 'nullable|digits:10',
-            'dob'               => 'required|date|before:today',
-            'dateOfJoining'     => 'required|date|before_or_equal:today',
+            'address'           => 'nullable|string|max:500',
+            'dob'               => 'nullable|date|before:today',
+            'dateOfJoining'     => 'nullable|date|before_or_equal:today',
             'gender'            => 'required|in:male,female,other',
             'image'             => 'nullable|image|max:2048',
         ];
@@ -151,6 +156,11 @@ class Users extends Component
             return;
         }
 
+        // Organization scope must be "all" or a real organization
+        $this->validate([
+            'allowedOrgId' => 'nullable|exists:organizations,id',
+        ], [], ['allowedOrgId' => 'organization']);
+
         // Only allow permissions that exist in the catalog
         $allowed = array_keys($this->permissionCatalog());
         $grants  = array_values(array_intersect($allowed, $this->permissions));
@@ -169,17 +179,19 @@ class Users extends Component
                 $user->image = Storage::disk('s3')->url($path);
             }
 
-            $user->name               = $this->fullName;
-            $user->email              = $this->email;
-            $user->mobile_number      = $this->mobile;
-            $user->alternative_mobile = $this->alternativeMobile ?: null;
-            $user->dob                = $this->dob;
-            $user->gender             = $this->gender;
-            $user->date_of_joining    = $this->dateOfJoining;
-            $user->role               = 'sub-super-admin';
-            $user->is_active          = (int) $this->isActive;
-            $user->organization_id    = 0; // column is NOT NULL with default 0
-            $user->permissions        = $grants;
+            $user->name                    = $this->fullName;
+            $user->email                   = $this->email;
+            $user->mobile_number           = $this->mobile;
+            $user->alternative_mobile      = $this->alternativeMobile ?: null;
+            $user->address                 = $this->address ?: null;
+            $user->dob                     = $this->dob ?: null;
+            $user->gender                  = $this->gender;
+            $user->date_of_joining         = $this->dateOfJoining ?: null;
+            $user->role                    = 'sub-super-admin';
+            $user->is_active               = (int) $this->isActive;
+            $user->organization_id         = 0; // column is NOT NULL with default 0
+            $user->allowed_organization_id = $this->allowedOrgId ?: null; // null = all organizations
+            $user->permissions             = $grants;
 
             if (!$isEdit) {
                 $plainPassword  = substr(str_shuffle('abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789@#$!'), 0, 10);
@@ -199,6 +211,9 @@ class Users extends Component
             );
 
             $this->closePanel();
+            // Clear any leftover list filter so the saved user is visible
+            // (the search box used to pick up the new user's email).
+            $this->reset(['search', 'filterStatus']);
             $this->resetPage();
         } catch (\Throwable $e) {
             $this->notification()->error('Error Saving User', $e->getMessage());
@@ -209,7 +224,8 @@ class Users extends Component
     protected function sendCredentialsEmail(User $user, string $plainPassword): void
     {
         try {
-            $templateKey = config('services.zeptomail.teacher_password_template_key');
+            $templateKey = config('services.zeptomail.sub_super_admin_password_template_key')
+                ?: config('services.zeptomail.teacher_password_template_key');
             if (!$templateKey) {
                 logger()->warning('No password template key configured — skipping sub super-admin credentials email.');
                 return;
@@ -248,6 +264,7 @@ class Users extends Component
         $this->email             = (string) ($user->email ?? '');
         $this->mobile            = (string) ($user->mobile_number ?? '');
         $this->alternativeMobile = (string) ($user->alternative_mobile ?? '');
+        $this->address           = (string) ($user->address ?? '');
         $this->dob               = $user->dob ? \Carbon\Carbon::parse($user->dob)->format('Y-m-d') : '';
         $this->dateOfJoining     = $user->date_of_joining ? \Carbon\Carbon::parse($user->date_of_joining)->format('Y-m-d') : '';
         $this->gender            = (string) ($user->gender ?? '');
@@ -255,6 +272,7 @@ class Users extends Component
         $this->imageUrl          = $user->image;
         $this->image             = null;
         $this->permissions       = (array) $user->permissions;
+        $this->allowedOrgId      = $user->allowed_organization_id ? (string) $user->allowed_organization_id : '';
 
         $this->step      = 1;
         $this->showPanel = true;
@@ -275,12 +293,16 @@ class Users extends Component
             'email'              => $user->email,
             'mobile'             => $user->mobile_number,
             'alternative_mobile' => $user->alternative_mobile,
+            'address'            => $user->address,
             'dob'                => $user->dob ? \Carbon\Carbon::parse($user->dob)->format('d M Y') : '—',
             'date_of_joining'    => $user->date_of_joining ? \Carbon\Carbon::parse($user->date_of_joining)->format('d M Y') : '—',
             'gender'             => $user->gender,
             'is_active'          => (bool) $user->is_active,
             'image'              => $user->image,
             'last_login_at'      => $user->last_login_at ? $user->last_login_at->format('d M Y, h:i A') : 'Never',
+            'organization'       => $user->allowed_organization_id
+                ? (\App\Models\Organization::find($user->allowed_organization_id)?->name ?? 'Organization #' . $user->allowed_organization_id)
+                : 'All Organizations',
             'permissions'        => collect((array) $user->permissions)
                 ->map(fn($p) => $catalog[$p] ?? $p)
                 ->all(),
@@ -333,12 +355,24 @@ class Users extends Component
         $this->resetPage();
     }
 
+    // ─── Permission bulk select ──────────────────────────────────────────
+    public function selectAllPermissions(): void
+    {
+        $this->permissions = array_keys($this->permissionCatalog());
+    }
+
+    public function deselectAllPermissions(): void
+    {
+        $this->permissions = [];
+    }
+
     // ─── Reset ───────────────────────────────────────────────────────────
     protected function resetForm(): void
     {
         $this->reset([
-            'editId', 'fullName', 'email', 'mobile', 'alternativeMobile',
+            'editId', 'fullName', 'email', 'mobile', 'alternativeMobile', 'address',
             'dob', 'dateOfJoining', 'gender', 'image', 'imageUrl', 'permissions',
+            'allowedOrgId',
         ]);
         $this->isActive = 1;
         $this->step     = 1;
@@ -364,9 +398,10 @@ class Users extends Component
         ];
 
         return view('livewire.super-admin.users', [
-            'users'     => $users,
-            'analytics' => $analytics,
-            'catalog'   => $this->permissionCatalog(),
+            'users'         => $users,
+            'analytics'     => $analytics,
+            'catalog'       => $this->permissionCatalog(),
+            'organizations' => \App\Models\Organization::orderBy('name')->get(['id', 'name']),
         ]);
     }
 }

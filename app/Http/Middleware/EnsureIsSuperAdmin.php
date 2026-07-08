@@ -40,6 +40,8 @@ class EnsureIsSuperAdmin
             }
 
             if ($user->canAccessSuperAdminRoute($routeName)) {
+                $this->applyOrganizationScope($user);
+
                 return $next($request);
             }
 
@@ -61,5 +63,44 @@ class EnsureIsSuperAdmin
         $permissions = (array) $user->permissions;
 
         return $permissions[0] ?? 'super-admin.profile';
+    }
+
+    /**
+     * A sub-super-admin can be limited to a single organization. When set,
+     * scope every org-bearing model used by the super-admin screens to that
+     * organization for the rest of this request (Livewire updates re-run the
+     * page's middleware, so the scope applies there too).
+     */
+    private function applyOrganizationScope($user): void
+    {
+        $orgId = $user->allowedOrganizationId();
+        if (!$orgId) {
+            return; // all organizations — unchanged behaviour
+        }
+
+        \App\Models\Organization::addGlobalScope(
+            'allowed-org',
+            fn($q) => $q->where('organizations.id', $orgId)
+        );
+
+        $models = [
+            \App\Models\Student\StudentDetail::class,
+            \App\Models\Teacher\TeacherDetail::class,
+            \App\Models\SuperAdmin\CreditQuery::class,
+            \App\Models\SuperAdmin\SuperAdminFeeStructure::class,
+            \App\Models\SuperAdmin\SuperAdminFeePayment::class,
+            \App\Models\Admin\ContactSuperAdmin::class,
+            \App\Models\Admin\RateLms::class,
+            \App\Models\Admin\Fee\FeePayment::class,
+            \App\Models\SchoolWebsite::class,
+        ];
+
+        foreach ($models as $model) {
+            $table = (new $model)->getTable();
+            $model::addGlobalScope(
+                'allowed-org',
+                fn($q) => $q->where($table . '.organization_id', $orgId)
+            );
+        }
     }
 }

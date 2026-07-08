@@ -49,6 +49,8 @@ class User extends Authenticatable
         'date_of_joining',
         'alternative_mobile',
         'permissions',
+        'address',
+        'allowed_organization_id',
     ];
 
     /**
@@ -102,12 +104,24 @@ class User extends Authenticatable
         }
 
         // Always-allowed routes for any signed-in sub-super-admin
-        $always = ['super-admin.profile', 'super-admin.notification'];
+        // (quick-links is the landing page and only shows granted tiles)
+        $always = ['super-admin.profile', 'super-admin.notification', 'super-admin.quick-links'];
         if (in_array($routeName, $always, true)) {
             return true;
         }
 
         return in_array($routeName, (array) $this->permissions, true);
+    }
+
+    /**
+     * The single organization a sub-super-admin is limited to.
+     * null = access to all organizations.
+     */
+    public function allowedOrganizationId(): ?int
+    {
+        $id = (int) ($this->allowed_organization_id ?? 0);
+
+        return $id > 0 ? $id : null;
     }
 
     /**
