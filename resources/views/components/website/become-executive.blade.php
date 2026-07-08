@@ -263,11 +263,12 @@
         <div class="apply-grid">
           <div class="field">
             <label>Full Name <span class="req">*</span></label>
-            <input type="text" name="full_name" required maxlength="80" placeholder="Your full name">
+            <input type="text" name="full_name" required maxlength="50" placeholder="Your full name">
           </div>
           <div class="field">
             <label>Email <span class="req">*</span></label>
-            <input type="email" name="email" required maxlength="120" placeholder="you@example.com">
+            <input type="email" name="email" required maxlength="50" pattern="[^@\s]+@[^@\s]+\.[^@\s]+"
+              title="Enter a valid email address" placeholder="you@example.com">
           </div>
           <div class="field">
             <label>Mobile Number <span class="req">*</span></label>
@@ -281,11 +282,11 @@
           </div>
           <div class="field full">
             <label>Address <span class="req">*</span></label>
-            <textarea name="address" required maxlength="500" placeholder="Your city, area and state"></textarea>
+            <textarea name="address" required maxlength="200" placeholder="Your city, area and state"></textarea>
           </div>
           <div class="field full">
             <label>About You / Why you want to join</label>
-            <textarea name="description" maxlength="1000" placeholder="Tell us a little about your experience and why you'd be a great fit (optional)"></textarea>
+            <textarea name="description" maxlength="500" placeholder="Tell us a little about your experience and why you'd be a great fit (optional)"></textarea>
           </div>
           <div class="field full">
             <label>Attach Document <span style="font-weight:400;color:var(--text3)">(Resume / ID — PDF, DOC or image, max 5 MB)</span></label>

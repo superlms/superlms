@@ -356,12 +356,12 @@ class WebsiteController extends Controller
     public function executiveApply(Request $request)
     {
         $validated = $request->validate([
-            'full_name'     => 'required|string|max:255',
-            'email'         => 'required|email|max:255',
-            'mobile'        => ['required', 'string', 'regex:/^[6-9][0-9]{9}$/'],
-            'address'       => 'required|string|max:1000',
+            'full_name'     => 'required|string|max:50',
+            'email'         => 'required|email|max:50',
+            'mobile'        => ['required', 'string', 'max:10', 'regex:/^[6-9][0-9]{9}$/'],
+            'address'       => 'required|string|max:200',
             'qualification' => 'required|string|max:255',
-            'description'   => 'nullable|string|max:5000',
+            'description'   => 'nullable|string|max:500',
             'document'      => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:5120', // 5 MB
         ], [
             'mobile.regex' => 'Please enter a valid 10-digit mobile number.',
