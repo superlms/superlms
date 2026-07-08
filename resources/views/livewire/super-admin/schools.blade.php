@@ -66,7 +66,15 @@
                         <option value="both">Hindi &amp; English</option>
                     </select>
 
-                    @if ($search || $statusFilter || $mediumFilter)
+                    <select wire:model.live="boardFilter"
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 max-w-[200px]">
+                        <option value="">All boards</option>
+                        @foreach ($boards as $board)
+                            <option value="{{ $board }}">{{ $board }}</option>
+                        @endforeach
+                    </select>
+
+                    @if ($search || $statusFilter || $mediumFilter || $boardFilter)
                         <button wire:click="clearFilters"
                             class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -249,7 +257,7 @@
                         </svg>
                     </div>
                     <p class="text-gray-500 text-sm">No schools found</p>
-                    @if ($search || $statusFilter || $mediumFilter)
+                    @if ($search || $statusFilter || $mediumFilter || $boardFilter)
                         <button wire:click="clearFilters"
                             class="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium">
                             Clear filters

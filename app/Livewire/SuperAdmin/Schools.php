@@ -44,6 +44,7 @@ class Schools extends Component
     public string $search       = '';
     public string $statusFilter = ''; // '' | 'active' | 'inactive'
     public string $mediumFilter = ''; // '' | 'english' | 'hindi' | 'both'
+    public string $boardFilter  = ''; // '' | any education_board value
 
     // ── Add-school flow ────────────────────────────────────────────────────────
     public int   $modalStep       = 1; // 1 = details, 2 = module selection (create only)
@@ -147,9 +148,14 @@ class Schools extends Component
         $this->resetPage();
     }
 
+    public function updatedBoardFilter(): void
+    {
+        $this->resetPage();
+    }
+
     public function clearFilters(): void
     {
-        $this->reset(['search', 'statusFilter', 'mediumFilter']);
+        $this->reset(['search', 'statusFilter', 'mediumFilter', 'boardFilter']);
         $this->resetPage();
     }
 
@@ -785,8 +791,16 @@ class Schools extends Component
             ))
             ->when($this->statusFilter !== '', fn($q) => $q->where('status', $this->statusFilter === 'active'))
             ->when($this->mediumFilter !== '', fn($q) => $q->where('medium', $this->mediumFilter))
+            ->when($this->boardFilter !== '', fn($q) => $q->where('education_board', $this->boardFilter))
             ->latest()
             ->paginate(12);
+
+        // Distinct boards actually present in the data, for the filter dropdown.
+        $boards = Organization::whereNotNull('education_board')
+            ->where('education_board', '<>', '')
+            ->distinct()
+            ->orderBy('education_board')
+            ->pluck('education_board');
 
         // ── Fee Stats ─────────────────────────────────────────────────────────
         $feeStats = [];
@@ -881,6 +895,7 @@ class Schools extends Component
 
         return view('livewire.super-admin.schools', compact(
             'schools',
+            'boards',
             'feeStats',
             'studentStats',
             'teacherStats'
