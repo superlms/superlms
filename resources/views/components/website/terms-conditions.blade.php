@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Terms Of Use — SUPERLMS</title>
+    <title>Terms and Conditions — SUPERLMS</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -722,7 +722,7 @@
         <div class="blob2"></div>
         <div class="policy-header-content">
             <div class="section-tag tag-dual">Legal</div>
-            <h1 class="section-title" style="margin-top:16px;">Terms of <span class="gradient-text">Use</span>
+            <h1 class="section-title" style="margin-top:16px;">Terms &amp; <span class="gradient-text">Conditions</span>
             </h1>
             <p class="policy-header-sub" id="tcPlatformName">SUPERLMS — superlms.in</p>
             <div class="last-updated" id="tcLastUpdated">Last updated: —</div>

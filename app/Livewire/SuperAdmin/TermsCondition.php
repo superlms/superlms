@@ -113,7 +113,7 @@ class TermsCondition extends Component
             $this->termsCondition = TermAndCondition::create($data);
         }
 
-        $this->notification()->success('Success', 'Terms Of Use saved successfully!');
+        $this->notification()->success('Success', 'Terms & Conditions saved successfully!');
         $this->activeTab = 'view';
     }
 

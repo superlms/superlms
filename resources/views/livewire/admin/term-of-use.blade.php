@@ -31,7 +31,7 @@
                         </div>
                     @endif
                     <div class="min-w-0">
-                        <h1 class="text-xl sm:text-2xl font-bold text-gray-900 truncate">Terms And Condition</h1>
+                        <h1 class="text-xl sm:text-2xl font-bold text-gray-900 truncate">Terms Of Use</h1>
                         <p class="text-sm text-gray-500 mt-0.5 truncate">Please read these terms carefully before using our platform.</p>
                     </div>
                 </div>

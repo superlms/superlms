@@ -276,9 +276,9 @@ return [
         //     'prefix' => 'super-admin.sessions',
         // ],
         [
-            'title' => 'Term Of Use',
+            'title' => 'Terms & Conditions',
             'link' => 'super-admin.terms-condition',
-            'icon' => 'command-line',
+            'icon' => 'document-text',
             'prefix' => 'super-admin.terms-condition',
         ],
         // [
@@ -288,9 +288,9 @@ return [
         //     'prefix' => 'super-admin.website-data',
         // ],
         [
-            'title' => 'Terms & Condition',
+            'title' => 'Terms Of Use',
             'link' => 'super-admin.term-of-use',
-            'icon' => 'document-text',
+            'icon' => 'command-line',
             'prefix' => 'super-admin.term-of-use',
         ],
         [

@@ -29,7 +29,7 @@
                         Conditions</a></li>
                 <li><a href="/web/privacy-policy" target="_blank" class="hover:underline font-bold">Privacy Policy</a>
                 </li>
-                <li><a href="/web/terms-conditions" target="_blank" class="hover:underline font-bold">Terms of Use</a>
+                <li><a href="/web/terms-of-use" target="_blank" class="hover:underline font-bold">Terms of Use</a>
                 </li>
             </ul>
         </div>

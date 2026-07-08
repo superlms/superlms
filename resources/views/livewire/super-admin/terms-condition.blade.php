@@ -8,14 +8,14 @@
                        {{ $activeTab === 'view'
                            ? 'border-blue-500 text-blue-700'
                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
-                View Terms Of Use
+                View Terms &amp; Conditions
             </button>
             <button wire:click="switchTab('edit')"
                 class="py-3.5 px-5 text-sm font-semibold border-b-2 transition-colors
                        {{ $activeTab === 'edit'
                            ? 'border-purple-500 text-purple-700'
                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
-                {{ $termsCondition ? 'Edit' : 'Create' }} Terms Of Use
+                {{ $termsCondition ? 'Edit' : 'Create' }} Terms &amp; Conditions
             </button>
         </nav>
     </div>
@@ -30,8 +30,8 @@
                             d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                 </div>
-                <h3 class="text-xl font-semibold text-gray-700 mb-2">No Terms Of Use Yet</h3>
-                <p class="text-gray-400 text-sm mb-5 max-w-sm">Create your platform's terms of use to display them here.
+                <h3 class="text-xl font-semibold text-gray-700 mb-2">No Terms &amp; Conditions Yet</h3>
+                <p class="text-gray-400 text-sm mb-5 max-w-sm">Create your platform's terms and conditions to display them here.
                 </p>
                 <button wire:click="switchTab('edit')"
                     class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700
@@ -55,7 +55,7 @@
                         <img src="{{ asset('website-image/Group 11525.png') }}" alt="SUPERLMS"
                             class="w-12 h-12 rounded-xl object-contain border border-gray-200 shadow-sm bg-white p-1 flex-shrink-0">
                         <div class="min-w-0">
-                            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 truncate">Terms Of Use</h1>
+                            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 truncate">Terms &amp; Conditions</h1>
                             <p class="text-sm text-gray-500 mt-0.5 truncate">{{ count($viewSections) }} section(s)</p>
                         </div>
                     </div>
@@ -192,7 +192,7 @@
                             </svg>
                         </div>
                         <div>
-                            <h2 class="text-base font-semibold text-gray-900">Terms Of Use Sections</h2>
+                            <h2 class="text-base font-semibold text-gray-900">Terms &amp; Conditions Sections</h2>
                             <p class="text-xs text-gray-400">{{ count($sections) }} section(s)</p>
                         </div>
                     </div>
@@ -263,7 +263,7 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                     </svg>
-                    Save Terms Of Use
+                    Save Terms &amp; Conditions
                 </button>
             </div>
 

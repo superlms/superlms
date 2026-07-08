@@ -15,9 +15,9 @@ class More extends Component
         ['title' => 'Contact Admin',       'route' => 'admin.contact-admin',        'icon' => 'chat-bubble-left'],
         ['title' => 'About App',           'route' => 'admin.about-app',            'icon' => 'information-circle'],
         ['title' => 'Rate LMS',            'route' => 'admin.rate-lms',             'icon' => 'star'],
-        ['title' => 'Terms of Use',        'route' => 'admin.terms-and-condition',  'icon' => 'document-text'],
+        ['title' => 'Terms & Conditions',  'route' => 'admin.terms-and-condition',  'icon' => 'document-text'],
         ['title' => 'Privacy Policy',      'route' => 'admin.privacy-policy',       'icon' => 'lock-closed'],
-        ['title' => 'Terms And Condition', 'route' => 'admin.terms-of-use',         'icon' => 'document-text'],
+        ['title' => 'Terms Of Use',        'route' => 'admin.terms-of-use',         'icon' => 'document-text'],
     ];
 
     public $organization = null;

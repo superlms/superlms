@@ -119,8 +119,8 @@
                 <div class="footer-col-title">Legal</div>
                 <ul class="footer-links">
                     <li><a href="{{ route('website.privacy') }}">Privacy Policy</a></li>
-                    <li><a href="{{ route('website.terms-conditions') }}">Terms of Use</a></li>
-                    <li><a href="{{ route('website.terms-of-use') }}">Terms &amp; Conditions</a></li>
+                    <li><a href="{{ route('website.terms-conditions') }}">Terms &amp; Conditions</a></li>
+                    <li><a href="{{ route('website.terms-of-use') }}">Terms of Use</a></li>
                 </ul>
             </div>
 
@@ -145,8 +145,8 @@
             <div class="footer-bottom-text">© 2026 SUPERLMS (Super Learnings Private Limited). All rights reserved. Made with ❤️ in India.</div>
             <div class="footer-bottom-links">
                 <a href="{{ route('website.privacy') }}">Privacy Policy</a>
-                <a href="{{ route('website.terms-conditions') }}">Terms of Use</a>
-                <a href="{{ route('website.terms-of-use') }}">Terms &amp; Conditions</a>
+                <a href="{{ route('website.terms-conditions') }}">Terms &amp; Conditions</a>
+                <a href="{{ route('website.terms-of-use') }}">Terms of Use</a>
             </div>
         </div>
     </div>
