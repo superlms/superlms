@@ -19,8 +19,6 @@ class TermsAndCondition extends Component
 
     // Terms Content
     public $sections = [];
-    public $additionalInfo = [];
-    public $files = [];
     public $contactEmail;
 
     public function mount()
@@ -52,12 +50,6 @@ class TermsAndCondition extends Component
 
             // Sections from metadata
             $this->sections = $metadata['sections'] ?? [];
-
-            // Additional info from metadata
-            $this->additionalInfo = $metadata['additional_info'] ?? [];
-
-            // Files from metadata
-            $this->files = $metadata['files'] ?? [];
 
             // Contact email
             $this->contactEmail = $metadata['contact_email'] ?? 'support@example.com';

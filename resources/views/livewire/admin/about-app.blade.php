@@ -32,6 +32,14 @@
                     <div class="min-w-0">
                         <h1 class="text-xl sm:text-2xl font-bold text-gray-900 truncate">{{ $aboutApp->heading ?? 'About App' }}</h1>
                         <p class="text-sm text-gray-500 mt-0.5 truncate">{{ $aboutApp->sub_heading ?? 'Platform application details' }}</p>
+                        @if ($aboutApp->company_name || $aboutApp->company_cin)
+                            <p class="text-xs text-gray-400 mt-0.5 truncate">
+                                {{ $aboutApp->company_name }}
+                                @if ($aboutApp->company_cin)
+                                    · CIN: {{ $aboutApp->company_cin }}
+                                @endif
+                            </p>
+                        @endif
                     </div>
                 </div>
                 <div class="flex flex-wrap items-center gap-2 flex-shrink-0">

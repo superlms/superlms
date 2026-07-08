@@ -53,6 +53,14 @@
                         <div class="min-w-0">
                             <h1 class="text-xl sm:text-2xl font-bold text-gray-900 truncate">{{ $aboutApp->heading ?? 'About App' }}</h1>
                             <p class="text-sm text-gray-500 mt-0.5 truncate">{{ $aboutApp->sub_heading ?? '' }}</p>
+                            @if ($aboutApp->company_name || $aboutApp->company_cin)
+                                <p class="text-xs text-gray-400 mt-0.5 truncate">
+                                    {{ $aboutApp->company_name }}
+                                    @if ($aboutApp->company_cin)
+                                        · CIN: {{ $aboutApp->company_cin }}
+                                    @endif
+                                </p>
+                            @endif
                         </div>
                     </div>
                     <button wire:click="setTab('edit')"
@@ -394,6 +402,24 @@
                         <input type="text" wire:model.defer="sub_heading" placeholder="Tagline or subtitle"
                             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
                                    focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Company Name</label>
+                        <input type="text" wire:model.defer="company_name" placeholder="e.g. Super Learnings Private Limited"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
+                                   focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400">
+                        @error('company_name')
+                            <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Company CIN</label>
+                        <input type="text" wire:model.defer="company_cin" placeholder="Corporate Identification Number"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
+                                   focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400">
+                        @error('company_cin')
+                            <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>
+                        @enderror
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1">Logo</label>

@@ -20,6 +20,8 @@ class AboutApp extends Component
     public $content      = [];
     public $logo;
     public $logoPreview  = null;
+    public $company_name = '';
+    public $company_cin  = '';
     public $contact_details = [];
     public $address      = '';
     public $core_team    = [];
@@ -61,6 +63,8 @@ class AboutApp extends Component
         'content.*.title'             => 'nullable|string|max:255',
         'content.*.description'       => 'nullable|string',
         'logo'                        => 'nullable|image|max:2048',
+        'company_name'                => 'nullable|string|max:255',
+        'company_cin'                 => 'nullable|string|max:50',
         'address'                     => 'nullable|string|max:500',
         'newTeamMemberImage'          => 'nullable|image|max:2048',
         'newSocialMediaIcon'          => 'nullable|image|max:1024',
@@ -75,6 +79,8 @@ class AboutApp extends Component
             $this->sub_heading     = $this->aboutApp->sub_heading;
             $this->content         = $this->aboutApp->content ?? [];
             $this->logoPreview     = $this->aboutApp->logo;
+            $this->company_name    = $this->aboutApp->company_name ?? '';
+            $this->company_cin     = $this->aboutApp->company_cin ?? '';
             $this->contact_details = $this->aboutApp->contact_details ?? [];
             $this->address         = $this->aboutApp->address ?? '';
             $this->core_team       = $this->aboutApp->core_team ?? [];
@@ -420,9 +426,11 @@ class AboutApp extends Component
     {
         $this->validate([
             'heading'     => 'required|string|max:255',
-            'sub_heading' => 'nullable|string|max:500',
-            'logo'        => 'nullable|image|max:2048',
-            'address'     => 'nullable|string|max:500',
+            'sub_heading'  => 'nullable|string|max:500',
+            'logo'         => 'nullable|image|max:2048',
+            'company_name' => 'nullable|string|max:255',
+            'company_cin'  => 'nullable|string|max:50',
+            'address'      => 'nullable|string|max:500',
         ]);
 
         try {
@@ -430,6 +438,8 @@ class AboutApp extends Component
                 'heading'         => $this->heading,
                 'sub_heading'     => $this->sub_heading,
                 'content'         => $this->content,
+                'company_name'    => $this->company_name ?: null,
+                'company_cin'     => $this->company_cin ?: null,
                 'contact_details' => $this->contact_details,
                 'address'         => $this->address,
                 'core_team'       => $this->core_team,

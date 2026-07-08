@@ -11,6 +11,8 @@ class AboutApp extends Model
         'sub_heading',
         'content',
         'logo',
+        'company_name',
+        'company_cin',
         'contact_details',
         'address',
         'core_team',
