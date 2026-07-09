@@ -19,30 +19,48 @@ class Analytics extends Component
 {
     public string $activeTab = 'overview';
 
-    public array $overviewStats      = [];
-    public array $topByStudents      = [];
-    public array $topByTeachers      = [];
-    public array $schoolBuckets      = [];
+    /** Chart window in months — 6 / 12 / 24, switchable from the header. */
+    public int $months = 12;
+
+    public array $overviewStats        = [];
+    public array $topByStudents        = [];
+    public array $topByTeachers        = [];
+    public array $schoolBuckets        = [];
     public array $monthlyRegistrations = [];
+    public array $genderSplit          = [];
+    public array $ratingStats          = [];
 
-    public array $creditStats        = [];
-    public array $creditMonthly      = [];
+    public array $creditStats       = [];
+    public array $creditMonthly     = [];
+    public array $topCreditSchools  = [];
 
-    public array $feeStats           = [];
-    public array $feeMonthly         = [];
-    public array $schoolFeeList      = [];
+    public array $feeStats      = [];
+    public array $feeMonthly    = [];
+    public array $schoolFeeList = [];
+    public array $feeModes      = [];
 
-    public array $payrollStats       = [];
+    public array $payrollStats   = [];
+    public array $payrollMonthly = [];
 
-    public array $enquiryStats       = [];
-    public array $enquiryMonthly     = [];
+    public array $enquiryStats   = [];
+    public array $enquiryMonthly = [];
 
-    public array $supportStats       = [];
-    public array $supportMonthly     = [];
+    public array $supportStats   = [];
+    public array $supportMonthly = [];
 
     public function setTab(string $tab): void
     {
         $this->activeTab = $tab;
+        // Charts live inside @if blocks — after the tab's canvases morph in,
+        // the frontend re-initialises every visible chart from the payload.
+        $this->dispatch('analytics-refresh');
+    }
+
+    public function updatedMonths(): void
+    {
+        $this->months = in_array((int) $this->months, [6, 12, 24], true) ? (int) $this->months : 12;
+        $this->loadAll();
+        $this->dispatch('analytics-refresh');
     }
 
     public function mount(): void
@@ -60,57 +78,99 @@ class Analytics extends Component
         $this->loadSupport();
     }
 
+    // ─── Monthly-series helpers ───────────────────────────────────────────────
+
+    /** Month keys for the selected window, oldest → newest: ['2025-08', …]. */
+    private function monthKeys(): array
+    {
+        $keys = [];
+        for ($i = $this->months - 1; $i >= 0; $i--) {
+            $keys[] = now()->subMonths($i)->format('Y-m');
+        }
+
+        return $keys;
+    }
+
+    /** Human labels aligned with monthKeys(): ['Aug 2025', …]. */
+    private function monthLabels(): array
+    {
+        return array_map(
+            fn($k) => \Carbon\Carbon::parse($k . '-01')->format('M y'),
+            $this->monthKeys()
+        );
+    }
+
+    /**
+     * One aggregate query for a whole monthly series (replaces the old
+     * 12-queries-per-line loops). $agg: 'count' or a column to SUM.
+     */
+    private function monthlySeries($query, string $agg = 'count', string $dateColumn = 'created_at'): array
+    {
+        $start = now()->subMonths($this->months - 1)->startOfMonth();
+
+        $select = $agg === 'count' ? 'COUNT(*)' : "COALESCE(SUM({$agg}), 0)";
+
+        $rows = $query
+            ->where($dateColumn, '>=', $start)
+            ->selectRaw("DATE_FORMAT({$dateColumn}, '%Y-%m') as ym, {$select} as v")
+            ->groupBy('ym')
+            ->pluck('v', 'ym');
+
+        return array_map(fn($k) => (float) ($rows[$k] ?? 0), $this->monthKeys());
+    }
+
+    // ─── Overview ─────────────────────────────────────────────────────────────
+
     private function loadOverview(): void
     {
-        $totalSchools  = Organization::count();
-        $totalStudents = User::where('role', 'user')->count();
-        $totalTeachers = User::where('role', 'teacher')->count();
-        $avgStudents   = $totalSchools > 0 ? round($totalStudents / $totalSchools, 1) : 0;
+        $totalSchools    = Organization::count();
+        $activeSchools   = Organization::where('status', true)->count();
+        $totalStudents   = User::where('role', 'user')->count();
+        $activeStudents  = User::where('role', 'user')->where('is_active', 1)->count();
+        $totalTeachers   = User::where('role', 'teacher')->count();
+        $activeTeachers  = User::where('role', 'teacher')->where('is_active', 1)->count();
+        $avgStudents     = $totalSchools > 0 ? round($totalStudents / $totalSchools, 1) : 0;
+
+        $studentsThisMonth = User::where('role', 'user')->where('created_at', '>=', now()->startOfMonth())->count();
+        $studentsLastMonth = User::where('role', 'user')
+            ->whereBetween('created_at', [now()->subMonthNoOverflow()->startOfMonth(), now()->subMonthNoOverflow()->endOfMonth()])
+            ->count();
+        $growthPct = $studentsLastMonth > 0
+            ? round((($studentsThisMonth - $studentsLastMonth) / $studentsLastMonth) * 100, 1)
+            : ($studentsThisMonth > 0 ? 100 : 0);
 
         $this->overviewStats = [
             'totalSchools'         => $totalSchools,
+            'activeSchools'        => $activeSchools,
+            'inactiveSchools'      => max(0, $totalSchools - $activeSchools),
+            'newSchoolsThisMonth'  => Organization::where('created_at', '>=', now()->startOfMonth())->count(),
             'totalStudents'        => $totalStudents,
+            'activeStudents'       => $activeStudents,
             'totalTeachers'        => $totalTeachers,
+            'activeTeachers'       => $activeTeachers,
             'avgStudentsPerSchool' => $avgStudents,
+            'studentsThisMonth'    => $studentsThisMonth,
+            'studentsLastMonth'    => $studentsLastMonth,
+            'studentGrowthPct'     => $growthPct,
         ];
 
-        // Top 5 by students
-        $topStudents = Organization::select('id', 'name', 'logo')
-            ->withCount([
-                'users as students_count' => fn($q) => $q->where('role', 'user'),
-                'users as teachers_count' => fn($q) => $q->where('role', 'teacher'),
-            ])
-            ->orderByDesc('students_count')
-            ->limit(5)
-            ->get();
+        // Top 5 by students / teachers — one query, reused for both boards.
+        $withCounts = fn() => Organization::select('id', 'name', 'logo')->withCount([
+            'users as students_count' => fn($q) => $q->where('role', 'user'),
+            'users as teachers_count' => fn($q) => $q->where('role', 'teacher'),
+        ]);
 
-        $this->topByStudents = $topStudents->map(fn($org, $i) => [
+        $mapTop = fn($rows) => $rows->values()->map(fn($org, $i) => [
             'rank'     => $i + 1,
             'id'       => $org->id,
             'name'     => $org->name,
             'logo'     => $org->logo,
             'students' => $org->students_count,
             'teachers' => $org->teachers_count,
-        ])->values()->toArray();
+        ])->toArray();
 
-        // Top 5 by teachers
-        $topTeachers = Organization::select('id', 'name', 'logo')
-            ->withCount([
-                'users as students_count' => fn($q) => $q->where('role', 'user'),
-                'users as teachers_count' => fn($q) => $q->where('role', 'teacher'),
-            ])
-            ->orderByDesc('teachers_count')
-            ->limit(5)
-            ->get();
-
-        $this->topByTeachers = $topTeachers->map(fn($org, $i) => [
-            'rank'     => $i + 1,
-            'id'       => $org->id,
-            'name'     => $org->name,
-            'logo'     => $org->logo,
-            'students' => $org->students_count,
-            'teachers' => $org->teachers_count,
-        ])->values()->toArray();
+        $this->topByStudents = $mapTop($withCounts()->orderByDesc('students_count')->limit(5)->get());
+        $this->topByTeachers = $mapTop($withCounts()->orderByDesc('teachers_count')->limit(5)->get());
 
         // School size buckets
         $schoolsWithCounts = Organization::withCount([
@@ -118,197 +178,259 @@ class Analytics extends Component
         ])->get();
 
         $this->schoolBuckets = [
+            '<500'  => $schoolsWithCounts->where('students_count', '<', 500)->count(),
             '500+'  => $schoolsWithCounts->where('students_count', '>=', 500)->count(),
             '1000+' => $schoolsWithCounts->where('students_count', '>=', 1000)->count(),
             '1500+' => $schoolsWithCounts->where('students_count', '>=', 1500)->count(),
             '2000+' => $schoolsWithCounts->where('students_count', '>=', 2000)->count(),
         ];
 
-        // Monthly registrations (last 12 months)
-        $labels   = [];
-        $students = [];
-        $teachers = [];
-        for ($i = 11; $i >= 0; $i--) {
-            $month    = now()->subMonths($i);
-            $labels[] = $month->format('M Y');
-            $students[] = User::where('role', 'user')
-                ->whereYear('created_at', $month->year)
-                ->whereMonth('created_at', $month->month)
-                ->count();
-            $teachers[] = User::where('role', 'teacher')
-                ->whereYear('created_at', $month->year)
-                ->whereMonth('created_at', $month->month)
-                ->count();
-        }
-
+        // Monthly registrations + schools onboarded (aggregate queries)
         $this->monthlyRegistrations = [
-            'labels'   => $labels,
-            'students' => $students,
-            'teachers' => $teachers,
-        ];
-    }
-
-    private function loadCredit(): void
-    {
-        $total      = CreditQuery::count();
-        $pending    = CreditQuery::pending()->count();
-        $processing = CreditQuery::processing()->count();
-        $approved   = CreditQuery::approved()->count();
-        $denied     = CreditQuery::denied()->count();
-
-        $totalAmountLeased = CreditQuery::approved()->sum('amount');
-        $totalPending      = CreditQuery::pending()->sum('amount');
-        $activeCredits     = CreditQuery::activeCredit()->count();
-
-        $this->creditStats = [
-            'total'             => $total,
-            'pending'           => $pending,
-            'processing'        => $processing,
-            'approved'          => $approved,
-            'denied'            => $denied,
-            'totalAmountLeased' => $totalAmountLeased,
-            'totalPending'      => $totalPending,
-            'activeCredits'     => $activeCredits,
+            'labels'   => $this->monthLabels(),
+            'students' => $this->monthlySeries(User::where('role', 'user')),
+            'teachers' => $this->monthlySeries(User::where('role', 'teacher')),
+            'schools'  => $this->monthlySeries(Organization::query()),
         ];
 
-        // Monthly credit applications (last 12 months)
-        $labels       = [];
-        $applications = [];
-        $approvedData = [];
-        for ($i = 11; $i >= 0; $i--) {
-            $month          = now()->subMonths($i);
-            $labels[]       = $month->format('M Y');
-            $applications[] = CreditQuery::whereYear('created_at', $month->year)
-                ->whereMonth('created_at', $month->month)
-                ->count();
-            $approvedData[] = CreditQuery::approved()
-                ->whereYear('created_at', $month->year)
-                ->whereMonth('created_at', $month->month)
-                ->count();
-        }
+        // Student gender split
+        $genders = User::where('role', 'user')
+            ->selectRaw("COALESCE(NULLIF(gender, ''), 'unknown') as g, COUNT(*) as c")
+            ->groupBy('g')
+            ->pluck('c', 'g');
 
-        $this->creditMonthly = [
-            'labels'       => $labels,
-            'applications' => $applications,
-            'approved'     => $approvedData,
-        ];
-    }
-
-    private function loadFee(): void
-    {
-        $totalSchools    = SuperAdminFeeStructure::distinct('organization_id')->count('organization_id');
-        $totalStudents   = SuperAdminFeePayment::count();
-        $totalFeeToCollect = SuperAdminFeePayment::sum('amount');
-        $totalCollected  = SuperAdminFeePayment::paid()->sum('amount');
-        $totalRemaining  = $totalFeeToCollect - $totalCollected;
-        $avgFeePerStudent = $totalStudents > 0 ? round($totalFeeToCollect / $totalStudents, 2) : 0;
-
-        $this->feeStats = [
-            'totalSchools'      => $totalSchools,
-            'totalStudents'     => $totalStudents,
-            'totalFeeToCollect' => $totalFeeToCollect,
-            'totalCollected'    => $totalCollected,
-            'totalRemaining'    => $totalRemaining,
-            'avgFeePerStudent'  => $avgFeePerStudent,
+        $this->genderSplit = [
+            'male'    => (int) ($genders['male'] ?? 0),
+            'female'  => (int) ($genders['female'] ?? 0),
+            'other'   => (int) ($genders['other'] ?? 0),
+            'unknown' => (int) ($genders['unknown'] ?? 0),
         ];
 
-        // Top 10 schools by fee
-        $orgIds = SuperAdminFeePayment::distinct('organization_id')
-            ->pluck('organization_id');
-
-        $schoolFeeList = [];
-        foreach ($orgIds->take(10) as $orgId) {
-            $org       = Organization::select('id', 'name')->find($orgId);
-            $toCollect = SuperAdminFeePayment::where('organization_id', $orgId)->sum('amount');
-            $collected = SuperAdminFeePayment::where('organization_id', $orgId)->paid()->sum('amount');
-            $remaining = $toCollect - $collected;
-            $pct       = $toCollect > 0 ? round(($collected / $toCollect) * 100, 1) : 0;
-
-            $schoolFeeList[] = [
-                'name'      => $org?->name ?? 'Unknown',
-                'toCollect' => $toCollect,
-                'collected' => $collected,
-                'remaining' => $remaining,
-                'pct'       => $pct,
+        // Platform ratings (Rate LMS)
+        $ratingRows = RateLms::selectRaw('rating, COUNT(*) as c')->groupBy('rating')->pluck('c', 'rating');
+        $totalRatings = (int) $ratingRows->sum();
+        $dist = [];
+        foreach ([5, 4, 3, 2, 1] as $star) {
+            $count = (int) ($ratingRows[$star] ?? 0);
+            $dist[$star] = [
+                'count' => $count,
+                'pct'   => $totalRatings > 0 ? round($count / $totalRatings * 100, 1) : 0,
             ];
         }
 
-        usort($schoolFeeList, fn($a, $b) => $b['toCollect'] <=> $a['toCollect']);
-        $this->schoolFeeList = array_slice($schoolFeeList, 0, 10);
-
-        // Monthly fee collection (last 12 months)
-        $labels    = [];
-        $collected = [];
-        for ($i = 11; $i >= 0; $i--) {
-            $month      = now()->subMonths($i);
-            $labels[]   = $month->format('M Y');
-            $collected[] = SuperAdminFeePayment::paid()
-                ->whereYear('created_at', $month->year)
-                ->whereMonth('created_at', $month->month)
-                ->sum('amount');
-        }
-
-        $this->feeMonthly = [
-            'labels'    => $labels,
-            'collected' => $collected,
+        $this->ratingStats = [
+            'total'        => $totalRatings,
+            'avg'          => $totalRatings > 0 ? round((float) RateLms::avg('rating'), 1) : 0,
+            'fiveStar'     => (int) ($ratingRows[5] ?? 0),
+            'distribution' => $dist,
         ];
     }
 
+    // ─── Credit ───────────────────────────────────────────────────────────────
+
+    private function loadCredit(): void
+    {
+        $total    = CreditQuery::count();
+        $approved = CreditQuery::approved()->count();
+
+        $totalAmountLeased = (float) CreditQuery::approved()->sum('amount');
+        $amountCollected   = (float) CreditQuery::approved()->whereNotNull('collected_at')->sum('amount');
+
+        $this->creditStats = [
+            'total'             => $total,
+            'pending'           => CreditQuery::pending()->count(),
+            'processing'        => CreditQuery::processing()->count(),
+            'approved'          => $approved,
+            'denied'            => CreditQuery::denied()->count(),
+            'totalAmountLeased' => $totalAmountLeased,
+            'totalPending'      => (float) CreditQuery::pending()->sum('amount'),
+            'activeCredits'     => CreditQuery::activeCredit()->count(),
+            // Extra detail
+            'approvalRate'      => $total > 0 ? round($approved / $total * 100, 1) : 0,
+            'avgApproved'       => $approved > 0 ? round($totalAmountLeased / $approved, 0) : 0,
+            'collectedCount'    => CreditQuery::approved()->whereNotNull('collected_at')->count(),
+            'amountCollected'   => $amountCollected,
+            'amountOutstanding' => max(0, $totalAmountLeased - $amountCollected),
+        ];
+
+        $this->creditMonthly = [
+            'labels'       => $this->monthLabels(),
+            'applications' => $this->monthlySeries(CreditQuery::query()),
+            'approved'     => $this->monthlySeries(CreditQuery::approved()),
+            'amount'       => $this->monthlySeries(CreditQuery::approved(), 'amount'),
+        ];
+
+        // Top 5 schools by approved credit amount
+        $this->topCreditSchools = CreditQuery::approved()
+            ->selectRaw('organization_id, COUNT(*) as queries, SUM(amount) as total_amount')
+            ->groupBy('organization_id')
+            ->orderByDesc('total_amount')
+            ->limit(5)
+            ->get()
+            ->map(function ($row, $i) {
+                return [
+                    'rank'    => $i + 1,
+                    'name'    => Organization::find($row->organization_id)?->name ?? 'Unknown',
+                    'queries' => (int) $row->queries,
+                    'amount'  => (float) $row->total_amount,
+                ];
+            })->values()->toArray();
+    }
+
+    // ─── Fee ──────────────────────────────────────────────────────────────────
+
+    private function loadFee(): void
+    {
+        $totalSchools      = SuperAdminFeeStructure::distinct('organization_id')->count('organization_id');
+        $totalRecords      = SuperAdminFeePayment::count();
+        $totalFeeToCollect = (float) SuperAdminFeePayment::sum('amount');
+        $totalCollected    = (float) SuperAdminFeePayment::paid()->sum('amount');
+        $totalRemaining    = $totalFeeToCollect - $totalCollected;
+
+        $this->feeStats = [
+            'totalSchools'       => $totalSchools,
+            'totalStudents'      => $totalRecords,
+            'totalFeeToCollect'  => $totalFeeToCollect,
+            'totalCollected'     => $totalCollected,
+            'totalRemaining'     => $totalRemaining,
+            'avgFeePerStudent'   => $totalRecords > 0 ? round($totalFeeToCollect / $totalRecords, 2) : 0,
+            // Extra detail
+            'collectionRate'     => $totalFeeToCollect > 0 ? round($totalCollected / $totalFeeToCollect * 100, 1) : 0,
+            'collectedThisMonth' => (float) SuperAdminFeePayment::paid()->where('created_at', '>=', now()->startOfMonth())->sum('amount'),
+            'collectedLastMonth' => (float) SuperAdminFeePayment::paid()
+                ->whereBetween('created_at', [now()->subMonthNoOverflow()->startOfMonth(), now()->subMonthNoOverflow()->endOfMonth()])
+                ->sum('amount'),
+            'paidRecords'        => SuperAdminFeePayment::paid()->count(),
+            'unpaidRecords'      => SuperAdminFeePayment::where('is_paid', false)->count(),
+        ];
+
+        // School-wise breakdown — one aggregate query, genuinely top 10 by amount
+        $this->schoolFeeList = SuperAdminFeePayment::selectRaw('
+                organization_id,
+                SUM(amount) as to_collect,
+                SUM(CASE WHEN is_paid = 1 THEN amount ELSE 0 END) as collected
+            ')
+            ->groupBy('organization_id')
+            ->orderByDesc('to_collect')
+            ->limit(10)
+            ->get()
+            ->map(function ($row) {
+                $toCollect = (float) $row->to_collect;
+                $collected = (float) $row->collected;
+
+                return [
+                    'name'      => Organization::find($row->organization_id)?->name ?? 'Unknown',
+                    'toCollect' => $toCollect,
+                    'collected' => $collected,
+                    'remaining' => $toCollect - $collected,
+                    'pct'       => $toCollect > 0 ? round($collected / $toCollect * 100, 1) : 0,
+                ];
+            })->values()->toArray();
+
+        $this->feeMonthly = [
+            'labels'    => $this->monthLabels(),
+            'collected' => $this->monthlySeries(SuperAdminFeePayment::paid(), 'amount'),
+            'payments'  => $this->monthlySeries(SuperAdminFeePayment::paid()),
+        ];
+
+        // Collected amount by payment mode
+        $modes = SuperAdminFeePayment::paid()
+            ->selectRaw("COALESCE(NULLIF(payment_mode, ''), 'other') as mode, SUM(amount) as total")
+            ->groupBy('mode')
+            ->orderByDesc('total')
+            ->pluck('total', 'mode');
+
+        $this->feeModes = [
+            'labels' => $modes->keys()->map(fn($m) => ucwords(str_replace('_', ' ', $m)))->toArray(),
+            'data'   => $modes->values()->map(fn($v) => (float) $v)->toArray(),
+        ];
+    }
+
+    // ─── Payroll ──────────────────────────────────────────────────────────────
+
     private function loadPayroll(): void
     {
-        $totalEmployees = SuperAdminEmployee::count();
-        $totalMonthlySalaryBill = SuperAdminEmployee::where('is_active', true)->sum('salary');
+        $totalEmployees         = SuperAdminEmployee::count();
+        $totalMonthlySalaryBill = (float) SuperAdminEmployee::where('is_active', true)->sum('salary');
 
-        $currentMonth = now()->format('Y-m');
-        $paidThisMonth    = SuperAdminSalaryPayment::forMonth($currentMonth)->paid()->count();
-        $pendingThisMonth = SuperAdminSalaryPayment::forMonth($currentMonth)->pending()->count();
-        $totalPaidAmount  = SuperAdminSalaryPayment::forMonth($currentMonth)->paid()->sum('amount');
+        // Salary is payable for the PREVIOUS month (current month is locked in payroll).
+        $payableMonth     = now()->subMonthNoOverflow()->format('Y-m');
+        $paidThisMonth    = SuperAdminSalaryPayment::forMonth($payableMonth)->paid()->count();
+        $totalPaidAmount  = (float) SuperAdminSalaryPayment::forMonth($payableMonth)->paid()->sum('amount');
 
-        $byType = [];
-        foreach (['user', 'teacher', 'management', 'driver'] as $type) {
-            $byType[$type] = SuperAdminEmployee::where('type', $type)->count();
+        // Employee types come from the payroll module so new types show up automatically.
+        $typeRows = SuperAdminEmployee::selectRaw('type, COUNT(*) as c')->groupBy('type')->pluck('c', 'type');
+        $byType   = [];
+        foreach (Payroll::EMP_TYPES as $type) {
+            $byType[$type] = (int) ($typeRows[$type] ?? 0);
+        }
+        // Legacy/unexpected types still show instead of silently disappearing.
+        foreach ($typeRows as $type => $count) {
+            if (!isset($byType[$type])) {
+                $byType[$type] = (int) $count;
+            }
         }
 
         $this->payrollStats = [
             'totalEmployees'         => $totalEmployees,
             'totalMonthlySalaryBill' => $totalMonthlySalaryBill,
+            'payableMonth'           => \Carbon\Carbon::parse($payableMonth . '-01')->format('M Y'),
             'paidThisMonth'          => $paidThisMonth,
-            'pendingThisMonth'       => $pendingThisMonth,
+            'pendingThisMonth'       => max(0, $totalEmployees - $paidThisMonth),
             'totalPaidAmount'        => $totalPaidAmount,
             'byType'                 => $byType,
+            // Extra detail
+            'avgSalary'              => $totalEmployees > 0 ? round((float) SuperAdminEmployee::avg('salary'), 0) : 0,
+            'highestSalary'          => (float) (SuperAdminEmployee::max('salary') ?? 0),
+            'paidThisYear'           => (float) SuperAdminSalaryPayment::paid()
+                ->where('month', 'like', now()->format('Y') . '-%')
+                ->sum('amount'),
+        ];
+
+        // Salary paid per payment_date month (payment_date reflects when money moved)
+        $this->payrollMonthly = [
+            'labels' => $this->monthLabels(),
+            'paid'   => $this->monthlySeries(
+                SuperAdminSalaryPayment::paid()->whereNotNull('payment_date'),
+                'amount',
+                'payment_date'
+            ),
         ];
     }
 
+    // ─── Enquiries ────────────────────────────────────────────────────────────
+
     private function loadEnquiries(): void
     {
-        // Demo enquiries
-        $demoTotal     = WebsiteDemo::count();
-        $demoPending   = WebsiteDemo::whereNull('remark')->orWhere('remark', '')->count();
-        $demoReplied   = WebsiteDemo::whereNotNull('remark')->where('remark', '!=', '')->count();
-        $demoThisMonth = WebsiteDemo::whereYear('created_at', now()->year)
-            ->whereMonth('created_at', now()->month)
-            ->count();
+        // NB: the pending check groups the OR properly — a bare orWhere here used
+        // to leak every row with remark = '' into the count regardless of role.
+        $pendingScope = fn($q) => $q->where(fn($q) => $q->whereNull('remark')->orWhere('remark', ''));
+        $repliedScope = fn($q) => $q->whereNotNull('remark')->where('remark', '!=', '');
 
-        // Contact enquiries (WebsiteContact)
-        $contactTotal     = WebsiteContact::count();
-        $contactPending   = WebsiteContact::whereNull('remark')->orWhere('remark', '')->count();
-        $contactReplied   = WebsiteContact::whereNotNull('remark')->where('remark', '!=', '')->count();
-        $contactThisMonth = WebsiteContact::whereYear('created_at', now()->year)
-            ->whereMonth('created_at', now()->month)
-            ->count();
+        $demoTotal    = WebsiteDemo::count();
+        $demoReplied  = $repliedScope(WebsiteDemo::query())->count();
+        $demoPending  = $pendingScope(WebsiteDemo::query())->count();
+
+        $contactTotal   = WebsiteContact::count();
+        $contactReplied = $repliedScope(WebsiteContact::query())->count();
+        $contactPending = $pendingScope(WebsiteContact::query())->count();
 
         $this->enquiryStats = [
             'demo' => [
                 'total'     => $demoTotal,
                 'pending'   => $demoPending,
                 'replied'   => $demoReplied,
-                'thisMonth' => $demoThisMonth,
+                'thisMonth' => WebsiteDemo::where('created_at', '>=', now()->startOfMonth())->count(),
+                'thisWeek'  => WebsiteDemo::where('created_at', '>=', now()->startOfWeek())->count(),
+                'replyRate' => $demoTotal > 0 ? round($demoReplied / $demoTotal * 100, 1) : 0,
             ],
             'contact' => [
                 'total'     => $contactTotal,
                 'pending'   => $contactPending,
                 'replied'   => $contactReplied,
-                'thisMonth' => $contactThisMonth,
+                'thisMonth' => WebsiteContact::where('created_at', '>=', now()->startOfMonth())->count(),
+                'thisWeek'  => WebsiteContact::where('created_at', '>=', now()->startOfWeek())->count(),
+                'replyRate' => $contactTotal > 0 ? round($contactReplied / $contactTotal * 100, 1) : 0,
             ],
             'combined' => [
                 'total'   => $demoTotal + $contactTotal,
@@ -317,77 +439,88 @@ class Analytics extends Component
             ],
         ];
 
-        // Monthly enquiry chart (last 12 months)
-        $labels  = [];
-        $demo    = [];
-        $contact = [];
-        for ($i = 11; $i >= 0; $i--) {
-            $month     = now()->subMonths($i);
-            $labels[]  = $month->format('M Y');
-            $demo[]    = WebsiteDemo::whereYear('created_at', $month->year)
-                ->whereMonth('created_at', $month->month)
-                ->count();
-            $contact[] = WebsiteContact::whereYear('created_at', $month->year)
-                ->whereMonth('created_at', $month->month)
-                ->count();
-        }
-
         $this->enquiryMonthly = [
-            'labels'  => $labels,
-            'demo'    => $demo,
-            'contact' => $contact,
+            'labels'  => $this->monthLabels(),
+            'demo'    => $this->monthlySeries(WebsiteDemo::query()),
+            'contact' => $this->monthlySeries(WebsiteContact::query()),
         ];
     }
 
+    // ─── Support ──────────────────────────────────────────────────────────────
+
     private function loadSupport(): void
     {
-        $total     = ContactSuperAdmin::count();
-        $replied   = ContactSuperAdmin::whereNotNull('super_admin_reply')
+        $total   = ContactSuperAdmin::count();
+        $replied = ContactSuperAdmin::whereNotNull('super_admin_reply')
             ->where('super_admin_reply', '!=', '')
             ->count();
-        $pending   = $total - $replied;
-        $thisMonth = ContactSuperAdmin::whereYear('created_at', now()->year)
-            ->whereMonth('created_at', now()->month)
-            ->count();
-        $thisWeek  = ContactSuperAdmin::whereBetween('created_at', [
-            now()->startOfWeek(),
-            now()->endOfWeek(),
-        ])->count();
+
+        $monthsActive = max(1, min(
+            $this->months,
+            (int) ceil(now()->diffInMonths(ContactSuperAdmin::min('created_at') ?? now()) + 1)
+        ));
 
         $this->supportStats = [
-            'total'     => $total,
-            'pending'   => $pending,
-            'replied'   => $replied,
-            'thisMonth' => $thisMonth,
-            'thisWeek'  => $thisWeek,
+            'total'       => $total,
+            'pending'     => $total - $replied,
+            'replied'     => $replied,
+            'thisMonth'   => ContactSuperAdmin::where('created_at', '>=', now()->startOfMonth())->count(),
+            'thisWeek'    => ContactSuperAdmin::whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()])->count(),
+            'avgPerMonth' => round($total / $monthsActive, 1),
         ];
 
-        // Monthly support chart (last 12 months)
-        $labels  = [];
-        $totals  = [];
-        $replies = [];
-        for ($i = 11; $i >= 0; $i--) {
-            $month     = now()->subMonths($i);
-            $labels[]  = $month->format('M Y');
-            $totals[]  = ContactSuperAdmin::whereYear('created_at', $month->year)
-                ->whereMonth('created_at', $month->month)
-                ->count();
-            $replies[] = ContactSuperAdmin::whereNotNull('super_admin_reply')
-                ->where('super_admin_reply', '!=', '')
-                ->whereYear('created_at', $month->year)
-                ->whereMonth('created_at', $month->month)
-                ->count();
-        }
-
         $this->supportMonthly = [
-            'labels'  => $labels,
-            'total'   => $totals,
-            'replied' => $replies,
+            'labels'  => $this->monthLabels(),
+            'total'   => $this->monthlySeries(ContactSuperAdmin::query()),
+            'replied' => $this->monthlySeries(
+                ContactSuperAdmin::whereNotNull('super_admin_reply')->where('super_admin_reply', '!=', '')
+            ),
+        ];
+    }
+
+    /**
+     * Everything the charts need, serialised into one payload the blade drops
+     * into a data attribute. The frontend re-reads it after every Livewire
+     * morph, so charts stay in sync when the tab or month window changes.
+     */
+    public function chartPayload(): array
+    {
+        return [
+            'labels'   => $this->monthLabels(),
+            'overview' => [
+                'students' => $this->monthlyRegistrations['students'] ?? [],
+                'teachers' => $this->monthlyRegistrations['teachers'] ?? [],
+                'schools'  => $this->monthlyRegistrations['schools'] ?? [],
+            ],
+            'gender'   => $this->genderSplit,
+            'credit'   => [
+                'applications' => $this->creditMonthly['applications'] ?? [],
+                'approved'     => $this->creditMonthly['approved'] ?? [],
+                'amount'       => $this->creditMonthly['amount'] ?? [],
+            ],
+            'fee'      => [
+                'collected' => $this->feeMonthly['collected'] ?? [],
+                'payments'  => $this->feeMonthly['payments'] ?? [],
+                'modes'     => $this->feeModes,
+            ],
+            'payroll'  => [
+                'paid' => $this->payrollMonthly['paid'] ?? [],
+            ],
+            'enquiry'  => [
+                'demo'    => $this->enquiryMonthly['demo'] ?? [],
+                'contact' => $this->enquiryMonthly['contact'] ?? [],
+            ],
+            'support'  => [
+                'total'   => $this->supportMonthly['total'] ?? [],
+                'replied' => $this->supportMonthly['replied'] ?? [],
+            ],
         ];
     }
 
     public function render(): \Illuminate\View\View
     {
-        return view('livewire.super-admin.analytics');
+        return view('livewire.super-admin.analytics', [
+            'chartPayload' => $this->chartPayload(),
+        ]);
     }
 }
