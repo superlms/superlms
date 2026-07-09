@@ -10,6 +10,7 @@ use App\Livewire\SuperAdmin\ForgotPassword;
 use App\Livewire\SuperAdmin\Login;
 use App\Livewire\SuperAdmin\Payroll;
 use App\Livewire\SuperAdmin\PortalWebsite;
+use App\Livewire\SuperAdmin\PushNotification;
 use App\Livewire\SuperAdmin\PrivacyPolicy;
 use App\Livewire\SuperAdmin\QuickLinks;
 use App\Livewire\SuperAdmin\Rating;
@@ -49,6 +50,7 @@ Route::middleware(['auth:superadmin', 'super-admin'])->group(function () {
     Route::get('fees', Fees::class)->name('super-admin.fees');
     Route::get('users', Users::class)->name('super-admin.users');
     Route::get('payroll', Payroll::class)->name('super-admin.payroll');
+    Route::get('push-notification', PushNotification::class)->name('super-admin.push-notification');
     Route::get('enquiries', Enquiry::class)->name('super-admin.enquiries');
     Route::get('support', Support::class)->name('super-admin.support');
     Route::get('website-data', WebsiteData::class)->name('super-admin.website-data');

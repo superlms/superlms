@@ -46,19 +46,8 @@ class QuickLinks extends Component
                 'icon'  => $link['icon'],
                 'color' => $colors[abs(crc32((string) $link['title'])) % count($colors)],
                 'order' => $i,
-                'notif' => false,
             ];
         }
-
-        // Notifications is a special action tile — kept in the list so it sorts too.
-        $this->links[] = [
-            'title' => 'Notifications',
-            'route' => null,
-            'icon'  => 'bell-alert',
-            'color' => 'amber',
-            'order' => count($this->links),
-            'notif' => true,
-        ];
     }
 
     public function render()

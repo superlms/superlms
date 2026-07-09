@@ -252,6 +252,12 @@ return [
             'prefix' => 'super-admin.payroll',
         ],
         [
+            'title' => 'Push Notification',
+            'link' => 'super-admin.push-notification',
+            'icon' => 'megaphone',
+            'prefix' => 'super-admin.push-notification',
+        ],
+        [
             'title' => 'Credit',
             'link' => 'super-admin.credit',
             'icon' => 'credit-card',

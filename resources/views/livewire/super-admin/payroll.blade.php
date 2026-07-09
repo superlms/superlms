@@ -28,16 +28,9 @@
                 <p class="text-sm text-gray-500 mt-0.5">Manage employees, attendance and salaries</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-                {{-- Chips only on Employees tab --}}
                 @if ($activeTab === 'employees')
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-xs font-medium text-gray-600">Total <strong class="text-gray-900">{{ $empStats['total'] }}</strong></span>
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-xs font-medium text-emerald-600">Users <strong>{{ $empStats['user'] }}</strong></span>
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-xs font-medium text-blue-600">Counsellors <strong>{{ $empStats['counsellor'] }}</strong></span>
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-100 text-xs font-medium text-amber-600">Team <strong>{{ $empStats['team'] }}</strong></span>
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-50 border border-purple-100 text-xs font-medium text-purple-600">Mgmt <strong>{{ $empStats['management'] }}</strong></span>
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-xs font-medium text-gray-500">Other <strong>{{ $empStats['other'] }}</strong></span>
                     <button wire:click="openEmpModal()"
-                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors ml-1">
+                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
                         Add Employee
                     </button>
@@ -53,6 +46,18 @@
                 @endif
             </div>
         </div>
+
+        {{-- Employee-type chips — divider separates them from the title row (matches Schools/Analytics header style) --}}
+        @if ($activeTab === 'employees')
+            <div class="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-gray-200">
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-xs font-medium text-gray-600">Total <strong class="text-gray-900">{{ $empStats['total'] }}</strong></span>
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-xs font-medium text-emerald-600">Users <strong>{{ $empStats['user'] }}</strong></span>
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-xs font-medium text-blue-600">Counsellors <strong>{{ $empStats['counsellor'] }}</strong></span>
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-100 text-xs font-medium text-amber-600">Team <strong>{{ $empStats['team'] }}</strong></span>
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-50 border border-purple-100 text-xs font-medium text-purple-600">Mgmt <strong>{{ $empStats['management'] }}</strong></span>
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-xs font-medium text-gray-500">Other <strong>{{ $empStats['other'] }}</strong></span>
+            </div>
+        @endif
     </div>
 
     {{-- ══════════ TABS ══════════ --}}
