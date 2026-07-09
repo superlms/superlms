@@ -206,6 +206,7 @@ class Users extends Component
             $user          = $isEdit
                 ? User::where('role', 'sub-admin')->where('organization_id', $this->orgId())->findOrFail($this->editId)
                 : new User();
+            $oldEmail      = $isEdit ? $user->email : null;
 
             if ($this->image) {
                 if ($user->image) {
@@ -231,13 +232,20 @@ class Users extends Component
             if (!$isEdit) {
                 $plainPassword  = substr(str_shuffle('abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789@#$!'), 0, 10);
                 $user->password = Hash::make($plainPassword);
+                $user->rememberPlainPassword($plainPassword);
             }
 
             $user->save();
 
-            // Send credentials on creation only — never blocks the save
+            // Send credentials on creation — never blocks the save
             if (!$isEdit && $plainPassword) {
                 $this->sendCredentialsEmail($user, $plainPassword);
+            }
+
+            // Email changed on an edit → re-send credentials to the NEW address
+            // with the SAME (unchanged) password.
+            if ($isEdit && $oldEmail && strcasecmp($oldEmail, $user->email) !== 0) {
+                $this->sendCredentialsEmail($user, $user->plainPassword() ?? 'Use your existing password (unchanged)');
             }
 
             $this->notification()->success(

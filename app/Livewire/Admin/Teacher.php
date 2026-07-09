@@ -285,6 +285,9 @@ class Teacher extends Component
             if (!$isEdit) {
                 $plainPassword       = substr(str_shuffle('abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789@#$!'), 0, 10);
                 $userData['password'] = Hash::make($plainPassword);
+                if (Schema::hasColumn('users', 'password_plain')) {
+                    $userData['password_plain'] = \Illuminate\Support\Facades\Crypt::encryptString($plainPassword);
+                }
             }
 
             $teacher->fill($userData);
@@ -369,8 +372,8 @@ class Teacher extends Component
             }
 
             // Email changed on an edit → send updated credentials to the NEW
-            // address. The password is unchanged (still whatever was set before),
-            // so we can't re-print it; we tell them to use their existing one.
+            // address. The password is unchanged — include the stored one when
+            // known, otherwise tell them to keep using their existing one.
             if ($isEdit && $oldEmail && strcasecmp($oldEmail, $teacher->email) !== 0) {
                 $emailTemplateKey = config('services.zeptomail.teacher_password_template_key');
                 if ($emailTemplateKey) {
@@ -380,7 +383,7 @@ class Teacher extends Component
                         'to_email'     => $teacher->email,
                         'to_name'      => $teacher->name,
                         'merge'        => [
-                            'password'      => 'Use your existing password (unchanged)',
+                            'password'      => $teacher->plainPassword() ?? 'Use your existing password (unchanged)',
                             'email_address' => $teacher->email,
                             'school_name'   => $schoolName,
                             'username'      => $teacher->name,

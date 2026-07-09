@@ -472,6 +472,9 @@ class Student extends Component
             if ($isNew) {
                 $plainPassword = substr(str_shuffle('abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789@#$!'), 0, 10);
                 $studentData['password'] = Hash::make($plainPassword);
+                if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'password_plain')) {
+                    $studentData['password_plain'] = \Illuminate\Support\Facades\Crypt::encryptString($plainPassword);
+                }
             }
 
             // ─── Atomic save ──────────────────────────────────────────────
@@ -565,8 +568,8 @@ class Student extends Component
             // ─── After commit ─────────────────────────────────────────────
             if (!$isNew) {
                 // Email changed on an edit → send updated credentials to the NEW
-                // address. Password is unchanged (still whatever was set before),
-                // so we can't re-print it; we tell them to use their existing one.
+                // address. Password is unchanged — include the stored one when
+                // known, otherwise tell them to keep using their existing one.
                 if ($oldStudentEmail && strcasecmp($oldStudentEmail, $student->email) !== 0) {
                     $emailTemplateKey = config('services.zeptomail.student_password_template_key');
                     if ($emailTemplateKey) {
@@ -576,7 +579,7 @@ class Student extends Component
                             'to_email'     => $student->email,
                             'to_name'      => $student->name,
                             'merge'        => [
-                                'password'         => 'Use your existing password (unchanged)',
+                                'password'         => $student->plainPassword() ?? 'Use your existing password (unchanged)',
                                 'school_name'      => $schoolName,
                                 'admission_number' => $admissionNo,
                                 'username'         => $student->name,

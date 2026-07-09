@@ -167,6 +167,7 @@ class AccountUsers extends Component
 
             if ($this->password) {
                 $userData['password'] = Hash::make($this->password);
+                $user->rememberPlainPassword($this->password);
             }
 
             $user->update($userData);
@@ -207,6 +208,8 @@ class AccountUsers extends Component
                 'role'            => 'accounts',
                 'is_active'       => true,
             ]);
+            $user->rememberPlainPassword($this->password);
+            $user->save();
 
             $schoolUserData = [
                 'user_id'          => $user->id,

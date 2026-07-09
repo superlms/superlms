@@ -602,7 +602,7 @@ class Schools extends Component
 
                 $plainPassword = Str::upper(Str::random(4)) . rand(100, 999) . Str::random(3);
 
-                User::create([
+                $schoolAdmin = User::create([
                     'name'            => $this->schoolName . ' Admin',
                     'email'           => $this->email,
                     'mobile_number'   => $this->mobileNumber,
@@ -610,6 +610,8 @@ class Schools extends Component
                     'role'            => 'admin',
                     'password'        => Hash::make($plainPassword),
                 ]);
+                $schoolAdmin->rememberPlainPassword($plainPassword);
+                $schoolAdmin->save();
 
                 // Persist the modules selected during the add-school flow.
                 foreach (config('modules', []) as $key => $def) {

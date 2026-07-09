@@ -106,6 +106,7 @@ class ResetPassword extends Component
             return;
         }
 
+        $user->rememberPlainPassword($this->password);
         $user->update([
             'password' => Hash::make($this->password),
         ]);

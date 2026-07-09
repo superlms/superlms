@@ -403,6 +403,7 @@ class Profile extends Component
             'confirmPassword' => ['required', 'same:newPassword'],
         ]);
 
+        Auth::user()->rememberPlainPassword($this->newPassword);
         Auth::user()->update([
             'password' => Hash::make($this->newPassword)
         ]);

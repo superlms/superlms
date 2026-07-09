@@ -134,9 +134,6 @@
                                 class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                 Qualification</th>
                             <th
-                                class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                Status</th>
-                            <th
                                 class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                 Actions</th>
                         </tr>
@@ -200,26 +197,11 @@
                                 </td>
 
 
-                                {{-- Status --}}
-                                <td class="px-4 py-3">
-                                    @if ($teacher->user?->is_active)
-                                        <span
-                                            class="inline-flex items-center gap-1 text-xs px-2.5 py-1
-                                            bg-green-50 text-green-700 rounded-full font-medium border border-green-100">
-                                            <span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Active
-                                        </span>
-                                    @else
-                                        <span
-                                            class="inline-flex items-center gap-1 text-xs px-2.5 py-1
-                                            bg-red-50 text-red-600 rounded-full font-medium border border-red-100">
-                                            <span class="w-1.5 h-1.5 bg-red-500 rounded-full"></span> Inactive
-                                        </span>
-                                    @endif
-                                </td>
-
-                                {{-- Actions --}}
+                                {{-- Actions (status dot first) --}}
                                 <td class="px-4 py-3">
                                     <div class="flex items-center justify-center gap-1">
+                                        <span class="w-2 h-2 rounded-full flex-shrink-0 mr-1 {{ $teacher->user?->is_active ? 'bg-green-500' : 'bg-red-500' }}"
+                                            title="{{ $teacher->user?->is_active ? 'Active' : 'Inactive' }}"></span>
                                         <button wire:click="viewTeacher({{ $teacher->user_id }})"
                                             class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                             title="View">
@@ -249,7 +231,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="px-6 py-16 text-center">
+                                <td colspan="7" class="px-6 py-16 text-center">
                                     <div
                                         class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                         <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor"

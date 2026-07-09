@@ -1,7 +1,8 @@
 <div class="min-h-screen bg-gray-50">
 
-    {{-- ══════════ HEADER ══════════ --}}
-    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 sm:py-5 sticky top-0 z-50">
+    {{-- ══════════ STICKY: HEADER + FILTER BAND ══════════ --}}
+    <div class="sticky top-0 z-50">
+    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 sm:py-5">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
                 <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Credit Management</h1>
@@ -30,49 +31,50 @@
             <span>Leased: <strong class="text-gray-800">₹{{ number_format($analytics['total_amount_leased'], 0) }}</strong></span>
         </div>
 
-        {{-- Filters (credit tab only) --}}
-        @if ($activeTab === 'credit')
-            <div class="mt-4 pt-4 border-t border-gray-100">
-                <div class="flex flex-wrap items-center gap-3">
-                    <div class="relative flex-1 min-w-[200px] max-w-xs">
-                        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
-                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                        </svg>
-                        <input wire:model.live.debounce.300ms="search" type="text"
-                            placeholder="Search school name, email..."
-                            class="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg
-                                   focus:ring-2 focus:ring-blue-500 focus:border-blue-500"/>
-                    </div>
-                    <select wire:model.live="statusFilter"
-                        class="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500">
-                        <option value="">All Status</option>
-                        <option value="pending">Pending</option>
-                        <option value="processing">Processing</option>
-                        <option value="approved">Approved</option>
-                        <option value="denied">Denied</option>
-                    </select>
-                    <select wire:model.live="orgFilter"
-                        class="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500">
-                        <option value="">All Schools</option>
-                        @foreach ($organizations as $org)
-                            <option value="{{ $org->id }}">{{ $org->name }}</option>
-                        @endforeach
-                    </select>
-                    @if ($search || $statusFilter || $orgFilter)
-                        <button wire:click="clearFilters" title="Clear filters"
-                            class="px-3 py-2 text-sm text-red-600 border border-red-200 bg-red-50
-                                   hover:bg-red-100 rounded-lg transition-colors flex-shrink-0">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                            </svg>
-                        </button>
-                    @endif
-                </div>
-            </div>
-        @endif
     </div>
+
+    {{-- ══════════ FILTER BAND (payroll-style, credit tab only) ══════════ --}}
+    @if ($activeTab === 'credit')
+        <div class="bg-gray-50 border-b border-gray-200 px-4 sm:px-6 py-3">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                    </svg>
+                    Filter by:
+                </div>
+                <input wire:model.live.debounce.300ms="search" type="text" autocomplete="off"
+                    placeholder="Search school name, email…"
+                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-64 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <select wire:model.live="statusFilter"
+                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <option value="">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="processing">Processing</option>
+                    <option value="approved">Approved</option>
+                    <option value="denied">Denied</option>
+                </select>
+                <select wire:model.live="orgFilter"
+                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[160px]">
+                    <option value="">All Schools</option>
+                    @foreach ($organizations as $org)
+                        <option value="{{ $org->id }}">{{ $org->name }}</option>
+                    @endforeach
+                </select>
+                @if ($search || $statusFilter || $orgFilter)
+                    <button wire:click="clearFilters"
+                        class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                        Clear
+                    </button>
+                @endif
+            </div>
+        </div>
+    @endif
+    </div>{{-- /sticky --}}
 
     <div class="p-4 sm:p-6">
 

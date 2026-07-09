@@ -179,6 +179,9 @@ class AdminTeacherController extends ApiController
                 'organization_id' => $orgId,
                 'password'        => Hash::make($plainPassword),
             ];
+            if (Schema::hasColumn('users', 'password_plain')) {
+                $userData['password_plain'] = \Illuminate\Support\Facades\Crypt::encryptString($plainPassword);
+            }
             if ($request->hasFile('image')) {
                 $path = $request->file('image')->store('admin/teachers/images', 's3');
                 Storage::disk('s3')->setVisibility($path, 'public');

@@ -344,6 +344,7 @@ class AuthController extends Controller
             }
 
             $user->password = Hash::make($request->password);
+            $user->rememberPlainPassword($request->password);
             $user->save();
 
             $token = $user->createToken('authToken')->plainTextToken;
@@ -420,6 +421,7 @@ class AuthController extends Controller
 
             // Update password
             $user->password = Hash::make($request->new_password);
+            $user->rememberPlainPassword($request->new_password);
             $user->save();
 
             // Revoke all tokens and create new one

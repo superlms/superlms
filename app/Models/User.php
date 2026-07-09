@@ -51,6 +51,7 @@ class User extends Authenticatable
         'permissions',
         'address',
         'allowed_organization_id',
+        'password_plain',
     ];
 
     /**
@@ -61,7 +62,39 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'password_plain',
     ];
+
+    /**
+     * Keep an encrypted, recoverable copy of the password in sync whenever it
+     * is (re)set, so credential emails re-sent later (e.g. after an admin
+     * changes the user's email) can include the SAME password unchanged.
+     * No-op if the column hasn't been migrated yet.
+     */
+    public function rememberPlainPassword(?string $plain): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasColumn($this->getTable(), 'password_plain')) {
+            return;
+        }
+
+        $this->password_plain = $plain !== null && $plain !== ''
+            ? \Illuminate\Support\Facades\Crypt::encryptString($plain)
+            : null;
+    }
+
+    /** The current password in plain text, or null if unknown (legacy account). */
+    public function plainPassword(): ?string
+    {
+        if (empty($this->password_plain)) {
+            return null;
+        }
+
+        try {
+            return \Illuminate\Support\Facades\Crypt::decryptString($this->password_plain);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
 
     /**
      * Get the attributes that should be cast.

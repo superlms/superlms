@@ -327,6 +327,7 @@ class AdminProfileController extends ApiController
             return $this->error('Current password is incorrect.', 422);
         }
 
+        $user->rememberPlainPassword($request->new_password);
         $user->update(['password' => Hash::make($request->new_password)]);
 
         return $this->success(null, 'Password updated.');

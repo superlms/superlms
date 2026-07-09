@@ -150,6 +150,7 @@ class ForgotPassword extends Component
             return;
         }
 
+        $user->rememberPlainPassword($this->password);
         $user->update(['password' => Hash::make($this->password)]);
 
         Cache::forget('super_admin_otp_verified_' . $this->email);
