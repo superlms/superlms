@@ -17,15 +17,17 @@ class SuperAdminFeeStructure extends Model
         'amount',
         'total_amount',
         'installment_frequency',
+        'period_amounts',
         'academic_year',
         'fee_label',
         'is_active',
     ];
 
     protected $casts = [
-        'amount'       => 'decimal:2',
-        'total_amount' => 'decimal:2',
-        'is_active'    => 'boolean',
+        'amount'         => 'decimal:2',
+        'total_amount'   => 'decimal:2',
+        'period_amounts' => 'array',
+        'is_active'      => 'boolean',
     ];
 
     /** Installments per year for this structure's frequency (one_time only). */

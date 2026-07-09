@@ -3,112 +3,134 @@
     {{-- ══════════ LIST VIEW ══════════ --}}
     @if ($activeView === 'list')
 
-        {{-- HEADER — title + chip analytics, divider-separated (Schools/Analytics/Payroll style) --}}
-        <div class="bg-white border-b border-gray-200 sticky top-0 z-50 px-4 sm:px-6 py-4 sm:py-5">
-            <div>
-                <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Fees</h1>
-                <p class="text-sm text-gray-500 mt-0.5">Manage license fees charged to schools</p>
+        {{-- HEADER — simple inline analytics (Support/Enquiries style) --}}
+        <div class="bg-white border-b border-gray-200 sticky top-0 z-50">
+            <div class="px-4 sm:px-6 py-4 sm:py-5">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Fees</h1>
+                        <p class="text-sm text-gray-500 mt-0.5">Manage license fees charged to schools</p>
+                    </div>
+                    <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200">
+                        <span class="pr-4">Students: <strong class="text-gray-800">{{ number_format($totalStudentsAll) }}</strong></span>
+                        <span class="px-4">To Collect: <strong class="text-blue-600">₹{{ number_format($totalFeeToCollect, 0) }}</strong></span>
+                        <span class="px-4">Collected: <strong class="text-emerald-600">₹{{ number_format($totalFeeCollected, 0) }}</strong></span>
+                        <span class="px-4">Remaining: <strong class="text-red-500">₹{{ number_format($totalFeeRemaining, 0) }}</strong></span>
+                        <span class="pl-4">Avg/Student: <strong class="text-gray-800">₹{{ number_format($avgFeePerStudent, 0) }}</strong></span>
+                    </div>
+                </div>
+
+                {{-- Mobile/Tablet stats --}}
+                <div class="flex lg:hidden items-center gap-3 sm:gap-4 text-xs text-gray-500 mt-3 flex-wrap">
+                    <span>Students: <strong class="text-gray-800">{{ number_format($totalStudentsAll) }}</strong></span>
+                    <span>To Collect: <strong class="text-blue-600">₹{{ number_format($totalFeeToCollect, 0) }}</strong></span>
+                    <span>Collected: <strong class="text-emerald-600">₹{{ number_format($totalFeeCollected, 0) }}</strong></span>
+                    <span>Remaining: <strong class="text-red-500">₹{{ number_format($totalFeeRemaining, 0) }}</strong></span>
+                    <span>Avg/Student: <strong class="text-gray-800">₹{{ number_format($avgFeePerStudent, 0) }}</strong></span>
+                </div>
             </div>
 
-            <div class="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-gray-200">
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-200 text-xs text-gray-500">Students <strong class="text-gray-900">{{ number_format($totalStudentsAll) }}</strong></span>
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-100 text-xs text-blue-600">To Collect <strong class="text-blue-700">₹{{ number_format($totalFeeToCollect, 0) }}</strong></span>
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-100 text-xs text-emerald-600">Collected <strong class="text-emerald-700">₹{{ number_format($totalFeeCollected, 0) }}</strong></span>
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-50 border border-red-100 text-xs text-red-500">Remaining <strong class="text-red-600">₹{{ number_format($totalFeeRemaining, 0) }}</strong></span>
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-200 text-xs text-gray-500">Avg/Student <strong class="text-gray-900">₹{{ number_format($avgFeePerStudent, 0) }}</strong></span>
+            {{-- FILTER BAR --}}
+            <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                        </svg>
+                        Filter by:
+                    </div>
+
+                    <div class="relative">
+                        <svg class="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" /></svg>
+                        <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search schools by name or code..."
+                            class="text-xs bg-white border border-gray-200 rounded-md pl-8 pr-3 py-1.5 text-gray-700 w-64 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+
+                    <select wire:model.live="filterFeeType"
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">All Fee Types</option>
+                        <option value="per_student">Per Student</option>
+                        <option value="one_time">One Time</option>
+                    </select>
+
+                    <select wire:model.live="filterBoard"
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 max-w-[200px]">
+                        <option value="">All Boards</option>
+                        @foreach ($boards as $board)
+                            <option value="{{ $board }}">{{ $board }}</option>
+                        @endforeach
+                    </select>
+
+                    @if ($search || $filterFeeType || $filterBoard)
+                        <button wire:click="clearFilters"
+                            class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            Clear
+                        </button>
+                    @endif
+                </div>
             </div>
         </div>
 
-        {{-- FILTER BAR (student-style) --}}
-        <div class="border-b border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
-            <div class="flex flex-wrap items-center gap-3">
-                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                    </svg>
-                    Filter by:
-                </div>
+        <div class="p-4 sm:p-6 space-y-4">
 
-                <div class="relative">
-                    <svg class="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" /></svg>
-                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search schools by name or code..."
-                        class="text-xs bg-white border border-gray-200 rounded-md pl-8 pr-3 py-1.5 text-gray-700 w-64 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                </div>
+            {{-- ══════════ DESKTOP TABLE ══════════ --}}
+            <div class="hidden md:block bg-white rounded-xl border border-gray-200 shadow-sm">
+                <div class="overflow-x-auto rounded-xl">
+                    <table class="w-full min-w-[860px]">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">School</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Board</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Fee Type</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Students</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Collection</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @forelse ($schools as $school)
+                                @php
+                                    $orgStructure = \App\Models\SuperAdmin\SuperAdminFeeStructure::where('organization_id', $school->id)
+                                        ->where('academic_year', $academicYear)
+                                        ->whereIn('fee_type', ['one_time', 'per_student'])
+                                        ->active()
+                                        ->first();
 
-                <select wire:model.live="filterFeeType"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    <option value="">All Fee Types</option>
-                    <option value="per_student">Per Student</option>
-                    <option value="one_time">One Time</option>
-                </select>
+                                    if ($orgStructure && $orgStructure->fee_type === 'one_time') {
+                                        $orgExpected = !empty($orgStructure->period_amounts)
+                                            ? (float) array_sum($orgStructure->period_amounts)
+                                            : (float) ($orgStructure->total_amount ?? ($orgStructure->amount * $school->total_students));
+                                    } elseif ($orgStructure) {
+                                        $orgExpected = (float) $orgStructure->amount * $school->total_students;
+                                    } else {
+                                        $orgExpected = 0;
+                                    }
 
-                @if ($search || $filterFeeType)
-                    <button wire:click="clearFilters"
-                        class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                        Clear
-                    </button>
-                @endif
-            </div>
-        </div>
-
-        <div class="p-4 sm:p-6">
-            {{-- SCHOOL CARDS (student-card style: header row + badge, info grid, footer action) --}}
-            @if (count($schools))
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    @foreach ($schools as $school)
-                        @php
-                            $orgStructure = \App\Models\SuperAdmin\SuperAdminFeeStructure::where('organization_id', $school->id)
-                                ->where('academic_year', $academicYear)
-                                ->whereIn('fee_type', ['one_time', 'per_student'])
-                                ->active()
-                                ->first();
-
-                            if ($orgStructure && $orgStructure->fee_type === 'one_time') {
-                                $orgExpected = (float) ($orgStructure->total_amount ?? ($orgStructure->amount * $school->total_students));
-                            } elseif ($orgStructure) {
-                                $orgExpected = (float) $orgStructure->amount * $school->total_students;
-                            } else {
-                                $orgExpected = 0;
-                            }
-
-                            $orgCollected = (float) \App\Models\SuperAdmin\SuperAdminFeePayment::forOrg($school->id)
-                                ->forYear($academicYear)
-                                ->sum('amount');
-                            $orgPct = $orgExpected > 0 ? round(($orgCollected / $orgExpected) * 100) : 0;
-                        @endphp
-
-                        <div class="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden cursor-pointer"
-                            wire:click="selectSchool({{ $school->id }})">
-
-                            <div class="flex items-center gap-3 p-4 border-b border-gray-100">
-                                @if ($school->logo)
-                                    <img src="{{ $school->logo }}" class="w-10 h-10 rounded-full object-cover border border-gray-200 flex-shrink-0">
-                                @else
-                                    <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                                        <span class="text-sm font-semibold text-indigo-600">{{ strtoupper(substr($school->name, 0, 1)) }}</span>
-                                    </div>
-                                @endif
-                                <div class="flex-1 min-w-0">
-                                    <p class="text-sm font-semibold text-gray-900 truncate">{{ $school->name }}</p>
-                                    <p class="text-xs text-gray-400 truncate">Code: {{ $school->school_code ?? '—' }}</p>
-                                </div>
-                                @if ($school->status)
-                                    <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-green-50 text-green-700 rounded-full font-medium border border-green-100 flex-shrink-0">
-                                        <span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Active
-                                    </span>
-                                @else
-                                    <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full font-medium border border-amber-100 flex-shrink-0">
-                                        <span class="w-1.5 h-1.5 bg-amber-400 rounded-full"></span> Inactive
-                                    </span>
-                                @endif
-                            </div>
-
-                            <div class="px-4 py-3 space-y-2.5">
-                                <div class="grid grid-cols-2 gap-2 text-sm">
-                                    <div>
-                                        <p class="text-xs text-gray-400">Fee Type</p>
+                                    $orgCollected = (float) \App\Models\SuperAdmin\SuperAdminFeePayment::forOrg($school->id)
+                                        ->forYear($academicYear)
+                                        ->sum('amount');
+                                    $orgPct = $orgExpected > 0 ? round(($orgCollected / $orgExpected) * 100) : 0;
+                                @endphp
+                                <tr class="hover:bg-gray-50/70 transition-colors">
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-3">
+                                            @if ($school->logo)
+                                                <img src="{{ $school->logo }}" class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                                            @else
+                                                <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                    <span class="text-xs font-semibold text-indigo-600">{{ strtoupper(substr($school->name, 0, 1)) }}</span>
+                                                </div>
+                                            @endif
+                                            <div class="min-w-0">
+                                                <p class="text-sm font-semibold text-gray-900 truncate">{{ $school->name }}</p>
+                                                <p class="text-xs text-gray-400 truncate">Code: {{ $school->school_code ?? '—' }}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">{{ $school->education_board ?? '—' }}</td>
+                                    <td class="px-4 py-3">
                                         @if ($orgStructure?->fee_type === 'one_time')
                                             <span class="text-xs px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full font-medium border border-indigo-100">One Time</span>
                                         @elseif ($orgStructure?->fee_type === 'per_student')
@@ -116,55 +138,170 @@
                                         @else
                                             <span class="text-xs px-2 py-0.5 bg-gray-50 text-gray-400 rounded-full font-medium border border-gray-200">Not set</span>
                                         @endif
-                                    </div>
-                                    <div>
-                                        <p class="text-xs text-gray-400">Students</p>
-                                        <p class="text-gray-700 font-medium">{{ $school->total_students }}</p>
-                                    </div>
-                                </div>
-
-                                @if ($orgExpected > 0)
-                                    <div>
-                                        <div class="flex items-center justify-between text-xs mb-1">
-                                            <span class="text-gray-500">₹{{ number_format($orgCollected, 0) }} / ₹{{ number_format($orgExpected, 0) }}</span>
-                                            <span class="font-semibold {{ $orgPct >= 100 ? 'text-emerald-600' : 'text-gray-600' }}">{{ $orgPct }}%</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-700">{{ $school->total_students }}</td>
+                                    <td class="px-4 py-3 min-w-[160px]">
+                                        @if ($orgExpected > 0)
+                                            <div class="flex items-center justify-between text-xs mb-1">
+                                                <span class="text-gray-500">₹{{ number_format($orgCollected, 0) }} / ₹{{ number_format($orgExpected, 0) }}</span>
+                                                <span class="font-semibold {{ $orgPct >= 100 ? 'text-emerald-600' : 'text-gray-600' }}">{{ $orgPct }}%</span>
+                                            </div>
+                                            <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                                <div class="h-full rounded-full transition-all {{ $orgPct >= 100 ? 'bg-emerald-500' : 'bg-blue-500' }}"
+                                                    style="width: {{ min(100, $orgPct) }}%"></div>
+                                            </div>
+                                        @else
+                                            <span class="text-xs text-gray-400">No fee structure set</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-3 text-center">
+                                        <button wire:click="selectSchool({{ $school->id }})"
+                                            class="text-xs font-semibold text-blue-600 hover:text-blue-800">
+                                            Manage Fees →
+                                        </button>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="6" class="px-6 py-16 text-center">
+                                        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5" />
+                                            </svg>
                                         </div>
-                                        <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                            <div class="h-full rounded-full transition-all {{ $orgPct >= 100 ? 'bg-emerald-500' : 'bg-blue-500' }}"
-                                                style="width: {{ min(100, $orgPct) }}%"></div>
-                                        </div>
-                                    </div>
-                                @else
-                                    <p class="text-xs text-center text-gray-400 py-1">No fee structure set</p>
-                                @endif
-                            </div>
+                                        <p class="text-gray-500 text-sm">No schools found</p>
+                                        @if ($search || $filterFeeType || $filterBoard)
+                                            <button wire:click="clearFilters" class="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium">Clear filters</button>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
 
-                            <div class="border-t border-gray-100">
-                                <button class="w-full py-2.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 transition-colors">
-                                    Manage Fees →
+                @if ($schools->hasPages())
+                    <div class="px-6 py-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <p class="text-sm text-gray-500">
+                            Showing <strong class="text-gray-700">{{ $schools->firstItem() }}</strong>
+                            to <strong class="text-gray-700">{{ $schools->lastItem() }}</strong>
+                            of <strong class="text-gray-700">{{ $schools->total() }}</strong> schools
+                        </p>
+                        <div class="flex items-center gap-1">
+                            @if ($schools->onFirstPage())
+                                <span class="px-3 py-1.5 text-sm text-gray-300 border border-gray-200 rounded-lg cursor-not-allowed">&laquo; Prev</span>
+                            @else
+                                <button wire:click="previousPage" class="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">&laquo; Prev</button>
+                            @endif
+
+                            @foreach ($schools->getUrlRange(max(1, $schools->currentPage() - 2), min($schools->lastPage(), $schools->currentPage() + 2)) as $page => $url)
+                                <button wire:click="gotoPage({{ $page }})"
+                                    class="px-3 py-1.5 text-sm rounded-lg transition-colors
+                                        {{ $page == $schools->currentPage() ? 'bg-blue-600 text-white border border-blue-600' : 'text-gray-600 border border-gray-300 hover:bg-gray-50' }}">
+                                    {{ $page }}
                                 </button>
+                            @endforeach
+
+                            @if ($schools->hasMorePages())
+                                <button wire:click="nextPage" class="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">Next &raquo;</button>
+                            @else
+                                <span class="px-3 py-1.5 text-sm text-gray-300 border border-gray-200 rounded-lg cursor-not-allowed">Next &raquo;</span>
+                            @endif
+                        </div>
+                    </div>
+                @endif
+            </div>
+
+            {{-- ══════════ MOBILE CARDS ══════════ --}}
+            <div class="md:hidden space-y-3">
+                @forelse ($schools as $school)
+                    @php
+                        $orgStructure = \App\Models\SuperAdmin\SuperAdminFeeStructure::where('organization_id', $school->id)
+                            ->where('academic_year', $academicYear)
+                            ->whereIn('fee_type', ['one_time', 'per_student'])
+                            ->active()
+                            ->first();
+
+                        if ($orgStructure && $orgStructure->fee_type === 'one_time') {
+                            $orgExpected = !empty($orgStructure->period_amounts)
+                                ? (float) array_sum($orgStructure->period_amounts)
+                                : (float) ($orgStructure->total_amount ?? ($orgStructure->amount * $school->total_students));
+                        } elseif ($orgStructure) {
+                            $orgExpected = (float) $orgStructure->amount * $school->total_students;
+                        } else {
+                            $orgExpected = 0;
+                        }
+
+                        $orgCollected = (float) \App\Models\SuperAdmin\SuperAdminFeePayment::forOrg($school->id)->forYear($academicYear)->sum('amount');
+                        $orgPct = $orgExpected > 0 ? round(($orgCollected / $orgExpected) * 100) : 0;
+                    @endphp
+                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden" wire:click="selectSchool({{ $school->id }})">
+                        <div class="flex items-center gap-3 p-4 border-b border-gray-100">
+                            @if ($school->logo)
+                                <img src="{{ $school->logo }}" class="w-10 h-10 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                            @else
+                                <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                    <span class="text-sm font-semibold text-indigo-600">{{ strtoupper(substr($school->name, 0, 1)) }}</span>
+                                </div>
+                            @endif
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-semibold text-gray-900 truncate">{{ $school->name }}</p>
+                                <p class="text-xs text-gray-400 truncate">{{ $school->education_board ?? 'Code: ' . ($school->school_code ?? '—') }}</p>
                             </div>
                         </div>
-                    @endforeach
-                </div>
-            @else
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
-                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5" />
-                        </svg>
+                        <div class="px-4 py-3 space-y-2">
+                            <div class="grid grid-cols-2 gap-2 text-sm">
+                                <div>
+                                    <p class="text-xs text-gray-400">Fee Type</p>
+                                    @if ($orgStructure?->fee_type === 'one_time')
+                                        <span class="text-xs px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full font-medium border border-indigo-100">One Time</span>
+                                    @elseif ($orgStructure?->fee_type === 'per_student')
+                                        <span class="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full font-medium border border-blue-100">Per Student</span>
+                                    @else
+                                        <span class="text-xs px-2 py-0.5 bg-gray-50 text-gray-400 rounded-full font-medium border border-gray-200">Not set</span>
+                                    @endif
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-400">Students</p>
+                                    <p class="text-gray-700 font-medium">{{ $school->total_students }}</p>
+                                </div>
+                            </div>
+                            @if ($orgExpected > 0)
+                                <div>
+                                    <div class="flex items-center justify-between text-xs mb-1">
+                                        <span class="text-gray-500">₹{{ number_format($orgCollected, 0) }} / ₹{{ number_format($orgExpected, 0) }}</span>
+                                        <span class="font-semibold {{ $orgPct >= 100 ? 'text-emerald-600' : 'text-gray-600' }}">{{ $orgPct }}%</span>
+                                    </div>
+                                    <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                        <div class="h-full rounded-full {{ $orgPct >= 100 ? 'bg-emerald-500' : 'bg-blue-500' }}" style="width: {{ min(100, $orgPct) }}%"></div>
+                                    </div>
+                                </div>
+                            @else
+                                <p class="text-xs text-center text-gray-400 py-1">No fee structure set</p>
+                            @endif
+                        </div>
+                        <div class="border-t border-gray-100">
+                            <button class="w-full py-2.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 transition-colors">Manage Fees →</button>
+                        </div>
                     </div>
-                    <p class="text-gray-500 text-sm">No schools found</p>
-                </div>
-            @endif
+                @empty
+                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
+                        <p class="text-gray-500 text-sm">No schools found</p>
+                    </div>
+                @endforelse
+
+                @if ($schools->hasPages())
+                    <div class="px-2">{{ $schools->links() }}</div>
+                @endif
+            </div>
         </div>
     @endif
 
     {{-- ══════════ SCHOOL DETAIL VIEW ══════════ --}}
     @if ($activeView === 'school' && $selectedSchool)
 
-        {{-- HEADER — includes school stats strip + Add Fee button --}}
+        {{-- HEADER — includes school stats strip + Add/Update Fee buttons --}}
         <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 sm:py-5 sticky top-0 z-50">
             <div class="flex items-center justify-between gap-4 mb-3">
                 <div class="flex items-center gap-3">
@@ -194,11 +331,23 @@
                     </div>
                 </div>
 
-                <button wire:click="openFeePanel"
-                    class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors flex-shrink-0">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                    <span class="hidden sm:inline">Add Fee</span>
-                </button>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                    @if ($currentFeeType)
+                        <button wire:click="openUpdateFeePanel"
+                            class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-semibold rounded-lg shadow-sm transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            <span class="hidden sm:inline">Update Fee</span>
+                        </button>
+                    @endif
+                    <button wire:click="openAddFeePanel"
+                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                        <span class="hidden sm:inline">Add Fee</span>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -302,17 +451,15 @@
                                                 <td class="px-4 py-3 text-sm text-gray-600">{{ $fs->fee_label ?? '—' }}</td>
                                                 <td class="px-4 py-3 text-sm font-bold text-emerald-700">
                                                     @if ($fs->fee_type === 'one_time')
-                                                        ₹{{ number_format($fs->amount, 0) }} <span class="text-xs font-normal text-gray-400">/ {{ $fs->installment_frequency ?? 'yearly' }}</span>
-                                                        @if ($fs->total_amount)
-                                                            <p class="text-[11px] font-normal text-gray-400">₹{{ number_format($fs->total_amount, 0) }} total</p>
-                                                        @endif
+                                                        @php $fsTotal = !empty($fs->period_amounts) ? array_sum($fs->period_amounts) : ($fs->total_amount ?? 0); @endphp
+                                                        ₹{{ number_format($fsTotal, 0) }} <span class="text-xs font-normal text-gray-400">total / {{ $fs->installment_frequency ?? 'yearly' }}</span>
                                                     @else
                                                         ₹{{ number_format($fs->amount, 0) }} <span class="text-xs font-normal text-gray-400">/student</span>
                                                     @endif
                                                 </td>
                                                 <td class="px-4 py-3">
                                                     <div class="flex items-center justify-center gap-1">
-                                                        <button wire:click="{{ $fs->fee_type === 'class_wise' ? 'openEditFee(' . $fs->id . ')' : 'openFeePanel' }}"
+                                                        <button wire:click="{{ $fs->fee_type === 'class_wise' ? 'openEditFee(' . $fs->id . ')' : 'openUpdateFeePanel' }}"
                                                             class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
                                                             title="Edit">
                                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -411,7 +558,7 @@
                                         @php
                                             if ($fs->fee_type === 'one_time') {
                                                 $classStudents = \App\Models\Student\StudentDetail::where('organization_id', $selectedSchool->id)->count();
-                                                $classExpected = (float) ($fs->total_amount ?? ($fs->amount * $classStudents));
+                                                $classExpected = !empty($fs->period_amounts) ? array_sum($fs->period_amounts) : (float) ($fs->total_amount ?? ($fs->amount * $classStudents));
                                             } elseif ($fs->fee_type === 'per_student') {
                                                 $classStudents = \App\Models\Student\StudentDetail::where('organization_id', $selectedSchool->id)->count();
                                                 $classExpected = $fs->amount * $classStudents;
@@ -744,7 +891,7 @@
         </div>
     @endif
 
-    {{-- ══════════ ADD/EDIT FEE SLIDE-IN PANEL ══════════ --}}
+    {{-- ══════════ ADD/UPDATE FEE SLIDE-IN PANEL ══════════ --}}
     @if ($showFeePanel)
         <div class="fixed inset-0 z-[9999]">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeFeePanel"></div>
@@ -759,7 +906,7 @@
                             </svg>
                         </div>
                         <div>
-                            <p class="text-sm font-bold text-gray-900">Add Fee</p>
+                            <p class="text-sm font-bold text-gray-900">Fee Structure</p>
                             <p class="text-xs text-gray-400">{{ $selectedSchool?->name }}</p>
                         </div>
                     </div>
@@ -793,7 +940,7 @@
                                 </div>
                                 <div>
                                     <p class="text-sm font-semibold {{ $feeType === 'one_time' ? 'text-indigo-700' : 'text-gray-700' }}">One Time</p>
-                                    <p class="text-xs {{ $feeType === 'one_time' ? 'text-indigo-500' : 'text-gray-400' }}">Whole-school total, split over time</p>
+                                    <p class="text-xs {{ $feeType === 'one_time' ? 'text-indigo-500' : 'text-gray-400' }}">Set a fee per month/quarter/year</p>
                                 </div>
                             </button>
 
@@ -830,14 +977,6 @@
                             </div>
 
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1.5">Total School Fee (₹) *</label>
-                                <input wire:model.live="oneTimeTotalAmount" type="number" placeholder="e.g. 12000" min="1"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
-                                           focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
-                                @error('oneTimeTotalAmount') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                            </div>
-
-                            <div>
                                 <label class="block text-xs font-medium text-gray-600 mb-1.5">Split Into</label>
                                 <div class="grid grid-cols-3 gap-2">
                                     @foreach (['monthly' => 'Monthly', 'quarterly' => 'Quarterly', 'yearly' => 'Yearly'] as $freq => $label)
@@ -848,27 +987,35 @@
                                         </button>
                                     @endforeach
                                 </div>
+                                @error('periodAmounts') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                             </div>
 
-                            {{-- Calculation preview --}}
-                            @php
-                                $previewDivisor = ['monthly' => 12, 'quarterly' => 4, 'yearly' => 1][$installmentFrequency] ?? 1;
-                                $previewTotal   = (float) ($oneTimeTotalAmount ?: 0);
-                                $previewPer     = $previewDivisor > 0 ? round($previewTotal / $previewDivisor, 2) : 0;
-                                $previewUnit    = ['monthly' => 'month', 'quarterly' => 'quarter', 'yearly' => 'year'][$installmentFrequency] ?? 'year';
-                            @endphp
-                            <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
-                                <div class="flex items-center justify-between gap-4">
+                            {{-- Per-period amounts --}}
+                            <div x-data="{
+                                    amounts: @js($periodAmounts),
+                                    get total() { return Object.values(this.amounts).reduce((sum, v) => sum + (parseFloat(v) || 0), 0); },
+                                 }">
+                                <label class="block text-xs font-medium text-gray-600 mb-1.5">Amount per Period (₹)</label>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                    @foreach ($this->currentPeriodsList() as $period)
+                                        <div>
+                                            <label class="block text-[11px] text-gray-500 mb-1">{{ $period['label'] }}</label>
+                                            <input type="number" min="0" step="0.01" placeholder="0"
+                                                wire:model="periodAmounts.{{ $period['key'] }}"
+                                                x-on:input="amounts['{{ $period['key'] }}'] = $event.target.value"
+                                                class="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg
+                                                       focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                                            @error('periodAmounts.' . $period['key']) <p class="text-[10px] text-red-500 mt-0.5">{{ $message }}</p> @enderror
+                                        </div>
+                                    @endforeach
+                                </div>
+
+                                <div class="mt-3 bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between">
                                     <div>
-                                        <p class="text-xs text-indigo-600 font-semibold">Per {{ ucfirst($previewUnit) }}</p>
-                                        <p class="text-xs text-indigo-400 mt-0.5">
-                                            ₹{{ number_format($previewTotal, 0) }} ÷ {{ $previewDivisor }} {{ Str::plural($previewUnit, $previewDivisor) }}
-                                        </p>
+                                        <p class="text-xs text-indigo-600 font-semibold">Total ({{ count($this->currentPeriodsList()) }} {{ Str::plural(['monthly' => 'month', 'quarterly' => 'quarter', 'yearly' => 'year'][$installmentFrequency] ?? 'period', count($this->currentPeriodsList())) }})</p>
+                                        <p class="text-xs text-indigo-400 mt-0.5">Sum of every period entered below</p>
                                     </div>
-                                    <p class="text-xl font-bold text-indigo-700 flex-shrink-0">
-                                        ₹{{ number_format($previewPer, 2) }}
-                                        <span class="text-xs font-normal text-indigo-400">/{{ $previewUnit }}</span>
-                                    </p>
+                                    <p class="text-xl font-bold text-indigo-700 flex-shrink-0" x-text="'₹' + total.toLocaleString('en-IN')"></p>
                                 </div>
                             </div>
 

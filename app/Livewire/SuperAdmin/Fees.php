@@ -9,11 +9,12 @@ use App\Models\Student\StudentDetail;
 use App\Models\SuperAdmin\SuperAdminFeePayment;
 use App\Models\SuperAdmin\SuperAdminFeeStructure;
 use Livewire\Component;
+use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
 
 class Fees extends Component
 {
-    use WireUiActions;
+    use WireUiActions, WithPagination;
 
     // ─── View State ───────────────────────────────────────────────────────────
     public string $activeView     = 'list';
@@ -23,28 +24,28 @@ class Fees extends Component
     // ─── Academic Year ────────────────────────────────────────────────────────
     public string $academicYear = '';
 
-    // ─── Global Analytics (header chips) ─────────────────────────────────────
+    // ─── Global Analytics (header) ────────────────────────────────────────────
     public int   $totalStudentsAll  = 0;
     public float $totalFeeToCollect = 0;
     public float $totalFeeCollected = 0;
     public float $totalFeeRemaining = 0;
     public float $avgFeePerStudent  = 0;
 
-    // ─── Schools + Filters ────────────────────────────────────────────────────
-    public        $schools       = [];
+    // ─── Schools List + Filters ───────────────────────────────────────────────
     public string $search        = '';
     public string $filterFeeType = ''; // '' | 'one_time' | 'per_student'
+    public string $filterBoard   = '';
 
     // ─── School Stats ─────────────────────────────────────────────────────────
     public array $schoolStats = [];
 
-    // ─── Add/Edit Fee slide-in panel ──────────────────────────────────────────
+    // ─── Add/Update Fee slide-in panel ─────────────────────────────────────────
     public bool   $showFeePanel = false;
     public        $standards    = [];
     public string $feeType              = 'one_time'; // 'one_time' | 'per_student'
-    public string $oneTimeTotalAmount    = '';
     public string $oneTimeLabel          = 'Annual Platform Fee';
     public string $installmentFrequency  = 'yearly';   // monthly | quarterly | yearly
+    public array  $periodAmounts         = [];         // period key => amount (string)
     public string $perStudentAmount      = '';
     public string $perStudentLabel       = 'Annual Platform Fee';
 
@@ -83,7 +84,6 @@ class Fees extends Component
         $this->academicYear = now()->year . '-' . (now()->year + 1);
         $this->payDate      = now()->format('Y-m-d');
         $this->loadGlobalStats();
-        $this->loadSchools();
     }
 
     // ─── Global / List ──────────────────────────────────────────────────────
@@ -108,15 +108,18 @@ class Fees extends Component
 
     /**
      * The total amount a fee structure is expected to collect.
-     *   - one_time: the whole-school total (falls back to amount × students for
-     *     rows saved before installments existed, where amount was the derived
-     *     per-student total-÷-students figure).
+     *   - one_time: sum of its per-period amounts (falls back to total_amount,
+     *     then amount × students for rows saved before per-period amounts existed).
      *   - per_student: flat rate × total students in the school.
      *   - class_wise (legacy): per-class rate × students in that class.
      */
     private function expectedForStructure(SuperAdminFeeStructure $fs): float
     {
         if ($fs->fee_type === 'one_time') {
+            if (!empty($fs->period_amounts)) {
+                return (float) array_sum($fs->period_amounts);
+            }
+
             return $fs->total_amount !== null
                 ? (float) $fs->total_amount
                 : (float) $fs->amount * StudentDetail::where('organization_id', $fs->organization_id)->count();
@@ -136,23 +139,43 @@ class Fees extends Component
 
     public function updatedSearch(): void
     {
-        $this->loadSchools();
+        $this->resetPage();
     }
 
     public function updatedFilterFeeType(): void
     {
-        $this->loadSchools();
+        $this->resetPage();
+    }
+
+    public function updatedFilterBoard(): void
+    {
+        $this->resetPage();
     }
 
     public function clearFilters(): void
     {
-        $this->reset(['search', 'filterFeeType']);
-        $this->loadSchools();
+        $this->reset(['search', 'filterFeeType', 'filterBoard']);
+        $this->resetPage();
     }
 
-    public function loadSchools(): void
+    /** Every selectable board — fixed catalog merged with any legacy values already in use. */
+    private function boardOptions()
     {
-        $this->schools = Organization::withCount([
+        return collect(\App\Helpers\Constants::BOARD)
+            ->merge(
+                Organization::whereNotNull('education_board')
+                    ->where('education_board', '<>', '')
+                    ->distinct()
+                    ->pluck('education_board')
+            )
+            ->unique(fn($b) => mb_strtoupper(trim($b)))
+            ->sort()
+            ->values();
+    }
+
+    private function schoolsQuery()
+    {
+        return Organization::withCount([
             'students as total_students',
             'teachers as total_teachers',
         ])
@@ -161,13 +184,13 @@ class Fees extends Component
                     ->where('name', 'like', "%{$this->search}%")
                     ->orWhere('school_code', 'like', "%{$this->search}%")
             ))
+            ->when($this->filterBoard, fn($q) => $q->where('education_board', $this->filterBoard))
             ->when($this->filterFeeType, fn($q) => $q->whereHas('feeStructures', function ($q) {
                 $q->where('academic_year', $this->academicYear)
                     ->where('fee_type', $this->filterFeeType)
                     ->where('is_active', true);
             }))
-            ->latest()
-            ->get();
+            ->latest();
     }
 
     public function selectSchool($id): void
@@ -199,7 +222,6 @@ class Fees extends Component
         $this->studentFeeList = [];
         $this->installments   = [];
         $this->schoolStats    = [];
-        $this->search         = '';
     }
 
     public function setTab(string $tab): void
@@ -273,9 +295,51 @@ class Fees extends Component
         ];
     }
 
-    // ─── Add/Edit Fee Panel ───────────────────────────────────────────────────
+    // ─── Add/Update Fee Panel ───────────────────────────────────────────────────
 
-    public function openFeePanel(): void
+    /** The periods (key + label) the current frequency splits into, for this academic year. */
+    public function currentPeriodsList(): array
+    {
+        return (new SuperAdminFeeStructure([
+            'academic_year'         => $this->academicYear,
+            'installment_frequency' => $this->installmentFrequency,
+        ]))->installmentPeriods();
+    }
+
+    private function blankPeriodAmounts(): array
+    {
+        $out = [];
+        foreach ($this->currentPeriodsList() as $period) {
+            $out[$period['key']] = '';
+        }
+
+        return $out;
+    }
+
+    public function updatedInstallmentFrequency(): void
+    {
+        $preserved = $this->periodAmounts;
+        $blank     = [];
+        foreach ($this->currentPeriodsList() as $period) {
+            $blank[$period['key']] = $preserved[$period['key']] ?? '';
+        }
+        $this->periodAmounts = $blank;
+    }
+
+    /** Fresh compose form — blank fields, ready for a brand-new setup. */
+    public function openAddFeePanel(): void
+    {
+        $this->feeType              = 'one_time';
+        $this->oneTimeLabel         = 'Annual Platform Fee';
+        $this->installmentFrequency = 'yearly';
+        $this->periodAmounts        = $this->blankPeriodAmounts();
+        $this->perStudentAmount     = '';
+        $this->perStudentLabel      = 'Annual Platform Fee';
+        $this->showFeePanel         = true;
+    }
+
+    /** Edit form — pre-filled from whichever structure is currently active. */
+    public function openUpdateFeePanel(): void
     {
         $existing = SuperAdminFeeStructure::where('organization_id', $this->selectedSchool->id)
             ->where('academic_year', $this->academicYear)
@@ -283,27 +347,32 @@ class Fees extends Component
             ->active()
             ->first();
 
-        if ($existing?->fee_type === 'per_student') {
-            $this->feeType             = 'per_student';
-            $this->perStudentAmount    = (string) $existing->amount;
-            $this->perStudentLabel     = $existing->fee_label ?? 'Annual Platform Fee';
-            $this->oneTimeTotalAmount  = '';
-            $this->oneTimeLabel        = 'Annual Platform Fee';
+        if (!$existing) {
+            $this->openAddFeePanel();
+            return;
+        }
+
+        if ($existing->fee_type === 'per_student') {
+            $this->feeType              = 'per_student';
+            $this->perStudentAmount     = (string) $existing->amount;
+            $this->perStudentLabel      = $existing->fee_label ?? 'Annual Platform Fee';
             $this->installmentFrequency = 'yearly';
-        } elseif ($existing?->fee_type === 'one_time') {
-            $this->feeType              = 'one_time';
-            $this->oneTimeTotalAmount   = (string) ($existing->total_amount ?? '');
-            $this->oneTimeLabel         = $existing->fee_label ?? 'Annual Platform Fee';
-            $this->installmentFrequency = $existing->installment_frequency ?? 'yearly';
-            $this->perStudentAmount     = '';
-            $this->perStudentLabel      = 'Annual Platform Fee';
+            $this->periodAmounts        = $this->blankPeriodAmounts();
         } else {
             $this->feeType              = 'one_time';
-            $this->oneTimeTotalAmount   = '';
-            $this->oneTimeLabel         = 'Annual Platform Fee';
-            $this->installmentFrequency = 'yearly';
-            $this->perStudentAmount     = '';
-            $this->perStudentLabel      = 'Annual Platform Fee';
+            $this->oneTimeLabel         = $existing->fee_label ?? 'Annual Platform Fee';
+            $this->installmentFrequency = $existing->installment_frequency ?? 'yearly';
+
+            $stored = (array) ($existing->period_amounts ?? []);
+            $amounts = [];
+            foreach ($this->currentPeriodsList() as $period) {
+                $amounts[$period['key']] = array_key_exists($period['key'], $stored)
+                    ? (string) $stored[$period['key']]
+                    : '';
+            }
+            $this->periodAmounts    = $amounts;
+            $this->perStudentAmount = '';
+            $this->perStudentLabel  = 'Annual Platform Fee';
         }
 
         $this->showFeePanel = true;
@@ -325,17 +394,32 @@ class Fees extends Component
 
         if ($this->feeType === 'one_time') {
             $this->validate([
-                'oneTimeTotalAmount'   => 'required|numeric|min:1',
                 'oneTimeLabel'         => 'required|string|max:100',
                 'installmentFrequency' => 'required|in:monthly,quarterly,yearly',
             ]);
 
-            $divisor        = match ($this->installmentFrequency) {
-                'monthly'   => 12,
-                'quarterly' => 4,
-                default     => 1,
-            };
-            $perInstallment = round((float) $this->oneTimeTotalAmount / $divisor, 2);
+            $periods = $this->currentPeriodsList();
+            $amounts = [];
+            $total   = 0;
+
+            foreach ($periods as $period) {
+                $val = $this->periodAmounts[$period['key']] ?? '';
+                if ($val === '' || $val === null) {
+                    $amounts[$period['key']] = 0;
+                    continue;
+                }
+                if (!is_numeric($val) || (float) $val < 0) {
+                    $this->addError('periodAmounts.' . $period['key'], 'Enter a valid amount.');
+                    return;
+                }
+                $amounts[$period['key']] = round((float) $val, 2);
+                $total += $amounts[$period['key']];
+            }
+
+            if ($total <= 0) {
+                $this->notification()->error('Enter at least one period amount.');
+                return;
+            }
 
             SuperAdminFeeStructure::where('organization_id', $this->selectedSchool->id)
                 ->where('academic_year', $this->academicYear)
@@ -350,9 +434,10 @@ class Fees extends Component
                 ],
                 [
                     'standard_id'           => null,
-                    'amount'                => $perInstallment,
-                    'total_amount'          => $this->oneTimeTotalAmount,
+                    'amount'                => round($total / max(1, count($periods)), 2),
+                    'total_amount'          => $total,
                     'installment_frequency' => $this->installmentFrequency,
+                    'period_amounts'        => $amounts,
                     'fee_label'             => $this->oneTimeLabel,
                     'is_active'             => true,
                 ]
@@ -379,6 +464,7 @@ class Fees extends Component
                     'amount'                => $this->perStudentAmount,
                     'total_amount'          => null,
                     'installment_frequency' => null,
+                    'period_amounts'        => null,
                     'fee_label'             => $this->perStudentLabel,
                     'is_active'             => true,
                 ]
@@ -388,7 +474,6 @@ class Fees extends Component
         $this->closeFeePanel();
         $this->loadSchoolStats();
         $this->loadGlobalStats();
-        $this->loadSchools();
         $this->notification()->success('Fee structure saved successfully!');
     }
 
@@ -446,7 +531,6 @@ class Fees extends Component
         SuperAdminFeeStructure::find($id)?->delete();
         $this->loadSchoolStats();
         $this->loadGlobalStats();
-        $this->loadSchools();
         $this->notification()->success('Fee deleted!');
     }
 
@@ -546,13 +630,15 @@ class Fees extends Component
             return;
         }
 
-        $payments = SuperAdminFeePayment::where('super_admin_fee_structure_id', $structure->id)
+        $payments      = SuperAdminFeePayment::where('super_admin_fee_structure_id', $structure->id)
             ->get()
             ->keyBy('installment_period');
+        $periodAmounts = (array) ($structure->period_amounts ?? []);
 
-        $amount = (float) $structure->amount;
-
-        $this->installments = collect($structure->installmentPeriods())->map(function ($period) use ($structure, $payments, $amount) {
+        $this->installments = collect($structure->installmentPeriods())->map(function ($period) use ($structure, $payments, $periodAmounts) {
+            $amount    = array_key_exists($period['key'], $periodAmounts)
+                ? (float) $periodAmounts[$period['key']]
+                : (float) $structure->amount;
             $payment   = $payments->get($period['key']);
             $collected = $payment ? (float) $payment->amount : 0;
             $remaining = max(0, $amount - $collected);
@@ -662,7 +748,8 @@ class Fees extends Component
                 return;
             }
 
-            $isPaid = (float) $structure->amount > 0 && $collected + 0.01 >= (float) $structure->amount;
+            $dueAmount = (float) $this->payTotalFee;
+            $isPaid    = $dueAmount > 0 && $collected + 0.01 >= $dueAmount;
 
             SuperAdminFeePayment::updateOrCreate(
                 [
@@ -802,6 +889,13 @@ class Fees extends Component
     {
         $feeStructures  = collect();
         $currentFeeType = null;
+        $schools        = null;
+        $boards          = collect();
+
+        if ($this->activeView === 'list') {
+            $schools = $this->schoolsQuery()->paginate(12);
+            $boards  = $this->boardOptions();
+        }
 
         if ($this->activeView === 'school' && $this->selectedSchool) {
             $feeStructures = SuperAdminFeeStructure::with('standard')
@@ -813,6 +907,6 @@ class Fees extends Component
             $currentFeeType = $this->currentFeeType();
         }
 
-        return view('livewire.super-admin.fees', compact('feeStructures', 'currentFeeType'));
+        return view('livewire.super-admin.fees', compact('feeStructures', 'currentFeeType', 'schools', 'boards'));
     }
 }

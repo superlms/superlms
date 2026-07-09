@@ -76,14 +76,18 @@ class Users extends Component
 
     /**
      * The catalog of super-admin functionalities that can be granted, derived
-     * from the super-admin menu (excluding this Users screen itself).
+     * from the super-admin menu (excluding this Users screen itself and Push
+     * Notification, which is never delegable to sub-super-admin users).
      *
      * @return array<string,string>  [routeName => title]
      */
     public function permissionCatalog(): array
     {
         return collect(config('menu.super-admin', []))
-            ->reject(fn($i) => ($i['link'] ?? '') === 'super-admin.users')
+            ->reject(fn($i) => in_array($i['link'] ?? '', [
+                'super-admin.users',
+                'super-admin.push-notification',
+            ], true))
             ->mapWithKeys(fn($i) => [$i['link'] => $i['title']])
             ->all();
     }
