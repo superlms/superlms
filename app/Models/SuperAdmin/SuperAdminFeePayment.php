@@ -17,6 +17,7 @@ class SuperAdminFeePayment extends Model
         'section_id',
         'student_detail_id',
         'super_admin_fee_structure_id',
+        'installment_period',
         'amount',
         'academic_year',
         'payment_mode',

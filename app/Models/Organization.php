@@ -179,6 +179,10 @@ class Organization extends Model
     {
         return $this->hasMany(TeacherDetail::class, 'organization_id');
     }
+    public function feeStructures()
+    {
+        return $this->hasMany(\App\Models\SuperAdmin\SuperAdminFeeStructure::class, 'organization_id');
+    }
     public function subjects()
     {
         return $this->hasMany(Subject::class);
