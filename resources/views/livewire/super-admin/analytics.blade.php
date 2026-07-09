@@ -12,17 +12,33 @@
         <div class="px-4 sm:px-6 pt-4 pb-0 flex flex-wrap items-start justify-between gap-3">
             <div>
                 <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Analytics</h1>
-                <p class="text-sm text-gray-500 mt-0.5 mb-3">Platform-wide statistics and trends</p>
+                <p class="text-sm text-gray-500 mt-0.5">Platform-wide statistics and trends</p>
             </div>
-            <div class="flex items-center gap-2">
-                <label class="text-xs text-gray-500">Trend window</label>
-                <select wire:model.live="months"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
-                    <option value="6">Last 6 months</option>
-                    <option value="12">Last 12 months</option>
-                    <option value="24">Last 24 months</option>
-                </select>
+            <div class="flex items-center gap-4">
+                <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200">
+                    <span class="pr-4">Schools: <strong class="text-gray-800">{{ number_format($overviewStats['totalSchools'] ?? 0) }}</strong></span>
+                    <span class="px-4">Students: <strong class="text-gray-800">{{ number_format($overviewStats['totalStudents'] ?? 0) }}</strong></span>
+                    <span class="px-4">Teachers: <strong class="text-gray-800">{{ number_format($overviewStats['totalTeachers'] ?? 0) }}</strong></span>
+                    <span class="pl-4">Avg/School: <strong class="text-gray-800">{{ number_format($overviewStats['avgStudentsPerSchool'] ?? 0, 1) }}</strong></span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <label class="text-xs text-gray-500">Trend window</label>
+                    <select wire:model.live="months"
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                        <option value="6">Last 6 months</option>
+                        <option value="12">Last 12 months</option>
+                        <option value="24">Last 24 months</option>
+                    </select>
+                </div>
             </div>
+        </div>
+
+        {{-- Mobile/Tablet stats --}}
+        <div class="flex lg:hidden items-center gap-3 sm:gap-4 text-xs text-gray-500 px-4 sm:px-6 mt-3 flex-wrap">
+            <span>Schools: <strong class="text-gray-800">{{ number_format($overviewStats['totalSchools'] ?? 0) }}</strong></span>
+            <span>Students: <strong class="text-gray-800">{{ number_format($overviewStats['totalStudents'] ?? 0) }}</strong></span>
+            <span>Teachers: <strong class="text-gray-800">{{ number_format($overviewStats['totalTeachers'] ?? 0) }}</strong></span>
+            <span>Avg/School: <strong class="text-gray-800">{{ number_format($overviewStats['avgStudentsPerSchool'] ?? 0, 1) }}</strong></span>
         </div>
         <div class="px-4 sm:px-6 flex items-center gap-1 overflow-x-auto mt-4 pt-4 border-t border-gray-200">
             @foreach ([
@@ -50,22 +66,6 @@
              OVERVIEW TAB
         ══════════════════════════════════════════════════════════ --}}
         @if ($activeTab === 'overview')
-
-            {{-- 4 Core stats --}}
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                @foreach ([
-                    ['label' => 'Total Schools',        'value' => number_format($overviewStats['totalSchools'] ?? 0),        'color' => 'emerald', 'sub' => ($overviewStats['activeSchools'] ?? 0) . ' active · ' . ($overviewStats['inactiveSchools'] ?? 0) . ' pending'],
-                    ['label' => 'Total Students',        'value' => number_format($overviewStats['totalStudents'] ?? 0),       'color' => 'blue',    'sub' => number_format($overviewStats['activeStudents'] ?? 0) . ' active'],
-                    ['label' => 'Total Teachers',        'value' => number_format($overviewStats['totalTeachers'] ?? 0),       'color' => 'violet',  'sub' => number_format($overviewStats['activeTeachers'] ?? 0) . ' active'],
-                    ['label' => 'Avg Students / School', 'value' => number_format($overviewStats['avgStudentsPerSchool'] ?? 0, 1), 'color' => 'amber', 'sub' => 'across all schools'],
-                ] as $stat)
-                    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                        <p class="text-xs text-gray-500 mb-2">{{ $stat['label'] }}</p>
-                        <p class="text-3xl font-bold text-{{ $stat['color'] }}-600">{{ $stat['value'] }}</p>
-                        <p class="text-[11px] text-gray-400 mt-1">{{ $stat['sub'] }}</p>
-                    </div>
-                @endforeach
-            </div>
 
             {{-- Growth + rating row --}}
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

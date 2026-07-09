@@ -133,30 +133,39 @@ class PushNotification extends Component
         $deviceCount = empty($userIds) ? 0 : UserFcmToken::whereIn('user_id', $userIds)->count();
         $delivered   = false;
 
-        if (!empty($userIds)) {
-            $delivered = app(FirebaseNotificationService::class)->notifyUserIds(
-                $userIds,
-                'promo',
-                [
-                    'title'  => $this->title,
-                    'body'   => $this->body,
-                    'screen' => $this->screen ?: null,
-                ]
-            );
-        }
+        try {
+            if (!empty($userIds)) {
+                $delivered = app(FirebaseNotificationService::class)->notifyUserIds(
+                    $userIds,
+                    'promo',
+                    [
+                        'title'  => $this->title,
+                        'body'   => $this->body,
+                        'screen' => $this->screen ?: null,
+                    ]
+                );
+            }
 
-        PushNotificationCampaign::create([
-            'title'           => $this->title,
-            'body'            => $this->body,
-            'audience_scope'  => $this->audienceScope,
-            'audience_role'   => $this->audienceRole,
-            'organization_id' => $this->audienceScope === 'organization' ? $this->organizationId : null,
-            'screen'          => $this->screen ?: null,
-            'recipient_count' => count($userIds),
-            'device_count'    => $deviceCount,
-            'delivered'       => $delivered,
-            'sent_by'         => Auth::id(),
-        ]);
+            PushNotificationCampaign::create([
+                'title'           => $this->title,
+                'body'            => $this->body,
+                'audience_scope'  => $this->audienceScope,
+                'audience_role'   => $this->audienceRole,
+                'organization_id' => $this->audienceScope === 'organization' ? $this->organizationId : null,
+                'screen'          => $this->screen ?: null,
+                'recipient_count' => count($userIds),
+                'device_count'    => $deviceCount,
+                'delivered'       => $delivered,
+                'sent_by'         => Auth::id() ?: 0,
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+            $this->dispatch('notify', [
+                'type'    => 'error',
+                'message' => 'Failed to send notification: ' . $e->getMessage(),
+            ]);
+            return;
+        }
 
         $this->dispatch('notify', [
             'type'    => $delivered ? 'success' : 'error',
