@@ -120,7 +120,8 @@ class Credit extends Component
             'approvePenaltiesPerDay' => 'nullable|numeric|min:0',
         ]);
 
-        CreditQuery::where('id', $this->approveQueryId)->update([
+        // Instance update so model events fire (super-admin notification).
+        CreditQuery::find($this->approveQueryId)?->update([
             'status'           => 'approved',
             'amount'           => $this->approveAmount,
             'start_date'       => $this->approveStartDate,
@@ -168,7 +169,7 @@ class Credit extends Component
             $data['approved_at'] = now();
         }
 
-        CreditQuery::where('id', $this->statusQueryId)->update($data);
+        CreditQuery::find($this->statusQueryId)?->update($data);
         $this->closeStatusModal();
         $this->notification()->success('Updated', 'Status updated successfully.');
     }
@@ -204,7 +205,7 @@ class Credit extends Component
             return;
         }
 
-        CreditQuery::where('id', $this->collectQueryId)->update([
+        CreditQuery::find($this->collectQueryId)?->update([
             'collected_at' => now(),
         ]);
 
@@ -281,7 +282,7 @@ class Credit extends Component
         }
 
         if ($this->editPolicyId) {
-            CreditPolicy::where('id', $this->editPolicyId)->update($data);
+            CreditPolicy::find($this->editPolicyId)?->update($data);
             $this->notification()->success('Updated', 'Policy updated successfully.');
         } else {
             CreditPolicy::create($data);

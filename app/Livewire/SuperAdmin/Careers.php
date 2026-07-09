@@ -5,6 +5,7 @@ namespace App\Livewire\SuperAdmin;
 use App\Livewire\SuperAdmin\Concerns\ManagesWebsitePage;
 use App\Models\CareerApplication;
 use App\Models\WebsitePage;
+use App\Services\ActivityNotifier;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -141,12 +142,26 @@ class Careers extends Component
         if ($this->jobEditIndex !== null && isset($this->meta['jobs'][$this->jobEditIndex])) {
             $this->meta['jobs'][$this->jobEditIndex] = $row;
             $message = 'Job opening updated.';
+            $word    = 'updated';
         } else {
             $this->meta['jobs'][] = $row;
             $message = 'Job opening added.';
+            $word    = 'added';
         }
 
         $this->persistJobs();
+
+        // Jobs live inside the careers page metadata (not their own model),
+        // so the super-admin notification is sent from here.
+        ActivityNotifier::toSuperAdmins(
+            "Job opening {$word}",
+            "Job \"{$row['role']}\" {$word}"
+                . ($row['department'] ? " — {$row['department']}" : '')
+                . ($row['location'] ? ", {$row['location']}" : '')
+                . ($row['type'] ? " ({$row['type']})" : '')
+                . ($row['salary'] ? " — salary {$row['salary']}" : '') . '.',
+            ['type' => 'career_job']
+        );
         $this->notification()->success('Saved', $message);
         $this->closeJobPanel();
     }

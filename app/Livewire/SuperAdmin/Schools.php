@@ -296,7 +296,8 @@ class Schools extends Component
             'bankHolderName' => 'required|string|max:255',
         ]);
 
-        Organization::where('id', $this->detailSchool->id)->update([
+        // Instance update so model events fire (super-admin notification).
+        Organization::find($this->detailSchool->id)?->update([
             'bank_name'        => $this->bankName,
             'bank_account_no'  => $this->bankAccountNo,
             'bank_ifsc'        => strtoupper($this->bankIfsc),

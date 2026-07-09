@@ -325,7 +325,18 @@ class Payroll extends Component
 
         $this->attendanceDraft = [];
         $this->attendanceMode  = 'view';
-        $this->notification()->success('Attendance marked successfully', "{$count} employee(s) updated for " . Carbon::parse($this->attendanceDate)->format('d M Y') . '.');
+
+        $dateLabel = Carbon::parse($this->attendanceDate)->format('d M Y');
+
+        // One summary notification per submit — a per-row model hook would
+        // flood the bell when a full day's attendance is marked at once.
+        \App\Services\ActivityNotifier::toSuperAdmins(
+            'Payroll attendance marked',
+            "Attendance marked for {$count} employee(s) for {$dateLabel}.",
+            ['type' => 'payroll_attendance', 'date' => $this->attendanceDate]
+        );
+
+        $this->notification()->success('Attendance marked successfully', "{$count} employee(s) updated for {$dateLabel}.");
     }
 
     /** Saved status for an employee on the current date. */

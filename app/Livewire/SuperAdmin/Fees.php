@@ -497,7 +497,8 @@ class Fees extends Component
             'editLabel'  => 'required|string|max:100',
         ]);
 
-        SuperAdminFeeStructure::where('id', $this->editFeeId)->update([
+        // Instance update so model events fire (super-admin notification).
+        SuperAdminFeeStructure::find($this->editFeeId)?->update([
             'amount'    => $this->editAmount,
             'fee_label' => $this->editLabel,
         ]);
