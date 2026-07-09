@@ -17,14 +17,16 @@ use App\Models\User;
 use App\Services\ZeptoMailService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
 
 class Student extends Component
 {
-    use WireUiActions, WithPagination;
+    use WireUiActions, WithFileUploads, WithPagination;
 
     // ─── Stats ───────────────────────────────────────────────────────────────
     public int $totalSchools     = 0;
@@ -86,6 +88,8 @@ class Student extends Component
     public        $addRoute            = '';
     public string $addApparId          = '';
     public string $addRegNo            = '';
+    public        $addImage            = null;   // profile photo upload
+    public        $addActive           = 0;      // Active (can log in) checkbox
     public        $addStandards        = [];
     public        $addSections         = [];
     public        $addStates           = [];
@@ -123,6 +127,9 @@ class Student extends Component
     public        $editRoute             = '';
     public string $editApparId           = '';
     public string $editRegNo             = '';
+    public        $editImage             = null;   // new profile photo upload
+    public        $editImageUrl          = null;   // existing photo
+    public        $editActive            = 0;      // Active (can log in) checkbox
     public        $editStandards         = [];
     public        $editSections          = [];
     public        $editStates            = [];
@@ -277,6 +284,9 @@ class Student extends Component
         $detail = StudentDetail::find($id);
         if ($detail) {
             $user = User::find($detail->user_id);
+            if ($user?->image) {
+                Storage::disk('s3')->delete(parse_url($user->image, PHP_URL_PATH));
+            }
             $detail->delete();
             $user?->delete();
             $this->showDeleteConfirm = false;
@@ -326,6 +336,9 @@ class Student extends Component
         $this->editRoute            = $detail->transportations()->first()?->id ?? '';
         $this->editApparId          = $detail->appar_id ?? '';
         $this->editRegNo            = $detail->registration_number ?? '';
+        $this->editImage            = null;
+        $this->editImageUrl         = $detail->user?->image;
+        $this->editActive           = (int) ($detail->user?->is_active ?? 0);
 
         $this->editStandards = $this->editOrgId
             ? Standard::where('organization_id', $this->editOrgId)->orderBy('id')->get()
@@ -377,6 +390,7 @@ class Student extends Component
         $this->editSections  = $this->editStandardId
             ? Section::where('standard_id', $this->editStandardId)->get()
             : [];
+        $this->editBoard = $this->autoBoard($this->editStandardId, $this->editOrgId);
     }
 
     public function updatedEditState(): void
@@ -389,24 +403,28 @@ class Student extends Component
 
     public function saveEditStudent(): void
     {
+        // Validation mirrors the admin Edit Student form exactly, plus the school select.
         $this->validate([
             'editOrgId'            => 'required|integer|exists:organizations,id',
-            'editName'             => 'required|string|max:255',
-            'editEmail'            => 'required|email|max:100|unique:users,email,' . $this->editUserId,
-            'editMobile'           => 'required|digits:10',
-            'editGender'           => 'required|in:male,female,other',
+            'editName'             => 'required|string|max:50',
+            'editEmail'            => 'required|email:rfc|max:191|unique:users,email,' . $this->editUserId,
+            'editMobile'           => 'required|string|digits:10',
+            'editGender'           => 'required|string|in:male,female,other',
             'editDob'              => 'required|date|before:today',
-            'editFatherName'       => 'required|string|max:255',
-            'editMotherName'       => 'required|string|max:255',
-            'editBoard'            => 'required|string|max:100',
-            'editDateOfAdmission'  => 'required|date|before_or_equal:today',
-            'editReligion'         => 'nullable|string|max:100',
-            'editLocalAddress'     => 'nullable|string|max:500',
-            'editPermanentAddress' => 'nullable|string|max:500',
+            'editFatherName'       => 'required|string|max:50',
+            'editMotherName'       => 'nullable|string|max:50',
+            // Board is auto-fetched from the selected class — not a form field.
+            'editDateOfAdmission'  => 'nullable|date|before_or_equal:today',
+            'editReligion'         => 'nullable|string|max:20',
+            'editLocalAddress'     => 'nullable|string|max:250',
+            'editPermanentAddress' => 'nullable|string|max:250',
             'editPincode'          => 'nullable|digits:6',
             'editAadharNo'         => 'nullable|digits:12',
             'editStandardId'       => 'required|integer|exists:standards,id',
             'editSectionId'        => 'required|integer|exists:sections,id',
+            'editImage'            => 'nullable|image|max:1024', // 1 MB
+            'editApparId'          => 'nullable|string|max:25',
+            'editRegNo'            => 'nullable|string|max:25',
             'editRoute'            => $this->editTransportation
                 ? 'required|integer|exists:transportations,id'
                 : 'nullable',
@@ -414,14 +432,34 @@ class Student extends Component
             'editStandardId.required' => 'Please select a class.',
             'editSectionId.required'  => 'Please select a section.',
             'editRoute.required'      => 'Please select a transport route.',
+            'editMobile.digits'       => 'Mobile number must be exactly 10 digits.',
+            'editAadharNo.digits'     => 'Aadhar number must be exactly 12 digits.',
+            'editImage.max'           => 'Image must be 1 MB (1024 KB) or smaller.',
         ]);
 
-        User::where('id', $this->editUserId)->update([
+        $user     = User::find($this->editUserId);
+        $oldEmail = $user?->email;
+
+        $userData = [
             'name'            => $this->editName,
             'email'           => $this->editEmail,
             'mobile_number'   => $this->editMobile,
+            'is_active'       => (int) $this->editActive,
             'organization_id' => $this->editOrgId,
-        ]);
+        ];
+
+        if ($this->editImage) {
+            if ($user?->image) {
+                Storage::disk('s3')->delete(parse_url($user->image, PHP_URL_PATH));
+            }
+            $path = $this->editImage->store('admin/students/images', 's3');
+            Storage::disk('s3')->setVisibility($path, 'public');
+            $userData['image'] = Storage::disk('s3')->url($path);
+        }
+
+        User::where('id', $this->editUserId)->update($userData);
+
+        $standardBoard = $this->autoBoard($this->editStandardId, $this->editOrgId) ?: null;
 
         StudentDetail::where('id', $this->editDetailId)->update([
             'organization_id'         => $this->editOrgId,
@@ -429,7 +467,7 @@ class Student extends Component
             'section_id'              => $this->editSectionId ?: null,
             'full_name'               => $this->editName,
             'father_name'             => $this->editFatherName,
-            'mother_name'             => $this->editMotherName,
+            'mother_name'             => $this->editMotherName ?: null,
             'email'                   => $this->editEmail,
             'dob'                     => $this->editDob,
             'gender'                  => $this->editGender,
@@ -441,8 +479,8 @@ class Student extends Component
             'city'                    => $this->editCity ?: null,
             'pincode'                 => $this->editPincode ?: null,
             'aadhar_no'               => $this->editAadharNo ?: null,
-            'board'                   => $this->editBoard,
-            'date_of_admission'       => $this->editDateOfAdmission,
+            'board'                   => $standardBoard,
+            'date_of_admission'       => $this->editDateOfAdmission ?: null,
             'transportation_required' => (bool) $this->editTransportation,
             'appar_id'                => $this->editApparId ?: null,
             'registration_number'     => $this->editRegNo ?: null,
@@ -451,6 +489,29 @@ class Student extends Component
         $detail = StudentDetail::find($this->editDetailId);
         if ($detail) {
             $this->syncStudentRoute($detail, (bool) $this->editTransportation, $this->editRoute, $this->editOrgId);
+        }
+
+        // Email changed → re-send credentials to the NEW address with the
+        // SAME (unchanged) password, exactly like the admin module.
+        if ($oldEmail && strcasecmp($oldEmail, $this->editEmail) !== 0) {
+            try {
+                $templateKey = config('services.zeptomail.student_password_template_key');
+                if ($templateKey) {
+                    $fresh = User::find($this->editUserId);
+                    ZeptoMailService::sendTemplate($templateKey, $this->editEmail, $this->editName, [
+                        'password'         => $fresh?->plainPassword() ?? 'Use your existing password (unchanged)',
+                        'school_name'      => Organization::find($this->editOrgId)?->name ?? 'School',
+                        'admission_number' => $detail?->admission_no ?? '',
+                        'username'         => $this->editName,
+                        'name'             => $this->editName,
+                        'email'            => $this->editEmail,
+                        'login_url'        => url('/login'),
+                    ]);
+                    Log::info('SuperAdmin: student updated-email credentials sent', ['email' => $this->editEmail]);
+                }
+            } catch (\Throwable $e) {
+                Log::error('SuperAdmin: student updated-email credentials failed', ['email' => $this->editEmail, 'error' => $e->getMessage()]);
+            }
         }
 
         $this->closeEditPanel();
@@ -625,6 +686,8 @@ class Student extends Component
         $this->addRoute           = '';
         $this->addApparId         = '';
         $this->addRegNo           = '';
+        $this->addImage           = null;
+        $this->addActive          = 0;
         $this->addStandards       = [];
         $this->addSections        = [];
         $this->addCities          = [];
@@ -699,6 +762,18 @@ class Student extends Component
         $this->addSections  = $this->addStandardId
             ? Section::where('standard_id', $this->addStandardId)->get()
             : [];
+        // Board is auto-fetched from the chosen class, like the admin form.
+        $this->addBoard = $this->autoBoard($this->addStandardId, $this->addOrgId);
+    }
+
+    /** Board comes from the class (Standard::board), falling back to the org's education board. */
+    private function autoBoard($standardId, $orgId): string
+    {
+        return (string) (
+            ($standardId ? Standard::where('id', (int) $standardId)->value('board') : null)
+            ?? ($orgId ? Organization::find($orgId)?->education_board : null)
+            ?? ''
+        );
     }
 
     public function updatedAddState(): void
@@ -711,24 +786,28 @@ class Student extends Component
 
     public function saveNewStudent(): void
     {
+        // Validation mirrors the admin Add Student form exactly, plus the school select.
         $this->validate([
             'addOrgId'           => 'required|integer|exists:organizations,id',
-            'addName'            => 'required|string|max:255',
-            'addEmail'           => 'required|email|max:100|unique:users,email',
-            'addMobile'          => 'required|digits:10',
-            'addGender'          => 'required|in:male,female,other',
+            'addName'            => 'required|string|max:50',
+            'addEmail'           => 'required|email:rfc|max:191|unique:users,email',
+            'addMobile'          => 'required|string|digits:10',
+            'addGender'          => 'required|string|in:male,female,other',
             'addDob'             => 'required|date|before:today',
-            'addFatherName'      => 'required|string|max:255',
-            'addMotherName'      => 'required|string|max:255',
-            'addBoard'           => 'required|string|max:100',
-            'addDateOfAdmission' => 'required|date|before_or_equal:today',
-            'addReligion'        => 'nullable|string|max:100',
-            'addLocalAddress'    => 'nullable|string|max:500',
-            'addPermanentAddress'=> 'nullable|string|max:500',
+            'addFatherName'      => 'required|string|max:50',
+            'addMotherName'      => 'nullable|string|max:50',
+            // Board is auto-fetched from the selected class — not a form field.
+            'addDateOfAdmission' => 'nullable|date|before_or_equal:today',
+            'addReligion'        => 'nullable|string|max:20',
+            'addLocalAddress'    => 'nullable|string|max:250',
+            'addPermanentAddress'=> 'nullable|string|max:250',
             'addPincode'         => 'nullable|digits:6',
             'addAadharNo'        => 'nullable|digits:12',
             'addStandardId'      => 'required|integer|exists:standards,id',
             'addSectionId'       => 'required|integer|exists:sections,id',
+            'addImage'           => 'nullable|image|max:1024', // 1 MB
+            'addApparId'         => 'nullable|string|max:25',
+            'addRegNo'           => 'nullable|string|max:25',
             'addRoute'           => $this->addTransportation
                 ? 'required|integer|exists:transportations,id'
                 : 'nullable',
@@ -736,20 +815,36 @@ class Student extends Component
             'addStandardId.required' => 'Please select a class.',
             'addSectionId.required'  => 'Please select a section.',
             'addRoute.required'      => 'Please select a transport route.',
+            'addMobile.digits'       => 'Mobile number must be exactly 10 digits.',
+            'addAadharNo.digits'     => 'Aadhar number must be exactly 12 digits.',
+            'addImage.max'           => 'Image must be 1 MB (1024 KB) or smaller.',
         ]);
 
         $org           = Organization::findOrFail($this->addOrgId);
-        $plainPassword = Str::upper(Str::random(4)) . rand(100, 999) . Str::random(3);
+        $plainPassword = substr(str_shuffle('abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789@#$!'), 0, 10);
 
-        $user = User::create([
+        $userData = [
             'name'            => $this->addName,
             'email'           => $this->addEmail,
             'mobile_number'   => $this->addMobile,
             'role'            => 'user',
-            'is_active'       => true,
+            'is_active'       => (int) $this->addActive,
             'organization_id' => $this->addOrgId,
             'password'        => Hash::make($plainPassword),
-        ]);
+        ];
+        if (Schema::hasColumn('users', 'password_plain')) {
+            $userData['password_plain'] = \Illuminate\Support\Facades\Crypt::encryptString($plainPassword);
+        }
+        if ($this->addImage) {
+            $path = $this->addImage->store('admin/students/images', 's3');
+            Storage::disk('s3')->setVisibility($path, 'public');
+            $userData['image'] = Storage::disk('s3')->url($path);
+        }
+
+        $user = User::create($userData);
+
+        // Board auto-derived from the class (fallback: org's education board), like admin.
+        $standardBoard = $this->autoBoard($this->addStandardId, $this->addOrgId) ?: null;
 
         $admissionNo = $this->generateAdmissionNo($org, $this->addStandardId, $this->addSectionId);
         $rollNo      = $this->generateRollNo($this->addStandardId, $this->addSectionId);
@@ -761,7 +856,7 @@ class Student extends Component
             'section_id'             => $this->addSectionId ?: null,
             'full_name'              => $this->addName,
             'father_name'            => $this->addFatherName,
-            'mother_name'            => $this->addMotherName,
+            'mother_name'            => $this->addMotherName ?: null,
             'email'                  => $this->addEmail,
             'dob'                    => $this->addDob,
             'gender'                 => $this->addGender,
@@ -773,9 +868,9 @@ class Student extends Component
             'city'                   => $this->addCity ?: null,
             'pincode'                => $this->addPincode ?: null,
             'aadhar_no'              => $this->addAadharNo ?: null,
-            'board'                  => $this->addBoard,
+            'board'                  => $standardBoard,
             'admission_no'           => $admissionNo,
-            'date_of_admission'      => $this->addDateOfAdmission,
+            'date_of_admission'      => $this->addDateOfAdmission ?: now()->toDateString(),
             'roll_no'                => $rollNo,
             'transportation_required'=> (bool) $this->addTransportation,
             'appar_id'               => $this->addApparId ?: null,
@@ -810,38 +905,55 @@ class Student extends Component
         $this->notification()->success('Student Added!', $this->addName . ' added to ' . $org->name . '.');
     }
 
+    /**
+     * Admission number — same format as the admin module:
+     * YY + SCHOOL_CODE + lastDigit(class.code) + lastDigit(section.code) + 4-digit serial.
+     * YY is the academic session year (Apr→Mar).
+     */
     private function generateAdmissionNo(Organization $org, string $standardId, string $sectionId): string
     {
-        $year       = date('Y');
-        $schoolCode = $org->school_code ?? 'SCH';
-        $cls        = $standardId ?: '0';
-        $sec        = $sectionId ?: '0';
+        $sessionYear = (int) (now()->month >= 4 ? now()->year : now()->subYear()->year);
+        $yy          = substr((string) $sessionYear, -2);
+        $schoolCode  = (string) ($org->school_code ?? '');
+
+        $classRow   = Standard::find((int) $standardId);
+        $sectionRow = Section::find((int) $sectionId);
+
+        $classDigit   = $this->lastDigit($classRow?->code   ?? $classRow?->id);
+        $sectionDigit = $this->lastDigit($sectionRow?->code ?? $sectionRow?->id);
+
+        $prefix = $yy . $schoolCode . $classDigit . $sectionDigit;
 
         $last = StudentDetail::where('organization_id', $org->id)
-            ->where('admission_no', 'like', "$year$schoolCode$cls$sec%")
-            ->orderBy('admission_no', 'desc')
-            ->first();
+            ->where('admission_no', 'like', $prefix . '%')
+            ->orderByDesc('admission_no')
+            ->value('admission_no');
 
-        $serial = $last ? (int) substr($last->admission_no, -4) + 1 : 1;
-        return $year . $schoolCode . $cls . $sec . str_pad($serial, 4, '0', STR_PAD_LEFT);
+        $serial = $last ? ((int) substr($last, -4)) + 1 : 1;
+
+        return $prefix . str_pad((string) $serial, 4, '0', STR_PAD_LEFT);
     }
 
+    /** Roll number — 3-digit serial scoped to class + section (admin format). */
     private function generateRollNo(string $standardId, string $sectionId): string
     {
-        $shortYear    = substr(date('Y'), -2);
-        $schoolSerial = '01';
-        $classFmt     = str_pad($standardId ?: '0', 2, '0', STR_PAD_LEFT);
-        $sectionCode  = $sectionId ? substr($sectionId, 0, 1) : '0';
+        $last = StudentDetail::where('standard_id', (int) $standardId)
+            ->where('section_id',  (int) $sectionId)
+            ->whereNotNull('roll_no')
+            ->orderByRaw('CAST(roll_no AS UNSIGNED) DESC')
+            ->value('roll_no');
 
-        $last = StudentDetail::where('organization_id', $this->addOrgId)
-            ->where('standard_id', $standardId ?: null)
-            ->where('section_id', $sectionId ?: null)
-            ->where('roll_no', 'like', "$shortYear$schoolSerial$classFmt$sectionCode%")
-            ->orderBy('roll_no', 'desc')
-            ->first();
+        $serial = $last ? ((int) preg_replace('/\D/', '', $last)) + 1 : 1;
 
-        $serial = $last ? (int) substr($last->roll_no, -3) + 1 : 1;
-        return $shortYear . $schoolSerial . $classFmt . $sectionCode . str_pad($serial, 3, '0', STR_PAD_LEFT);
+        return str_pad((string) $serial, 3, '0', STR_PAD_LEFT);
+    }
+
+    /** Pick the last numeric digit of a code-like value, fallback to "0". */
+    private function lastDigit($value): string
+    {
+        $digits = preg_replace('/\D/', '', (string) $value);
+
+        return ($digits === '' || $digits === null) ? '0' : substr($digits, -1);
     }
 
     // ─── Render ───────────────────────────────────────────────────────────────

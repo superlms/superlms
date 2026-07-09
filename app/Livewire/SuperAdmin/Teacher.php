@@ -9,14 +9,16 @@ use App\Models\User;
 use App\Services\ZeptoMailService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
 
 class Teacher extends Component
 {
-    use WireUiActions, WithPagination;
+    use WireUiActions, WithFileUploads, WithPagination;
 
     public int $totalSchools      = 0;
     public int $totalTeachers     = 0;
@@ -52,6 +54,8 @@ class Teacher extends Component
     public string $addEmergencyContact = '';
     public string $addState           = '';
     public string $addCity            = '';
+    public        $addImage           = null;   // profile photo upload
+    public        $addActive          = 0;      // Active (can log in) checkbox
     public        $addStates          = [];
     public        $addCities          = [];
 
@@ -77,6 +81,9 @@ class Teacher extends Component
     public string $editEmergencyContact   = '';
     public string $editState              = '';
     public string $editCity               = '';
+    public        $editImage              = null;   // new profile photo upload
+    public        $editImageUrl           = null;   // existing photo
+    public        $editActive             = 0;      // Active (can log in) checkbox
     public        $editStates             = [];
     public        $editCities             = [];
 
@@ -211,6 +218,9 @@ class Teacher extends Component
         $detail = TeacherDetail::find($id);
         if ($detail) {
             $user = User::find($detail->user_id);
+            if ($user?->image) {
+                Storage::disk('s3')->delete(parse_url($user->image, PHP_URL_PATH));
+            }
             $detail->delete();
             $user?->delete();
             $this->showDeleteConfirm = false;
@@ -253,6 +263,9 @@ class Teacher extends Component
         $this->editCity             = $detail->city ?? '';
         $this->editPincode          = $detail->pincode ?? '';
         $this->editEmergencyContact = $detail->emergency_contact ?? '';
+        $this->editImage            = null;
+        $this->editImageUrl         = $detail->user?->image;
+        $this->editActive           = (int) ($detail->user?->is_active ?? 0);
 
         $this->editCities = $this->editState
             ? (new CityGetHelper())->cityGetByState($this->editState)
@@ -278,29 +291,52 @@ class Teacher extends Component
 
     public function saveEditTeacher(): void
     {
+        // Validation mirrors the admin Edit Teacher form exactly, plus the school select.
         $this->validate([
             'editOrgId'            => 'required|integer|exists:organizations,id',
-            'editName'             => 'required|string|max:255',
-            'editEmail'            => 'required|email|max:100|unique:users,email,' . $this->editUserId,
+            'editName'             => 'required|string|max:50|regex:/^[A-Za-z ]+$/',
+            'editEmail'            => 'required|email:rfc|max:191|unique:users,email,' . $this->editUserId . ',id,role,teacher',
             'editMobile'           => 'required|digits:10',
             'editDob'              => 'required|date|before:today',
-            'editGender'           => 'required|in:male,female,other',
-            'editEmployeeId'       => 'required|string|max:50',
+            'editGender'           => 'required|string|in:male,female,other',
+            'editEmployeeId'       => 'required|string|max:20',
             'editDateOfJoining'    => 'required|date|before_or_equal:today',
-            'editQualification'    => 'required|string|max:255',
-            'editAddress'          => 'required|string|max:500',
+            'editQualification'    => 'required|string|max:50',
+            'editAddress'          => 'required|string|max:1000',
             'editPincode'          => 'required|digits:6',
             'editEmergencyContact' => 'required|digits:10',
+            'editImage'            => 'nullable|image|max:1024', // 1 MB
+        ], [
+            'editName.regex'             => 'Name may contain only letters and spaces.',
+            'editMobile.digits'          => 'Mobile number must be exactly 10 digits.',
+            'editEmergencyContact.digits'=> 'Emergency contact must be exactly 10 digits.',
+            'editPincode.digits'         => 'Pincode must be exactly 6 digits.',
+            'editImage.max'              => 'Image must be 1 MB or smaller.',
         ]);
 
-        User::where('id', $this->editUserId)->update([
+        $user     = User::find($this->editUserId);
+        $oldEmail = $user?->email;
+
+        $userData = [
             'name'            => $this->editName,
             'email'           => $this->editEmail,
             'mobile_number'   => $this->editMobile,
             'dob'             => $this->editDob,
             'gender'          => $this->editGender,
+            'is_active'       => (int) $this->editActive,
             'organization_id' => $this->editOrgId,
-        ]);
+        ];
+
+        if ($this->editImage) {
+            if ($user?->image) {
+                Storage::disk('s3')->delete(parse_url($user->image, PHP_URL_PATH));
+            }
+            $path = $this->editImage->store('admin/teachers/images', 's3');
+            Storage::disk('s3')->setVisibility($path, 'public');
+            $userData['image'] = Storage::disk('s3')->url($path);
+        }
+
+        User::where('id', $this->editUserId)->update($userData);
 
         TeacherDetail::where('id', $this->editDetailId)->update([
             'organization_id'   => $this->editOrgId,
@@ -314,6 +350,28 @@ class Teacher extends Component
             'pincode'           => $this->editPincode,
             'emergency_contact' => $this->editEmergencyContact,
         ]);
+
+        // Email changed → re-send credentials to the NEW address with the
+        // SAME (unchanged) password, exactly like the admin module.
+        if ($oldEmail && strcasecmp($oldEmail, $this->editEmail) !== 0) {
+            try {
+                $templateKey = config('services.zeptomail.teacher_password_template_key');
+                if ($templateKey) {
+                    $fresh = User::find($this->editUserId);
+                    ZeptoMailService::sendTemplate($templateKey, $this->editEmail, $this->editName, [
+                        'password'      => $fresh?->plainPassword() ?? 'Use your existing password (unchanged)',
+                        'email_address' => $this->editEmail,
+                        'school_name'   => Organization::find($this->editOrgId)?->name ?? 'School',
+                        'username'      => $this->editName,
+                        'name'          => $this->editName,
+                        'login_url'     => url('/login'),
+                    ]);
+                    Log::info('SuperAdmin: teacher updated-email credentials sent', ['email' => $this->editEmail]);
+                }
+            } catch (\Throwable $e) {
+                Log::error('SuperAdmin: teacher updated-email credentials failed', ['email' => $this->editEmail, 'error' => $e->getMessage()]);
+            }
+        }
 
         $this->closeEditPanel();
         $this->loadStats();
@@ -389,6 +447,8 @@ class Teacher extends Component
         $this->addEmergencyContact = '';
         $this->addState           = '';
         $this->addCity            = '';
+        $this->addImage           = null;
+        $this->addActive          = 0;
         $this->addCities          = [];
         $this->resetValidation();
         $this->showAddPanel       = true;
@@ -410,41 +470,59 @@ class Teacher extends Component
 
     public function saveNewTeacher(): void
     {
+        // Validation mirrors the admin Add Teacher form exactly, plus the school select.
         $this->validate([
             'addOrgId'            => 'required|integer|exists:organizations,id',
-            'addName'             => 'required|string|max:255',
-            'addEmail'            => 'required|email|max:100',
+            'addName'             => 'required|string|max:50|regex:/^[A-Za-z ]+$/',
+            'addEmail'            => 'required|email:rfc|max:191',
             'addMobile'           => 'required|digits:10',
             'addDob'              => 'required|date|before:today',
-            'addGender'           => 'required|in:male,female,other',
-            'addEmployeeId'       => 'required|string|max:50',
+            'addGender'           => 'required|string|in:male,female,other',
+            'addEmployeeId'       => 'required|string|max:20',
             'addDateOfJoining'    => 'required|date|before_or_equal:today',
-            'addQualification'    => 'required|string|max:255',
-            'addAddress'          => 'required|string|max:500',
+            'addQualification'    => 'required|string|max:50',
+            'addAddress'          => 'required|string|max:1000',
             'addPincode'          => 'required|digits:6',
             'addEmergencyContact' => 'required|digits:10',
+            'addImage'            => 'nullable|image|max:1024', // 1 MB
+        ], [
+            'addName.regex'             => 'Name may contain only letters and spaces.',
+            'addMobile.digits'          => 'Mobile number must be exactly 10 digits.',
+            'addEmergencyContact.digits'=> 'Emergency contact must be exactly 10 digits.',
+            'addPincode.digits'         => 'Pincode must be exactly 6 digits.',
+            'addImage.max'              => 'Image must be 1 MB or smaller.',
         ]);
 
-        $existing = User::where('email', $this->addEmail)->where('role', 'teacher')->first();
+        $existing = User::where('email', $this->addEmail)->first();
         if ($existing) {
-            $this->addError('addEmail', 'A teacher with this email already exists.');
+            $this->addError('addEmail', 'This email is already used by another account.');
             return;
         }
 
         $org           = Organization::findOrFail($this->addOrgId);
-        $plainPassword = Str::upper(Str::random(4)) . rand(100, 999) . Str::random(3);
+        $plainPassword = substr(str_shuffle('abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789@#$!'), 0, 10);
 
-        $user = User::create([
+        $userData = [
             'name'            => $this->addName,
             'email'           => $this->addEmail,
             'mobile_number'   => $this->addMobile,
             'dob'             => $this->addDob,
             'gender'          => $this->addGender,
             'role'            => 'teacher',
-            'is_active'       => true,
+            'is_active'       => (int) $this->addActive,
             'organization_id' => $this->addOrgId,
             'password'        => Hash::make($plainPassword),
-        ]);
+        ];
+        if (Schema::hasColumn('users', 'password_plain')) {
+            $userData['password_plain'] = \Illuminate\Support\Facades\Crypt::encryptString($plainPassword);
+        }
+        if ($this->addImage) {
+            $path = $this->addImage->store('admin/teachers/images', 's3');
+            Storage::disk('s3')->setVisibility($path, 'public');
+            $userData['image'] = Storage::disk('s3')->url($path);
+        }
+
+        $user = User::create($userData);
 
         TeacherDetail::create([
             'user_id'           => $user->id,

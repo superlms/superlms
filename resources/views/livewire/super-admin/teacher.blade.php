@@ -486,6 +486,25 @@
                         </div>
                     </div>
 
+                    {{-- Profile photo (admin-style) --}}
+                    <div>
+                        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Profile Photo <span class="normal-case font-normal text-gray-400">(optional, max 1 MB)</span></h3>
+                        <div class="flex items-center gap-3">
+                            @if ($addImage)
+                                <img src="{{ $addImage->temporaryUrl() }}" class="w-12 h-12 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                            @else
+                                <div class="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                    </svg>
+                                </div>
+                            @endif
+                            <input type="file" wire:model="addImage" accept="image/*" class="flex-1 text-sm">
+                        </div>
+                        <div wire:loading wire:target="addImage" class="text-xs text-purple-600 mt-1">Uploading…</div>
+                        @error('addImage')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+
                     {{-- Basic Info --}}
                     <div>
                         <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Basic Information</h3>
@@ -512,7 +531,8 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
                                     Mobile <span class="text-red-500">*</span>
                                 </label>
-                                <input wire:model="addMobile" type="text" placeholder="10-digit number"
+                                <input wire:model="addMobile" type="tel" maxlength="10" inputmode="numeric"
+                                    oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)" placeholder="10-digit number"
                                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
                                            focus:ring-2 focus:ring-purple-500 focus:border-purple-500" />
                                 @error('addMobile') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
@@ -617,7 +637,8 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
                                     Pincode <span class="text-red-500">*</span>
                                 </label>
-                                <input wire:model="addPincode" type="text" placeholder="6-digit pincode"
+                                <input wire:model="addPincode" type="text" maxlength="6" inputmode="numeric"
+                                    oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)" placeholder="6-digit pincode"
                                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
                                            focus:ring-2 focus:ring-purple-500 focus:border-purple-500" />
                                 @error('addPincode') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
@@ -632,12 +653,19 @@
                             <label class="block text-sm font-medium text-gray-700 mb-1">
                                 Emergency Contact Number <span class="text-red-500">*</span>
                             </label>
-                            <input wire:model="addEmergencyContact" type="text" placeholder="10-digit mobile number"
+                            <input wire:model="addEmergencyContact" type="tel" maxlength="10" inputmode="numeric"
+                                oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)" placeholder="10-digit mobile number"
                                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
                                        focus:ring-2 focus:ring-purple-500 focus:border-purple-500" />
                             @error('addEmergencyContact') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                         </div>
                     </div>
+
+                    {{-- Active toggle (admin-style) --}}
+                    <label class="inline-flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" wire:model="addActive" class="rounded">
+                        <span class="text-sm text-gray-700">Active (can log in)</span>
+                    </label>
 
                     {{-- Password note --}}
                     <div class="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
@@ -795,13 +823,34 @@
                         @error('editOrgId') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                     </div>
 
+                    {{-- Profile photo (admin-style) --}}
+                    <div>
+                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Profile Photo <span class="normal-case font-normal text-gray-400">(optional, max 1 MB)</span></p>
+                        <div class="flex items-center gap-3">
+                            @if ($editImage)
+                                <img src="{{ $editImage->temporaryUrl() }}" class="w-12 h-12 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                            @elseif ($editImageUrl)
+                                <img src="{{ $editImageUrl }}" class="w-12 h-12 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                            @else
+                                <div class="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                    </svg>
+                                </div>
+                            @endif
+                            <input type="file" wire:model="editImage" accept="image/*" class="flex-1 text-sm">
+                        </div>
+                        <div wire:loading wire:target="editImage" class="text-xs text-amber-600 mt-1">Uploading…</div>
+                        @error('editImage')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+
                     {{-- Basic Info --}}
                     <div>
                         <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Basic Info</p>
                         <div class="grid grid-cols-2 gap-3">
                             <div class="col-span-2">
                                 <label class="block text-xs font-medium text-gray-600 mb-1">Full Name <span class="text-red-500">*</span></label>
-                                <input wire:model.defer="editName" type="text" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"/>
+                                <input wire:model.defer="editName" type="text" maxlength="50" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"/>
                                 @error('editName') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                             </div>
                             <div>
@@ -888,11 +937,19 @@
                             </div>
                             <div>
                                 <label class="block text-xs font-medium text-gray-600 mb-1">Pincode <span class="text-red-500">*</span></label>
-                                <input wire:model.defer="editPincode" type="text" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 font-mono"/>
+                                <input wire:model.defer="editPincode" type="text" maxlength="6" inputmode="numeric"
+                                    oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 font-mono"/>
                                 @error('editPincode') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                             </div>
                         </div>
                     </div>
+
+                    {{-- Active toggle (admin-style) --}}
+                    <label class="inline-flex items-center gap-2 cursor-pointer px-1">
+                        <input type="checkbox" wire:model.defer="editActive" class="rounded">
+                        <span class="text-sm text-gray-700">Active (can log in)</span>
+                    </label>
                 </div>
                 {{-- Footer --}}
                 <div class="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-100 bg-gray-50 flex-shrink-0">

@@ -511,13 +511,32 @@
                         </div>
                     </div>
 
+                    {{-- Profile photo (admin-style) --}}
+                    <div class="bg-gray-50 rounded-xl p-4 space-y-3">
+                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Profile Photo <span class="normal-case font-normal text-gray-400">(optional, max 1 MB)</span></p>
+                        <div class="flex items-center gap-3">
+                            @if ($addImage)
+                                <img src="{{ $addImage->temporaryUrl() }}" class="w-12 h-12 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                            @else
+                                <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                    </svg>
+                                </div>
+                            @endif
+                            <input type="file" wire:model="addImage" accept="image/*" class="flex-1 text-sm">
+                        </div>
+                        <div wire:loading wire:target="addImage" class="text-xs text-blue-600">Uploading…</div>
+                        @error('addImage')<p class="text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+
                     {{-- Basic Info --}}
                     <div class="bg-gray-50 rounded-xl p-4 space-y-3">
                         <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Basic Information</p>
 
                         <div>
                             <label class="block text-xs font-medium text-gray-600 mb-1">Full Name <span class="text-red-500">*</span></label>
-                            <input wire:model.defer="addName" type="text" placeholder="Student's full name"
+                            <input wire:model.defer="addName" type="text" maxlength="50" placeholder="Student's full name"
                                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 @error('addName') border-red-400 @enderror" />
                             @error('addName') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                         </div>
@@ -531,7 +550,8 @@
                             </div>
                             <div>
                                 <label class="block text-xs font-medium text-gray-600 mb-1">Mobile <span class="text-red-500">*</span></label>
-                                <input wire:model.defer="addMobile" type="text" placeholder="10-digit"
+                                <input wire:model.defer="addMobile" type="tel" maxlength="10" inputmode="numeric"
+                                    oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)" placeholder="10-digit"
                                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 @error('addMobile') border-red-400 @enderror" />
                                 @error('addMobile') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                             </div>
@@ -575,8 +595,8 @@
                                 @error('addFatherName') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Mother's Name <span class="text-red-500">*</span></label>
-                                <input wire:model.defer="addMotherName" type="text" placeholder="Mother's name"
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Mother's Name <span class="text-gray-400 font-normal">(optional)</span></label>
+                                <input wire:model.defer="addMotherName" type="text" maxlength="50" placeholder="Mother's name"
                                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 @error('addMotherName') border-red-400 @enderror" />
                                 @error('addMotherName') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                             </div>
@@ -612,14 +632,13 @@
                         </div>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Board <span class="text-red-500">*</span></label>
-                                <input wire:model.defer="addBoard" type="text" placeholder="e.g. CBSE"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 @error('addBoard') border-red-400 @enderror" />
-                                @error('addBoard') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Board <span class="text-gray-400 font-normal">(auto from class)</span></label>
+                                <input value="{{ $addBoard ?: '—' }}" type="text" readonly
+                                    class="w-full px-3 py-2 text-sm border border-gray-200 bg-gray-100 text-gray-500 rounded-lg cursor-not-allowed" />
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Date of Admission <span class="text-red-500">*</span></label>
-                                <input wire:model.defer="addDateOfAdmission" type="date"
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Date of Admission <span class="text-gray-400 font-normal">(optional)</span></label>
+                                <input wire:model.defer="addDateOfAdmission" type="date" max="{{ now()->format('Y-m-d') }}"
                                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 @error('addDateOfAdmission') border-red-400 @enderror" />
                                 @error('addDateOfAdmission') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                             </div>
@@ -627,7 +646,8 @@
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label class="block text-xs font-medium text-gray-600 mb-1">Aadhar No</label>
-                                <input wire:model.defer="addAadharNo" type="text" placeholder="12-digit"
+                                <input wire:model.defer="addAadharNo" type="text" maxlength="12" inputmode="numeric"
+                                    oninput="this.value=this.value.replace(/\D/g,'').slice(0,12)" placeholder="12-digit"
                                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 @error('addAadharNo') border-red-400 @enderror" />
                                 @error('addAadharNo') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                             </div>
@@ -718,11 +738,18 @@
                         </div>
                         <div>
                             <label class="block text-xs font-medium text-gray-600 mb-1">Pincode</label>
-                            <input wire:model.defer="addPincode" type="text" placeholder="6-digit pincode"
+                            <input wire:model.defer="addPincode" type="text" maxlength="6" inputmode="numeric"
+                                oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)" placeholder="6-digit pincode"
                                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 @error('addPincode') border-red-400 @enderror" />
                             @error('addPincode') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                         </div>
                     </div>
+
+                    {{-- Active toggle (admin-style) --}}
+                    <label class="inline-flex items-center gap-2 cursor-pointer px-1">
+                        <input type="checkbox" wire:model.defer="addActive" class="rounded">
+                        <span class="text-sm text-gray-700">Active (can log in)</span>
+                    </label>
 
                     {{-- Email note --}}
                     <div class="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
@@ -831,6 +858,9 @@
                         <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Address</h4>
                         <dl class="grid grid-cols-1 gap-2">
                             <div><dt class="text-xs text-gray-400">Local Address</dt><dd class="font-medium">{{ $viewData['detail']?->local_address ?? '—' }}</dd></div>
+                            @if ($viewData['detail']?->permanent_address)
+                                <div><dt class="text-xs text-gray-400">Permanent Address</dt><dd class="font-medium">{{ $viewData['detail']->permanent_address }}</dd></div>
+                            @endif
                             <div class="grid grid-cols-3 gap-3">
                                 <div><dt class="text-xs text-gray-400">City</dt><dd class="font-medium">{{ $viewData['detail']?->city ?? '—' }}</dd></div>
                                 <div><dt class="text-xs text-gray-400">State</dt><dd class="font-medium">{{ $viewData['detail']?->state ?? '—' }}</dd></div>
@@ -901,13 +931,34 @@
                         @error('editOrgId') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                     </div>
 
+                    {{-- Profile photo (admin-style) --}}
+                    <div>
+                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Profile Photo <span class="normal-case font-normal text-gray-400">(optional, max 1 MB)</span></p>
+                        <div class="flex items-center gap-3">
+                            @if ($editImage)
+                                <img src="{{ $editImage->temporaryUrl() }}" class="w-12 h-12 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                            @elseif ($editImageUrl)
+                                <img src="{{ $editImageUrl }}" class="w-12 h-12 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                            @else
+                                <div class="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                    </svg>
+                                </div>
+                            @endif
+                            <input type="file" wire:model="editImage" accept="image/*" class="flex-1 text-sm">
+                        </div>
+                        <div wire:loading wire:target="editImage" class="text-xs text-amber-600 mt-1">Uploading…</div>
+                        @error('editImage')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+
                     {{-- Basic Info --}}
                     <div>
                         <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Basic Info</p>
                         <div class="grid grid-cols-2 gap-3">
                             <div class="col-span-2">
                                 <label class="block text-xs font-medium text-gray-600 mb-1">Full Name <span class="text-red-500">*</span></label>
-                                <input wire:model.defer="editName" type="text" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"/>
+                                <input wire:model.defer="editName" type="text" maxlength="50" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"/>
                                 @error('editName') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                             </div>
                             <div>
@@ -941,8 +992,8 @@
                                 @error('editFatherName') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Mother's Name <span class="text-red-500">*</span></label>
-                                <input wire:model.defer="editMotherName" type="text" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"/>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Mother's Name <span class="text-gray-400 font-normal">(optional)</span></label>
+                                <input wire:model.defer="editMotherName" type="text" maxlength="50" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"/>
                                 @error('editMotherName') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                             </div>
                             <div>
@@ -962,13 +1013,13 @@
                         <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Academic Details</p>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Education Board <span class="text-red-500">*</span></label>
-                                <input wire:model.defer="editBoard" type="text" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"/>
-                                @error('editBoard') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Board <span class="text-gray-400 font-normal">(auto from class)</span></label>
+                                <input value="{{ $editBoard ?: '—' }}" type="text" readonly
+                                    class="w-full px-3 py-2 text-sm border border-gray-200 bg-gray-100 text-gray-500 rounded-lg cursor-not-allowed"/>
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Date of Admission <span class="text-red-500">*</span></label>
-                                <input wire:model.defer="editDateOfAdmission" type="date" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"/>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Date of Admission <span class="text-gray-400 font-normal">(optional)</span></label>
+                                <input wire:model.defer="editDateOfAdmission" type="date" max="{{ now()->format('Y-m-d') }}" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"/>
                                 @error('editDateOfAdmission') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                             </div>
                             <div>
@@ -1067,11 +1118,19 @@
                             </div>
                             <div>
                                 <label class="block text-xs font-medium text-gray-600 mb-1">Pincode</label>
-                                <input wire:model.defer="editPincode" type="text" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 font-mono"/>
+                                <input wire:model.defer="editPincode" type="text" maxlength="6" inputmode="numeric"
+                                    oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 font-mono"/>
                                 @error('editPincode') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                             </div>
                         </div>
                     </div>
+
+                    {{-- Active toggle (admin-style) --}}
+                    <label class="inline-flex items-center gap-2 cursor-pointer px-1">
+                        <input type="checkbox" wire:model.defer="editActive" class="rounded">
+                        <span class="text-sm text-gray-700">Active (can log in)</span>
+                    </label>
                 </div>
                 {{-- Footer --}}
                 <div class="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-100 bg-gray-50 flex-shrink-0">
