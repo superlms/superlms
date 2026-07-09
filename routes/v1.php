@@ -303,6 +303,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::prefix('admin')->group(function () {
             Route::get('/me',        [AdminController::class, 'me']);
             Route::get('/dashboard', [AdminController::class, 'dashboard']);
+            Route::get('/analytics', [AdminController::class, 'analytics']);
 
             // Profile / School Info (mirrors web Components\Profile)
             Route::get('/profile',                   [AdminProfileController::class, 'show']);
