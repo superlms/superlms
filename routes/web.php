@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\PhonePeController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\URL;
 
 // PhonePe browser redirect target (registered early so the website's
 // {organization} wildcard doesn't swallow it).
@@ -44,7 +45,7 @@ Route::get('/app/accounts', function () {
 //   - superadmin/site → scope / (their routes live at the site root)
 // Bump $idVersion if an install ever gets "stuck" on a device.
 Route::get('/pwa/manifest/{role}', function (string $role) {
-    $idVersion = 'v3';
+    $idVersion = 'v4';
     $u = auth('admin')->user();
 
     if ($role === 'admin') {
@@ -53,7 +54,10 @@ Route::get('/pwa/manifest/{role}', function (string $role) {
             $name     = 'SuperLMS Admin';
             $short    = 'Admin';
             $id       = '/pwa/admin-' . $org;
-            $start    = route('admin.launch', ['organization' => $org], false);
+            // Permanently signed so this shortcut stays pinned to this school even if
+            // the shared admin-guard session later gets flipped to another school
+            // (e.g. via super-admin "login as school" in a browser tab) — see admin.launch.
+            $start    = URL::signedRoute('admin.launch', ['organization' => $org], null, false);
             $scope    = '/' . $org . '/';
         } else {
             $name  = 'SuperLMS Admin';
