@@ -31,10 +31,11 @@ class Fees extends Component
     public float $totalFeeRemaining = 0;
     public float $avgFeePerStudent  = 0;
 
-    // ─── Schools List + Filters ───────────────────────────────────────────────
-    public string $search        = '';
-    public string $filterFeeType = ''; // '' | 'one_time' | 'per_student'
-    public string $filterBoard   = '';
+    // ─── Schools List + Filters (student-style bar) ───────────────────────────
+    public string $search             = '';
+    public string $filterOrganization = '';
+    public string $filterFeeType      = ''; // '' | 'one_time' | 'per_student'
+    public string $filterBoard        = '';
 
     // ─── School Stats ─────────────────────────────────────────────────────────
     public array $schoolStats = [];
@@ -55,13 +56,21 @@ class Fees extends Component
     public        $editAmount    = '';
     public string $editLabel     = '';
 
-    // ─── Update Tab: per_student flow ─────────────────────────────────────────
+    // ─── Update Fee slide-in panel (choose org → update its payments) ─────────
+    public bool    $showUpdatePanel    = false;
+    public string  $updateOrgId        = '';
+    public string  $updateOrgName      = '';
+    public ?string $updateOrgFeeType   = null; // 'one_time' | 'per_student' | null
+    public string  $updateOrgFrequency = '';   // monthly | quarterly | yearly
+    public string  $updateOrgFeeLabel  = '';
+
+    // ─── Update panel: per_student flow ───────────────────────────────────────
     public string $updateStandardId = '';
     public string $updateSectionId  = '';
     public        $updateSections   = [];
     public array  $studentFeeList   = [];
 
-    // ─── Update Tab: one_time flow (org-level installments) ───────────────────
+    // ─── Update panel: one_time flow (org-level installments) ─────────────────
     public array $installments = [];
 
     // ─── Record / Edit Payment Modal (shared by both flows) ───────────────────
@@ -142,6 +151,11 @@ class Fees extends Component
         $this->resetPage();
     }
 
+    public function updatedFilterOrganization(): void
+    {
+        $this->resetPage();
+    }
+
     public function updatedFilterFeeType(): void
     {
         $this->resetPage();
@@ -154,7 +168,7 @@ class Fees extends Component
 
     public function clearFilters(): void
     {
-        $this->reset(['search', 'filterFeeType', 'filterBoard']);
+        $this->reset(['search', 'filterOrganization', 'filterFeeType', 'filterBoard']);
         $this->resetPage();
     }
 
@@ -184,6 +198,7 @@ class Fees extends Component
                     ->where('name', 'like', "%{$this->search}%")
                     ->orWhere('school_code', 'like', "%{$this->search}%")
             ))
+            ->when($this->filterOrganization, fn($q) => $q->where('id', $this->filterOrganization))
             ->when($this->filterBoard, fn($q) => $q->where('education_board', $this->filterBoard))
             ->when($this->filterFeeType, fn($q) => $q->whereHas('feeStructures', function ($q) {
                 $q->where('academic_year', $this->academicYear)
@@ -202,15 +217,8 @@ class Fees extends Component
 
         if (!$this->selectedSchool) return;
 
-        $this->standards        = Standard::where('organization_id', $id)->orderBy('id')->get();
-        $this->updateStandardId = '';
-        $this->updateSectionId  = '';
-        $this->updateSections   = [];
-        $this->studentFeeList   = [];
-        $this->installments     = [];
-
         $this->loadSchoolStats();
-        $this->activeTab  = 'view_fee';
+        $this->activeTab  = 'analytics';
         $this->activeView = 'school';
     }
 
@@ -218,26 +226,12 @@ class Fees extends Component
     {
         $this->activeView     = 'list';
         $this->selectedSchool = null;
-        $this->standards      = [];
-        $this->studentFeeList = [];
-        $this->installments   = [];
         $this->schoolStats    = [];
     }
 
     public function setTab(string $tab): void
     {
         $this->activeTab = $tab;
-
-        if ($tab === 'update') {
-            if ($this->currentFeeType() === 'one_time') {
-                $this->loadInstallments();
-            } else {
-                $this->updateStandardId = '';
-                $this->updateSectionId  = '';
-                $this->studentFeeList   = [];
-                $this->updateSections   = [];
-            }
-        }
     }
 
     /** The active one_time/per_student structure's type for this school+year, if any. */
@@ -248,6 +242,88 @@ class Fees extends Component
             ->whereIn('fee_type', ['one_time', 'per_student'])
             ->active()
             ->value('fee_type');
+    }
+
+    /**
+     * The organization the payment-update flow is acting on: the org chosen in
+     * the Update Fee panel, falling back to the school open in detail view.
+     */
+    private function activeOrgId(): ?int
+    {
+        if ($this->updateOrgId !== '') {
+            return (int) $this->updateOrgId;
+        }
+
+        return $this->selectedSchool?->id;
+    }
+
+    // ─── Update Fee Panel (header) ──────────────────────────────────────────
+
+    public function openUpdatePanel(): void
+    {
+        $this->resetUpdateFlow();
+        $this->updateOrgId        = '';
+        $this->updateOrgName      = '';
+        $this->updateOrgFeeType   = null;
+        $this->updateOrgFrequency = '';
+        $this->updateOrgFeeLabel  = '';
+        $this->showUpdatePanel    = true;
+    }
+
+    public function closeUpdatePanel(): void
+    {
+        $this->showUpdatePanel = false;
+        $this->resetUpdateFlow();
+        $this->reset(['updateOrgId', 'updateOrgName', 'updateOrgFeeType', 'updateOrgFrequency', 'updateOrgFeeLabel']);
+    }
+
+    /** Choosing an org loads whichever fee structure it has set for this year. */
+    public function updatedUpdateOrgId(): void
+    {
+        $this->resetUpdateFlow();
+        $this->updateOrgName      = '';
+        $this->updateOrgFeeType   = null;
+        $this->updateOrgFrequency = '';
+        $this->updateOrgFeeLabel  = '';
+
+        if ($this->updateOrgId === '') {
+            return;
+        }
+
+        $org = Organization::find($this->updateOrgId);
+        if (!$org) {
+            $this->updateOrgId = '';
+            return;
+        }
+
+        $this->updateOrgName = $org->name;
+
+        $structure = SuperAdminFeeStructure::where('organization_id', $org->id)
+            ->where('academic_year', $this->academicYear)
+            ->whereIn('fee_type', ['one_time', 'per_student'])
+            ->active()
+            ->first();
+
+        $this->updateOrgFeeType   = $structure?->fee_type;
+        $this->updateOrgFrequency = $structure?->installment_frequency ?? '';
+        $this->updateOrgFeeLabel  = $structure?->fee_label ?? '';
+
+        if ($this->updateOrgFeeType === 'one_time') {
+            // monthly → Apr–Mar rows, quarterly → 4 rows, yearly → single total row
+            $this->loadInstallments();
+        } elseif ($this->updateOrgFeeType === 'per_student') {
+            $this->standards = Standard::where('organization_id', $org->id)->orderBy('id')->get();
+        }
+    }
+
+    private function resetUpdateFlow(): void
+    {
+        $this->updateStandardId = '';
+        $this->updateSectionId  = '';
+        $this->updateSections   = [];
+        $this->studentFeeList   = [];
+        $this->installments     = [];
+        $this->standards        = [];
     }
 
     private function loadSchoolStats(): void
@@ -544,23 +620,36 @@ class Fees extends Component
         $this->updateSections  = $this->updateStandardId
             ? Section::where('standard_id', $this->updateStandardId)->get()
             : [];
+
+        if ($this->updateStandardId) {
+            $this->loadStudentFeeList();
+        }
+    }
+
+    public function updatedUpdateSectionId(): void
+    {
+        if ($this->updateStandardId) {
+            $this->loadStudentFeeList();
+        }
     }
 
     public function loadStudentFeeList(): void
     {
-        if (!$this->updateStandardId) {
+        $orgId = $this->activeOrgId();
+
+        if (!$orgId || !$this->updateStandardId) {
             $this->notification()->error('Please select a class.');
             return;
         }
 
-        $structure = SuperAdminFeeStructure::where('organization_id', $this->selectedSchool->id)
+        $structure = SuperAdminFeeStructure::where('organization_id', $orgId)
             ->where('academic_year', $this->academicYear)
             ->where('fee_type', 'per_student')
             ->active()
             ->first();
 
         $students = StudentDetail::with(['user', 'section'])
-            ->where('organization_id', $this->selectedSchool->id)
+            ->where('organization_id', $orgId)
             ->where('standard_id', $this->updateStandardId)
             ->when($this->updateSectionId, fn($q) => $q->where('section_id', $this->updateSectionId))
             ->get();
@@ -620,7 +709,14 @@ class Fees extends Component
 
     public function loadInstallments(): void
     {
-        $structure = SuperAdminFeeStructure::where('organization_id', $this->selectedSchool->id)
+        $orgId = $this->activeOrgId();
+
+        if (!$orgId) {
+            $this->installments = [];
+            return;
+        }
+
+        $structure = SuperAdminFeeStructure::where('organization_id', $orgId)
             ->where('academic_year', $this->academicYear)
             ->where('fee_type', 'one_time')
             ->active()
@@ -731,7 +827,8 @@ class Fees extends Component
         ]);
 
         $structure = SuperAdminFeeStructure::find($this->payStructureId);
-        if (!$structure) {
+        $orgId     = $this->activeOrgId();
+        if (!$structure || !$orgId) {
             $this->notification()->error('Invalid data.');
             return;
         }
@@ -758,7 +855,7 @@ class Fees extends Component
                     'installment_period'           => $this->payInstallmentKey,
                 ],
                 [
-                    'organization_id'    => $this->selectedSchool->id,
+                    'organization_id'    => $orgId,
                     'student_detail_id'  => null,
                     'standard_id'        => null,
                     'section_id'         => null,
@@ -802,7 +899,7 @@ class Fees extends Component
                 'super_admin_fee_structure_id' => $this->payStructureId,
             ],
             [
-                'organization_id' => $this->selectedSchool->id,
+                'organization_id' => $orgId,
                 'standard_id'     => $structure->standard_id, // null for per_student
                 'section_id'      => $student->section_id,
                 'amount'          => $collected,
@@ -824,7 +921,8 @@ class Fees extends Component
     {
         $structure = SuperAdminFeeStructure::find($structureId);
         $student   = StudentDetail::find($studentId);
-        if (!$structure || !$student) return;
+        $orgId     = $this->activeOrgId();
+        if (!$structure || !$student || !$orgId) return;
 
         SuperAdminFeePayment::updateOrCreate(
             [
@@ -832,7 +930,7 @@ class Fees extends Component
                 'super_admin_fee_structure_id' => $structureId,
             ],
             [
-                'organization_id' => $this->selectedSchool->id,
+                'organization_id' => $orgId,
                 'standard_id'     => $structure->standard_id,
                 'section_id'      => $student->section_id,
                 'amount'          => $structure->amount,
@@ -850,7 +948,8 @@ class Fees extends Component
     public function markInstallmentPaid($key, $structureId, $amount): void
     {
         $structure = SuperAdminFeeStructure::find($structureId);
-        if (!$structure) return;
+        $orgId     = $this->activeOrgId();
+        if (!$structure || !$orgId) return;
 
         SuperAdminFeePayment::updateOrCreate(
             [
@@ -858,7 +957,7 @@ class Fees extends Component
                 'installment_period'           => $key,
             ],
             [
-                'organization_id'   => $this->selectedSchool->id,
+                'organization_id'   => $orgId,
                 'student_detail_id' => null,
                 'amount'            => $amount,
                 'academic_year'     => $this->academicYear,
@@ -875,13 +974,15 @@ class Fees extends Component
     {
         $this->closePayModal();
 
-        if ($this->currentFeeType() === 'one_time') {
+        if ($this->updateOrgFeeType === 'one_time') {
             $this->loadInstallments();
-        } else {
+        } elseif ($this->updateOrgFeeType === 'per_student' && $this->updateStandardId) {
             $this->loadStudentFeeList();
         }
 
-        $this->loadSchoolStats();
+        if ($this->selectedSchool) {
+            $this->loadSchoolStats();
+        }
         $this->loadGlobalStats();
         $this->notification()->success($message);
     }
@@ -891,7 +992,10 @@ class Fees extends Component
         $feeStructures  = collect();
         $currentFeeType = null;
         $schools        = null;
-        $boards          = collect();
+        $boards         = collect();
+
+        // For the student-style School filter and the Update Fee panel's org picker.
+        $organizations = Organization::orderBy('name')->get(['id', 'name']);
 
         if ($this->activeView === 'list') {
             $schools = $this->schoolsQuery()->paginate(12);
@@ -908,6 +1012,6 @@ class Fees extends Component
             $currentFeeType = $this->currentFeeType();
         }
 
-        return view('livewire.super-admin.fees', compact('feeStructures', 'currentFeeType', 'schools', 'boards'));
+        return view('livewire.super-admin.fees', compact('feeStructures', 'currentFeeType', 'schools', 'boards', 'organizations'));
     }
 }
