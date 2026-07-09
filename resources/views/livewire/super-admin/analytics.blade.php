@@ -24,7 +24,7 @@
                 </select>
             </div>
         </div>
-        <div class="px-4 sm:px-6 flex items-center gap-1 overflow-x-auto">
+        <div class="px-4 sm:px-6 flex items-center gap-1 overflow-x-auto mt-4 pt-4 border-t border-gray-200">
             @foreach ([
                 'overview'  => 'Overview',
                 'credit'    => 'Credit',
@@ -479,11 +479,12 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
                 @foreach ([
                     ['label' => 'Paid (' . ($payrollStats['payableMonth'] ?? '—') . ')',    'value' => number_format($payrollStats['paidThisMonth'] ?? 0),    'color' => 'emerald'],
                     ['label' => 'Pending (' . ($payrollStats['payableMonth'] ?? '—') . ')', 'value' => number_format($payrollStats['pendingThisMonth'] ?? 0), 'color' => 'amber'],
                     ['label' => 'Avg Salary',    'value' => '₹' . number_format($payrollStats['avgSalary'] ?? 0, 0),     'color' => 'blue'],
+                    ['label' => 'Lowest Salary', 'value' => '₹' . number_format($payrollStats['lowestSalary'] ?? 0, 0),  'color' => 'gray'],
                     ['label' => 'Highest Salary','value' => '₹' . number_format($payrollStats['highestSalary'] ?? 0, 0), 'color' => 'violet'],
                     ['label' => 'Paid This Year','value' => '₹' . number_format($payrollStats['paidThisYear'] ?? 0, 0),  'color' => 'teal'],
                 ] as $s)
@@ -494,31 +495,90 @@
                 @endforeach
             </div>
 
-            {{-- Salary paid per month chart --}}
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-sm font-bold text-gray-900">Salary Paid per Month (₹)</h2>
-                    <span class="flex items-center gap-1.5 text-xs text-gray-500"><span class="w-3 h-3 rounded-full bg-violet-500 inline-block"></span> Paid out</span>
+            {{-- Salary paid per month + payment mode split --}}
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <div class="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-sm font-bold text-gray-900">Salary Paid per Month (₹)</h2>
+                        <span class="flex items-center gap-1.5 text-xs text-gray-500"><span class="w-3 h-3 rounded-full bg-violet-500 inline-block"></span> Paid out</span>
+                    </div>
+                    <div style="height: 240px; position: relative;">
+                        <canvas id="payrollMonthlyChart"></canvas>
+                    </div>
                 </div>
-                <div style="height: 240px; position: relative;">
-                    <canvas id="payrollMonthlyChart"></canvas>
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <h2 class="text-sm font-bold text-gray-900 mb-4">Payouts by Mode</h2>
+                    @if (count($payrollModes['data'] ?? []) > 0)
+                        <div style="height: 210px; position: relative;">
+                            <canvas id="payrollModeChart"></canvas>
+                        </div>
+                    @else
+                        <p class="text-sm text-gray-400 py-8 text-center">No paid records yet</p>
+                    @endif
                 </div>
             </div>
 
-            {{-- Employee type breakdown (dynamic — all payroll types) --}}
+            {{-- Employee type breakdown (dynamic — all payroll types, count + salary bill) --}}
             @if (!empty($payrollStats['byType']))
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
                     <h2 class="text-sm font-bold text-gray-900 mb-4">Employees by Type</h2>
                     <div class="grid grid-cols-2 sm:grid-cols-5 gap-4">
-                        @foreach ($payrollStats['byType'] as $type => $count)
+                        @foreach ($payrollStats['byType'] as $type => $row)
                             <div class="flex flex-col items-center p-4 bg-gray-50 rounded-xl">
-                                <p class="text-2xl font-bold text-gray-800">{{ $count }}</p>
+                                <p class="text-2xl font-bold text-gray-800">{{ $row['count'] }}</p>
                                 <p class="text-xs text-gray-500 mt-1 capitalize">{{ $type }}</p>
+                                <p class="text-[11px] text-gray-400 mt-1">₹{{ number_format($row['salary'], 0) }} bill</p>
                             </div>
                         @endforeach
                     </div>
                 </div>
             @endif
+
+            {{-- Pending this month + recent payouts --}}
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                        <h2 class="text-sm font-bold text-gray-900">Unpaid for {{ $payrollStats['payableMonth'] ?? '—' }}</h2>
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100">{{ count($payrollPending) }}</span>
+                    </div>
+                    @if (count($payrollPending) > 0)
+                        <div class="max-h-80 overflow-y-auto divide-y divide-gray-50">
+                            @foreach ($payrollPending as $row)
+                                <div class="px-5 py-3 flex items-center justify-between">
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-semibold text-gray-800 truncate">{{ $row['name'] }}</p>
+                                        <p class="text-[11px] text-gray-400 capitalize">{{ $row['designation'] ?: $row['type'] }}</p>
+                                    </div>
+                                    <span class="text-sm font-semibold text-gray-700 flex-shrink-0">₹{{ number_format($row['salary'], 0) }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <p class="text-sm text-gray-400 py-8 text-center">Everyone's been paid 🎉</p>
+                    @endif
+                </div>
+
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div class="px-5 py-4 border-b border-gray-100">
+                        <h2 class="text-sm font-bold text-gray-900">Recent Payouts</h2>
+                    </div>
+                    @if (count($payrollRecent) > 0)
+                        <div class="max-h-80 overflow-y-auto divide-y divide-gray-50">
+                            @foreach ($payrollRecent as $row)
+                                <div class="px-5 py-3 flex items-center justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-semibold text-gray-800 truncate">{{ $row['name'] }}</p>
+                                        <p class="text-[11px] text-gray-400">{{ $row['month'] }} · {{ $row['mode'] }} · {{ $row['date'] }}</p>
+                                    </div>
+                                    <span class="text-sm font-bold text-emerald-600 flex-shrink-0">₹{{ number_format($row['amount'], 0) }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <p class="text-sm text-gray-400 py-8 text-center">No payouts yet</p>
+                    @endif
+                </div>
+            </div>
         @endif
 
         {{-- ══════════════════════════════════════════════════════════
@@ -849,6 +909,31 @@
                         ]
                     },
                     options: options(true)
+                });
+
+                makeChart('payrollModeChart', {
+                    type: 'doughnut',
+                    data: {
+                        labels: p.payroll.modes.labels || [],
+                        datasets: [{
+                            data: p.payroll.modes.data || [],
+                            backgroundColor: ['#8b5cf6', '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#14b8a6', '#6b7280'],
+                            borderWidth: 2,
+                            borderColor: '#fff',
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '58%',
+                        plugins: {
+                            legend: { position: 'bottom', labels: { font: { size: 10 }, color: '#6b7280', boxWidth: 10 } },
+                            tooltip: {
+                                backgroundColor: '#1f2937', padding: 10, cornerRadius: 8,
+                                callbacks: { label: ctx => ctx.label + ': ' + inr(ctx.parsed) }
+                            }
+                        }
+                    }
                 });
 
                 // ── Enquiries ──

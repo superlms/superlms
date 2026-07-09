@@ -41,6 +41,9 @@ class Analytics extends Component
 
     public array $payrollStats   = [];
     public array $payrollMonthly = [];
+    public array $payrollModes   = [];
+    public array $payrollPending = [];
+    public array $payrollRecent  = [];
 
     public array $enquiryStats   = [];
     public array $enquiryMonthly = [];
@@ -359,17 +362,61 @@ class Analytics extends Component
         $totalPaidAmount  = (float) SuperAdminSalaryPayment::forMonth($payableMonth)->paid()->sum('amount');
 
         // Employee types come from the payroll module so new types show up automatically.
-        $typeRows = SuperAdminEmployee::selectRaw('type, COUNT(*) as c')->groupBy('type')->pluck('c', 'type');
-        $byType   = [];
+        $typeRows   = SuperAdminEmployee::selectRaw('type, COUNT(*) as c')->groupBy('type')->pluck('c', 'type');
+        $salaryRows = SuperAdminEmployee::selectRaw('type, SUM(salary) as s')->groupBy('type')->pluck('s', 'type');
+        $byType     = [];
         foreach (Payroll::EMP_TYPES as $type) {
-            $byType[$type] = (int) ($typeRows[$type] ?? 0);
+            $byType[$type] = [
+                'count'  => (int) ($typeRows[$type] ?? 0),
+                'salary' => (float) ($salaryRows[$type] ?? 0),
+            ];
         }
         // Legacy/unexpected types still show instead of silently disappearing.
         foreach ($typeRows as $type => $count) {
             if (!isset($byType[$type])) {
-                $byType[$type] = (int) $count;
+                $byType[$type] = ['count' => (int) $count, 'salary' => (float) ($salaryRows[$type] ?? 0)];
             }
         }
+
+        // Payment-mode split (mirrors the Fee tab's mode breakdown)
+        $modes = SuperAdminSalaryPayment::paid()
+            ->selectRaw("COALESCE(NULLIF(payment_mode, ''), 'other') as mode, SUM(amount) as total")
+            ->groupBy('mode')
+            ->orderByDesc('total')
+            ->pluck('total', 'mode');
+
+        $this->payrollModes = [
+            'labels' => $modes->keys()->map(fn($m) => ucwords(str_replace('_', ' ', $m)))->toArray(),
+            'data'   => $modes->values()->map(fn($v) => (float) $v)->toArray(),
+        ];
+
+        // Employees still unpaid for the payable month — who needs paying, right now.
+        $paidEmployeeIds = SuperAdminSalaryPayment::forMonth($payableMonth)->paid()->pluck('super_admin_employee_id');
+        $this->payrollPending = SuperAdminEmployee::where('is_active', true)
+            ->whereNotIn('id', $paidEmployeeIds)
+            ->orderBy('name')
+            ->get(['id', 'name', 'type', 'designation', 'salary'])
+            ->map(fn($e) => [
+                'name'        => $e->name,
+                'type'        => $e->type,
+                'designation' => $e->designation,
+                'salary'      => (float) $e->salary,
+            ])->toArray();
+
+        // Most recent payouts, whatever month they were for.
+        $this->payrollRecent = SuperAdminSalaryPayment::paid()
+            ->with('employee:id,name,type')
+            ->orderByDesc('payment_date')
+            ->limit(8)
+            ->get()
+            ->map(fn($p) => [
+                'name'   => $p->employee?->name ?? 'Unknown',
+                'type'   => $p->employee?->type ?? '—',
+                'month'  => $p->month ? \Carbon\Carbon::parse($p->month . '-01')->format('M Y') : '—',
+                'amount' => (float) $p->amount,
+                'mode'   => $p->payment_mode ? ucwords(str_replace('_', ' ', $p->payment_mode)) : '—',
+                'date'   => $p->payment_date?->format('d M Y') ?? '—',
+            ])->toArray();
 
         $this->payrollStats = [
             'totalEmployees'         => $totalEmployees,
@@ -382,6 +429,7 @@ class Analytics extends Component
             // Extra detail
             'avgSalary'              => $totalEmployees > 0 ? round((float) SuperAdminEmployee::avg('salary'), 0) : 0,
             'highestSalary'          => (float) (SuperAdminEmployee::max('salary') ?? 0),
+            'lowestSalary'           => (float) (SuperAdminEmployee::where('is_active', true)->min('salary') ?? 0),
             'paidThisYear'           => (float) SuperAdminSalaryPayment::paid()
                 ->where('month', 'like', now()->format('Y') . '-%')
                 ->sum('amount'),
@@ -504,7 +552,8 @@ class Analytics extends Component
                 'modes'     => $this->feeModes,
             ],
             'payroll'  => [
-                'paid' => $this->payrollMonthly['paid'] ?? [],
+                'paid'  => $this->payrollMonthly['paid'] ?? [],
+                'modes' => $this->payrollModes,
             ],
             'enquiry'  => [
                 'demo'    => $this->enquiryMonthly['demo'] ?? [],
