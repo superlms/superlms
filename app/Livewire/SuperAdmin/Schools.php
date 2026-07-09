@@ -797,12 +797,27 @@ class Schools extends Component
             ->latest()
             ->paginate(12);
 
-        // Distinct boards actually present in the data, for the filter dropdown.
-        $boards = Organization::whereNotNull('education_board')
-            ->where('education_board', '<>', '')
-            ->distinct()
-            ->orderBy('education_board')
-            ->pluck('education_board');
+        // Filter dropdown: every selectable board type (same list as the Add
+        // School form) merged with any legacy values already in the data — so
+        // all types always show even before a school uses them.
+        $boardOptions = [
+            'CBSE',
+            'UP BOARD',
+            'UP BOARD (ENGLISH MEDIUM)',
+            'UP BOARD (HINDI MEDIUM)',
+            'UP BOARD (HINDI & ENGLISH MEDIUM)',
+        ];
+
+        $boards = collect($boardOptions)
+            ->merge(
+                Organization::whereNotNull('education_board')
+                    ->where('education_board', '<>', '')
+                    ->distinct()
+                    ->pluck('education_board')
+            )
+            ->unique(fn($b) => mb_strtoupper(trim($b)))
+            ->sort()
+            ->values();
 
         // ── Fee Stats ─────────────────────────────────────────────────────────
         $feeStats = [];
@@ -825,6 +840,31 @@ class Schools extends Component
                 ->get()
                 ->mapWithKeys(fn($row) => ["{$row->year}-{$row->month}" => (float) $row->total])
                 ->toArray();
+
+            // ── Total to collect, from the school's active fee structures ──
+            // Academic structures apply to every student of the class/section;
+            // transport structures only to students with transport required.
+            // Same logic the admin Fee module / student export uses.
+            $structures = \App\Models\Admin\Fee\FeeStructure::where('organization_id', $orgId)
+                ->where('is_active', true)
+                ->get(['standard_id', 'section_id', 'fee_type', 'amount']);
+
+            $feeStudents = StudentDetail::where('organization_id', $orgId)
+                ->get(['id', 'standard_id', 'section_id', 'transportation_required']);
+
+            $academicToCollect  = 0.0;
+            $transportToCollect = 0.0;
+            foreach ($feeStudents as $s) {
+                $applicable = $structures->filter(
+                    fn($st) => (int) $st->standard_id === (int) $s->standard_id
+                        && (is_null($st->section_id) || (int) $st->section_id === (int) $s->section_id)
+                );
+                $academicToCollect += (float) $applicable->where('fee_type', 'academic')->sum('amount');
+                if ($s->transportation_required) {
+                    $transportToCollect += (float) $applicable->where('fee_type', 'transport')->sum('amount');
+                }
+            }
+            $totalToCollect = $academicToCollect + $transportToCollect;
 
             $feeStats = [
                 'total_collected'    => FeePayment::forOrg($orgId)->sum('amount'),
@@ -852,9 +892,12 @@ class Schools extends Component
                     ->take(10)
                     ->get(),
                 'fy_monthly_chart'   => $fyMonthlyChart,
-                // Adjust this query to match your FeeStructure model
-                'total_to_collect'   => 0,
+                'total_to_collect'      => $totalToCollect,
+                'academic_to_collect'   => $academicToCollect,
+                'transport_to_collect'  => $transportToCollect,
             ];
+
+            $feeStats['total_remaining'] = max(0, $totalToCollect - (float) $feeStats['total_collected']);
         }
 
         // ── Student Stats ─────────────────────────────────────────────────────

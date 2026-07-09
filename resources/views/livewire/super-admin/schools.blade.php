@@ -21,8 +21,8 @@
                     </button>
                 </div>
 
-                {{-- Analytics chips — wrap freely so the header never overflows --}}
-                <div class="flex flex-wrap items-center gap-2 mt-3">
+                {{-- Analytics chips — divider separates them from the title row --}}
+                <div class="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-gray-200">
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-200 text-xs text-gray-500">All <strong class="text-gray-900">{{ $totalSchools }}</strong></span>
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-100 text-xs text-indigo-600">This Week <strong class="text-indigo-700">{{ $weekSchools }}</strong></span>
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-100 text-xs text-blue-600">This Month <strong class="text-blue-700">{{ $monthSchools }}</strong></span>
@@ -578,11 +578,26 @@
                         {{-- ── Overall Fee Analytics Cards ── --}}
                         <div class="p-5 border-b border-gray-100 bg-gray-50">
                             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                                {{-- Total Collected --}}
+                                {{-- Total to Collect (Academic + Transport) --}}
                                 <div class="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-1">
-                                    <p class="text-xs text-gray-400 font-medium">Total Collected</p>
+                                    <p class="text-xs text-gray-400 font-medium">Total to Collect</p>
+                                    <p class="text-xl font-bold text-gray-800">
+                                        ₹{{ number_format($feeStats['total_to_collect'] ?? 0, 0) }}
+                                    </p>
+                                    <p class="text-[10px] text-gray-400">Academic + Transport</p>
+                                </div>
+                                {{-- Collected --}}
+                                <div class="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-1">
+                                    <p class="text-xs text-gray-400 font-medium">Collected</p>
                                     <p class="text-xl font-bold text-emerald-600">
                                         ₹{{ number_format($feeStats['total_collected'] ?? 0, 0) }}
+                                    </p>
+                                </div>
+                                {{-- Remaining --}}
+                                <div class="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-1">
+                                    <p class="text-xs text-gray-400 font-medium">Remaining</p>
+                                    <p class="text-xl font-bold text-red-500">
+                                        ₹{{ number_format($feeStats['total_remaining'] ?? 0, 0) }}
                                     </p>
                                 </div>
                                 {{-- This Month --}}
@@ -599,51 +614,24 @@
                                         ₹{{ number_format($feeStats['last_month'] ?? 0, 0) }}
                                     </p>
                                 </div>
-                                {{-- This Year --}}
+                                {{-- Academic collected / total --}}
                                 <div class="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-1">
-                                    <p class="text-xs text-gray-400 font-medium">This Year</p>
-                                    <p class="text-xl font-bold text-indigo-600">
-                                        ₹{{ number_format($feeStats['this_year'] ?? 0, 0) }}
+                                    <p class="text-xs text-gray-400 font-medium">Academic</p>
+                                    <p class="text-lg font-bold text-indigo-600 whitespace-nowrap">
+                                        ₹{{ number_format($feeStats['academic_total'] ?? 0, 0) }}
+                                        <span class="text-xs font-semibold text-gray-400">/ ₹{{ number_format($feeStats['academic_to_collect'] ?? 0, 0) }}</span>
                                     </p>
+                                    <p class="text-[10px] text-gray-400">collected / total</p>
                                 </div>
-                                {{-- Total Transactions --}}
+                                {{-- Transport collected / total --}}
                                 <div class="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-1">
-                                    <p class="text-xs text-gray-400 font-medium">Transactions</p>
-                                    <p class="text-xl font-bold text-gray-800">
-                                        {{ $feeStats['total_transactions'] ?? 0 }}
+                                    <p class="text-xs text-gray-400 font-medium">Transport</p>
+                                    <p class="text-lg font-bold text-amber-600 whitespace-nowrap">
+                                        ₹{{ number_format($feeStats['transport_total'] ?? 0, 0) }}
+                                        <span class="text-xs font-semibold text-gray-400">/ ₹{{ number_format($feeStats['transport_to_collect'] ?? 0, 0) }}</span>
                                     </p>
+                                    <p class="text-[10px] text-gray-400">collected / total</p>
                                 </div>
-                            </div>
-                        </div>
-
-                        {{-- Stats Strip (header-style, no chips) --}}
-                        <div class="px-5 py-3 border-b border-gray-100 bg-white">
-                            <div
-                                class="flex flex-wrap items-center gap-1 text-sm text-gray-500 divide-x divide-gray-300">
-                                <span class="pr-4">
-                                    To Collect:
-                                    <strong
-                                        class="text-gray-800">₹{{ number_format($feeStats['total_to_collect'] ?? 0, 0) }}</strong>
-                                </span>
-                                <span class="px-4">
-                                    Collected:
-                                    <strong
-                                        class="text-emerald-600">₹{{ number_format($feeStats['total_collected'] ?? 0, 0) }}</strong>
-                                </span>
-                                <span class="px-4">
-                                    This Month:
-                                    <strong
-                                        class="text-blue-600">₹{{ number_format($feeStats['this_month'] ?? 0, 0) }}</strong>
-                                </span>
-                                <span class="px-4">
-                                    Last Month:
-                                    <strong
-                                        class="text-purple-600">₹{{ number_format($feeStats['last_month'] ?? 0, 0) }}</strong>
-                                </span>
-                                <span class="pl-4">
-                                    Transactions:
-                                    <strong class="text-gray-800">{{ $feeStats['total_transactions'] ?? 0 }}</strong>
-                                </span>
                             </div>
                         </div>
 
