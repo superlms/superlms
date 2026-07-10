@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\v1;
 
 use App\Models\Admin\AdmissionEnquiry;
+use App\Models\Admin\Exam;
+use App\Models\Admin\ExamCopy;
 use App\Models\Admin\ExamSubjectMark;
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\Fee\FeeStructure;
@@ -410,6 +412,111 @@ class AdminController extends ApiController
             'feedback'     => $request->feedback,
             'submitted_at' => $r->created_at?->toIso8601String(),
         ], 'Thanks for rating!');
+    }
+
+    /** Shared exam/class/subject filter options for Performance & Exam Copy. */
+    private function examFilterOptions(int $orgId): array
+    {
+        return [
+            'exams'     => Exam::where('organization_id', $orgId)->orderByDesc('id')->get(['id', 'exam_name'])
+                ->map(fn ($e) => ['id' => $e->id, 'name' => $e->exam_name])->values(),
+            'standards' => Standard::where('organization_id', $orgId)->orderBy('id')->get(['id', 'name'])
+                ->map(fn ($s) => ['id' => $s->id, 'name' => $s->name])->values(),
+            'subjects'  => Subject::where('organization_id', $orgId)->orderBy('name')->get(['id', 'name'])
+                ->map(fn ($s) => ['id' => $s->id, 'name' => $s->name])->values(),
+        ];
+    }
+
+    /**
+     * GET /admin/exam-copies — evaluated answer copies (marks + PDFs).
+     */
+    public function examCopies(Request $request)
+    {
+        [$user, $err] = $this->authUser();
+        if ($err) return $err;
+        if ($err = $this->requireRole(self::ADMIN_ROLES)) return $err;
+
+        $orgId = $user->organization_id;
+        $q = ExamCopy::with(['studentDetail.user', 'standard', 'section', 'subject', 'exam'])
+            ->where('organization_id', $orgId);
+        foreach (['exam_id', 'standard_id', 'section_id', 'subject_id'] as $p) {
+            if ($request->filled($p)) $q->where($p, (int) $request->input($p));
+        }
+        if ($search = trim((string) $request->input('search', ''))) {
+            $q->whereHas('studentDetail.user', fn ($w) => $w->where('name', 'like', "%{$search}%"));
+        }
+
+        $base = ExamCopy::where('organization_id', $orgId);
+        foreach (['exam_id', 'standard_id', 'section_id', 'subject_id'] as $p) {
+            if ($request->filled($p)) $base->where($p, (int) $request->input($p));
+        }
+
+        $rows = $q->latest()->take(300)->get()->map(fn ($c) => [
+            'id'             => $c->id,
+            'student'        => $c->studentDetail?->user?->name ?? $c->studentDetail?->full_name ?? '—',
+            'class'          => $c->standard?->name,
+            'section'        => $c->section?->name,
+            'subject'        => $c->subject?->name,
+            'exam'           => $c->exam?->exam_name,
+            'marks_obtained' => $c->marks_obtained,
+            'max_marks'      => $c->max_marks,
+            'percentage'     => $c->percentage !== null ? (float) $c->percentage : null,
+            'grade'          => $c->grade,
+            'remarks'        => $c->remarks,
+            'is_absent'      => (bool) $c->is_absent,
+            'has_pdf'        => ! empty($c->pdf_path),
+            'pdf_url'        => $c->pdf_path,
+        ])->values();
+
+        return $this->success([
+            'copies'  => $rows,
+            'stats'   => [
+                'total'    => (clone $base)->count(),
+                'uploaded' => (clone $base)->whereNotNull('pdf_path')->count(),
+                'pending'  => (clone $base)->whereNull('pdf_path')->count(),
+            ],
+            'options' => $this->examFilterOptions($orgId),
+        ], 'Exam copies fetched.');
+    }
+
+    /**
+     * GET /admin/performance — exam performance aggregated per subject.
+     */
+    public function performance(Request $request)
+    {
+        [$user, $err] = $this->authUser();
+        if ($err) return $err;
+        if ($err = $this->requireRole(self::ADMIN_ROLES)) return $err;
+
+        $orgId = $user->organization_id;
+        $q = ExamCopy::where('organization_id', $orgId)->whereNotNull('percentage');
+        foreach (['exam_id', 'standard_id', 'section_id', 'subject_id'] as $p) {
+            if ($request->filled($p)) $q->where($p, (int) $request->input($p));
+        }
+
+        $overall = (clone $q)->selectRaw('COUNT(*) total, AVG(percentage) avg_pct, COUNT(DISTINCT exam_id) exams_cnt, COUNT(DISTINCT student_detail_id) students_cnt')->first();
+
+        $subjectNames = Subject::where('organization_id', $orgId)->pluck('name', 'id');
+        $bySubject = (clone $q)->selectRaw('subject_id, COUNT(*) cnt, AVG(percentage) avg_pct, MAX(percentage) max_pct, MIN(percentage) min_pct')
+            ->groupBy('subject_id')->get()
+            ->map(fn ($r) => [
+                'subject'  => $subjectNames[$r->subject_id] ?? '—',
+                'count'    => (int) $r->cnt,
+                'avg'      => round((float) $r->avg_pct, 1),
+                'max'      => round((float) $r->max_pct, 1),
+                'min'      => round((float) $r->min_pct, 1),
+            ])->sortByDesc('avg')->values();
+
+        return $this->success([
+            'stats'    => [
+                'copies'   => (int) ($overall->total ?? 0),
+                'avg'      => round((float) ($overall->avg_pct ?? 0), 1),
+                'exams'    => (int) ($overall->exams_cnt ?? 0),
+                'students' => (int) ($overall->students_cnt ?? 0),
+            ],
+            'subjects' => $bySubject,
+            'options'  => $this->examFilterOptions($orgId),
+        ], 'Performance fetched.');
     }
 
     private function profile(User $user): array

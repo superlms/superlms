@@ -311,6 +311,10 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/rating',     [AdminController::class, 'getRating']);
             Route::post('/rating',    [AdminController::class, 'submitRating']);
 
+            // Performance & Exam Copies (read)
+            Route::get('/performance', [AdminController::class, 'performance']);
+            Route::get('/exam-copies', [AdminController::class, 'examCopies']);
+
             // Profile / School Info (mirrors web Components\Profile)
             Route::get('/profile',                   [AdminProfileController::class, 'show']);
             Route::post('/profile/logo',             [AdminProfileController::class, 'updateLogo']);
