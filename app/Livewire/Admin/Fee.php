@@ -91,6 +91,10 @@ class Fee extends Component
     public $analyticsSectionId   = '';
     public $analyticsData        = [];
     public $analyticsStudentList = [];
+    public $analyticsDaily         = [];   // last 14 days collection series
+    public $analyticsModeBreakdown = [];   // cash / online / cheque / bank_transfer
+    public $analyticsPeriodStats   = [];   // today / week / month totals & counts
+    public $analyticsRecentPayments = [];  // latest payments feed
 
     // ─── Payments ─────────────────────────────────────────────────────────────
     public $paymentModeFilter    = '';
@@ -646,6 +650,14 @@ class Fee extends Component
         $this->sections = $this->viewStudentStandardId
             ? Section::where('standard_id', $this->viewStudentStandardId)->where('is_active', true)->get()
             : [];
+        // Load the class's students right away so the Student picker is usable
+        // even before a section is chosen (section is optional).
+        $this->students = $this->viewStudentStandardId
+            ? StudentDetail::with('user')
+                ->where('organization_id', $this->orgId())
+                ->where('standard_id', $this->viewStudentStandardId)
+                ->get()
+            : [];
     }
 
     public function updatedViewStudentSectionId(): void
@@ -658,6 +670,15 @@ class Fee extends Component
                 ->where('standard_id', $this->viewStudentStandardId)
                 ->when($this->viewStudentSectionId, fn($q) => $q->where('section_id', $this->viewStudentSectionId))
                 ->get();
+        }
+    }
+
+    public function updatedViewStudentId(): void
+    {
+        // Auto-load the ledger the moment a student is picked.
+        $this->studentFeeView = [];
+        if ($this->viewStudentId) {
+            $this->loadStudentFeeView();
         }
     }
 
@@ -844,6 +865,65 @@ class Fee extends Component
                 'collected'    => $collected,
             ];
         })->values()->toArray();
+
+        $this->loadAnalyticsDaily();
+    }
+
+    /**
+     * Daily collection series (last 14 days), payment-mode split, period
+     * totals and a recent-payments feed — powers the redesigned analytics
+     * dashboard so admins can watch day-by-day cash flow.
+     */
+    private function loadAnalyticsDaily(): void
+    {
+        $orgId = $this->orgId();
+
+        // Fresh base query honouring the class/section filters.
+        $base = fn () => FeePayment::where('organization_id', $orgId)
+            ->when($this->analyticsStandardId, fn ($q) => $q->where('standard_id', $this->analyticsStandardId))
+            ->when($this->analyticsSectionId, fn ($q) => $q->where('section_id', $this->analyticsSectionId));
+
+        // ── Last 14 days series ──
+        $labels = $amounts = $counts = [];
+        for ($i = 13; $i >= 0; $i--) {
+            $day = today()->subDays($i);
+            $labels[]  = $day->format('d M');
+            $amounts[] = (float) $base()->whereDate('payment_date', $day)->sum('amount');
+            $counts[]  = (int)   $base()->whereDate('payment_date', $day)->count();
+        }
+        $this->analyticsDaily = ['labels' => $labels, 'amounts' => $amounts, 'counts' => $counts];
+
+        // ── Payment-mode breakdown (this financial context = all matching) ──
+        $modes = ['cash', 'online', 'cheque', 'bank_transfer'];
+        $this->analyticsModeBreakdown = [];
+        foreach ($modes as $mode) {
+            $this->analyticsModeBreakdown[$mode] = (float) $base()->where('payment_mode', $mode)->sum('amount');
+        }
+
+        // ── Period stats ──
+        $today = today();
+        $this->analyticsPeriodStats = [
+            'today_amt'   => (float) $base()->whereDate('payment_date', $today)->sum('amount'),
+            'today_cnt'   => (int)   $base()->whereDate('payment_date', $today)->count(),
+            'week_amt'    => (float) $base()->whereBetween('payment_date', [$today->copy()->startOfWeek(), $today->copy()->endOfWeek()])->sum('amount'),
+            'month_amt'   => (float) $base()->whereMonth('payment_date', $today->month)->whereYear('payment_date', $today->year)->sum('amount'),
+            'month_cnt'   => (int)   $base()->whereMonth('payment_date', $today->month)->whereYear('payment_date', $today->year)->count(),
+            'avg_txn'     => (float) $base()->avg('amount'),
+        ];
+
+        // ── Recent payments feed ──
+        $this->analyticsRecentPayments = $base()
+            ->with(['studentDetail.user', 'standard', 'section'])
+            ->orderByDesc('payment_date')->orderByDesc('id')
+            ->take(8)->get()
+            ->map(fn ($p) => [
+                'name'    => $p->studentDetail->user->name ?? '-',
+                'class'   => trim(($p->standard->name ?? '') . ($p->section ? ' / ' . $p->section->name : '')) ?: '-',
+                'amount'  => (float) $p->amount,
+                'mode'    => str_replace('_', ' ', $p->payment_mode),
+                'date'    => \Carbon\Carbon::parse($p->payment_date)->format('d M Y'),
+                'receipt' => $p->receipt_number,
+            ])->toArray();
     }
 
     // ─── Payments ─────────────────────────────────────────────────────────────

@@ -1,4 +1,7 @@
 <div class="min-h-screen bg-gray-50">
+    {{-- Local cloak rule so Alpine-collapsed panels stay hidden before init
+         (independent of any global x-cloak style). --}}
+    <style>[x-cloak]{display:none !important;}</style>
 
     {{-- Tab catalog (label, icon, description, color) — defined up top so the
          sticky header can show the active tab's own name. --}}
@@ -185,43 +188,158 @@
                 </div>
             </div>
         @elseif ($activeTab === 'payments')
+            @php
+                $paymentActiveCount = count(array_filter([
+                    $paymentStandardId, $paymentSectionId, $paymentStudentId,
+                    $paymentModeFilter, $paymentDateFrom, $paymentDateTo,
+                ], fn ($v) => $v !== '' && $v !== null));
+            @endphp
+            <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3" x-data="{ open: false }">
+                {{-- Compact always-visible row --}}
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                        Filter by:
+                    </div>
+                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search student name…"
+                        class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-48 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                    <button type="button" @click="open = !open"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-gray-200 rounded-md text-gray-700 hover:bg-gray-50"
+                        :class="open ? 'ring-2 ring-blue-500 border-blue-500' : ''">
+                        <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                        Advanced filters
+                        @if ($paymentActiveCount)
+                            <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-blue-600 rounded-full">{{ $paymentActiveCount }}</span>
+                        @endif
+                        <svg class="w-3 h-3 text-gray-400 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    @if ($paymentStandardId || $paymentSectionId || $paymentStudentId || $paymentModeFilter || $paymentDateFrom || $paymentDateTo || $search)
+                        <button wire:click="clearPaymentFilters"
+                            class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            Clear
+                        </button>
+                    @endif
+                    <span class="ml-auto hidden sm:inline-flex items-center gap-1.5 text-xs text-gray-500">
+                        Filtered total: <strong class="text-emerald-600">₹{{ number_format($paymentFilteredTotal ?? 0, 0) }}</strong>
+                    </span>
+                </div>
+
+                {{-- Collapsible advanced filter grid --}}
+                <div x-show="open" x-cloak x-transition.opacity
+                    class="mt-3 pt-3 border-t border-gray-200 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-medium text-gray-500 mb-1">Class</label>
+                        <select wire:model.live="paymentStandardId" class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            <option value="">All Classes</option>
+                            @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-gray-500 mb-1">Section</label>
+                        <select wire:model.live="paymentSectionId" class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            <option value="">All Sections</option>
+                            @foreach ($sections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-gray-500 mb-1">Student</label>
+                        <select wire:model.live="paymentStudentId" class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            <option value="">All Students</option>
+                            @foreach ($paymentStudents as $stu)<option value="{{ $stu->id }}">{{ $stu->full_name ?? ($stu->user->name ?? 'Unknown') }}</option>@endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-gray-500 mb-1">Payment Mode</label>
+                        <select wire:model.live="paymentModeFilter" class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            <option value="">All Modes</option>
+                            <option value="cash">Cash</option>
+                            <option value="online">Online</option>
+                            <option value="cheque">Cheque</option>
+                            <option value="bank_transfer">Bank Transfer</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-gray-500 mb-1">From Date</label>
+                        <input type="date" wire:model.live="paymentDateFrom" class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" />
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-medium text-gray-500 mb-1">To Date</label>
+                        <input type="date" wire:model.live="paymentDateTo" class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" />
+                    </div>
+                </div>
+            </div>
+        @elseif ($activeTab === 'view_fee')
             <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
                 <div class="flex flex-wrap items-center gap-3">
                     <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
                         <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
                         Filter by:
                     </div>
-                    <select wire:model.live="paymentStandardId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    {{-- Sub-tab pills --}}
+                    <div class="inline-flex items-center bg-white border border-gray-200 rounded-lg p-0.5">
+                        @foreach (['by_student' => 'By Student', 'by_class' => 'By Class'] as $k => $lbl)
+                            <button wire:click="setViewSubTab('{{ $k }}')"
+                                class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ $viewSubTab === $k ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:text-gray-800' }}">
+                                {{ $lbl }}
+                            </button>
+                        @endforeach
+                    </div>
+                    <span class="w-px h-5 bg-gray-200"></span>
+
+                    @if ($viewSubTab === 'by_student')
+                        <select wire:model.live="viewStudentStandardId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            <option value="">Select Class</option>
+                            @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
+                        </select>
+                        <select wire:model.live="viewStudentSectionId" @disabled(!$viewStudentStandardId) class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
+                            <option value="">All Sections</option>
+                            @foreach ($sections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
+                        </select>
+                        <select wire:model.live="viewStudentId" @disabled(!$viewStudentStandardId) class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[200px] disabled:opacity-50">
+                            <option value="">Select Student</option>
+                            @foreach ($students as $stu)<option value="{{ $stu->id }}">{{ $stu->user->name ?? 'Unknown' }}</option>@endforeach
+                        </select>
+                    @else
+                        <select wire:model.live="viewClassStandardId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            <option value="">Select Class</option>
+                            @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
+                        </select>
+                        <select wire:model.live="viewClassSectionId" @disabled(!$viewClassStandardId) class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
+                            <option value="">All Sections</option>
+                            @foreach ($sections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
+                        </select>
+                        <button wire:click="loadClassFeeView" @disabled(!$viewClassStandardId)
+                            class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md disabled:opacity-50">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7" /></svg>
+                            Load Students
+                        </button>
+                    @endif
+                </div>
+            </div>
+        @elseif ($activeTab === 'analytics')
+            <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                        Filter by:
+                    </div>
+                    <select wire:model.live="analyticsStandardId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                         <option value="">All Classes</option>
                         @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
                     </select>
-                    <select wire:model.live="paymentSectionId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <select wire:model.live="analyticsSectionId" @disabled(!$analyticsStandardId) class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
                         <option value="">All Sections</option>
                         @foreach ($sections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
                     </select>
-                    <select wire:model.live="paymentStudentId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[160px]">
-                        <option value="">All Students</option>
-                        @foreach ($paymentStudents as $stu)<option value="{{ $stu->id }}">{{ $stu->full_name ?? ($stu->user->name ?? 'Unknown') }}</option>@endforeach
-                    </select>
-                    <input type="date" wire:model.live="paymentDateFrom" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" title="From date" />
-                    <span class="text-gray-300">→</span>
-                    <input type="date" wire:model.live="paymentDateTo" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" title="To date" />
-                    <select wire:model.live="paymentModeFilter" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                        <option value="">All Modes</option>
-                        <option value="cash">Cash</option>
-                        <option value="online">Online</option>
-                        <option value="cheque">Cheque</option>
-                        <option value="bank_transfer">Bank Transfer</option>
-                    </select>
-                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search student name…"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-44 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                    @if ($paymentStandardId || $paymentSectionId || $paymentStudentId || $paymentModeFilter || $paymentDateFrom || $paymentDateTo || $search)
-                        <button wire:click="clearPaymentFilters"
-                            class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                            Clear
-                        </button>
-                    @endif
+                    <button wire:click="loadAnalytics"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-gray-200 rounded-md text-gray-700 hover:bg-gray-50">
+                        <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        Refresh
+                    </button>
+                    <span class="ml-auto hidden sm:inline-flex items-center gap-1.5 text-xs text-gray-500">
+                        Collected: <strong class="text-emerald-600">₹{{ number_format($analyticsData['collected'] ?? 0, 0) }}</strong>
+                    </span>
                 </div>
             </div>
         @elseif ($activeTab === 'penalties')
@@ -500,82 +618,56 @@
     {{-- TAB 3: VIEW FEE                                                 --}}
     {{-- ════════════════════════════════════════════════════════════════ --}}
     @if ($activeTab === 'view_fee')
-        <div class="border-b border-gray-200 mb-6">
-            <nav class="-mb-px flex space-x-6">
-                @foreach (['by_student' => 'By Student', 'by_class' => 'By Class'] as $key => $label)
-                    <button wire:click="setViewSubTab('{{ $key }}')"
-                        class="relative whitespace-nowrap py-3 px-1 font-medium text-sm {{ $viewSubTab === $key ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700' }}">
-                        {{ $label }}
-                        @if ($viewSubTab === $key)
-                            <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>
-                        @endif
-                    </button>
-                @endforeach
-            </nav>
-        </div>
-
         @if ($viewSubTab === 'by_student')
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-6">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Class</label>
-                        <select wire:model.live="viewStudentStandardId"
-                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-                            <option value="">Select Class</option>
-                            @foreach ($standards as $std)
-                                <option value="{{ $std->id }}">{{ $std->name }}</option>
-                            @endforeach
-                        </select>
+            @if (!empty($studentFeeView))
+                @php
+                    $sv = $studentFeeView;
+                    $stu = $sv['student'];
+                    $collectPct = $sv['totalFee'] > 0 ? min(100, round(($sv['totalPaid'] / $sv['totalFee']) * 100, 1)) : 0;
+                @endphp
+
+                {{-- Student header card --}}
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-5">
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+                        <div class="w-14 h-14 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl font-bold flex-shrink-0">
+                            {{ strtoupper(mb_substr($stu->user->name ?? 'S', 0, 1)) }}
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <h3 class="text-lg font-bold text-gray-900">{{ $stu->user->name ?? 'Unknown' }}</h3>
+                            <p class="text-sm text-gray-500">
+                                {{ $stu->standard->name ?? '-' }}{{ $stu->section ? ' / ' . $stu->section->name : '' }}
+                                @if ($stu->admission_no) · Adm {{ $stu->admission_no }} @endif
+                            </p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs text-gray-400 uppercase tracking-wide">Collection</p>
+                            <p class="text-2xl font-bold {{ $collectPct >= 100 ? 'text-emerald-600' : 'text-blue-600' }}">{{ $collectPct }}%</p>
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Section (optional)</label>
-                        <select wire:model.live="viewStudentSectionId"
-                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-                            <option value="">All Sections</option>
-                            @foreach ($sections as $sec)
-                                <option value="{{ $sec->id }}">{{ $sec->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Student</label>
-                        <select wire:model.live="viewStudentId"
-                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-                            <option value="">Select Student</option>
-                            @foreach ($students as $stu)
-                                <option value="{{ $stu->id }}">{{ $stu->user->name ?? 'Unknown' }}</option>
-                            @endforeach
-                        </select>
+                    <div class="mt-4">
+                        <div class="w-full bg-gray-100 rounded-full h-2.5">
+                            <div class="h-2.5 rounded-full {{ $collectPct >= 100 ? 'bg-emerald-500' : 'bg-blue-500' }}" style="width: {{ $collectPct }}%"></div>
+                        </div>
                     </div>
                 </div>
-                @if ($viewStudentId)
-                    <div class="mt-4 flex justify-end">
-                        <button wire:click="loadStudentFeeView"
-                            class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors">
-                            View Fee Details
-                        </button>
-                    </div>
-                @endif
-            </div>
 
-            @if (!empty($studentFeeView))
-                @php $sv = $studentFeeView; @endphp
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
-                        <p class="text-xs text-blue-600 font-medium uppercase">Total Fee</p>
-                        <p class="text-2xl font-bold text-blue-800 mt-1">₹{{ number_format($sv['totalFee'], 2) }}</p>
+                {{-- Clean stat cards --}}
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white rounded-xl border border-gray-200 p-4">
+                        <p class="text-xs text-gray-400 uppercase tracking-wide">Total Fee</p>
+                        <p class="text-xl font-bold text-gray-900 mt-1">₹{{ number_format($sv['totalFee'], 0) }}</p>
                     </div>
-                    <div class="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg p-4 border border-emerald-200">
-                        <p class="text-xs text-emerald-600 font-medium uppercase">Paid</p>
-                        <p class="text-2xl font-bold text-emerald-800 mt-1">₹{{ number_format($sv['totalPaid'], 2) }}</p>
+                    <div class="bg-white rounded-xl border border-gray-200 p-4">
+                        <p class="text-xs text-gray-400 uppercase tracking-wide">Paid</p>
+                        <p class="text-xl font-bold text-emerald-600 mt-1">₹{{ number_format($sv['totalPaid'], 0) }}</p>
                     </div>
-                    <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-4 border border-red-200">
-                        <p class="text-xs text-red-600 font-medium uppercase">Remaining</p>
-                        <p class="text-2xl font-bold text-red-800 mt-1">₹{{ number_format($sv['remaining'], 2) }}</p>
+                    <div class="bg-white rounded-xl border border-gray-200 p-4">
+                        <p class="text-xs text-gray-400 uppercase tracking-wide">Remaining</p>
+                        <p class="text-xl font-bold text-red-500 mt-1">₹{{ number_format($sv['remaining'], 0) }}</p>
                     </div>
-                    <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-4 border border-indigo-200">
-                        <p class="text-xs text-indigo-600 font-medium uppercase">Academic Fee</p>
-                        <p class="text-2xl font-bold text-indigo-800 mt-1">₹{{ number_format($sv['academicTotal'], 2) }}</p>
+                    <div class="bg-white rounded-xl border border-gray-200 p-4">
+                        <p class="text-xs text-gray-400 uppercase tracking-wide">Academic Fee</p>
+                        <p class="text-xl font-bold text-indigo-600 mt-1">₹{{ number_format($sv['academicTotal'], 0) }}</p>
                     </div>
                 </div>
 
@@ -631,41 +723,20 @@
                         </div>
                     </div>
                 </div>
+            @else
+                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div class="text-center py-16 px-4">
+                        <div class="w-12 h-12 mx-auto mb-3 bg-indigo-50 rounded-full flex items-center justify-center">
+                            <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                        </div>
+                        <p class="text-sm font-semibold text-gray-800">Select a student</p>
+                        <p class="text-xs text-gray-400 mt-1">Use the filters above (Class → Section → Student) to view the full fee ledger.</p>
+                    </div>
+                </div>
             @endif
         @endif
 
         @if ($viewSubTab === 'by_class')
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-6">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Class <span class="text-red-500">*</span></label>
-                        <select wire:model.live="viewClassStandardId"
-                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-                            <option value="">Select Class</option>
-                            @foreach ($standards as $std)
-                                <option value="{{ $std->id }}">{{ $std->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Section (optional)</label>
-                        <select wire:model.live="viewClassSectionId"
-                            class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-                            <option value="">All Sections</option>
-                            @foreach ($sections as $sec)
-                                <option value="{{ $sec->id }}">{{ $sec->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="flex items-end">
-                        <button wire:click="loadClassFeeView"
-                            class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors">
-                            Load Students
-                        </button>
-                    </div>
-                </div>
-            </div>
-
             @if (!empty($classFeeList))
                 <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
                     <div class="overflow-x-auto">
@@ -708,6 +779,16 @@
                         </table>
                     </div>
                 </div>
+            @else
+                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div class="text-center py-16 px-4">
+                        <div class="w-12 h-12 mx-auto mb-3 bg-indigo-50 rounded-full flex items-center justify-center">
+                            <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                        </div>
+                        <p class="text-sm font-semibold text-gray-800">Pick a class</p>
+                        <p class="text-xs text-gray-400 mt-1">Choose a class (and optional section) above, then press <strong>Load Students</strong> to see class-wide fee collection.</p>
+                    </div>
+                </div>
             @endif
         @endif
     @endif
@@ -716,57 +797,182 @@
     {{-- TAB 4: ANALYTICS                                                --}}
     {{-- ════════════════════════════════════════════════════════════════ --}}
     @if ($activeTab === 'analytics')
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Filter by Class</label>
-                    <select wire:model.live="analyticsStandardId"
-                        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-                        <option value="">All Classes</option>
-                        @foreach ($standards as $std)
-                            <option value="{{ $std->id }}">{{ $std->name }}</option>
-                        @endforeach
-                    </select>
+        @php
+            $aCollectPct = ($analyticsData['totalFee'] ?? 0) > 0
+                ? min(100, round((($analyticsData['collected'] ?? 0) / $analyticsData['totalFee']) * 100, 1)) : 0;
+            $modeMax = !empty($analyticsModeBreakdown) ? max(array_map('floatval', $analyticsModeBreakdown)) : 0;
+            $modeMeta = [
+                'cash'          => ['label' => 'Cash',          'color' => 'bg-emerald-500'],
+                'online'        => ['label' => 'Online',        'color' => 'bg-blue-500'],
+                'cheque'        => ['label' => 'Cheque',        'color' => 'bg-amber-500'],
+                'bank_transfer' => ['label' => 'Bank Transfer', 'color' => 'bg-violet-500'],
+            ];
+        @endphp
+
+        {{-- ── Period stat cards (daily / week / month) ── --}}
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+            <div class="bg-white rounded-xl border border-gray-200 p-5">
+                <div class="flex items-center justify-between">
+                    <p class="text-xs text-gray-400 uppercase tracking-wide">Collected Today</p>
+                    <span class="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </span>
                 </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Filter by Section</label>
-                    <select wire:model.live="analyticsSectionId"
-                        class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-                        <option value="">All Sections</option>
-                        @foreach ($sections as $sec)
-                            <option value="{{ $sec->id }}">{{ $sec->name }}</option>
-                        @endforeach
-                    </select>
+                <p class="text-2xl font-bold text-gray-900 mt-2">₹{{ number_format($analyticsPeriodStats['today_amt'] ?? 0, 0) }}</p>
+                <p class="text-xs text-gray-400 mt-1">{{ $analyticsPeriodStats['today_cnt'] ?? 0 }} payment(s)</p>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 p-5">
+                <div class="flex items-center justify-between">
+                    <p class="text-xs text-gray-400 uppercase tracking-wide">This Week</p>
+                    <span class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    </span>
                 </div>
-                <div class="flex items-end">
-                    <button wire:click="loadAnalytics"
-                        class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors">
-                        Refresh Analytics
-                    </button>
+                <p class="text-2xl font-bold text-gray-900 mt-2">₹{{ number_format($analyticsPeriodStats['week_amt'] ?? 0, 0) }}</p>
+                <p class="text-xs text-gray-400 mt-1">Mon–Sun</p>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 p-5">
+                <div class="flex items-center justify-between">
+                    <p class="text-xs text-gray-400 uppercase tracking-wide">This Month</p>
+                    <span class="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13h2l1 5h12l1-5h2M5 13L4 4h16l-1 9" /></svg>
+                    </span>
+                </div>
+                <p class="text-2xl font-bold text-gray-900 mt-2">₹{{ number_format($analyticsPeriodStats['month_amt'] ?? 0, 0) }}</p>
+                <p class="text-xs text-gray-400 mt-1">{{ $analyticsPeriodStats['month_cnt'] ?? 0 }} payment(s)</p>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 p-5">
+                <div class="flex items-center justify-between">
+                    <p class="text-xs text-gray-400 uppercase tracking-wide">Avg / Payment</p>
+                    <span class="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                    </span>
+                </div>
+                <p class="text-2xl font-bold text-gray-900 mt-2">₹{{ number_format($analyticsPeriodStats['avg_txn'] ?? 0, 0) }}</p>
+                <p class="text-xs text-gray-400 mt-1">Across all filtered</p>
+            </div>
+        </div>
+
+        {{-- ── Collection totals + progress ── --}}
+        @if (!empty($analyticsData))
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-5">
+                <div class="lg:col-span-1 grid grid-cols-2 lg:grid-cols-1 gap-4">
+                    <div class="bg-white rounded-xl border border-gray-200 p-4">
+                        <p class="text-xs text-gray-400 uppercase tracking-wide">Total Fee</p>
+                        <p class="text-lg font-bold text-gray-900 mt-1">₹{{ number_format($analyticsData['totalFee'], 0) }}</p>
+                    </div>
+                    <div class="bg-white rounded-xl border border-gray-200 p-4">
+                        <p class="text-xs text-gray-400 uppercase tracking-wide">Transport</p>
+                        <p class="text-lg font-bold text-cyan-600 mt-1">₹{{ number_format($analyticsData['transportTotal'], 0) }}</p>
+                    </div>
+                </div>
+                <div class="lg:col-span-3 bg-white rounded-xl border border-gray-200 p-5">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
+                        <div>
+                            <p class="text-xs text-gray-400 uppercase tracking-wide">Collected</p>
+                            <p class="text-xl font-bold text-emerald-600 mt-1">₹{{ number_format($analyticsData['collected'], 0) }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-400 uppercase tracking-wide">Remaining</p>
+                            <p class="text-xl font-bold text-red-500 mt-1">₹{{ number_format($analyticsData['remaining'], 0) }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-400 uppercase tracking-wide">Collection Rate</p>
+                            <p class="text-xl font-bold text-blue-600 mt-1">{{ $aCollectPct }}%</p>
+                        </div>
+                    </div>
+                    <div class="w-full bg-gray-100 rounded-full h-2.5">
+                        <div class="h-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600" style="width: {{ $aCollectPct }}%"></div>
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        {{-- ── Daily payments chart + payment mode breakdown ── --}}
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+            <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="font-semibold text-gray-800">Daily Collections</h3>
+                        <p class="text-xs text-gray-400">Last 14 days</p>
+                    </div>
+                </div>
+                <div class="h-60" wire:key="analytics-daily-{{ $analyticsStandardId }}-{{ $analyticsSectionId }}">
+                    <canvas x-data="{
+                        chart: null,
+                        init() {
+                            this.chart = new Chart(this.$el.getContext('2d'), {
+                                type: 'bar',
+                                data: {
+                                    labels: @js($analyticsDaily['labels'] ?? []),
+                                    datasets: [{ label: 'Collected', data: @js($analyticsDaily['amounts'] ?? []), backgroundColor: 'rgba(16,185,129,0.75)', borderRadius: 4, borderSkipped: false }]
+                                },
+                                options: {
+                                    responsive: true, maintainAspectRatio: false,
+                                    plugins: { legend: { display: false } },
+                                    scales: {
+                                        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                                        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 10 }, callback: (v) => '₹' + v.toLocaleString('en-IN') } }
+                                    }
+                                }
+                            });
+                        }
+                    }"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl border border-gray-200 p-5">
+                <h3 class="font-semibold text-gray-800 mb-4">Payment Modes</h3>
+                <div class="space-y-4">
+                    @foreach ($modeMeta as $key => $meta)
+                        @php $val = $analyticsModeBreakdown[$key] ?? 0; $pct = $modeMax > 0 ? ($val / $modeMax) * 100 : 0; @endphp
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-gray-500">{{ $meta['label'] }}</span>
+                                <span class="font-semibold text-gray-700">₹{{ number_format($val, 0) }}</span>
+                            </div>
+                            <div class="w-full bg-gray-100 rounded-full h-2">
+                                <div class="h-2 rounded-full {{ $meta['color'] }}" style="width: {{ $pct }}%"></div>
+                            </div>
+                        </div>
+                    @endforeach
                 </div>
             </div>
         </div>
 
-        @if (!empty($analyticsData))
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-5 border border-indigo-200">
-                    <p class="text-xs text-indigo-600 font-medium uppercase">Total Fee</p>
-                    <p class="text-xl font-bold text-indigo-800 mt-1">₹{{ number_format($analyticsData['totalFee'], 0) }}</p>
-                </div>
-                <div class="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-5 border border-emerald-200">
-                    <p class="text-xs text-emerald-600 font-medium uppercase">Collected</p>
-                    <p class="text-xl font-bold text-emerald-800 mt-1">₹{{ number_format($analyticsData['collected'], 0) }}</p>
-                </div>
-                <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-5 border border-red-200">
-                    <p class="text-xs text-red-600 font-medium uppercase">Remaining</p>
-                    <p class="text-xl font-bold text-red-800 mt-1">₹{{ number_format($analyticsData['remaining'], 0) }}</p>
-                </div>
-                <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-5 border border-green-200">
-                    <p class="text-xs text-green-600 font-medium uppercase">Transport Total</p>
-                    <p class="text-xl font-bold text-green-800 mt-1">₹{{ number_format($analyticsData['transportTotal'], 0) }}</p>
-                </div>
+        {{-- ── Recent payments feed ── --}}
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-5">
+            <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-gray-700">Recent Payments</h3>
+                <button wire:click="showTab('payments')" class="text-xs font-medium text-blue-600 hover:text-blue-800">View all →</button>
             </div>
-        @endif
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+                    <tr>
+                        <th class="px-4 py-2.5 text-left">Student</th>
+                        <th class="px-4 py-2.5 text-left">Class/Sec</th>
+                        <th class="px-4 py-2.5 text-left">Receipt</th>
+                        <th class="px-4 py-2.5 text-left">Mode</th>
+                        <th class="px-4 py-2.5 text-left">Date</th>
+                        <th class="px-4 py-2.5 text-right">Amount</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    @forelse ($analyticsRecentPayments as $rp)
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-2.5 font-medium text-gray-800">{{ $rp['name'] }}</td>
+                            <td class="px-4 py-2.5 text-gray-500">{{ $rp['class'] }}</td>
+                            <td class="px-4 py-2.5 font-mono text-xs text-blue-700">{{ $rp['receipt'] }}</td>
+                            <td class="px-4 py-2.5 capitalize text-gray-600">{{ $rp['mode'] }}</td>
+                            <td class="px-4 py-2.5 text-gray-600">{{ $rp['date'] }}</td>
+                            <td class="px-4 py-2.5 text-right font-semibold text-emerald-600">₹{{ number_format($rp['amount'], 0) }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="6" class="px-4 py-10 text-center text-gray-400">No payments recorded yet.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
 
         @if (!empty($analyticsStudentList))
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
