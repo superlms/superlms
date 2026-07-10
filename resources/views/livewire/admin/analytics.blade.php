@@ -1,35 +1,46 @@
-<div class="p-4 sm:p-5 bg-slate-50 min-h-screen space-y-6">
+<div class="min-h-screen bg-slate-50">
 
     {{-- ══════════════════════════════════════════════════════════
-     PAGE HEADER
+     DASHBOARD HEADER  (sticky app-style bar)
     ══════════════════════════════════════════════════════════ --}}
-    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-6">
-        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div class="flex items-start gap-3">
-                <span class="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0 shadow-sm">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                </span>
-                <div>
-                    <h1 class="text-2xl font-bold text-slate-800 tracking-tight">School Analytics</h1>
-                    <p class="text-slate-500 text-sm mt-0.5">Deep-dive into attendance, admissions, fees &amp; performance · {{ now()->format('l, d F Y') }}</p>
+    <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
+        <div class="px-4 sm:px-6 py-4 sm:py-5">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <span class="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                    </span>
+                    <div>
+                        <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Analytics Dashboard</h1>
+                        <p class="text-sm text-gray-500 mt-0.5">Attendance, admissions, fees &amp; performance insights</p>
+                    </div>
                 </div>
-            </div>
-            <div class="flex flex-wrap items-center gap-2">
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-medium">
-                    <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                    {{ number_format($statsData['totalStudents'] ?? 0) }} Students
-                </span>
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-medium">
-                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                    {{ $kpis['student_rate'] ?? 0 }}% Attendance Today
-                </span>
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 text-xs font-medium">
-                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                    {{ $kpis['collect_rate'] ?? 0 }}% Fee Collected
-                </span>
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-600 whitespace-nowrap">
+                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        {{ now()->format('l, d M Y') }}
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-medium">
+                        <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                        {{ number_format($statsData['totalStudents'] ?? 0) }} Students
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-medium">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        {{ $kpis['student_rate'] ?? 0 }}% Attendance
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 text-xs font-medium">
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                        {{ $kpis['collect_rate'] ?? 0 }}% Collected
+                    </span>
+                </div>
             </div>
         </div>
     </div>
+
+    {{-- ══════════════════════════════════════════════════════════
+     DASHBOARD BODY
+    ══════════════════════════════════════════════════════════ --}}
+    <div class="p-4 sm:p-6 space-y-6">
 
     {{-- ─────────────── SECTION: KEY METRICS ─────────────── --}}
     <x-admin.section-heading title="Key Metrics" subtitle="Live performance indicators with day-over-day movement" color="indigo"
@@ -605,4 +616,5 @@
         @endif
     </div>
 
+    </div>
 </div>
