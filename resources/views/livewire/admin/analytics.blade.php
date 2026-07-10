@@ -3,12 +3,38 @@
     {{-- ══════════════════════════════════════════════════════════
      PAGE HEADER
 ══════════════════════════════════════════════════════════ --}}
-    <div class="flex items-center justify-between">
-        <div>
-            <h1 class="text-2xl font-bold text-slate-800 tracking-tight">School Analytics</h1>
-            <p class="text-slate-500 text-sm mt-0.5">{{ now()->format('l, d F Y') }}</p>
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-6">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div class="flex items-start gap-3">
+                <span class="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                </span>
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-800 tracking-tight">School Analytics</h1>
+                    <p class="text-slate-500 text-sm mt-0.5">Attendance, fees & activity insights · {{ now()->format('l, d F Y') }}</p>
+                </div>
+            </div>
+            {{-- Header summary chips --}}
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-medium">
+                    <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                    {{ number_format($statsData['totalStudents'] ?? 0) }} Students
+                </span>
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-medium">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    {{ number_format($statsData['presentToday'] ?? 0) }} Present Today
+                </span>
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 text-xs font-medium">
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                    ₹{{ number_format($feeStats['collected'] ?? 0) }} Collected
+                </span>
+            </div>
         </div>
     </div>
+
+    {{-- ─────────────── SECTION: OVERVIEW ─────────────── --}}
+    <x-admin.section-heading title="Overview" subtitle="Key metrics at a glance" color="indigo"
+        icon="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
 
     {{-- ══════════════════════════════════════════════════════════
      1. STATS CARDS
@@ -71,6 +97,10 @@
             </div>
         @endforeach
     </div>
+
+    {{-- ─────────────── SECTION: ATTENDANCE ANALYTICS ─────────────── --}}
+    <x-admin.section-heading title="Attendance Analytics" subtitle="Students & teachers · academic year and recent trends" color="emerald"
+        icon="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
 
     {{-- ══════════════════════════════════════════════════════════
      2. STUDENT ATTENDANCE  (bar chart Apr–Mar + pie last N days)
@@ -257,6 +287,10 @@
         </div>
     </div>
 
+    {{-- ─────────────── SECTION: PERFORMANCE ─────────────── --}}
+    <x-admin.section-heading title="Performance" subtitle="Top attendance performers by class & section" color="amber"
+        icon="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+
     {{-- ══════════════════════════════════════════════════════════
      4. BEST PERFORMERS
 ══════════════════════════════════════════════════════════ --}}
@@ -346,6 +380,10 @@
             <div class="text-center py-10 text-slate-400 text-sm">No student data found for selected filters.</div>
         @endif
     </div>
+
+    {{-- ─────────────── SECTION: OPERATIONS & COMMUNICATION ─────────────── --}}
+    <x-admin.section-heading title="Operations & Communication" subtitle="Enquiries, class-wise attendance, arrangements & announcements" color="blue"
+        icon="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
 
     {{-- ══════════════════════════════════════════════════════════
      5. ADMIN ENQUIRIES  +  CLASS DISTRIBUTION
@@ -590,6 +628,10 @@
             @endforelse
         </div>
     </div>
+
+    {{-- ─────────────── SECTION: FEE ANALYTICS ─────────────── --}}
+    <x-admin.section-heading title="Fee Analytics" subtitle="Collection performance across classes" color="violet"
+        icon="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
 
     {{-- ══════════════════════════════════════════════════════════
      9. FEE ANALYTICS
