@@ -30,6 +30,9 @@ use App\Http\Controllers\v1\AdminQuizController;
 use App\Http\Controllers\v1\AdminBookController;
 use App\Http\Controllers\v1\AdminTimetableController;
 use App\Http\Controllers\v1\AdminArrangementController;
+use App\Http\Controllers\v1\AdminHomeworkController;
+use App\Http\Controllers\v1\AdminAttendanceController;
+use App\Http\Controllers\v1\AdminTransportController;
 use App\Http\Controllers\v1\McqController;
 use App\Http\Controllers\v1\PaymentController;
 use App\Http\Controllers\PhonePeController;
@@ -443,6 +446,59 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/arrangement',         [AdminArrangementController::class, 'index']);
             Route::post('/arrangement',        [AdminArrangementController::class, 'assign']);
             Route::delete('/arrangement/{id}', [AdminArrangementController::class, 'destroy'])->whereNumber('id');
+
+            // ─── Homework (web parity) ───────────────────────────────────────
+            Route::get('/homework/lookups',  [AdminHomeworkController::class, 'lookups']);
+            Route::get('/homework/subjects', [AdminHomeworkController::class, 'subjects']);
+            Route::get('/homework/stats',    [AdminHomeworkController::class, 'stats']);
+            Route::get('/homework/status',   [AdminHomeworkController::class, 'status']);
+            Route::get('/homework',          [AdminHomeworkController::class, 'index']);
+            Route::post('/homework',         [AdminHomeworkController::class, 'store']);
+            Route::post('/homework/{id}',    [AdminHomeworkController::class, 'update'])->whereNumber('id');
+            Route::delete('/homework/{id}',  [AdminHomeworkController::class, 'destroy'])->whereNumber('id');
+
+            // ─── Attendance (web parity) ─────────────────────────────────────
+            Route::get('/attendance/lookups',            [AdminAttendanceController::class, 'lookups']);
+            Route::get('/attendance/students',           [AdminAttendanceController::class, 'students']);
+            // Teacher
+            Route::get('/attendance/teacher/mark',       [AdminAttendanceController::class, 'teacherMarkList']);
+            Route::post('/attendance/teacher/mark',      [AdminAttendanceController::class, 'submitTeacherAttendance']);
+            Route::get('/attendance/teacher/by-date',    [AdminAttendanceController::class, 'teacherByDate']);
+            Route::get('/attendance/teacher/calendar',   [AdminAttendanceController::class, 'teacherCalendar']);
+            // Student
+            Route::get('/attendance/student/mark',       [AdminAttendanceController::class, 'studentMarkList']);
+            Route::post('/attendance/student/mark',      [AdminAttendanceController::class, 'submitStudentAttendance']);
+            Route::get('/attendance/student/by-date',    [AdminAttendanceController::class, 'studentByDate']);
+            Route::get('/attendance/student/calendar',   [AdminAttendanceController::class, 'studentCalendar']);
+            // Class teachers
+            Route::get('/attendance/class-teachers',       [AdminAttendanceController::class, 'classTeachers']);
+            Route::post('/attendance/class-teachers',      [AdminAttendanceController::class, 'saveClassTeacher']);
+            Route::delete('/attendance/class-teachers/{id}', [AdminAttendanceController::class, 'deleteClassTeacher'])->whereNumber('id');
+
+            // ─── Transport (web parity) ──────────────────────────────────────
+            Route::get('/transport/stats',          [AdminTransportController::class, 'stats']);
+            Route::get('/transport/route-options',  [AdminTransportController::class, 'routeOptions']);
+            // Routes
+            Route::get('/transport/routes',              [AdminTransportController::class, 'routes']);
+            Route::post('/transport/routes',             [AdminTransportController::class, 'saveRoute']);
+            Route::post('/transport/routes/{id}',        [AdminTransportController::class, 'saveRoute'])->whereNumber('id');
+            Route::post('/transport/routes/{id}/toggle', [AdminTransportController::class, 'toggleRoute'])->whereNumber('id');
+            Route::delete('/transport/routes/{id}',      [AdminTransportController::class, 'deleteRoute'])->whereNumber('id');
+            // Drivers
+            Route::get('/transport/drivers',              [AdminTransportController::class, 'drivers']);
+            Route::post('/transport/drivers',             [AdminTransportController::class, 'saveDriver']);
+            Route::post('/transport/drivers/{id}',        [AdminTransportController::class, 'saveDriver'])->whereNumber('id');
+            Route::post('/transport/drivers/{id}/toggle', [AdminTransportController::class, 'toggleDriver'])->whereNumber('id');
+            Route::delete('/transport/drivers/{id}',      [AdminTransportController::class, 'deleteDriver'])->whereNumber('id');
+            // Transport students (per-month billing)
+            Route::get('/transport/students',        [AdminTransportController::class, 'students']);
+            Route::post('/transport/students/months',[AdminTransportController::class, 'saveStudentMonths']);
+            Route::delete('/transport/students',     [AdminTransportController::class, 'removeStudent']);
+            // Fees
+            Route::get('/transport/fees/students',       [AdminTransportController::class, 'feeStudents']);
+            Route::get('/transport/fees/summary',        [AdminTransportController::class, 'feeSummary']);
+            Route::post('/transport/fees/payment',       [AdminTransportController::class, 'recordPayment']);
+            Route::delete('/transport/fees/payment/{id}',[AdminTransportController::class, 'deletePayment'])->whereNumber('id');
         });
 
         // Accounts Api (role: accounts) — Phase 0
