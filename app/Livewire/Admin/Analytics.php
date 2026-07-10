@@ -49,6 +49,15 @@ class Analytics extends Component
     public $standards                = [];
     public $sections                 = [];
 
+    // ─── Deeper analytics (distinct from the home dashboard) ───────────────────
+    public $kpis                 = [];   // headline metrics with period deltas
+    public $attendanceTrendPct   = [];   // monthly attendance % (student vs teacher)
+    public $classAttendanceRank  = [];   // per-class attendance % ranking (30 days)
+    public $admissionsTrend      = [];   // new admissions per month (Apr–Mar)
+    public $feeClassRate         = [];   // per-class collection % with defaulters
+    public $lowPerformers        = [];   // lowest-attendance students (needs attention)
+    public $enquiryStats         = [];   // enquiry funnel counts
+
     protected $queryString = ['attendanceFilter', 'performerClass', 'performerSection'];
 
     // ─── DB status values ─────────────────────────────────────────────────────
@@ -83,11 +92,13 @@ class Analytics extends Component
         $this->loadSections();
         $this->performerSection = '';
         $this->loadTopStudents();
+        $this->loadLowPerformers();
     }
 
     public function updatedPerformerSection(): void
     {
         $this->loadTopStudents();
+        $this->loadLowPerformers();
     }
 
     public function saveArrangement(int $arrangementId): void
@@ -113,14 +124,212 @@ class Analytics extends Component
         $this->loadTeacherPie();
         $this->loadSections();
         $this->loadTopStudents();
-        $this->loadClassDistribution();
         $this->loadAdminEnquiries();
         $this->loadArrangements();
         $this->loadAnnouncements();
-        $this->loadRecentActivities();
-        $this->loadTodayHomework();
         $this->loadFeeStatsStatic();
         $this->loadFeeClassDataStatic();
+
+        // Deeper, analytics-only widgets
+        $this->loadAttendanceTrendPct();
+        $this->loadClassAttendanceRank();
+        $this->loadAdmissionsTrend();
+        $this->loadFeeClassRate();
+        $this->loadLowPerformers();
+        $this->loadEnquiryStats();
+        $this->loadKpis();
+    }
+
+    // ─── KPIs with period deltas ────────────────────────────────────────────────
+
+    protected function loadKpis(): void
+    {
+        $orgId = $this->orgId();
+        $today = Carbon::today();
+        $yest  = Carbon::yesterday();
+
+        $rate = function ($present, $total) {
+            return $total > 0 ? round(($present / $total) * 100, 1) : 0.0;
+        };
+
+        // Student attendance rate today vs yesterday
+        $stuPresentToday = StudentAttendance::where('organization_id', $orgId)->whereDate('attendance_date', $today)->where('status', self::STU_PRESENT)->count();
+        $stuTotalToday   = StudentAttendance::where('organization_id', $orgId)->whereDate('attendance_date', $today)->count();
+        $stuPresentYest  = StudentAttendance::where('organization_id', $orgId)->whereDate('attendance_date', $yest)->where('status', self::STU_PRESENT)->count();
+        $stuTotalYest    = StudentAttendance::where('organization_id', $orgId)->whereDate('attendance_date', $yest)->count();
+        $stuRateToday    = $rate($stuPresentToday, $stuTotalToday);
+        $stuRateYest     = $rate($stuPresentYest, $stuTotalYest);
+
+        // Teacher attendance rate today
+        $tchPresentToday = TeacherAttendance::where('organization_id', $orgId)->whereDate('attendance_date', $today)->where('status', self::TCH_PRESENT)->count();
+        $tchTotalToday   = TeacherAttendance::where('organization_id', $orgId)->whereDate('attendance_date', $today)->count();
+
+        // Fee collection rate + avg daily collection (30 days)
+        $totalFee   = (float) ($this->feeStats['totalFee'] ?? 0);
+        $collected  = (float) ($this->feeStats['collected'] ?? 0);
+        $collectRate = $totalFee > 0 ? round(($collected / $totalFee) * 100, 1) : 0.0;
+        $last30Sum  = (float) FeePayment::where('organization_id', $orgId)
+            ->where('payment_date', '>=', $today->copy()->subDays(29))->sum('amount');
+
+        // Students who have never paid (defaulters proxy)
+        $paidIds = FeePayment::where('organization_id', $orgId)
+            ->whereNotNull('student_detail_id')->distinct()->pluck('student_detail_id');
+        $unpaidStudents = StudentDetail::where('organization_id', $orgId)
+            ->whereNotIn('id', $paidIds)->count();
+
+        $this->kpis = [
+            'student_rate'     => $stuRateToday,
+            'student_delta'    => round($stuRateToday - $stuRateYest, 1),
+            'teacher_rate'     => $rate($tchPresentToday, $tchTotalToday),
+            'collect_rate'     => $collectRate,
+            'avg_daily'        => round($last30Sum / 30, 0),
+            'unpaid_students'  => $unpaidStudents,
+            'new_admissions'   => (int) ($this->statsData['newAdmissions'] ?? 0),
+        ];
+    }
+
+    // ─── Monthly attendance % trend (Apr–Mar) ───────────────────────────────────
+
+    protected function loadAttendanceTrendPct(): void
+    {
+        $pct = function ($present, $absent) {
+            $t = $present + $absent;
+            return $t > 0 ? round(($present / $t) * 100, 1) : 0;
+        };
+
+        $student = $teacher = [];
+        $sp = $this->studentMonthlyAttendance['present'] ?? [];
+        $sa = $this->studentMonthlyAttendance['absent']  ?? [];
+        $tp = $this->teacherMonthlyAttendance['present'] ?? [];
+        $ta = $this->teacherMonthlyAttendance['absent']  ?? [];
+
+        for ($i = 0; $i < 12; $i++) {
+            $student[] = $pct($sp[$i] ?? 0, $sa[$i] ?? 0);
+            $teacher[] = $pct($tp[$i] ?? 0, $ta[$i] ?? 0);
+        }
+
+        $this->attendanceTrendPct = [
+            'labels'  => $this->attendanceMonths,
+            'student' => $student,
+            'teacher' => $teacher,
+        ];
+    }
+
+    // ─── Class-wise attendance % ranking (last 30 days) ─────────────────────────
+
+    protected function loadClassAttendanceRank(): void
+    {
+        $orgId = $this->orgId();
+        $from  = Carbon::today()->subDays(29);
+        $rows  = [];
+
+        foreach (Standard::where('organization_id', $orgId)->orderBy('id')->get() as $std) {
+            $studentIds = StudentDetail::where('organization_id', $orgId)
+                ->where('standard_id', $std->id)->pluck('id');
+            if ($studentIds->isEmpty()) continue;
+
+            $present = StudentAttendance::whereIn('student_detail_id', $studentIds)
+                ->where('attendance_date', '>=', $from)->where('status', self::STU_PRESENT)->count();
+            $total = StudentAttendance::whereIn('student_detail_id', $studentIds)
+                ->where('attendance_date', '>=', $from)->count();
+
+            $rows[] = [
+                'name' => $std->name,
+                'pct'  => $total > 0 ? round(($present / $total) * 100, 1) : 0,
+                'present' => $present,
+                'total'   => $total,
+            ];
+        }
+
+        usort($rows, fn ($a, $b) => $b['pct'] <=> $a['pct']);
+        $this->classAttendanceRank = $rows;
+    }
+
+    // ─── Admissions trend (new students per month, Apr–Mar) ─────────────────────
+
+    protected function loadAdmissionsTrend(): void
+    {
+        $orgId = $this->orgId();
+        $now   = Carbon::now();
+        $yearStart = $now->month >= 4 ? Carbon::create($now->year, 4, 1) : Carbon::create($now->year - 1, 4, 1);
+
+        $labels = $data = [];
+        for ($i = 0; $i < 12; $i++) {
+            $mStart = $yearStart->copy()->addMonths($i)->startOfMonth();
+            $mEnd   = $yearStart->copy()->addMonths($i)->endOfMonth();
+            $labels[] = $mStart->format('M');
+            $data[]   = StudentDetail::where('organization_id', $orgId)
+                ->whereBetween('created_at', [$mStart, $mEnd])->count();
+        }
+
+        $this->admissionsTrend = ['labels' => $labels, 'data' => $data];
+    }
+
+    // ─── Per-class collection rate (%) with defaulters ──────────────────────────
+
+    protected function loadFeeClassRate(): void
+    {
+        $labels    = $this->feeClassData['labels'] ?? [];
+        $collected = $this->feeClassData['collected'] ?? [];
+        $remaining = $this->feeClassData['remaining'] ?? [];
+
+        $rows = [];
+        foreach ($labels as $i => $name) {
+            $c = (float) ($collected[$i] ?? 0);
+            $r = (float) ($remaining[$i] ?? 0);
+            $t = $c + $r;
+            $rows[] = [
+                'name'      => $name,
+                'collected' => $c,
+                'total'     => $t,
+                'pct'       => $t > 0 ? round(($c / $t) * 100, 1) : 0,
+            ];
+        }
+
+        usort($rows, fn ($a, $b) => $b['pct'] <=> $a['pct']);
+        $this->feeClassRate = $rows;
+    }
+
+    // ─── Lowest-attendance students (needs attention) ───────────────────────────
+
+    protected function loadLowPerformers(): void
+    {
+        $query = StudentDetail::with(['user', 'standard', 'section'])
+            ->where('organization_id', $this->orgId())
+            ->whereHas('studentAttendances')   // only students with attendance records
+            ->withCount([
+                'studentAttendances as present_count' => fn ($q) => $q->where('status', self::STU_PRESENT),
+                'studentAttendances as total_count',
+            ]);
+
+        if ($this->performerClass)   $query->where('standard_id', $this->performerClass);
+        if ($this->performerSection) $query->where('section_id', $this->performerSection);
+
+        // Pull the lowest-present set, then rank precisely by percentage in PHP.
+        $this->lowPerformers = $query->orderBy('present_count')
+            ->take(15)->get()
+            ->map(fn ($s) => [
+                'name'    => $s->user?->name ?? $s->full_name ?? 'N/A',
+                'class'   => $s->standard?->name ?? '—',
+                'section' => $s->section?->name ?? '—',
+                'score'   => $s->total_count > 0 ? round(($s->present_count / $s->total_count) * 100, 1) : 0,
+            ])
+            ->sortBy('score')->take(3)->values()->toArray();
+    }
+
+    // ─── Enquiry funnel ─────────────────────────────────────────────────────────
+
+    protected function loadEnquiryStats(): void
+    {
+        $total     = WebsiteContact::count();
+        $responded = WebsiteContact::whereNotNull('remark')->where('remark', '!=', '')->count();
+
+        $this->enquiryStats = [
+            'total'     => $total,
+            'responded' => $responded,
+            'pending'   => max(0, $total - $responded),
+            'rate'      => $total > 0 ? round(($responded / $total) * 100, 1) : 0,
+        ];
     }
 
     // ─── Stats Cards ──────────────────────────────────────────────────────────
