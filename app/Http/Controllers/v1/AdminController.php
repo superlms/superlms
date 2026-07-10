@@ -2,12 +2,19 @@
 
 namespace App\Http\Controllers\v1;
 
+use App\Models\Admin\AdmissionEnquiry;
+use App\Models\Admin\ExamSubjectMark;
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\Fee\FeeStructure;
+use App\Models\Admin\HomeWork;
+use App\Models\Admin\HomeWorkCompletion;
+use App\Models\Admin\LedgerTransaction;
 use App\Models\Organization;
+use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentAttendance;
 use App\Models\Student\StudentDetail;
+use App\Models\Student\Subject;
 use App\Models\Teacher\TeacherAttendance;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\User;
@@ -192,6 +199,62 @@ class AdminController extends ApiController
         usort($activities, fn ($a, $b) => $b['ts'] - $a['ts']);
         $activities = array_map(fn ($a) => ['title' => $a['title'], 'description' => $a['description'], 'time' => $a['time'], 'color' => $a['color']], array_slice($activities, 0, 6));
 
+        // ── School structure (classes / sections / subjects) ──
+        $structure = [
+            'classes'  => Standard::where('organization_id', $orgId)->count(),
+            'sections' => Section::where('organization_id', $orgId)->count(),
+            'subjects' => Subject::where('organization_id', $orgId)->count(),
+        ];
+
+        // ── Homework (last 60 days): assigned vs submitted vs pending ──
+        $homeworks     = HomeWork::where('organization_id', $orgId)
+            ->where('created_at', '>=', Carbon::now()->subDays(60))
+            ->get(['id', 'section_id']);
+        $sectionCounts = StudentDetail::where('organization_id', $orgId)
+            ->selectRaw('section_id, COUNT(*) as c')->groupBy('section_id')->pluck('c', 'section_id');
+        $hwExpected = 0;
+        foreach ($homeworks as $hw) {
+            $hwExpected += (int) ($sectionCounts[$hw->section_id] ?? 0);
+        }
+        $hwSubmitted = HomeWorkCompletion::whereIn('home_work_id', $homeworks->pluck('id'))->count();
+        $homework = [
+            'total'     => $homeworks->count(),
+            'submitted' => $hwSubmitted,
+            'pending'   => max(0, $hwExpected - $hwSubmitted),
+        ];
+
+        // ── Ledger (credit / expense / balance) ──
+        $ledgerCredit  = (float) LedgerTransaction::forOrg($orgId)->credit()->sum('amount');
+        $ledgerExpense = (float) LedgerTransaction::forOrg($orgId)->expense()->sum('amount');
+        $ledger = ['credit' => $ledgerCredit, 'expense' => $ledgerExpense, 'balance' => $ledgerCredit - $ledgerExpense];
+
+        // ── Enquiries (admission pipeline) ──
+        $enqTotal    = AdmissionEnquiry::where('organization_id', $orgId)->count();
+        $enqPending  = AdmissionEnquiry::where('organization_id', $orgId)->pending()->count();
+        $enqAdmitted = AdmissionEnquiry::where('organization_id', $orgId)->admitted()->count();
+        $enquiries = [
+            'total'    => $enqTotal,
+            'pending'  => $enqPending,
+            'admitted' => $enqAdmitted,
+            'other'    => max(0, $enqTotal - $enqPending - $enqAdmitted),
+        ];
+
+        // ── Exam performance (percentage distribution) ──
+        $marks   = ExamSubjectMark::where('organization_id', $orgId)->whereNotNull('percentage')->pluck('percentage');
+        $buckets = ['90–100' => 0, '75–89' => 0, '60–74' => 0, '40–59' => 0, '<40' => 0];
+        foreach ($marks as $p) {
+            if ($p >= 90)      $buckets['90–100']++;
+            elseif ($p >= 75)  $buckets['75–89']++;
+            elseif ($p >= 60)  $buckets['60–74']++;
+            elseif ($p >= 40)  $buckets['40–59']++;
+            else               $buckets['<40']++;
+        }
+        $performance = [
+            'avg'     => $marks->count() ? round($marks->avg(), 1) : 0,
+            'graded'  => $marks->count(),
+            'buckets' => ['labels' => array_keys($buckets), 'values' => array_values($buckets)],
+        ];
+
         return $this->success([
             'days'               => $days,
             'stats'              => compact('totalStudents', 'presentToday', 'absentToday', 'newAdmissions', 'teachers'),
@@ -202,6 +265,11 @@ class AdminController extends ApiController
             'top_students'       => $topStudents,
             'class_distribution' => $cd,
             'fee'                => $fee,
+            'structure'          => $structure,
+            'homework'           => $homework,
+            'ledger'             => $ledger,
+            'enquiries'          => $enquiries,
+            'performance'        => $performance,
             'recent_activities'  => $activities,
         ], 'Admin analytics fetched.');
     }
