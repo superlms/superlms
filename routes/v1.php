@@ -305,6 +305,12 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/dashboard', [AdminController::class, 'dashboard']);
             Route::get('/analytics', [AdminController::class, 'analytics']);
 
+            // More → Admissions / Users / Rate LMS
+            Route::get('/admissions', [AdminController::class, 'admissions']);
+            Route::get('/users',      [AdminController::class, 'users']);
+            Route::get('/rating',     [AdminController::class, 'getRating']);
+            Route::post('/rating',    [AdminController::class, 'submitRating']);
+
             // Profile / School Info (mirrors web Components\Profile)
             Route::get('/profile',                   [AdminProfileController::class, 'show']);
             Route::post('/profile/logo',             [AdminProfileController::class, 'updateLogo']);

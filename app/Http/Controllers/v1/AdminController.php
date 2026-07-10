@@ -9,6 +9,7 @@ use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Admin\HomeWork;
 use App\Models\Admin\HomeWorkCompletion;
 use App\Models\Admin\LedgerTransaction;
+use App\Models\Admin\RateLms;
 use App\Models\Organization;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
@@ -272,6 +273,143 @@ class AdminController extends ApiController
             'performance'        => $performance,
             'recent_activities'  => $activities,
         ], 'Admin analytics fetched.');
+    }
+
+    /**
+     * GET /admin/admissions — admission-enquiry pipeline (More → Admissions).
+     */
+    public function admissions(Request $request)
+    {
+        [$user, $err] = $this->authUser();
+        if ($err) return $err;
+        if ($err = $this->requireRole(self::ADMIN_ROLES)) return $err;
+
+        $orgId = $user->organization_id;
+        $q = AdmissionEnquiry::with('standard')->where('organization_id', $orgId);
+        if ($status = $request->input('status')) $q->where('status', $status);
+        if ($search = trim((string) $request->input('search', ''))) {
+            $q->where(fn ($w) => $w->where('student_name', 'like', "%{$search}%")
+                ->orWhere('mobile', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%"));
+        }
+
+        $rows = $q->latest()->take(300)->get()->map(fn ($e) => [
+            'id'               => $e->id,
+            'student_name'     => $e->student_name,
+            'email'            => $e->email,
+            'mobile'           => $e->mobile,
+            'guardian_name'    => $e->guardian_name,
+            'address'          => $e->address,
+            'class'            => $e->standard?->name,
+            'stream'           => $e->stream,
+            'admission_fee'    => (float) $e->admission_fee,
+            'collected_amount' => (float) $e->collected_amount,
+            'total_marks'      => $e->total_marks !== null ? (float) $e->total_marks : null,
+            'obtained_marks'   => $e->obtained_marks !== null ? (float) $e->obtained_marks : null,
+            'remarks'          => $e->remarks,
+            'status'           => $e->status,
+            'created_at'       => $e->created_at?->toIso8601String(),
+        ])->values();
+
+        return $this->success([
+            'admissions' => $rows,
+            'stats'      => [
+                'total'    => AdmissionEnquiry::where('organization_id', $orgId)->count(),
+                'pending'  => AdmissionEnquiry::where('organization_id', $orgId)->pending()->count(),
+                'admitted' => AdmissionEnquiry::where('organization_id', $orgId)->admitted()->count(),
+            ],
+        ], 'Admissions fetched.');
+    }
+
+    /**
+     * GET /admin/users — organization staff users (More → Users).
+     */
+    public function users(Request $request)
+    {
+        [$user, $err] = $this->authUser();
+        if ($err) return $err;
+        if ($err = $this->requireRole(self::ADMIN_ROLES)) return $err;
+
+        $orgId = $user->organization_id;
+        $q = User::where('organization_id', $orgId)->whereIn('role', ['admin', 'sub-admin']);
+        if (($st = $request->input('status')) !== null && $st !== '') $q->where('is_active', (int) $st);
+        if ($search = trim((string) $request->input('search', ''))) {
+            $q->where(fn ($w) => $w->where('name', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%")
+                ->orWhere('mobile_number', 'like', "%{$search}%"));
+        }
+
+        $rows = $q->orderBy('name')->take(300)->get()->map(fn ($u) => [
+            'id'              => $u->id,
+            'name'            => $u->name,
+            'email'           => $u->email,
+            'mobile'          => $u->mobile_number,
+            'role'            => $u->role,
+            'gender'          => $u->gender,
+            'is_active'       => (bool) $u->is_active,
+            'image'           => $u->image,
+            'date_of_joining' => $u->date_of_joining,
+        ])->values();
+
+        return $this->success([
+            'users' => $rows,
+            'stats' => [
+                'total'  => User::where('organization_id', $orgId)->whereIn('role', ['admin', 'sub-admin'])->count(),
+                'admins' => User::where('organization_id', $orgId)->where('role', 'admin')->count(),
+                'active' => User::where('organization_id', $orgId)->whereIn('role', ['admin', 'sub-admin'])->where('is_active', 1)->count(),
+            ],
+        ], 'Users fetched.');
+    }
+
+    /**
+     * GET /admin/rating — current organization LMS rating (More → Rate LMS).
+     */
+    public function getRating()
+    {
+        [$user, $err] = $this->authUser();
+        if ($err) return $err;
+        if ($err = $this->requireRole(self::ADMIN_ROLES)) return $err;
+
+        $r = RateLms::where('organization_id', $user->organization_id)->first();
+        $feedback = $r?->feedback;
+        if (is_string($feedback)) {
+            $decoded = json_decode($feedback, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_string($decoded)) $feedback = $decoded;
+        }
+
+        return $this->success([
+            'rated'        => (bool) $r,
+            'rating'       => $r ? (int) $r->rating : 0,
+            'feedback'     => $feedback ?? '',
+            'submitted_at' => $r?->created_at?->toIso8601String(),
+        ], 'Rating fetched.');
+    }
+
+    /**
+     * POST /admin/rating — submit / update the organization's LMS rating.
+     */
+    public function submitRating(Request $request)
+    {
+        [$user, $err] = $this->authUser();
+        if ($err) return $err;
+        if ($err = $this->requireRole(self::ADMIN_ROLES)) return $err;
+
+        if ($err = $this->validateWith($request, [
+            'rating'   => ['required', 'integer', 'min:1', 'max:5'],
+            'feedback' => ['required', 'string'],
+        ])) return $err;
+
+        $r = RateLms::updateOrCreate(
+            ['organization_id' => $user->organization_id],
+            ['rating' => (int) $request->rating, 'feedback' => $request->feedback, 'status' => true],
+        );
+
+        return $this->success([
+            'rated'        => true,
+            'rating'       => (int) $r->rating,
+            'feedback'     => $request->feedback,
+            'submitted_at' => $r->created_at?->toIso8601String(),
+        ], 'Thanks for rating!');
     }
 
     private function profile(User $user): array
