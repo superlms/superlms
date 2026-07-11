@@ -1,13 +1,6 @@
 <div class="min-h-screen bg-gray-50">
-
-    {{-- Flash --}}
-    @if(session('success'))
-    <div x-data="{show:true}" x-show="show" x-init="setTimeout(() => show = false, 4000)"
-        class="fixed top-4 right-4 z-[10001] flex items-center gap-2 bg-emerald-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg shadow-lg">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-        {{ session('success') }}
-    </div>
-    @endif
+    <x-notifications />
+    <x-dialog />
 
     {{-- ══════════════ HEADER (white, sticky) ══════════════ --}}
     <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
@@ -25,12 +18,12 @@
                         <span class="pl-4">This Week: <strong class="text-amber-500">{{ $this->analytics['this_week'] }}</strong></span>
                     </div>
                     @if ($activeTab === 'tc')
-                        <button wire:click="openTcModal" class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition">
+                        <button wire:click="createTc" class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
                             Issue TC
                         </button>
                     @else
-                        <button wire:click="openCertModal" class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition">
+                        <button wire:click="createCert" class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
                             <span class="hidden sm:inline">Issue Certificate</span><span class="sm:hidden">Issue</span>
                         </button>
@@ -38,6 +31,7 @@
                 </div>
             </div>
 
+            {{-- mobile analytics --}}
             <div class="flex lg:hidden items-center gap-3 sm:gap-4 text-xs text-gray-500 mt-3 flex-wrap">
                 <span>Total: <strong class="text-gray-800">{{ $this->analytics['total'] }}</strong></span>
                 <span>This Month: <strong class="text-emerald-600">{{ $this->analytics['this_month'] }}</strong></span>
@@ -46,15 +40,21 @@
             </div>
         </div>
 
-        {{-- Tabs --}}
+        {{-- Tabs (rules-regulation style, no numbering) --}}
         <div class="border-t border-gray-200 px-4 sm:px-6">
             <nav class="flex gap-1 overflow-x-auto">
-                <button wire:click="setTab('achievement')"
-                    class="py-3.5 px-5 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors {{ $activeTab === 'achievement' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">Achievement</button>
-                <button wire:click="setTab('participation')"
-                    class="py-3.5 px-5 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors {{ $activeTab === 'participation' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">Participation</button>
-                <button wire:click="setTab('tc')"
-                    class="py-3.5 px-5 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors {{ $activeTab === 'tc' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">Transfer Certificate</button>
+                <button wire:click="$set('activeTab','achievement')"
+                    class="py-3.5 px-5 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors {{ $activeTab === 'achievement' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
+                    Achievement
+                </button>
+                <button wire:click="$set('activeTab','participation')"
+                    class="py-3.5 px-5 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors {{ $activeTab === 'participation' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
+                    Participation
+                </button>
+                <button wire:click="$set('activeTab','tc')"
+                    class="py-3.5 px-5 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors {{ $activeTab === 'tc' ? 'border-blue-500 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
+                    Transfer Certificate
+                </button>
             </nav>
         </div>
 
@@ -100,126 +100,144 @@
     {{-- ══════════════ BODY ══════════════ --}}
     <div class="p-4 sm:p-6">
 
+        {{-- Achievement / Participation listing (student-style table) --}}
         @if (in_array($activeTab, ['achievement', 'participation']))
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                @forelse ($certificates as $cert)
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-                        <div class="h-1.5 {{ $cert->type === 'achievement' ? 'bg-amber-400' : 'bg-blue-400' }}"></div>
-                        <div class="p-5">
-                            <div class="flex items-center justify-between mb-3">
-                                <span class="px-2.5 py-1 text-xs font-semibold rounded-full {{ $cert->type === 'achievement' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800' }}">
-                                    {{ ucfirst($cert->type) }}
-                                </span>
-                                <span class="text-xs font-mono text-gray-400">{{ $cert->certificate_no }}</span>
-                            </div>
-                            <div class="flex items-center gap-3 mb-3">
-                                <div class="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-sm text-white {{ $cert->type === 'achievement' ? 'bg-amber-500' : 'bg-blue-500' }}">
-                                    {{ strtoupper(substr($cert->student->full_name ?? 'S', 0, 1)) }}
-                                </div>
-                                <div>
-                                    <p class="text-sm font-semibold text-gray-900">{{ $cert->student->full_name ?? '—' }}</p>
-                                    @if ($cert->student?->admission_no)
-                                        <p class="text-xs text-gray-400">Adm: {{ $cert->student->admission_no }}</p>
-                                    @endif
-                                </div>
-                            </div>
-                            <p class="text-sm font-medium text-gray-800 mb-1">{{ $cert->event_name }}</p>
-                            @if ($cert->description)
-                                <p class="text-xs text-gray-500 line-clamp-2 mb-2">{{ $cert->description }}</p>
-                            @endif
-                            <div class="flex items-center justify-between text-xs text-gray-400 pt-2 border-t border-gray-100 mt-2">
-                                <span>{{ $cert->issued_date->format('d M Y') }}</span>
-                                <span>By: {{ $cert->issued_by }}</span>
-                            </div>
-                        </div>
-                        <div class="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-2">
-                            <a href="{{ route('accounts.cert.download', ['organization' => auth()->user()->organization_id, 'id' => $cert->id]) }}" target="_blank"
-                                class="px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition flex items-center gap-1">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                Download PDF
-                            </a>
-                            <button wire:click="openCertModal({{ $cert->id }})" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200" title="Edit">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                            </button>
-                            <button wire:click="deleteRecord({{ $cert->id }}, 'cert')" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200" title="Delete">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            </button>
-                        </div>
-                    </div>
-                @empty
-                    <div class="col-span-full bg-white rounded-xl border border-gray-200 p-12 text-center">
-                        <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
-                            <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        </div>
-                        <h3 class="text-sm font-semibold text-gray-800">No {{ $activeTab }} certificates yet</h3>
-                        <button wire:click="openCertModal" class="mt-3 text-xs text-blue-600 hover:underline">Issue your first certificate</button>
-                    </div>
-                @endforelse
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                            <tr>
+                                <th class="px-4 py-3 text-left w-10">#</th>
+                                <th class="px-4 py-3 text-left">Student</th>
+                                <th class="px-4 py-3 text-left">Type</th>
+                                <th class="px-4 py-3 text-left">Event / Activity</th>
+                                <th class="px-4 py-3 text-left">Certificate No</th>
+                                <th class="px-4 py-3 text-left">Issued By</th>
+                                <th class="px-4 py-3 text-left">Date</th>
+                                <th class="px-4 py-3 text-center w-32">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @forelse ($certificates as $cert)
+                                <tr wire:key="cert-{{ $cert->id }}" class="hover:bg-gray-50">
+                                    <td class="px-4 py-3 text-xs text-gray-400">{{ $certificates->firstItem() + $loop->index }}</td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-2.5">
+                                            <div class="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-xs text-white {{ $cert->type === 'achievement' ? 'bg-amber-500' : 'bg-blue-500' }}">
+                                                {{ strtoupper(substr($cert->student->full_name ?? 'S', 0, 1)) }}
+                                            </div>
+                                            <div class="min-w-0">
+                                                <p class="font-medium text-gray-900 truncate">{{ $cert->student->full_name ?? '—' }}</p>
+                                                <p class="text-xs text-gray-400 truncate">Adm: {{ $cert->student->admission_no ?? '—' }}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span class="px-2 py-0.5 text-xs font-semibold rounded-full {{ $cert->type === 'achievement' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800' }}">{{ ucfirst($cert->type) }}</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-gray-800 max-w-[220px] truncate">{{ $cert->event_name }}</td>
+                                    <td class="px-4 py-3 font-mono text-xs text-gray-500">{{ $cert->certificate_no }}</td>
+                                    <td class="px-4 py-3 text-gray-600">{{ $cert->issued_by }}</td>
+                                    <td class="px-4 py-3 text-gray-600 whitespace-nowrap">{{ $cert->issued_date->format('d M Y') }}</td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <a href="{{ route('accounts.cert.download', ['organization' => auth()->user()->organization_id, 'id' => $cert->id]) }}" target="_blank"
+                                                class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-green-50 hover:text-green-600 hover:border-green-200" title="Download PDF">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                            </a>
+                                            <button wire:click="editCert({{ $cert->id }})" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200" title="Edit">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                            </button>
+                                            <button wire:click="deleteCert({{ $cert->id }})" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200" title="Delete">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="8" class="px-4 py-12 text-center text-gray-400">
+                                        No {{ $activeTab }} certificates yet.
+                                        <button wire:click="createCert" class="text-blue-600 hover:underline ml-1">Issue your first →</button>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+                @if ($certificates->hasPages())
+                    <div class="px-4 py-3 border-t border-gray-100">{{ $certificates->links() }}</div>
+                @endif
             </div>
-            @if ($certificates->hasPages())
-                <div class="mt-6">{{ $certificates->links() }}</div>
-            @endif
         @endif
 
+        {{-- TC listing (student-style table) --}}
         @if ($activeTab === 'tc')
-            <div class="space-y-3">
-                @forelse ($tcList as $tc)
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-                        <div class="h-1.5 bg-rose-400"></div>
-                        <div class="p-5">
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="flex items-center gap-3 min-w-0">
-                                    <div class="w-10 h-10 rounded-full bg-rose-500 flex items-center justify-center text-white font-bold flex-shrink-0">
-                                        {{ strtoupper(substr($tc->student->full_name ?? 'S', 0, 1)) }}
-                                    </div>
-                                    <div class="min-w-0">
-                                        <p class="font-semibold text-gray-900">{{ $tc->student->full_name ?? '—' }}</p>
-                                        <div class="flex items-center gap-2 flex-wrap mt-0.5">
-                                            @if ($tc->student?->admission_no)
-                                                <span class="text-xs text-gray-400">Adm: {{ $tc->student->admission_no }}</span>
-                                            @endif
-                                            <span class="text-xs font-mono text-rose-600 font-semibold">{{ $tc->tc_no }}</span>
-                                            @if ($tc->book_no)
-                                                <span class="text-xs text-gray-400">Book: {{ $tc->book_no }}</span>
-                                            @endif
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                            <tr>
+                                <th class="px-4 py-3 text-left w-10">#</th>
+                                <th class="px-4 py-3 text-left">Student</th>
+                                <th class="px-4 py-3 text-left">TC No</th>
+                                <th class="px-4 py-3 text-left">Book No</th>
+                                <th class="px-4 py-3 text-left">Last Class</th>
+                                <th class="px-4 py-3 text-left">Conduct</th>
+                                <th class="px-4 py-3 text-left">Issue Date</th>
+                                <th class="px-4 py-3 text-center w-32">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @forelse ($tcList as $tc)
+                                <tr wire:key="tc-{{ $tc->id }}" class="hover:bg-gray-50">
+                                    <td class="px-4 py-3 text-xs text-gray-400">{{ $tcList->firstItem() + $loop->index }}</td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-2.5">
+                                            <div class="w-9 h-9 rounded-full bg-rose-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                                                {{ strtoupper(substr($tc->student->full_name ?? 'S', 0, 1)) }}
+                                            </div>
+                                            <div class="min-w-0">
+                                                <p class="font-medium text-gray-900 truncate">{{ $tc->student->full_name ?? '—' }}</p>
+                                                <p class="text-xs text-gray-400 truncate">Adm: {{ $tc->student->admission_no ?? '—' }}</p>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                                <div class="flex items-center gap-1.5 flex-shrink-0">
-                                    <a href="{{ route('accounts.tc.download', ['organization' => auth()->user()->organization_id, 'id' => $tc->id]) }}" target="_blank"
-                                        class="px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition flex items-center gap-1">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                        Download PDF
-                                    </a>
-                                    <button wire:click="openTcModal({{ $tc->id }})" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200" title="Edit">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                    </button>
-                                    <button wire:click="deleteRecord({{ $tc->id }}, 'tc')" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200" title="Delete">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                                <div><p class="text-gray-400">Last Class</p><p class="font-medium text-gray-800">{{ $tc->last_class_studied ?: '—' }}</p></div>
-                                <div><p class="text-gray-400">Conduct</p><p class="font-medium text-gray-800">{{ $tc->general_conduct }}</p></div>
-                                <div><p class="text-gray-400">Issue Date</p><p class="font-medium text-gray-800">{{ $tc->issue_date->format('d M Y') }}</p></div>
-                                <div><p class="text-gray-400">Reason</p><p class="font-medium text-gray-800 truncate">{{ $tc->reason_for_leaving ?: '—' }}</p></div>
-                            </div>
-                        </div>
-                    </div>
-                @empty
-                    <div class="bg-white rounded-xl border border-gray-200 p-12 text-center">
-                        <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
-                            <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                        </div>
-                        <h3 class="text-sm font-semibold text-gray-800">No Transfer Certificates issued yet</h3>
-                        <button wire:click="openTcModal" class="mt-3 text-xs text-blue-600 hover:underline">Issue your first TC</button>
-                    </div>
-                @endforelse
+                                    </td>
+                                    <td class="px-4 py-3 font-mono text-xs text-rose-600 font-semibold whitespace-nowrap">{{ $tc->tc_no }}</td>
+                                    <td class="px-4 py-3 text-gray-600">{{ $tc->book_no ?: '—' }}</td>
+                                    <td class="px-4 py-3 text-gray-600">{{ $tc->last_class_studied ?: '—' }}</td>
+                                    <td class="px-4 py-3 text-gray-600">{{ $tc->general_conduct }}</td>
+                                    <td class="px-4 py-3 text-gray-600 whitespace-nowrap">{{ $tc->issue_date->format('d M Y') }}</td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <a href="{{ route('accounts.tc.download', ['organization' => auth()->user()->organization_id, 'id' => $tc->id]) }}" target="_blank"
+                                                class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-green-50 hover:text-green-600 hover:border-green-200" title="Download PDF">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                            </a>
+                                            <button wire:click="editTc({{ $tc->id }})" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200" title="Edit">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                            </button>
+                                            <button wire:click="deleteTc({{ $tc->id }})" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200" title="Delete">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="8" class="px-4 py-12 text-center text-gray-400">
+                                        No Transfer Certificates issued yet.
+                                        <button wire:click="createTc" class="text-blue-600 hover:underline ml-1">Issue your first TC →</button>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+                @if ($tcList->hasPages())
+                    <div class="px-4 py-3 border-t border-gray-100">{{ $tcList->links() }}</div>
+                @endif
             </div>
-            @if ($tcList->hasPages())
-                <div class="mt-6">{{ $tcList->links() }}</div>
-            @endif
         @endif
     </div>
 
@@ -239,20 +257,22 @@
             </div>
 
             <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+                {{-- Type --}}
                 <div>
                     <label class="block text-xs font-semibold text-gray-600 mb-1.5">Type <span class="text-red-500">*</span></label>
                     <div class="grid grid-cols-2 gap-3">
-                        <label class="flex items-center gap-2 px-4 py-2.5 rounded-lg border cursor-pointer transition {{ $certType === 'achievement' ? 'border-blue-500 bg-blue-50/50' : 'border-gray-200 hover:bg-gray-50' }}">
-                            <input type="radio" wire:model.live="certType" value="achievement" class="text-blue-600 focus:ring-blue-500">
+                        <label class="flex items-center gap-2 px-4 py-2.5 rounded-lg border cursor-pointer transition {{ $type === 'achievement' ? 'border-blue-500 bg-blue-50/50' : 'border-gray-200 hover:bg-gray-50' }}">
+                            <input type="radio" wire:model.live="type" value="achievement" class="text-blue-600 focus:ring-blue-500">
                             <span class="text-sm font-semibold text-gray-800">Achievement</span>
                         </label>
-                        <label class="flex items-center gap-2 px-4 py-2.5 rounded-lg border cursor-pointer transition {{ $certType === 'participation' ? 'border-blue-500 bg-blue-50/50' : 'border-gray-200 hover:bg-gray-50' }}">
-                            <input type="radio" wire:model.live="certType" value="participation" class="text-blue-600 focus:ring-blue-500">
+                        <label class="flex items-center gap-2 px-4 py-2.5 rounded-lg border cursor-pointer transition {{ $type === 'participation' ? 'border-blue-500 bg-blue-50/50' : 'border-gray-200 hover:bg-gray-50' }}">
+                            <input type="radio" wire:model.live="type" value="participation" class="text-blue-600 focus:ring-blue-500">
                             <span class="text-sm font-semibold text-gray-800">Participation</span>
                         </label>
                     </div>
                 </div>
 
+                {{-- Student picker by class/section --}}
                 @unless ($editCertId)
                 <div class="border border-gray-200 rounded-xl overflow-hidden">
                     <div class="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
@@ -299,12 +319,12 @@
 
                 <div>
                     <label class="block text-xs font-semibold text-gray-600 mb-1.5">Event / Activity Name <span class="text-red-500">*</span></label>
-                    <input type="text" wire:model.defer="event_name" placeholder="{{ $certType === 'achievement' ? 'e.g. Annual Science Olympiad 2025' : 'e.g. Annual Sports Day 2025' }}" class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500">
+                    <input type="text" wire:model.defer="event_name" placeholder="{{ $type === 'achievement' ? 'e.g. Annual Science Olympiad 2025' : 'e.g. Annual Sports Day 2025' }}" class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500">
                     @error('event_name') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-gray-600 mb-1.5">Description</label>
-                    <textarea wire:model.defer="description" rows="3" placeholder="{{ $certType === 'achievement' ? 'For securing First Position in...' : 'For actively participating in...' }}" class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500 resize-none"></textarea>
+                    <textarea wire:model.defer="description" rows="3" placeholder="{{ $type === 'achievement' ? 'For securing First Position in...' : 'For actively participating in...' }}" class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500 resize-none"></textarea>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -348,6 +368,7 @@
             </div>
 
             <div class="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+                {{-- Student picker --}}
                 <div>
                     <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 pb-1 border-b">Select Student</p>
                     @unless ($editTcId)
@@ -392,6 +413,7 @@
                     @endunless
                 </div>
 
+                {{-- Other details --}}
                 <div>
                     <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 pb-1 border-b">Student & Academic</p>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -404,8 +426,8 @@
                             <input type="text" wire:model.defer="book_no" placeholder="e.g. 096" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 text-sm">
                         </div>
                         <div class="sm:col-span-2 flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                            <input type="checkbox" wire:model.defer="is_sc_st" id="acc_tc_scst" class="h-4 w-4 text-blue-500 rounded border-gray-300">
-                            <label for="acc_tc_scst" class="text-sm text-gray-700">Belongs to Scheduled Caste / Scheduled Tribe</label>
+                            <input type="checkbox" wire:model.defer="is_sc_st" id="tc_scst" class="h-4 w-4 text-blue-500 rounded border-gray-300">
+                            <label for="tc_scst" class="text-sm text-gray-700">Belongs to Scheduled Caste / Scheduled Tribe</label>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Class Last Studied</label>
@@ -418,7 +440,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Whether Failed</label>
                             <select wire:model.defer="whether_failed" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 text-sm">
-                                <option value="No">No</option><option value="Once">Once</option><option value="Twice">Twice</option>
+                                @foreach ($failedOptions as $opt)<option value="{{ $opt }}">{{ $opt }}</option>@endforeach
                             </select>
                         </div>
                         <div>
@@ -462,13 +484,13 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">NCC / Scout / Guide</label>
                             <select wire:model.defer="is_ncc_scout" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 text-sm">
-                                <option value="No">No</option><option value="NCC Cadet">NCC Cadet</option><option value="Boy Scout">Boy Scout</option><option value="Girl Guide">Girl Guide</option>
+                                @foreach ($nccOptions as $opt)<option value="{{ $opt }}">{{ $opt }}</option>@endforeach
                             </select>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">General Conduct</label>
                             <select wire:model.defer="general_conduct" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 text-sm">
-                                <option value="Excellent">Excellent</option><option value="Good">Good</option><option value="Satisfactory">Satisfactory</option><option value="Poor">Poor</option>
+                                @foreach ($conductOptions as $opt)<option value="{{ $opt }}">{{ $opt }}</option>@endforeach
                             </select>
                         </div>
                         <div class="sm:col-span-2">
@@ -506,23 +528,6 @@
             <div class="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2 flex-shrink-0">
                 <button wire:click="closeTcModal" class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition">Cancel</button>
                 <button wire:click="saveTc" class="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-sm transition">{{ $editTcId ? 'Update TC' : 'Issue TC' }}</button>
-            </div>
-        </div>
-    </div>
-    @endif
-
-    {{-- ══════════════ DELETE CONFIRM ══════════════ --}}
-    @if ($pendingDeleteId)
-    <div class="fixed inset-0 z-[10000] flex items-center justify-center px-4" style="background:rgba(0,0,0,0.45);backdrop-filter:blur(4px);">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center" wire:click.stop>
-            <div class="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
-                <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-            </div>
-            <h3 class="text-base font-bold text-gray-800 mb-1">Delete this record?</h3>
-            <p class="text-sm text-gray-500 mb-5">This action cannot be undone.</p>
-            <div class="flex justify-center gap-3">
-                <button wire:click="cancelDelete" class="px-4 py-2 text-sm border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition">Cancel</button>
-                <button wire:click="doDelete" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold shadow transition">Delete</button>
             </div>
         </div>
     </div>

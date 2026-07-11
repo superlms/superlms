@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Accounts;
+namespace App\Livewire\Admin;
 
 use App\Livewire\Concerns\HandlesTransportFees;
 use App\Models\Admin\DriverDetail;
@@ -49,11 +49,13 @@ class Transport extends Component
     public bool   $driver_is_active    = true;
     public $driver_image;                    // uploaded file
     public ?string $driver_image_existing = null;
+    public array  $driver_routes       = [];  // route ids this driver covers (multi-select)
 
     // ─── Transportation (Route) Form ───────────────────────
     public string $route_name          = '';
     public ?int   $driver_detail_id    = null;
     public string $pickup_time         = '';
+    public string $drop_time           = '';
     public float  $monthly_fee         = 0;
     public int    $capacity            = 0;
     public bool   $transport_is_active = true;
@@ -155,6 +157,7 @@ class Transport extends Component
         $this->driver_is_active    = $driver->is_active;
         $this->driver_image        = null;
         $this->driver_image_existing = $driver->image;
+        $this->driver_routes       = $driver->transportations()->pluck('id')->map(fn($id) => (string) $id)->toArray();
         $this->driverModal         = true;
     }
 
@@ -163,18 +166,21 @@ class Transport extends Component
         $rules = [
             'driver_name'         => 'required|string|max:255',
             'driver_email'        => 'required|email|max:255',
-            'driver_phone'        => 'nullable|string|max:20',
+            'driver_phone'        => 'nullable|regex:/^[6-9]\d{9}$/',
             'license_no'          => 'nullable|string|max:50',
             'driver_vehicle_no'   => 'nullable|string|max:30',
             'driver_vehicle_type' => 'nullable|string|max:50',
             'driver_address'      => 'nullable|string|max:500',
             'experience_years'    => 'nullable|integer|min:0|max:50',
-            'driver_image'        => 'nullable|image|max:2048',
+            'driver_image'        => 'nullable|image|max:1024', // 1 MB
         ];
         if (!$this->editDriverId) {
             $rules['driver_email'] = 'required|email|unique:users,email';
         }
-        $this->validate($rules);
+        $this->validate($rules, [
+            'driver_phone.regex' => 'Enter a valid 10-digit mobile number.',
+            'driver_image.max'   => 'Photo must be 1 MB or smaller.',
+        ]);
 
         DB::beginTransaction();
         try {
@@ -203,6 +209,7 @@ class Transport extends Component
                     'experience_years' => $this->experience_years,
                     'is_active'        => $this->driver_is_active,
                 ]);
+                $driverDetailId = $driver->id;
             } else {
                 $user = User::create([
                     'name'            => $this->driver_name,
@@ -213,7 +220,7 @@ class Transport extends Component
                     'organization_id' => $this->organizationId,
                     'is_active'       => true,
                 ]);
-                DriverDetail::create([
+                $driver = DriverDetail::create([
                     'user_id'          => $user->id,
                     'organization_id'  => $this->organizationId,
                     'image'            => $imageUrl,
@@ -225,7 +232,11 @@ class Transport extends Component
                     'experience_years' => $this->experience_years,
                     'is_active'        => true,
                 ]);
+                $driverDetailId = $driver->id;
             }
+
+            // Assign this driver to the selected routes (and unassign deselected).
+            $this->syncDriverRoutes($driverDetailId);
 
             DB::commit();
             $this->loadAvailableDrivers();
@@ -236,6 +247,28 @@ class Transport extends Component
             DB::rollBack();
             $this->notification()->error('Error!', 'Failed to save driver: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Point the selected routes at this driver and release any route that used
+     * to belong to the driver but is no longer selected (driver_detail_id 0 =
+     * "no driver", matching the table's NOT NULL default).
+     */
+    private function syncDriverRoutes(int $driverId): void
+    {
+        $orgId    = $this->organizationId;
+        $selected = array_values(array_filter(array_map('intval', $this->driver_routes)));
+
+        if (!empty($selected)) {
+            Transportation::where('organization_id', $orgId)
+                ->whereIn('id', $selected)
+                ->update(['driver_detail_id' => $driverId]);
+        }
+
+        Transportation::where('organization_id', $orgId)
+            ->where('driver_detail_id', $driverId)
+            ->when(!empty($selected), fn($q) => $q->whereNotIn('id', $selected))
+            ->update(['driver_detail_id' => 0]);
     }
 
     public function confirmDeleteDriver(int $id): void { $this->pendingDeleteDriverId = $id; }
@@ -287,7 +320,7 @@ class Transport extends Component
             'driver_name', 'driver_email', 'driver_phone',
             'license_no', 'driver_vehicle_no', 'driver_vehicle_type',
             'driver_address', 'experience_years', 'driver_is_active',
-            'driver_image', 'driver_image_existing',
+            'driver_image', 'driver_image_existing', 'driver_routes',
         ]);
         $this->driver_is_active = true;
     }
@@ -305,8 +338,10 @@ class Transport extends Component
         $t = Transportation::findOrFail($id);
         $this->editTransportId     = $t->id;
         $this->route_name          = $t->route_name;
-        $this->driver_detail_id    = $t->driver_detail_id;
+        // 0 = "no driver" sentinel → null. Driver is assigned from the Driver form.
+        $this->driver_detail_id    = $t->driver_detail_id ?: null;
         $this->pickup_time         = $t->pickup_time ?? '';
+        $this->drop_time           = $t->drop_time ?? '';
         $this->monthly_fee         = (float) $t->monthly_fee;
         $this->capacity            = (int) $t->capacity;
         $this->transport_is_active = $t->is_active;
@@ -316,25 +351,24 @@ class Transport extends Component
     public function saveTransport(): void
     {
         $this->validate([
-            'route_name'       => 'required|string|max:255',
-            'driver_detail_id' => 'required|exists:driver_details,id',
-            'pickup_time'      => 'nullable|string|max:20',
-            'monthly_fee'      => 'nullable|numeric|min:0',
-            'capacity'         => 'nullable|integer|min:0',
+            'route_name'  => 'required|string|max:255',
+            'pickup_time' => 'nullable|string|max:20',
+            'drop_time'   => 'nullable|string|max:20',
+            'monthly_fee' => 'nullable|numeric|min:0|max:9999999',
+            'capacity'    => 'nullable|integer|min:0|max:1000',
         ]);
 
-        $driver = DriverDetail::find($this->driver_detail_id);
-
+        // Driver is no longer chosen here — it's assigned from the Driver form.
+        // On create, driver_detail_id defaults to 0 ("no driver"); on edit the
+        // existing driver assignment is preserved by not touching it.
         $data = [
-            'organization_id'  => $this->organizationId,
-            'route_name'       => $this->route_name,
-            'vehicle_no'       => $driver?->vehicle_no,
-            'vehicle_type'     => $driver?->vehicle_type,
-            'driver_detail_id' => $this->driver_detail_id,
-            'pickup_time'      => $this->pickup_time ?: null,
-            'monthly_fee'      => $this->monthly_fee,
-            'capacity'         => $this->capacity,
-            'is_active'        => $this->transport_is_active,
+            'organization_id' => $this->organizationId,
+            'route_name'      => $this->route_name,
+            'pickup_time'     => $this->pickup_time ?: null,
+            'drop_time'       => $this->drop_time ?: null,
+            'monthly_fee'     => $this->monthly_fee,
+            'capacity'        => $this->capacity,
+            'is_active'       => $this->transport_is_active,
         ];
 
         try {
@@ -384,7 +418,7 @@ class Transport extends Component
 
     private function resetTransportForm(): void
     {
-        $this->reset(['route_name', 'driver_detail_id', 'pickup_time', 'monthly_fee', 'capacity', 'transport_is_active']);
+        $this->reset(['route_name', 'driver_detail_id', 'pickup_time', 'drop_time', 'monthly_fee', 'capacity', 'transport_is_active']);
         $this->transport_is_active = true;
         $this->monthly_fee = 0;
         $this->capacity = 0;

@@ -1,283 +1,398 @@
 <?php
 
-namespace App\Livewire\Accounts;
+namespace App\Livewire\Admin;
 
+use App\Models\Admin\AdminEmployee;
+use App\Models\Admin\EmployeeIdCard;
+use App\Models\Admin\IdCardGenerationSetting;
 use App\Models\Admin\StudentIdCard;
 use App\Models\Admin\TeacherIdCard;
-use App\Models\Student\Section;
-use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
 use App\Models\Teacher\TeacherDetail;
+use App\Services\IdCardService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
+use WireUi\Traits\WireUiActions;
 
 class IdCard extends Component
 {
-    use WithPagination;
+    use WithPagination, WireUiActions;
 
-    // ─── Tabs ───────────────────────────────────────────────────────────────────
-    public string $activeTab = 'student'; // student | teacher
+    // Active tab / listing type
+    public $cardType = 'student'; // student | teacher | employee
 
-    // ─── Filters ────────────────────────────────────────────────────────────────
-    public string $search          = '';
-    public string $filterStandard  = '';
-    public string $filterSection   = '';
-    public string $filterStatus    = '';
-    public int    $perPage         = 100;
+    // Filters
+    public $search = '';
+    public $standardFilter = '';
+    public $sectionFilter  = '';
+    public $statusFilter   = '';
+    public $perPage = 100;
 
-    // ─── Bulk Generate ───────────────────────────────────────────────────────────
-    public bool   $showBulkModal   = false;
-    public int    $validityMonths  = 12;
-    public string $cardPrefix      = 'ID';
-    public string $bulkStandard    = '';
-    public string $bulkSection     = '';
+    // Generate flow
+    public $showGenerateModal = false;
+    public $genType = 'student';
+    public $genStandardIds = [];
+    public $genExpiryDate = '';
 
-    // ─── View ───────────────────────────────────────────────────────────────────
-    public bool $showViewModal = false;
-    public $viewCard           = null;
+    // Edit
+    public $showEditModal = false;
+    public $cardId;
+    public $editExpiryDate;
+    public $editStatus = 'active';
 
-    // ─── Delete ─────────────────────────────────────────────────────────────────
-    public ?int $pendingDeleteId = null;
+    // View
+    public $showViewModal = false;
+    public $viewCard = null;
+    public $viewType = 'student';
 
-    private function orgId(): int
+    // Delete
+    public $showDeleteModal = false;
+
+    public function updatedStandardFilter() { $this->sectionFilter = ''; $this->resetPage(); }
+    public function updatedSectionFilter()  { $this->resetPage(); }
+    public function updatedStatusFilter()   { $this->resetPage(); }
+    public function updatedSearch()         { $this->resetPage(); }
+
+    public function switchCardType($type)
     {
-        return Auth::user()->organization_id;
+        if (!in_array($type, IdCardService::TYPES, true)) {
+            return;
+        }
+        $this->cardType = $type;
+        $this->resetFilters();
     }
 
-    // ─── Tab Switch ─────────────────────────────────────────────────────────────
-
-    public function setTab(string $tab): void
+    private function service(): IdCardService
     {
-        $this->activeTab     = $tab;
-        $this->search        = '';
-        $this->filterStandard = '';
-        $this->filterSection  = '';
-        $this->filterStatus   = '';
-        $this->resetPage();
+        return app(IdCardService::class);
     }
 
-    // ─── Filter Watchers ────────────────────────────────────────────────────────
-
-    public function updatedSearch(): void         { $this->resetPage(); }
-    public function updatedFilterStandard(): void { $this->filterSection = ''; $this->resetPage(); }
-    public function updatedFilterSection(): void  { $this->resetPage(); }
-    public function updatedFilterStatus(): void   { $this->resetPage(); }
-    public function updatedBulkStandard(): void   { $this->bulkSection = ''; }
-
-    // ─── Bulk Generate ───────────────────────────────────────────────────────────
-
-    public function openBulkModal(): void
+    private function modelFor(string $type): string
     {
-        $this->showBulkModal  = true;
-        $this->validityMonths = 12;
-        $this->cardPrefix     = 'ID';
-        $this->bulkStandard   = '';
-        $this->bulkSection    = '';
+        return $this->service()->modelClassFor($type);
     }
 
-    public function closeBulkModal(): void
+    /* ───────────────────────── Analytics ───────────────────────── */
+
+    public function getAnalyticsProperty(): array
     {
-        $this->showBulkModal = false;
+        $orgId = Auth::user()->organization_id;
+
+        switch ($this->cardType) {
+            case 'student':
+                $total  = StudentDetail::where('organization_id', $orgId)->count();
+                $issued = StudentIdCard::where('organization_id', $orgId)->where('status', 'active')
+                    ->distinct('student_detail_id')->count('student_detail_id');
+                break;
+            case 'teacher':
+                $total  = TeacherDetail::where('organization_id', $orgId)->count();
+                $issued = TeacherIdCard::where('organization_id', $orgId)->where('status', 'active')
+                    ->distinct('teacher_detail_id')->count('teacher_detail_id');
+                break;
+            default:
+                $total  = AdminEmployee::where('organization_id', $orgId)->count();
+                $issued = EmployeeIdCard::where('organization_id', $orgId)->where('status', 'active')
+                    ->distinct('admin_employee_id')->count('admin_employee_id');
+        }
+
+        return [
+            'total'     => $total,
+            'issued'    => $issued,
+            'remaining' => max(0, $total - $issued),
+        ];
     }
 
-    public function bulkGenerateCards(): void
+    /* ───────────────────────── Generate ───────────────────────── */
+
+    public function openGenerate()
+    {
+        $this->genType = $this->cardType;
+        $this->genStandardIds = [];
+        $this->genExpiryDate = now()->addYear()->format('Y-m-d');
+        $this->resetValidation();
+        $this->showGenerateModal = true;
+    }
+
+    public function closeGenerate()
+    {
+        $this->showGenerateModal = false;
+        $this->genStandardIds = [];
+        $this->resetValidation();
+    }
+
+    public function updatedGenType()
+    {
+        $this->genStandardIds = [];
+    }
+
+    public function generateCards()
     {
         $this->validate([
-            'validityMonths' => 'required|integer|min:1|max:60',
-            'cardPrefix'     => 'required|string|max:10',
+            'genType'        => 'required|in:student,teacher,employee',
+            'genExpiryDate'  => 'required|date|after:today',
+            'genStandardIds' => 'array',
+        ], [
+            'genExpiryDate.after' => 'Expiry date must be in the future.',
         ]);
 
-        $orgId   = $this->orgId();
-        $org     = Auth::user()->organization;
-        $generated = 0;
-
-        if ($this->activeTab === 'student') {
-            $query = StudentDetail::with(['standard', 'section'])
-                ->where('organization_id', $orgId)
-                ->when($this->bulkStandard, fn($q) => $q->where('standard_id', $this->bulkStandard))
-                ->when($this->bulkSection, fn($q) => $q->where('section_id', $this->bulkSection))
-                ->whereDoesntHave('idCards', fn($q) => $q->where('status', 'active'));
-
-            foreach ($query->get() as $student) {
-                $cardNumber = $this->makeCardNumber($student->id, 'STU');
-                StudentIdCard::create([
-                    'card_number'       => $cardNumber,
-                    'student_detail_id' => $student->id,
-                    'organization_id'   => $orgId,
-                    'user_id'           => Auth::id(),
-                    'issue_date'        => now(),
-                    'expiry_date'       => now()->addMonths($this->validityMonths),
-                    'status'            => 'active',
-                ]);
-                $generated++;
+        try {
+            $organization = Auth::user()->organization;
+            if (!$organization) {
+                throw new \Exception('Organization not found');
             }
-        } else {
-            $teachers = TeacherDetail::with('user')
-                ->where('organization_id', $orgId)
-                ->whereDoesntHave('idCards', fn($q) => $q->where('status', 'active'))
-                ->get();
 
-            foreach ($teachers as $teacher) {
-                $cardNumber = $this->makeCardNumber($teacher->id, 'TCH');
-                TeacherIdCard::create([
-                    'card_number'       => $cardNumber,
-                    'teacher_detail_id' => $teacher->id,
-                    'organization_id'   => $orgId,
-                    'user_id'           => Auth::id(),
-                    'issue_date'        => now(),
-                    'expiry_date'       => now()->addMonths($this->validityMonths),
-                    'status'            => 'active',
-                ]);
-                $generated++;
+            $standardIds = $this->genType === 'student' ? array_values(array_filter($this->genStandardIds)) : null;
+
+            $result = $this->service()->generateForType(
+                $organization,
+                $this->genType,
+                $this->genExpiryDate,
+                $standardIds,
+                Auth::id(),
+            );
+
+            // Once any cards are issued for this type, switch on the daily
+            // auto-generation for late joiners and remember the expiry to reuse.
+            IdCardGenerationSetting::updateOrCreate(
+                ['organization_id' => $organization->id, 'type' => $this->genType],
+                ['auto_enabled' => true, 'expiry_date' => $this->genExpiryDate],
+            );
+
+            $this->closeGenerate();
+            $this->cardType = $this->genType;
+            $this->resetPage();
+
+            if ($result['generated'] > 0) {
+                $this->notification()->success(
+                    $title = 'Success!',
+                    $description = "Generated {$result['generated']} ID card(s)."
+                );
+            } else {
+                $this->notification()->info(
+                    $title = 'Nothing to generate',
+                    $description = 'All selected ' . $this->genType . 's already have an active ID card.'
+                );
+            }
+
+            if (!empty($result['errors'])) {
+                $this->notification()->warning(
+                    $title = 'Some errors occurred',
+                    $description = implode('<br>', array_slice($result['errors'], 0, 5))
+                );
+            }
+        } catch (\Throwable $e) {
+            $this->notification()->error(
+                $title = 'Error!',
+                $description = 'Failed to generate cards: ' . $e->getMessage()
+            );
+        }
+    }
+
+    /* ───────────────────────── View ───────────────────────── */
+
+    public function showCard($id)
+    {
+        $orgId = Auth::user()->organization_id;
+        $type = $this->cardType;
+
+        if ($type === 'student') {
+            $card = StudentIdCard::with(['studentDetail.user', 'studentDetail.standard', 'studentDetail.section', 'organization'])
+                ->where('organization_id', $orgId)->find($id);
+            $person = $card?->studentDetail;
+        } elseif ($type === 'teacher') {
+            $card = TeacherIdCard::with(['teacherDetail.user', 'teacherDetail.assignedClasses.standard', 'teacherDetail.assignedClasses.section', 'organization'])
+                ->where('organization_id', $orgId)->find($id);
+            $person = $card?->teacherDetail;
+        } else {
+            $card = EmployeeIdCard::with(['adminEmployee.teacherDetail.user', 'organization'])
+                ->where('organization_id', $orgId)->find($id);
+            $person = $card?->adminEmployee;
+        }
+
+        if (!$card) {
+            $this->notification()->error($title = 'Error!', $description = 'Card not found!');
+            return;
+        }
+
+        if (!$card->qr_code && $person) {
+            $qr = $this->service()->generateQrCode($card, $person, $card->organization, $type);
+            if ($qr) {
+                $card->update(['qr_code' => $qr]);
             }
         }
 
-        $this->closeBulkModal();
-        session()->flash('success', "Generated {$generated} ID card(s) successfully!");
-        $this->resetPage();
+        $this->viewCard = $card;
+        $this->viewType = $type;
+        $this->showViewModal = true;
     }
 
-    private function makeCardNumber(int $personId, string $type): string
-    {
-        $orgId  = $this->orgId();
-        $year   = now()->format('y');
-        $random = mt_rand(1000, 9999);
-        return "{$this->cardPrefix}{$type}{$orgId}{$year}{$personId}{$random}";
-    }
-
-    // ─── View ───────────────────────────────────────────────────────────────────
-
-    public function viewCard(int $id): void
-    {
-        if ($this->activeTab === 'student') {
-            $this->viewCard = StudentIdCard::with([
-                'studentDetail.standard', 'studentDetail.section',
-            ])->where('id', $id)->where('organization_id', $this->orgId())->first();
-        } else {
-            $this->viewCard = TeacherIdCard::with([
-                'teacherDetail.user',
-            ])->where('id', $id)->where('organization_id', $this->orgId())->first();
-        }
-
-        if ($this->viewCard) {
-            $this->showViewModal = true;
-        }
-    }
-
-    public function closeViewModal(): void
+    public function closeViewModal()
     {
         $this->showViewModal = false;
-        $this->viewCard      = null;
+        $this->viewCard = null;
     }
 
-    // ─── Delete ─────────────────────────────────────────────────────────────────
+    /* ───────────────────────── Edit (expiry / status) ───────────────────────── */
 
-    public function deleteCard(int $id): void
+    public function editCard($id)
     {
-        $this->pendingDeleteId = $id;
+        $model = $this->modelFor($this->cardType);
+        $card = $model::where('organization_id', Auth::user()->organization_id)->find($id);
+
+        if (!$card) {
+            $this->notification()->error($title = 'Error!', $description = 'Card not found!');
+            return;
+        }
+
+        $this->cardId = $card->id;
+        $this->editExpiryDate = optional($card->expiry_date)->format('Y-m-d');
+        $this->editStatus = $card->status;
+        $this->resetValidation();
+        $this->showEditModal = true;
     }
 
-    public function cancelDelete(): void
+    public function saveEdit()
     {
-        $this->pendingDeleteId = null;
+        $this->validate([
+            'editExpiryDate' => 'required|date',
+            'editStatus'     => 'required|in:active,inactive',
+        ]);
+
+        $model = $this->modelFor($this->cardType);
+        $card = $model::where('organization_id', Auth::user()->organization_id)->find($this->cardId);
+
+        if ($card) {
+            $card->update([
+                'expiry_date' => $this->editExpiryDate,
+                'status'      => $this->editStatus,
+            ]);
+            $this->notification()->success($title = 'Saved!', $description = 'ID card updated.');
+        }
+
+        $this->closeEditModal();
     }
 
-    public function doDelete(): void
+    public function closeEditModal()
     {
-        $model = $this->activeTab === 'student' ? StudentIdCard::class : TeacherIdCard::class;
-        $model::where('id', $this->pendingDeleteId)
-            ->where('organization_id', $this->orgId())
-            ->delete();
-        $this->pendingDeleteId = null;
-        session()->flash('success', 'ID card deleted!');
+        $this->showEditModal = false;
+        $this->cardId = null;
+        $this->resetValidation();
     }
 
-    // ─── Reset Filters ───────────────────────────────────────────────────────────
+    /* ───────────────────────── Delete ───────────────────────── */
 
-    public function resetFilters(): void
+    public function confirmDelete($id)
     {
-        $this->search        = '';
-        $this->filterStandard = '';
-        $this->filterSection  = '';
-        $this->filterStatus   = '';
+        $this->cardId = $id;
+        $this->showDeleteModal = true;
+    }
+
+    public function closeDeleteModal()
+    {
+        $this->showDeleteModal = false;
+        $this->cardId = null;
+    }
+
+    public function deleteCard()
+    {
+        try {
+            $model = $this->modelFor($this->cardType);
+            $card = $model::where('organization_id', Auth::user()->organization_id)->find($this->cardId);
+
+            if ($card) {
+                $card->delete();
+                $this->notification()->success($title = 'Deleted!', $description = 'ID card deleted successfully!');
+            }
+        } catch (\Throwable $e) {
+            $this->notification()->error($title = 'Error!', $description = 'Failed to delete card: ' . $e->getMessage());
+        } finally {
+            $this->closeDeleteModal();
+        }
+    }
+
+    public function resetFilters()
+    {
+        $this->reset(['search', 'standardFilter', 'sectionFilter', 'statusFilter']);
         $this->resetPage();
     }
 
-    // ─── Render ─────────────────────────────────────────────────────────────────
+    /* ───────────────────────── Render ───────────────────────── */
 
     public function render()
     {
-        $orgId = $this->orgId();
+        $orgId = Auth::user()->organization_id;
 
-        $standards = Standard::where('organization_id', $orgId)
-            ->where('is_active', true)->orderBy('id')->get();
-
-        $filterSections = collect();
-        if ($this->filterStandard) {
-            $filterSections = Section::where('standard_id', $this->filterStandard)
-                ->where('organization_id', $orgId)->get();
-        }
-
-        $bulkSections = collect();
-        if ($this->bulkStandard) {
-            $bulkSections = Section::where('standard_id', $this->bulkStandard)
-                ->where('organization_id', $orgId)->get();
-        }
-
-        // Analytics
-        $totalStudentCards  = StudentIdCard::where('organization_id', $orgId)->count();
-        $activeStudentCards = StudentIdCard::where('organization_id', $orgId)->where('status', 'active')->count();
-        $totalTeacherCards  = TeacherIdCard::where('organization_id', $orgId)->count();
-        $activeTeacherCards = TeacherIdCard::where('organization_id', $orgId)->where('status', 'active')->count();
-
-        if ($this->activeTab === 'student') {
-            $query = StudentIdCard::with(['studentDetail.standard', 'studentDetail.section'])
+        if ($this->cardType === 'student') {
+            $query = StudentIdCard::with(['studentDetail.user', 'studentDetail.standard', 'studentDetail.section', 'organization'])
                 ->where('organization_id', $orgId);
 
             if ($this->search) {
-                $query->where(fn($q) =>
-                    $q->where('card_number', 'like', "%{$this->search}%")
-                      ->orWhereHas('studentDetail', fn($s) =>
-                          $s->where('full_name', 'like', "%{$this->search}%")
-                            ->orWhere('admission_no', 'like', "%{$this->search}%")
-                      )
-                );
+                $query->where(function ($q) {
+                    $q->where('card_number', 'like', '%' . $this->search . '%')
+                        ->orWhereHas('studentDetail', function ($q2) {
+                            $q2->where('full_name', 'like', '%' . $this->search . '%')
+                                ->orWhere('admission_no', 'like', '%' . $this->search . '%')
+                                ->orWhere('email', 'like', '%' . $this->search . '%');
+                        });
+                });
             }
-            if ($this->filterStandard) {
-                $query->whereHas('studentDetail', fn($q) => $q->where('standard_id', $this->filterStandard));
+            if ($this->standardFilter) {
+                $query->whereHas('studentDetail', fn($q) => $q->where('standard_id', $this->standardFilter));
             }
-            if ($this->filterSection) {
-                $query->whereHas('studentDetail', fn($q) => $q->where('section_id', $this->filterSection));
+            if ($this->sectionFilter) {
+                $query->whereHas('studentDetail', fn($q) => $q->where('section_id', $this->sectionFilter));
             }
-            if ($this->filterStatus) {
-                $query->where('status', $this->filterStatus);
-            }
+        } elseif ($this->cardType === 'teacher') {
+            $query = TeacherIdCard::with(['teacherDetail.user', 'organization'])
+                ->where('organization_id', $orgId);
 
-            $cards = $query->latest()->paginate($this->perPage);
+            if ($this->search) {
+                $query->where(function ($q) {
+                    $q->where('card_number', 'like', '%' . $this->search . '%')
+                        ->orWhereHas('teacherDetail', function ($q2) {
+                            $q2->where('employee_id', 'like', '%' . $this->search . '%')
+                                ->orWhere('phone', 'like', '%' . $this->search . '%')
+                                ->orWhereHas('user', function ($q3) {
+                                    $q3->where('name', 'like', '%' . $this->search . '%')
+                                        ->orWhere('email', 'like', '%' . $this->search . '%');
+                                });
+                        });
+                });
+            }
         } else {
-            $query = TeacherIdCard::with(['teacherDetail.user'])
+            $query = EmployeeIdCard::with(['adminEmployee', 'organization'])
                 ->where('organization_id', $orgId);
 
             if ($this->search) {
-                $query->where(fn($q) =>
-                    $q->where('card_number', 'like', "%{$this->search}%")
-                      ->orWhereHas('teacherDetail.user', fn($s) =>
-                          $s->where('name', 'like', "%{$this->search}%")
-                      )
-                );
+                $query->where(function ($q) {
+                    $q->where('card_number', 'like', '%' . $this->search . '%')
+                        ->orWhereHas('adminEmployee', function ($q2) {
+                            $q2->where('name', 'like', '%' . $this->search . '%')
+                                ->orWhere('email', 'like', '%' . $this->search . '%')
+                                ->orWhere('mobile', 'like', '%' . $this->search . '%')
+                                ->orWhere('designation', 'like', '%' . $this->search . '%');
+                        });
+                });
             }
-            if ($this->filterStatus) {
-                $query->where('status', $this->filterStatus);
-            }
-
-            $cards = $query->latest()->paginate($this->perPage);
         }
 
-        return view('livewire.accounts.id-card', compact(
-            'standards', 'filterSections', 'bulkSections', 'cards',
-            'totalStudentCards', 'activeStudentCards',
-            'totalTeacherCards', 'activeTeacherCards'
-        ));
+        if ($this->statusFilter) {
+            $query->where('status', $this->statusFilter);
+        }
+
+        $cards = $query->latest()->paginate($this->perPage);
+
+        $standards = \App\Models\Student\Standard::where('organization_id', $orgId)
+            ->where('is_active', true)->orderBy('id')->get(['id', 'name']);
+        $sections = $this->standardFilter
+            ? \App\Models\Student\Section::where('standard_id', $this->standardFilter)->orderBy('id')->get(['id', 'name'])
+            : collect();
+
+        return view('livewire.accounts.id-card', [
+            'cards'     => $cards,
+            'standards' => $standards,
+            'sections'  => $sections,
+        ]);
     }
 }

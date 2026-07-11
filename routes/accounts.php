@@ -65,6 +65,7 @@ Route::prefix('accounts')->group(function () {
             Route::get('/transport/receipt/{id}', [\App\Http\Controllers\Admin\TransportReceiptController::class, 'show'])->name('accounts.transport.receipt');
             Route::get('/calendar', Calendar::class)->name('accounts.calendar');
             Route::get('/id-card', IdCard::class)->name('accounts.id-card');
+            Route::get('/id-card/{type}/{id}/print', [\App\Http\Controllers\Admin\IdCardPrintController::class, 'print'])->name('accounts.id-card.print');
             Route::get('/admit-card', AdmitCard::class)->name('accounts.admit-card');
             Route::get('/admit-card/{id}/view', [\App\Http\Controllers\Admin\AdmitCardController::class, 'view'])->name('accounts.admit-card.view');
             Route::get('/admit-card/{id}/download', [\App\Http\Controllers\Admin\AdmitCardController::class, 'download'])->name('accounts.admit-card.download');

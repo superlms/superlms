@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Accounts;
+namespace App\Livewire\Admin;
 
 use App\Models\Admin\Exam;
 use App\Models\Admin\ExamCopy;
@@ -34,6 +34,14 @@ class ReportCard extends Component
     public $selectedStudents = [];
     public $issueStudentsLoaded = false;
 
+    public function mount()
+    {
+        //
+    }
+
+    /**
+     * Navigate to the issue report card screen.
+     */
     public function openIssueScreen()
     {
         $this->viewMode = 'issue';
@@ -43,6 +51,9 @@ class ReportCard extends Component
         $this->issueStudentsLoaded = false;
     }
 
+    /**
+     * Go back to list view.
+     */
     public function backToList()
     {
         $this->viewMode = 'list';
@@ -52,6 +63,9 @@ class ReportCard extends Component
         $this->issueStudentsLoaded = false;
     }
 
+    /**
+     * When issue standard changes, reset section and students.
+     */
     public function updatedIssueStandard()
     {
         $this->issueSection = '';
@@ -59,12 +73,18 @@ class ReportCard extends Component
         $this->issueStudentsLoaded = false;
     }
 
+    /**
+     * When issue section changes, reset students.
+     */
     public function updatedIssueSection()
     {
         $this->selectedStudents = [];
         $this->issueStudentsLoaded = false;
     }
 
+    /**
+     * Load students for the selected class/section.
+     */
     public function loadStudents()
     {
         if (!$this->issueStandard || !$this->issueSection) {
@@ -79,6 +99,9 @@ class ReportCard extends Component
         $this->selectedStudents = [];
     }
 
+    /**
+     * Get students with their marks-complete status for the issue screen.
+     */
     #[\Livewire\Attributes\Computed]
     public function issueStudents()
     {
@@ -95,6 +118,7 @@ class ReportCard extends Component
             ->orderBy('full_name')
             ->get();
 
+        // Get all active/published exams for this organization
         $exams = Exam::where('organization_id', $orgId)
             ->where('is_published', true)
             ->get();
@@ -113,6 +137,7 @@ class ReportCard extends Component
             });
         }
 
+        // Get all subjects for this standard+section via SectionSubject
         $subjectIds = SectionSubject::where('section_id', $this->issueSection)
             ->where('standard_id', $this->issueStandard)
             ->where('organization_id', $orgId)
@@ -136,6 +161,7 @@ class ReportCard extends Component
         $examIds = $exams->pluck('id')->toArray();
         $totalRequired = count($examIds) * count($subjectIds);
 
+        // Get already issued report cards for these students
         $issuedStudentIds = ReportCardModel::where('organization_id', $orgId)
             ->where('standard_id', $this->issueStandard)
             ->where('section_id', $this->issueSection)
@@ -143,6 +169,7 @@ class ReportCard extends Component
             ->pluck('student_detail_id')
             ->toArray();
 
+        // Batch load all exam copies for these students
         $examCopyCounts = ExamCopy::where('organization_id', $orgId)
             ->whereIn('student_detail_id', $students->pluck('id'))
             ->whereIn('exam_id', $examIds)
@@ -152,7 +179,7 @@ class ReportCard extends Component
             ->pluck('marks_count', 'student_detail_id')
             ->toArray();
 
-        return $students->map(function ($student) use ($totalRequired, $examCopyCounts, $issuedStudentIds) {
+        return $students->map(function ($student) use ($totalRequired, $examCopyCounts, $issuedStudentIds, $examIds, $subjectIds) {
             $studentMarksCount = $examCopyCounts[$student->id] ?? 0;
             $marksComplete = $studentMarksCount >= $totalRequired;
             $alreadyIssued = in_array($student->id, $issuedStudentIds);
@@ -175,6 +202,9 @@ class ReportCard extends Component
         });
     }
 
+    /**
+     * Toggle select all eligible students.
+     */
     public function toggleAllEligible($select)
     {
         if ($select) {
@@ -187,6 +217,9 @@ class ReportCard extends Component
         }
     }
 
+    /**
+     * Issue report cards for selected students.
+     */
     public function issueReportCards()
     {
         if (empty($this->selectedStudents)) {
@@ -207,6 +240,7 @@ class ReportCard extends Component
             $skippedCount = 0;
 
             foreach ($this->selectedStudents as $studentId) {
+                // Check if already issued
                 $existing = ReportCardModel::where('organization_id', $orgId)
                     ->where('student_detail_id', $studentId)
                     ->where('standard_id', $this->issueStandard)
@@ -243,6 +277,7 @@ class ReportCard extends Component
                 $description = $message
             );
 
+            // Refresh the student list
             $this->selectedStudents = [];
             unset($this->issueStudents);
 
@@ -254,6 +289,9 @@ class ReportCard extends Component
         }
     }
 
+    /**
+     * Revoke a report card.
+     */
     public function revokeReportCard($id)
     {
         try {
@@ -276,6 +314,9 @@ class ReportCard extends Component
         }
     }
 
+    /**
+     * Reset list filters.
+     */
     public function resetFilters()
     {
         $this->reset(['search', 'filterStandard', 'filterSection', 'filterStatus']);
@@ -303,6 +344,9 @@ class ReportCard extends Component
         $this->resetPage();
     }
 
+    /**
+     * Get standards for dropdowns.
+     */
     #[\Livewire\Attributes\Computed]
     public function standards()
     {
@@ -312,6 +356,9 @@ class ReportCard extends Component
             ->get();
     }
 
+    /**
+     * Get sections for the filter standard.
+     */
     #[\Livewire\Attributes\Computed]
     public function filterSections()
     {
@@ -325,6 +372,9 @@ class ReportCard extends Component
             ->get();
     }
 
+    /**
+     * Get sections for the issue standard.
+     */
     #[\Livewire\Attributes\Computed]
     public function issueSections()
     {
@@ -338,6 +388,9 @@ class ReportCard extends Component
             ->get();
     }
 
+    /**
+     * Analytics counts.
+     */
     #[\Livewire\Attributes\Computed]
     public function analytics()
     {
