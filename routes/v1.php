@@ -33,6 +33,10 @@ use App\Http\Controllers\v1\AdminArrangementController;
 use App\Http\Controllers\v1\AdminHomeworkController;
 use App\Http\Controllers\v1\AdminAttendanceController;
 use App\Http\Controllers\v1\AdminTransportController;
+use App\Http\Controllers\v1\AdminCreditController;
+use App\Http\Controllers\v1\AdminAdmitCardController;
+use App\Http\Controllers\v1\AdminReportCardController;
+use App\Http\Controllers\v1\AdminTcCertificateController;
 use App\Http\Controllers\v1\McqController;
 use App\Http\Controllers\v1\PaymentController;
 use App\Http\Controllers\PhonePeController;
@@ -499,6 +503,50 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/transport/fees/summary',        [AdminTransportController::class, 'feeSummary']);
             Route::post('/transport/fees/payment',       [AdminTransportController::class, 'recordPayment']);
             Route::delete('/transport/fees/payment/{id}',[AdminTransportController::class, 'deletePayment'])->whereNumber('id');
+
+            // ─── Credit (web parity) ─────────────────────────────────────────
+            Route::get('/credit/stats',        [AdminCreditController::class, 'stats']);
+            Route::post('/credit/suggest-end', [AdminCreditController::class, 'suggestEndDate']);
+            Route::get('/credit',              [AdminCreditController::class, 'index']);
+            Route::get('/credit/{id}',         [AdminCreditController::class, 'show'])->whereNumber('id');
+            Route::post('/credit',             [AdminCreditController::class, 'store']);
+            Route::post('/credit/{id}',        [AdminCreditController::class, 'update'])->whereNumber('id');
+            Route::delete('/credit/{id}',      [AdminCreditController::class, 'destroy'])->whereNumber('id');
+
+            // ─── Admit Card (web parity) ─────────────────────────────────────
+            Route::get('/admit-card/lookups',   [AdminAdmitCardController::class, 'lookups']);
+            Route::get('/admit-card/analytics', [AdminAdmitCardController::class, 'analytics']);
+            Route::get('/admit-card',           [AdminAdmitCardController::class, 'index']);
+            Route::post('/admit-card/issue',    [AdminAdmitCardController::class, 'issueOne']);
+            Route::post('/admit-card/generate', [AdminAdmitCardController::class, 'generate']);
+            Route::get('/admit-card/{id}',      [AdminAdmitCardController::class, 'show'])->whereNumber('id');
+            Route::get('/admit-card/{id}/pdf',  [AdminAdmitCardController::class, 'pdf'])->whereNumber('id');
+            Route::delete('/admit-card/{id}',   [AdminAdmitCardController::class, 'destroy'])->whereNumber('id');
+
+            // ─── Report Card (web parity) ────────────────────────────────────
+            Route::get('/report-card/lookups',        [AdminReportCardController::class, 'lookups']);
+            Route::get('/report-card/stats',          [AdminReportCardController::class, 'stats']);
+            Route::get('/report-card/issue-students', [AdminReportCardController::class, 'issueStudents']);
+            Route::post('/report-card/issue',         [AdminReportCardController::class, 'issue']);
+            Route::get('/report-card',                [AdminReportCardController::class, 'index']);
+            Route::get('/report-card/{id}/pdf',       [AdminReportCardController::class, 'pdf'])->whereNumber('id');
+            Route::post('/report-card/{id}/revoke',   [AdminReportCardController::class, 'revoke'])->whereNumber('id');
+
+            // ─── TC & Certificate (web parity) ───────────────────────────────
+            Route::get('/tc-certificate/lookups',  [AdminTcCertificateController::class, 'lookups']);
+            Route::get('/tc-certificate/stats',    [AdminTcCertificateController::class, 'stats']);
+            Route::get('/tc-certificate/students', [AdminTcCertificateController::class, 'students']);
+            Route::get('/tc-certificate',          [AdminTcCertificateController::class, 'index']);
+            // Certificates (achievement / participation)
+            Route::post('/tc-certificate/cert',          [AdminTcCertificateController::class, 'storeCert']);
+            Route::get('/tc-certificate/cert/{id}/pdf',  [AdminTcCertificateController::class, 'certPdf'])->whereNumber('id');
+            Route::post('/tc-certificate/cert/{id}',     [AdminTcCertificateController::class, 'updateCert'])->whereNumber('id');
+            Route::delete('/tc-certificate/cert/{id}',   [AdminTcCertificateController::class, 'destroyCert'])->whereNumber('id');
+            // Transfer certificates
+            Route::post('/tc-certificate/tc',            [AdminTcCertificateController::class, 'storeTc']);
+            Route::get('/tc-certificate/tc/{id}/pdf',    [AdminTcCertificateController::class, 'tcPdf'])->whereNumber('id');
+            Route::post('/tc-certificate/tc/{id}',       [AdminTcCertificateController::class, 'updateTc'])->whereNumber('id');
+            Route::delete('/tc-certificate/tc/{id}',     [AdminTcCertificateController::class, 'destroyTc'])->whereNumber('id');
         });
 
         // Accounts Api (role: accounts) — Phase 0
