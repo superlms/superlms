@@ -1,105 +1,117 @@
 <div class="{{ $embedded ? '' : 'min-h-screen' }} bg-gray-50">
 
-    @unless ($embedded)
-    {{-- ══════════ HEADER (admin template) ══════════ --}}
-    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 sm:py-5 sticky top-0 z-30">
-        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <div>
-                <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Fee Structure</h1>
-                <p class="text-sm text-gray-500 mt-0.5">Academic fee structure &amp; transport fee overview</p>
-            </div>
-            <div class="flex flex-wrap items-center gap-2">
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-xs font-medium text-gray-600">
-                    Academic <strong class="text-gray-900">{{ $academicCount }}</strong>
-                </span>
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-xs font-medium text-blue-600">
-                    Total ₹<strong>{{ number_format($totalAcademicAmt, 0) }}</strong>
-                </span>
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-xs font-medium text-emerald-600">
-                    Routes <strong>{{ $routeCount }}</strong>
-                </span>
-                @if ($activeTab === 'academic')
-                    <button wire:click="openStructureModal()"
-                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm ml-1">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                        Add Fee Structure
-                    </button>
-                @endif
+    {{-- ══════════ STICKY HEADER — title + tabs + filter band (attendance style) ══════════ --}}
+    <div class="bg-white border-b border-gray-200 {{ $embedded ? '' : 'sticky top-0 z-30' }}">
+
+        @unless ($embedded)
+        <div class="px-4 sm:px-6 py-4 sm:py-5">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Fee Structure</h1>
+                    <p class="text-sm text-gray-500 mt-0.5">Academic fee structure &amp; transport fee overview</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-xs font-medium text-gray-600">
+                        Academic <strong class="text-gray-900">{{ $academicCount }}</strong>
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-xs font-medium text-blue-600">
+                        Total ₹<strong>{{ number_format($totalAcademicAmt, 0) }}</strong>
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-xs font-medium text-emerald-600">
+                        Routes <strong>{{ $routeCount }}</strong>
+                    </span>
+                </div>
             </div>
         </div>
-    </div>
-    @endunless
+        @endunless
 
-    {{-- ══════════ TABS ══════════ --}}
-    <div class="bg-white border-b border-gray-200 px-4 sm:px-6">
-        <nav class="flex gap-1 overflow-x-auto">
-            @foreach ([
-                'academic'         => 'Academic Fees',
-                'transport_routes' => 'Transport Routes',
-                'transport_fees'   => 'Student Transport Fees',
-            ] as $tab => $label)
-                <button wire:click="setTab('{{ $tab }}')"
-                    class="py-3 px-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors
-                        {{ $activeTab === $tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
-                    {{ $label }}
-                </button>
-            @endforeach
-        </nav>
+        {{-- ══════════ TABS (attached under header) ══════════ --}}
+        <div class="{{ $embedded ? '' : 'border-t border-gray-200' }} px-4 sm:px-6">
+            <nav class="flex gap-1 overflow-x-auto">
+                @foreach ([
+                    'academic'         => 'Academic Fees',
+                    'transport_routes' => 'Transport Routes',
+                    'transport_fees'   => 'Student Transport Fees',
+                ] as $tab => $label)
+                    <button wire:click="setTab('{{ $tab }}')"
+                        class="py-3 px-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors
+                            {{ $activeTab === $tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
+                        {{ $label }}
+                    </button>
+                @endforeach
+            </nav>
+        </div>
+
+        {{-- ══════════ FILTER BAND — attached, full width (attendance style) ══════════ --}}
+        @if ($activeTab === 'academic')
+            <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                        Filter by:
+                    </div>
+                    <select wire:model.live="filterStructureStandard" class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">All Classes</option>
+                        @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
+                    </select>
+                    <select wire:model.live="filterStructureSection" @disabled(!$filterStructureStandard) class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50">
+                        <option value="">All Sections</option>
+                        @foreach ($sections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
+                    </select>
+                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search fee name…"
+                        class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-44 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    @if ($filterStructureStandard || $filterStructureSection || $search)
+                        <button wire:click="clearStructureFilters" class="text-xs text-blue-600 hover:text-blue-800 font-medium">Clear</button>
+                    @endif
+
+                    <div class="ml-auto flex items-center gap-2">
+                        <span class="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white border border-gray-200 text-xs font-medium text-gray-600">
+                            Total: <strong class="text-blue-700">₹{{ number_format($totalAcademicAmt, 0) }}</strong>
+                        </span>
+                        @if ($embedded)
+                            <button wire:click="openAnalytics"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                                Analytics
+                            </button>
+                        @endif
+                        <a href="{{ route('admin.fee-structure.pdf', ['organization' => auth()->user()->organization_id, 'standard' => $filterStructureStandard, 'section' => $filterStructureSection]) }}" target="_blank"
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                            Print
+                        </a>
+                        <a href="{{ route('admin.fee-structure.pdf', ['organization' => auth()->user()->organization_id, 'standard' => $filterStructureStandard, 'section' => $filterStructureSection, 'download' => 1]) }}" target="_blank"
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            Download
+                        </a>
+                        <button wire:click="openStructureModal()"
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                            Add Fee Structure
+                        </button>
+                    </div>
+                </div>
+            </div>
+        @elseif ($activeTab === 'transport_routes')
+            <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                        Filter by:
+                    </div>
+                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search route…"
+                        class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <span class="ml-auto text-xs text-gray-500">Annual fee = monthly × 11 (June free)</span>
+                </div>
+            </div>
+        @endif
     </div>
 
     <div class="p-4 sm:p-6 space-y-5">
 
         {{-- ══════════ ACADEMIC TAB ══════════ --}}
         @if ($activeTab === 'academic')
-            {{-- Exam-style filter bar: filters (left) + analytics/add/print (right) --}}
-            <div class="bg-gray-50 border border-gray-200 rounded-lg px-3 sm:px-4 py-3 flex flex-wrap items-center gap-3">
-                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-                    Filter by:
-                </div>
-                <select wire:model.live="filterStructureStandard" class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    <option value="">All Classes</option>
-                    @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
-                </select>
-                <select wire:model.live="filterStructureSection" @disabled(!$filterStructureStandard) class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50">
-                    <option value="">All Sections</option>
-                    @foreach ($sections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
-                </select>
-                <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search fee name…"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-44 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                @if ($filterStructureStandard || $filterStructureSection || $search)
-                    <button wire:click="clearStructureFilters" class="text-xs text-blue-600 hover:text-blue-800 font-medium">Clear</button>
-                @endif
-
-                <div class="ml-auto flex items-center gap-2">
-                    <span class="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white border border-gray-200 text-xs font-medium text-gray-600">
-                        Total: <strong class="text-blue-700">₹{{ number_format($totalAcademicAmt, 0) }}</strong>
-                    </span>
-                    @if ($embedded)
-                        <button wire:click="openAnalytics"
-                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                            Analytics
-                        </button>
-                    @endif
-                    <a href="{{ route('admin.fee-structure.pdf', ['organization' => auth()->user()->organization_id, 'standard' => $filterStructureStandard, 'section' => $filterStructureSection]) }}" target="_blank"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-                        Print
-                    </a>
-                    <a href="{{ route('admin.fee-structure.pdf', ['organization' => auth()->user()->organization_id, 'standard' => $filterStructureStandard, 'section' => $filterStructureSection, 'download' => 1]) }}" target="_blank"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                        Download
-                    </a>
-                    <button wire:click="openStructureModal()"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                        Add Fee Structure
-                    </button>
-                </div>
-            </div>
-
             {{-- 3-column grid: one card per class + section --}}
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 @forelse ($structureGroups as $g)
@@ -152,17 +164,6 @@
 
         {{-- ══════════ TRANSPORT ROUTES TAB ══════════ --}}
         @if ($activeTab === 'transport_routes')
-            {{-- Exam-style filter bar (matches Fee Submission) --}}
-            <div class="bg-gray-50 border border-gray-200 rounded-lg px-3 sm:px-4 py-3 flex flex-wrap items-center gap-3">
-                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-                    Filter by:
-                </div>
-                <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search route…"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                <span class="ml-auto text-xs text-gray-500">Annual fee = monthly × 11 (June free)</span>
-            </div>
-
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 @forelse ($routes as $r)
                     <div wire:key="route-{{ $r->id }}" class="bg-white rounded-xl border border-gray-200 p-5">

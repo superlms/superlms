@@ -863,7 +863,7 @@ class Standard extends Component
         $this->viewData = [
             'name'           => $s->name,
             'code'           => $s->code,
-            'board'          => $s->board,
+            'board'          => $s->board ?: $this->resolveOrgBoard(),
             'order'          => $s->order,
             'is_active'      => $s->is_active ? 'Active' : 'Inactive',
             'sections_count' => $s->sections_count,
