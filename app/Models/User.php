@@ -206,6 +206,25 @@ class User extends Authenticatable
         return false;
     }
 
+    /**
+     * The functionalities this account may use in the mobile app, expressed as
+     * web admin route names (e.g. 'admin.attendance'), mirroring the web
+     * permission model. A full school admin gets every functionality — signalled
+     * with the ['*'] wildcard — while a sub-admin gets only what was granted
+     * from the web Users panel.
+     *
+     * @return array<int,string>
+     */
+    public function apiPermissions(): array
+    {
+        if ($this->role === 'sub-admin') {
+            return array_values((array) $this->permissions);
+        }
+
+        // Full admin (and any other elevated role) — unrestricted.
+        return ['*'];
+    }
+
 
     public function roles(): BelongsToMany
     {

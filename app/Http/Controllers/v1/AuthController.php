@@ -172,6 +172,12 @@ class AuthController extends Controller
             ] : null,
         ];
 
+        // School admins / sub-admins carry the functionalities they may access,
+        // so the mobile app can show only the assigned screens (web parity).
+        if ($userType === 'admin') {
+            $profile['permissions'] = $user->apiPermissions();
+        }
+
         if ($userType === 'student') {
             $student = StudentDetail::with(['standard:id,name,code', 'section:id,name'])
                 ->where('user_id', $user->id)

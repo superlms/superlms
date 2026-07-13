@@ -529,6 +529,7 @@ class AdminController extends ApiController
             'email'        => $user->email,
             'role'         => $user->role,
             'image'        => $user->image,
+            'permissions'  => $user->apiPermissions(),
             'organization' => $org ? [
                 'id'          => $org->id,
                 'name'        => $org->name,
