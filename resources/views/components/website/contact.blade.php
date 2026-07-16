@@ -821,7 +821,7 @@
                     <div class="info-icon" style="background:var(--secondary-faint);">📍</div>
                     <div>
                         <div class="info-label">Office Address</div>
-                        <div class="info-value">Office No. 2, Braj Vihar Colony, Main Road Jattari, Aligarh, UP 202137</div>
+                        <div class="info-value">Office No. 02, Braj Vihar Colony, Jattari Khair Aligarh, Uttar Pradesh India -202137</div>
                     </div>
                 </div>
             </div>

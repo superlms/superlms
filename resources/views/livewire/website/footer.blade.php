@@ -84,9 +84,7 @@
                         d="M12 21s-6-5.686-6-10a6 6 0 1112 0c0 4.314-6 10-6 10z" />
                 </svg>
                 <span class="leading-5 font-medium">
-                    Floor 2, Braj Vihar Colony<br />
-                    Main Road Jattari, Jattari<br />
-                    Khair Aligarh, Uttar Pradesh, 202137
+                    Office No. 02, Braj Vihar Colony, Jattari Khair Aligarh, Uttar Pradesh India -202137
                 </span>
             </div>
         </div>

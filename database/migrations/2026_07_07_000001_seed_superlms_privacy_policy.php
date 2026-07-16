@@ -44,7 +44,7 @@ return new class extends Migration
             ['head' => 'Introduction', 'desc' => <<<'TXT'
 SUPERLMS is a product of Super Learnings Private Limited.
 Website: www.superlms.in
-Registered Office: Office No. 02, Braj Vihar Colony, Jattari, Khair, Aligarh, Uttar Pradesh – 202137
+Registered Office: Office No. 02, Braj Vihar Colony, Jattari Khair Aligarh, Uttar Pradesh India -202137
 Email: support@superlms.in | Phone: +91 9084748563
 Effective Date: 07 July 2026
 
@@ -272,7 +272,7 @@ Grievance Officer
 Super Learnings Private Limited
 Email: support@superlms.in
 Phone: +91 9084748563
-Address: Office No. 02, Braj Vihar Colony, Jattari, Khair, Aligarh, Uttar Pradesh – 202137
+Address: Office No. 02, Braj Vihar Colony, Jattari Khair Aligarh, Uttar Pradesh India -202137
 Business Hours: Monday–Saturday, 10:00 AM – 6:00 PM (IST)
 
 We shall acknowledge grievances within 48 hours and endeavour to resolve them within 30 days, as prescribed under applicable IT Rules. Data Principals who remain unsatisfied may escalate concerns to the Data Protection Board of India, once constituted and operational under the DPDP Act, 2023.
@@ -335,7 +335,7 @@ For any questions, concerns, or requests regarding this Privacy Policy or Your P
 Super Learnings Private Limited
 Email: support@superlms.in
 Phone: +91 9084748563
-Address: Office No. 02, Braj Vihar Colony, Jattari, Khair, Aligarh, Uttar Pradesh – 202137
+Address: Office No. 02, Braj Vihar Colony, Jattari Khair Aligarh, Uttar Pradesh India -202137
 Business Hours: Monday–Saturday, 10:00 AM – 6:00 PM (IST)
 TXT],
         ];

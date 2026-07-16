@@ -137,7 +137,7 @@
                         <span>📱</span><span>+91 9084748563</span>
                     </div>
                     <div style="display:flex;gap:8px;align-items:flex-start;color:var(--text3);font-size:12px;">
-                        <span>📍</span><span>Office No. 2, Braj Vihar colony Jattari, Khair, Aligarh, UP 202137</span>
+                        <span>📍</span><span>Office No. 02, Braj Vihar Colony, Jattari Khair Aligarh, Uttar Pradesh India -202137</span>
                     </div>
                 </div>
             </div>
