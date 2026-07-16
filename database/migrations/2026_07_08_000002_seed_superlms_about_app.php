@@ -31,7 +31,7 @@ return new class extends Migration
             ['type' => 'Website', 'value' => 'www.superlms.in'],
         ], JSON_UNESCAPED_UNICODE);
 
-        $address = 'House No. 02, Braj Vihar Colony, Jattari, Khair, Aligarh, Uttar Pradesh – 202137';
+        $address = 'Office No. 2, Braj Vihar Colony, Jattari, Khair, Aligarh, Uttar Pradesh – 202137';
 
         if ($row) {
             $existingContacts = json_decode($row->contact_details ?? '[]', true) ?: [];
@@ -182,7 +182,7 @@ Whether You're a School exploring a new management system, a parent curious abou
 Super Learnings Private Limited
 📧 Email: support@superlms.in
 📱 Phone: +91 9084748563
-📍 Address: House No. 02, Braj Vihar Colony, Jattari, Khair, Aligarh, Uttar Pradesh – 202137
+📍 Address: Office No. 2, Braj Vihar Colony, Jattari, Khair, Aligarh, Uttar Pradesh – 202137
 🌐 Website: superlms.in
 TXT],
         ];

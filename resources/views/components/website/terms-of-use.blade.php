@@ -749,7 +749,7 @@
                     <div class="contact-info-card">
                         <div class="contact-info-row"><span>📧</span><span>support@superlms.in</span></div>
                         <div class="contact-info-row"><span>📱</span><span>+91 9084748563</span></div>
-                        <div class="contact-info-row"><span>📍</span><span>House No.02, Braj Vihar Colony, Jattari,
+                        <div class="contact-info-row"><span>📍</span><span>Office No. 2, Braj Vihar Colony, Jattari,
                                 Khair, Aligarh, UP 202137</span></div>
                     </div>
                 </div>
