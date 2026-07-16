@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Admin;
+namespace App\Livewire\Accounts;
 
 use App\Models\Student\AdmitCard as ModelAdmitCard;
 use App\Models\Admin\Exam;

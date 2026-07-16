@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Admin;
+namespace App\Livewire\Accounts;
 
 use App\Models\Admin\Exam;
 use App\Models\Admin\ExamCopy;

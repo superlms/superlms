@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Admin;
+namespace App\Livewire\Accounts;
 
 use App\Models\Admin\Certificate;
 use App\Models\Admin\TransferCertificate;

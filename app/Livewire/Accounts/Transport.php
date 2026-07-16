@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Admin;
+namespace App\Livewire\Accounts;
 
 use App\Livewire\Concerns\HandlesTransportFees;
 use App\Models\Admin\DriverDetail;
