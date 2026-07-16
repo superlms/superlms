@@ -112,7 +112,7 @@
 
                 <p><strong>4.2</strong> This document is published in accordance with the provisions of Rule 3 (1) of the Information Technology (Intermediaries guidelines) Rules, 2011 that require publishing the rules and regulations, privacy policy, and Terms of Use for access or usage of the domain name <a href="https://www.superlms.in" class="text-blue-600 hover:underline font-medium">www.superlms.in</a> ("Website"), including the related mobile site and mobile application (hereinafter referred to as "Platform").</p>
 
-                <p><strong>4.3</strong> The Platform is owned by SuperLMS Educatorss Private Limited, a company incorporated under the Companies Act, 1956 with its registered office at House No 1, Brij Vihar Colony Jattari Khair Aligarh, Uttar Pradesh, India (hereinafter referred to as "Platform Owner", "we", "us", "our").</p>
+                <p><strong>4.3</strong> The Platform is owned by SuperLMS Educatorss Private Limited, a company incorporated under the Companies Act, 1956 with its registered office at Office No. 2, Brij Vihar Colony Jattari Khair Aligarh, Uttar Pradesh, India (hereinafter referred to as "Platform Owner", "we", "us", "our").</p>
 
                 <p><strong>4.4</strong> Your use of the Platform and services and tools are governed by the following Terms of Use as applicable to the Platform, including the applicable policies which are incorporated herein by way of reference. By merely using the Platform, you shall be contracting with the Platform Owner, and these terms and conditions, including the policies, constitute your binding obligations with the Platform Owner.</p>
 
