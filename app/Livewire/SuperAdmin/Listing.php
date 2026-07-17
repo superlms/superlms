@@ -34,8 +34,12 @@ class Listing extends Component
     public $noOfStudents = '';
     public $avgFee = '';
 
-    /** Remark modal */
-    public ?int $remarkTargetId = null;
+    /** View + status panel */
+    public bool $showViewPanel = false;
+    public ?int $viewId = null;
+    public string $statusChoice = 'pending';   // pending | approved | rejected
+    public string $paymentType = '';           // monthly | one_time | student_based
+    public $paymentAmount = '';
     public string $remarkText = '';
 
     /** Delete confirmation */
@@ -103,6 +107,7 @@ class Listing extends Component
         $this->logoUrl      = $s->logo;
         $this->logo         = null;
         $this->resetErrorBag();
+        $this->showViewPanel = false;
         $this->showPanel = true;
     }
 
@@ -161,54 +166,74 @@ class Listing extends Component
         $this->closePanel();
     }
 
-    // ─── Status: approve / remark ─────────────────────────────────────
-    public function approve(int $id): void
-    {
-        $s = SchoolListing::find($id);
-        if ($s) {
-            $s->update(['status' => 'approved']);
-            $this->notification()->success('Approved', 'School marked as approved.');
-        }
-    }
-
-    public function openRemark(int $id): void
+    // ─── View + status marking (in the slide-in panel) ────────────────
+    public function openView(int $id): void
     {
         $s = SchoolListing::findOrFail($id);
-        $this->remarkTargetId = $s->id;
-        $this->remarkText     = $s->remark ?? '';
-        $this->resetErrorBag('remarkText');
+        $this->viewId        = $s->id;
+        $this->statusChoice  = in_array($s->status, SchoolListing::STATUSES, true) ? $s->status : 'pending';
+        $this->paymentType   = $s->payment_type ?? '';
+        $this->paymentAmount = $s->payment_amount !== null ? (string) $s->payment_amount : '';
+        $this->remarkText    = $s->remark ?? '';
+        $this->resetErrorBag();
+        $this->showPanel     = false;
+        $this->showViewPanel = true;
     }
 
-    public function cancelRemark(): void
+    public function closeViewPanel(): void
     {
-        $this->remarkTargetId = null;
-        $this->remarkText     = '';
+        $this->showViewPanel = false;
+        $this->reset(['viewId', 'statusChoice', 'paymentType', 'paymentAmount', 'remarkText']);
+        $this->resetErrorBag();
     }
 
-    public function saveRemark(): void
+    public function saveStatus(): void
     {
-        $this->validate([
-            'remarkText' => 'required|string|max:1000',
-        ], [
-            'remarkText.required' => 'Please enter a remark.',
+        $rules = ['statusChoice' => 'required|in:pending,approved,rejected'];
+
+        if ($this->statusChoice === 'approved') {
+            $rules['paymentType']   = 'required|in:monthly,one_time,student_based';
+            $rules['paymentAmount'] = 'required|numeric|min:0|max:100000000';
+        }
+        if ($this->statusChoice === 'rejected') {
+            $rules['remarkText'] = 'required|string|max:1000';
+        }
+
+        $this->validate($rules, [
+            'paymentType.required'   => 'Please choose a payment type.',
+            'paymentType.in'         => 'Please choose a valid payment type.',
+            'paymentAmount.required' => 'Please enter the amount.',
+            'remarkText.required'    => 'Please enter a remark.',
         ]);
 
-        $s = SchoolListing::find($this->remarkTargetId);
-        if ($s) {
-            $s->update(['status' => 'rejected', 'remark' => $this->remarkText]);
+        $s = SchoolListing::find($this->viewId);
+        if (! $s) {
+            $this->notification()->error('Not found', 'School not found.');
+            $this->closeViewPanel();
+            return;
+        }
+
+        if ($this->statusChoice === 'approved') {
+            $s->update([
+                'status'         => 'approved',
+                'payment_type'   => $this->paymentType,
+                'payment_amount' => $this->paymentAmount,
+            ]);
+            $this->notification()->success('Approved', 'School approved with payment details.');
+        } elseif ($this->statusChoice === 'rejected') {
+            $s->update([
+                'status'         => 'rejected',
+                'remark'         => $this->remarkText,
+                'payment_type'   => null,
+                'payment_amount' => null,
+            ]);
             $this->notification()->success('Remark Saved', 'School marked with a remark.');
-        }
-
-        $this->cancelRemark();
-    }
-
-    public function markPending(int $id): void
-    {
-        $s = SchoolListing::find($id);
-        if ($s) {
+        } else {
             $s->update(['status' => 'pending']);
-            $this->notification()->success('Reset', 'School moved back to pending.');
+            $this->notification()->success('Updated', 'School moved back to pending.');
         }
+
+        $this->closeViewPanel();
     }
 
     // ─── Delete ───────────────────────────────────────────────────────
@@ -268,10 +293,13 @@ class Listing extends Component
             'rejected' => SchoolListing::where('status', 'rejected')->count(),
         ];
 
+        $viewSchool = $this->viewId ? SchoolListing::find($this->viewId) : null;
+
         return view('livewire.super-admin.listing', [
-            'schools'   => $schools,
-            'locations' => $locations,
-            'stats'     => $stats,
+            'schools'    => $schools,
+            'locations'  => $locations,
+            'stats'      => $stats,
+            'viewSchool' => $viewSchool,
         ]);
     }
 }

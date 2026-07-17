@@ -1753,10 +1753,13 @@
                         Model</span></h2>
                 <p class="section-subtitle" style="max-width:900px;margin:0 auto;">A transparent, school-first approach
                     that ensures every institution gets maximum value from day one. From the very first conversation to
-                    going live and well beyond, we handle onboarding, data migration, staff training, and ongoing support
-                    ourselves — so your team is never left figuring things out alone. Every step is designed to be simple,
-                    predictable, and completely stress-free, giving your school a smooth, guided path to going fully
-                    digital without any hidden surprises along the way.</p>
+                    going live and well beyond, we personally handle onboarding, data migration, staff training, and
+                    day-to-day support — so your team is never left figuring things out alone. We begin by understanding
+                    how your school already works, then configure SUPERLMS around your real classes, subjects, fee
+                    structures, and academic calendar instead of forcing you into a rigid template. Every step is simple,
+                    predictable, and completely stress-free, and our team stays closely involved long after go-live to
+                    make sure the platform keeps delivering value as your school grows — with no hidden costs or surprises
+                    along the way.</p>
             </div>
             <div class="wmodel-grid stagger">
                 <div class="card-wmodel">
@@ -1831,10 +1834,13 @@
                         Role</span></h2>
                 <p class="section-subtitle" style="max-width:900px;margin:0 auto;">SUPERLMS is designed to serve the
                     unique needs of every stakeholder in a school ecosystem. Administrators get complete control over
-                    day-to-day operations, teachers get simple tools to manage classes and assessments, students get an
-                    engaging way to learn and track their progress, and parents stay closely connected to their child's
-                    journey. Each role gets a tailored experience with exactly the right features — so everyone, from the
-                    principal's office to the parent's phone, works together effortlessly on one connected platform.</p>
+                    day-to-day operations and a clear, real-time view of the entire school, teachers get simple tools to
+                    manage classes, attendance, and assessments without the paperwork, students get an engaging way to
+                    learn, submit work, and track their own progress, and parents stay closely connected to their child's
+                    attendance, results, fees, and everyday school updates. Each role gets a tailored experience that
+                    surfaces exactly the right features and hides everything they don't need — so everyone, from the
+                    principal's office to the parent's phone, works together effortlessly on a single, connected platform
+                    that keeps the whole school moving in sync.</p>
             </div>
             <div class="role-grid-2 stagger">
                 <!-- Administrators -->
