@@ -164,15 +164,12 @@
                 </div>
                 <div class="p-6">
                     <div class="max-w-xs">
-                        <label class="block text-xs font-medium text-gray-600 mb-1">
-                            Date <span class="text-gray-400 font-normal">(auto-set to today on edit)</span>
-                        </label>
-                        <input type="date" wire:model.defer="last_updated"
-                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
-                                   focus:ring-2 focus:ring-green-400 focus:border-green-400">
-                        @error('last_updated')
-                            <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>
-                        @enderror
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Last Updated</label>
+                        <div class="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 flex items-center gap-2">
+                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <span class="font-medium">{{ now()->format('d M Y') }}</span>
+                            <span class="text-xs text-gray-400">· set automatically when you save</span>
+                        </div>
                     </div>
                 </div>
             </div>

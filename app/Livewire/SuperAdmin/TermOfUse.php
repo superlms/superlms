@@ -94,9 +94,12 @@ class TermOfUse extends Component
     {
         $this->validate();
 
+        // Stamp the current date automatically on every save/update.
+        $this->last_updated = now()->format('Y-m-d');
+
         $data = [
             'metadata'     => ['sections' => $this->sections],
-            'last_updated' => $this->last_updated ?: now()->format('Y-m-d'),
+            'last_updated' => $this->last_updated,
         ];
 
         if ($this->termOfUse) {
