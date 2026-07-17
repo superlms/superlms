@@ -246,6 +246,12 @@ return [
             'prefix' => 'super-admin.users',
         ],
         [
+            'title' => 'Listing',
+            'link' => 'super-admin.listing',
+            'icon' => 'clipboard-document-list',
+            'prefix' => 'super-admin.listing',
+        ],
+        [
             'title' => 'Payroll',
             'link' => 'super-admin.payroll',
             'icon' => 'banknotes',
