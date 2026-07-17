@@ -1724,7 +1724,7 @@
             width: 100%;
             height: 100%;
             display: block;
-            object-fit: cover;
+            object-fit: contain;
         }
 
         .testimonial-name {
@@ -4069,7 +4069,7 @@
                 <p class="testimonial-text">"${escText(t.feedback)}"</p>
                 <div class="testimonial-author">
                     ${t.logo_url
-                        ? `<div class="testimonial-avatar" style="background:#fff;min-width:40px;"><img src="${escText(t.logo_url)}" alt="${escText(t.school_name)} logo" loading="lazy" onerror="this.closest('.testimonial-avatar').outerHTML='<div class=&quot;testimonial-avatar&quot; style=&quot;background:${gradients[i % gradients.length]};min-width:40px;&quot;>${escText(t.initials)}</div>'"></div>`
+                        ? `<div class="testimonial-avatar" style="background:#fff;min-width:40px;border-radius:9px;padding:3px;border:1px solid rgba(111,86,254,0.15);"><img src="${escText(t.logo_url)}" alt="${escText(t.school_name)} logo" loading="lazy" onerror="this.closest('.testimonial-avatar').outerHTML='<div class=&quot;testimonial-avatar&quot; style=&quot;background:${gradients[i % gradients.length]};min-width:40px;&quot;>${escText(t.initials)}</div>'"></div>`
                         : `<div class="testimonial-avatar" style="background:${gradients[i % gradients.length]};min-width:40px;">${escText(t.initials)}</div>`}
                     <div>
                         <div class="testimonial-name">${escText(t.school_name)}</div>
