@@ -708,6 +708,88 @@
             line-height: 1.65;
         }
 
+        /* ══════════════════ WHAT WE DO (redesigned card grid) ══════════════════ */
+        .wd-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+            margin-top: 44px;
+        }
+
+        .wd-card {
+            background: #fff;
+            border: 1px solid var(--border2);
+            border-radius: var(--radius);
+            padding: 28px 24px;
+            text-align: left;
+            position: relative;
+            overflow: hidden;
+            transition: all .35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .wd-card::after {
+            content: '';
+            position: absolute;
+            top: -60px;
+            right: -60px;
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(111, 86, 254, 0.08), transparent 70%);
+            opacity: 0;
+            transition: opacity .35s;
+        }
+
+        .wd-card:hover {
+            transform: translateY(-6px);
+            border-color: var(--border);
+            box-shadow: var(--shadow2);
+        }
+
+        .wd-card:hover::after {
+            opacity: 1;
+        }
+
+        .wd-icon {
+            width: 54px;
+            height: 54px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 25px;
+            margin-bottom: 18px;
+            color: #fff;
+            box-shadow: 0 8px 20px rgba(111, 86, 254, 0.2);
+            position: relative;
+            z-index: 1;
+        }
+
+        .wd-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 8px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .wd-desc {
+            font-size: 13px;
+            color: var(--text3);
+            line-height: 1.7;
+            position: relative;
+            z-index: 1;
+        }
+
+        @media (max-width: 1100px) {
+            .wd-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 640px) {
+            .wd-grid { grid-template-columns: 1fr; }
+        }
+
         /* ══════════════════ WORKING MODEL ══════════════════ */
         .wmodel-grid {
             display: grid;
@@ -1350,7 +1432,7 @@
         <div class="blob2"></div>
         <div class="page-header-content">
             <div class="section-tag tag-dual reveal">About Us</div>
-            <h1 class="section-title reveal" style="margin-top:16px;">Your All in One Solution for<br /><span
+            <h1 class="section-title reveal" style="margin-top:16px;font-size:clamp(1.7rem,3vw,2.5rem);">Your All in One Solution for<br /><span
                     class="gradient-text">Learning &amp; Management</span></h1>
             <p class="section-subtitle reveal">SUPERLMS is a cloud-based, all-in-one school management and learning
                 platform that brings academics, administration, and communication onto a single platform. Instead of
@@ -1621,56 +1703,42 @@
                 <h2 class="section-title" style="margin-top:16px;">SUPERLMS <span
                         class="gradient-text">Streamlines</span> Everything</h2>
             </div>
-            <div class="about-list stagger-left">
-                <div class="card-about-item">
-                    <div class="about-item-icon" style="background:var(--secondary-faint);">📊</div>
-                    <div>
-                        <div class="about-item-title">Streamlines Academic Management</div>
-                        <div class="about-item-desc">Attendance, timetables, fee management, and note-sharing, all in
-                            one unified platform — saving administrators several hours of manual work every day.</div>
-                    </div>
+            <div class="wd-grid stagger">
+                <div class="wd-card">
+                    <div class="wd-icon" style="background:linear-gradient(135deg,#DB57B2,#6F56FE);">📊</div>
+                    <div class="wd-title">Streamlines Academic Management</div>
+                    <div class="wd-desc">Attendance, timetables, fee management, and note-sharing, all in one unified
+                        platform — saving administrators several hours of manual work every day.</div>
                 </div>
-                <div class="card-about-item">
-                    <div class="about-item-icon" style="background:var(--primary-faint);">🌟</div>
-                    <div>
-                        <div class="about-item-title">Enhances the Learning Experience</div>
-                        <div class="about-item-desc">Real-time progress tracking, digital resource sharing, and
-                            interactive assessment tools that help both teachers and students engage more
-                            effectively.</div>
-                    </div>
+                <div class="wd-card">
+                    <div class="wd-icon" style="background:linear-gradient(135deg,#E878C4,#B83D92);">🌟</div>
+                    <div class="wd-title">Enhances the Learning Experience</div>
+                    <div class="wd-desc">Real-time progress tracking, digital resource sharing, and interactive
+                        assessment tools that help both teachers and students engage more effectively.</div>
                 </div>
-                <div class="card-about-item">
-                    <div class="about-item-icon" style="background:var(--secondary-faint);">💡</div>
-                    <div>
-                        <div class="about-item-title">Keeps Costs Affordable</div>
-                        <div class="about-item-desc">Flexible, transparent pricing designed to make advanced
-                            school-management features available to institutions of every size and budget.</div>
-                    </div>
+                <div class="wd-card">
+                    <div class="wd-icon" style="background:linear-gradient(135deg,#6F56FE,#5540D4);">💡</div>
+                    <div class="wd-title">Keeps Costs Affordable</div>
+                    <div class="wd-desc">Flexible, transparent pricing designed to make advanced school-management
+                        features available to institutions of every size and budget.</div>
                 </div>
-                <div class="card-about-item">
-                    <div class="about-item-icon" style="background:var(--primary-faint);">🔒</div>
-                    <div>
-                        <div class="about-item-title">Secure &amp; Reliable Infrastructure</div>
-                        <div class="about-item-desc">Enterprise-grade security, daily backups, SSL encryption, and data
-                            handling aligned with Indian data protection law keep your data always safe.</div>
-                    </div>
+                <div class="wd-card">
+                    <div class="wd-icon" style="background:linear-gradient(135deg,#DB57B2,#6F56FE);">🔒</div>
+                    <div class="wd-title">Secure &amp; Reliable Infrastructure</div>
+                    <div class="wd-desc">Enterprise-grade security, daily backups, SSL encryption, and data handling
+                        aligned with Indian data protection law keep your data always safe.</div>
                 </div>
-                <div class="card-about-item">
-                    <div class="about-item-icon" style="background:var(--secondary-faint);">📱</div>
-                    <div>
-                        <div class="about-item-title">Multi-Platform Access</div>
-                        <div class="about-item-desc">Dedicated Android and iOS apps so students, teachers, and parents
-                            stay connected anytime — even in low-bandwidth areas.</div>
-                    </div>
+                <div class="wd-card">
+                    <div class="wd-icon" style="background:linear-gradient(135deg,#E878C4,#B83D92);">📱</div>
+                    <div class="wd-title">Multi-Platform Access</div>
+                    <div class="wd-desc">Dedicated Android and iOS apps so students, teachers, and parents stay
+                        connected anytime — even in low-bandwidth areas.</div>
                 </div>
-                <div class="card-about-item">
-                    <div class="about-item-icon" style="background:var(--primary-faint);">🤝</div>
-                    <div>
-                        <div class="about-item-title">Dedicated Onboarding &amp; Support</div>
-                        <div class="about-item-desc">Every school is assigned an onboarding specialist, with fast,
-                            responsive support throughout their journey on the platform.
-                        </div>
-                    </div>
+                <div class="wd-card">
+                    <div class="wd-icon" style="background:linear-gradient(135deg,#6F56FE,#5540D4);">🤝</div>
+                    <div class="wd-title">Dedicated Onboarding &amp; Support</div>
+                    <div class="wd-desc">Every school is assigned an onboarding specialist, with fast, responsive
+                        support throughout their journey on the platform.</div>
                 </div>
             </div>
         </div>
@@ -1683,8 +1751,12 @@
                 <div class="section-tag tag-violet">How We Operate</div>
                 <h2 class="section-title" style="margin-top:16px;">Our <span class="gradient-text">Working
                         Model</span></h2>
-                <p class="section-subtitle" style="margin:0 auto;">A transparent, school-first approach that ensures
-                    every institution gets maximum value from day one.</p>
+                <p class="section-subtitle" style="max-width:900px;margin:0 auto;">A transparent, school-first approach
+                    that ensures every institution gets maximum value from day one. From the very first conversation to
+                    going live and well beyond, we handle onboarding, data migration, staff training, and ongoing support
+                    ourselves — so your team is never left figuring things out alone. Every step is designed to be simple,
+                    predictable, and completely stress-free, giving your school a smooth, guided path to going fully
+                    digital without any hidden surprises along the way.</p>
             </div>
             <div class="wmodel-grid stagger">
                 <div class="card-wmodel">
@@ -1757,8 +1829,12 @@
                 <div class="section-tag tag-dual">Platform Capabilities</div>
                 <h2 class="section-title" style="margin-top:16px;">Built for <span class="gradient-text">Every
                         Role</span></h2>
-                <p class="section-subtitle" style="margin:0 auto;">SUPERLMS is designed to serve the unique needs of
-                    every stakeholder in a school ecosystem.</p>
+                <p class="section-subtitle" style="max-width:900px;margin:0 auto;">SUPERLMS is designed to serve the
+                    unique needs of every stakeholder in a school ecosystem. Administrators get complete control over
+                    day-to-day operations, teachers get simple tools to manage classes and assessments, students get an
+                    engaging way to learn and track their progress, and parents stay closely connected to their child's
+                    journey. Each role gets a tailored experience with exactly the right features — so everyone, from the
+                    principal's office to the parent's phone, works together effortlessly on one connected platform.</p>
             </div>
             <div class="role-grid-2 stagger">
                 <!-- Administrators -->
@@ -2084,7 +2160,7 @@
                 <div class="section-tag tag-violet" style="display:inline-flex;">Our Team</div>
                 <h2 class="section-title" style="margin-top:16px;">Built by Entrepreneurs, <span
                         class="gradient-text">For Schools &amp; Students</span></h2>
-                <p class="section-subtitle" style="margin:16px auto 36px;">SUPERLMS is built by a team of educators,
+                <p class="section-subtitle" style="max-width:900px;margin:16px auto 36px;">SUPERLMS is built by a team of educators,
                     engineers, and designers based in Aligarh, Uttar Pradesh — the same team that speaks directly with
                     teachers, principals, and parents to understand what schools actually need, rather than guessing
                     from a distance.</p>
