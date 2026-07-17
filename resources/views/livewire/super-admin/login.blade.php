@@ -93,9 +93,18 @@
                     {{-- 6-box OTP input --}}
                     <div x-data="{
                             otp: @entangle('otp'),
+                            submitting: false,
+                            allFilled() {
+                                return this.otp.every(d => String(d ?? '').trim().length === 1);
+                            },
                             focusNext(index) {
                                 if (this.otp[index] && index < 5) {
                                     this.$refs['otp' + (index + 1)].focus();
+                                }
+                                // Auto-verify once every box is filled (single fire).
+                                if (this.allFilled() && !this.submitting) {
+                                    this.submitting = true;
+                                    this.$wire.verifyOtp();
                                 }
                             },
                             focusPrev(index, event) {
@@ -103,7 +112,9 @@
                                     this.$refs['otp' + (index - 1)].focus();
                                 }
                             }
-                        }" class="flex justify-center gap-2 sm:gap-3 mb-4">
+                        }"
+                        x-init="$watch('otp', () => { if (!allFilled()) submitting = false; })"
+                        class="flex justify-center gap-2 sm:gap-3 mb-4">
                         @for ($i = 0; $i < 6; $i++)
                             <input type="text" maxlength="1"
                                 x-ref="otp{{ $i }}"

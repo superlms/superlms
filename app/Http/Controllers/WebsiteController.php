@@ -367,6 +367,15 @@ class WebsiteController extends Controller
             'mobile.regex' => 'Please enter a valid 10-digit mobile number.',
         ]);
 
+        // Same honeypot / throwaway-domain guard as the contact & demo forms:
+        // silently accept and drop obvious bot submissions.
+        if ($this->isSpamSubmission($request)) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Application received! Our partnerships team will review it and reach out to you soon.',
+            ]);
+        }
+
         $documentPath = null;
         if ($request->hasFile('document')) {
             $documentPath = $request->file('document')->store('website/executive-docs', 's3');

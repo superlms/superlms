@@ -666,14 +666,6 @@
         }
 
         /* ══════════════════ ZERO COST TO SCHOOLS ══════════════════ */
-        .zero-cost {
-            background: linear-gradient(160deg, var(--secondary-faint) 0%, #fff 60%);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
-            padding: 48px 40px;
-            box-shadow: var(--shadow3);
-        }
-
         .zero-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -724,7 +716,6 @@
 
         @media (max-width: 768px) {
             .zero-grid { grid-template-columns: 1fr; }
-            .zero-cost { padding: 32px 20px; }
         }
 
         /* ══════════════════ BOTTOM CTA ══════════════════ */
@@ -1041,41 +1032,47 @@
                     <div class="price-sub">We'll respond within 24 hours</div>
                 </div>
             </div>
+        </div>
+    </section>
 
-            <!-- ZERO COST TO SCHOOLS -->
-            <div class="zero-cost" style="margin-bottom:80px;">
-                <div class="modules-header" style="margin-bottom:32px;">
-                    <div class="section-tag tag-dual">Zero Cost to Schools</div>
-                    <h2 class="section-title" style="margin-top:16px;">The School Pays <span
-                            class="gradient-text">Nothing</span></h2>
-                    <p class="section-subtitle" style="margin:12px auto 0;">Here's the best part — whatever the pricing
-                        is, we charge it directly to the students. The school never pays us a single rupee. And on top of
-                        that, every school gets its very own website, completely free of cost.</p>
-                </div>
-
-                <div class="zero-grid">
-                    <div class="zero-card">
-                        <div class="zero-icon">🎓</div>
-                        <div class="zero-title">Charged to Students, Not the School</div>
-                        <div class="zero-desc">Whatever the plan costs is collected straight from the students. The
-                            school carries zero financial burden — ever.</div>
-                    </div>
-                    <div class="zero-card">
-                        <div class="zero-icon">🆓</div>
-                        <div class="zero-title">₹0 Payable by the School</div>
-                        <div class="zero-desc">No licence fees, no setup charges, no hidden costs. The school pays
-                            absolutely nothing to go live with SUPERLMS.</div>
-                    </div>
-                    <div class="zero-card">
-                        <div class="zero-icon">🌐</div>
-                        <div class="zero-title">Free School Website</div>
-                        <div class="zero-desc">Every school gets its own professional website — designed, hosted and
-                            maintained by us — free of cost.</div>
-                    </div>
-                </div>
+    <!-- ZERO COST TO SCHOOLS (its own section) -->
+    <section class="section zero-section" style="background:var(--bg3);">
+        <div style="max-width:1100px; margin:0 auto;">
+            <div class="modules-header" style="margin-bottom:40px;">
+                <div class="section-tag tag-dual">Zero Cost to Schools</div>
+                <h2 class="section-title" style="margin-top:16px;">The School Pays <span
+                        class="gradient-text">Nothing</span></h2>
+                <p class="section-subtitle" style="margin:12px auto 0;">Here's the best part — whatever the pricing is,
+                    we charge it directly to the students. The school never pays us a single rupee. And on top of that,
+                    every school gets its very own website, completely free of cost.</p>
             </div>
 
-            <!-- ALL MODULES -->
+            <div class="zero-grid">
+                <div class="zero-card">
+                    <div class="zero-icon">🎓</div>
+                    <div class="zero-title">Charged to Students, Not the School</div>
+                    <div class="zero-desc">Whatever the plan costs is collected straight from the students. The school
+                        carries zero financial burden — ever.</div>
+                </div>
+                <div class="zero-card">
+                    <div class="zero-icon">🆓</div>
+                    <div class="zero-title">₹0 Payable by the School</div>
+                    <div class="zero-desc">No licence fees, no setup charges, no hidden costs. The school pays
+                        absolutely nothing to go live with SUPERLMS.</div>
+                </div>
+                <div class="zero-card">
+                    <div class="zero-icon">🌐</div>
+                    <div class="zero-title">Free School Website</div>
+                    <div class="zero-desc">Every school gets its own professional website — designed, hosted and
+                        maintained by us — free of cost.</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ALL MODULES -->
+    <section class="section" style="background:#fff;">
+        <div style="max-width:1100px; margin:0 auto;">
             <div>
                 <div class="modules-header">
                     <div class="section-tag tag-dual">All Modules</div>
@@ -1088,16 +1085,6 @@
                 </div>
 
                 <div class="modules-grid">
-
-                    <div class="module-card">
-                        <div class="module-icon">🔗</div>
-                        <div>
-                            <div class="module-name">Quick Links</div>
-                            <div class="module-desc">Pin your most-used tools up front. One tap, zero digging — every
-                                day starts faster.</div>
-                        </div>
-                        <div class="module-check">✓</div>
-                    </div>
 
                     <div class="module-card">
                         <div class="module-icon">🏠</div>

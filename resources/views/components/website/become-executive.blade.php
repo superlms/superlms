@@ -260,6 +260,9 @@
 
     <div class="apply-wrap">
       <form id="executiveForm" onsubmit="handleExecutiveSubmit(event)" enctype="multipart/form-data">
+        {{-- Honeypot: hidden from real users; bots that fill it are silently dropped. --}}
+        <input type="text" name="company" tabindex="-1" autocomplete="off"
+          aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
         <div class="apply-grid">
           <div class="field">
             <label>Full Name <span class="req">*</span></label>

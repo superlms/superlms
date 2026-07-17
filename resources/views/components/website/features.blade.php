@@ -308,14 +308,6 @@
         <span class="feature-tag tag-v">Core</span>
       </div>
 
-      <!-- 2 -->
-      <div class="feature-card">
-        <div class="feature-icon-wrap" style="background:rgba(219,87,178,.1);">🔗</div>
-        <div class="feature-title">Quick Links</div>
-        <div class="feature-desc">One-tap shortcuts to the most-used modules. Fully customizable for admins, teachers, and students separately for faster navigation.</div>
-        <span class="feature-tag tag-p">Core</span>
-      </div>
-
       <!-- 3 -->
       <div class="feature-card">
         <div class="feature-icon-wrap" style="background:rgba(111,86,254,.08);">🏠</div>

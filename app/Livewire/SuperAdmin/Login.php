@@ -79,16 +79,15 @@ class Login extends Component
         $this->step       = 'otp';
     }
 
-    public function updatedOtp(): void
-    {
-        $entered = implode('', array_map(fn($d) => is_scalar($d) ? (string) $d : '', $this->otp));
-        if (strlen($entered) === 6 && ctype_digit($entered)) {
-            $this->verifyOtp();
-        }
-    }
-
     public function verifyOtp()
     {
+        // Idempotency guard: if a previous (possibly duplicated) request already
+        // signed us in, just continue to the dashboard instead of re-consuming
+        // the OTP — which would throw and strand the user on a stale page.
+        if (Auth::guard('superadmin')->check()) {
+            return redirect()->route('super-admin.quick-links');
+        }
+
         $entered = implode('', array_map(fn($d) => is_scalar($d) ? (string) $d : '', $this->otp));
 
         if (strlen($entered) !== 6 || !ctype_digit($entered)) {
