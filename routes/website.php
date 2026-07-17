@@ -59,10 +59,15 @@ Route::prefix('web')->group(function () {
         'blogs' => \App\Models\Blog::latest()->get(),
     ]))->name('website.blogs');
 
-    Route::get('/blogs/{blog}', fn(\App\Models\Blog $blog) => view('components.website.blog-detail', [
-        'blog'   => $blog,
-        'recent' => \App\Models\Blog::where('id', '!=', $blog->id)->latest()->take(3)->get(),
-    ]))->name('website.blog.detail');
+    Route::get('/blogs/{blog}', function (\App\Models\Blog $blog) {
+        // Count a view each time the article is opened (simple analytics).
+        $blog->incrementQuietly('views');
+
+        return view('components.website.blog-detail', [
+            'blog'   => $blog,
+            'recent' => \App\Models\Blog::where('id', '!=', $blog->id)->latest()->take(3)->get(),
+        ]);
+    })->name('website.blog.detail');
 
     Route::get('/faqs', fn() => view('components.website.faqs', [
         'faqs'       => \App\Models\Faq::orderBy('category')->orderBy('id')->get(),

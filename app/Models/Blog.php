@@ -38,9 +38,11 @@ class Blog extends Model
         return $slug;
     }
 
-    /** Short plain-text excerpt for cards. */
+    /** Short plain-text excerpt for cards (Markdown links collapse to their label). */
     public function getExcerptAttribute(): string
     {
-        return Str::limit(trim(strip_tags($this->description ?? '')), 140);
+        $text = preg_replace('~\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)~i', '$1', $this->description ?? '');
+
+        return Str::limit(trim(strip_tags($text)), 140);
     }
 }

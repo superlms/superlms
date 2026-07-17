@@ -1,9 +1,17 @@
 @php
-    // Escape the description, turn any URLs into blue links, preserve line breaks.
+    // Escape the description first (XSS-safe), then linkify. Two link styles:
+    //   1. Markdown  [label](https://example.com)  → the label becomes the link
+    //   2. Any bare  https://…  URL                → the URL itself becomes the link
+    // Both are handled in a single pass so a URL inside a [ ]( ) is never double-linked.
     $body = e($blog->description ?? '');
-    $body = preg_replace(
-        '~(https?://[^\s<]+)~i',
-        '<a href="$1" target="_blank" rel="noopener noreferrer" class="blog-link">$1</a>',
+    $body = preg_replace_callback(
+        '~\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<]+)~i',
+        function ($m) {
+            $isMarkdown = $m[1] !== '';
+            $url        = $isMarkdown ? $m[2] : $m[3];
+            $label      = $isMarkdown ? $m[1] : $m[3];
+            return '<a href="' . $url . '" target="_blank" rel="noopener noreferrer" class="blog-link">' . $label . '</a>';
+        },
         $body
     );
     $body = nl2br($body);
