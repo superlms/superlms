@@ -665,6 +665,68 @@
             margin-top: 2px;
         }
 
+        /* ══════════════════ ZERO COST TO SCHOOLS ══════════════════ */
+        .zero-cost {
+            background: linear-gradient(160deg, var(--secondary-faint) 0%, #fff 60%);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 48px 40px;
+            box-shadow: var(--shadow3);
+        }
+
+        .zero-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+            margin-top: 8px;
+        }
+
+        .zero-card {
+            background: #fff;
+            border: 1px solid var(--border2);
+            border-radius: var(--radius);
+            padding: 26px 22px;
+            text-align: center;
+            transition: all .3s;
+        }
+
+        .zero-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--border);
+            box-shadow: var(--shadow2);
+        }
+
+        .zero-icon {
+            width: 56px;
+            height: 56px;
+            margin: 0 auto 16px;
+            border-radius: 16px;
+            background: var(--grad1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            box-shadow: 0 8px 20px rgba(111, 86, 254, .25);
+        }
+
+        .zero-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .zero-desc {
+            font-size: 13px;
+            color: var(--text3);
+            line-height: 1.7;
+        }
+
+        @media (max-width: 768px) {
+            .zero-grid { grid-template-columns: 1fr; }
+            .zero-cost { padding: 32px 20px; }
+        }
+
         /* ══════════════════ BOTTOM CTA ══════════════════ */
         .bottom-cta {
             background: linear-gradient(135deg, var(--primary-faint), var(--secondary-faint));
@@ -980,6 +1042,39 @@
                 </div>
             </div>
 
+            <!-- ZERO COST TO SCHOOLS -->
+            <div class="zero-cost" style="margin-bottom:80px;">
+                <div class="modules-header" style="margin-bottom:32px;">
+                    <div class="section-tag tag-dual">Zero Cost to Schools</div>
+                    <h2 class="section-title" style="margin-top:16px;">The School Pays <span
+                            class="gradient-text">Nothing</span></h2>
+                    <p class="section-subtitle" style="margin:12px auto 0;">Here's the best part — whatever the pricing
+                        is, we charge it directly to the students. The school never pays us a single rupee. And on top of
+                        that, every school gets its very own website, completely free of cost.</p>
+                </div>
+
+                <div class="zero-grid">
+                    <div class="zero-card">
+                        <div class="zero-icon">🎓</div>
+                        <div class="zero-title">Charged to Students, Not the School</div>
+                        <div class="zero-desc">Whatever the plan costs is collected straight from the students. The
+                            school carries zero financial burden — ever.</div>
+                    </div>
+                    <div class="zero-card">
+                        <div class="zero-icon">🆓</div>
+                        <div class="zero-title">₹0 Payable by the School</div>
+                        <div class="zero-desc">No licence fees, no setup charges, no hidden costs. The school pays
+                            absolutely nothing to go live with SUPERLMS.</div>
+                    </div>
+                    <div class="zero-card">
+                        <div class="zero-icon">🌐</div>
+                        <div class="zero-title">Free School Website</div>
+                        <div class="zero-desc">Every school gets its own professional website — designed, hosted and
+                            maintained by us — free of cost.</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- ALL MODULES -->
             <div>
                 <div class="modules-header">
@@ -995,21 +1090,11 @@
                 <div class="modules-grid">
 
                     <div class="module-card">
-                        <div class="module-icon">📊</div>
-                        <div>
-                            <div class="module-name">Dashboard</div>
-                            <div class="module-desc">Central overview of school activity — attendance summary, fee
-                                status, upcoming exams, notices, and live stats at a glance.</div>
-                        </div>
-                        <div class="module-check">✓</div>
-                    </div>
-
-                    <div class="module-card">
                         <div class="module-icon">🔗</div>
                         <div>
                             <div class="module-name">Quick Links</div>
-                            <div class="module-desc">One-tap shortcuts to the most-used modules. Customize links for
-                                admins, teachers, and students separately.</div>
+                            <div class="module-desc">Pin your most-used tools up front. One tap, zero digging — every
+                                day starts faster.</div>
                         </div>
                         <div class="module-check">✓</div>
                     </div>
@@ -1017,19 +1102,29 @@
                     <div class="module-card">
                         <div class="module-icon">🏠</div>
                         <div>
-                            <div class="module-name">Home Analytics</div>
-                            <div class="module-desc">Visual charts and KPIs — enrollment trends, monthly fee collection,
-                                attendance rates, and exam scores.</div>
+                            <div class="module-name">Home</div>
+                            <div class="module-desc">Your school's command centre — today's attendance, fees, notices and
+                                live stats the second you log in.</div>
                         </div>
                         <div class="module-check">✓</div>
                     </div>
 
                     <div class="module-card">
-                        <div class="module-icon">🏫</div>
+                        <div class="module-icon">📊</div>
                         <div>
-                            <div class="module-name">School Profile</div>
-                            <div class="module-desc">Complete institutional profile management — branding, departments,
-                                academic year config, affiliation board, and contact info.</div>
+                            <div class="module-name">Analytics</div>
+                            <div class="module-desc">Turn raw numbers into decisions — enrollment, collections,
+                                attendance and results in living charts.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">🏷️</div>
+                        <div>
+                            <div class="module-name">Standard</div>
+                            <div class="module-desc">Set up classes, sections and streams once, and the whole platform
+                                organises itself around them.</div>
                         </div>
                         <div class="module-check">✓</div>
                     </div>
@@ -1038,8 +1133,8 @@
                         <div class="module-icon">👨‍🎓</div>
                         <div>
                             <div class="module-name">Students</div>
-                            <div class="module-desc">Complete student profiles — personal info, academic history,
-                                attendance record, fee status, documents, and parent contact.</div>
+                            <div class="module-desc">Every learner's full story in one profile — academics, attendance,
+                                fees, documents and parent contacts.</div>
                         </div>
                         <div class="module-check">✓</div>
                     </div>
@@ -1048,8 +1143,8 @@
                         <div class="module-icon">👨‍🏫</div>
                         <div>
                             <div class="module-name">Teachers</div>
-                            <div class="module-desc">Staff directory with subject mappings, class assignments,
-                                attendance, payroll links, and performance tracking.</div>
+                            <div class="module-desc">A complete staff directory with subjects, classes, attendance and
+                                performance, all linked together.</div>
                         </div>
                         <div class="module-check">✓</div>
                     </div>
@@ -1057,199 +1152,19 @@
                     <div class="module-card">
                         <div class="module-icon">💰</div>
                         <div>
-                            <div class="module-name">Fee</div>
-                            <div class="module-desc">Collect fees online or offline, generate receipts, set due dates,
-                                apply late fines, manage scholarships, and export reports.</div>
+                            <div class="module-name">Fees</div>
+                            <div class="module-desc">Collect online or offline, auto-generate receipts, apply fines and
+                                track dues — money made effortless.</div>
                         </div>
                         <div class="module-check">✓</div>
                     </div>
 
                     <div class="module-card">
-                        <div class="module-icon">📞</div>
+                        <div class="module-icon">📒</div>
                         <div>
-                            <div class="module-name">Enquiries</div>
-                            <div class="module-desc">Track admission enquiries from first contact to enrolment — assign
-                                follow-ups, log calls, and monitor conversion rates.</div>
-                        </div>
-                        <div class="module-check">✓</div>
-                    </div>
-
-                    <div class="module-card">
-                        <div class="module-icon">📚</div>
-                        <div>
-                            <div class="module-name">Content</div>
-                            <div class="module-desc">Upload and share notes, PDFs, videos, and presentations. Students
-                                access subject-wise content anytime, anywhere.</div>
-                        </div>
-                        <div class="module-check">✓</div>
-                    </div>
-
-                    <div class="module-card">
-                        <div class="module-icon">📖</div>
-                        <div>
-                            <div class="module-name">Syllabus</div>
-                            <div class="module-desc">Define and publish the syllabus for each class and subject. Track
-                                completion progress chapter by chapter.</div>
-                        </div>
-                        <div class="module-check">✓</div>
-                    </div>
-
-                    <div class="module-card">
-                        <div class="module-icon">🗓️</div>
-                        <div>
-                            <div class="module-name">Time Table</div>
-                            <div class="module-desc">Auto-generate conflict-free timetables. Drag-and-drop editor,
-                                substitute teacher assignment, and instant sharing.</div>
-                        </div>
-                        <div class="module-check">✓</div>
-                    </div>
-
-                    <div class="module-card">
-                        <div class="module-icon">📦</div>
-                        <div>
-                            <div class="module-name">Homework</div>
-                            <div class="module-desc">Assign homework with due dates and attachments. Students submit
-                                digitally; teachers review and grade in one place.</div>
-                        </div>
-                        <div class="module-check">✓</div>
-                    </div>
-
-                    <div class="module-card">
-                        <div class="module-icon">✅</div>
-                        <div>
-                            <div class="module-name">Attendance</div>
-                            <div class="module-desc">Mark attendance via mobile, QR code, or biometric. Instant
-                                SMS/WhatsApp alerts to parents for absences.</div>
-                        </div>
-                        <div class="module-check">✓</div>
-                    </div>
-
-                    <div class="module-card">
-                        <div class="module-icon">🧠</div>
-                        <div>
-                            <div class="module-name">Quiz</div>
-                            <div class="module-desc">Create auto-graded MCQ, true/false, and short-answer quizzes.
-                                Timed tests with instant results and leaderboards.</div>
-                        </div>
-                        <div class="module-check">✓</div>
-                    </div>
-
-                    <div class="module-card">
-                        <div class="module-icon">📈</div>
-                        <div>
-                            <div class="module-name">Performance</div>
-                            <div class="module-desc">Subject-wise marks, grade trends, class rank, and comparative
-                                analytics for students, teachers, and parents.</div>
-                        </div>
-                        <div class="module-check">✓</div>
-                    </div>
-
-                    <div class="module-card">
-                        <div class="module-icon">🏛️</div>
-                        <div>
-                            <div class="module-name">Library</div>
-                            <div class="module-desc">Manage physical and digital library — catalog books, track
-                                issue/return, set due dates, and send overdue reminders.</div>
-                        </div>
-                        <div class="module-check">✓</div>
-                    </div>
-
-                    <div class="module-card">
-                        <div class="module-icon">📗</div>
-                        <div>
-                            <div class="module-name">Book</div>
-                            <div class="module-desc">Digital book repository for students. Browse, borrow, and read
-                                e-books subject-wise directly within the app.</div>
-                        </div>
-                        <div class="module-check">✓</div>
-                    </div>
-
-                    <div class="module-card">
-                        <div class="module-icon">📢</div>
-                        <div>
-                            <div class="module-name">Announcement</div>
-                            <div class="module-desc">Broadcast notices to specific classes, roles, or the entire school
-                                via app notification, SMS, or email instantly.</div>
-                        </div>
-                        <div class="module-check">✓</div>
-                    </div>
-
-                    <div class="module-card">
-                        <div class="module-icon">🔄</div>
-                        <div>
-                            <div class="module-name">Arrangement</div>
-                            <div class="module-desc">Manage substitute teacher arrangements when staff are absent —
-                                auto-suggest replacements and notify affected classes.</div>
-                        </div>
-                        <div class="module-check">✓</div>
-                    </div>
-
-                    <div class="module-card">
-                        <div class="module-icon">🪑</div>
-                        <div>
-                            <div class="module-name">Seating Plan</div>
-                            <div class="module-desc">Design and publish exam hall seating arrangements. Print or share
-                                digitally with students and invigilators.</div>
-                        </div>
-                        <div class="module-check">✓</div>
-                    </div>
-
-                    <div class="module-card">
-                        <div class="module-icon">📃</div>
-                        <div>
-                            <div class="module-name">Exam Copy</div>
-                            <div class="module-desc">Upload scanned or digital answer sheets. Teachers annotate, grade,
-                                and return copies to students within the platform.</div>
-                        </div>
-                        <div class="module-check">✓</div>
-                    </div>
-
-                    <div class="module-card">
-                        <div class="module-icon">📋</div>
-                        <div>
-                            <div class="module-name">Report Card</div>
-                            <div class="module-desc">Auto-generate formatted report cards with grades, remarks, and
-                                attendance. Print or share as PDF with parents.</div>
-                        </div>
-                        <div class="module-check">✓</div>
-                    </div>
-
-                    <div class="module-card">
-                        <div class="module-icon">📅</div>
-                        <div>
-                            <div class="module-name">Calendar</div>
-                            <div class="module-desc">School-wide academic calendar with holidays, exams, events, and
-                                PTMs. Sync to personal calendars with one click.</div>
-                        </div>
-                        <div class="module-check">✓</div>
-                    </div>
-
-                    <div class="module-card">
-                        <div class="module-icon">🪪</div>
-                        <div>
-                            <div class="module-name">ID Card</div>
-                            <div class="module-desc">Design and bulk-generate student and staff ID cards with photo,
-                                barcode, and school branding. Print-ready PDF export.</div>
-                        </div>
-                        <div class="module-check">✓</div>
-                    </div>
-
-                    <div class="module-card">
-                        <div class="module-icon">📄</div>
-                        <div>
-                            <div class="module-name">Admit Card</div>
-                            <div class="module-desc">Auto-generate exam admit cards with student details, roll number,
-                                exam schedule, and school seal. Distribute digitally.</div>
-                        </div>
-                        <div class="module-check">✓</div>
-                    </div>
-
-                    <div class="module-card">
-                        <div class="module-icon">📜</div>
-                        <div>
-                            <div class="module-name">Rules &amp; Regulation</div>
-                            <div class="module-desc">Publish and manage school rules, code of conduct, and disciplinary
-                                policies. Accessible to all users within the app.</div>
+                            <div class="module-name">Ledger</div>
+                            <div class="module-desc">A crystal-clear book of every rupee in and out — balanced,
+                                searchable and always audit-ready.</div>
                         </div>
                         <div class="module-check">✓</div>
                     </div>
@@ -1258,8 +1173,28 @@
                         <div class="module-icon">💼</div>
                         <div>
                             <div class="module-name">Payroll</div>
-                            <div class="module-desc">Manage staff salaries, allowances, deductions, and PF/ESI.
-                                Generate salary slips and export payroll reports monthly.</div>
+                            <div class="module-desc">Salaries, allowances, deductions and slips — staff get paid right,
+                                on time, every single month.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">💳</div>
+                        <div>
+                            <div class="module-name">Credit</div>
+                            <div class="module-desc">Manage wallet balances and top-ups that keep your premium services
+                                running without a hitch.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">✅</div>
+                        <div>
+                            <div class="module-name">Attendance</div>
+                            <div class="module-desc">Mark in seconds by app, QR or biometric — parents get an instant
+                                ping the moment a child is absent.</div>
                         </div>
                         <div class="module-check">✓</div>
                     </div>
@@ -1268,8 +1203,178 @@
                         <div class="module-icon">🚌</div>
                         <div>
                             <div class="module-name">Transportation</div>
-                            <div class="module-desc">Manage bus routes, stops, and assigned students. Track vehicles,
-                                collect transport fees, and notify parents of delays.</div>
+                            <div class="module-desc">Routes, stops, vehicles and live alerts — every child's ride home,
+                                tracked and safe.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">📦</div>
+                        <div>
+                            <div class="module-name">Homework</div>
+                            <div class="module-desc">Assign with due dates and files; students submit digitally and
+                                teachers grade it all in one place.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">🗓️</div>
+                        <div>
+                            <div class="module-name">Time Table</div>
+                            <div class="module-desc">Conflict-free schedules built in minutes, with substitutes and
+                                instant sharing to every phone.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">🔄</div>
+                        <div>
+                            <div class="module-name">Arrangement</div>
+                            <div class="module-desc">Teacher absent? Auto-suggest a substitute and notify the class
+                                before the bell even rings.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">📢</div>
+                        <div>
+                            <div class="module-name">Announcement</div>
+                            <div class="module-desc">Reach the whole school or a single class instantly — push, SMS and
+                                email all in one shot.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">📅</div>
+                        <div>
+                            <div class="module-name">Calendar</div>
+                            <div class="module-desc">Holidays, exams, events and PTMs in one shared calendar everyone
+                                can sync in a single click.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">📖</div>
+                        <div>
+                            <div class="module-name">Syllabus</div>
+                            <div class="module-desc">Publish the course plan and track completion chapter by chapter,
+                                subject by subject.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">📚</div>
+                        <div>
+                            <div class="module-name">Content</div>
+                            <div class="module-desc">Share notes, PDFs, videos and slides so students learn anytime,
+                                anywhere, on any device.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">🧠</div>
+                        <div>
+                            <div class="module-name">Quiz</div>
+                            <div class="module-desc">Auto-graded quizzes with timers, instant results and leaderboards
+                                that make revision genuinely fun.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">📗</div>
+                        <div>
+                            <div class="module-name">Book</div>
+                            <div class="module-desc">A digital library in every pocket — browse, borrow and read
+                                e-books subject-wise, right in the app.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">📞</div>
+                        <div>
+                            <div class="module-name">Enquiries</div>
+                            <div class="module-desc">Capture every admission lead and nurture it from the first hello to
+                                the final enrolment.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">🪪</div>
+                        <div>
+                            <div class="module-name">ID Card</div>
+                            <div class="module-desc">Design once, generate in bulk — photo, barcode and branding,
+                                print-ready in seconds.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">📝</div>
+                        <div>
+                            <div class="module-name">Exam</div>
+                            <div class="module-desc">Plan exams end to end — schedules, subjects, marks and grades, all
+                                beautifully organised.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">🎫</div>
+                        <div>
+                            <div class="module-name">Admit Card</div>
+                            <div class="module-desc">Auto-build admit cards with roll numbers, schedules and school
+                                seal, shared digitally in a click.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">🪑</div>
+                        <div>
+                            <div class="module-name">Seating Plan</div>
+                            <div class="module-desc">Fair, tidy exam-hall seating designed in a click and shared with
+                                students and invigilators.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">📈</div>
+                        <div>
+                            <div class="module-name">Performance</div>
+                            <div class="module-desc">Spot every rising star and every gap with marks, trends and class
+                                rankings at a glance.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">📃</div>
+                        <div>
+                            <div class="module-name">Exam Copy</div>
+                            <div class="module-desc">Upload answer sheets, annotate, grade and return copies — the whole
+                                paper trail goes paperless.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">📋</div>
+                        <div>
+                            <div class="module-name">Report Card</div>
+                            <div class="module-desc">Polished report cards with grades, remarks and attendance, exported
+                                to crisp PDFs for parents.</div>
                         </div>
                         <div class="module-check">✓</div>
                     </div>
@@ -1278,28 +1383,58 @@
                         <div class="module-icon">🎓</div>
                         <div>
                             <div class="module-name">TC &amp; Certificate</div>
-                            <div class="module-desc">Issue Transfer Certificates, bonafide letters, and custom
-                                certificates digitally. QR-code verified and tamper-proof.</div>
+                            <div class="module-desc">Issue transfer certificates and bonafide letters — QR-verified and
+                                completely tamper-proof.</div>
                         </div>
                         <div class="module-check">✓</div>
                     </div>
 
                     <div class="module-card">
-                        <div class="module-icon">⚙️</div>
+                        <div class="module-icon">👥</div>
                         <div>
-                            <div class="module-name">Account Settings</div>
-                            <div class="module-desc">Manage profile, notification preferences, password, and linked
-                                devices. Role-specific settings for every user type.</div>
+                            <div class="module-name">Users</div>
+                            <div class="module-desc">Add staff and roles with pinpoint permissions so everyone sees
+                                exactly what they should.</div>
                         </div>
                         <div class="module-check">✓</div>
                     </div>
 
                     <div class="module-card">
-                        <div class="module-icon">📞</div>
+                        <div class="module-icon">🆕</div>
+                        <div>
+                            <div class="module-name">Admissions</div>
+                            <div class="module-desc">Run the whole admission journey online, from application to
+                                enrolment, in one smooth flow.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">🗂️</div>
+                        <div>
+                            <div class="module-name">Lists</div>
+                            <div class="module-desc">Generate any student or staff list you need and export it, filtered
+                                and ready, in a click.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">📜</div>
+                        <div>
+                            <div class="module-name">Rules &amp; Regulation</div>
+                            <div class="module-desc">Publish the code of conduct and policies where every student and
+                                parent can find them.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">💬</div>
                         <div>
                             <div class="module-name">Contact Admin</div>
-                            <div class="module-desc">Direct in-app messaging channel between users and school admin.
-                                Raise queries, get support, and track resolution.</div>
+                            <div class="module-desc">A direct line to the office — raise queries, get answers and track
+                                every resolution.</div>
                         </div>
                         <div class="module-check">✓</div>
                     </div>
@@ -1308,8 +1443,8 @@
                         <div class="module-icon">ℹ️</div>
                         <div>
                             <div class="module-name">About App</div>
-                            <div class="module-desc">Version info, release notes, developer contact, and platform
-                                documentation — all accessible within the app.</div>
+                            <div class="module-desc">Version info, release notes and support contacts, always just a tap
+                                away.</div>
                         </div>
                         <div class="module-check">✓</div>
                     </div>
@@ -1318,8 +1453,38 @@
                         <div class="module-icon">⭐</div>
                         <div>
                             <div class="module-name">Rate LMS</div>
-                            <div class="module-desc">Students, teachers, and parents can rate their experience.
-                                Feedback is collected to continuously improve the platform.</div>
+                            <div class="module-desc">Students, teachers and parents rate their experience so the
+                                platform keeps getting better.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">📑</div>
+                        <div>
+                            <div class="module-name">Terms &amp; Conditions</div>
+                            <div class="module-desc">The full terms of service, kept transparent and always up to
+                                date.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">🔒</div>
+                        <div>
+                            <div class="module-name">Privacy Policy</div>
+                            <div class="module-desc">Clear, honest data practices your whole school community can
+                                trust.</div>
+                        </div>
+                        <div class="module-check">✓</div>
+                    </div>
+
+                    <div class="module-card">
+                        <div class="module-icon">📘</div>
+                        <div>
+                            <div class="module-name">Terms Of Use</div>
+                            <div class="module-desc">Simple, plain-English guidelines on using the platform the right
+                                way.</div>
                         </div>
                         <div class="module-check">✓</div>
                     </div>

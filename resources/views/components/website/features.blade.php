@@ -588,6 +588,78 @@
         <span class="feature-tag tag-p">Design</span>
       </div>
 
+      <!-- 37 -->
+      <div class="feature-card">
+        <div class="feature-icon-wrap" style="background:rgba(111,86,254,.1);">🏷️</div>
+        <div class="feature-title">Standard</div>
+        <div class="feature-desc">Set up classes, sections, and streams once — the entire platform organises itself around your academic structure automatically.</div>
+        <span class="feature-tag tag-v">Administration</span>
+      </div>
+
+      <!-- 38 -->
+      <div class="feature-card">
+        <div class="feature-icon-wrap" style="background:rgba(219,87,178,.1);">📒</div>
+        <div class="feature-title">Ledger</div>
+        <div class="feature-desc">A crystal-clear book of every rupee in and out — balanced, searchable, and always audit-ready for accounts and management.</div>
+        <span class="feature-tag tag-p">Finance</span>
+      </div>
+
+      <!-- 39 -->
+      <div class="feature-card">
+        <div class="feature-icon-wrap" style="background:rgba(111,86,254,.08);">💳</div>
+        <div class="feature-title">Credit</div>
+        <div class="feature-desc">Manage wallet balances and top-ups that keep premium services and communication features running smoothly, with a clear transaction trail.</div>
+        <span class="feature-tag tag-v">Finance</span>
+      </div>
+
+      <!-- 40 -->
+      <div class="feature-card">
+        <div class="feature-icon-wrap" style="background:rgba(219,87,178,.08);">📝</div>
+        <div class="feature-title">Exam</div>
+        <div class="feature-desc">Plan exams end to end — schedules, subjects, marks, and grades, all beautifully organised and ready to publish in a click.</div>
+        <span class="feature-tag tag-p">Exams</span>
+      </div>
+
+      <!-- 41 -->
+      <div class="feature-card">
+        <div class="feature-icon-wrap" style="background:rgba(111,86,254,.1);">👥</div>
+        <div class="feature-title">Users</div>
+        <div class="feature-desc">Add staff and assign roles with pinpoint permissions, so every user sees exactly what they should — nothing more, nothing less.</div>
+        <span class="feature-tag tag-v">Administration</span>
+      </div>
+
+      <!-- 42 -->
+      <div class="feature-card">
+        <div class="feature-icon-wrap" style="background:rgba(219,87,178,.1);">🆕</div>
+        <div class="feature-title">Admissions</div>
+        <div class="feature-desc">Run the entire admission journey online — from application and document upload to approval and enrolment — in one smooth, paperless flow.</div>
+        <span class="feature-tag tag-p">Admissions</span>
+      </div>
+
+      <!-- 43 -->
+      <div class="feature-card">
+        <div class="feature-icon-wrap" style="background:rgba(111,86,254,.08);">🗂️</div>
+        <div class="feature-title">Lists</div>
+        <div class="feature-desc">Generate any student or staff list you need, filtered exactly how you want it, and export it print-ready in a single click.</div>
+        <span class="feature-tag tag-v">Reports</span>
+      </div>
+
+      <!-- 44 -->
+      <div class="feature-card">
+        <div class="feature-icon-wrap" style="background:rgba(219,87,178,.08);">📑</div>
+        <div class="feature-title">Terms &amp; Conditions</div>
+        <div class="feature-desc">The full terms of service, kept transparent and always up to date, accessible to every user right inside the app.</div>
+        <span class="feature-tag tag-p">Legal</span>
+      </div>
+
+      <!-- 45 -->
+      <div class="feature-card">
+        <div class="feature-icon-wrap" style="background:rgba(111,86,254,.1);">🔒</div>
+        <div class="feature-title">Privacy Policy</div>
+        <div class="feature-desc">Clear, honest data practices your whole school community can trust — always current and available on demand.</div>
+        <span class="feature-tag tag-v">Legal</span>
+      </div>
+
     </div>
   </section>
 
