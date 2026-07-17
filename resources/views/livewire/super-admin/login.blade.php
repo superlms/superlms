@@ -4,7 +4,10 @@
 
         <!-- Left Side: dynamic illustration that follows the active step -->
         <div class="hidden md:flex md:w-1/2 bg-gradient-to-br from-violet-50 to-fuchsia-50 flex-col items-center justify-center p-10">
-            @include('partials.auth-illustration', ['variant' => $step === 'otp' ? 'otp' : 'login'])
+            @include('partials.auth-illustration', [
+                'variant'  => $step === 'otp' ? 'otp' : 'login',
+                'subtitle' => $step === 'otp' ? null : 'Sign in to manage your Admin panel',
+            ])
         </div>
 
         <!-- Right Side (Form) -->

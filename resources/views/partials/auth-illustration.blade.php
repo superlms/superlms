@@ -28,6 +28,8 @@
     'reset'   => ['Forgot password?', "No worries — let's reset it"],
     'newpass' => ['Almost done', 'Choose a strong new password'],
 ][$variant])
+{{-- Optional per-panel subtitle override (e.g. super-admin uses "Admin panel"). --}}
+@php($subtitle = $subtitle ?? $caption[1])
 
 <div class="relative z-10 flex flex-col items-center text-center w-4/5 max-w-xs">
     @switch($variant)
@@ -101,5 +103,5 @@
     @endswitch
 
     <h2 class="mt-6 text-lg font-semibold text-gray-800">{{ $caption[0] }}</h2>
-    <p class="mt-1 text-sm text-gray-500">{{ $caption[1] }}</p>
+    <p class="mt-1 text-sm text-gray-500">{{ $subtitle }}</p>
 </div>

@@ -355,6 +355,12 @@ return [
             'icon' => 'question-mark-circle',
             'prefix' => 'super-admin.website.faqs',
         ],
+        [
+            'title' => 'More',
+            'link' => 'super-admin.more',
+            'icon' => 'squares-2x2',
+            'prefix' => 'super-admin.more',
+        ],
 
     ],
 

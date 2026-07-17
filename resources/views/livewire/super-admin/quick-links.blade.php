@@ -27,12 +27,34 @@
                 </select>
             </div>
 
-            <div class="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
-                        bg-gray-50 border border-gray-200 text-[11px] font-medium text-gray-600">
-                <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-                <span><strong class="text-gray-800">{{ count($orderedLinks) }}</strong> links</span>
+            <div class="ml-auto flex items-center gap-2">
+                {{-- Live date · day · time (client clock, ticks every second) --}}
+                <div x-data="{
+                        now: new Date(),
+                        get dateStr() {
+                            return this.now.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+                        },
+                        get timeStr() {
+                            return this.now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+                        }
+                    }"
+                    x-init="setInterval(() => now = new Date(), 1000)"
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-[11px] font-medium text-indigo-700">
+                    <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span x-text="dateStr"></span>
+                    <span class="text-indigo-300">•</span>
+                    <span x-text="timeStr" class="tabular-nums"></span>
+                </div>
+
+                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
+                            bg-gray-50 border border-gray-200 text-[11px] font-medium text-gray-600">
+                    <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                    <span><strong class="text-gray-800">{{ count($orderedLinks) }}</strong> links</span>
+                </div>
             </div>
         </div>
     </div>
