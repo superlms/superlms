@@ -13,35 +13,21 @@
             <div>
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Analytics</h1>
             </div>
-            <div class="flex items-center gap-4">
-                <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200">
-                    <span class="pr-4">Schools: <strong class="text-gray-800">{{ number_format($overviewStats['totalSchools'] ?? 0) }}</strong></span>
-                    <span class="px-4">Students: <strong class="text-gray-800">{{ number_format($overviewStats['totalStudents'] ?? 0) }}</strong></span>
-                    <span class="px-4">Teachers: <strong class="text-gray-800">{{ number_format($overviewStats['totalTeachers'] ?? 0) }}</strong></span>
-                    <span class="pl-4">Avg/School: <strong class="text-gray-800">{{ number_format($overviewStats['avgStudentsPerSchool'] ?? 0, 1) }}</strong></span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <label class="text-xs text-gray-500">Trend window</label>
-                    <select wire:model.live="months"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
-                        <option value="6">Last 6 months</option>
-                        <option value="12">Last 12 months</option>
-                        <option value="24">Last 24 months</option>
-                    </select>
-                </div>
+            <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-500">Trend window</label>
+                <select wire:model.live="months"
+                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    <option value="6">Last 6 months</option>
+                    <option value="12">Last 12 months</option>
+                    <option value="24">Last 24 months</option>
+                </select>
             </div>
         </div>
 
-        {{-- Mobile/Tablet stats --}}
-        <div class="flex lg:hidden items-center gap-3 sm:gap-4 text-xs text-gray-500 px-4 sm:px-6 mt-3 flex-wrap">
-            <span>Schools: <strong class="text-gray-800">{{ number_format($overviewStats['totalSchools'] ?? 0) }}</strong></span>
-            <span>Students: <strong class="text-gray-800">{{ number_format($overviewStats['totalStudents'] ?? 0) }}</strong></span>
-            <span>Teachers: <strong class="text-gray-800">{{ number_format($overviewStats['totalTeachers'] ?? 0) }}</strong></span>
-            <span>Avg/School: <strong class="text-gray-800">{{ number_format($overviewStats['avgStudentsPerSchool'] ?? 0, 1) }}</strong></span>
-        </div>
         <div class="px-4 sm:px-6 flex items-center gap-1 overflow-x-auto mt-4 pt-4 border-t border-gray-200">
             @foreach ([
                 'overview'  => 'Overview',
+                'website'   => 'Website',
                 'credit'    => 'Credit',
                 'fee'       => 'Fee',
                 'payroll'   => 'Payroll',
@@ -236,6 +222,133 @@
                     @else
                         <p class="text-sm text-gray-400 py-8 text-center">No reviews yet</p>
                     @endif
+                </div>
+            </div>
+        @endif
+
+        {{-- ══════════════════════════════════════════════════════════
+             WEBSITE TAB — traffic per page, date range (last 90 days)
+        ══════════════════════════════════════════════════════════ --}}
+        @if ($activeTab === 'website')
+
+            {{-- Date range picker --}}
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-5 mb-6">
+                <div class="flex flex-col lg:flex-row lg:items-end gap-4">
+                    <div>
+                        <p class="text-sm font-bold text-gray-900">Website Traffic</p>
+                        <p class="text-xs text-gray-400 mt-0.5">Pick any date range within the last 90 days.</p>
+                    </div>
+                    <div class="flex flex-wrap items-end gap-3 lg:ml-auto">
+                        <div>
+                            <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">From</label>
+                            <input type="date" wire:model.live="visitFrom" min="{{ $this->visitMinDate }}" max="{{ $this->visitMaxDate }}"
+                                class="text-sm bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-gray-700 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">To</label>
+                            <input type="date" wire:model.live="visitTo" min="{{ $this->visitMinDate }}" max="{{ $this->visitMaxDate }}"
+                                class="text-sm bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-gray-700 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                        </div>
+                        <div class="flex items-center gap-1">
+                            @foreach ([7 => '7d', 30 => '30d', 90 => '90d'] as $days => $lbl)
+                                <button wire:click="setVisitRange({{ $days }})"
+                                    class="px-2.5 py-1.5 text-xs font-semibold rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
+                                    {{ $lbl }}
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-400 mt-3">
+                    Showing <strong class="text-gray-600">{{ $websiteStats['from'] ?? '' }}</strong> →
+                    <strong class="text-gray-600">{{ $websiteStats['to'] ?? '' }}</strong>
+                    ({{ $websiteStats['days'] ?? 0 }} {{ ($websiteStats['days'] ?? 0) === 1 ? 'day' : 'days' }})
+                </p>
+            </div>
+
+            {{-- Summary cards --}}
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <p class="text-xs text-gray-500 mb-2">Total Visits</p>
+                    <p class="text-2xl font-bold text-blue-600">{{ number_format($websiteStats['totalVisits'] ?? 0) }}</p>
+                    <p class="text-[11px] text-gray-400 mt-1">page views in range</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <p class="text-xs text-gray-500 mb-2">Unique Visitors</p>
+                    <p class="text-2xl font-bold text-emerald-600">{{ number_format($websiteStats['uniqueVisitors'] ?? 0) }}</p>
+                    <p class="text-[11px] text-gray-400 mt-1">distinct people</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <p class="text-xs text-gray-500 mb-2">Avg Visits / Day</p>
+                    <p class="text-2xl font-bold text-violet-600">{{ number_format($websiteStats['avgPerDay'] ?? 0) }}</p>
+                    <p class="text-[11px] text-gray-400 mt-1">over {{ $websiteStats['days'] ?? 0 }} days</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <p class="text-xs text-gray-500 mb-2">Most Visited</p>
+                    <p class="text-lg font-bold text-gray-800 truncate">{{ $websiteStats['topPage'] ?? '—' }}</p>
+                    <p class="text-[11px] text-gray-400 mt-1">{{ $websiteStats['pagesTracked'] ?? 0 }} pages tracked</p>
+                </div>
+            </div>
+
+            {{-- Daily trend chart --}}
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-sm font-bold text-gray-900">Visits Over Time</h2>
+                    <div class="flex items-center gap-3 text-xs text-gray-500">
+                        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-blue-500 inline-block"></span> Visits</span>
+                        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span> Unique</span>
+                    </div>
+                </div>
+                <div style="height: 280px; position: relative;">
+                    <canvas id="websiteVisitsChart"></canvas>
+                </div>
+            </div>
+
+            {{-- Per-page breakdown --}}
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div class="px-5 py-4 border-b border-gray-100">
+                    <h2 class="text-sm font-bold text-gray-900">Pages — Visits & Users</h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Page</th>
+                                <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Visits</th>
+                                <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Unique Users</th>
+                                <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/3">Share</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @forelse ($websitePages as $row)
+                                <tr class="hover:bg-gray-50/70">
+                                    <td class="px-5 py-3 text-sm font-medium text-gray-800">{{ $row['page'] }}</td>
+                                    <td class="px-5 py-3 text-right text-sm font-semibold text-gray-900">{{ number_format($row['visits']) }}</td>
+                                    <td class="px-5 py-3 text-right text-sm text-gray-700">{{ number_format($row['uniques']) }}</td>
+                                    <td class="px-5 py-3">
+                                        <div class="flex items-center gap-2">
+                                            <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                <div class="h-full bg-blue-500 rounded-full" style="width: {{ $row['pct'] }}%"></div>
+                                            </div>
+                                            <span class="text-xs text-gray-400 w-10 text-right">{{ $row['pct'] }}%</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="4" class="px-5 py-14 text-center">
+                                        <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                            <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12a9 9 0 1018 0 9 9 0 00-18 0zm0 0h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18"/>
+                                            </svg>
+                                        </div>
+                                        <p class="text-sm text-gray-400">No visits recorded for this range yet.</p>
+                                        <p class="text-xs text-gray-400 mt-1">Traffic is tracked from the moment this feature goes live.</p>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
             </div>
         @endif
@@ -947,6 +1060,21 @@
                     },
                     options: options()
                 });
+
+                // ── Website ──
+                if (p.website) {
+                    makeChart('websiteVisitsChart', {
+                        type: 'line',
+                        data: {
+                            labels: p.website.labels || [],
+                            datasets: [
+                                { label: 'Visits',  data: p.website.visits  || [], borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.12)', fill: true, tension: 0.35, pointRadius: 2 },
+                                { label: 'Unique',  data: p.website.uniques || [], borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.08)', fill: true, tension: 0.35, pointRadius: 2 },
+                            ]
+                        },
+                        options: options()
+                    });
+                }
 
                 // ── Support ──
                 makeChart('supportMonthlyChart', {

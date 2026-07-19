@@ -237,6 +237,17 @@ class LmsMigrate extends Command
             }
         });
 
+        if (!Schema::hasTable('website_visits')) {
+            Schema::create('website_visits', function (Blueprint $table) {
+                $table->id();
+                $table->string('path')->index();
+                $table->string('page')->nullable();
+                $table->string('visitor_id', 64)->index();
+                $table->timestamp('created_at')->nullable()->index();
+            });
+            $this->info('created [website_visits] table');
+        }
+
         // Ensure role_user pivot table exists (not covered by a regular migration)
         if (!Schema::hasTable('role_user')) {
             Schema::create('role_user', function (Blueprint $table) {

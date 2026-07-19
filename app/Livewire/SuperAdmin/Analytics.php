@@ -14,6 +14,8 @@ use App\Models\Admin\RateLms;
 use App\Models\Admin\ContactSuperAdmin;
 use App\Models\WebsiteContact;
 use App\Models\WebsiteDemo;
+use App\Models\WebsiteVisit;
+use Carbon\Carbon;
 
 class Analytics extends Component
 {
@@ -51,6 +53,13 @@ class Analytics extends Component
     public array $supportStats   = [];
     public array $supportMonthly = [];
 
+    // ── Website traffic (date range within the last 90 days) ──────────────────
+    public string $visitFrom = '';
+    public string $visitTo   = '';
+    public array  $websiteStats = [];
+    public array  $websitePages = [];
+    public array  $websiteDaily = [];
+
     public function setTab(string $tab): void
     {
         $this->activeTab = $tab;
@@ -68,7 +77,31 @@ class Analytics extends Component
 
     public function mount(): void
     {
+        // Default website window: the last 30 days (within the 90-day cap).
+        $this->visitTo   = now()->format('Y-m-d');
+        $this->visitFrom = now()->subDays(29)->format('Y-m-d');
         $this->loadAll();
+    }
+
+    public function setVisitRange(int $days): void
+    {
+        $days = max(1, min(90, $days));
+        $this->visitTo   = now()->format('Y-m-d');
+        $this->visitFrom = now()->subDays($days - 1)->format('Y-m-d');
+        $this->loadWebsite();
+        $this->dispatch('analytics-refresh');
+    }
+
+    public function updatedVisitFrom(): void
+    {
+        $this->loadWebsite();
+        $this->dispatch('analytics-refresh');
+    }
+
+    public function updatedVisitTo(): void
+    {
+        $this->loadWebsite();
+        $this->dispatch('analytics-refresh');
     }
 
     private function loadAll(): void
@@ -79,6 +112,7 @@ class Analytics extends Component
         $this->loadPayroll();
         $this->loadEnquiries();
         $this->loadSupport();
+        $this->loadWebsite();
     }
 
     // ─── Monthly-series helpers ───────────────────────────────────────────────
@@ -526,6 +560,89 @@ class Analytics extends Component
         ];
     }
 
+    // ─── Website traffic ──────────────────────────────────────────────────────
+
+    private function loadWebsite(): void
+    {
+        // Clamp the chosen range to the last 90 days (inclusive of today).
+        $earliest = now()->subDays(89)->startOfDay();
+
+        $from = $this->visitFrom ? Carbon::parse($this->visitFrom)->startOfDay() : now()->subDays(29)->startOfDay();
+        $to   = $this->visitTo   ? Carbon::parse($this->visitTo)->endOfDay()     : now()->endOfDay();
+
+        if ($from->lt($earliest))        $from = $earliest->copy();
+        if ($to->gt(now()->endOfDay()))  $to   = now()->endOfDay();
+        if ($from->gt($to))              $from = $to->copy()->startOfDay();
+
+        // Reflect the clamped values back to the date inputs.
+        $this->visitFrom = $from->format('Y-m-d');
+        $this->visitTo   = $to->format('Y-m-d');
+
+        $base = fn() => WebsiteVisit::whereBetween('created_at', [$from, $to]);
+
+        $totalVisits    = $base()->count();
+        $uniqueVisitors = $base()->distinct('visitor_id')->count('visitor_id');
+        $days           = $from->diffInDays($to) + 1;
+
+        // Per-page breakdown (grouped by friendly label).
+        $pages = $base()
+            ->selectRaw("COALESCE(NULLIF(page, ''), path) as pg, COUNT(*) as visits, COUNT(DISTINCT visitor_id) as uniques")
+            ->groupBy('pg')
+            ->orderByDesc('visits')
+            ->get()
+            ->map(fn($r) => [
+                'page'    => $r->pg,
+                'visits'  => (int) $r->visits,
+                'uniques' => (int) $r->uniques,
+                'pct'     => $totalVisits > 0 ? round($r->visits / $totalVisits * 100, 1) : 0,
+            ])->values()->toArray();
+
+        // Daily series for the trend chart.
+        $daily = $base()
+            ->selectRaw('DATE(created_at) as d, COUNT(*) as visits, COUNT(DISTINCT visitor_id) as uniques')
+            ->groupBy('d')
+            ->get()
+            ->keyBy('d');
+
+        $labels = $visitsSeries = $uniqueSeries = [];
+        $cursor = $from->copy()->startOfDay();
+        while ($cursor->lte($to)) {
+            $key            = $cursor->format('Y-m-d');
+            $labels[]       = $cursor->format('d M');
+            $visitsSeries[] = (int) ($daily[$key]->visits ?? 0);
+            $uniqueSeries[] = (int) ($daily[$key]->uniques ?? 0);
+            $cursor->addDay();
+        }
+
+        $this->websiteStats = [
+            'totalVisits'    => $totalVisits,
+            'uniqueVisitors' => $uniqueVisitors,
+            'pagesTracked'   => count($pages),
+            'avgPerDay'      => $days > 0 ? (int) round($totalVisits / $days) : 0,
+            'topPage'        => $pages[0]['page'] ?? '—',
+            'from'           => $from->format('d M Y'),
+            'to'             => $to->format('d M Y'),
+            'days'           => $days,
+        ];
+        $this->websitePages = $pages;
+        $this->websiteDaily = [
+            'labels'  => $labels,
+            'visits'  => $visitsSeries,
+            'uniques' => $uniqueSeries,
+        ];
+    }
+
+    /** Min/max the date inputs are allowed to pick (last 90 days). */
+    public function getVisitMinDateProperty(): string
+    {
+        return now()->subDays(89)->format('Y-m-d');
+    }
+
+    public function getVisitMaxDateProperty(): string
+    {
+        return now()->format('Y-m-d');
+    }
+
     /**
      * Everything the charts need, serialised into one payload the blade drops
      * into a data attribute. The frontend re-reads it after every Livewire
@@ -562,6 +679,11 @@ class Analytics extends Component
             'support'  => [
                 'total'   => $this->supportMonthly['total'] ?? [],
                 'replied' => $this->supportMonthly['replied'] ?? [],
+            ],
+            'website'  => [
+                'labels'  => $this->websiteDaily['labels'] ?? [],
+                'visits'  => $this->websiteDaily['visits'] ?? [],
+                'uniques' => $this->websiteDaily['uniques'] ?? [],
             ],
         ];
     }

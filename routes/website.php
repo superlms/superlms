@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 
+Route::middleware('track.website')->group(function () {
+
 Route::get('/', function () {
     return view('components.website.index');
 })->name('website.home');
@@ -75,3 +77,5 @@ Route::prefix('web')->group(function () {
             ->distinct()->orderBy('category')->pluck('category'),
     ]))->name('website.faqs');
 });
+
+}); // track.website

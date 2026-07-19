@@ -6,6 +6,7 @@ use App\Http\Middleware\EnsureIsSuperAdmin;
 use App\Http\Middleware\EnsureModuleEnabled;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\ServeSchoolSite;
+use App\Http\Middleware\TrackWebsiteVisit;
 use App\Http\Middleware\VerifyOrganizationAccess;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -30,6 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'accounts' => EnsureIsAccounts::class,
             'verify.organization' => VerifyOrganizationAccess::class,
             'module' => EnsureModuleEnabled::class,
+            'track.website' => TrackWebsiteVisit::class,
         ]);
 
         // Trust the upstream proxy (host nginx) so Laravel knows the original request was HTTPS.
