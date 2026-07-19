@@ -195,7 +195,8 @@
          REVIEW & CONFIRM OVERLAY
     ══════════════════════════════════════════════════ --}}
     @if ($confirming)
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        @teleport('body')
+        <div class="fixed inset-0 z-[70] flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="cancelReview"></div>
             <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
                 <div class="flex items-start gap-4 mb-4">
@@ -229,13 +230,15 @@
                 </div>
             </div>
         </div>
+        @endteleport
     @endif
 
     {{-- ══════════════════════════════════════════════════
          CAMPAIGN DETAIL OVERLAY
     ══════════════════════════════════════════════════ --}}
     @if ($viewing)
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        @teleport('body')
+        <div class="fixed inset-0 z-[70] flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="closeView"></div>
             <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
                 {{-- Header --}}
@@ -324,6 +327,7 @@
                 </div>
             </div>
         </div>
+        @endteleport
     @endif
 
 </div>
