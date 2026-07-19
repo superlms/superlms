@@ -186,8 +186,12 @@
                                         class="w-full max-h-48 object-cover rounded-lg border border-gray-100">
                                 </div>
                             @endif
-                            <div class="px-5 py-4 text-sm text-gray-700 leading-relaxed">
-                                {!! nl2br(e($policy->content)) !!}
+                            <div class="px-5 py-4 text-sm text-gray-700 leading-relaxed space-y-3">
+                                @forelse ($policy->body_paragraphs as $para)
+                                    <p class="whitespace-pre-line">{{ $para }}</p>
+                                @empty
+                                    <p class="text-gray-400">No content.</p>
+                                @endforelse
                             </div>
                         </div>
                     @empty

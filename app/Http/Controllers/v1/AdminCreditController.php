@@ -49,12 +49,13 @@ class AdminCreditController extends ApiController
             ],
             'policies' => CreditPolicy::where('is_active', true)->latest()->get()
                 ->map(fn ($p) => [
-                    'id'       => $p->id,
-                    'title'    => $p->title,
-                    'content'  => $p->content,
-                    'image'    => $p->image,
-                    'link'     => $p->link,
-                    'document' => $p->document,
+                    'id'         => $p->id,
+                    'title'      => $p->title,
+                    'content'    => $p->content,
+                    'paragraphs' => $p->body_paragraphs,
+                    'image'      => $p->image,
+                    'link'       => $p->link,
+                    'document'   => $p->document,
                 ])->values(),
         ], 'Credit stats fetched.');
     }

@@ -28,20 +28,17 @@ class Credit extends Component
     public bool  $showViewModal  = false;
     public ?int  $viewQueryId    = null;
 
-    // ── Approve modal ─────────────────────────────────────────────────────────
-    public bool   $showApproveModal       = false;
-    public ?int   $approveQueryId         = null;
-    public string $approveAmount          = '';
-    public string $approveStartDate       = '';
-    public string $approveEndDate         = '';
-    public string $approveRemark          = '';
-    public string $approvePenaltiesPerDay = '0';
-
-    // ── Status / Remark modal ─────────────────────────────────────────────────
+    // ── Status / Remark modal (also handles approval details) ──────────────────
     public bool   $showStatusModal = false;
     public ?int   $statusQueryId   = null;
     public string $newStatus       = '';
     public string $statusRemark    = '';
+
+    // Approval details — shown inside the status modal when "Approved" is chosen.
+    public string $approveAmount          = '';
+    public string $approveStartDate       = '';
+    public string $approveEndDate         = '';
+    public string $approvePenaltiesPerDay = '0';
 
     // ── Mark as Collected modal ───────────────────────────────────────────────
     public bool   $showCollectModal   = false;
@@ -53,7 +50,7 @@ class Credit extends Component
     public bool   $showPolicyForm  = false;
     public ?int   $editPolicyId    = null;
     public string $policyTitle     = '';
-    public string $policyContent   = '';
+    public array  $policyParagraphs = [''];   // terms-style paragraphs (add/edit/delete)
     public string $policyLink      = '';
     public bool   $policyIsActive  = true;
     public        $policyImage     = null;   // uploaded file
@@ -92,72 +89,44 @@ class Credit extends Component
         $this->viewQueryId   = null;
     }
 
-    // ── Approve modal ─────────────────────────────────────────────────────────
-    public function openApproveModal(int $id): void
-    {
-        $query = CreditQuery::with('organization')->findOrFail($id);
-        $this->approveQueryId         = $id;
-        $this->approveAmount          = (string) $query->amount;
-        $this->approveStartDate       = $query->start_date->format('Y-m-d');
-        $this->approveEndDate         = $query->end_date->format('Y-m-d');
-        $this->approveRemark          = $query->admin_remark ?? '';
-        $this->approvePenaltiesPerDay = (string) ($query->penalties_per_day ?? 0);
-        $this->showApproveModal       = true;
-    }
-
-    public function closeApproveModal(): void
-    {
-        $this->showApproveModal = false;
-        $this->approveQueryId   = null;
-    }
-
-    public function approveQuery(): void
-    {
-        $this->validate([
-            'approveAmount'          => 'required|numeric|min:1',
-            'approveStartDate'       => 'required|date',
-            'approveEndDate'         => 'required|date|after:approveStartDate',
-            'approvePenaltiesPerDay' => 'nullable|numeric|min:0',
-        ]);
-
-        // Instance update so model events fire (super-admin notification).
-        CreditQuery::find($this->approveQueryId)?->update([
-            'status'           => 'approved',
-            'amount'           => $this->approveAmount,
-            'start_date'       => $this->approveStartDate,
-            'end_date'         => $this->approveEndDate,
-            'admin_remark'     => $this->approveRemark ?: null,
-            'penalties_per_day'=> $this->approvePenaltiesPerDay ?: 0,
-            'approved_by'      => Auth::id(),
-            'approved_at'      => now(),
-        ]);
-
-        $this->closeApproveModal();
-        $this->notification()->success('Approved', 'Credit query approved successfully.');
-    }
-
-    // ── Status / Remark modal ─────────────────────────────────────────────────
+    // ── Status / Approval modal ───────────────────────────────────────────────
     public function openStatusModal(int $id): void
     {
         $query = CreditQuery::findOrFail($id);
-        $this->statusQueryId   = $id;
-        $this->newStatus       = $query->status;
-        $this->statusRemark    = $query->admin_remark ?? '';
-        $this->showStatusModal = true;
+        $this->statusQueryId          = $id;
+        $this->newStatus              = $query->status;
+        $this->statusRemark           = $query->admin_remark ?? '';
+        // Pre-fill approval details (used when "Approved" is selected).
+        $this->approveAmount          = (string) $query->amount;
+        $this->approveStartDate       = $query->start_date->format('Y-m-d');
+        $this->approveEndDate         = $query->end_date->format('Y-m-d');
+        $this->approvePenaltiesPerDay = (string) ($query->penalties_per_day ?? 0);
+        $this->showStatusModal        = true;
     }
 
     public function closeStatusModal(): void
     {
         $this->showStatusModal = false;
         $this->statusQueryId   = null;
+        $this->resetErrorBag();
     }
 
     public function updateStatus(): void
     {
-        $this->validate([
-            'newStatus'   => 'required|in:pending,processing,approved,denied',
-            'statusRemark'=> 'nullable|string|max:1000',
-        ]);
+        $rules = [
+            'newStatus'    => 'required|in:pending,processing,approved,denied',
+            'statusRemark' => 'nullable|string|max:1000',
+        ];
+
+        // When approving, the credit terms are required.
+        if ($this->newStatus === 'approved') {
+            $rules['approveAmount']          = 'required|numeric|min:1';
+            $rules['approveStartDate']       = 'required|date';
+            $rules['approveEndDate']         = 'required|date|after:approveStartDate';
+            $rules['approvePenaltiesPerDay'] = 'nullable|numeric|min:0';
+        }
+
+        $this->validate($rules);
 
         $data = [
             'status'       => $this->newStatus,
@@ -165,13 +134,21 @@ class Credit extends Component
         ];
 
         if ($this->newStatus === 'approved') {
-            $data['approved_by'] = Auth::id();
-            $data['approved_at'] = now();
+            $data['amount']            = $this->approveAmount;
+            $data['start_date']        = $this->approveStartDate;
+            $data['end_date']          = $this->approveEndDate;
+            $data['penalties_per_day'] = $this->approvePenaltiesPerDay ?: 0;
+            $data['approved_by']       = Auth::id();
+            $data['approved_at']       = now();
         }
 
+        // Instance update so model events fire (super-admin notification).
         CreditQuery::find($this->statusQueryId)?->update($data);
         $this->closeStatusModal();
-        $this->notification()->success('Updated', 'Status updated successfully.');
+        $this->notification()->success(
+            'Updated',
+            $this->newStatus === 'approved' ? 'Credit query approved successfully.' : 'Status updated successfully.'
+        );
     }
 
     // ── Mark as Collected modal ───────────────────────────────────────────────
@@ -230,18 +207,20 @@ class Credit extends Component
         $this->editPolicyId   = $id;
         $this->policyImage    = null;
         $this->policyDocument = null;
+        $this->resetErrorBag();
 
         if ($id) {
             $p = CreditPolicy::findOrFail($id);
-            $this->policyTitle    = $p->title;
-            $this->policyContent  = $p->content;
-            $this->policyLink     = $p->link ?? '';
-            $this->policyIsActive = (bool) $p->is_active;
+            $this->policyTitle      = $p->title;
+            $paras                  = $p->body_paragraphs;
+            $this->policyParagraphs = !empty($paras) ? $paras : [''];
+            $this->policyLink       = $p->link ?? '';
+            $this->policyIsActive   = (bool) $p->is_active;
         } else {
-            $this->policyTitle    = '';
-            $this->policyContent  = '';
-            $this->policyLink     = '';
-            $this->policyIsActive = true;
+            $this->policyTitle      = '';
+            $this->policyParagraphs = [''];
+            $this->policyLink       = '';
+            $this->policyIsActive   = true;
         }
         $this->showPolicyForm = true;
     }
@@ -252,22 +231,66 @@ class Credit extends Component
         $this->editPolicyId   = null;
     }
 
+    // Policy paragraph repeater
+    public function addPolicyParagraph(): void
+    {
+        $this->policyParagraphs[] = '';
+    }
+
+    public function removePolicyParagraph(int $index): void
+    {
+        unset($this->policyParagraphs[$index]);
+        $this->policyParagraphs = array_values($this->policyParagraphs);
+        if (empty($this->policyParagraphs)) {
+            $this->policyParagraphs = [''];
+        }
+    }
+
+    public function movePolicyParagraphUp(int $index): void
+    {
+        if ($index > 0) {
+            [$this->policyParagraphs[$index - 1], $this->policyParagraphs[$index]] =
+                [$this->policyParagraphs[$index], $this->policyParagraphs[$index - 1]];
+        }
+    }
+
+    public function movePolicyParagraphDown(int $index): void
+    {
+        if ($index < count($this->policyParagraphs) - 1) {
+            [$this->policyParagraphs[$index + 1], $this->policyParagraphs[$index]] =
+                [$this->policyParagraphs[$index], $this->policyParagraphs[$index + 1]];
+        }
+    }
+
     public function savePolicy(): void
     {
         $this->validate([
-            'policyTitle'    => 'required|string|max:255',
-            'policyContent'  => 'required|string|min:10',
-            'policyLink'     => 'nullable|url|max:500',
-            'policyImage'    => 'nullable|image|max:4096',
-            'policyDocument' => 'nullable|mimes:pdf,doc,docx|max:10240',
-            'policyIsActive' => 'boolean',
+            'policyTitle'      => 'required|string|max:255',
+            'policyParagraphs' => 'array',
+            'policyParagraphs.*' => 'nullable|string|max:20000',
+            'policyLink'       => 'nullable|url|max:500',
+            'policyImage'      => 'nullable|image|max:4096',
+            'policyDocument'   => 'nullable|mimes:pdf,doc,docx|max:10240',
+            'policyIsActive'   => 'boolean',
         ]);
 
+        $paragraphs = array_values(array_filter(
+            array_map('trim', $this->policyParagraphs),
+            fn($p) => $p !== ''
+        ));
+
+        if (empty($paragraphs)) {
+            $this->addError('policyParagraphs', 'Add at least one paragraph.');
+            return;
+        }
+
         $data = [
-            'title'     => $this->policyTitle,
-            'content'   => $this->policyContent,
-            'link'      => $this->policyLink ?: null,
-            'is_active' => $this->policyIsActive,
+            'title'      => $this->policyTitle,
+            'paragraphs' => $paragraphs,
+            // Keep the plain-text content in sync (used by API & legacy views).
+            'content'    => implode("\n\n", $paragraphs),
+            'link'       => $this->policyLink ?: null,
+            'is_active'  => $this->policyIsActive,
         ];
 
         if ($this->policyImage) {
@@ -327,6 +350,23 @@ class Credit extends Component
 
         $organizations = Organization::orderBy('name')->get(['id', 'name']);
 
+        // When a specific school is selected, surface its full credit record
+        // (how many were approved / denied / pending, totals & collections).
+        $orgSummary = null;
+        if ($this->orgFilter) {
+            $base = CreditQuery::where('organization_id', $this->orgFilter);
+            $orgSummary = [
+                'school'         => $organizations->firstWhere('id', (int) $this->orgFilter)?->name
+                                    ?? Organization::find($this->orgFilter)?->name ?? 'School',
+                'total'          => (clone $base)->count(),
+                'approved'       => (clone $base)->where('status', 'approved')->count(),
+                'denied'         => (clone $base)->where('status', 'denied')->count(),
+                'pending'        => (clone $base)->whereIn('status', ['pending', 'processing'])->count(),
+                'total_approved' => (clone $base)->where('status', 'approved')->sum('amount'),
+                'collected'      => (clone $base)->whereNotNull('collected_at')->count(),
+            ];
+        }
+
         $analytics = [
             'total'               => CreditQuery::count(),
             'pending'             => CreditQuery::pending()->count(),
@@ -343,7 +383,7 @@ class Credit extends Component
         ];
 
         return view('livewire.super-admin.credit', compact(
-            'queries', 'policies', 'selectedQuery', 'organizations', 'analytics'
+            'queries', 'policies', 'selectedQuery', 'organizations', 'analytics', 'orgSummary'
         ));
     }
 }

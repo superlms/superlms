@@ -97,6 +97,27 @@
 
             {{-- ════════ CREDIT QUERIES TAB ════════ --}}
             @if ($activeTab === 'credit')
+                {{-- Selected school → full credit record summary --}}
+                @if ($orgSummary)
+                    <div class="border-b border-gray-200 bg-indigo-50/40 px-4 sm:px-5 py-3">
+                        <div class="flex flex-wrap items-center gap-x-5 gap-y-2">
+                            <div class="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                                <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                                </svg>
+                                {{ $orgSummary['school'] }}
+                            </div>
+                            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+                                <span>Total: <strong class="text-gray-800">{{ $orgSummary['total'] }}</strong></span>
+                                <span>Approved: <strong class="text-emerald-600">{{ $orgSummary['approved'] }}</strong></span>
+                                <span>Denied: <strong class="text-red-500">{{ $orgSummary['denied'] }}</strong></span>
+                                <span>Pending: <strong class="text-amber-500">{{ $orgSummary['pending'] }}</strong></span>
+                                <span>Collected: <strong class="text-teal-600">{{ $orgSummary['collected'] }}</strong></span>
+                                <span>Total Approved: <strong class="text-gray-800">₹{{ number_format($orgSummary['total_approved'], 0) }}</strong></span>
+                            </div>
+                        </div>
+                    </div>
+                @endif
                 <div class="overflow-x-auto">
                     <table class="w-full">
                         <thead class="bg-gray-50 border-b border-gray-200">
@@ -120,8 +141,10 @@
                                         default      => 'bg-amber-50 text-amber-700 border-amber-100',
                                     };
                                     $org = $query->organization;
+                                    $isCollected = (bool) $query->collected_at;
                                 @endphp
-                                <tr class="hover:bg-gray-50/70 transition-colors">
+                                <tr class="hover:bg-gray-50/70 transition-colors {{ $isCollected ? 'opacity-50' : '' }}"
+                                    @if ($isCollected) title="Payment collected" @endif>
 
                                     {{-- School --}}
                                     <td class="px-4 py-3">
@@ -188,21 +211,13 @@
                                                         d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                                                 </svg>
                                             </button>
-                                            {{-- Update Status --}}
-                                            <button wire:click="openStatusModal({{ $query->id }})" title="Update Status"
-                                                class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                                </svg>
-                                            </button>
-                                            {{-- Approve shortcut --}}
-                                            @if ($query->status !== 'approved')
-                                                <button wire:click="openApproveModal({{ $query->id }})" title="Approve"
-                                                    class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
+                                            {{-- Manage Status (single action; hidden once approved or denied) --}}
+                                            @if (in_array($query->status, ['pending', 'processing'], true))
+                                                <button wire:click="openStatusModal({{ $query->id }})" title="Manage Status"
+                                                    class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                            d="M5 13l4 4L19 7"/>
+                                                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                                     </svg>
                                                 </button>
                                             @endif
@@ -294,8 +309,12 @@
                                         class="w-full max-h-48 object-cover rounded-lg border border-gray-100">
                                 </div>
                             @endif
-                            <div class="px-5 py-4 text-sm text-gray-700 leading-relaxed">
-                                {!! nl2br(e($policy->content)) !!}
+                            <div class="px-5 py-4 text-sm text-gray-700 leading-relaxed space-y-3">
+                                @forelse ($policy->body_paragraphs as $para)
+                                    <p class="whitespace-pre-line">{{ $para }}</p>
+                                @empty
+                                    <p class="text-gray-400">No content.</p>
+                                @endforelse
                             </div>
                         </div>
                     @empty
@@ -527,15 +546,15 @@
                 {{-- Footer --}}
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
                     <div>
-                        @if ($q->status !== 'approved')
-                            <button type="button" wire:click="openApproveModal({{ $q->id }})"
-                                class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 rounded-md">
+                        @if (in_array($q->status, ['pending', 'processing'], true))
+                            <button type="button" wire:click="openStatusModal({{ $q->id }})"
+                                class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 rounded-md">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
-                                Approve
+                                Manage Status
                             </button>
-                        @elseif (!$q->collected_at)
+                        @elseif ($q->status === 'approved' && !$q->collected_at)
                             <button type="button" wire:click="openCollectModal({{ $q->id }})"
                                 class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-teal-700 hover:bg-teal-50 rounded-md">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -551,106 +570,6 @@
                         Close
                     </button>
                 </div>
-            </div>
-        </div>
-        @endteleport
-    @endif
-
-    {{-- ══════════ APPROVE PANEL ══════════ --}}
-    @if ($showApproveModal)
-        @teleport('body')
-        <div class="fixed inset-0 z-[75] flex items-start justify-end bg-black/30 backdrop-blur-sm"
-            wire:click.self="closeApproveModal">
-            <div class="relative w-full max-w-lg h-screen bg-white shadow-2xl flex flex-col"
-                x-data x-transition:enter="transition ease-out duration-300"
-                x-transition:enter-start="translate-x-full opacity-0"
-                x-transition:enter-end="translate-x-0 opacity-100">
-
-                {{-- Header --}}
-                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white flex-shrink-0">
-                    <div class="flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                            <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                            </svg>
-                        </div>
-                        <div>
-                            <h2 class="text-sm font-bold text-gray-900">Approve Credit Query</h2>
-                            <p class="text-xs text-gray-400">Fill in the approval details</p>
-                        </div>
-                    </div>
-                    <button wire:click="closeApproveModal"
-                        class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
-                </div>
-
-                {{-- Body --}}
-                <div class="flex-1 overflow-y-auto p-6 space-y-5">
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                            Amount (₹) <span class="text-red-400">*</span>
-                        </label>
-                        <input wire:model="approveAmount" type="number" min="1"
-                            class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl
-                                   focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-colors"/>
-                        @error('approveAmount') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                                Start Date <span class="text-red-400">*</span>
-                            </label>
-                            <input wire:model="approveStartDate" type="date"
-                                class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl
-                                       focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"/>
-                            @error('approveStartDate') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                                End Date <span class="text-red-400">*</span>
-                            </label>
-                            <input wire:model="approveEndDate" type="date"
-                                class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl
-                                       focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"/>
-                            @error('approveEndDate') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                            Penalties Per Day (₹)
-                        </label>
-                        <input wire:model="approvePenaltiesPerDay" type="number" min="0" step="0.01" placeholder="0"
-                            class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl
-                                   focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"/>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                            Remark (optional)
-                        </label>
-                        <textarea wire:model="approveRemark" rows="5" placeholder="Add approval notes..."
-                            class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl resize-none
-                                   focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"></textarea>
-                    </div>
-                </div>
-
-                {{-- Footer --}}
-                <div class="px-6 py-4 border-t border-gray-200 bg-white flex gap-3 flex-shrink-0">
-                    <button wire:click="approveQuery"
-                        class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                        </svg>
-                        Pay Now &amp; Approve
-                    </button>
-                    <button wire:click="closeApproveModal"
-                        class="px-5 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors flex-shrink-0">
-                        Cancel
-                    </button>
-                </div>
-
             </div>
         </div>
         @endteleport
@@ -710,9 +629,42 @@
                         </div>
                         @error('newStatus') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                     </div>
+
+                    {{-- Approval details — only when Approved is chosen --}}
+                    @if ($newStatus === 'approved')
+                        <div class="rounded-xl bg-emerald-50/60 border border-emerald-100 p-4 space-y-4">
+                            <p class="text-xs font-semibold text-emerald-700 uppercase tracking-wider">Approval / Credit Terms</p>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Amount (₹) <span class="text-red-400">*</span></label>
+                                <input wire:model="approveAmount" type="number" min="1"
+                                    class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl bg-white focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"/>
+                                @error('approveAmount') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Start Date <span class="text-red-400">*</span></label>
+                                    <input wire:model="approveStartDate" type="date"
+                                        class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl bg-white focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"/>
+                                    @error('approveStartDate') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">End Date <span class="text-red-400">*</span></label>
+                                    <input wire:model="approveEndDate" type="date"
+                                        class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl bg-white focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"/>
+                                    @error('approveEndDate') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Penalties Per Day (₹)</label>
+                                <input wire:model="approvePenaltiesPerDay" type="number" min="0" step="0.01" placeholder="0"
+                                    class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl bg-white focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"/>
+                            </div>
+                        </div>
+                    @endif
+
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Remark</label>
-                        <textarea wire:model="statusRemark" rows="7" placeholder="Add a remark for the school..."
+                        <textarea wire:model="statusRemark" rows="5" placeholder="Add a remark for the school..."
                             class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl resize-none
                                    focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"></textarea>
                     </div>
@@ -722,7 +674,7 @@
                 <div class="px-6 py-4 border-t border-gray-200 bg-white flex gap-3 flex-shrink-0">
                     <button wire:click="updateStatus"
                         class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors">
-                        Save Status
+                        {{ $newStatus === 'approved' ? 'Approve & Save' : 'Save Status' }}
                     </button>
                     <button wire:click="closeStatusModal"
                         class="px-5 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors flex-shrink-0">
@@ -780,15 +732,52 @@
                                    focus:ring-2 focus:ring-blue-500 transition-colors"/>
                         @error('policyTitle') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                     </div>
+                    {{-- Paragraphs (terms & conditions style — add / edit / delete) --}}
                     <div>
-                        <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">
-                            Content <span class="text-red-400">*</span>
-                        </label>
-                        <textarea wire:model="policyContent" rows="9"
-                            placeholder="Write policy content here (terms and conditions style)..."
-                            class="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-xl resize-y
-                                   focus:ring-2 focus:ring-blue-500"></textarea>
-                        @error('policyContent') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                Policy Paragraphs <span class="text-red-400">*</span>
+                            </label>
+                            <span class="text-xs text-gray-400">{{ count($policyParagraphs) }} paragraph{{ count($policyParagraphs) === 1 ? '' : 's' }}</span>
+                        </div>
+                        <p class="text-xs text-gray-400 mb-3">Break the policy into paragraphs. Each block shows as its own point to schools & admins.</p>
+
+                        <div class="space-y-3">
+                            @foreach ($policyParagraphs as $i => $para)
+                                <div wire:key="policy-para-{{ $i }}" class="rounded-xl border border-gray-200 bg-gray-50/60 p-3">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+                                            <span class="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[11px]">{{ $i + 1 }}</span>
+                                            Paragraph
+                                        </span>
+                                        <div class="flex items-center gap-1">
+                                            <button type="button" wire:click="movePolicyParagraphUp({{ $i }})" @disabled($i === 0) title="Move up"
+                                                class="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+                                            </button>
+                                            <button type="button" wire:click="movePolicyParagraphDown({{ $i }})" @disabled($i === count($policyParagraphs) - 1) title="Move down"
+                                                class="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                                            </button>
+                                            <button type="button" wire:click="removePolicyParagraph({{ $i }})" title="Delete paragraph"
+                                                class="p-1 rounded text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <textarea wire:model="policyParagraphs.{{ $i }}" rows="4" placeholder="Write this paragraph…"
+                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white resize-y focus:ring-2 focus:ring-blue-500"></textarea>
+                                    @error('policyParagraphs.' . $i) <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                                </div>
+                            @endforeach
+                        </div>
+
+                        <button type="button" wire:click="addPolicyParagraph"
+                            class="mt-3 inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 border border-dashed border-blue-300 rounded-lg hover:bg-blue-50 w-full justify-center transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                            Add paragraph
+                        </button>
+                        @error('policyParagraphs') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">

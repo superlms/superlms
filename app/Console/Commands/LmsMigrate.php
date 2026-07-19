@@ -230,6 +230,13 @@ class LmsMigrate extends Command
             }
         });
 
+        Schema::table('credit_policies', function (Blueprint $table) {
+            if (!Schema::hasColumn('credit_policies', 'paragraphs')) {
+                $table->json('paragraphs')->nullable()->after('content');
+                $this->info('adding [paragraphs] field in [credit_policies] table');
+            }
+        });
+
         // Ensure role_user pivot table exists (not covered by a regular migration)
         if (!Schema::hasTable('role_user')) {
             Schema::create('role_user', function (Blueprint $table) {

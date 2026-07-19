@@ -12,13 +12,13 @@
                         <p class="text-xs text-gray-500 mt-0.5 truncate">Add prospective schools, track them by location and approve or remark each one.</p>
                     </div>
                 </div>
-                <div class="flex items-center gap-3 flex-shrink-0">
-                    {{-- Compact analytics (kept small so the header stays tidy) --}}
-                    <div class="hidden md:flex items-center gap-3 mr-1">
-                        <span class="inline-flex items-center gap-1.5 text-xs text-gray-600"><span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>Total <b class="text-gray-900">{{ number_format($stats['total']) }}</b></span>
-                        <span class="inline-flex items-center gap-1.5 text-xs text-gray-600"><span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Approved <b class="text-gray-900">{{ number_format($stats['approved']) }}</b></span>
-                        <span class="inline-flex items-center gap-1.5 text-xs text-gray-600"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Pending <b class="text-gray-900">{{ number_format($stats['pending']) }}</b></span>
-                        <span class="inline-flex items-center gap-1.5 text-xs text-gray-600"><span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>Remarked <b class="text-gray-900">{{ number_format($stats['rejected']) }}</b></span>
+                <div class="flex items-center gap-4 flex-shrink-0">
+                    {{-- Analytics (enquiries-style) --}}
+                    <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200">
+                        <span class="pr-4">Total: <strong class="text-gray-800">{{ number_format($stats['total']) }}</strong></span>
+                        <span class="px-4">Approved: <strong class="text-emerald-600">{{ number_format($stats['approved']) }}</strong></span>
+                        <span class="px-4">Pending: <strong class="text-amber-500">{{ number_format($stats['pending']) }}</strong></span>
+                        <span class="pl-4">Remarked: <strong class="text-rose-500">{{ number_format($stats['rejected']) }}</strong></span>
                     </div>
                     <button wire:click="openCreate"
                         class="inline-flex items-center gap-1.5 px-5 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-all">
@@ -26,6 +26,14 @@
                         Add School
                     </button>
                 </div>
+            </div>
+
+            {{-- Mobile/Tablet stats --}}
+            <div class="flex lg:hidden items-center gap-3 sm:gap-4 text-xs text-gray-500 mt-3 flex-wrap">
+                <span>Total: <strong class="text-gray-800">{{ number_format($stats['total']) }}</strong></span>
+                <span>Approved: <strong class="text-emerald-600">{{ number_format($stats['approved']) }}</strong></span>
+                <span>Pending: <strong class="text-amber-500">{{ number_format($stats['pending']) }}</strong></span>
+                <span>Remarked: <strong class="text-rose-500">{{ number_format($stats['rejected']) }}</strong></span>
             </div>
         </div>
 
@@ -104,8 +112,8 @@
                                         </div>
                                         <div class="min-w-0">
                                             <div class="font-semibold text-gray-900 truncate max-w-[220px]">{{ $school->name }}</div>
-                                            @if ($school->address)
-                                                <div class="text-xs text-gray-400 truncate max-w-[220px]">{{ $school->address }}</div>
+                                            @if ($school->email)
+                                                <div class="text-xs text-gray-400 truncate max-w-[220px]">{{ $school->email }}</div>
                                             @endif
                                         </div>
                                     </div>
@@ -119,8 +127,10 @@
                                 </td>
                                 {{-- Contact --}}
                                 <td class="px-4 py-3">
-                                    <div class="text-xs text-gray-700">{{ $school->email ?: '—' }}</div>
-                                    <div class="text-xs text-gray-400">{{ $school->mobile ?: '—' }}</div>
+                                    <div class="text-xs text-gray-700">{{ $school->mobile ?: '—' }}</div>
+                                    @if ($school->address)
+                                        <div class="text-xs text-gray-400 truncate max-w-[200px]">{{ $school->address }}</div>
+                                    @endif
                                 </td>
                                 {{-- Classes --}}
                                 <td class="px-4 py-3 text-xs text-gray-600">{{ $school->classes ?: '—' }}</td>
@@ -146,13 +156,25 @@
                                 </td>
                                 {{-- Actions --}}
                                 <td class="px-4 py-3">
-                                    <div class="flex items-center justify-end gap-1.5">
-                                        <button wire:click="openView({{ $school->id }})"
-                                            class="px-2 py-1 text-[11px] font-medium text-violet-600 border border-violet-200 rounded-md hover:bg-violet-50 transition-colors">View</button>
-                                        <button wire:click="openEdit({{ $school->id }})"
-                                            class="px-2 py-1 text-[11px] font-medium text-indigo-600 border border-indigo-200 rounded-md hover:bg-indigo-50 transition-colors">Edit</button>
-                                        <button wire:click="confirmDelete({{ $school->id }})"
-                                            class="px-2 py-1 text-[11px] font-medium text-red-600 border border-red-200 rounded-md hover:bg-red-50 transition-colors">Delete</button>
+                                    <div class="flex items-center justify-end gap-1">
+                                        <button wire:click="openView({{ $school->id }})" title="View"
+                                            class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                            </svg>
+                                        </button>
+                                        <button wire:click="openEdit({{ $school->id }})" title="Edit"
+                                            class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                        </button>
+                                        <button wire:click="confirmDelete({{ $school->id }})" title="Delete"
+                                            class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
