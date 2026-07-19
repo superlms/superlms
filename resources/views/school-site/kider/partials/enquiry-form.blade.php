@@ -1,24 +1,29 @@
 {{-- Enquiry form — posts to the public API via fetch. Param: $site --}}
-<form id="enquiryForm" onsubmit="return false;">
-    <div class="row g-3">
-        <div class="col-md-6">
-            <input type="text" name="name" class="form-control border-0 bg-light px-4 py-3" placeholder="Your Name" required>
+<form id="enquiryForm" class="form-card" onsubmit="return false;">
+    <div class="form-grid">
+        <div class="form-field">
+            <label>Your Name <span style="color:var(--primary)">*</span></label>
+            <input type="text" name="name" placeholder="e.g. Priya Sharma" required>
         </div>
-        <div class="col-md-6">
-            <input type="email" name="email" class="form-control border-0 bg-light px-4 py-3" placeholder="Your Email">
+        <div class="form-field">
+            <label>Email</label>
+            <input type="email" name="email" placeholder="you@example.com">
         </div>
-        <div class="col-md-6">
-            <input type="text" name="phone" class="form-control border-0 bg-light px-4 py-3" placeholder="Your Phone">
+        <div class="form-field">
+            <label>Phone</label>
+            <input type="text" name="phone" placeholder="10-digit mobile">
         </div>
-        <div class="col-md-6">
-            <input type="text" name="subject" class="form-control border-0 bg-light px-4 py-3" placeholder="Subject">
+        <div class="form-field">
+            <label>Subject</label>
+            <input type="text" name="subject" placeholder="Admission enquiry">
         </div>
-        <div class="col-12">
-            <textarea name="message" class="form-control border-0 bg-light px-4 py-3" rows="4" placeholder="Message"></textarea>
+        <div class="form-field full">
+            <label>Message</label>
+            <textarea name="message" rows="4" placeholder="How can we help you?"></textarea>
         </div>
-        <div class="col-12">
-            <button class="btn btn-primary rounded-pill py-3 px-5" type="submit" id="enquireBtn">Send Message</button>
-            <span id="enquiryMsg" class="ms-3 fw-medium"></span>
+        <div class="form-field full" style="flex-direction:row;align-items:center;gap:16px;flex-wrap:wrap;">
+            <button class="btn btn-primary btn-lg" type="submit" id="enquireBtn">Send Message</button>
+            <span id="enquiryMsg" class="form-note"></span>
         </div>
     </div>
 </form>
@@ -33,7 +38,7 @@
         var msg = document.getElementById('enquiryMsg');
         var data = Object.fromEntries(new FormData(form).entries());
         data.organization_id = {{ (int) $site->organization_id }};
-        if (!data.name) { msg.textContent = 'Please enter your name.'; msg.style.color = '#c00'; return; }
+        if (!data.name) { msg.textContent = 'Please enter your name.'; msg.style.color = '#c0392b'; return; }
         btn.disabled = true; btn.textContent = 'Sending...'; msg.textContent = '';
         try {
             var res = await fetch('/api/website/school-contact', {
@@ -46,10 +51,10 @@
                 form.reset();
                 msg.style.color = '#1a8a3a'; msg.textContent = json.message || 'Thank you! We will get back to you soon.';
             } else {
-                msg.style.color = '#c00'; msg.textContent = json.message || 'Something went wrong. Please try again.';
+                msg.style.color = '#c0392b'; msg.textContent = json.message || 'Something went wrong. Please try again.';
             }
         } catch (e) {
-            msg.style.color = '#c00'; msg.textContent = 'Network error. Please try again.';
+            msg.style.color = '#c0392b'; msg.textContent = 'Network error. Please try again.';
         } finally {
             btn.disabled = false; btn.textContent = 'Send Message';
         }

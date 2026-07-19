@@ -1,12 +1,13 @@
 @extends('school-site.kider.layout')
 
 @section('content')
-    @include('school-site.kider.partials.page-header', ['heading' => 'Page Not Found'])
-    <div class="container-fluid py-5">
-        <div class="container py-5 text-center">
-            <h1 class="display-1 text-primary">404</h1>
-            <h2 class="mb-4">Oops! This page isn’t available.</h2>
-            <a class="btn btn-primary rounded-pill py-3 px-5" href="{{ url('/') }}">Back to Home</a>
+    <section class="page-header" style="padding-bottom:120px;">
+        <div class="grid-bg"></div>
+        <div class="page-header-content">
+            <span class="section-tag">Error 404</span>
+            <h1 class="section-title" style="font-size:clamp(3rem,9vw,6rem);"><span class="gradient-text">404</span></h1>
+            <p class="section-subtitle" style="margin:0 auto 28px;">Oops! The page you are looking for isn’t available.</p>
+            <a class="btn btn-primary btn-lg" href="{{ url('/') }}">← Back to Home</a>
         </div>
-    </div>
+    </section>
 @endsection

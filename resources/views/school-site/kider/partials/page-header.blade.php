@@ -1,16 +1,12 @@
-{{-- Inner-page hero header. Param: $heading --}}
-<div class="container-fluid bg-primary py-5 mb-5" style="margin-top:-1px;">
-    <div class="container py-5">
-        <div class="row justify-content-center py-4">
-            <div class="col-lg-10 text-center">
-                <h1 class="display-4 text-white animated slideInDown mb-3">{{ $heading }}</h1>
-                <nav aria-label="breadcrumb">
-                    <ol class="breadcrumb justify-content-center mb-0">
-                        <li class="breadcrumb-item"><a class="text-white" href="{{ url('/') }}">Home</a></li>
-                        <li class="breadcrumb-item text-white active" aria-current="page">{{ $heading }}</li>
-                    </ol>
-                </nav>
-            </div>
-        </div>
+{{-- Inner-page hero header. Params: $heading, optional $tag, $sub --}}
+<section class="page-header">
+    <div class="grid-bg"></div>
+    <div class="page-header-content">
+        <span class="section-tag">{{ $tag ?? $c['school_name'] }}</span>
+        <h1 class="section-title">{{ $heading }}</h1>
+        @if (!empty($sub))
+            <p class="section-subtitle" style="margin:0 auto;">{{ $sub }}</p>
+        @endif
+        <nav class="breadcrumb-nav"><a href="{{ url('/') }}">Home</a> / {{ $heading }}</nav>
     </div>
-</div>
+</section>

@@ -10,27 +10,25 @@
 @endphp
 
 @section('content')
-    @include('school-site.kider.partials.page-header', ['heading' => 'Our Team'])
+    @include('school-site.kider.partials.page-header', [
+        'heading' => 'Our Team',
+        'tag' => 'Our People',
+        'sub' => 'The dedicated educators and staff who make ' . $c['school_name'] . ' a wonderful place to learn.',
+    ])
 
-    <div class="container-fluid py-5">
-        <div class="container">
-            <div class="text-center mx-auto mb-5 wow fadeInUp" data-wow-delay="0.1s" style="max-width: 600px;">
-                <h1 class="mb-3">Meet Our Team</h1>
-                <p>The dedicated educators and staff who make {{ $c['school_name'] }} a wonderful place to learn.</p>
-            </div>
-            <div class="row g-4">
+    <section class="section">
+        <div class="section-inner">
+            <div class="cards-grid">
                 @foreach ($team as $i => $member)
-                <div class="col-lg-4 col-md-6 wow fadeInUp" data-wow-delay="0.{{ ($i % 3) + 1 }}s">
-                    <div class="team-item position-relative">
-                        <img class="img-fluid rounded-circle w-75" src="{{ SchoolWebsite::media($member['photo'] ?? null, $teamImgs[$i % count($teamImgs)]) }}" alt="">
-                        <div class="team-text">
-                            <h3>{{ $member['name'] ?? '' }}</h3>
-                            <p class="text-primary mb-0">{{ $member['role'] ?? '' }}</p>
+                    <div class="team-card reveal">
+                        <div class="team-photo"><img src="{{ SchoolWebsite::media($member['photo'] ?? null, $teamImgs[$i % count($teamImgs)]) }}" alt=""></div>
+                        <div class="team-body">
+                            <p class="team-name">{{ $member['name'] ?? '' }}</p>
+                            <p class="team-role">{{ $member['role'] ?? '' }}</p>
                         </div>
                     </div>
-                </div>
                 @endforeach
             </div>
         </div>
-    </div>
+    </section>
 @endsection
