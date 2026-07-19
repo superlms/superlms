@@ -84,13 +84,24 @@ PHONEPE_WEBHOOK_PASSWORD  <- superlms/app:PHONEPE_WEBHOOK_PASSWORD
 The `ecsTaskExecutionRole` already has `secretsmanager:GetSecretValue` on
 `superlms/*`, so ECS can inject all of these.
 
-## TODO - Firebase (push notifications)
+## Firebase (push notifications) — server-side FCM
 
-`config/app.php` + `config/services.php` load Firebase creds from a FILE
-(`public_path('superlms-lms-firebase-adminsdk-...json')`). That file is
-gitignored and not in the image, and the real Google file is named after the
-Firebase project (likely `edyone-lms-...`). To make push work on ECS (Phase 10):
-1. store the service-account JSON as secret `superlms/firebase`,
-2. make the config path env-driven (`env('FIREBASE_CREDENTIALS', ...)`),
-3. have the container entrypoint write the secret to that path on boot.
-Tracked as a Phase 10 task.
+Server-side push (web + mobile app) needs the Firebase **service-account JSON**
+for project `super-lms-48c90`. `config/firebase.php` reads it from
+`FIREBASE_CREDENTIALS` and accepts the **JSON content directly** (it json-decodes
+a value that starts with `{`), so we inject it as a secret — no file in the image.
+
+Setup (one-time):
+```powershell
+# 1. Download the key: Firebase console -> Project super-lms-48c90 ->
+#    Project settings -> Service accounts -> Generate new private key
+cd infra/secrets
+.\set-firebase-credential.ps1 -JsonPath "C:\path\to\super-lms-48c90-...json"   # -> stores it in superlms/app
+
+# 2. Roll ECS so the task def carries the new secret (ecs.yaml already references it)
+cd ..\ecs ;  .\deploy.ps1
+```
+`entrypoint.sh` runs `config:cache` at boot, so the injected `FIREBASE_CREDENTIALS`
+is picked up. Until this is set, `FirebaseNotificationService` throws while
+resolving `Messaging` and **no server-side FCM is delivered** (send paths are
+fail-open, so the web inbox still works but app/web push does not).

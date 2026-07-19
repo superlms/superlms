@@ -2,6 +2,22 @@
 
 declare(strict_types=1);
 
+/*
+ * Firebase service-account credentials.
+ *
+ * On ECS we inject the whole service-account JSON as an env var / secret
+ * (FIREBASE_CREDENTIALS) rather than shipping a file. kreait's `credentials`
+ * accepts a file path OR a decoded array — so if the value looks like JSON,
+ * decode it to an array here. Falls back to a path (local/dev) otherwise.
+ */
+$firebaseCredentials = env('FIREBASE_CREDENTIALS', env('GOOGLE_APPLICATION_CREDENTIALS'));
+if (is_string($firebaseCredentials) && str_starts_with(ltrim($firebaseCredentials), '{')) {
+    $decoded = json_decode($firebaseCredentials, true);
+    if (is_array($decoded)) {
+        $firebaseCredentials = $decoded;
+    }
+}
+
 return [
     /*
      * ------------------------------------------------------------------------
@@ -50,7 +66,7 @@ return [
              *
              */
 
-            'credentials' => env('FIREBASE_CREDENTIALS', env('GOOGLE_APPLICATION_CREDENTIALS')),
+            'credentials' => $firebaseCredentials,
 
             /*
              * ------------------------------------------------------------------------

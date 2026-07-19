@@ -183,6 +183,9 @@ Resources:
             - { Name: PHONEPE_CLIENT_SECRET, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_CLIENT_SECRET::" }
             - { Name: PHONEPE_WEBHOOK_USERNAME, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_WEBHOOK_USERNAME::" }
             - { Name: PHONEPE_WEBHOOK_PASSWORD, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_WEBHOOK_PASSWORD::" }
+            # Firebase service-account JSON for server-side FCM (push notifications).
+            # Set the key first: infra/secrets/set-firebase-credential.ps1
+            - { Name: FIREBASE_CREDENTIALS, ValueFrom: !Sub "${AppSecretArn}:FIREBASE_CREDENTIALS::" }
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -261,6 +264,9 @@ Resources:
             - { Name: PHONEPE_CLIENT_SECRET, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_CLIENT_SECRET::" }
             - { Name: PHONEPE_WEBHOOK_USERNAME, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_WEBHOOK_USERNAME::" }
             - { Name: PHONEPE_WEBHOOK_PASSWORD, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_WEBHOOK_PASSWORD::" }
+            # Firebase service-account JSON for server-side FCM (push notifications).
+            # Set the key first: infra/secrets/set-firebase-credential.ps1
+            - { Name: FIREBASE_CREDENTIALS, ValueFrom: !Sub "${AppSecretArn}:FIREBASE_CREDENTIALS::" }
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -339,6 +345,9 @@ Resources:
             - { Name: PHONEPE_CLIENT_SECRET, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_CLIENT_SECRET::" }
             - { Name: PHONEPE_WEBHOOK_USERNAME, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_WEBHOOK_USERNAME::" }
             - { Name: PHONEPE_WEBHOOK_PASSWORD, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_WEBHOOK_PASSWORD::" }
+            # Firebase service-account JSON for server-side FCM (push notifications).
+            # Set the key first: infra/secrets/set-firebase-credential.ps1
+            - { Name: FIREBASE_CREDENTIALS, ValueFrom: !Sub "${AppSecretArn}:FIREBASE_CREDENTIALS::" }
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -417,6 +426,9 @@ Resources:
             - { Name: PHONEPE_CLIENT_SECRET, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_CLIENT_SECRET::" }
             - { Name: PHONEPE_WEBHOOK_USERNAME, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_WEBHOOK_USERNAME::" }
             - { Name: PHONEPE_WEBHOOK_PASSWORD, ValueFrom: !Sub "${AppSecretArn}:PHONEPE_WEBHOOK_PASSWORD::" }
+            # Firebase service-account JSON for server-side FCM (push notifications).
+            # Set the key first: infra/secrets/set-firebase-credential.ps1
+            - { Name: FIREBASE_CREDENTIALS, ValueFrom: !Sub "${AppSecretArn}:FIREBASE_CREDENTIALS::" }
           LogConfiguration:
             LogDriver: awslogs
             Options:
