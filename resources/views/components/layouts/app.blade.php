@@ -138,6 +138,54 @@
     @livewireCalendarScripts
     @include('partials.auto-refresh')
 
+    {{-- ─── Global toast for Livewire `notify` events ───
+         Many components dispatch `$this->dispatch('notify', ['type'=>.., 'message'=>..])`.
+         Render them as a lightweight top-end toast so success/error feedback is
+         actually visible (WireUI's <x-notifications> only listens to its own API). --}}
+    <div id="lms-toasts" style="position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none"></div>
+    <script>
+        (function () {
+            if (window.__lmsNotify) return;
+            window.__lmsNotify = 1;
+
+            // Shared notification sound — used by the chat notifier and by
+            // foreground web-push (FCM) so incoming notifications sound the same
+            // everywhere. Browsers block audio until the first user gesture; we
+            // ignore the rejected promise silently in that case.
+            var __notifUrl = '{{ asset('sounds/notification.mp3') }}';
+            window.lmsPlayNotifSound = function () {
+                try {
+                    var a = new Audio(__notifUrl);
+                    a.volume = 0.6;
+                    var p = a.play();
+                    if (p && p.catch) p.catch(function () {});
+                } catch (e) {}
+            };
+            function toast(p) {
+                p = Array.isArray(p) ? p[0] : p;
+                if (!p || !p.message) return;
+                var wrap = document.getElementById('lms-toasts');
+                if (!wrap) return;
+                var ok = (p.type || 'success') === 'success';
+                var el = document.createElement('div');
+                el.setAttribute('role', 'status');
+                el.style.cssText = 'pointer-events:auto;max-width:340px;padding:12px 16px;border-radius:12px;font:500 13px/1.5 system-ui,sans-serif;color:#fff;box-shadow:0 10px 30px rgba(0,0,0,.18);opacity:0;transform:translateY(-8px);transition:opacity .25s,transform .25s;background:' + (ok ? '#059669' : '#dc2626');
+                el.textContent = p.message;
+                wrap.appendChild(el);
+                requestAnimationFrame(function () { el.style.opacity = '1'; el.style.transform = 'none'; });
+                setTimeout(function () {
+                    el.style.opacity = '0'; el.style.transform = 'translateY(-8px)';
+                    setTimeout(function () { el.remove(); }, 300);
+                }, 4500);
+            }
+            document.addEventListener('livewire:init', function () {
+                if (window.Livewire && typeof window.Livewire.on === 'function') {
+                    window.Livewire.on('notify', toast);
+                }
+            });
+        })();
+    </script>
+
     {{-- ─── Scroll-aware collapsing page header (admin & accounts) ───
          Hides the title/stats/tabs once you scroll down past them (keeping only
          the sticky filter bar pinned), and restores them ONLY when scrolled back
@@ -342,9 +390,10 @@
                         });
                     }).catch(function (e) { console.warn('FCM SW registration failed', e); });
 
-                    // Foreground messages → show a native notification.
+                    // Foreground messages → show a native notification + play the sound.
                     messaging.onMessage(function (payload) {
                         const n = payload.notification || {};
+                        if (window.lmsPlayNotifSound) window.lmsPlayNotifSound();
                         try {
                             new Notification(n.title || 'SuperLMS', { body: n.body || '' });
                         } catch (e) {}

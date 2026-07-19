@@ -181,18 +181,29 @@ class PushNotification extends Component
 
         try {
             if (!empty($userIds)) {
-                // App: data-only FCM push to every registered device.
-                $delivered = app(FirebaseNotificationService::class)->notifyUserIds(
-                    $userIds,
-                    'promo',
-                    [
-                        'title'  => $this->title,
-                        'body'   => $this->body,
-                        'screen' => $this->screen ?: null,
-                    ]
-                );
+                // App: data-only FCM push to every registered device. Kept
+                // fail-open — if Firebase creds aren't configured the container
+                // throws while resolving Messaging, and that must NOT abort the
+                // web-inbox delivery or the campaign record below.
+                try {
+                    $delivered = app(FirebaseNotificationService::class)->notifyUserIds(
+                        $userIds,
+                        'promo',
+                        [
+                            'title'  => $this->title,
+                            'body'   => $this->body,
+                            'screen' => $this->screen ?: null,
+                        ]
+                    );
+                } catch (\Throwable $e) {
+                    report($e);
+                    logger()->warning('[push] app delivery failed (is FIREBASE_CREDENTIALS set?)', [
+                        'error' => $e->getMessage(),
+                    ]);
+                }
 
                 // Web: drop it into each recipient's in-app notification bell.
+                // This is the guaranteed delivery channel and always runs.
                 $webCount = $this->storeWebNotifications($userIds);
             }
 

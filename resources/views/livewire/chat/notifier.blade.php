@@ -17,6 +17,9 @@
         open() { window.location.href = this.url; },
         initial(name) { return (name || '?').charAt(0).toUpperCase(); },
         beep() {
+            // Prefer the shared notification sound (same as web-push); fall back
+            // to a synthesized tone if the audio file can't play.
+            if (window.lmsPlayNotifSound) { window.lmsPlayNotifSound(); return; }
             try {
                 const C = window.AudioContext || window.webkitAudioContext;
                 if (!C) return;
