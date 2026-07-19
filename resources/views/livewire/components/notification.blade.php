@@ -10,6 +10,7 @@
             'support'        => 'bg-rose-100 text-rose-600',
             'credit'         => 'bg-emerald-100 text-emerald-600',
             'activity'       => 'bg-blue-100 text-blue-600',
+            'promo'          => 'bg-violet-100 text-violet-600',
         ];
     @endphp
 
