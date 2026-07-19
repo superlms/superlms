@@ -12,6 +12,28 @@
     $clsImgs = ['classes-1.jpg','classes-2.jpg','classes-3.jpg','classes-4.jpg','classes-5.jpg','classes-6.jpg'];
     $teamImgs = ['team-1.jpg','team-2.jpg','team-3.jpg'];
     $hasLogo = !empty($c['logo']);
+
+    // Hero highlight stats — use configured, else derive sensible defaults.
+    $stats = !empty($c['stats']) ? $c['stats'] : array_values(array_filter([
+        !empty($c['board'])          ? ['value' => $c['board'], 'label' => 'Affiliated'] : null,
+        !empty($c['medium'])         ? ['value' => $c['medium'], 'label' => 'Medium'] : null,
+        !empty($c['affiliation_no']) ? ['value' => $c['affiliation_no'], 'label' => 'Affiliation No.'] : null,
+    ]));
+
+    // Facilities preview (top 6) + why-us — with graceful sample fallbacks.
+    $facilities = !empty($c['facilities']) ? array_slice($c['facilities'], 0, 6) : [
+        ['icon' => '📚', 'title' => 'Library',      'desc' => 'Books, magazines & digital resources.'],
+        ['icon' => '🔬', 'title' => 'Science Labs', 'desc' => 'Well-equipped Physics, Chemistry & Biology labs.'],
+        ['icon' => '💻', 'title' => 'Computer Lab',  'desc' => 'Modern systems with internet access.'],
+        ['icon' => '⚽', 'title' => 'Playground',   'desc' => 'Spacious grounds for sports & play.'],
+        ['icon' => '🚌', 'title' => 'Transport',    'desc' => 'Safe buses covering major routes.'],
+        ['icon' => '🎨', 'title' => 'Art & Craft',  'desc' => 'Painting, drawing & creative activities.'],
+    ];
+    $whyUs = !empty($c['why_us']) ? $c['why_us'] : [
+        ['icon' => '🌟', 'title' => 'Quality Education', 'desc' => 'A balanced focus on academics and values.'],
+        ['icon' => '🛡️', 'title' => 'Safe & Caring',    'desc' => 'A secure, nurturing environment for every child.'],
+        ['icon' => '🎯', 'title' => 'Holistic Growth',   'desc' => 'Sports, arts and activities alongside studies.'],
+    ];
 @endphp
 
 @section('content')
@@ -54,6 +76,22 @@
         </div>
     </section>
 
+    {{-- ══════════ STATS BAND ══════════ --}}
+    @if (!empty($stats))
+    <section class="section" style="padding-top:0;">
+        <div class="section-inner">
+            <div class="cards-grid" style="grid-template-columns:repeat({{ min(count($stats), 4) }}, 1fr);">
+                @foreach (array_slice($stats, 0, 4) as $s)
+                    <div class="info-card reveal" style="text-align:center;padding:24px;">
+                        <p class="gradient-text" style="font-family:'Baloo 2',cursive;font-weight:800;font-size:clamp(1.6rem,3vw,2.2rem);line-height:1;">{{ $s['value'] ?? '' }}</p>
+                        <p class="info-desc" style="margin-top:6px;font-weight:600;">{{ $s['label'] ?? '' }}</p>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    </section>
+    @endif
+
     {{-- ══════════ ABOUT ══════════ --}}
     <section class="section">
         <div class="split section-inner">
@@ -69,6 +107,50 @@
             <div class="split-media {{ $hasLogo ? 'is-logo' : '' }} reveal">
                 <img src="{{ SchoolWebsite::media($c['logo'] ?? null, 'about-1.jpg') }}" alt="About {{ $c['school_name'] }}">
             </div>
+        </div>
+    </section>
+
+    {{-- ══════════ WHY US ══════════ --}}
+    <section class="section section-alt">
+        <div class="section-inner">
+            <div class="section-head reveal">
+                <span class="section-tag">Why Choose Us</span>
+                <h2 class="section-title">A Great Place to <span class="gradient-text">Learn &amp; Grow</span></h2>
+            </div>
+            <div class="cards-grid">
+                @foreach ($whyUs as $w)
+                    <div class="info-card reveal">
+                        <div class="info-icon">{{ $w['icon'] ?? '⭐' }}</div>
+                        <h3 class="info-title">{{ $w['title'] ?? '' }}</h3>
+                        <p class="info-desc">{{ $w['desc'] ?? '' }}</p>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    </section>
+
+    {{-- ══════════ FACILITIES PREVIEW ══════════ --}}
+    <section class="section">
+        <div class="section-inner">
+            <div class="section-head reveal">
+                <span class="section-tag">Facilities</span>
+                <h2 class="section-title">World-Class <span class="gradient-text">Infrastructure</span></h2>
+                <p class="section-subtitle">Everything a child needs to learn, play and grow — under one roof.</p>
+            </div>
+            <div class="cards-grid">
+                @foreach ($facilities as $f)
+                    <div class="info-card reveal">
+                        <div class="info-icon">{{ $f['icon'] ?? '⭐' }}</div>
+                        <h3 class="info-title">{{ $f['title'] ?? '' }}</h3>
+                        <p class="info-desc">{{ $f['desc'] ?? '' }}</p>
+                    </div>
+                @endforeach
+            </div>
+            @if ($site->isPageEnabled('facilities'))
+                <div style="text-align:center;margin-top:36px;">
+                    <a class="btn btn-outline btn-lg reveal" href="{{ url('facilities') }}">View All Facilities</a>
+                </div>
+            @endif
         </div>
     </section>
 

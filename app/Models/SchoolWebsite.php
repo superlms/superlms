@@ -42,7 +42,11 @@ class SchoolWebsite extends Model
         return [
             'home'        => 'Home',
             'about'       => 'About Us',
+            'leadership'  => 'Leadership',
+            'facilities'  => 'Facilities',
             'classes'     => 'Classes',
+            'admission'   => 'Admissions',
+            'gallery'     => 'Gallery',
             'team'        => 'Our Team',
             'appointment' => 'Appointment',
             'contact'     => 'Contact',
@@ -115,6 +119,11 @@ class SchoolWebsite extends Model
         return [
             'school_name'   => $name,
             'tagline'       => $org?->education_board ? ($org->education_board . ' School') : 'Quality Education',
+            'motto'         => '',
+            'medium'        => '',
+            'board'         => $org?->education_board ?? '',
+            'affiliation_no'=> '',
+            'school_code'   => '',
             'logo'          => $org?->logo ?? '',
 
             'hero_title'    => 'Welcome to ' . $name,
@@ -123,8 +132,16 @@ class SchoolWebsite extends Model
             'about_heading' => 'Learn More About ' . $name,
             'about_text'    => $info?->about_school ?: 'We are committed to providing a safe, joyful and inspiring environment where every child can learn, grow and thrive.',
             'about_text2'   => '',
+            'history_text'  => '',
+            'philosophy'    => '',
             'vision'        => $info?->usm_vision ?? '',
             'mission'       => $info?->usm_mission ?? '',
+
+            // Admissions
+            'admission_intro'   => 'Admissions are open. Join our school family — enquire today and give your child the best start.',
+            'admission_session' => '',
+            'fee_note'          => '',
+            'curriculum_text'   => '',
 
             'cta_heading'   => 'Admissions Open',
             'cta_text'      => 'Give your child the best start. Enquire today and become part of the ' . $name . ' family.',
@@ -137,9 +154,19 @@ class SchoolWebsite extends Model
             'instagram'     => '',
             'youtube'       => '',
             'twitter'       => '',
+            'telegram'      => '',
 
-            'classes'       => [],
-            'team'          => $team,
+            // Repeatable lists (empty → template shows sensible samples)
+            'classes'           => [],
+            'team'              => $team,
+            'leadership'        => [],   // [{name, role, photo, message}]
+            'facilities'        => [],   // [{icon, title, desc}]
+            'why_us'            => [],   // [{icon, title, desc}]
+            'stats'             => [],   // [{value, label}]
+            'admission_steps'   => [],   // [{title, desc}]
+            'documents_required'=> [],   // [{text}]
+            'admission_rules'   => [],   // [{text}]
+            'gallery'           => [],   // [{image, caption}]
         ];
     }
 
