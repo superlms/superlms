@@ -46,6 +46,10 @@ class Schools extends Component
     public string $mediumFilter = ''; // '' | 'english' | 'hindi' | 'both'
     public string $boardFilter  = ''; // '' | any education_board value
 
+    // ── Sorting ────────────────────────────────────────────────────────────────
+    public string $sortBy  = 'created_at'; // name | created_at | students
+    public string $sortDir = 'desc';       // asc | desc
+
     // ── Add-school flow ────────────────────────────────────────────────────────
     public int   $modalStep       = 1; // 1 = details, 2 = module selection (create only)
     public array $selectedModules = []; // module_key => bool for a new school
@@ -84,6 +88,10 @@ class Schools extends Component
 
     public bool   $showDeleteConfirm = false;
     public        $deleteTargetId    = null;
+    // OTP-gated delete (code emailed to the logged-in super-admin)
+    public string $deleteStep            = 'confirm'; // 'confirm' | 'otp'
+    public string $deleteOtpInput        = '';
+    public ?string $deleteOtpEmailMasked = null;
     public string $bankName       = '';
     public string $bankAccountNo  = '';
     public string $bankIfsc       = '';
@@ -153,9 +161,19 @@ class Schools extends Component
         $this->resetPage();
     }
 
+    public function updatedSortBy(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSortDir(): void
+    {
+        $this->resetPage();
+    }
+
     public function clearFilters(): void
     {
-        $this->reset(['search', 'statusFilter', 'mediumFilter', 'boardFilter']);
+        $this->reset(['search', 'statusFilter', 'mediumFilter', 'boardFilter', 'sortBy', 'sortDir']);
         $this->resetPage();
     }
 
@@ -700,6 +718,10 @@ class Schools extends Component
     public function onDelete($id): void
     {
         $this->deleteTargetId    = $id;
+        $this->deleteStep        = 'confirm';
+        $this->deleteOtpInput    = '';
+        $this->deleteOtpEmailMasked = null;
+        $this->resetErrorBag('deleteOtpInput');
         $this->showDeleteConfirm = true;
     }
 
@@ -707,6 +729,114 @@ class Schools extends Component
     {
         $this->showDeleteConfirm = false;
         $this->deleteTargetId    = null;
+        $this->deleteStep        = 'confirm';
+        $this->deleteOtpInput    = '';
+        session()->forget(['school_delete_otp', 'school_delete_otp_expires', 'school_delete_target']);
+    }
+
+    /**
+     * Email a 6-digit verification code to the logged-in super-admin. The code
+     * is stored (hashed) in the session — never sent to the browser — and must
+     * be entered before a school can be permanently deleted.
+     */
+    public function sendDeleteOtp(): void
+    {
+        if (!$this->deleteTargetId) {
+            return;
+        }
+
+        $admin = auth('superadmin')->user() ?? Auth::user();
+        if (!$admin || !$admin->email) {
+            $this->notification()->error('No email on file', 'Your super-admin account has no email to receive the code.');
+            return;
+        }
+
+        $otp = (string) random_int(100000, 999999);
+        session([
+            'school_delete_otp'         => Hash::make($otp),
+            'school_delete_otp_expires' => now()->addMinutes(10)->timestamp,
+            'school_delete_target'      => (int) $this->deleteTargetId,
+        ]);
+
+        $school = Organization::find($this->deleteTargetId);
+
+        try {
+            ZeptoMailService::sendRaw(
+                'SuperLMS — School deletion verification code',
+                $this->deleteOtpEmailHtml($otp, $school?->name ?? 'a school'),
+                $admin->email,
+                $admin->name ?? 'Super Admin'
+            );
+        } catch (\Throwable $e) {
+            Log::error('School delete OTP email failed: ' . $e->getMessage());
+            $this->notification()->error('Could not send code', 'Email delivery failed. Please try again.');
+            return;
+        }
+
+        $this->deleteOtpEmailMasked = $this->maskEmail($admin->email);
+        $this->deleteStep           = 'otp';
+        $this->deleteOtpInput       = '';
+        $this->resetErrorBag('deleteOtpInput');
+        $this->notification()->success('Code sent', 'A verification code has been emailed to you.');
+    }
+
+    public function verifyAndDelete(): void
+    {
+        $hash   = session('school_delete_otp');
+        $expiry = session('school_delete_otp_expires');
+        $target = session('school_delete_target');
+
+        if (!$hash || !$expiry || (int) $target !== (int) $this->deleteTargetId) {
+            $this->addError('deleteOtpInput', 'No active code. Please request a new one.');
+            return;
+        }
+        if (now()->timestamp > (int) $expiry) {
+            $this->addError('deleteOtpInput', 'This code has expired. Request a new one.');
+            return;
+        }
+        if (!Hash::check(trim($this->deleteOtpInput), $hash)) {
+            $this->addError('deleteOtpInput', 'Incorrect code. Please check your email and try again.');
+            return;
+        }
+
+        session()->forget(['school_delete_otp', 'school_delete_otp_expires', 'school_delete_target']);
+        $this->deleteStep     = 'confirm';
+        $this->deleteOtpInput = '';
+        $this->doDelete((int) $this->deleteTargetId);
+    }
+
+    private function maskEmail(string $email): string
+    {
+        [$name, $domain] = array_pad(explode('@', $email, 2), 2, '');
+        $maskedName = mb_strlen($name) <= 2
+            ? substr($name, 0, 1) . '*'
+            : substr($name, 0, 2) . str_repeat('*', max(1, mb_strlen($name) - 3)) . substr($name, -1);
+
+        return $maskedName . '@' . $domain;
+    }
+
+    private function deleteOtpEmailHtml(string $otp, string $schoolName): string
+    {
+        $safeSchool = e($schoolName);
+
+        return <<<HTML
+            <div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#111827;">
+                <h2 style="margin:0 0 12px;font-size:18px;">School deletion verification</h2>
+                <p style="font-size:14px;color:#374151;line-height:1.6;">
+                    You requested to permanently delete <strong>{$safeSchool}</strong> and all of its data
+                    on SuperLMS. Use the verification code below to confirm this action.
+                </p>
+                <div style="font-size:32px;font-weight:700;letter-spacing:8px;color:#dc2626;
+                            background:#fef2f2;border:1px solid #fecaca;border-radius:12px;
+                            padding:16px;text-align:center;margin:18px 0;">
+                    {$otp}
+                </div>
+                <p style="font-size:13px;color:#6b7280;line-height:1.6;">
+                    This code expires in 10 minutes. If you did not request this, ignore this email —
+                    no school will be deleted without the code.
+                </p>
+            </div>
+        HTML;
     }
 
     // ─── Login as School Admin ────────────────────────────────────────────────
@@ -795,8 +925,15 @@ class Schools extends Component
             ->when($this->statusFilter !== '', fn($q) => $q->where('status', $this->statusFilter === 'active'))
             ->when($this->mediumFilter !== '', fn($q) => $q->where('medium', $this->mediumFilter))
             ->when($this->boardFilter !== '', fn($q) => $q->where('education_board', $this->boardFilter))
-            ->latest()
-            ->paginate(12);
+            ->orderBy(
+                match ($this->sortBy) {
+                    'name'     => 'name',
+                    'students' => 'total_students',
+                    default    => 'created_at',
+                },
+                $this->sortDir === 'asc' ? 'asc' : 'desc'
+            )
+            ->paginate(20);
 
         // Filter dropdown: every selectable board type (same list as the Add
         // School form) merged with any legacy values already in the data — so

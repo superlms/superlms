@@ -10,26 +10,33 @@
                     <div>
                         <h1 class="text-lg sm:text-xl font-bold text-gray-900">Schools</h1>
                     </div>
-                    <button wire:click="openModal"
-                        class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700
-                               text-white text-sm font-semibold rounded-lg shadow-sm transition-colors flex-shrink-0">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                        </svg>
-                        <span class="hidden sm:inline">Add School</span>
-                    </button>
+                    <div class="flex items-center gap-4">
+                        {{-- Analytics (enquiries-style) --}}
+                        <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200">
+                            <span class="pr-4">Total: <strong class="text-gray-800">{{ number_format($totalSchools) }}</strong></span>
+                            <span class="px-4">Active: <strong class="text-emerald-600">{{ number_format($activeSchools) }}</strong></span>
+                            <span class="px-4">Inactive: <strong class="text-amber-500">{{ number_format($inactiveSchools) }}</strong></span>
+                            <span class="px-4">Students: <strong class="text-gray-800">{{ number_format($totalStudents) }}</strong></span>
+                            <span class="pl-4">Teachers: <strong class="text-gray-800">{{ number_format($totalTeachers) }}</strong></span>
+                        </div>
+                        <button wire:click="openModal"
+                            class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700
+                                   text-white text-sm font-semibold rounded-lg shadow-sm transition-colors flex-shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span class="hidden sm:inline">Add School</span>
+                        </button>
+                    </div>
                 </div>
 
-                {{-- Analytics chips — divider separates them from the title row --}}
-                <div class="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-gray-200">
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-200 text-xs text-gray-500">All <strong class="text-gray-900">{{ $totalSchools }}</strong></span>
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-100 text-xs text-indigo-600">This Week <strong class="text-indigo-700">{{ $weekSchools }}</strong></span>
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-100 text-xs text-blue-600">This Month <strong class="text-blue-700">{{ $monthSchools }}</strong></span>
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-50 border border-violet-100 text-xs text-violet-600">Last Month <strong class="text-violet-700">{{ $lastMonthSchools }}</strong></span>
-                    <span class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-100 text-xs text-emerald-600">Active <strong class="text-emerald-700">{{ $activeSchools }}</strong></span>
-                    <span class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-100 text-xs text-amber-600">Inactive <strong class="text-amber-700">{{ $inactiveSchools }}</strong></span>
-                    <span class="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-200 text-xs text-gray-500">Students <strong class="text-gray-900">{{ $totalStudents }}</strong></span>
-                    <span class="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-200 text-xs text-gray-500">Teachers <strong class="text-gray-900">{{ $totalTeachers }}</strong></span>
+                {{-- Mobile/Tablet stats --}}
+                <div class="flex lg:hidden items-center gap-3 sm:gap-4 text-xs text-gray-500 mt-3 flex-wrap">
+                    <span>Total: <strong class="text-gray-800">{{ number_format($totalSchools) }}</strong></span>
+                    <span>Active: <strong class="text-emerald-600">{{ number_format($activeSchools) }}</strong></span>
+                    <span>Inactive: <strong class="text-amber-500">{{ number_format($inactiveSchools) }}</strong></span>
+                    <span>Students: <strong class="text-gray-800">{{ number_format($totalStudents) }}</strong></span>
+                    <span>Teachers: <strong class="text-gray-800">{{ number_format($totalTeachers) }}</strong></span>
                 </div>
             </div>
 
@@ -73,7 +80,23 @@
                         @endforeach
                     </select>
 
-                    @if ($search || $statusFilter || $mediumFilter || $boardFilter)
+                    {{-- Sorting --}}
+                    <div class="flex items-center gap-1.5 ml-1">
+                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7h12M3 12h9m-9 5h6m6 0l3 3m0 0l3-3m-3 3V8"/></svg>
+                        <select wire:model.live="sortBy"
+                            class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="name">Name (A–Z)</option>
+                            <option value="created_at">Registered Date</option>
+                            <option value="students">No. of Students</option>
+                        </select>
+                        <select wire:model.live="sortDir"
+                            class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="asc">Ascending</option>
+                            <option value="desc">Descending</option>
+                        </select>
+                    </div>
+
+                    @if ($search || $statusFilter || $mediumFilter || $boardFilter || $sortBy !== 'created_at' || $sortDir !== 'desc')
                         <button wire:click="clearFilters"
                             class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -86,184 +109,161 @@
 
         <div class="p-4 sm:p-6 space-y-5">
 
-            {{-- ── SCHOOL CARDS ── --}}
-            @if ($schools->count())
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    @foreach ($schools as $school)
-                        <div
-                            class="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md
-                            transition-all duration-200 overflow-hidden flex flex-col">
-
-                            <div
-                                class="pt-5 pb-3 px-4 flex flex-col items-center text-center border-b border-gray-100 relative">
-                                <span
-                                    class="absolute top-3 right-3 w-2 h-2 rounded-full
-                                    {{ $school->status ? 'bg-emerald-500' : 'bg-amber-400' }}"></span>
-
-                                @if ($school->logo)
-                                    <img src="{{ $school->logo }}"
-                                        class="w-16 h-16 rounded-full object-cover border-2 border-gray-200 shadow-sm mb-2">
-                                @else
-                                    <div
-                                        class="w-16 h-16 rounded-full bg-indigo-100 border-2 border-indigo-200
-                                        flex items-center justify-center mb-2 shadow-sm">
-                                        <span class="text-xl font-bold text-indigo-600">
-                                            {{ strtoupper(substr($school->name, 0, 1)) }}
+            {{-- ══════════ DESKTOP TABLE (student-style) ══════════ --}}
+            <div class="hidden md:block bg-white rounded-xl border border-gray-200 shadow-sm">
+                <div class="overflow-x-auto rounded-xl">
+                    <table class="w-full min-w-[880px]">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">School</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Mobile</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Board / Medium</th>
+                                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Students</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @forelse ($schools as $index => $school)
+                                <tr class="hover:bg-gray-50/70 transition-colors">
+                                    {{-- S.No --}}
+                                    <td class="px-4 py-3">
+                                        <span class="text-sm text-gray-500 font-medium">{{ $schools->firstItem() + $index }}</span>
+                                    </td>
+                                    {{-- School --}}
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-3">
+                                            @if ($school->logo)
+                                                <img src="{{ $school->logo }}" class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                                            @else
+                                                <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                    <span class="text-xs font-semibold text-indigo-600">{{ strtoupper(substr($school->name, 0, 1)) }}</span>
+                                                </div>
+                                            @endif
+                                            <div class="min-w-0">
+                                                <p class="text-sm font-semibold text-gray-900 truncate max-w-[220px]">{{ $school->name }}</p>
+                                                <p class="text-xs text-gray-400 truncate max-w-[220px]">{{ $school->email ?? '—' }}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    {{-- Mobile --}}
+                                    <td class="px-4 py-3">
+                                        <span class="text-sm text-gray-700">{{ $school->mobile_number ?? '—' }}</span>
+                                    </td>
+                                    {{-- Board / Medium --}}
+                                    <td class="px-4 py-3 whitespace-nowrap">
+                                        <span class="text-sm text-gray-700">{{ $school->education_board ?? '—' }}</span>
+                                        @if ($school->medium)
+                                            <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold
+                                                {{ $school->medium === 'hindi'
+                                                    ? 'bg-orange-50 text-orange-700 border border-orange-100'
+                                                    : ($school->medium === 'both'
+                                                        ? 'bg-purple-50 text-purple-700 border border-purple-100'
+                                                        : 'bg-blue-50 text-blue-700 border border-blue-100') }}">
+                                                {{ $school->medium === 'both' ? 'Hindi & Eng' : ucfirst($school->medium) }}
+                                            </span>
+                                        @endif
+                                    </td>
+                                    {{-- Students --}}
+                                    <td class="px-4 py-3 text-right">
+                                        <span class="text-sm font-semibold text-gray-800">{{ number_format($school->total_students) }}</span>
+                                    </td>
+                                    {{-- Status --}}
+                                    <td class="px-4 py-3">
+                                        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium border
+                                            {{ $school->status ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100' }}">
+                                            <span class="w-1.5 h-1.5 rounded-full {{ $school->status ? 'bg-emerald-500' : 'bg-amber-400' }}"></span>
+                                            {{ $school->status ? 'Active' : 'Pending' }}
                                         </span>
-                                    </div>
-                                @endif
-
-                                <h3 class="text-sm font-bold text-gray-900 leading-tight">{{ $school->name }}</h3>
-                                @if ($school->medium)
-                                    <span
-                                        class="mt-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold
-                                        {{ $school->medium === 'hindi'
-                                            ? 'bg-orange-50 text-orange-700 border border-orange-100'
-                                            : ($school->medium === 'both'
-                                                ? 'bg-purple-50 text-purple-700 border border-purple-100'
-                                                : 'bg-blue-50 text-blue-700 border border-blue-100') }}">
-                                        {{ $school->medium === 'both' ? 'Hindi & English' : ucfirst($school->medium) . ' Medium' }}
-                                    </span>
-                                @endif
-                            </div>
-
-                            <div class="p-4 space-y-2 flex-1">
-                                <div class="flex items-center gap-2 text-xs text-gray-500">
-                                    <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none"
-                                        stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                    </svg>
-                                    <span class="truncate">{{ $school->email ?? '—' }}</span>
-                                </div>
-                                <div class="flex items-center gap-2 text-xs text-gray-500">
-                                    <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none"
-                                        stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                                    </svg>
-                                    <span>{{ $school->mobile_number ?? '—' }}</span>
-                                </div>
-                                <div class="flex items-start gap-2 text-xs text-gray-500">
-                                    <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0 mt-0.5" fill="none"
-                                        stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    </svg>
-                                    <span class="line-clamp-2">{{ $school->address ?? '—' }}</span>
-                                </div>
-                            </div>
-
-                            <div class="flex items-center border-t border-gray-100 divide-x divide-gray-100">
-                                <button wire:click="viewSchoolDetail({{ $school->id }})"
-                                    class="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium
-                                           text-blue-600 hover:bg-blue-50 transition-colors">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                    </svg>
-                                    View
-                                </button>
-                                <button wire:click="loginAsSchool({{ $school->id }})"
-                                    class="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium
-                                           text-emerald-600 hover:bg-emerald-50 transition-colors">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                                    </svg>
-                                    Login
-                                </button>
-                                <button wire:click="onEdit({{ $school->id }})"
-                                    class="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium
-                                           text-amber-600 hover:bg-amber-50 transition-colors">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
-                                        viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                    </svg>
-                                    Edit
-                                </button>
-                                <button wire:click="onDelete({{ $school->id }})"
-                                    class="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium
-                                           text-red-600 hover:bg-red-50 transition-colors">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
-                                        viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                    Delete
-                                </button>
-                            </div>
-                        </div>
-                    @endforeach
+                                    </td>
+                                    {{-- Actions --}}
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <button wire:click="viewSchoolDetail({{ $school->id }})" title="View"
+                                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                            </button>
+                                            <button wire:click="loginAsSchool({{ $school->id }})" title="Login as school"
+                                                class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
+                                            </button>
+                                            <button wire:click="onEdit({{ $school->id }})" title="Edit"
+                                                class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                            </button>
+                                            <button wire:click="onDelete({{ $school->id }})" title="Delete"
+                                                class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="7" class="px-6 py-16 text-center">
+                                        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                        </div>
+                                        <p class="text-gray-500 text-sm">No schools found</p>
+                                        @if ($search || $statusFilter || $mediumFilter || $boardFilter)
+                                            <button wire:click="clearFilters" class="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium">Clear filters</button>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
-
-                {{-- ── PAGINATION ── --}}
                 @if ($schools->hasPages())
-                    <div
-                        class="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3
-                        flex flex-col sm:flex-row items-center justify-between gap-3">
-                        <p class="text-sm text-gray-500">
-                            Showing <strong class="text-gray-700">{{ $schools->firstItem() }}</strong>
-                            to <strong class="text-gray-700">{{ $schools->lastItem() }}</strong>
-                            of <strong class="text-gray-700">{{ $schools->total() }}</strong> schools
-                        </p>
-                        <div class="flex items-center gap-1">
-                            @if ($schools->onFirstPage())
-                                <span
-                                    class="px-3 py-1.5 text-sm text-gray-300 border border-gray-200 rounded-lg cursor-not-allowed">
-                                    &laquo; Prev
-                                </span>
-                            @else
-                                <button wire:click="previousPage"
-                                    class="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                                    &laquo; Prev
-                                </button>
-                            @endif
+                    <div class="px-6 py-4 border-t border-gray-100">{{ $schools->links() }}</div>
+                @endif
+            </div>
 
-                            @foreach ($schools->getUrlRange(max(1, $schools->currentPage() - 2), min($schools->lastPage(), $schools->currentPage() + 2)) as $page => $url)
-                                <button wire:click="gotoPage({{ $page }})"
-                                    class="px-3 py-1.5 text-sm rounded-lg transition-colors
-                                        {{ $page == $schools->currentPage()
-                                            ? 'bg-blue-600 text-white border border-blue-600'
-                                            : 'text-gray-600 border border-gray-300 hover:bg-gray-50' }}">
-                                    {{ $page }}
-                                </button>
-                            @endforeach
-
-                            @if ($schools->hasMorePages())
-                                <button wire:click="nextPage"
-                                    class="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                                    Next &raquo;
-                                </button>
+            {{-- ══════════ MOBILE CARDS ══════════ --}}
+            <div class="md:hidden space-y-3">
+                @forelse ($schools as $index => $school)
+                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+                        <div class="flex items-start gap-3">
+                            @if ($school->logo)
+                                <img src="{{ $school->logo }}" class="w-10 h-10 rounded-full object-cover border border-gray-200 flex-shrink-0">
                             @else
-                                <span
-                                    class="px-3 py-1.5 text-sm text-gray-300 border border-gray-200 rounded-lg cursor-not-allowed">
-                                    Next &raquo;
-                                </span>
+                                <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                    <span class="text-sm font-bold text-indigo-600">{{ strtoupper(substr($school->name, 0, 1)) }}</span>
+                                </div>
                             @endif
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center justify-between gap-2">
+                                    <p class="text-sm font-bold text-gray-900 truncate">{{ $school->name }}</p>
+                                    <span class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0
+                                        {{ $school->status ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700' }}">
+                                        {{ $school->status ? 'Active' : 'Pending' }}
+                                    </span>
+                                </div>
+                                <p class="text-xs text-gray-400 truncate">{{ $school->email ?? '—' }}</p>
+                                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-gray-500">
+                                    <span>{{ $school->mobile_number ?? '—' }}</span>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[11px] font-medium">{{ number_format($school->total_students) }} students</span>
+                                    @if ($school->education_board)<span>{{ $school->education_board }}</span>@endif
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center border-t border-gray-100 divide-x divide-gray-100 mt-3 pt-1 -mb-1">
+                            <button wire:click="viewSchoolDetail({{ $school->id }})" class="flex-1 py-2 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">View</button>
+                            <button wire:click="loginAsSchool({{ $school->id }})" class="flex-1 py-2 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">Login</button>
+                            <button wire:click="onEdit({{ $school->id }})" class="flex-1 py-2 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">Edit</button>
+                            <button wire:click="onDelete({{ $school->id }})" class="flex-1 py-2 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">Delete</button>
                         </div>
                     </div>
-                @endif
-            @else
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
-                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
+                @empty
+                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center text-gray-400">
+                        No schools found
                     </div>
-                    <p class="text-gray-500 text-sm">No schools found</p>
-                    @if ($search || $statusFilter || $mediumFilter || $boardFilter)
-                        <button wire:click="clearFilters"
-                            class="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium">
-                            Clear filters
-                        </button>
-                    @endif
-                </div>
-            @endif
+                @endforelse
+                @if ($schools->hasPages())
+                    <div class="mt-4">{{ $schools->links() }}</div>
+                @endif
+            </div>
         </div>
     @endif
 
@@ -1552,35 +1552,77 @@
         </div>
     @endif
 
-    {{-- ══════════ DELETE CONFIRMATION ══════════ --}}
+    {{-- ══════════ DELETE CONFIRMATION (OTP-verified) ══════════ --}}
     @if ($showDeleteConfirm)
         <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" wire:click="cancelDelete"></div>
             <div class="relative z-10 bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-                <div class="flex flex-col items-center text-center gap-3">
-                    <div class="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center">
-                        <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                        </svg>
+
+                @if ($deleteStep === 'confirm')
+                    {{-- Step 1: warning + send verification code --}}
+                    <div class="flex flex-col items-center text-center gap-3">
+                        <div class="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center">
+                            <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold text-gray-900">Delete School?</h3>
+                            <p class="text-sm text-gray-500 mt-1">This permanently deletes the school and <span class="font-semibold text-red-600">everything in it</span> — all students, teachers, employees, user accounts, fees, exams and records. This <span class="font-semibold">cannot be undone</span>.</p>
+                            <p class="text-xs text-gray-500 mt-2">For safety, a verification code will be emailed to your super-admin email. You must enter it to confirm.</p>
+                        </div>
+                        <div class="flex items-center gap-3 w-full mt-1">
+                            <button wire:click="cancelDelete"
+                                class="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors">
+                                Cancel
+                            </button>
+                            <button wire:click="sendDeleteOtp" wire:loading.attr="disabled" wire:target="sendDeleteOtp"
+                                class="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors disabled:opacity-60">
+                                <span wire:loading.remove wire:target="sendDeleteOtp">Send Code</span>
+                                <span wire:loading wire:target="sendDeleteOtp">Sending…</span>
+                            </button>
+                        </div>
                     </div>
-                    <div>
-                        <h3 class="text-base font-bold text-gray-900">Delete School?</h3>
-                        <p class="text-sm text-gray-500 mt-1">This permanently deletes the school and <span class="font-semibold text-red-600">everything in it</span> — all students, teachers, employees, user accounts, fees, exams and records. This <span class="font-semibold">cannot be undone</span>.</p>
+                @else
+                    {{-- Step 2: enter the emailed OTP --}}
+                    <div class="flex flex-col items-center text-center gap-3">
+                        <div class="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center">
+                            <svg class="w-7 h-7 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold text-gray-900">Enter Verification Code</h3>
+                            <p class="text-sm text-gray-500 mt-1">We emailed a 6-digit code to
+                                <span class="font-semibold text-gray-700">{{ $deleteOtpEmailMasked }}</span>.
+                                Enter it below to permanently delete this school.</p>
+                        </div>
+                        <div class="w-full">
+                            <input type="text" inputmode="numeric" maxlength="6" wire:model="deleteOtpInput"
+                                wire:keydown.enter="verifyAndDelete"
+                                placeholder="______"
+                                class="w-full text-center tracking-[0.5em] text-lg font-semibold border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-red-400 focus:border-red-400">
+                            @error('deleteOtpInput') <p class="text-xs text-red-500 mt-1.5">{{ $message }}</p> @enderror
+                            <button wire:click="sendDeleteOtp" wire:loading.attr="disabled" wire:target="sendDeleteOtp"
+                                class="text-xs text-blue-600 hover:text-blue-800 font-medium mt-2">
+                                <span wire:loading.remove wire:target="sendDeleteOtp">Resend code</span>
+                                <span wire:loading wire:target="sendDeleteOtp">Sending…</span>
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-3 w-full mt-1">
+                            <button wire:click="cancelDelete"
+                                class="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors">
+                                Cancel
+                            </button>
+                            <button wire:click="verifyAndDelete" wire:loading.attr="disabled" wire:target="verifyAndDelete"
+                                class="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors disabled:opacity-60">
+                                <span wire:loading.remove wire:target="verifyAndDelete">Verify &amp; Delete</span>
+                                <span wire:loading wire:target="verifyAndDelete">Deleting…</span>
+                            </button>
+                        </div>
                     </div>
-                    <div class="flex items-center gap-3 w-full mt-1">
-                        <button wire:click="cancelDelete"
-                            class="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors">
-                            Cancel
-                        </button>
-                        <button wire:click="doDelete({{ $deleteTargetId }})"
-                            wire:loading.attr="disabled" wire:target="doDelete"
-                            class="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors disabled:opacity-60">
-                            <span wire:loading.remove wire:target="doDelete">Yes, Delete</span>
-                            <span wire:loading wire:target="doDelete">Deleting...</span>
-                        </button>
-                    </div>
-                </div>
+                @endif
             </div>
         </div>
     @endif

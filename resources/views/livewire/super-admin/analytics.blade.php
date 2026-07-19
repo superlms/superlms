@@ -52,34 +52,19 @@
         ══════════════════════════════════════════════════════════ --}}
         @if ($activeTab === 'overview')
 
-            {{-- Growth + rating row --}}
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <p class="text-xs text-gray-500 mb-2">New Schools (This Month)</p>
-                    <p class="text-2xl font-bold text-emerald-600">{{ number_format($overviewStats['newSchoolsThisMonth'] ?? 0) }}</p>
-                </div>
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <p class="text-xs text-gray-500 mb-2">New Students (This Month)</p>
-                    <div class="flex items-end gap-2">
-                        <p class="text-2xl font-bold text-blue-600">{{ number_format($overviewStats['studentsThisMonth'] ?? 0) }}</p>
-                        @php $g = $overviewStats['studentGrowthPct'] ?? 0; @endphp
-                        <span class="text-xs font-semibold mb-1 {{ $g >= 0 ? 'text-emerald-600' : 'text-red-500' }}">
-                            {{ $g >= 0 ? '▲' : '▼' }} {{ abs($g) }}%
-                        </span>
-                    </div>
-                    <p class="text-[11px] text-gray-400 mt-1">vs {{ number_format($overviewStats['studentsLastMonth'] ?? 0) }} last month</p>
-                </div>
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <p class="text-xs text-gray-500 mb-2">Platform Rating</p>
-                    <p class="text-2xl font-bold text-amber-500">★ {{ $ratingStats['avg'] ?? 0 }}</p>
-                    <p class="text-[11px] text-gray-400 mt-1">{{ number_format($ratingStats['total'] ?? 0) }} reviews</p>
-                </div>
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <p class="text-xs text-gray-500 mb-2">5-Star Reviews</p>
-                    <p class="text-2xl font-bold text-emerald-600">{{ number_format($ratingStats['fiveStar'] ?? 0) }}</p>
-                    <p class="text-[11px] text-gray-400 mt-1">{{ $ratingStats['distribution'][5]['pct'] ?? 0 }}% of all reviews</p>
-                </div>
-            </div>
+            {{-- Compact stats section --}}
+            @include('livewire.super-admin.partials.stat-strip', ['items' => [
+                ['label' => 'Total Schools',   'value' => number_format($overviewStats['totalSchools'] ?? 0),            'color' => 'text-gray-900'],
+                ['label' => 'Active',          'value' => number_format($overviewStats['activeSchools'] ?? 0),           'color' => 'text-emerald-600'],
+                ['label' => 'Students',        'value' => number_format($overviewStats['totalStudents'] ?? 0),           'color' => 'text-blue-600'],
+                ['label' => 'Teachers',        'value' => number_format($overviewStats['totalTeachers'] ?? 0),           'color' => 'text-violet-600'],
+                ['label' => 'Avg / School',    'value' => number_format($overviewStats['avgStudentsPerSchool'] ?? 0, 1), 'color' => 'text-gray-900'],
+                ['label' => 'New Schools (Mo)', 'value' => number_format($overviewStats['newSchoolsThisMonth'] ?? 0),     'color' => 'text-emerald-600'],
+                ['label' => 'New Students (Mo)', 'value' => number_format($overviewStats['studentsThisMonth'] ?? 0),      'color' => 'text-blue-600'],
+                ['label' => 'Rating',          'value' => '★ ' . ($ratingStats['avg'] ?? 0),                            'color' => 'text-amber-500'],
+                ['label' => '5-Star',          'value' => number_format($ratingStats['fiveStar'] ?? 0),                  'color' => 'text-emerald-600'],
+                ['label' => 'Reviews',         'value' => number_format($ratingStats['total'] ?? 0),                     'color' => 'text-gray-900'],
+            ]])
 
             {{-- School Size Buckets --}}
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
@@ -266,29 +251,14 @@
                 </p>
             </div>
 
-            {{-- Summary cards --}}
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <p class="text-xs text-gray-500 mb-2">Total Visits</p>
-                    <p class="text-2xl font-bold text-blue-600">{{ number_format($websiteStats['totalVisits'] ?? 0) }}</p>
-                    <p class="text-[11px] text-gray-400 mt-1">page views in range</p>
-                </div>
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <p class="text-xs text-gray-500 mb-2">Unique Visitors</p>
-                    <p class="text-2xl font-bold text-emerald-600">{{ number_format($websiteStats['uniqueVisitors'] ?? 0) }}</p>
-                    <p class="text-[11px] text-gray-400 mt-1">distinct people</p>
-                </div>
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <p class="text-xs text-gray-500 mb-2">Avg Visits / Day</p>
-                    <p class="text-2xl font-bold text-violet-600">{{ number_format($websiteStats['avgPerDay'] ?? 0) }}</p>
-                    <p class="text-[11px] text-gray-400 mt-1">over {{ $websiteStats['days'] ?? 0 }} days</p>
-                </div>
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <p class="text-xs text-gray-500 mb-2">Most Visited</p>
-                    <p class="text-lg font-bold text-gray-800 truncate">{{ $websiteStats['topPage'] ?? '—' }}</p>
-                    <p class="text-[11px] text-gray-400 mt-1">{{ $websiteStats['pagesTracked'] ?? 0 }} pages tracked</p>
-                </div>
-            </div>
+            {{-- Compact stats section --}}
+            @include('livewire.super-admin.partials.stat-strip', ['items' => [
+                ['label' => 'Total Visits',    'value' => number_format($websiteStats['totalVisits'] ?? 0),    'color' => 'text-blue-600'],
+                ['label' => 'Unique Visitors', 'value' => number_format($websiteStats['uniqueVisitors'] ?? 0), 'color' => 'text-emerald-600'],
+                ['label' => 'Avg / Day',       'value' => number_format($websiteStats['avgPerDay'] ?? 0),      'color' => 'text-violet-600'],
+                ['label' => 'Pages Tracked',   'value' => number_format($websiteStats['pagesTracked'] ?? 0),   'color' => 'text-gray-900'],
+                ['label' => 'Most Visited',    'value' => $websiteStats['topPage'] ?? '—',                     'color' => 'text-gray-800'],
+            ]])
 
             {{-- Daily trend chart --}}
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
@@ -358,56 +328,20 @@
         ══════════════════════════════════════════════════════════ --}}
         @if ($activeTab === 'credit')
 
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-                @foreach ([
-                    ['label' => 'Total Applications', 'value' => $creditStats['total'] ?? 0,    'color' => 'gray'],
-                    ['label' => 'Pending',             'value' => $creditStats['pending'] ?? 0,  'color' => 'amber'],
-                    ['label' => 'Approved',            'value' => $creditStats['approved'] ?? 0, 'color' => 'emerald'],
-                    ['label' => 'Denied',              'value' => $creditStats['denied'] ?? 0,   'color' => 'red'],
-                ] as $s)
-                    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                        <p class="text-xs text-gray-500 mb-2">{{ $s['label'] }}</p>
-                        <p class="text-3xl font-bold text-{{ $s['color'] }}-600">{{ number_format($s['value']) }}</p>
-                    </div>
-                @endforeach
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <p class="text-xs text-gray-500 mb-2">Total Amount Leased (Approved)</p>
-                    <p class="text-2xl font-bold text-emerald-600">₹{{ number_format($creditStats['totalAmountLeased'] ?? 0, 0) }}</p>
-                </div>
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <p class="text-xs text-gray-500 mb-2">Amount Pending Approval</p>
-                    <p class="text-2xl font-bold text-amber-600">₹{{ number_format($creditStats['totalPending'] ?? 0, 0) }}</p>
-                </div>
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <p class="text-xs text-gray-500 mb-2">Active Credits</p>
-                    <p class="text-2xl font-bold text-blue-600">{{ number_format($creditStats['activeCredits'] ?? 0) }}</p>
-                </div>
-            </div>
-
-            {{-- Deeper credit detail --}}
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <p class="text-xs text-gray-500 mb-2">Approval Rate</p>
-                    <p class="text-2xl font-bold text-emerald-600">{{ $creditStats['approvalRate'] ?? 0 }}%</p>
-                </div>
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <p class="text-xs text-gray-500 mb-2">Avg Approved Amount</p>
-                    <p class="text-2xl font-bold text-blue-600">₹{{ number_format($creditStats['avgApproved'] ?? 0, 0) }}</p>
-                </div>
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <p class="text-xs text-gray-500 mb-2">Recovered</p>
-                    <p class="text-2xl font-bold text-teal-600">₹{{ number_format($creditStats['amountCollected'] ?? 0, 0) }}</p>
-                    <p class="text-[11px] text-gray-400 mt-1">{{ $creditStats['collectedCount'] ?? 0 }} credits collected</p>
-                </div>
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <p class="text-xs text-gray-500 mb-2">Outstanding</p>
-                    <p class="text-2xl font-bold text-red-500">₹{{ number_format($creditStats['amountOutstanding'] ?? 0, 0) }}</p>
-                    <p class="text-[11px] text-gray-400 mt-1">yet to be recovered</p>
-                </div>
-            </div>
+            {{-- Compact stats section --}}
+            @include('livewire.super-admin.partials.stat-strip', ['items' => [
+                ['label' => 'Total Applications', 'value' => number_format($creditStats['total'] ?? 0),               'color' => 'text-gray-900'],
+                ['label' => 'Pending',            'value' => number_format($creditStats['pending'] ?? 0),             'color' => 'text-amber-600'],
+                ['label' => 'Approved',           'value' => number_format($creditStats['approved'] ?? 0),            'color' => 'text-emerald-600'],
+                ['label' => 'Denied',             'value' => number_format($creditStats['denied'] ?? 0),              'color' => 'text-red-600'],
+                ['label' => 'Total Leased',       'value' => '₹' . number_format($creditStats['totalAmountLeased'] ?? 0, 0),  'color' => 'text-emerald-600'],
+                ['label' => 'Pending Approval',   'value' => '₹' . number_format($creditStats['totalPending'] ?? 0, 0),       'color' => 'text-amber-600'],
+                ['label' => 'Active Credits',     'value' => number_format($creditStats['activeCredits'] ?? 0),       'color' => 'text-blue-600'],
+                ['label' => 'Approval Rate',      'value' => ($creditStats['approvalRate'] ?? 0) . '%',               'color' => 'text-emerald-600'],
+                ['label' => 'Avg Approved',       'value' => '₹' . number_format($creditStats['avgApproved'] ?? 0, 0),        'color' => 'text-blue-600'],
+                ['label' => 'Recovered',          'value' => '₹' . number_format($creditStats['amountCollected'] ?? 0, 0),    'color' => 'text-teal-600'],
+                ['label' => 'Outstanding',        'value' => '₹' . number_format($creditStats['amountOutstanding'] ?? 0, 0),  'color' => 'text-red-500'],
+            ]])
 
             {{-- Credit charts --}}
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -469,43 +403,20 @@
         ══════════════════════════════════════════════════════════ --}}
         @if ($activeTab === 'fee')
 
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
-                @foreach ([
-                    ['label' => 'Schools with Fee',   'value' => number_format($feeStats['totalSchools'] ?? 0),                     'color' => 'gray'],
-                    ['label' => 'Total Fee Records',   'value' => number_format($feeStats['totalStudents'] ?? 0),                    'color' => 'blue'],
-                    ['label' => 'Total to Collect',    'value' => '₹' . number_format($feeStats['totalFeeToCollect'] ?? 0, 0),      'color' => 'gray'],
-                    ['label' => 'Total Collected',     'value' => '₹' . number_format($feeStats['totalCollected'] ?? 0, 0),         'color' => 'emerald'],
-                    ['label' => 'Remaining',           'value' => '₹' . number_format(max(0, $feeStats['totalRemaining'] ?? 0), 0), 'color' => 'red'],
-                    ['label' => 'Avg / Student',       'value' => '₹' . number_format($feeStats['avgFeePerStudent'] ?? 0, 0),       'color' => 'amber'],
-                ] as $s)
-                    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-                        <p class="text-xs text-gray-500 mb-1.5">{{ $s['label'] }}</p>
-                        <p class="text-xl font-bold text-{{ $s['color'] }}-600">{{ $s['value'] }}</p>
-                    </div>
-                @endforeach
-            </div>
-
-            {{-- Collection health row --}}
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <div class="flex items-center justify-between mb-2">
-                        <p class="text-xs text-gray-500">Collection Rate</p>
-                        <span class="text-lg font-bold text-emerald-600">{{ $feeStats['collectionRate'] ?? 0 }}%</span>
-                    </div>
-                    <div class="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div class="h-full bg-emerald-500 rounded-full transition-all duration-500" style="width: {{ min(100, $feeStats['collectionRate'] ?? 0) }}%"></div>
-                    </div>
-                    <p class="text-[11px] text-gray-400 mt-2">{{ number_format($feeStats['paidRecords'] ?? 0) }} paid · {{ number_format($feeStats['unpaidRecords'] ?? 0) }} unpaid records</p>
-                </div>
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <p class="text-xs text-gray-500 mb-2">Collected This Month</p>
-                    <p class="text-2xl font-bold text-emerald-600">₹{{ number_format($feeStats['collectedThisMonth'] ?? 0, 0) }}</p>
-                </div>
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <p class="text-xs text-gray-500 mb-2">Collected Last Month</p>
-                    <p class="text-2xl font-bold text-blue-600">₹{{ number_format($feeStats['collectedLastMonth'] ?? 0, 0) }}</p>
-                </div>
-            </div>
+            {{-- Compact stats section --}}
+            @include('livewire.super-admin.partials.stat-strip', ['items' => [
+                ['label' => 'Schools with Fee', 'value' => number_format($feeStats['totalSchools'] ?? 0),                      'color' => 'text-gray-900'],
+                ['label' => 'Fee Records',      'value' => number_format($feeStats['totalStudents'] ?? 0),                     'color' => 'text-blue-600'],
+                ['label' => 'To Collect',       'value' => '₹' . number_format($feeStats['totalFeeToCollect'] ?? 0, 0),        'color' => 'text-gray-900'],
+                ['label' => 'Collected',        'value' => '₹' . number_format($feeStats['totalCollected'] ?? 0, 0),           'color' => 'text-emerald-600'],
+                ['label' => 'Remaining',        'value' => '₹' . number_format(max(0, $feeStats['totalRemaining'] ?? 0), 0),   'color' => 'text-red-500'],
+                ['label' => 'Avg / Student',    'value' => '₹' . number_format($feeStats['avgFeePerStudent'] ?? 0, 0),         'color' => 'text-amber-600'],
+                ['label' => 'Collection Rate',  'value' => ($feeStats['collectionRate'] ?? 0) . '%',                          'color' => 'text-emerald-600'],
+                ['label' => 'This Month',       'value' => '₹' . number_format($feeStats['collectedThisMonth'] ?? 0, 0),       'color' => 'text-emerald-600'],
+                ['label' => 'Last Month',       'value' => '₹' . number_format($feeStats['collectedLastMonth'] ?? 0, 0),       'color' => 'text-blue-600'],
+                ['label' => 'Paid Records',     'value' => number_format($feeStats['paidRecords'] ?? 0),                       'color' => 'text-gray-900'],
+                ['label' => 'Unpaid Records',   'value' => number_format($feeStats['unpaidRecords'] ?? 0),                     'color' => 'text-red-500'],
+            ]])
 
             {{-- Fee charts --}}
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
@@ -576,36 +487,18 @@
         ══════════════════════════════════════════════════════════ --}}
         @if ($activeTab === 'payroll')
 
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <p class="text-xs text-gray-500 mb-2">Total Employees</p>
-                    <p class="text-3xl font-bold text-gray-800">{{ number_format($payrollStats['totalEmployees'] ?? 0) }}</p>
-                </div>
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <p class="text-xs text-gray-500 mb-2">Monthly Salary Bill</p>
-                    <p class="text-2xl font-bold text-violet-600">₹{{ number_format($payrollStats['totalMonthlySalaryBill'] ?? 0, 0) }}</p>
-                </div>
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <p class="text-xs text-gray-500 mb-2">Paid for {{ $payrollStats['payableMonth'] ?? '—' }}</p>
-                    <p class="text-2xl font-bold text-emerald-600">₹{{ number_format($payrollStats['totalPaidAmount'] ?? 0, 0) }}</p>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-                @foreach ([
-                    ['label' => 'Paid (' . ($payrollStats['payableMonth'] ?? '—') . ')',    'value' => number_format($payrollStats['paidThisMonth'] ?? 0),    'color' => 'emerald'],
-                    ['label' => 'Pending (' . ($payrollStats['payableMonth'] ?? '—') . ')', 'value' => number_format($payrollStats['pendingThisMonth'] ?? 0), 'color' => 'amber'],
-                    ['label' => 'Avg Salary',    'value' => '₹' . number_format($payrollStats['avgSalary'] ?? 0, 0),     'color' => 'blue'],
-                    ['label' => 'Lowest Salary', 'value' => '₹' . number_format($payrollStats['lowestSalary'] ?? 0, 0),  'color' => 'gray'],
-                    ['label' => 'Highest Salary','value' => '₹' . number_format($payrollStats['highestSalary'] ?? 0, 0), 'color' => 'violet'],
-                    ['label' => 'Paid This Year','value' => '₹' . number_format($payrollStats['paidThisYear'] ?? 0, 0),  'color' => 'teal'],
-                ] as $s)
-                    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                        <p class="text-xs text-gray-500 mb-2">{{ $s['label'] }}</p>
-                        <p class="text-xl font-bold text-{{ $s['color'] }}-600">{{ $s['value'] }}</p>
-                    </div>
-                @endforeach
-            </div>
+            {{-- Compact stats section --}}
+            @include('livewire.super-admin.partials.stat-strip', ['items' => [
+                ['label' => 'Total Employees', 'value' => number_format($payrollStats['totalEmployees'] ?? 0),               'color' => 'text-gray-900'],
+                ['label' => 'Monthly Bill',    'value' => '₹' . number_format($payrollStats['totalMonthlySalaryBill'] ?? 0, 0), 'color' => 'text-violet-600'],
+                ['label' => 'Paid (' . ($payrollStats['payableMonth'] ?? '—') . ')', 'value' => '₹' . number_format($payrollStats['totalPaidAmount'] ?? 0, 0), 'color' => 'text-emerald-600'],
+                ['label' => 'Paid Count',      'value' => number_format($payrollStats['paidThisMonth'] ?? 0),                'color' => 'text-emerald-600'],
+                ['label' => 'Pending Count',   'value' => number_format($payrollStats['pendingThisMonth'] ?? 0),             'color' => 'text-amber-600'],
+                ['label' => 'Avg Salary',      'value' => '₹' . number_format($payrollStats['avgSalary'] ?? 0, 0),           'color' => 'text-blue-600'],
+                ['label' => 'Lowest Salary',   'value' => '₹' . number_format($payrollStats['lowestSalary'] ?? 0, 0),        'color' => 'text-gray-900'],
+                ['label' => 'Highest Salary',  'value' => '₹' . number_format($payrollStats['highestSalary'] ?? 0, 0),       'color' => 'text-violet-600'],
+                ['label' => 'Paid This Year',  'value' => '₹' . number_format($payrollStats['paidThisYear'] ?? 0, 0),        'color' => 'text-teal-600'],
+            ]])
 
             {{-- Salary paid per month + payment mode split --}}
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
@@ -698,81 +591,20 @@
         ══════════════════════════════════════════════════════════ --}}
         @if ($activeTab === 'enquiries')
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
-                {{-- Demo Enquiries --}}
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <div class="flex items-center gap-3 mb-4">
-                        <div class="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center">
-                            <span class="text-base">🎬</span>
-                        </div>
-                        <h2 class="text-sm font-bold text-gray-900">Demo Enquiries</h2>
-                        <span class="ml-auto text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">{{ $enquiryStats['demo']['replyRate'] ?? 0 }}% replied</span>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        @foreach ([
-                            ['label' => 'Total',      'value' => $enquiryStats['demo']['total'] ?? 0,     'color' => 'gray'],
-                            ['label' => 'Pending',    'value' => $enquiryStats['demo']['pending'] ?? 0,   'color' => 'amber'],
-                            ['label' => 'Replied',    'value' => $enquiryStats['demo']['replied'] ?? 0,   'color' => 'emerald'],
-                            ['label' => 'This Month', 'value' => $enquiryStats['demo']['thisMonth'] ?? 0, 'color' => 'blue'],
-                        ] as $s)
-                            <div class="p-3 bg-gray-50 rounded-xl">
-                                <p class="text-xs text-gray-400 mb-1">{{ $s['label'] }}</p>
-                                <p class="text-xl font-bold text-{{ $s['color'] }}-600">{{ $s['value'] }}</p>
-                            </div>
-                        @endforeach
-                    </div>
-                    <div class="mt-3">
-                        <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
-                            <div class="h-full bg-emerald-500 rounded-full" style="width: {{ $enquiryStats['demo']['replyRate'] ?? 0 }}%"></div>
-                        </div>
-                        <p class="text-[11px] text-gray-400 mt-1.5">{{ $enquiryStats['demo']['thisWeek'] ?? 0 }} new this week</p>
-                    </div>
-                </div>
-
-                {{-- Contact Enquiries --}}
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <div class="flex items-center gap-3 mb-4">
-                        <div class="w-9 h-9 bg-violet-100 rounded-xl flex items-center justify-center">
-                            <span class="text-base">✉️</span>
-                        </div>
-                        <h2 class="text-sm font-bold text-gray-900">Contact Enquiries</h2>
-                        <span class="ml-auto text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">{{ $enquiryStats['contact']['replyRate'] ?? 0 }}% replied</span>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        @foreach ([
-                            ['label' => 'Total',      'value' => $enquiryStats['contact']['total'] ?? 0,     'color' => 'gray'],
-                            ['label' => 'Pending',    'value' => $enquiryStats['contact']['pending'] ?? 0,   'color' => 'amber'],
-                            ['label' => 'Replied',    'value' => $enquiryStats['contact']['replied'] ?? 0,   'color' => 'emerald'],
-                            ['label' => 'This Month', 'value' => $enquiryStats['contact']['thisMonth'] ?? 0, 'color' => 'violet'],
-                        ] as $s)
-                            <div class="p-3 bg-gray-50 rounded-xl">
-                                <p class="text-xs text-gray-400 mb-1">{{ $s['label'] }}</p>
-                                <p class="text-xl font-bold text-{{ $s['color'] }}-600">{{ $s['value'] }}</p>
-                            </div>
-                        @endforeach
-                    </div>
-                    <div class="mt-3">
-                        <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
-                            <div class="h-full bg-emerald-500 rounded-full" style="width: {{ $enquiryStats['contact']['replyRate'] ?? 0 }}%"></div>
-                        </div>
-                        <p class="text-[11px] text-gray-400 mt-1.5">{{ $enquiryStats['contact']['thisWeek'] ?? 0 }} new this week</p>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Combined Totals --}}
-            <div class="grid grid-cols-3 gap-4 mb-6">
-                @foreach ([
-                    ['label' => 'Combined Total', 'value' => $enquiryStats['combined']['total'] ?? 0,   'color' => 'gray'],
-                    ['label' => 'Total Pending',  'value' => $enquiryStats['combined']['pending'] ?? 0, 'color' => 'amber'],
-                    ['label' => 'Total Replied',  'value' => $enquiryStats['combined']['replied'] ?? 0, 'color' => 'emerald'],
-                ] as $s)
-                    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                        <p class="text-xs text-gray-500 mb-2">{{ $s['label'] }}</p>
-                        <p class="text-3xl font-bold text-{{ $s['color'] }}-600">{{ $s['value'] }}</p>
-                    </div>
-                @endforeach
-            </div>
+            {{-- Compact stats section --}}
+            @include('livewire.super-admin.partials.stat-strip', ['items' => [
+                ['label' => 'Demo Total',      'value' => number_format($enquiryStats['demo']['total'] ?? 0),     'color' => 'text-gray-900'],
+                ['label' => 'Demo Pending',    'value' => number_format($enquiryStats['demo']['pending'] ?? 0),   'color' => 'text-amber-600'],
+                ['label' => 'Demo Replied',    'value' => number_format($enquiryStats['demo']['replied'] ?? 0),   'color' => 'text-emerald-600'],
+                ['label' => 'Demo Reply Rate', 'value' => ($enquiryStats['demo']['replyRate'] ?? 0) . '%',        'color' => 'text-blue-600'],
+                ['label' => 'Contact Total',   'value' => number_format($enquiryStats['contact']['total'] ?? 0),   'color' => 'text-gray-900'],
+                ['label' => 'Contact Pending', 'value' => number_format($enquiryStats['contact']['pending'] ?? 0), 'color' => 'text-amber-600'],
+                ['label' => 'Contact Replied', 'value' => number_format($enquiryStats['contact']['replied'] ?? 0), 'color' => 'text-emerald-600'],
+                ['label' => 'Contact Reply Rate', 'value' => ($enquiryStats['contact']['replyRate'] ?? 0) . '%',   'color' => 'text-violet-600'],
+                ['label' => 'Combined Total',  'value' => number_format($enquiryStats['combined']['total'] ?? 0),   'color' => 'text-gray-900'],
+                ['label' => 'Total Pending',   'value' => number_format($enquiryStats['combined']['pending'] ?? 0), 'color' => 'text-amber-600'],
+                ['label' => 'Total Replied',   'value' => number_format($enquiryStats['combined']['replied'] ?? 0), 'color' => 'text-emerald-600'],
+            ]])
 
             {{-- Monthly Enquiry Chart --}}
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
@@ -794,21 +626,15 @@
         ══════════════════════════════════════════════════════════ --}}
         @if ($activeTab === 'support')
 
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-                @foreach ([
-                    ['label' => 'Total Tickets', 'value' => $supportStats['total'] ?? 0,       'color' => 'gray'],
-                    ['label' => 'Pending',        'value' => $supportStats['pending'] ?? 0,     'color' => 'amber'],
-                    ['label' => 'Replied',        'value' => $supportStats['replied'] ?? 0,     'color' => 'emerald'],
-                    ['label' => 'This Month',     'value' => $supportStats['thisMonth'] ?? 0,   'color' => 'blue'],
-                    ['label' => 'This Week',      'value' => $supportStats['thisWeek'] ?? 0,    'color' => 'violet'],
-                    ['label' => 'Avg / Month',    'value' => $supportStats['avgPerMonth'] ?? 0, 'color' => 'teal'],
-                ] as $s)
-                    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                        <p class="text-xs text-gray-500 mb-2">{{ $s['label'] }}</p>
-                        <p class="text-2xl font-bold text-{{ $s['color'] }}-600">{{ $s['value'] }}</p>
-                    </div>
-                @endforeach
-            </div>
+            {{-- Compact stats section --}}
+            @include('livewire.super-admin.partials.stat-strip', ['items' => [
+                ['label' => 'Total Tickets', 'value' => number_format($supportStats['total'] ?? 0),     'color' => 'text-gray-900'],
+                ['label' => 'Pending',       'value' => number_format($supportStats['pending'] ?? 0),   'color' => 'text-amber-600'],
+                ['label' => 'Replied',       'value' => number_format($supportStats['replied'] ?? 0),   'color' => 'text-emerald-600'],
+                ['label' => 'This Month',    'value' => number_format($supportStats['thisMonth'] ?? 0), 'color' => 'text-blue-600'],
+                ['label' => 'This Week',     'value' => number_format($supportStats['thisWeek'] ?? 0),  'color' => 'text-violet-600'],
+                ['label' => 'Avg / Month',   'value' => $supportStats['avgPerMonth'] ?? 0,              'color' => 'text-teal-600'],
+            ]])
 
             {{-- Reply Rate --}}
             @php
