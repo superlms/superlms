@@ -52,10 +52,12 @@ class Users extends Component
     // ─── Search ──────────────────────────────────────────────────────────
     public string $search       = '';
     public string $filterStatus = '';
+    public string $filterOrg    = '';
 
     protected $queryString = [
         'search'       => ['except' => ''],
         'filterStatus' => ['except' => ''],
+        'filterOrg'    => ['except' => ''],
     ];
 
     public function updatedSearch(): void
@@ -68,9 +70,14 @@ class Users extends Component
         $this->resetPage();
     }
 
+    public function updatedFilterOrg(): void
+    {
+        $this->resetPage();
+    }
+
     public function clearFilters(): void
     {
-        $this->reset(['search', 'filterStatus']);
+        $this->reset(['search', 'filterStatus', 'filterOrg']);
         $this->resetPage();
     }
 
@@ -225,7 +232,7 @@ class Users extends Component
             $this->closePanel();
             // Clear any leftover list filter so the saved user is visible
             // (the search box used to pick up the new user's email).
-            $this->reset(['search', 'filterStatus']);
+            $this->reset(['search', 'filterStatus', 'filterOrg']);
             $this->resetPage();
         } catch (\Throwable $e) {
             $this->notification()->error('Error Saving User', $e->getMessage());
@@ -400,6 +407,7 @@ class Users extends Component
                 ->orWhere('email', 'like', "%{$this->search}%")
                 ->orWhere('mobile_number', 'like', "%{$this->search}%")))
             ->when($this->filterStatus !== '', fn($q) => $q->where('is_active', $this->filterStatus))
+            ->when($this->filterOrg !== '', fn($q) => $q->where('allowed_organization_id', $this->filterOrg))
             ->latest()
             ->paginate(10);
 

@@ -5,11 +5,13 @@ namespace App\Livewire\SuperAdmin;
 use Livewire\Component;
 use App\Models\Admin\ContactSuperAdmin;
 use App\Models\Organization;
+use Illuminate\Support\Facades\Storage;
+use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 
 class Support extends Component
 {
-    use WithPagination;
+    use WithFileUploads, WithPagination;
 
     public $search = '';
     public $filterDays = null;
@@ -22,6 +24,10 @@ class Support extends Component
     public $selectedSupport = null;
 
     public $superAdminReply = '';
+
+    // Reply attachment
+    public $replyAttachment       = null;   // new upload
+    public $existingReplyAttachment = null; // existing S3 url (edit)
 
     // Delete confirmation
     public $confirmDeleteId = null;
@@ -111,6 +117,8 @@ class Support extends Component
         $this->selectedSupport = ContactSuperAdmin::with(['user', 'organization'])->find($supportId);
         $this->showReplyModal = true;
         $this->superAdminReply = $this->selectedSupport->super_admin_text ?? '';
+        $this->existingReplyAttachment = $this->selectedSupport->super_admin_attachment ?? null;
+        $this->replyAttachment = null;
     }
 
     public function closeReplyModal()
@@ -118,18 +126,43 @@ class Support extends Component
         $this->showReplyModal = false;
         $this->selectedSupport = null;
         $this->superAdminReply = '';
+        $this->replyAttachment = null;
+        $this->existingReplyAttachment = null;
+    }
+
+    public function removeReplyAttachment()
+    {
+        $this->replyAttachment = null;
+        $this->existingReplyAttachment = null;
     }
 
     public function sendReply()
     {
         $this->validate([
-            'superAdminReply' => 'required|string|min:5',
-        ]);
+            'superAdminReply'  => 'required|string|min:5',
+            'replyAttachment'  => 'nullable|mimes:jpg,jpeg,png,pdf,doc,docx|max:5120',
+        ], [], ['replyAttachment' => 'attachment']);
 
         try {
+            $attachmentUrl = $this->existingReplyAttachment;
+
+            if ($this->replyAttachment) {
+                // Replace: drop the previous file if there was one
+                if ($this->selectedSupport->super_admin_attachment) {
+                    Storage::disk('s3')->delete(parse_url($this->selectedSupport->super_admin_attachment, PHP_URL_PATH));
+                }
+                $path = $this->replyAttachment->store('super-admin/support/replies', 's3');
+                Storage::disk('s3')->setVisibility($path, 'public');
+                $attachmentUrl = Storage::disk('s3')->url($path);
+            } elseif (!$this->existingReplyAttachment && $this->selectedSupport->super_admin_attachment) {
+                // Attachment was removed in the UI — delete the stored file
+                Storage::disk('s3')->delete(parse_url($this->selectedSupport->super_admin_attachment, PHP_URL_PATH));
+            }
+
             $this->selectedSupport->update([
-                'super_admin_text' => $this->superAdminReply,
-                'super_admin_reply' => true,
+                'super_admin_text'       => $this->superAdminReply,
+                'super_admin_reply'      => true,
+                'super_admin_attachment' => $attachmentUrl,
             ]);
 
             $this->dispatch('notify', [

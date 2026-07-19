@@ -4,11 +4,10 @@
          HEADER (sticky, analytics + add button)
     ══════════════════════════════════════════════════ --}}
     <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div class="px-4 sm:px-6 py-4 sm:py-5">
+        <div class="px-4 sm:px-6 py-3">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                    <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Users</h1>
-                    <p class="text-sm text-gray-500 mt-0.5">Create sub super-admins and grant scoped access</p>
+                    <h1 class="text-lg sm:text-xl font-bold text-gray-900">Users</h1>
                 </div>
                 <div class="flex items-center gap-4">
                     <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200">
@@ -46,7 +45,14 @@
                     <option value="1">Active</option>
                     <option value="0">Inactive</option>
                 </select>
-                @if ($search || $filterStatus !== '')
+                <select wire:model.live="filterOrg"
+                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                    <option value="">All Schools</option>
+                    @foreach ($organizations as $org)
+                        <option value="{{ $org->id }}">{{ $org->name }}</option>
+                    @endforeach
+                </select>
+                @if ($search || $filterStatus !== '' || $filterOrg !== '')
                     <button wire:click="clearFilters" class="text-xs text-purple-600 hover:text-purple-800 font-medium">Clear</button>
                 @endif
             </div>

@@ -2,11 +2,10 @@
 
     {{-- ══════════ HEADER (analytics + filter) ══════════ --}}
     <div class="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div class="px-4 sm:px-6 py-4 sm:py-5">
+        <div class="px-4 sm:px-6 py-3">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                    <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Teachers</h1>
-                    <p class="text-sm text-gray-500 mt-0.5">Manage all teacher records across schools</p>
+                    <h1 class="text-lg sm:text-xl font-bold text-gray-900">Teachers</h1>
                 </div>
                 <div class="flex items-center gap-4">
                     {{-- Analytics (Users-style) --}}

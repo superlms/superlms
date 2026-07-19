@@ -7,7 +7,6 @@
         <div class="px-3 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div class="min-w-0">
                 <h1 class="text-lg sm:text-2xl font-bold text-gray-900 truncate">Super Admin Dashboard</h1>
-                <p class="text-xs sm:text-sm text-gray-500 mt-0.5 truncate">{{ now()->format('l, d M Y') }} · Platform overview</p>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
                 <a href="{{ route('super-admin.schools') }}"

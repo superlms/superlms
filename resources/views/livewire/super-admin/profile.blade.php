@@ -2,9 +2,8 @@
 
     {{-- HEADER --}}
     <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div class="px-4 sm:px-6 py-4 sm:py-5">
-            <h1 class="text-xl sm:text-2xl font-bold text-gray-900">My Profile</h1>
-            <p class="text-sm text-gray-500 mt-0.5">Manage your account details and password</p>
+        <div class="px-4 sm:px-6 py-3">
+            <h1 class="text-lg sm:text-xl font-bold text-gray-900">My Profile</h1>
         </div>
         <div class="border-t border-gray-200 px-4 sm:px-6">
             <div class="flex gap-1">

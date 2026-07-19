@@ -4,10 +4,7 @@
     <div class="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div class="px-4 sm:px-6 pt-4 pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-                <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Reports</h1>
-                <p class="text-sm text-gray-500 mt-0.5">
-                    Today's activity, all-time totals &amp; day-by-day breakdown — students, teachers, schools, revenue, fees, credit, support &amp; enquiries
-                </p>
+                <h1 class="text-lg sm:text-xl font-bold text-gray-900">Reports</h1>
             </div>
 
             <div class="flex items-center gap-2 self-start" wire:loading.class="opacity-60">

@@ -216,6 +216,13 @@ class LmsMigrate extends Command
             }
         });
 
+        Schema::table('contact_super_admins', function (Blueprint $table) {
+            if (!Schema::hasColumn('contact_super_admins', 'super_admin_attachment')) {
+                $table->string('super_admin_attachment')->nullable()->after('super_admin_text');
+                $this->info('adding [super_admin_attachment] field in [contact_super_admins] table');
+            }
+        });
+
         // Ensure role_user pivot table exists (not covered by a regular migration)
         if (!Schema::hasTable('role_user')) {
             Schema::create('role_user', function (Blueprint $table) {

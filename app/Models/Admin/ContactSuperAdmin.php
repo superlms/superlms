@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ContactSuperAdmin extends Model
 {
-    protected $fillable = ['user_id', 'organization_id', 'topic', 'admin_query', 'image', 'super_admin_text', 'super_admin_reply'];
+    protected $fillable = ['user_id', 'organization_id', 'topic', 'admin_query', 'image', 'super_admin_text', 'super_admin_reply', 'super_admin_attachment'];
 
     public function user()
     {

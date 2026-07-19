@@ -4,7 +4,6 @@
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
                 <h1 class="text-xl font-bold text-gray-900">School Websites</h1>
-                <p class="text-sm text-gray-500 mt-0.5">Build and publish a website for any school on its own domain.</p>
             </div>
             <div class="relative">
                 <input type="text" wire:model.live.debounce.300ms="search" placeholder="Search schools..."

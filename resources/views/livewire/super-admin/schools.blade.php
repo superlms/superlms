@@ -5,11 +5,10 @@
 
         {{-- ── HEADER (analytics + filter) ── --}}
         <div class="bg-white border-b border-gray-200 sticky top-0 z-50">
-            <div class="px-4 sm:px-6 py-4 sm:py-5">
+            <div class="px-4 sm:px-6 py-3">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
-                        <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Schools</h1>
-                        <p class="text-sm text-gray-500 mt-0.5">Manage all registered schools</p>
+                        <h1 class="text-lg sm:text-xl font-bold text-gray-900">Schools</h1>
                     </div>
                     <button wire:click="openModal"
                         class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700
@@ -272,7 +271,7 @@
     @if ($activeView === 'detail' && $detailSchool)
 
         {{-- ── DETAIL HEADER ── --}}
-        <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 sm:py-5 sticky top-0 z-50">
+        <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sticky top-0 z-50">
             <div class="flex items-center justify-between gap-4">
                 <div class="flex items-center gap-3">
                     <button wire:click="backToList"

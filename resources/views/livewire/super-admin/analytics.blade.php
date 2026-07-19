@@ -11,8 +11,7 @@
     <div class="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div class="px-4 sm:px-6 pt-4 pb-0 flex flex-wrap items-start justify-between gap-3">
             <div>
-                <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Analytics</h1>
-                <p class="text-sm text-gray-500 mt-0.5">Platform-wide statistics and trends</p>
+                <h1 class="text-lg sm:text-xl font-bold text-gray-900">Analytics</h1>
             </div>
             <div class="flex items-center gap-4">
                 <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200">

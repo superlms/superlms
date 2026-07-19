@@ -43,7 +43,7 @@
             </div>
         @else
             {{-- COMPACT HEADER (fees style) --}}
-            <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 sm:py-5">
+            <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div class="flex items-center gap-3 min-w-0">
                         <img src="{{ $aboutApp->logo ?: asset('website-image/Group 11525.png') }}"
@@ -51,8 +51,7 @@
                             class="w-12 h-12 rounded-xl object-contain border border-gray-200 shadow-sm bg-white p-1 flex-shrink-0"
                             onerror="this.src='{{ asset('website-image/Group 11525.png') }}'">
                         <div class="min-w-0">
-                            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 truncate">{{ $aboutApp->heading ?? 'About App' }}</h1>
-                            <p class="text-sm text-gray-500 mt-0.5 truncate">{{ $aboutApp->sub_heading ?? '' }}</p>
+                            <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">{{ $aboutApp->heading ?? 'About App' }}</h1>
                             @if ($aboutApp->company_name || $aboutApp->company_cin)
                                 <p class="text-xs text-gray-400 mt-0.5 truncate">
                                     {{ $aboutApp->company_name }}

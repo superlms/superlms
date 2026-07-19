@@ -483,12 +483,9 @@
                                 </p>
                             </div>
 
-                            @if (
-                                !empty($viewData['contact']->super_admin_reply) &&
-                                $viewData['contact']->super_admin_reply !== '1' &&
-                                filter_var($viewData['contact']->super_admin_reply, FILTER_VALIDATE_URL))
+                            @if (!empty($viewData['contact']->super_admin_attachment))
                                 @php
-                                    $replyUrl = $viewData['contact']->super_admin_reply;
+                                    $replyUrl = $viewData['contact']->super_admin_attachment;
                                     $replyExt = strtolower(pathinfo(parse_url($replyUrl, PHP_URL_PATH), PATHINFO_EXTENSION));
                                 @endphp
                                 <div class="mt-3">
@@ -501,6 +498,14 @@
                                         <iframe src="{{ $replyUrl }}" class="w-full h-72 border border-gray-200 rounded-md"></iframe>
                                         <a href="{{ $replyUrl }}" target="_blank"
                                             class="text-xs text-blue-600 hover:underline mt-1.5 inline-block">Open / Download PDF ↗</a>
+                                    @else
+                                        <a href="{{ $replyUrl }}" target="_blank"
+                                            class="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:underline">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                            </svg>
+                                            Download attachment (.{{ $replyExt }}) ↗
+                                        </a>
                                     @endif
                                 </div>
                             @endif

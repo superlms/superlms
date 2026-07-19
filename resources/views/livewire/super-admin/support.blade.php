@@ -4,11 +4,10 @@
          HEADER (full-width, sticky, analytics + filter bar)
     ══════════════════════════════════════════════════ --}}
     <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div class="px-4 sm:px-6 py-4 sm:py-5">
+        <div class="px-4 sm:px-6 py-3">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                    <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Support Tickets</h1>
-                    <p class="text-sm text-gray-500 mt-0.5">Manage queries from all school admins</p>
+                    <h1 class="text-lg sm:text-xl font-bold text-gray-900">Support Tickets</h1>
                 </div>
                 <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200">
                     <span class="pr-4">Total: <strong class="text-gray-800">{{ $totalQueries }}</strong></span>
@@ -270,6 +269,30 @@
                             <div class="bg-gray-50 border-l-2 border-emerald-500 rounded-r-md px-4 py-3">
                                 <p class="text-sm text-gray-800 whitespace-pre-line leading-relaxed">{{ $selectedSupport->super_admin_text }}</p>
                             </div>
+
+                            @if ($selectedSupport->super_admin_attachment)
+                                @php
+                                    $replyUrl = $selectedSupport->super_admin_attachment;
+                                    $replyExt = strtolower(pathinfo(parse_url($replyUrl, PHP_URL_PATH), PATHINFO_EXTENSION));
+                                @endphp
+                                <div class="mt-3">
+                                    <p class="text-xs text-gray-400 uppercase tracking-wider mb-1.5">Reply attachment</p>
+                                    @if (in_array($replyExt, ['jpg', 'jpeg', 'png', 'gif', 'webp']))
+                                        <img src="{{ $replyUrl }}" class="w-full rounded-md border border-gray-200">
+                                        <a href="{{ $replyUrl }}" target="_blank" class="text-xs text-blue-600 hover:underline mt-1.5 inline-block">Open in new tab ↗</a>
+                                    @elseif ($replyExt === 'pdf')
+                                        <iframe src="{{ $replyUrl }}" class="w-full h-72 border border-gray-200 rounded-md"></iframe>
+                                        <a href="{{ $replyUrl }}" target="_blank" class="text-xs text-blue-600 hover:underline mt-1.5 inline-block">Open / Download PDF ↗</a>
+                                    @else
+                                        <a href="{{ $replyUrl }}" target="_blank" class="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:underline">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                            </svg>
+                                            Download attachment (.{{ $replyExt }}) ↗
+                                        </a>
+                                    @endif
+                                </div>
+                            @endif
                         </div>
                     @else
                         <div class="flex items-center gap-2.5 text-sm text-amber-700 border-t border-gray-100 pt-6">
@@ -330,6 +353,32 @@
                         <textarea wire:model.defer="superAdminReply" rows="8" placeholder="Type your reply here..."
                             class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-800 resize-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
                         @error('superAdminReply')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+
+                    {{-- Reply attachment --}}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Attachment <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
+
+                        @if ($existingReplyAttachment && !$replyAttachment)
+                            @php
+                                $curExt = strtolower(pathinfo(parse_url($existingReplyAttachment, PHP_URL_PATH), PATHINFO_EXTENSION));
+                            @endphp
+                            <div class="flex items-center justify-between gap-3 border border-gray-200 rounded-md px-3 py-2 mb-2 bg-gray-50">
+                                <a href="{{ $existingReplyAttachment }}" target="_blank" class="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline truncate">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                    </svg>
+                                    <span class="truncate">Current attachment (.{{ $curExt }})</span>
+                                </a>
+                                <button type="button" wire:click="removeReplyAttachment" class="text-xs font-medium text-red-500 hover:text-red-700 flex-shrink-0">Remove</button>
+                            </div>
+                        @endif
+
+                        <input type="file" wire:model="replyAttachment" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
+                            class="block w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-blue-50 file:text-blue-700 file:text-xs file:font-medium hover:file:bg-blue-100" />
+                        <div wire:loading wire:target="replyAttachment" class="text-xs text-gray-400 mt-1">Uploading…</div>
+                        <p class="text-xs text-gray-400 mt-1">Images, PDF or Word — up to 5&nbsp;MB. The school admin will see this with your reply.</p>
+                        @error('replyAttachment')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                 </div>
 
