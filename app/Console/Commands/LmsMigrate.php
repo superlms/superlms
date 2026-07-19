@@ -223,6 +223,13 @@ class LmsMigrate extends Command
             }
         });
 
+        Schema::table('blogs', function (Blueprint $table) {
+            if (!Schema::hasColumn('blogs', 'paragraphs')) {
+                $table->json('paragraphs')->nullable()->after('description');
+                $this->info('adding [paragraphs] field in [blogs] table');
+            }
+        });
+
         // Ensure role_user pivot table exists (not covered by a regular migration)
         if (!Schema::hasTable('role_user')) {
             Schema::create('role_user', function (Blueprint $table) {

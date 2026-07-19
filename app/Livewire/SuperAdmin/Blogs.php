@@ -27,7 +27,9 @@ class Blogs extends Component
     public string $category = '';
     public string $title = '';
     public string $heading = '';
-    public string $description = '';
+
+    /** Article body as a list of paragraphs (add / edit / delete). */
+    public array $paragraphs = [''];
 
     /** Delete confirmation */
     public ?int $pendingDelete = null;
@@ -35,11 +37,12 @@ class Blogs extends Component
     protected function rules(): array
     {
         return [
-            'coverImage'  => 'nullable|image|max:4096', // 4 MB
-            'category'    => 'nullable|string|max:255',
-            'title'       => 'required|string|max:255',
-            'heading'     => 'nullable|string|max:255',
-            'description' => 'nullable|string|max:20000',
+            'coverImage'    => 'nullable|image|max:4096', // 4 MB
+            'category'      => 'nullable|string|max:255',
+            'title'         => 'required|string|max:255',
+            'heading'       => 'nullable|string|max:255',
+            'paragraphs'    => 'array',
+            'paragraphs.*'  => 'nullable|string|max:20000',
         ];
     }
 
@@ -68,7 +71,9 @@ class Blogs extends Component
         $this->category      = $blog->category ?? '';
         $this->title         = $blog->title;
         $this->heading       = $blog->heading ?? '';
-        $this->description   = $blog->description ?? '';
+        // Prefer structured paragraphs; fall back to legacy description text.
+        $paras               = $blog->body_paragraphs;
+        $this->paragraphs    = !empty($paras) ? $paras : [''];
         $this->coverImageUrl = $blog->cover_image;
         $this->coverImage    = null;
         $this->resetErrorBag();
@@ -83,19 +88,60 @@ class Blogs extends Component
 
     protected function resetForm(): void
     {
-        $this->reset(['editId', 'coverImage', 'coverImageUrl', 'category', 'title', 'heading', 'description']);
+        $this->reset(['editId', 'coverImage', 'coverImageUrl', 'category', 'title', 'heading', 'paragraphs']);
+        $this->paragraphs = [''];
         $this->resetErrorBag();
+    }
+
+    // ─── Paragraph repeater ───────────────────────────────────────────
+
+    public function addParagraph(): void
+    {
+        $this->paragraphs[] = '';
+    }
+
+    public function removeParagraph(int $index): void
+    {
+        unset($this->paragraphs[$index]);
+        $this->paragraphs = array_values($this->paragraphs);
+        if (empty($this->paragraphs)) {
+            $this->paragraphs = [''];
+        }
+    }
+
+    public function moveParagraphUp(int $index): void
+    {
+        if ($index > 0) {
+            [$this->paragraphs[$index - 1], $this->paragraphs[$index]] =
+                [$this->paragraphs[$index], $this->paragraphs[$index - 1]];
+        }
+    }
+
+    public function moveParagraphDown(int $index): void
+    {
+        if ($index < count($this->paragraphs) - 1) {
+            [$this->paragraphs[$index + 1], $this->paragraphs[$index]] =
+                [$this->paragraphs[$index], $this->paragraphs[$index + 1]];
+        }
     }
 
     public function save(): void
     {
         $this->validate();
 
+        // Drop blank paragraphs and normalise whitespace.
+        $paragraphs = array_values(array_filter(
+            array_map('trim', $this->paragraphs),
+            fn($p) => $p !== ''
+        ));
+
         $data = [
             'category'    => $this->category ?: null,
             'title'       => $this->title,
             'heading'     => $this->heading ?: null,
-            'description' => $this->description ?: null,
+            'paragraphs'  => $paragraphs ?: null,
+            // Keep the plain-text description in sync (used for search & excerpts).
+            'description' => $paragraphs ? implode("\n\n", $paragraphs) : null,
         ];
 
         // Cover image upload (public S3 url)

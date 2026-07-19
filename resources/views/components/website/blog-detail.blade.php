@@ -1,20 +1,24 @@
 @php
-    // Escape the description first (XSS-safe), then linkify. Two link styles:
+    // Escape each paragraph (XSS-safe), then linkify. Two link styles:
     //   1. Markdown  [label](https://example.com)  → the label becomes the link
     //   2. Any bare  https://…  URL                → the URL itself becomes the link
     // Both are handled in a single pass so a URL inside a [ ]( ) is never double-linked.
-    $body = e($blog->description ?? '');
-    $body = preg_replace_callback(
-        '~\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<]+)~i',
-        function ($m) {
-            $isMarkdown = $m[1] !== '';
-            $url        = $isMarkdown ? $m[2] : $m[3];
-            $label      = $isMarkdown ? $m[1] : $m[3];
-            return '<a href="' . $url . '" target="_blank" rel="noopener noreferrer" class="blog-link">' . $label . '</a>';
-        },
-        $body
-    );
-    $body = nl2br($body);
+    $linkify = function (string $text): string {
+        $html = e($text);
+        $html = preg_replace_callback(
+            '~\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<]+)~i',
+            function ($m) {
+                $isMarkdown = $m[1] !== '';
+                $url        = $isMarkdown ? $m[2] : $m[3];
+                $label      = $isMarkdown ? $m[1] : $m[3];
+                return '<a href="' . $url . '" target="_blank" rel="noopener noreferrer" class="blog-link">' . $label . '</a>';
+            },
+            $html
+        );
+        return nl2br($html);
+    };
+
+    $paragraphs = $blog->body_paragraphs;
 @endphp
 @include('components.website.partials.head', ['title' => $blog->title])
 
@@ -32,6 +36,8 @@
     max-height:440px; }
   .article-cover img { width:100%; height:100%; object-fit:cover; display:block; }
   .article-body { font-size:16px; color:var(--text2); line-height:1.95; }
+  .article-body p { margin:0 0 20px; }
+  .article-body p:last-child { margin-bottom:0; }
   .article-body .blog-link { color:#2563EB; text-decoration:underline; word-break:break-word; }
   .article-body .blog-link:hover { color:#1D4ED8; }
 
@@ -66,7 +72,11 @@
         <div class="article-cover"><img src="{{ $blog->cover_image }}" alt="{{ $blog->title }}"></div>
       @endif
 
-      <div class="article-body">{!! $body !!}</div>
+      <div class="article-body">
+        @foreach ($paragraphs as $para)
+          <p>{!! $linkify($para) !!}</p>
+        @endforeach
+      </div>
     </div>
   </section>
 

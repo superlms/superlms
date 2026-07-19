@@ -175,24 +175,63 @@
                         @error('heading') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
                     </div>
 
-                    {{-- Description --}}
+                    {{-- Paragraphs (add / edit / delete) --}}
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                        <textarea wire:model="description" rows="10" placeholder="Write the full article here…"
-                            id="blogDescription"
-                            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 resize-y leading-relaxed"></textarea>
-                        <div class="flex items-center justify-between gap-2 mt-1.5">
-                            <p class="text-xs text-gray-400">
-                                Tip: select some words and click <span class="font-semibold text-indigo-600">Add link</span> to hyperlink them.
-                                Pasted <span class="font-mono">https://…</span> URLs also become clickable automatically.
-                            </p>
-                            <button type="button" onclick="blogInsertLink()"
-                                class="inline-flex items-center gap-1 flex-shrink-0 px-2.5 py-1 text-[11px] font-medium text-indigo-600 border border-indigo-200 rounded-md hover:bg-indigo-50 transition-colors">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 010 5.656l-3 3a4 4 0 01-5.656-5.656l1.5-1.5m8.656-2.828a4 4 0 00-5.656 0l-3 3" /></svg>
-                                Add link
-                            </button>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-sm font-medium text-gray-700">Paragraphs</label>
+                            <span class="text-xs text-gray-400">{{ count($paragraphs) }} paragraph{{ count($paragraphs) === 1 ? '' : 's' }}</span>
                         </div>
-                        @error('description') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
+                        <p class="text-xs text-gray-400 mb-3">
+                            Break the article into paragraphs. Each block below is one paragraph on the public page.
+                            Select words and click <span class="font-semibold text-indigo-600">Add link</span> to hyperlink them;
+                            pasted <span class="font-mono">https://…</span> URLs also become clickable automatically.
+                        </p>
+
+                        <div class="space-y-3">
+                            @foreach ($paragraphs as $i => $para)
+                                <div wire:key="para-{{ $i }}" class="rounded-lg border border-gray-200 bg-gray-50/60 p-3">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+                                            <span class="w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-[11px]">{{ $i + 1 }}</span>
+                                            Paragraph
+                                        </span>
+                                        <div class="flex items-center gap-1">
+                                            <button type="button" wire:click="moveParagraphUp({{ $i }})" @disabled($i === 0)
+                                                title="Move up"
+                                                class="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" /></svg>
+                                            </button>
+                                            <button type="button" wire:click="moveParagraphDown({{ $i }})" @disabled($i === count($paragraphs) - 1)
+                                                title="Move down"
+                                                class="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                                            </button>
+                                            <button type="button" onclick="blogInsertLink('blogPara{{ $i }}')"
+                                                title="Add link"
+                                                class="p-1 rounded text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 010 5.656l-3 3a4 4 0 01-5.656-5.656l1.5-1.5m8.656-2.828a4 4 0 00-5.656 0l-3 3" /></svg>
+                                            </button>
+                                            <button type="button" wire:click="removeParagraph({{ $i }})"
+                                                title="Delete paragraph"
+                                                class="p-1 rounded text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <textarea wire:model="paragraphs.{{ $i }}" rows="5" id="blogPara{{ $i }}"
+                                        placeholder="Write this paragraph…"
+                                        class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 resize-y leading-relaxed"></textarea>
+                                    @error('paragraphs.' . $i) <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
+                                </div>
+                            @endforeach
+                        </div>
+
+                        <button type="button" wire:click="addParagraph"
+                            class="mt-3 inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-indigo-600 border border-dashed border-indigo-300 rounded-lg hover:bg-indigo-50 w-full justify-center transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                            Add paragraph
+                        </button>
+                        @error('paragraphs') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
                     </div>
                 </div>
 
@@ -235,10 +274,14 @@
         </div>
     @endif
 
-    {{-- Insert a Markdown link around the selected text in the description box. --}}
+    {{-- Insert a Markdown link around the selected text in a paragraph box. --}}
     <script>
-        window.blogInsertLink = function () {
-            var ta = document.getElementById('blogDescription');
+        window.blogInsertLink = function (targetId) {
+            var ta = targetId ? document.getElementById(targetId) : null;
+            // Fall back to the currently focused textarea if no id was given.
+            if (!ta && document.activeElement && document.activeElement.tagName === 'TEXTAREA') {
+                ta = document.activeElement;
+            }
             if (!ta) return;
 
             var start    = ta.selectionStart;
