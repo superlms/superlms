@@ -23,8 +23,19 @@
     {{-- ══════════ HEADER ══════════ --}}
     <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <div>
+            <div class="flex items-center gap-4 min-w-0">
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Payroll</h1>
+                {{-- Employee analytics — enquiries-style inline stats (desktop) --}}
+                @if ($activeTab === 'employees')
+                    <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200">
+                        <span class="pr-4">Total: <strong class="text-gray-800">{{ $empStats['total'] }}</strong></span>
+                        <span class="px-4">Users: <strong class="text-emerald-600">{{ $empStats['user'] }}</strong></span>
+                        <span class="px-4">Counsellors: <strong class="text-blue-600">{{ $empStats['counsellor'] }}</strong></span>
+                        <span class="px-4">Team: <strong class="text-amber-600">{{ $empStats['team'] }}</strong></span>
+                        <span class="px-4">Mgmt: <strong class="text-purple-600">{{ $empStats['management'] }}</strong></span>
+                        <span class="pl-4">Other: <strong class="text-gray-600">{{ $empStats['other'] }}</strong></span>
+                    </div>
+                @endif
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 @if ($activeTab === 'employees')
@@ -46,15 +57,15 @@
             </div>
         </div>
 
-        {{-- Employee-type chips — divider separates them from the title row (matches Schools/Analytics header style) --}}
+        {{-- Employee analytics — enquiries-style inline stats (mobile / tablet) --}}
         @if ($activeTab === 'employees')
-            <div class="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-gray-200">
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-xs font-medium text-gray-600">Total <strong class="text-gray-900">{{ $empStats['total'] }}</strong></span>
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-xs font-medium text-emerald-600">Users <strong>{{ $empStats['user'] }}</strong></span>
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-xs font-medium text-blue-600">Counsellors <strong>{{ $empStats['counsellor'] }}</strong></span>
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-100 text-xs font-medium text-amber-600">Team <strong>{{ $empStats['team'] }}</strong></span>
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-50 border border-purple-100 text-xs font-medium text-purple-600">Mgmt <strong>{{ $empStats['management'] }}</strong></span>
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-xs font-medium text-gray-500">Other <strong>{{ $empStats['other'] }}</strong></span>
+            <div class="flex lg:hidden items-center gap-3 text-xs text-gray-500 mt-3 flex-wrap">
+                <span>Total: <strong class="text-gray-800">{{ $empStats['total'] }}</strong></span>
+                <span>Users: <strong class="text-emerald-600">{{ $empStats['user'] }}</strong></span>
+                <span>Counsellors: <strong class="text-blue-600">{{ $empStats['counsellor'] }}</strong></span>
+                <span>Team: <strong class="text-amber-600">{{ $empStats['team'] }}</strong></span>
+                <span>Mgmt: <strong class="text-purple-600">{{ $empStats['management'] }}</strong></span>
+                <span>Other: <strong class="text-gray-600">{{ $empStats['other'] }}</strong></span>
             </div>
         @endif
     </div>
@@ -635,94 +646,112 @@
                     </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto overflow-x-hidden px-6 py-6 space-y-4">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Photo</label>
-                        @if ($editEmpId && $empExistingPhoto && !$empPhoto)
-                            <div class="flex items-center gap-3 mb-2">
-                                <img src="{{ $empExistingPhoto }}" class="w-12 h-12 rounded-full object-cover border border-gray-200">
-                                <span class="text-xs text-gray-400">Current photo</span>
-                            </div>
-                        @endif
-                        <input type="file" wire:model="empPhoto" accept="image/*"
-                            class="block w-full min-w-0 text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors">
-                        <p class="text-[11px] text-gray-400 mt-0.5">JPG/PNG · max 1 MB</p>
-                        @error('empPhoto')<p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>@enderror
+                <div class="flex-1 overflow-y-auto overflow-x-hidden px-6 py-6 space-y-5">
+                    {{-- Photo — user-style circular avatar picker --}}
+                    <div class="flex items-center gap-4">
+                        <div class="w-16 h-16 rounded-full border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center flex-shrink-0">
+                            @if ($empPhoto)
+                                <img src="{{ $empPhoto->temporaryUrl() }}" class="w-full h-full object-cover" alt="">
+                            @elseif ($empExistingPhoto)
+                                <img src="{{ $empExistingPhoto }}" class="w-full h-full object-cover" alt="">
+                            @else
+                                <svg class="w-7 h-7 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                            @endif
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Photo</label>
+                            <input type="file" wire:model="empPhoto" accept="image/*" class="mt-1 block text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-blue-50 file:text-blue-700 file:text-xs file:font-medium hover:file:bg-blue-100" />
+                            <div wire:loading wire:target="empPhoto" class="text-xs text-gray-400 mt-1">Uploading…</div>
+                            <p class="text-[11px] text-gray-400 mt-0.5">JPG/PNG · max 1 MB</p>
+                            @error('empPhoto')<p class="text-xs text-rose-500 mt-1">{{ $message }}</p>@enderror
+                        </div>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Name <span class="text-rose-500">*</span></label>
+                        <input type="text" wire:model.defer="empName" placeholder="e.g. Rahul Sharma" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        @error('empName')<p class="text-xs text-rose-500 mt-1">{{ $message }}</p>@enderror
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Name *</label>
-                            <input type="text" wire:model.defer="empName" placeholder="Full name" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
-                            @error('empName')<p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>@enderror
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Email <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
+                            <input type="email" wire:model.defer="empEmail" placeholder="email@example.com" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            @error('empEmail')<p class="text-xs text-rose-500 mt-1">{{ $message }}</p>@enderror
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Email</label>
-                            <input type="email" wire:model.defer="empEmail" placeholder="Email address" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
-                            @error('empEmail')<p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>@enderror
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Mobile</label>
+                            <input type="text" wire:model.defer="empMobile" maxlength="10" placeholder="10-digit" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            @error('empMobile')<p class="text-xs text-rose-500 mt-1">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+                            <input type="text" wire:model.defer="empDesignation" placeholder="e.g. Manager" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Mobile</label>
-                            <input type="text" wire:model.defer="empMobile" placeholder="Mobile number" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
-                            @error('empMobile')<p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Designation</label>
-                            <input type="text" wire:model.defer="empDesignation" placeholder="e.g. Manager" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Type *</label>
-                            <select wire:model.live="empType" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 bg-white">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Type <span class="text-rose-500">*</span></label>
+                            <select wire:model.live="empType" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
                                 @foreach ($typeOptions as $val => $label)<option value="{{ $val }}">{{ $label }}</option>@endforeach
                             </select>
                         </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Salary (₹) *</label>
-                            <input type="number" wire:model.defer="empSalary" placeholder="Monthly salary" min="0" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
-                            @error('empSalary')<p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>@enderror
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Salary (₹) <span class="text-rose-500">*</span></label>
+                            <input type="number" wire:model.defer="empSalary" placeholder="Monthly salary" min="0" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            @error('empSalary')<p class="text-xs text-rose-500 mt-1">{{ $message }}</p>@enderror
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Joining Date</label>
-                            <input type="date" wire:model.defer="empJoiningDate" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Address</label>
-                            <input type="text" wire:model.defer="empAddress" placeholder="Address" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Joining Date <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
+                            <input type="date" wire:model.defer="empJoiningDate" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                     </div>
 
-                    <div class="border border-gray-200 rounded-xl p-4 space-y-3 bg-gray-50">
-                        <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Bank Details</h4>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                        <input type="text" wire:model.defer="empAddress" placeholder="Address" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+
+                    {{-- Bank details --}}
+                    <div class="border border-gray-200 rounded-xl p-4 space-y-4 bg-gray-50">
+                        <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Bank Details</h4>
+                        <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Bank Name</label>
-                                <input type="text" wire:model.defer="empBankName" placeholder="Bank name" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
+                                <input type="text" wire:model.defer="empBankName" placeholder="Bank name" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Account Holder</label>
-                                <input type="text" wire:model.defer="empHolderName" placeholder="Account holder name" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Account Holder</label>
+                                <input type="text" wire:model.defer="empHolderName" placeholder="Account holder name" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Account Number</label>
-                                <input type="text" wire:model.defer="empAccountNo" placeholder="Account number" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
-                                @error('empAccountNo')<p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>@enderror
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Account Number</label>
+                                <input type="text" wire:model.defer="empAccountNo" placeholder="Account number" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                                @error('empAccountNo')<p class="text-xs text-rose-500 mt-1">{{ $message }}</p>@enderror
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">IFSC Code</label>
-                                <input type="text" wire:model.defer="empIfsc" placeholder="IFSC code" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
-                                @error('empIfsc')<p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>@enderror
+                                <label class="block text-sm font-medium text-gray-700 mb-1">IFSC Code</label>
+                                <input type="text" wire:model.defer="empIfsc" placeholder="IFSC code" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                                @error('empIfsc')<p class="text-xs text-rose-500 mt-1">{{ $message }}</p>@enderror
                             </div>
-                            <div class="sm:col-span-2">
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Branch</label>
-                                <input type="text" wire:model.defer="empBranch" placeholder="Branch name" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
+                            <div class="col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                                <input type="text" wire:model.defer="empBranch" placeholder="Branch name" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
-                    <button wire:click="closeEmpModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                    <button wire:click="saveEmployee" class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md">{{ $editEmpId ? 'Update Employee' : 'Add Employee' }}</button>
+                    <button wire:click="closeEmpModal" class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 rounded-lg">Cancel</button>
+                    <button wire:click="saveEmployee" wire:loading.attr="disabled" class="inline-flex items-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-medium rounded-lg">
+                        <span wire:loading.remove wire:target="saveEmployee">{{ $editEmpId ? 'Update Employee' : 'Add Employee' }}</span>
+                        <span wire:loading wire:target="saveEmployee">Saving…</span>
+                    </button>
                 </div>
             </div>
         </div>
