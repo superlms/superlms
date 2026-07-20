@@ -91,18 +91,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# PHP redis extension via PECL. pecl.php.net intermittently returns 5xx
-# (channel.xml 504s) which used to fail the whole build/deploy — retry up to 5x
-# and treat channel-update as best-effort so a transient PECL outage can't block
-# a deploy. Fails the build (exit 1) only if every attempt fails.
-RUN for i in 1 2 3 4 5; do \
-        { pecl channel-update pecl.php.net || true; } \
-        && pecl install redis \
-        && docker-php-ext-enable redis \
-        && exit 0; \
-        echo "pecl install redis attempt $i failed; retrying in 10s"; sleep 10; \
+# PHP redis extension. pecl.php.net is chronically unreliable — repeated 504s on
+# channel.xml stalled entire deploys (retrying PECL doesn't help when the whole
+# service is down for the length of a build). Build phpredis from its pinned
+# GitHub source instead; codeload.github.com is dependable, and the base php
+# image already ships the compiler toolchain used by docker-php-ext-install
+# above. Only the network download is retried.
+ENV PHPREDIS_VERSION=6.3.0
+RUN set -eux; \
+    for i in 1 2 3 4 5; do \
+        curl -fsSL "https://codeload.github.com/phpredis/phpredis/tar.gz/refs/tags/${PHPREDIS_VERSION}" -o /tmp/phpredis.tgz && break; \
+        echo "phpredis download attempt $i failed; retrying in 10s"; sleep 10; \
     done; \
-    exit 1
+    mkdir -p /usr/src/phpredis; \
+    tar -xf /tmp/phpredis.tgz -C /usr/src/phpredis --strip-components=1; \
+    cd /usr/src/phpredis; \
+    phpize; \
+    ./configure; \
+    make -j"$(nproc)"; \
+    make install; \
+    docker-php-ext-enable redis; \
+    cd /; rm -rf /usr/src/phpredis /tmp/phpredis.tgz
 
 # Composer binary (for occasional in-container use)
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
