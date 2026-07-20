@@ -70,6 +70,14 @@ class UserController extends Controller
                 );
             }
 
+            // Per-student fee plan: an unpaid student can't sign in.
+            if (\App\Support\FeeAccess::studentLoginBlocked($user)) {
+                return $this->responseService->errorResponse(
+                    \App\Support\FeeAccess::blockedMessage(),
+                    403
+                );
+            }
+
             $token = $user->createToken('auth_token')->plainTextToken;
 
             return $this->responseService->authResponse(

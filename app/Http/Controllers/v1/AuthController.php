@@ -119,6 +119,11 @@ class AuthController extends Controller
                 return $this->responseService->error('Your account has been deactivated. Please contact support.', 403);
             }
 
+            // Per-student fee plan: an unpaid student can't sign in.
+            if (\App\Support\FeeAccess::studentLoginBlocked($user)) {
+                return $this->responseService->error(\App\Support\FeeAccess::blockedMessage(), 403);
+            }
+
             // Staff roles must belong to an organization.
             if (in_array($user->role, ['admin', 'sub-admin', 'accounts'], true) && !$user->organization_id) {
                 return $this->responseService->error('No organization assigned to this account.', 403);

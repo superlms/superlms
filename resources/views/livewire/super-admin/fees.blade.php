@@ -101,6 +101,7 @@
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">School</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Board</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Fee Type</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Students</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Collection</th>
                                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
@@ -156,6 +157,18 @@
                                             <span class="text-xs px-2 py-0.5 bg-gray-50 text-gray-400 rounded-full font-medium border border-gray-200">Not set</span>
                                         @endif
                                     </td>
+                                    <td class="px-4 py-3">
+                                        @if ($orgStructure?->fee_type === 'one_time')
+                                            @php $rowAmt = !empty($orgStructure->period_amounts) ? array_sum($orgStructure->period_amounts) : (float) ($orgStructure->total_amount ?? $orgStructure->amount); @endphp
+                                            <span class="text-sm font-semibold text-gray-800">₹{{ number_format((float) $rowAmt, 0) }}</span>
+                                            <span class="block text-[10px] text-gray-400">/ year</span>
+                                        @elseif ($orgStructure?->fee_type === 'per_student')
+                                            <span class="text-sm font-semibold text-gray-800">₹{{ number_format((float) $orgStructure->amount, 0) }}</span>
+                                            <span class="block text-[10px] text-gray-400">/ student</span>
+                                        @else
+                                            <span class="text-sm text-gray-400">—</span>
+                                        @endif
+                                    </td>
                                     <td class="px-4 py-3 text-sm text-gray-700">{{ $school->total_students }}</td>
                                     <td class="px-4 py-3 min-w-[160px]">
                                         @if ($orgExpected > 0)
@@ -173,14 +186,17 @@
                                     </td>
                                     <td class="px-4 py-3 text-center">
                                         <button wire:click="selectSchool({{ $school->id }})"
-                                            class="text-xs font-semibold text-blue-600 hover:text-blue-800">
-                                            Manage Fees →
+                                            title="{{ $orgStructure ? 'Edit fee & manage payments' : 'Set up fee' }}"
+                                            class="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-blue-600 hover:bg-blue-50 hover:border-blue-200 transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                            </svg>
                                         </button>
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="px-6 py-16 text-center">
+                                    <td colspan="7" class="px-6 py-16 text-center">
                                         <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                             <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
@@ -280,6 +296,17 @@
                                     @endif
                                 </div>
                                 <div>
+                                    <p class="text-xs text-gray-400">Amount</p>
+                                    @if ($orgStructure?->fee_type === 'one_time')
+                                        @php $mAmt = !empty($orgStructure->period_amounts) ? array_sum($orgStructure->period_amounts) : (float) ($orgStructure->total_amount ?? $orgStructure->amount); @endphp
+                                        <p class="text-gray-700 font-medium">₹{{ number_format((float) $mAmt, 0) }} <span class="text-[10px] text-gray-400">/ year</span></p>
+                                    @elseif ($orgStructure?->fee_type === 'per_student')
+                                        <p class="text-gray-700 font-medium">₹{{ number_format((float) $orgStructure->amount, 0) }} <span class="text-[10px] text-gray-400">/ student</span></p>
+                                    @else
+                                        <p class="text-gray-400">—</p>
+                                    @endif
+                                </div>
+                                <div>
                                     <p class="text-xs text-gray-400">Students</p>
                                     <p class="text-gray-700 font-medium">{{ $school->total_students }}</p>
                                 </div>
@@ -299,7 +326,12 @@
                             @endif
                         </div>
                         <div class="border-t border-gray-100">
-                            <button class="w-full py-2.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 transition-colors">Manage Fees →</button>
+                            <button class="w-full py-2.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center gap-1">
+                                {{ $orgStructure ? 'Edit fee & payments' : 'Set up fee' }}
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                </svg>
+                            </button>
                         </div>
                     </div>
                 @empty
@@ -350,20 +382,30 @@
 
                 <div class="flex items-center gap-2 flex-shrink-0">
                     @if ($currentFeeType)
-                        <button wire:click="openUpdateFeePanel"
+                        {{-- Fee already set: record/edit payments (same as the main-screen Update Fee)… --}}
+                        <button wire:click="openUpdatePanelForCurrent"
                             class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-semibold rounded-lg shadow-sm transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                            </svg>
+                            <span class="hidden sm:inline">Update Fee</span>
+                        </button>
+                        {{-- …and edit the fee structure itself. --}}
+                        <button wire:click="openUpdateFeePanel"
+                            class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
-                            <span class="hidden sm:inline">Update Fee</span>
+                            <span class="hidden sm:inline">Edit Fee</span>
+                        </button>
+                    @else
+                        <button wire:click="openAddFeePanel"
+                            class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                            <span class="hidden sm:inline">Add Fee</span>
                         </button>
                     @endif
-                    <button wire:click="openAddFeePanel"
-                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                        <span class="hidden sm:inline">Add Fee</span>
-                    </button>
                 </div>
             </div>
         </div>
@@ -657,52 +699,26 @@
                 {{-- Scrollable Body --}}
                 <div class="flex-1 overflow-y-auto p-5 space-y-4">
 
-                    {{-- Step 1: Fee Type Switcher --}}
+                    {{-- Step 1: Fee Type dropdown (add-student style) --}}
                     <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-2">Fee Type</label>
-                        <div class="grid grid-cols-2 gap-3">
-                            <button wire:click="$set('feeType', 'one_time')"
-                                class="flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left
-                                    {{ $feeType === 'one_time'
-                                        ? 'border-indigo-500 bg-indigo-50'
-                                        : 'border-gray-200 bg-white hover:border-gray-300' }}">
-                                <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0
-                                    {{ $feeType === 'one_time' ? 'bg-indigo-500' : 'bg-gray-100' }}">
-                                    <svg class="w-4 h-4 {{ $feeType === 'one_time' ? 'text-white' : 'text-gray-500' }}"
-                                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p class="text-sm font-semibold {{ $feeType === 'one_time' ? 'text-indigo-700' : 'text-gray-700' }}">One Time</p>
-                                    <p class="text-xs {{ $feeType === 'one_time' ? 'text-indigo-500' : 'text-gray-400' }}">Set a fee per month/quarter/year</p>
-                                </div>
-                            </button>
-
-                            <button wire:click="$set('feeType', 'per_student')"
-                                class="flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left
-                                    {{ $feeType === 'per_student'
-                                        ? 'border-blue-500 bg-blue-50'
-                                        : 'border-gray-200 bg-white hover:border-gray-300' }}">
-                                <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0
-                                    {{ $feeType === 'per_student' ? 'bg-blue-500' : 'bg-gray-100' }}">
-                                    <svg class="w-4 h-4 {{ $feeType === 'per_student' ? 'text-white' : 'text-gray-500' }}"
-                                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p class="text-sm font-semibold {{ $feeType === 'per_student' ? 'text-blue-700' : 'text-gray-700' }}">Per Student</p>
-                                    <p class="text-xs {{ $feeType === 'per_student' ? 'text-blue-500' : 'text-gray-400' }}">Flat rate × every student</p>
-                                </div>
-                            </button>
-                        </div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1.5">Fee Type *</label>
+                        <select wire:model.live="feePlan"
+                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white
+                                   focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="monthly">Monthly</option>
+                            <option value="one_time">One Time</option>
+                            <option value="per_student">Per Student</option>
+                        </select>
+                        <p class="text-[11px] text-gray-400 mt-1">
+                            @if ($feePlan === 'monthly') Enter a fee for each month (April → March).
+                            @elseif ($feePlan === 'one_time') Enter one fee for the complete year.
+                            @else Enter one student's fee — it applies to every student.
+                            @endif
+                        </p>
                     </div>
 
-                    {{-- ── ONE TIME FIELDS ── --}}
-                    @if ($feeType === 'one_time')
+                    {{-- ── MONTHLY FIELDS (April → March) ── --}}
+                    @if ($feePlan === 'monthly')
                         <div class="space-y-4">
                             <div>
                                 <label class="block text-xs font-medium text-gray-600 mb-1.5">Fee Label *</label>
@@ -712,26 +728,12 @@
                                 @error('oneTimeLabel') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                             </div>
 
-                            <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1.5">Split Into</label>
-                                <div class="grid grid-cols-3 gap-2">
-                                    @foreach (['monthly' => 'Monthly', 'quarterly' => 'Quarterly', 'yearly' => 'Yearly'] as $freq => $label)
-                                        <button type="button" wire:click="$set('installmentFrequency', '{{ $freq }}')"
-                                            class="px-3 py-2 text-xs font-semibold rounded-lg border transition-colors
-                                                   {{ $installmentFrequency === $freq ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50' }}">
-                                            {{ $label }}
-                                        </button>
-                                    @endforeach
-                                </div>
-                                @error('periodAmounts') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                            </div>
-
-                            {{-- Per-period amounts --}}
+                            {{-- Per-month amounts (April → March) --}}
                             <div x-data="{
                                     amounts: @js($periodAmounts),
                                     get total() { return Object.values(this.amounts).reduce((sum, v) => sum + (parseFloat(v) || 0), 0); },
                                  }">
-                                <label class="block text-xs font-medium text-gray-600 mb-1.5">Amount per Period (₹)</label>
+                                <label class="block text-xs font-medium text-gray-600 mb-1.5">Amount per Month (₹)</label>
                                 <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                     @foreach ($this->currentPeriodsList() as $period)
                                         <div>
@@ -748,8 +750,8 @@
 
                                 <div class="mt-3 bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between">
                                     <div>
-                                        <p class="text-xs text-indigo-600 font-semibold">Total ({{ count($this->currentPeriodsList()) }} {{ Str::plural(['monthly' => 'month', 'quarterly' => 'quarter', 'yearly' => 'year'][$installmentFrequency] ?? 'period', count($this->currentPeriodsList())) }})</p>
-                                        <p class="text-xs text-indigo-400 mt-0.5">Sum of every period entered below</p>
+                                        <p class="text-xs text-indigo-600 font-semibold">Total ({{ count($this->currentPeriodsList()) }} months)</p>
+                                        <p class="text-xs text-indigo-400 mt-0.5">Sum of every month entered above</p>
                                     </div>
                                     <p class="text-xl font-bold text-indigo-700 flex-shrink-0" x-text="'₹' + total.toLocaleString('en-IN')"></p>
                                 </div>
@@ -761,8 +763,43 @@
                         </div>
                     @endif
 
+                    {{-- ── ONE TIME FIELDS (single full-year amount) ── --}}
+                    @if ($feePlan === 'one_time')
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1.5">Fee Label *</label>
+                                <input wire:model="oneTimeLabel" type="text" placeholder="Annual Platform Fee"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
+                                           focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                                @error('oneTimeLabel') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1.5">Complete Year Fee (₹) *</label>
+                                <input wire:model.live="oneTimeAmount" type="number" placeholder="e.g. 6000" min="0.01" step="0.01"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
+                                           focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                                @error('oneTimeAmount') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                            </div>
+
+                            <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between">
+                                <div>
+                                    <p class="text-xs text-indigo-600 font-semibold">Full-Year Fee</p>
+                                    <p class="text-xs text-indigo-400 mt-0.5">Charged once for the whole academic year</p>
+                                </div>
+                                <p class="text-xl font-bold text-indigo-700 flex-shrink-0">
+                                    ₹{{ number_format((float) ($oneTimeAmount ?: 0), 0) }}
+                                </p>
+                            </div>
+
+                            <p class="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                                <strong>Note:</strong> Saving will replace any previous fee configuration for this school.
+                            </p>
+                        </div>
+                    @endif
+
                     {{-- ── PER STUDENT FIELDS ── --}}
-                    @if ($feeType === 'per_student')
+                    @if ($feePlan === 'per_student')
                         <div class="space-y-4">
                             <div>
                                 <label class="block text-xs font-medium text-gray-600 mb-1.5">Fee Label *</label>
@@ -810,7 +847,7 @@
                     <button wire:click="saveFeeStructures"
                         class="flex-1 py-2.5 text-white text-sm font-semibold rounded-lg transition-colors
                                flex items-center justify-center gap-2
-                               {{ $feeType === 'one_time' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-blue-600 hover:bg-blue-700' }}">
+                               {{ $feePlan !== 'per_student' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-blue-600 hover:bg-blue-700' }}">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                         </svg>

@@ -43,10 +43,16 @@ class Fees extends Component
     // ─── Add/Update Fee slide-in panel ─────────────────────────────────────────
     public bool   $showFeePanel = false;
     public        $standards    = [];
-    public string $feeType              = 'one_time'; // 'one_time' | 'per_student'
+    // The plan the super-admin picks in the dropdown. Maps onto the stored
+    // fee_type/installment_frequency: monthly & one_time both persist as
+    // 'one_time' (monthly = 12 Apr–Mar periods, one_time = a single yearly total),
+    // per_student persists as 'per_student'.
+    public string $feePlan              = 'monthly';   // monthly | one_time | per_student
+    public string $feeType              = 'one_time';  // stored type: 'one_time' | 'per_student'
     public string $oneTimeLabel          = 'Annual Platform Fee';
-    public string $installmentFrequency  = 'yearly';   // monthly | quarterly | yearly
-    public array  $periodAmounts         = [];         // period key => amount (string)
+    public string $oneTimeAmount         = '';          // single full-year amount (one_time plan)
+    public string $installmentFrequency  = 'monthly';   // monthly | yearly (internal, derived from plan)
+    public array  $periodAmounts         = [];          // period key => amount (string) — monthly plan
     public string $perStudentAmount      = '';
     public string $perStudentLabel       = 'Annual Platform Fee';
 
@@ -277,6 +283,17 @@ class Fees extends Component
         $this->reset(['updateOrgId', 'updateOrgName', 'updateOrgFeeType', 'updateOrgFrequency', 'updateOrgFeeLabel']);
     }
 
+    /** Open the payment-update panel already scoped to the school in detail view. */
+    public function openUpdatePanelForCurrent(): void
+    {
+        $this->openUpdatePanel();
+
+        if ($this->selectedSchool) {
+            $this->updateOrgId = (string) $this->selectedSchool->id;
+            $this->updatedUpdateOrgId();
+        }
+    }
+
     /** Choosing an org loads whichever fee structure it has set for this year. */
     public function updatedUpdateOrgId(): void
     {
@@ -405,13 +422,29 @@ class Fees extends Component
     /** Fresh compose form — blank fields, ready for a brand-new setup. */
     public function openAddFeePanel(): void
     {
-        $this->feeType              = 'one_time';
+        $this->feePlan              = 'monthly';
+        $this->installmentFrequency = 'monthly';
         $this->oneTimeLabel         = 'Annual Platform Fee';
-        $this->installmentFrequency = 'yearly';
+        $this->oneTimeAmount        = '';
         $this->periodAmounts        = $this->blankPeriodAmounts();
         $this->perStudentAmount     = '';
         $this->perStudentLabel      = 'Annual Platform Fee';
         $this->showFeePanel         = true;
+    }
+
+    /** Switching the plan dropdown re-derives the internal frequency + rows. */
+    public function updatedFeePlan(): void
+    {
+        $this->installmentFrequency = $this->feePlan === 'monthly' ? 'monthly' : 'yearly';
+
+        if ($this->feePlan === 'monthly') {
+            $preserved = $this->periodAmounts;
+            $blank     = [];
+            foreach ($this->currentPeriodsList() as $period) {
+                $blank[$period['key']] = $preserved[$period['key']] ?? '';
+            }
+            $this->periodAmounts = $blank;
+        }
     }
 
     /** Edit form — pre-filled from whichever structure is currently active. */
@@ -429,17 +462,18 @@ class Fees extends Component
         }
 
         if ($existing->fee_type === 'per_student') {
-            $this->feeType              = 'per_student';
+            $this->feePlan              = 'per_student';
             $this->perStudentAmount     = (string) $existing->amount;
             $this->perStudentLabel      = $existing->fee_label ?? 'Annual Platform Fee';
-            $this->installmentFrequency = 'yearly';
+            $this->installmentFrequency = 'monthly';
             $this->periodAmounts        = $this->blankPeriodAmounts();
-        } else {
-            $this->feeType              = 'one_time';
+            $this->oneTimeAmount        = '';
+        } elseif (($existing->installment_frequency ?? '') === 'monthly') {
+            $this->feePlan              = 'monthly';
+            $this->installmentFrequency = 'monthly';
             $this->oneTimeLabel         = $existing->fee_label ?? 'Annual Platform Fee';
-            $this->installmentFrequency = $existing->installment_frequency ?? 'yearly';
 
-            $stored = (array) ($existing->period_amounts ?? []);
+            $stored  = (array) ($existing->period_amounts ?? []);
             $amounts = [];
             foreach ($this->currentPeriodsList() as $period) {
                 $amounts[$period['key']] = array_key_exists($period['key'], $stored)
@@ -447,8 +481,19 @@ class Fees extends Component
                     : '';
             }
             $this->periodAmounts    = $amounts;
+            $this->oneTimeAmount    = '';
             $this->perStudentAmount = '';
             $this->perStudentLabel  = 'Annual Platform Fee';
+        } else {
+            // one_time yearly (or a legacy quarterly row) → single full-year amount.
+            $this->feePlan              = 'one_time';
+            $this->installmentFrequency = 'yearly';
+            $this->oneTimeLabel         = $existing->fee_label ?? 'Annual Platform Fee';
+            $this->oneTimeAmount        = (string) ($existing->total_amount
+                ?? (!empty($existing->period_amounts) ? array_sum($existing->period_amounts) : $existing->amount));
+            $this->periodAmounts        = $this->blankPeriodAmounts();
+            $this->perStudentAmount     = '';
+            $this->perStudentLabel      = 'Annual Platform Fee';
         }
 
         $this->showFeePanel = true;
@@ -468,57 +513,7 @@ class Fees extends Component
             ->where('fee_type', 'class_wise')
             ->delete();
 
-        if ($this->feeType === 'one_time') {
-            $this->validate([
-                'oneTimeLabel'         => 'required|string|max:100',
-                'installmentFrequency' => 'required|in:monthly,quarterly,yearly',
-            ]);
-
-            $periods = $this->currentPeriodsList();
-            $amounts = [];
-            $total   = 0;
-
-            foreach ($periods as $period) {
-                $val = $this->periodAmounts[$period['key']] ?? '';
-                if ($val === '' || $val === null) {
-                    $amounts[$period['key']] = 0;
-                    continue;
-                }
-                if (!is_numeric($val) || (float) $val < 0) {
-                    $this->addError('periodAmounts.' . $period['key'], 'Enter a valid amount.');
-                    return;
-                }
-                $amounts[$period['key']] = round((float) $val, 2);
-                $total += $amounts[$period['key']];
-            }
-
-            if ($total <= 0) {
-                $this->notification()->error('Enter at least one period amount.');
-                return;
-            }
-
-            SuperAdminFeeStructure::where('organization_id', $this->selectedSchool->id)
-                ->where('academic_year', $this->academicYear)
-                ->where('fee_type', 'per_student')
-                ->delete();
-
-            SuperAdminFeeStructure::updateOrCreate(
-                [
-                    'organization_id' => $this->selectedSchool->id,
-                    'academic_year'   => $this->academicYear,
-                    'fee_type'        => 'one_time',
-                ],
-                [
-                    'standard_id'           => null,
-                    'amount'                => round($total / max(1, count($periods)), 2),
-                    'total_amount'          => $total,
-                    'installment_frequency' => $this->installmentFrequency,
-                    'period_amounts'        => $amounts,
-                    'fee_label'             => $this->oneTimeLabel,
-                    'is_active'             => true,
-                ]
-            );
-        } else {
+        if ($this->feePlan === 'per_student') {
             $this->validate([
                 'perStudentAmount' => 'required|numeric|min:0.01',
                 'perStudentLabel'  => 'required|string|max:100',
@@ -542,6 +537,70 @@ class Fees extends Component
                     'installment_frequency' => null,
                     'period_amounts'        => null,
                     'fee_label'             => $this->perStudentLabel,
+                    'is_active'             => true,
+                ]
+            );
+        } else {
+            // Monthly and One Time both persist as fee_type = one_time; the
+            // installment_frequency distinguishes them (monthly = 12 Apr–Mar
+            // rows, yearly = one full-year total).
+            $this->installmentFrequency = $this->feePlan === 'monthly' ? 'monthly' : 'yearly';
+
+            if ($this->feePlan === 'monthly') {
+                $this->validate(['oneTimeLabel' => 'required|string|max:100']);
+
+                $periods = $this->currentPeriodsList();
+                $amounts = [];
+                $total   = 0;
+
+                foreach ($periods as $period) {
+                    $val = $this->periodAmounts[$period['key']] ?? '';
+                    if ($val === '' || $val === null) {
+                        $amounts[$period['key']] = 0;
+                        continue;
+                    }
+                    if (!is_numeric($val) || (float) $val < 0) {
+                        $this->addError('periodAmounts.' . $period['key'], 'Enter a valid amount.');
+                        return;
+                    }
+                    $amounts[$period['key']] = round((float) $val, 2);
+                    $total += $amounts[$period['key']];
+                }
+
+                if ($total <= 0) {
+                    $this->notification()->error("Enter at least one month's amount.");
+                    return;
+                }
+            } else {
+                $this->validate([
+                    'oneTimeLabel'  => 'required|string|max:100',
+                    'oneTimeAmount' => 'required|numeric|min:0.01',
+                ]);
+
+                $periods = $this->currentPeriodsList(); // single yearly period
+                $key     = $periods[0]['key'] ?? (string) $this->academicYear;
+                $amounts = [$key => round((float) $this->oneTimeAmount, 2)];
+                $total   = $amounts[$key];
+            }
+
+            SuperAdminFeeStructure::where('organization_id', $this->selectedSchool->id)
+                ->where('academic_year', $this->academicYear)
+                ->where('fee_type', 'per_student')
+                ->delete();
+
+            SuperAdminFeeStructure::updateOrCreate(
+                [
+                    'organization_id' => $this->selectedSchool->id,
+                    'academic_year'   => $this->academicYear,
+                    'fee_type'        => 'one_time',
+                ],
+                [
+                    'standard_id'           => null,
+                    'amount'                => round($total / max(1, count($amounts)), 2),
+                    'total_amount'          => $total,
+                    'installment_frequency' => $this->installmentFrequency,
+                    'period_amounts'        => $amounts,
+                    'fee_label'             => $this->oneTimeLabel,
                     'is_active'             => true,
                 ]
             );
@@ -886,6 +945,11 @@ class Fees extends Component
                 ->where('super_admin_fee_structure_id', $this->payStructureId)
                 ->delete();
 
+            // Per-student plan: clearing the fee revokes the student's app access.
+            if ($structure->fee_type === 'per_student') {
+                \App\Support\FeeAccess::logoutStudent($student);
+            }
+
             $this->afterPaymentChange('Payment cleared — marked as pending.');
             return;
         }
@@ -910,6 +974,12 @@ class Fees extends Component
                 'is_paid'         => $isPaid,
             ]
         );
+
+        // Per-student plan: only a fully-paid student keeps app access — a
+        // partial payment (still due) logs them out until they clear it.
+        if ($structure->fee_type === 'per_student' && !$isPaid) {
+            \App\Support\FeeAccess::logoutStudent($student);
+        }
 
         $this->afterPaymentChange(
             $isPaid ? 'Fee fully paid!' : 'Partial payment recorded — balance still due.'
