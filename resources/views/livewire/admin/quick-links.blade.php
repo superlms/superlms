@@ -29,8 +29,33 @@
                 </select>
             </div>
 
+            {{-- Live date / day / time clock (client-side, updates every second). --}}
+            <div wire:ignore
+                 x-data="{
+                    day: '', date: '', time: '',
+                    tick() {
+                        const now = new Date();
+                        this.day  = now.toLocaleDateString('en-IN', { weekday: 'long' });
+                        this.date = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                        this.time = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+                    }
+                 }"
+                 x-init="tick(); setInterval(() => tick(), 1000)"
+                 class="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
+                        bg-gray-50 border border-gray-200 text-[11px] font-medium text-gray-600">
+                <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span class="text-gray-800 font-semibold" x-text="day"></span>
+                <span class="text-gray-300">·</span>
+                <span x-text="date"></span>
+                <span class="text-gray-300">·</span>
+                <span class="tabular-nums text-gray-800 font-semibold" x-text="time"></span>
+            </div>
+
             {{-- Read-only layout info (no sorting controls). --}}
-            <div class="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
+            <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
                         bg-gray-50 border border-gray-200 text-[11px] font-medium text-gray-600">
                 <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
