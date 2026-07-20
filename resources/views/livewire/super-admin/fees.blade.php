@@ -1018,7 +1018,7 @@
                                                                 </button>
                                                                 @if (!$row['is_paid'])
                                                                     <button
-                                                                        wire:click="markFullyPaid({{ $row['id'] }}, {{ $row['structure_id'] }})"
+                                                                        wire:click="openMarkPaidModal({{ $row['id'] }}, {{ $row['structure_id'] }}, {{ $row['total_fee'] }}, {{ $row['collected'] }}, {{ $row['payment_id'] ?? 'null' }})"
                                                                         class="px-2 py-1 text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors">
                                                                         Mark Paid
                                                                     </button>
@@ -1086,7 +1086,7 @@
                                                                 </button>
                                                                 @if ($inst['status'] !== 'paid')
                                                                     <button
-                                                                        wire:click="markInstallmentPaid('{{ $inst['key'] }}', {{ $inst['structure_id'] }}, {{ $inst['amount'] }})"
+                                                                        wire:click="openMarkInstallmentPaidModal('{{ $inst['key'] }}', '{{ $inst['label'] }}', {{ $inst['structure_id'] }}, {{ $inst['amount'] }}, {{ $inst['collected'] }}, {{ $inst['payment_id'] ?? 'null' }})"
                                                                         class="px-2 py-1 text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors">
                                                                         Mark Paid
                                                                     </button>
@@ -1142,34 +1142,32 @@
     {{-- ══════════ RECORD / EDIT PAYMENT MODAL ══════════ --}}
     @if ($showPayModal)
         @teleport('body')
-        <div class="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-[80] px-4">
-            <div class="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
-                <div class="flex items-center gap-3 mb-5">
-                    <div
-                        class="w-9 h-9 rounded-lg flex items-center justify-center
-                        {{ $isEditPayment ? 'bg-amber-50' : 'bg-emerald-50' }}">
-                        @if ($isEditPayment)
-                            <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                        @else
-                            <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                            </svg>
-                        @endif
+        <div class="fixed inset-0 z-[80] overflow-hidden" x-data @keydown.escape.window="$wire.closePayModal()">
+            <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closePayModal"></div>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-md bg-white shadow-2xl flex flex-col">
+
+                {{-- Header --}}
+                <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg flex items-center justify-center {{ $isEditPayment ? 'bg-amber-50' : 'bg-emerald-50' }}">
+                            @if ($isEditPayment)
+                                <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                            @else
+                                <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                            @endif
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold text-gray-900">{{ $isEditPayment ? 'Update Payment' : 'Record Payment' }}</h3>
+                            <p class="text-xs text-gray-400">{{ $payContextLabel }}</p>
+                        </div>
                     </div>
-                    <div>
-                        <h3 class="text-sm font-semibold text-gray-900">
-                            {{ $isEditPayment ? 'Update Payment' : 'Record Payment' }}
-                        </h3>
-                        <p class="text-xs text-gray-400">{{ $payContextLabel }}</p>
-                    </div>
+                    <button wire:click="closePayModal" class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
                 </div>
 
+                {{-- Scrollable body --}}
+                <div class="flex-1 overflow-y-auto p-5">
                 <div x-data="{
                         amt: @js((float) ($payAmount ?: 0)),
                         total: @js((float) $payTotalFee),
@@ -1248,15 +1246,17 @@
                     </div>
                 </div>
 
-                <div class="flex items-center gap-2 mt-5">
+                </div>{{-- /scrollable body --}}
+
+                {{-- Footer --}}
+                <div class="flex-shrink-0 px-5 py-4 border-t border-gray-100 flex items-center gap-2 bg-gray-50/50">
                     <button wire:click="savePayment"
-                        class="flex-1 py-2 text-white text-sm font-medium rounded-lg transition-colors
+                        class="flex-1 py-2.5 text-white text-sm font-semibold rounded-lg transition-colors
                             {{ $isEditPayment ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-600 hover:bg-emerald-700' }}">
                         {{ $isEditPayment ? 'Update Payment' : 'Save Payment' }}
                     </button>
                     <button wire:click="closePayModal"
-                        class="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-medium
-                               rounded-lg transition-colors">
+                        class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-medium rounded-lg transition-colors">
                         Cancel
                     </button>
                 </div>

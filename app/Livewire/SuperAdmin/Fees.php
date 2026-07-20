@@ -556,7 +556,8 @@ class Fees extends Component
                 foreach ($periods as $period) {
                     $val = $this->periodAmounts[$period['key']] ?? '';
                     if ($val === '' || $val === null) {
-                        $amounts[$period['key']] = 0;
+                        // A month left blank is stored as null (no fee that month), not 0.
+                        $amounts[$period['key']] = null;
                         continue;
                     }
                     if (!is_numeric($val) || (float) $val < 0) {
@@ -860,6 +861,20 @@ class Fees extends Component
         $this->showPayModal      = true;
     }
 
+    /** "Mark Paid" (per-student): open the payment slide-in prefilled to the full fee. */
+    public function openMarkPaidModal($studentId, $structureId, $totalFee, $collected = 0, $paymentId = null): void
+    {
+        $this->openPayModal($studentId, $structureId, $totalFee, $collected, $paymentId);
+        $this->payAmount = (float) $totalFee;
+    }
+
+    /** "Mark Paid" (one-time installment): open the payment slide-in prefilled to the full amount. */
+    public function openMarkInstallmentPaidModal($key, $label, $structureId, $totalFee, $collected = 0, $paymentId = null): void
+    {
+        $this->openInstallmentPayModal($key, $label, $structureId, $totalFee, $collected, $paymentId);
+        $this->payAmount = (float) $totalFee;
+    }
+
     public function closePayModal(): void
     {
         $this->showPayModal = false;
@@ -880,7 +895,8 @@ class Fees extends Component
     public function savePayment(): void
     {
         $this->validate([
-            'payAmount' => 'required|numeric|min:0',
+            // Left blank → treated as 0 → the payment is cleared back to pending.
+            'payAmount' => 'nullable|numeric|min:0',
             'payMode'   => 'required|string',
             'payDate'   => 'required|date',
         ]);
