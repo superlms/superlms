@@ -208,10 +208,17 @@ jobs:
             --query "tasks[0].taskArn" --output text)
           echo "migrate task: $TASK"
           aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK"
-          CODE=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK" \
-            --query "tasks[0].containers[0].exitCode" --output text)
+          DESC=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK" --output json)
+          CODE=$(echo "$DESC" | jq -r '.tasks[0].containers[0].exitCode')
           echo "migrate exit code: $CODE"
-          test "$CODE" = "0"
+          # A null/None exit code means the container never ran (task failed to
+          # start) — surface stopCode + stoppedReason so the real cause (e.g. a
+          # malformed secret) is visible in the logs instead of a bare "None".
+          if [ "$CODE" != "0" ]; then
+            echo "::error::migrate task did not exit 0 (exit code: $CODE)"
+            echo "$DESC" | jq -r '.tasks[0] | "stopCode: \(.stopCode)\nstoppedReason: \(.stoppedReason)\ncontainerReason: \(.containers[0].reason)"'
+            exit 1
+          fi
 
       - name: Wait for web service to stabilize
         run: aws ecs wait services-stable --cluster "$CLUSTER" --services superlms-web
