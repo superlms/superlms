@@ -17,7 +17,8 @@ use WireUi\Traits\WireUiActions;
 /**
  * Super-admin document centre. Upload any document/image (≤ 5 MB), target it at
  * all organizations or a chosen set, and the schools' admins receive it in their
- * own Documents screen (plus a bell notification) to view and download.
+ * own Documents screen (plus a bell notification) to view and download. Add and
+ * edit both happen in a right slide-in panel.
  */
 class Documents extends Component
 {
@@ -26,15 +27,18 @@ class Documents extends Component
     /** School-admin accounts live on the users table under these roles. */
     private const ADMIN_ROLES = ['admin', 'sub-admin'];
 
-    // ─── Add modal ──────────────────────────────────────────────────────────
-    public bool   $showAdd       = false;
+    // ─── Add / edit slide-in panel ───────────────────────────────────────────
+    public bool   $showPanel     = false;
+    public ?int   $editId        = null;
     public string $title         = '';
     public string $description   = '';
     public $file                 = null;
+    public string $existingFileName = '';
     public string $audienceScope = 'all';   // all | selected
     public array  $selectedOrgs  = [];
 
     // ─── Filters ─────────────────────────────────────────────────────────────
+    public string $search     = '';
     public string $filterOrg  = '';
     public string $filterFrom = '';
     public string $filterTo   = '';
@@ -59,23 +63,52 @@ class Documents extends Component
         return $user->isSubSuperAdmin() ? $user->allowedOrganizationId() : null;
     }
 
-    // ─── Add / upload ──────────────────────────────────────────────────────────
+    // ─── Panel open / close ──────────────────────────────────────────────────
 
-    public function openAdd(): void
+    public function openCreate(): void
     {
-        $this->resetAddForm();
-        $this->showAdd = true;
+        $this->resetForm();
+        $this->editId    = null;
+        $this->showPanel = true;
     }
 
-    public function closeAdd(): void
+    public function edit(int $id): void
     {
-        $this->showAdd = false;
-        $this->resetAddForm();
+        $doc = SuperAdminDocument::when(
+            $this->lockedOrganizationId(),
+            fn ($q, $orgId) => $q->forOrganization($orgId)
+        )->with('organizations:id')->find($id);
+
+        if (!$doc) {
+            $this->notification()->error('Not found', 'This document is no longer available.');
+            return;
+        }
+
+        $this->resetForm();
+        $this->editId           = $doc->id;
+        $this->title            = $doc->title;
+        $this->description      = (string) $doc->description;
+        $this->existingFileName = $doc->file_name;
+        $this->audienceScope    = $doc->audience_scope;
+        $this->selectedOrgs     = $doc->organizations->pluck('id')->all();
+
+        if ($lockedOrgId = $this->lockedOrganizationId()) {
+            $this->audienceScope = 'selected';
+            $this->selectedOrgs  = [$lockedOrgId];
+        }
+
+        $this->showPanel = true;
     }
 
-    private function resetAddForm(): void
+    public function closePanel(): void
     {
-        $this->reset(['title', 'description', 'file']);
+        $this->showPanel = false;
+        $this->resetForm();
+    }
+
+    private function resetForm(): void
+    {
+        $this->reset(['title', 'description', 'file', 'existingFileName', 'editId']);
         $this->resetValidation();
 
         if ($lockedOrgId = $this->lockedOrganizationId()) {
@@ -100,6 +133,8 @@ class Documents extends Component
         }
     }
 
+    // ─── Save (create or update) ─────────────────────────────────────────────
+
     public function save(): void
     {
         // Sub-super-admin can never broadcast beyond its own org.
@@ -111,45 +146,92 @@ class Documents extends Component
         $this->validate([
             'title'           => 'required|string|max:255',
             'description'     => 'nullable|string|max:1000',
-            'file'            => 'required|file|max:5120', // KB → 5 MB
+            // File is required when creating; optional (keep existing) when editing.
+            'file'            => ($this->editId ? 'nullable' : 'required') . '|file|max:5120', // KB → 5 MB
             'audienceScope'   => 'required|in:all,selected',
             'selectedOrgs'    => 'required_if:audienceScope,selected|array',
             'selectedOrgs.*'  => 'exists:organizations,id',
         ], [
-            'file.required'          => 'Please choose a file to upload.',
-            'file.max'               => 'The file may not be larger than 5 MB.',
+            'file.required'            => 'Please choose a file to upload.',
+            'file.max'                 => 'The file may not be larger than 5 MB.',
             'selectedOrgs.required_if' => 'Pick at least one school, or choose "All schools".',
         ]);
 
         try {
-            $key = $this->file->store('super-admin/documents', 's3');
-            Storage::disk('s3')->setVisibility($key, 'public');
-
-            $doc = SuperAdminDocument::create([
-                'title'          => $this->title,
-                'description'    => $this->description ?: null,
-                'file_path'      => $key,
-                'file_name'      => $this->file->getClientOriginalName(),
-                'file_size'      => $this->file->getSize(),
-                'mime_type'      => $this->file->getMimeType(),
-                'audience_scope' => $this->audienceScope,
-                'uploaded_by'    => Auth::id() ?: null,
-            ]);
-
-            if ($this->audienceScope === 'selected') {
-                $doc->organizations()->sync($this->selectedOrgs);
-            }
-
-            $this->notifyAdmins($doc);
+            $this->editId ? $this->updateDocument() : $this->createDocument();
         } catch (\Throwable $e) {
             report($e);
-            $this->notification()->error('Upload failed', $e->getMessage());
+            $this->notification()->error('Save failed', $e->getMessage());
             return;
         }
 
-        $this->notification()->success('Document sent', 'Schools can now view and download it.');
-        $this->closeAdd();
+        $this->closePanel();
         $this->resetPage();
+    }
+
+    private function createDocument(): void
+    {
+        $key = $this->file->store('super-admin/documents', 's3');
+        Storage::disk('s3')->setVisibility($key, 'public');
+
+        $doc = SuperAdminDocument::create([
+            'title'          => $this->title,
+            'description'    => $this->description ?: null,
+            'file_path'      => $key,
+            'file_name'      => $this->file->getClientOriginalName(),
+            'file_size'      => $this->file->getSize(),
+            'mime_type'      => $this->file->getMimeType(),
+            'audience_scope' => $this->audienceScope,
+            'uploaded_by'    => Auth::id() ?: null,
+        ]);
+
+        if ($this->audienceScope === 'selected') {
+            $doc->organizations()->sync($this->selectedOrgs);
+        }
+
+        $this->notifyAdmins($doc);
+        $this->notification()->success('Document sent', 'Schools can now view and download it.');
+    }
+
+    private function updateDocument(): void
+    {
+        $doc = SuperAdminDocument::findOrFail($this->editId);
+
+        $data = [
+            'title'          => $this->title,
+            'description'    => $this->description ?: null,
+            'audience_scope' => $this->audienceScope,
+        ];
+
+        // Replacing the file is optional; swap in the new one and drop the old.
+        $oldKey = null;
+        if ($this->file) {
+            $key = $this->file->store('super-admin/documents', 's3');
+            Storage::disk('s3')->setVisibility($key, 'public');
+            $oldKey            = $doc->file_path;
+            $data['file_path'] = $key;
+            $data['file_name'] = $this->file->getClientOriginalName();
+            $data['file_size'] = $this->file->getSize();
+            $data['mime_type'] = $this->file->getMimeType();
+        }
+
+        $doc->update($data);
+
+        if ($this->audienceScope === 'selected') {
+            $doc->organizations()->sync($this->selectedOrgs);
+        } else {
+            $doc->organizations()->detach();
+        }
+
+        if ($oldKey) {
+            try {
+                Storage::disk('s3')->delete($oldKey);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        $this->notification()->success('Document updated', 'Your changes have been saved.');
     }
 
     /** Target organization ids for a document (resolved from its audience). */
@@ -275,6 +357,7 @@ class Documents extends Component
 
     // ─── Filters ───────────────────────────────────────────────────────────────
 
+    public function updatedSearch(): void     { $this->resetPage(); }
     public function updatedFilterOrg(): void  { $this->resetPage(); }
     public function updatedFilterFrom(): void { $this->resetPage(); }
     public function updatedFilterTo(): void   { $this->resetPage(); }
@@ -286,6 +369,7 @@ class Documents extends Component
         } else {
             $this->filterOrg = '';
         }
+        $this->search     = '';
         $this->filterFrom = '';
         $this->filterTo   = '';
         $this->resetPage();
@@ -297,6 +381,14 @@ class Documents extends Component
 
         $documents = SuperAdminDocument::with('organizations:id,name')
             ->when($lockedOrgId, fn ($q) => $q->forOrganization($lockedOrgId))
+            ->when($this->search, function ($q) {
+                $term = '%' . $this->search . '%';
+                $q->where(function ($w) use ($term) {
+                    $w->where('title', 'like', $term)
+                      ->orWhere('file_name', 'like', $term)
+                      ->orWhere('description', 'like', $term);
+                });
+            })
             ->when($this->filterOrg, fn ($q) => $q->forOrganization((int) $this->filterOrg))
             ->when($this->filterFrom, fn ($q) => $q->whereDate('created_at', '>=', $this->filterFrom))
             ->when($this->filterTo, fn ($q) => $q->whereDate('created_at', '<=', $this->filterTo))
