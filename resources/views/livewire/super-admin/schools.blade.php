@@ -42,7 +42,7 @@
 
             {{-- Filter bar (enquiry-style sub-header) --}}
             <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
-                <div class="flex flex-wrap items-center gap-3">
+                <div class="flex flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 [&>*]:flex-shrink-0">
                     <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
                         <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -53,8 +53,8 @@
 
                     <div class="relative">
                         <svg class="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" /></svg>
-                        <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search by name, email, code…"
-                            class="text-xs bg-white border border-gray-200 rounded-md pl-8 pr-3 py-1.5 text-gray-700 w-64 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search name, email, code…"
+                            class="text-xs bg-white border border-gray-200 rounded-md pl-8 pr-3 py-1.5 text-gray-700 w-44 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
 
                     <select wire:model.live="statusFilter"
@@ -112,16 +112,16 @@
             {{-- ══════════ DESKTOP TABLE (student-style) ══════════ --}}
             <div class="hidden md:block bg-white rounded-xl border border-gray-200 shadow-sm">
                 <div class="overflow-x-auto rounded-xl">
-                    <table class="w-full min-w-[880px]">
+                    <table class="w-full table-fixed">
                         <thead class="bg-gray-50 border-b border-gray-200">
                             <tr>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">School</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Mobile</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Board / Medium</th>
-                                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Students</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">Mobile</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-40">Board / Medium</th>
+                                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Students</th>
+                                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Teachers</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
@@ -151,31 +151,30 @@
                                     <td class="px-4 py-3">
                                         <span class="text-sm text-gray-700">{{ $school->mobile_number ?? '—' }}</span>
                                     </td>
-                                    {{-- Board / Medium --}}
-                                    <td class="px-4 py-3 whitespace-nowrap">
-                                        <span class="text-sm text-gray-700">{{ $school->education_board ?? '—' }}</span>
-                                        @if ($school->medium)
-                                            <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold
-                                                {{ $school->medium === 'hindi'
-                                                    ? 'bg-orange-50 text-orange-700 border border-orange-100'
-                                                    : ($school->medium === 'both'
-                                                        ? 'bg-purple-50 text-purple-700 border border-purple-100'
-                                                        : 'bg-blue-50 text-blue-700 border border-blue-100') }}">
-                                                {{ $school->medium === 'both' ? 'Hindi & Eng' : ucfirst($school->medium) }}
-                                            </span>
-                                        @endif
+                                    {{-- Board / Medium (long boards truncate with … to avoid side-scroll) --}}
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-1 min-w-0">
+                                            <span class="text-sm text-gray-700 truncate" title="{{ $school->education_board }}">{{ $school->education_board ?? '—' }}</span>
+                                            @if ($school->medium)
+                                                <span class="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold
+                                                    {{ $school->medium === 'hindi'
+                                                        ? 'bg-orange-50 text-orange-700 border border-orange-100'
+                                                        : ($school->medium === 'both'
+                                                            ? 'bg-purple-50 text-purple-700 border border-purple-100'
+                                                            : 'bg-blue-50 text-blue-700 border border-blue-100') }}"
+                                                    title="{{ $school->medium === 'both' ? 'Hindi & English' : ucfirst($school->medium) . ' Medium' }}">
+                                                    {{ $school->medium === 'both' ? 'H&E' : ucfirst($school->medium) }}
+                                                </span>
+                                            @endif
+                                        </div>
                                     </td>
                                     {{-- Students --}}
                                     <td class="px-4 py-3 text-right">
                                         <span class="text-sm font-semibold text-gray-800">{{ number_format($school->total_students) }}</span>
                                     </td>
-                                    {{-- Status --}}
-                                    <td class="px-4 py-3">
-                                        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium border
-                                            {{ $school->status ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100' }}">
-                                            <span class="w-1.5 h-1.5 rounded-full {{ $school->status ? 'bg-emerald-500' : 'bg-amber-400' }}"></span>
-                                            {{ $school->status ? 'Active' : 'Pending' }}
-                                        </span>
+                                    {{-- Teachers --}}
+                                    <td class="px-4 py-3 text-right">
+                                        <span class="text-sm font-semibold text-gray-800">{{ number_format($school->total_teachers) }}</span>
                                     </td>
                                     {{-- Actions --}}
                                     <td class="px-4 py-3">
@@ -233,18 +232,13 @@
                                 </div>
                             @endif
                             <div class="min-w-0 flex-1">
-                                <div class="flex items-center justify-between gap-2">
-                                    <p class="text-sm font-bold text-gray-900 truncate">{{ $school->name }}</p>
-                                    <span class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0
-                                        {{ $school->status ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700' }}">
-                                        {{ $school->status ? 'Active' : 'Pending' }}
-                                    </span>
-                                </div>
+                                <p class="text-sm font-bold text-gray-900 truncate">{{ $school->name }}</p>
                                 <p class="text-xs text-gray-400 truncate">{{ $school->email ?? '—' }}</p>
                                 <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-gray-500">
                                     <span>{{ $school->mobile_number ?? '—' }}</span>
                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[11px] font-medium">{{ number_format($school->total_students) }} students</span>
-                                    @if ($school->education_board)<span>{{ $school->education_board }}</span>@endif
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-teal-50 text-teal-600 text-[11px] font-medium">{{ number_format($school->total_teachers) }} teachers</span>
+                                    @if ($school->education_board)<span class="truncate max-w-[120px]" title="{{ $school->education_board }}">{{ $school->education_board }}</span>@endif
                                 </div>
                             </div>
                         </div>
@@ -576,9 +570,9 @@
                     <div>
                         {{-- ── Overall Fee Analytics Cards ── --}}
                         <div class="p-5 border-b border-gray-100 bg-gray-50">
-                            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-7 gap-2.5">
                                 {{-- Total to Collect (Academic + Transport) --}}
-                                <div class="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-1">
+                                <div class="bg-white rounded-xl border border-gray-200 p-3 flex flex-col gap-1">
                                     <p class="text-xs text-gray-400 font-medium">Total to Collect</p>
                                     <p class="text-xl font-bold text-gray-800">
                                         ₹{{ number_format($feeStats['total_to_collect'] ?? 0, 0) }}
@@ -586,35 +580,35 @@
                                     <p class="text-[10px] text-gray-400">Academic + Transport</p>
                                 </div>
                                 {{-- Collected --}}
-                                <div class="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-1">
+                                <div class="bg-white rounded-xl border border-gray-200 p-3 flex flex-col gap-1">
                                     <p class="text-xs text-gray-400 font-medium">Collected</p>
                                     <p class="text-xl font-bold text-emerald-600">
                                         ₹{{ number_format($feeStats['total_collected'] ?? 0, 0) }}
                                     </p>
                                 </div>
                                 {{-- Remaining --}}
-                                <div class="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-1">
+                                <div class="bg-white rounded-xl border border-gray-200 p-3 flex flex-col gap-1">
                                     <p class="text-xs text-gray-400 font-medium">Remaining</p>
                                     <p class="text-xl font-bold text-red-500">
                                         ₹{{ number_format($feeStats['total_remaining'] ?? 0, 0) }}
                                     </p>
                                 </div>
                                 {{-- This Month --}}
-                                <div class="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-1">
+                                <div class="bg-white rounded-xl border border-gray-200 p-3 flex flex-col gap-1">
                                     <p class="text-xs text-gray-400 font-medium">This Month</p>
                                     <p class="text-xl font-bold text-blue-600">
                                         ₹{{ number_format($feeStats['this_month'] ?? 0, 0) }}
                                     </p>
                                 </div>
                                 {{-- Last Month --}}
-                                <div class="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-1">
+                                <div class="bg-white rounded-xl border border-gray-200 p-3 flex flex-col gap-1">
                                     <p class="text-xs text-gray-400 font-medium">Last Month</p>
                                     <p class="text-xl font-bold text-purple-600">
                                         ₹{{ number_format($feeStats['last_month'] ?? 0, 0) }}
                                     </p>
                                 </div>
                                 {{-- Academic collected / total --}}
-                                <div class="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-1">
+                                <div class="bg-white rounded-xl border border-gray-200 p-3 flex flex-col gap-1">
                                     <p class="text-xs text-gray-400 font-medium">Academic</p>
                                     <p class="text-lg font-bold text-indigo-600 whitespace-nowrap">
                                         ₹{{ number_format($feeStats['academic_total'] ?? 0, 0) }}
@@ -623,7 +617,7 @@
                                     <p class="text-[10px] text-gray-400">collected / total</p>
                                 </div>
                                 {{-- Transport collected / total --}}
-                                <div class="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-1">
+                                <div class="bg-white rounded-xl border border-gray-200 p-3 flex flex-col gap-1">
                                     <p class="text-xs text-gray-400 font-medium">Transport</p>
                                     <p class="text-lg font-bold text-amber-600 whitespace-nowrap">
                                         ₹{{ number_format($feeStats['transport_total'] ?? 0, 0) }}
