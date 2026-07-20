@@ -32,8 +32,14 @@ $compactSa = ($sa | ConvertTo-Json -Compress -Depth 20)
 $map | Add-Member -NotePropertyName FIREBASE_CREDENTIALS -NotePropertyValue $compactSa -Force
 
 # Write the merged secret via a temp file (avoids CLI arg-length/quoting issues).
-$tmp = New-TemporaryFile
-($map | ConvertTo-Json -Compress -Depth 20) | Set-Content -Path $tmp -Encoding utf8 -NoNewline
+# IMPORTANT: must be UTF-8 WITHOUT a BOM. Windows PowerShell 5.1's
+# `Set-Content -Encoding utf8` prepends a BOM (EF BB BF), which makes the stored
+# secret invalid JSON — ECS then fails every task with
+# "unable to retrieve secret from asm: invalid character '…' looking for
+# beginning of value". Use .NET UTF8Encoding($false) to guarantee no BOM.
+$tmp  = New-TemporaryFile
+$json = $map | ConvertTo-Json -Compress -Depth 20
+[System.IO.File]::WriteAllText($tmp.FullName, $json, (New-Object System.Text.UTF8Encoding($false)))
 try {
     aws secretsmanager put-secret-value --region $Region --secret-id $SecretId --secret-string "file://$($tmp.FullName)" | Out-Null
 } finally {
