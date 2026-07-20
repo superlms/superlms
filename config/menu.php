@@ -356,10 +356,10 @@ return [
             'prefix' => 'super-admin.website.faqs',
         ],
         [
-            'title' => 'More',
-            'link' => 'super-admin.more',
-            'icon' => 'squares-2x2',
-            'prefix' => 'super-admin.more',
+            'title' => 'Documents',
+            'link' => 'super-admin.documents',
+            'icon' => 'document-text',
+            'prefix' => 'super-admin.documents',
         ],
 
     ],

@@ -87,18 +87,23 @@
 
         {{-- ══════════════ MONTH TOTALS ══════════════ --}}
         <div>
-            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
                 {{ $monthLabel }} — Month Totals
+                <span class="normal-case tracking-normal font-normal text-gray-300">· click a card for its full detail</span>
             </p>
             <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
                 @foreach ($metricMeta as $k => [$label, $txt, $bg, $isMoney, $icon, $accent])
-                    <div class="rounded-lg border border-gray-200 border-l-4 {{ $accent }} bg-white px-3 py-2.5
-                                transition-colors hover:bg-gray-50/60">
+                    @php $total = $totals[$k] ?? 0; @endphp
+                    <button type="button"
+                        @if ($total > 0) wire:click="openMonthDetail('{{ $k }}')" @endif
+                        @disabled($total <= 0)
+                        class="text-left rounded-lg border border-gray-200 border-l-4 {{ $accent }} bg-white px-3 py-2.5 transition-all
+                               {{ $total > 0 ? 'hover:bg-gray-50 hover:shadow-sm cursor-pointer' : 'opacity-50 cursor-default' }}">
                         <div class="text-[11px] text-gray-500">{{ $icon }} {{ $label }}</div>
                         <div class="text-base sm:text-lg font-bold {{ $txt }} truncate">
-                            {{ $fmt($totals[$k] ?? 0, $isMoney) }}
+                            {{ $fmt($total, $isMoney) }}
                         </div>
-                    </div>
+                    </button>
                 @endforeach
             </div>
         </div>
@@ -282,7 +287,7 @@
                             </div>
                         </div>
                     @empty
-                        <p class="text-sm text-gray-400 text-center py-10">No records found for this day.</p>
+                        <p class="text-sm text-gray-400 text-center py-10">No records found.</p>
                     @endforelse
                 </div>
             </div>

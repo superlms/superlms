@@ -31,6 +31,7 @@ use App\Livewire\Admin\ReportCard;
 use App\Livewire\Admin\ContactAdmin;
 use App\Livewire\Admin\AboutApp;
 use App\Livewire\Admin\WebsiteData;
+use App\Livewire\Admin\Documents;
 use App\Livewire\Admin\AddExam;
 use App\Livewire\Admin\Book;
 use App\Livewire\Admin\Credit;
@@ -138,6 +139,7 @@ Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
         Route::get('/contact-admin', ContactAdmin::class)->name('admin.contact-admin');
         Route::get('/about-app', AboutApp::class)->name('admin.about-app');
         Route::get('/website-data', WebsiteData::class)->name('admin.website-data');
+        Route::get('/documents', Documents::class)->name('admin.documents');
         Route::get('/rate-lms', RateLms::class)->name('admin.rate-lms');
         Route::get('/enqueries', Enqueries::class)->name('admin.enqueries');
         Route::get('/terms-and-condition', TermsAndCondition::class)->name('admin.terms-and-condition');

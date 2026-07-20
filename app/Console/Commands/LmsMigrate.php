@@ -248,6 +248,39 @@ class LmsMigrate extends Command
             $this->info('created [website_visits] table');
         }
 
+        // Super-admin → school documents: a doc the super-admin uploads and
+        // targets at all or specific organizations; admins view/download it.
+        if (!Schema::hasTable('super_admin_documents')) {
+            Schema::create('super_admin_documents', function (Blueprint $table) {
+                $table->id();
+                $table->string('title');
+                $table->text('description')->nullable();
+                $table->string('file_path');                       // S3 key
+                $table->string('file_name');                       // original filename
+                $table->unsignedBigInteger('file_size')->default(0); // bytes
+                $table->string('mime_type')->nullable();
+                $table->string('audience_scope')->default('all');  // all | selected
+                $table->unsignedBigInteger('uploaded_by')->nullable();
+                $table->timestamps();
+                $table->index('created_at');
+            });
+            $this->info('created [super_admin_documents] table');
+        }
+
+        if (!Schema::hasTable('super_admin_document_organization')) {
+            Schema::create('super_admin_document_organization', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('document_id')
+                    ->constrained('super_admin_documents')
+                    ->cascadeOnDelete();
+                $table->unsignedBigInteger('organization_id');
+                $table->timestamps();
+                $table->unique(['document_id', 'organization_id'], 'sad_doc_org_unique');
+                $table->index('organization_id');
+            });
+            $this->info('created [super_admin_document_organization] pivot table');
+        }
+
         // Ensure role_user pivot table exists (not covered by a regular migration)
         if (!Schema::hasTable('role_user')) {
             Schema::create('role_user', function (Blueprint $table) {

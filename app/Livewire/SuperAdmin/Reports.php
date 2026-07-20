@@ -44,6 +44,9 @@ class Reports extends Component
     /** Metric keys rendered in the table, in order. */
     public const METRICS = ['students', 'teachers', 'schools', 'revenue', 'fees', 'credit', 'support', 'enquiries'];
 
+    /** Safety cap on rows loaded into a whole-month drill-down. */
+    private const MONTH_DETAIL_LIMIT = 500;
+
     private const METRIC_LABELS = [
         'students'  => 'New Students',
         'teachers'  => 'New Teachers',
@@ -86,7 +89,32 @@ class Reports extends Component
         $day = Carbon::parse($date);
 
         $this->detailLabel = self::METRIC_LABELS[$metric] . ' — ' . $day->format('d M Y');
-        $this->detailRows  = $this->safeList(fn() => $this->fetchDetail($metric, $day));
+        $this->detailRows  = $this->safeList(fn() => $this->fetchDetail(
+            $metric,
+            fn($query, string $col) => $query->whereDate($col, $day),
+        ));
+        $this->detailOpen  = true;
+    }
+
+    /**
+     * Open the drill-down for one metric across the whole selected month — every
+     * student / teacher / enquiry / payment etc. that made up that Month Total.
+     */
+    public function openMonthDetail(string $metric): void
+    {
+        if (!array_key_exists($metric, self::METRIC_LABELS)) {
+            return;
+        }
+
+        $start = Carbon::createFromFormat('Y-m', $this->selectedMonth)->startOfMonth();
+        $end   = $start->copy()->endOfMonth();
+        $label = $this->monthOptions[$this->selectedMonth] ?? $this->selectedMonth;
+
+        $this->detailLabel = self::METRIC_LABELS[$metric] . ' — ' . $label;
+        $this->detailRows  = $this->safeList(fn() => $this->fetchDetail(
+            $metric,
+            fn($query, string $col) => $query->whereBetween($col, [$start, $end])->limit(self::MONTH_DETAIL_LIMIT),
+        ));
         $this->detailOpen  = true;
     }
 
@@ -240,10 +268,15 @@ class Reports extends Component
 
     // ── Day + metric drill-down — who actually did what ───────────────────────
 
-    private function fetchDetail(string $metric, Carbon $day): array
+    /**
+     * Resolve the record list for a metric. `$scope($query, $dateColumn)` applies
+     * the date filter — a single day (day drill-down) or a whole-month range
+     * (Month-Totals drill-down) — so both share this mapping.
+     */
+    private function fetchDetail(string $metric, \Closure $scope): array
     {
         return match ($metric) {
-            'students' => User::where('role', 'user')->whereDate('created_at', $day)
+            'students' => $scope(User::where('role', 'user'), 'created_at')
                 ->with('organization:id,name')->latest()->get()
                 ->map(fn($u) => [
                     'title'    => $u->name,
@@ -252,7 +285,7 @@ class Reports extends Component
                     'time'     => $u->created_at?->format('h:i A'),
                 ])->toArray(),
 
-            'teachers' => User::where('role', 'teacher')->whereDate('created_at', $day)
+            'teachers' => $scope(User::where('role', 'teacher'), 'created_at')
                 ->with('organization:id,name')->latest()->get()
                 ->map(fn($u) => [
                     'title'    => $u->name,
@@ -261,7 +294,7 @@ class Reports extends Component
                     'time'     => $u->created_at?->format('h:i A'),
                 ])->toArray(),
 
-            'schools' => Organization::whereDate('created_at', $day)->latest()->get()
+            'schools' => $scope(Organization::query(), 'created_at')->latest()->get()
                 ->map(fn($o) => [
                     'title'    => $o->name,
                     'subtitle' => $o->education_board ?? '—',
@@ -269,7 +302,7 @@ class Reports extends Component
                     'time'     => $o->created_at?->format('h:i A'),
                 ])->toArray(),
 
-            'revenue' => SuperAdminFeePayment::paid()->whereDate('created_at', $day)
+            'revenue' => $scope(SuperAdminFeePayment::paid(), 'created_at')
                 ->with('organization:id,name')->latest()->get()
                 ->map(fn($p) => [
                     'title'    => $p->organization?->name ?? 'Unknown school',
@@ -279,7 +312,7 @@ class Reports extends Component
                     'time'     => $p->created_at?->format('h:i A'),
                 ])->toArray(),
 
-            'fees' => FeePayment::whereDate('payment_date', $day)
+            'fees' => $scope(FeePayment::query(), 'payment_date')
                 ->with(['organization:id,name', 'studentDetail:id,full_name'])->latest()->get()
                 ->map(fn($p) => [
                     'title'    => $p->studentDetail?->full_name ?? 'Unknown student',
@@ -289,7 +322,7 @@ class Reports extends Component
                     'time'     => $p->created_at?->format('h:i A'),
                 ])->toArray(),
 
-            'credit' => CreditQuery::whereDate('created_at', $day)
+            'credit' => $scope(CreditQuery::query(), 'created_at')
                 ->with('organization:id,name')->latest()->get()
                 ->map(fn($c) => [
                     'title'    => $c->organization?->name ?? 'Unknown school',
@@ -299,7 +332,7 @@ class Reports extends Component
                     'time'     => $c->created_at?->format('h:i A'),
                 ])->toArray(),
 
-            'support' => ContactSuperAdmin::whereDate('created_at', $day)
+            'support' => $scope(ContactSuperAdmin::query(), 'created_at')
                 ->with(['organization:id,name', 'user:id,name'])->latest()->get()
                 ->map(fn($t) => [
                     'title'    => $t->user?->name ?? ($t->organization?->name ?? 'Unknown'),
@@ -309,13 +342,13 @@ class Reports extends Component
                 ])->toArray(),
 
             'enquiries' => collect()
-                ->merge(WebsiteDemo::whereDate('created_at', $day)->latest()->get()->map(fn($d) => [
+                ->merge($scope(WebsiteDemo::query(), 'created_at')->latest()->get()->map(fn($d) => [
                     'title'    => $d->full_name,
                     'subtitle' => $d->school_name ? $d->school_name . ' — Demo request' : 'Demo request',
                     'meta'     => $d->email,
                     'time'     => $d->created_at?->format('h:i A'),
                 ]))
-                ->merge(WebsiteContact::whereDate('created_at', $day)->latest()->get()->map(fn($c) => [
+                ->merge($scope(WebsiteContact::query(), 'created_at')->latest()->get()->map(fn($c) => [
                     'title'    => $c->full_name,
                     'subtitle' => $c->subject ?? 'Contact enquiry',
                     'meta'     => $c->email,
