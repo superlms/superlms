@@ -10,6 +10,7 @@ class More extends Component
     public array $items = [
         ['title' => 'Users',               'route' => 'admin.users',                'icon' => 'user-group'],
         ['title' => 'Admissions',          'route' => 'admin.admissions',           'icon' => 'user-plus'],
+        ['title' => 'Website Data',         'route' => 'admin.website-data',         'icon' => 'globe-alt'],
         ['title' => 'Lists',               'route' => 'admin.lists',                'icon' => 'queue-list'],
         ['title' => 'Rules & Regulation',  'route' => 'admin.rules-and-regulation', 'icon' => 'clipboard'],
         ['title' => 'Contact Admin',       'route' => 'admin.contact-admin',        'icon' => 'chat-bubble-left'],
