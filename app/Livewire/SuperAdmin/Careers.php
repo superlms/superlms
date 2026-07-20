@@ -179,9 +179,18 @@ class Careers extends Component
     public function deleteJob(): void
     {
         if ($this->pendingJobDelete !== null && isset($this->meta['jobs'][$this->pendingJobDelete])) {
+            $role = $this->meta['jobs'][$this->pendingJobDelete]['role'] ?? 'a role';
             unset($this->meta['jobs'][$this->pendingJobDelete]);
             $this->meta['jobs'] = array_values($this->meta['jobs']);
             $this->persistJobs();
+
+            // Jobs live inside the careers page metadata (not their own model),
+            // so the super-admin notification is sent from here.
+            ActivityNotifier::toSuperAdmins(
+                'Job opening deleted',
+                "Job \"{$role}\" has been deleted.",
+                ['type' => 'career_job']
+            );
             $this->notification()->success('Deleted', 'Job opening removed.');
         }
         $this->pendingJobDelete = null;

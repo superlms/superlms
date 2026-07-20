@@ -27,3 +27,12 @@ Schedule::command('homework:purge-old')
 Schedule::command('id-cards:generate-missing')
     ->dailyAt('00:00')
     ->withoutOverlapping();
+
+// Every evening at 8pm IST: send super-admins their end-of-day roll-up
+// notifications (schools added to the listing, students/teachers added-edited-
+// deleted, student fees updated, and the day's platform report). Each lands in
+// the header bell + web push. See App\Console\Commands\SendSuperAdminDailyDigests.
+Schedule::command('superadmin:daily-digests')
+    ->dailyAt('20:00')
+    ->timezone('Asia/Kolkata')
+    ->withoutOverlapping();

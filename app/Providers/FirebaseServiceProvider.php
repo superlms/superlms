@@ -12,17 +12,22 @@ use App\Models\ExecutiveApplication;
 use App\Models\Faq;
 use App\Models\Organization;
 use App\Models\PrivacyPolicy;
+use App\Models\PushNotificationCampaign;
+use App\Models\SchoolWebsite;
+use App\Models\Student\StudentDetail;
 use App\Models\SuperAdmin\CreditPolicy;
 use App\Models\SuperAdmin\CreditQuery;
 use App\Models\SuperAdmin\SuperAdminEmployee;
 use App\Models\SuperAdmin\SuperAdminFeePayment;
 use App\Models\SuperAdmin\SuperAdminFeeStructure;
 use App\Models\SuperAdmin\SuperAdminSalaryPayment;
+use App\Models\Teacher\TeacherDetail;
 use App\Models\TermOfUse;
 use App\Models\User;
 use App\Models\WebsiteContact;
 use App\Models\WebsiteDemo;
 use App\Services\ActivityNotifier;
+use App\Support\DailyDigestCounters;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -69,6 +74,9 @@ class FirebaseServiceProvider extends ServiceProvider
         $this->payrollNotifications();
         $this->schoolNotifications();
         $this->schoolFeeNotifications();
+        $this->websitePublishNotifications();
+        $this->pushCampaignNotifications();
+        $this->dailyDigestDeleteCounters();
     }
 
     // ─── About App / Terms & Conditions / Privacy Policy / Terms of Use ───────
@@ -112,9 +120,44 @@ class FirebaseServiceProvider extends ServiceProvider
             ['type' => 'faq', 'id' => $faq->id]
         ));
 
+        Faq::updated(function ($faq) {
+            if (!$changed = $this->changedSummary($faq)) {
+                return;
+            }
+            ActivityNotifier::toSuperAdmins(
+                'FAQ updated',
+                "FAQ under \"{$faq->category}\" updated (changed: {$changed}): "
+                    . Str::limit((string) $faq->question, 120),
+                ['type' => 'faq', 'id' => $faq->id]
+            );
+        });
+
+        Faq::deleted(fn($faq) => ActivityNotifier::toSuperAdmins(
+            'FAQ deleted',
+            "FAQ under \"{$faq->category}\" was deleted: " . Str::limit((string) $faq->question, 120),
+            ['type' => 'faq', 'id' => $faq->id]
+        ));
+
         Blog::created(fn($blog) => ActivityNotifier::toSuperAdmins(
             'New blog added',
             "Blog \"{$blog->title}\"" . ($blog->category ? " ({$blog->category})" : '') . ' has been added.',
+            ['type' => 'blog', 'id' => $blog->id]
+        ));
+
+        Blog::updated(function ($blog) {
+            if (!$changed = $this->changedSummary($blog)) {
+                return;
+            }
+            ActivityNotifier::toSuperAdmins(
+                'Blog updated',
+                "Blog \"{$blog->title}\" updated (changed: {$changed}).",
+                ['type' => 'blog', 'id' => $blog->id]
+            );
+        });
+
+        Blog::deleted(fn($blog) => ActivityNotifier::toSuperAdmins(
+            'Blog deleted',
+            "Blog \"{$blog->title}\"" . ($blog->category ? " ({$blog->category})" : '') . ' was deleted.',
             ['type' => 'blog', 'id' => $blog->id]
         ));
     }
@@ -318,6 +361,17 @@ class FirebaseServiceProvider extends ServiceProvider
                 ['type' => 'panel_user', 'id' => $user->id]
             );
         });
+
+        User::deleted(function ($user) {
+            if ($user->role !== 'sub-super-admin') {
+                return;
+            }
+            ActivityNotifier::toSuperAdmins(
+                'User deleted',
+                "User {$user->name} ({$user->email}) has been deleted.",
+                ['type' => 'panel_user', 'id' => $user->id]
+            );
+        });
     }
 
     // ─── Payroll: employees, salary payments ───────────────────────────────────
@@ -412,6 +466,13 @@ class FirebaseServiceProvider extends ServiceProvider
                 );
             }
         });
+
+        Organization::deleted(fn($org) => ActivityNotifier::toSuperAdmins(
+            'School deleted',
+            "School \"{$org->name}\" has been deleted"
+                . ($org->email ? " — {$org->email}" : '') . '.',
+            ['type' => 'school', 'id' => $org->id]
+        ));
     }
 
     // ─── School fee structures & fee payments (Super Admin Fees) ──────────────
@@ -463,6 +524,84 @@ class FirebaseServiceProvider extends ServiceProvider
                 ['type' => 'school_fee_payment', 'id' => $pay->id]
             );
         });
+    }
+
+    // ─── School website published (go-live) ───────────────────────────────────
+
+    private function websitePublishNotifications(): void
+    {
+        // status is a boolean: true = published/live, false = draft. Announce a
+        // go-live both when a site is first created live and when a draft flips
+        // to published.
+        SchoolWebsite::created(function ($site) {
+            if (!$site->status) {
+                return;
+            }
+            ActivityNotifier::toSuperAdmins(
+                'School website published',
+                'The website for ' . $this->orgName($site) . ' is now live'
+                    . ($site->domain ? " at {$site->domain}" : '') . '.',
+                ['type' => 'school_website', 'id' => $site->id]
+            );
+        });
+
+        SchoolWebsite::updated(function ($site) {
+            // Only announce the moment it goes live (draft → published).
+            if (!$site->wasChanged('status') || !$site->status) {
+                return;
+            }
+            ActivityNotifier::toSuperAdmins(
+                'School website published',
+                'The website for ' . $this->orgName($site) . ' has been published and is now live'
+                    . ($site->domain ? " at {$site->domain}" : '') . '.',
+                ['type' => 'school_website', 'id' => $site->id]
+            );
+        });
+    }
+
+    // ─── Push notification campaigns ──────────────────────────────────────────
+
+    private function pushCampaignNotifications(): void
+    {
+        PushNotificationCampaign::created(function ($campaign) {
+            $audience = $this->campaignAudience($campaign);
+            ActivityNotifier::toSuperAdmins(
+                'Push notification sent',
+                "Push \"{$campaign->title}\" sent to {$audience}"
+                    . ' — ' . (int) $campaign->recipient_count . ' recipient(s), '
+                    . (int) $campaign->device_count . ' device(s)'
+                    . ($campaign->body ? ': ' . Str::limit((string) $campaign->body, 120) : '') . '.',
+                ['type' => 'push_campaign', 'id' => $campaign->id]
+            );
+        });
+    }
+
+    /** "students, teachers (School X)" / "all schools" for a campaign. */
+    private function campaignAudience($campaign): string
+    {
+        $roles = collect((array) ($campaign->audience_roles ?: []))
+            ->map(fn ($r) => PushNotificationCampaign::ROLE_LABELS[$r] ?? Str::headline((string) $r))
+            ->filter()
+            ->implode(', ');
+        $roles = $roles !== '' ? $roles : 'everyone';
+
+        $scope = $campaign->audience_scope === 'organization'
+            ? $this->orgName($campaign)
+            : 'all schools';
+
+        return "{$roles} ({$scope})";
+    }
+
+    // ─── Daily-digest delete counters ──────────────────────────────────────────
+    //     Students / teachers are hard-deleted (no soft-delete column), so the
+    //     8pm digest cannot count "deleted today" from the table. We keep a
+    //     same-day running tally in the cache as rows are removed; the digest
+    //     command reads and clears it. See App\Support\DailyDigestCounters.
+
+    private function dailyDigestDeleteCounters(): void
+    {
+        StudentDetail::deleted(fn() => DailyDigestCounters::bump('students_deleted'));
+        TeacherDetail::deleted(fn() => DailyDigestCounters::bump('teachers_deleted'));
     }
 
     // ─── Helpers ───────────────────────────────────────────────────────────────
