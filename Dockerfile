@@ -88,11 +88,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         pcntl \
         pdo_mysql \
         zip \
-    && pecl channel-update pecl.php.net \
-    && pecl install redis \
-    && docker-php-ext-enable redis \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# PHP redis extension via PECL. pecl.php.net intermittently returns 5xx
+# (channel.xml 504s) which used to fail the whole build/deploy — retry up to 5x
+# and treat channel-update as best-effort so a transient PECL outage can't block
+# a deploy. Fails the build (exit 1) only if every attempt fails.
+RUN for i in 1 2 3 4 5; do \
+        { pecl channel-update pecl.php.net || true; } \
+        && pecl install redis \
+        && docker-php-ext-enable redis \
+        && exit 0; \
+        echo "pecl install redis attempt $i failed; retrying in 10s"; sleep 10; \
+    done; \
+    exit 1
 
 # Composer binary (for occasional in-container use)
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
