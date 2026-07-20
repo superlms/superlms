@@ -329,7 +329,6 @@
         'overview' => 'Overview',
         'modules' => 'Modules',
         'bank' => 'Bank Details',
-        'payment' => 'Online Payment',
         'fees' => 'Fees Analytics',
         'students' => 'Students',
         'teachers' => 'Teachers',

@@ -23,9 +23,11 @@
     {{-- ══════════ HEADER ══════════ --}}
     <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <div class="flex items-center gap-4 min-w-0">
+            <div class="min-w-0">
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Payroll</h1>
-                {{-- Employee analytics — enquiries-style inline stats (desktop) --}}
+            </div>
+            <div class="flex flex-wrap items-center justify-end gap-4 flex-shrink-0">
+                {{-- Employee analytics — inline stats, right-aligned like the Listing header --}}
                 @if ($activeTab === 'employees')
                     <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200">
                         <span class="pr-4">Total: <strong class="text-gray-800">{{ $empStats['total'] }}</strong></span>
@@ -36,8 +38,6 @@
                         <span class="pl-4">Other: <strong class="text-gray-600">{{ $empStats['other'] }}</strong></span>
                     </div>
                 @endif
-            </div>
-            <div class="flex flex-wrap items-center gap-2">
                 @if ($activeTab === 'employees')
                     <button wire:click="openEmpModal()"
                         class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
