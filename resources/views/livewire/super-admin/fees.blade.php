@@ -459,10 +459,10 @@
         'view_fee' => 'View Fee',
     ] as $tab => $label)
                         <button wire:click="setTab('{{ $tab }}')"
-                            class="px-5 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2
+                            class="px-5 py-3.5 text-sm font-semibold whitespace-nowrap transition-colors border-b-2
                                 {{ $activeTab === $tab
-                                    ? 'border-blue-600 text-blue-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700' }}">
+                                    ? 'border-blue-500 text-blue-700'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
                             {{ $label }}
                         </button>
                     @endforeach
@@ -470,80 +470,142 @@
 
                 {{-- ════ VIEW FEE TAB ════ --}}
                 @if ($activeTab === 'view_fee')
-                    <div class="p-5">
-                        @if ($feeStructures->count())
-                            <div class="border border-gray-200 rounded-xl overflow-hidden">
-                                <table class="w-full">
-                                    <thead class="bg-gray-50 border-b border-gray-200">
-                                        <tr>
-                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 w-10">#</th>
-                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Type</th>
-                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Applies To</th>
-                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Label</th>
-                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Amount</th>
-                                            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-gray-100">
-                                        @foreach ($feeStructures as $i => $fs)
-                                            <tr class="hover:bg-gray-50/50">
-                                                <td class="px-4 py-3 text-xs text-gray-400">{{ $i + 1 }}</td>
-                                                <td class="px-4 py-3">
-                                                    @if ($fs->fee_type === 'one_time')
-                                                        <span class="text-xs px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full font-medium border border-indigo-100">One Time</span>
-                                                    @elseif ($fs->fee_type === 'per_student')
-                                                        <span class="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full font-medium border border-blue-100">Per Student</span>
-                                                    @else
-                                                        <span class="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full font-medium border border-gray-200">Class Wise (legacy)</span>
-                                                    @endif
-                                                </td>
-                                                <td class="px-4 py-3">
-                                                    @if ($fs->fee_type === 'class_wise')
-                                                        <span class="text-xs px-2 py-0.5 bg-gray-50 text-gray-700 rounded font-medium border border-gray-200">
-                                                            {{ $fs->standard?->name ?? '—' }}
-                                                        </span>
-                                                    @else
-                                                        <span class="text-xs text-gray-400">All Students</span>
-                                                    @endif
-                                                </td>
-                                                <td class="px-4 py-3 text-sm text-gray-600">{{ $fs->fee_label ?? '—' }}</td>
-                                                <td class="px-4 py-3 text-sm font-bold text-emerald-700">
-                                                    @if ($fs->fee_type === 'one_time')
-                                                        @php $fsTotal = !empty($fs->period_amounts) ? array_sum($fs->period_amounts) : ($fs->total_amount ?? 0); @endphp
-                                                        ₹{{ number_format($fsTotal, 0) }} <span class="text-xs font-normal text-gray-400">total / {{ $fs->installment_frequency ?? 'yearly' }}</span>
-                                                    @else
-                                                        ₹{{ number_format($fs->amount, 0) }} <span class="text-xs font-normal text-gray-400">/student</span>
-                                                    @endif
-                                                </td>
-                                                <td class="px-4 py-3">
-                                                    <div class="flex items-center justify-center gap-1">
-                                                        <button wire:click="{{ $fs->fee_type === 'class_wise' ? 'openEditFee(' . $fs->id . ')' : 'openUpdateFeePanel' }}"
-                                                            class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                                                            title="Edit">
-                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                            </svg>
-                                                        </button>
-                                                        <button wire:click="deleteFee({{ $fs->id }})"
-                                                            class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                            title="Delete">
-                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                            </svg>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
+                    @php
+                        $vfStructure = $this->viewFeeStructure();
+                        $vfRows      = $vfStructure ? $this->viewFeeStudents() : [];
+                        $vfPaid      = collect($vfRows)->where('status', 'paid')->count();
+                        $vfPartial   = collect($vfRows)->where('status', 'partial')->count();
+                        $vfPending   = collect($vfRows)->where('status', 'pending')->count();
+                    @endphp
+                    <div class="p-4 sm:p-5">
+                        @if (!$vfStructure)
+                            {{-- Per-student fee status is only tracked for "Per Student" schools. --}}
+                            <div class="text-center py-12">
+                                <div class="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <svg class="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                </div>
+                                <p class="text-sm font-medium text-gray-600">Per-student status isn't tracked for this school</p>
+                                <p class="text-xs text-gray-400 mt-1 max-w-sm mx-auto">
+                                    Student-wise paid / pending status is available for <strong>Per Student</strong> fee plans.
+                                    For One-Time / Monthly plans, record collections from the <strong>Update Fee</strong> panel.
+                                </p>
                             </div>
                         @else
-                            <div class="text-center py-12 text-sm text-gray-400">
-                                No fee structure set yet. Click <strong>Add Fee</strong> above to create one.
+                            {{-- FILTER BAR — class / section / status --}}
+                            <div class="flex flex-wrap items-center gap-2 sm:gap-3 mb-4">
+                                <div class="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                    </svg>
+                                    Filter:
+                                </div>
+                                <select wire:model.live="viewFeeStandardId"
+                                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">All Classes</option>
+                                    @foreach ($viewStandards as $std)
+                                        <option value="{{ $std->id }}">{{ $std->name }}</option>
+                                    @endforeach
+                                </select>
+                                <select wire:model.live="viewFeeSectionId" @if (!$viewFeeStandardId) disabled @endif
+                                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-400">
+                                    <option value="">All Sections</option>
+                                    @foreach ($viewFeeSections as $sec)
+                                        <option value="{{ $sec->id }}">{{ $sec->name }}</option>
+                                    @endforeach
+                                </select>
+                                <select wire:model.live="viewFeeStatus"
+                                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">All Status</option>
+                                    <option value="paid">Paid</option>
+                                    <option value="partial">Partial</option>
+                                    <option value="pending">Pending</option>
+                                </select>
+                                @if ($viewFeeStandardId || $viewFeeSectionId || $viewFeeStatus !== '')
+                                    <button wire:click="clearViewFeeFilters"
+                                        class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                                        Clear
+                                    </button>
+                                @endif
+
+                                {{-- Status counts --}}
+                                <div class="ml-auto flex items-center gap-2 text-[11px]">
+                                    <span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 font-semibold">{{ $vfPaid }} Paid</span>
+                                    <span class="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100 font-semibold">{{ $vfPartial }} Partial</span>
+                                    <span class="px-2 py-0.5 rounded-full bg-gray-50 text-gray-500 border border-gray-200 font-semibold">{{ $vfPending }} Pending</span>
+                                </div>
                             </div>
+
+                            @if (empty($vfRows))
+                                <div class="text-center py-12 text-sm text-gray-400">
+                                    No students match the selected filters.
+                                </div>
+                            @else
+                                <div class="border border-gray-200 rounded-xl overflow-hidden">
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full min-w-[620px]">
+                                            <thead class="bg-gray-50 border-b border-gray-200">
+                                                <tr>
+                                                    <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider w-8">#</th>
+                                                    <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Student</th>
+                                                    <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Fee</th>
+                                                    <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Collected</th>
+                                                    <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                                                    <th class="px-3 py-2.5 text-center text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-gray-100">
+                                                @foreach ($vfRows as $row)
+                                                    <tr class="hover:bg-gray-50/60">
+                                                        <td class="px-3 py-2.5 text-xs text-gray-400">{{ $row['serial'] }}</td>
+                                                        <td class="px-3 py-2.5">
+                                                            <p class="text-sm font-medium text-gray-800 leading-tight">{{ $row['name'] }}</p>
+                                                            <p class="text-[11px] text-gray-400">{{ $row['section'] !== '—' ? 'Sec ' . $row['section'] . ' · ' : '' }}Adm: {{ $row['admission_no'] }}</p>
+                                                        </td>
+                                                        <td class="px-3 py-2.5 text-sm text-gray-700">₹{{ number_format($row['total_fee'], 0) }}</td>
+                                                        <td class="px-3 py-2.5">
+                                                            <p class="text-sm font-semibold text-emerald-700">₹{{ number_format($row['collected'], 0) }}</p>
+                                                            @if ($row['status'] === 'partial')
+                                                                <p class="text-[11px] text-red-400">₹{{ number_format($row['remaining'], 0) }} due</p>
+                                                            @endif
+                                                        </td>
+                                                        <td class="px-3 py-2.5">
+                                                            @if ($row['status'] === 'paid')
+                                                                <span class="text-[11px] px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full font-semibold border border-emerald-100">Paid</span>
+                                                            @elseif ($row['status'] === 'partial')
+                                                                <span class="text-[11px] px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full font-semibold border border-amber-100">Partial</span>
+                                                            @else
+                                                                <span class="text-[11px] px-2 py-0.5 bg-gray-50 text-gray-500 rounded-full font-semibold border border-gray-200">Pending</span>
+                                                            @endif
+                                                        </td>
+                                                        <td class="px-3 py-2.5">
+                                                            <div class="flex items-center justify-center gap-1">
+                                                                <button
+                                                                    wire:click="openPayModal({{ $row['id'] }}, {{ $row['structure_id'] }}, {{ $row['total_fee'] }}, {{ $row['collected'] }}, {{ $row['payment_id'] ?? 'null' }})"
+                                                                    class="px-2 py-1 text-[11px] font-semibold rounded-md transition-colors
+                                                                        {{ $row['status'] === 'pending' ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100' : 'text-amber-700 bg-amber-50 hover:bg-amber-100' }}">
+                                                                    {{ $row['status'] === 'pending' ? 'Record' : 'Edit' }}
+                                                                </button>
+                                                                @if (!$row['is_paid'])
+                                                                    <button
+                                                                        wire:click="openMarkPaidModal({{ $row['id'] }}, {{ $row['structure_id'] }}, {{ $row['total_fee'] }}, {{ $row['collected'] }}, {{ $row['payment_id'] ?? 'null' }})"
+                                                                        class="px-2 py-1 text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors">
+                                                                        Mark Paid
+                                                                    </button>
+                                                                @endif
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            @endif
                         @endif
                     </div>
                 @endif

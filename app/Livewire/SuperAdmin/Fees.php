@@ -76,6 +76,12 @@ class Fees extends Component
     public        $updateSections   = [];
     public array  $studentFeeList   = [];
 
+    // ─── View Fee tab: per-student status list (class / section / status filter) ─
+    public string $viewFeeStandardId = '';
+    public string $viewFeeSectionId  = '';
+    public string $viewFeeStatus     = '';  // '' | paid | partial | pending
+    public        $viewFeeSections   = [];
+
     // ─── Update panel: one_time flow (org-level installments) ─────────────────
     public array $installments = [];
 
@@ -1073,12 +1079,71 @@ class Fees extends Component
         $this->notification()->success($message);
     }
 
+    // ─── View Fee tab: filtered student status list ────────────────────────────
+
+    public function updatedViewFeeStandardId(): void
+    {
+        $this->viewFeeSectionId = '';
+        $this->viewFeeSections  = $this->viewFeeStandardId
+            ? Section::where('standard_id', $this->viewFeeStandardId)->get()
+            : [];
+    }
+
+    public function clearViewFeeFilters(): void
+    {
+        $this->reset(['viewFeeStandardId', 'viewFeeSectionId', 'viewFeeStatus', 'viewFeeSections']);
+    }
+
+    /** The active per-student structure for the school open in detail view. */
+    public function viewFeeStructure(): ?SuperAdminFeeStructure
+    {
+        if (!$this->selectedSchool) {
+            return null;
+        }
+
+        return SuperAdminFeeStructure::where('organization_id', $this->selectedSchool->id)
+            ->where('academic_year', $this->academicYear)
+            ->where('fee_type', 'per_student')
+            ->active()
+            ->first();
+    }
+
+    /**
+     * Student rows for the View Fee tab — who has paid and who hasn't — filtered
+     * by class, section and status. Only per-student schools track per-student
+     * fee status (one-time / monthly fees are collected org-wide).
+     */
+    public function viewFeeStudents(): array
+    {
+        $structure = $this->viewFeeStructure();
+        if (!$structure) {
+            return [];
+        }
+
+        $students = StudentDetail::with(['user', 'section'])
+            ->where('organization_id', $this->selectedSchool->id)
+            ->when($this->viewFeeStandardId, fn ($q) => $q->where('standard_id', $this->viewFeeStandardId))
+            ->when($this->viewFeeSectionId, fn ($q) => $q->where('section_id', $this->viewFeeSectionId))
+            ->get();
+
+        $rows = $students->values()
+            ->map(fn ($s, $i) => $this->mapStudentFeeRow($s, $i, $structure))
+            ->toArray();
+
+        if ($this->viewFeeStatus !== '') {
+            $rows = array_values(array_filter($rows, fn ($r) => $r['status'] === $this->viewFeeStatus));
+        }
+
+        return $rows;
+    }
+
     public function render()
     {
         $feeStructures  = collect();
         $currentFeeType = null;
         $schools        = null;
         $boards         = collect();
+        $viewStandards  = collect();
 
         // For the student-style School filter and the Update Fee panel's org picker.
         $organizations = Organization::orderBy('name')->get(['id', 'name']);
@@ -1096,8 +1161,9 @@ class Fees extends Component
                 ->get();
 
             $currentFeeType = $this->currentFeeType();
+            $viewStandards  = Standard::where('organization_id', $this->selectedSchool->id)->orderBy('id')->get();
         }
 
-        return view('livewire.super-admin.fees', compact('feeStructures', 'currentFeeType', 'schools', 'boards', 'organizations'));
+        return view('livewire.super-admin.fees', compact('feeStructures', 'currentFeeType', 'schools', 'boards', 'organizations', 'viewStandards'));
     }
 }
