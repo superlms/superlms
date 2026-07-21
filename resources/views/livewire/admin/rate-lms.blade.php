@@ -1,13 +1,14 @@
 <div class="min-h-screen bg-gray-50">
+    <x-admin.back-to-more />
 
     {{-- ══════════════════════════════════════════════════
          HEADER (full-width, sticky, with inline status)
     ══════════════════════════════════════════════════ --}}
     <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div class="px-4 sm:px-6 py-4 sm:py-5">
+        <div class="px-4 sm:px-6 py-3 sm:py-4">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                    <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Rate Our LMS</h1>
+                    <h1 class="text-lg sm:text-2xl font-bold text-gray-900">Rate Our LMS</h1>
                     <p class="text-sm text-gray-500 mt-0.5">Share your experience and help us improve {{ $organization->name ?? 'our platform' }}</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">

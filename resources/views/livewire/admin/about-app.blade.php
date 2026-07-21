@@ -1,4 +1,5 @@
 <div class="min-h-screen bg-gray-50">
+    <x-admin.back-to-more />
 
     @if (!$aboutApp)
         <div class="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
@@ -15,45 +16,21 @@
         {{-- ══════════════════════════════════════════════════
          COMPACT HEADER (super-admin about-app style)
     ══════════════════════════════════════════════════ --}}
-        <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 sm:py-5">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div class="flex items-center gap-3 min-w-0">
-                    @if ($aboutApp->logo)
-                        <img src="{{ $aboutApp->logo }}" alt="App Logo"
-                            class="w-12 h-12 rounded-xl object-contain border border-gray-200 shadow-sm bg-white p-1 flex-shrink-0">
-                    @else
-                        <div class="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                            <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-                    @endif
+        <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-2.5 sm:py-3">
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <img src="{{ $aboutApp?->logo ?: asset('website-image/Group 11525.png') }}" alt="Platform Logo"
+                        class="w-9 h-9 rounded-lg object-contain border border-gray-200 shadow-sm bg-white p-1 flex-shrink-0">
                     <div class="min-w-0">
-                        <h1 class="text-xl sm:text-2xl font-bold text-gray-900 truncate">{{ $aboutApp->heading ?? 'About App' }}</h1>
-                        <p class="text-sm text-gray-500 mt-0.5 truncate">{{ $aboutApp->sub_heading ?? 'Platform application details' }}</p>
-                        @if ($aboutApp->company_name || $aboutApp->company_cin)
-                            <p class="text-xs text-gray-400 mt-0.5 truncate">
-                                {{ $aboutApp->company_name }}
-                                @if ($aboutApp->company_cin)
-                                    · CIN: {{ $aboutApp->company_cin }}
-                                @endif
-                            </p>
-                        @endif
+                        <h1 class="text-base sm:text-lg font-bold text-gray-900 truncate">{{ $aboutApp->heading ?? 'About App' }}</h1>
+                        <p class="text-xs text-gray-500 truncate">{{ $aboutApp->sub_heading ?? 'Platform application details' }}</p>
                     </div>
                 </div>
-                <div class="flex flex-wrap items-center gap-2 flex-shrink-0">
-                    @if ($lastUpdated)
-                        <span class="inline-block px-4 py-1.5 bg-indigo-50 text-indigo-700 text-sm font-semibold rounded-full border border-indigo-100">
-                            Last updated: {{ $lastUpdated }}
-                        </span>
-                    @endif
-                    @if ($aboutApp->title ?? false)
-                        <span class="inline-block px-4 py-1.5 bg-gray-50 text-gray-700 text-sm font-semibold rounded-full border border-gray-200">
-                            {{ $aboutApp->title }}
-                        </span>
-                    @endif
-                </div>
+                @if ($lastUpdated)
+                    <span class="flex-shrink-0 inline-block px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-full border border-indigo-100">
+                        Updated: {{ $lastUpdated }}
+                    </span>
+                @endif
             </div>
         </div>
 

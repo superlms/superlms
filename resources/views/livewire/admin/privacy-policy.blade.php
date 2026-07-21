@@ -1,4 +1,5 @@
 <div class="min-h-screen bg-gray-50">
+    <x-admin.back-to-more />
 
     @if (!$policy)
         <div class="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
@@ -16,22 +17,13 @@
         {{-- ══════════════════════════════════════════════════
              COMPACT HEADER (super-admin about-app style)
         ══════════════════════════════════════════════════ --}}
-        <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 sm:py-5">
+        <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div class="flex items-center gap-3 min-w-0">
-                    @if ($aboutApp?->logo)
-                        <img src="{{ $aboutApp->logo }}" alt="App Logo"
-                            class="w-12 h-12 rounded-xl object-contain border border-gray-200 shadow-sm bg-white p-1 flex-shrink-0">
-                    @else
-                        <div class="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                            <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                            </svg>
-                        </div>
-                    @endif
+                    <img src="{{ $aboutApp?->logo ?: asset('website-image/Group 11525.png') }}" alt="Platform Logo"
+                        class="w-12 h-12 rounded-xl object-contain border border-gray-200 shadow-sm bg-white p-1 flex-shrink-0">
                     <div class="min-w-0">
-                        <h1 class="text-xl sm:text-2xl font-bold text-gray-900 truncate">Privacy Policy</h1>
+                        <h1 class="text-lg sm:text-2xl font-bold text-gray-900 truncate">Privacy Policy</h1>
                         <p class="text-sm text-gray-500 mt-0.5 truncate">Please read this policy carefully to understand how we handle your information.</p>
                     </div>
                 </div>

@@ -1,4 +1,5 @@
 <div class="min-h-screen bg-gray-50">
+    <x-admin.back-to-more />
 
     {{-- ══════════ TOP BAR ══════════ --}}
     <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 sticky top-0 z-40">
