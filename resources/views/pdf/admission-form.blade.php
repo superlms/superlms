@@ -1,74 +1,130 @@
 @php
     $fmtDate = fn($d) => $d ? \Carbon\Carbon::parse($d)->format('d M Y') : '—';
-    $money   = fn($v) => '₹ ' . number_format((float) ($v ?? 0), 2);
+    $money   = fn($v) => 'Rs. ' . number_format((float) ($v ?? 0), 2);
     $val     = fn($v) => ($v !== null && $v !== '') ? $v : '—';
-    $logoUrl = (!empty($org?->logo) && \Illuminate\Support\Str::startsWith($org->logo, ['http://', 'https://'])) ? $org->logo : null;
 @endphp
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
     <style>
+        {!! $fontCss !!}
+
         * { box-sizing: border-box; }
-        body { font-family: 'DejaVu Sans', sans-serif; color: #1f2937; font-size: 12px; margin: 0; }
-        .page { padding: 28px 34px; }
-        .school { border-bottom: 2px solid #1d4ed8; padding-bottom: 12px; margin-bottom: 4px; }
-        .school-table { width: 100%; }
-        .school-table td { vertical-align: middle; }
-        .logo { width: 68px; height: 68px; }
-        .school-name { font-size: 20px; font-weight: bold; color: #111827; }
-        .school-meta { font-size: 10.5px; color: #6b7280; margin-top: 2px; line-height: 1.5; }
-        .title-bar { background: #1d4ed8; color: #fff; text-align: center; font-size: 14px;
-                     font-weight: bold; letter-spacing: 2px; padding: 7px; margin: 14px 0 16px; border-radius: 3px; }
-        .section-title { font-size: 12px; font-weight: bold; color: #1d4ed8; text-transform: uppercase;
-                         letter-spacing: 1px; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; margin: 14px 0 8px; }
+        html, body { margin: 0; padding: 0; }
+        body {
+            font-family: 'Poppins', 'DejaVu Sans', sans-serif;
+            color: #1f2933;
+            font-size: 11.5px;
+            line-height: 1.5;
+        }
+        .page { padding: 30px 38px 26px; }
+
+        /* ── Centered school masthead ── */
+        .masthead { text-align: center; padding-bottom: 14px; }
+        .masthead .logo { height: 74px; width: auto; margin: 0 auto 8px; display: block; }
+        .school-name {
+            font-family: 'PT Serif Bold', serif;
+            font-size: 25px;
+            color: #1e1b4b;
+            letter-spacing: .3px;
+            margin: 2px 0 4px;
+        }
+        .school-line { font-size: 10.5px; color: #6b7280; margin: 1px 0; }
+        .school-line .sep { color: #c7cad1; padding: 0 5px; }
+
+        .rule { border: 0; border-top: 2px solid #4f46e5; margin: 6px 0 0; }
+        .rule-soft { border: 0; border-top: 1px solid #e5e7eb; margin: 0 0 16px; }
+
+        /* ── Title ribbon ── */
+        .ribbon {
+            background: #4f46e5;
+            color: #fff;
+            text-align: center;
+            font-family: 'Poppins Bold', sans-serif;
+            font-size: 14px;
+            letter-spacing: 4px;
+            padding: 8px 0;
+            border-radius: 6px;
+            margin: 16px 0 18px;
+        }
+
+        /* ── Section headers ── */
+        .section-title {
+            font-family: 'Poppins SemiBold', sans-serif;
+            font-size: 11.5px;
+            color: #4338ca;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            border-bottom: 1.5px solid #e0e0f5;
+            padding: 0 0 5px 0;
+            margin: 18px 0 9px;
+        }
+
+        /* ── Detail grids ── */
         table.details { width: 100%; border-collapse: collapse; }
-        table.details td { padding: 5px 6px; font-size: 11.5px; vertical-align: top; }
-        td.label { color: #6b7280; width: 22%; }
-        td.value { color: #111827; font-weight: bold; width: 28%; }
-        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: bold; }
+        table.details td { padding: 4px 6px; vertical-align: top; }
+        td.label { color: #6b7280; width: 20%; font-size: 10.5px; }
+        td.value { color: #111827; font-family: 'Poppins SemiBold', sans-serif; width: 30%; font-size: 11px; }
+
+        .badge { display: inline-block; padding: 1px 9px; border-radius: 10px; font-size: 9.5px;
+                 font-family: 'Poppins SemiBold', sans-serif; }
         .badge-green { background: #dcfce7; color: #15803d; }
         .badge-amber { background: #fef3c7; color: #b45309; }
-        .fee-box { border: 1px solid #e5e7eb; border-radius: 4px; padding: 4px 8px; margin-top: 4px; }
-        ol.instructions { margin: 6px 0 0 16px; padding: 0; }
-        ol.instructions li { font-size: 11px; color: #374151; margin-bottom: 5px; line-height: 1.5; }
-        .sign-table { width: 100%; margin-top: 46px; }
-        .sign-table td { width: 50%; text-align: center; font-size: 11px; color: #374151; padding-top: 4px; }
-        .sign-line { border-top: 1px solid #9ca3af; margin: 0 20px; padding-top: 4px; }
-        .foot-note { margin-top: 20px; font-size: 9.5px; color: #9ca3af; text-align: center; }
+
+        /* ── Fee tables ── */
+        table.fee { width: 100%; border-collapse: collapse; margin-top: 2px; }
+        table.fee th {
+            background: #eef2ff; color: #3730a3; text-align: left;
+            font-family: 'Poppins SemiBold', sans-serif; font-size: 10px;
+            text-transform: uppercase; letter-spacing: .5px; padding: 7px 10px;
+            border: 1px solid #e0e0f5;
+        }
+        table.fee th.amt, table.fee td.amt { text-align: right; }
+        table.fee td { padding: 7px 10px; border: 1px solid #ececef; font-size: 11px; }
+        table.fee tr.total td {
+            background: #4f46e5; color: #fff; font-family: 'Poppins Bold', sans-serif;
+            font-size: 12px; border: 1px solid #4f46e5;
+        }
+        .muted-note { font-size: 9.5px; color: #9ca3af; margin-top: 4px; }
+
+        /* ── Instructions ── */
+        ol.instructions { margin: 4px 0 0 16px; padding: 0; }
+        ol.instructions li { font-size: 10.5px; color: #374151; margin-bottom: 5px; line-height: 1.5; }
+
+        /* ── Signatures ── */
+        table.sign { width: 100%; margin-top: 42px; }
+        table.sign td { width: 50%; text-align: center; font-size: 10.5px; color: #374151; }
+        .sign-line { border-top: 1px solid #9ca3af; margin: 0 24px; padding-top: 5px;
+                     font-family: 'Poppins SemiBold', sans-serif; }
+
+        .footer { margin-top: 18px; text-align: center; font-size: 9px; color: #a1a1aa;
+                  font-family: 'PT Serif', serif; font-style: italic; }
     </style>
 </head>
 <body>
 <div class="page">
 
-    {{-- School header --}}
-    <div class="school">
-        <table class="school-table">
-            <tr>
-                @if ($logoUrl)
-                    <td style="width: 78px;"><img src="{{ $logoUrl }}" class="logo" alt=""></td>
-                @endif
-                <td>
-                    <div class="school-name">{{ $org->name ?? 'School' }}</div>
-                    <div class="school-meta">
-                        @if (!empty($org->address)){{ $org->address }}<br>@endif
-                        @if (!empty($org->mobile_number))Phone: {{ $org->mobile_number }}@endif
-                        @if (!empty($org->email)) &nbsp;|&nbsp; {{ $org->email }}@endif
-                        @if (!empty($org->education_board) || !empty($org->medium) || !empty($org->school_code))
-                            <br>
-                            @if (!empty($org->education_board))Board: {{ $org->education_board }}@endif
-                            @if (!empty($org->medium)) &nbsp;|&nbsp; Medium: {{ $org->medium }}@endif
-                            @if (!empty($org->school_code)) &nbsp;|&nbsp; Code: {{ $org->school_code }}@endif
-                        @endif
-                    </div>
-                </td>
-            </tr>
-        </table>
+    {{-- ═══ Centered school masthead ═══ --}}
+    <div class="masthead">
+        @if (!empty($school['logo']))
+            <img src="{{ $school['logo'] }}" class="logo" alt="">
+        @endif
+        <div class="school-name">{{ $school['name'] ?: 'School' }}</div>
+        @if (!empty($school['address']))
+            <div class="school-line">{{ $school['address'] }}</div>
+        @endif
+        <div class="school-line">
+            @if (!empty($school['email'])){{ $school['email'] }}@endif
+            @if (!empty($school['contact']))<span class="sep">|</span>{{ $school['contact'] }}@endif
+            @if (!empty($school['website']))<span class="sep">|</span>{{ $school['website'] }}@endif
+        </div>
     </div>
+    <hr class="rule">
 
-    <div class="title-bar">ADMISSION FORM</div>
+    <div class="ribbon">ADMISSION FORM</div>
 
-    {{-- Student details --}}
+    {{-- ═══ Student details ═══ --}}
     <div class="section-title">Student Details</div>
     <table class="details">
         <tr>
@@ -96,28 +152,51 @@
         </tr>
         <tr>
             <td class="label">Address</td>
-            <td class="value" colspan="3" style="font-weight: normal;">{{ $val($enquiry->address) }}</td>
+            <td class="value" colspan="3" style="font-family:'Poppins',sans-serif;font-weight:normal;">{{ $val($enquiry->address) }}</td>
         </tr>
     </table>
 
-    {{-- Fee details --}}
-    <div class="section-title">Fee Details</div>
+    {{-- ═══ Class fee structure ═══ --}}
+    <div class="section-title">Fee Structure @if ($feeYear)<span style="color:#9ca3af;font-family:'Poppins',sans-serif;text-transform:none;letter-spacing:0;">· {{ $enquiry->standard->name ?? 'Class' }} · {{ $feeYear }}</span>@endif</div>
+    @if (count($feeRows))
+        <table class="fee">
+            <thead>
+                <tr>
+                    <th>Fee Component</th>
+                    <th class="amt">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach ($feeRows as $row)
+                    <tr>
+                        <td>{{ $row['label'] }}</td>
+                        <td class="amt">{{ $money($row['amount']) }}</td>
+                    </tr>
+                @endforeach
+                <tr class="total">
+                    <td>Total Fee</td>
+                    <td class="amt">{{ $money($feeTotal) }}</td>
+                </tr>
+            </tbody>
+        </table>
+    @else
+        <p class="muted-note">No fee structure configured for this class yet.</p>
+    @endif
+
+    {{-- ═══ Admission fee details ═══ --}}
+    <div class="section-title">Admission Fee Details</div>
     <table class="details">
         <tr>
             <td class="label">Admission Fee</td><td class="value">{{ $money($enquiry->admission_fee) }}</td>
-            <td class="label">Amount Collected</td><td class="value">{{ $money($enquiry->collected_amount) }}</td>
-        </tr>
-        <tr>
-            <td class="label">Payment Mode</td><td class="value" style="text-transform: capitalize;">{{ $val($enquiry->payment_mode) }}</td>
-            <td class="label">Collected On</td><td class="value">{{ $fmtDate($enquiry->fee_collected_at) }}</td>
+            <td class="label">Payment Mode</td><td class="value" style="text-transform:capitalize;">{{ $val($enquiry->payment_mode) }}</td>
         </tr>
         <tr>
             <td class="label">Collected By</td><td class="value">{{ $val($enquiry->collected_by) }}</td>
-            <td class="label"></td><td class="value"></td>
+            <td class="label">Collected On</td><td class="value">{{ $fmtDate($enquiry->fee_collected_at) }}</td>
         </tr>
     </table>
 
-    {{-- Instructions --}}
+    {{-- ═══ Instructions ═══ --}}
     <div class="section-title">Instructions</div>
     <ol class="instructions">
         @foreach ($instructions as $line)
@@ -125,17 +204,16 @@
         @endforeach
     </ol>
 
-    {{-- Signatures --}}
-    <table class="sign-table">
+    {{-- ═══ Signatures ═══ --}}
+    <table class="sign">
         <tr>
             <td><div class="sign-line">Parent / Guardian Signature</div></td>
             <td><div class="sign-line">Principal / Authorised Signatory</div></td>
         </tr>
     </table>
 
-    <div class="foot-note">
-        This is a computer-generated admission form for {{ $org->name ?? 'the school' }}.
-        Generated on {{ now()->format('d M Y, g:i A') }}.
+    <div class="footer">
+        This is a computer-generated admission form for {{ $school['name'] ?: 'the school' }} · Generated on {{ now()->format('d M Y, g:i A') }}
     </div>
 </div>
 </body>

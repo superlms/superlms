@@ -137,6 +137,9 @@ class Admissions extends Component
             $this->standardId   = (string) ($e->standard_id ?? '');
             $this->stream       = (string) ($e->stream ?? '');
             $this->admissionFee = (string) ($e->admission_fee ?? '');
+            $this->paymentMode    = $e->payment_mode ?: 'cash';
+            $this->collectedBy    = (string) ($e->collected_by ?? '');
+            $this->feeCollectedAt = $e->fee_collected_at ? $e->fee_collected_at->format('Y-m-d') : '';
         }
     }
 
@@ -155,20 +158,26 @@ class Admissions extends Component
             'guardianName' => 'required|string|max:255',
             'address'      => 'nullable|string|max:1000',
             'standardId'   => 'nullable',
-            'stream'       => 'nullable|string|max:255',
-            'admissionFee' => 'required|numeric|min:0',
+            'stream'         => 'nullable|string|max:255',
+            'admissionFee'   => 'required|numeric|min:0',
+            'paymentMode'    => 'nullable|in:cash,online,upi,cheque,card',
+            'collectedBy'    => 'nullable|string|max:255',
+            'feeCollectedAt' => 'nullable|date',
         ]);
 
         try {
             $data = [
-                'student_name'  => $this->studentName,
-                'email'         => $this->email ?: null,
-                'mobile'        => $this->mobile,
-                'guardian_name' => $this->guardianName,
-                'address'       => $this->address ?: null,
-                'standard_id'   => $this->standardId ?: null,
-                'stream'        => $this->stream ?: null,
-                'admission_fee' => $this->admissionFee,
+                'student_name'     => $this->studentName,
+                'email'            => $this->email ?: null,
+                'mobile'           => $this->mobile,
+                'guardian_name'    => $this->guardianName,
+                'address'          => $this->address ?: null,
+                'standard_id'      => $this->standardId ?: null,
+                'stream'           => $this->stream ?: null,
+                'admission_fee'    => $this->admissionFee,
+                'payment_mode'     => $this->paymentMode ?: null,
+                'collected_by'     => $this->collectedBy ?: null,
+                'fee_collected_at' => $this->feeCollectedAt ?: null,
             ];
 
             if ($this->editEnquiryId) {
@@ -378,6 +387,7 @@ class Admissions extends Component
             'editEnquiryId',
             'studentName', 'email', 'mobile', 'guardianName',
             'address', 'standardId', 'stream', 'admissionFee',
+            'paymentMode', 'collectedBy', 'feeCollectedAt',
         ]);
         $this->resetValidation();
     }
@@ -585,7 +595,35 @@ class Admissions extends Component
             return null;
         }
 
-        $org = Organization::find($this->orgId());
+        $org  = Organization::with('schoolInfo')->find($this->orgId());
+        $info = $org?->schoolInfo;
+
+        $school = [
+            'name'    => $org?->name,
+            'logo'    => ($org?->logo && \Illuminate\Support\Str::startsWith($org->logo, ['http://', 'https://'])) ? $org->logo : null,
+            'address' => $info?->school_address ?: $org?->address,
+            'email'   => $info?->school_email ?: $org?->email,
+            'contact' => $info?->school_mobile ?: $org?->mobile_number,
+            'website' => $info?->website_url ?: null,
+        ];
+
+        // Fee structure for this class (latest academic year), org-scoped.
+        $feeRows  = [];
+        $feeTotal = 0.0;
+        $feeYear  = null;
+        if ($enquiry->standard_id) {
+            $base = \App\Models\SuperAdmin\SuperAdminFeeStructure::where('organization_id', $this->orgId())
+                ->where('standard_id', $enquiry->standard_id)
+                ->where('is_active', true);
+            $feeYear = (clone $base)->max('academic_year');
+            if ($feeYear) {
+                foreach ((clone $base)->where('academic_year', $feeYear)->orderBy('id')->get() as $r) {
+                    $amt       = (float) ($r->amount ?? 0);
+                    $feeRows[] = ['label' => $r->fee_label ?: ($r->fee_type ?: 'Fee'), 'amount' => $amt];
+                    $feeTotal += $amt;
+                }
+            }
+        }
 
         $instructions = [
             'Please fill in all details in capital letters and verify them before submission.',
@@ -596,16 +634,44 @@ class Admissions extends Component
             'The school reserves the right to accept or reject any admission application.',
         ];
 
-        $pdf = Pdf::loadView('pdf.admission-form', compact('enquiry', 'org', 'instructions'))
-            ->setPaper('a4', 'portrait')
-            ->setOption('dpi', 150)
-            ->setOption('isHtml5ParserEnabled', true)
-            ->setOption('isRemoteEnabled', true)
-            ->setOption('defaultFont', 'DejaVu Sans');
+        // @font-face fonts need a writable dompdf font cache dir.
+        $fontCache = storage_path('fonts');
+        if (!is_dir($fontCache)) {
+            @mkdir($fontCache, 0775, true);
+        }
+
+        $data = compact('enquiry', 'school', 'feeRows', 'feeTotal', 'feeYear', 'instructions');
+
+        $render = function (string $fontCss) use ($data, $fontCache): string {
+            return Pdf::loadView('pdf.admission-form', $data + compact('fontCss'))
+                ->setPaper('a4', 'portrait')
+                ->setOption('dpi', 150)
+                ->setOption('isHtml5ParserEnabled', true)
+                ->setOption('isRemoteEnabled', true)
+                ->setOption('isFontSubsettingEnabled', true)
+                ->setOption('fontDir', $fontCache)
+                ->setOption('fontCache', $fontCache)
+                ->setOption('defaultFont', 'DejaVu Sans')
+                ->output();
+        };
+
+        // Prefer the bundled Poppins/PT-Serif; fall back to default fonts if the
+        // font cache can't be written (never hard-fail the download).
+        try {
+            $bytes = $render(\App\Support\PdfFonts::faceCss());
+        } catch (\Throwable $e) {
+            logger()->warning('Admission form custom-font render failed, using fallback: ' . $e->getMessage());
+            try {
+                $bytes = $render('');
+            } catch (\Throwable $e2) {
+                $this->notification()->error('PDF Failed', $e2->getMessage());
+                return null;
+            }
+        }
 
         $filename = 'admission-form-' . str_replace(' ', '-', strtolower($enquiry->student_name ?: 'student')) . '.pdf';
 
-        return response()->streamDownload(fn() => print($pdf->output()), $filename);
+        return response()->streamDownload(fn() => print($bytes), $filename);
     }
 
     // ─── Render ──────────────────────────────────────────────────────────────

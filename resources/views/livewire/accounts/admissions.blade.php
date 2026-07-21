@@ -386,6 +386,27 @@
                             <input wire:model.defer="admissionFee" type="number" min="0" step="0.01" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                             @error('admissionFee')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Payment Mode</label>
+                            <select wire:model.defer="paymentMode" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm bg-white">
+                                <option value="cash">Cash</option>
+                                <option value="online">Online</option>
+                                <option value="upi">UPI</option>
+                                <option value="card">Card</option>
+                                <option value="cheque">Cheque</option>
+                            </select>
+                            @error('paymentMode')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Collected On</label>
+                            <input wire:model.defer="feeCollectedAt" type="date" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('feeCollectedAt')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Collected By</label>
+                            <input wire:model.defer="collectedBy" type="text" placeholder="Name of person who collected" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('collectedBy')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
                         <div class="col-span-2">
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Address</label>
                             <textarea wire:model.defer="address" rows="3" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm resize-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
