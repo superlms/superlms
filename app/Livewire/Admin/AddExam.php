@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin;
 
 use App\Models\Admin\Exam;
+use App\Models\Admin\ExamPaper;
 use App\Models\Admin\ExamSyllabusChapter;
 use App\Models\Student\Chapter;
 use App\Models\Student\Section;
@@ -11,16 +12,18 @@ use App\Models\Student\Subject;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
 
 class AddExam extends Component
 {
-    use WireUiActions, WithPagination;
+    use WireUiActions, WithPagination, WithFileUploads;
 
     // ─── Tabs ────────────────────────────────────────────────────────────────
-    public string $activeTab = 'exams'; // 'exams' | 'syllabus'
+    public string $activeTab = 'exams'; // 'exams' | 'syllabus' | 'papers'
 
     // ─── Exam form ──────────────────────────────────────────────────────────
     public $examName       = '';
@@ -60,6 +63,27 @@ class AddExam extends Component
     public $syllabusFilterStandard = '';
     public $syllabusFilterSection  = '';
     public $syllabusFilterSubject  = '';
+
+    // ─── Exam Papers tab ─────────────────────────────────────────────────────
+    // Upload / edit modal
+    public bool $showPaperModal   = false;
+    public bool $paperIsEdit      = false;
+    public $paperId               = null;
+    public string $paperExam      = '';
+    public string $paperStandard  = '';
+    public string $paperSection   = '';
+    public string $paperTitle     = '';
+    public $paperFile             = null;
+    public array $paperModalSections = []; // sections for the class chosen in the modal
+
+    // Filters (Exam → Class → Section)
+    public string $filterPaperExam     = '';
+    public string $filterPaperStandard = '';
+    public string $filterPaperSection  = '';
+
+    // Delete confirm
+    public bool $showPaperDeleteConfirm = false;
+    public $paperDeleteId               = null;
 
     // ─── Syllabus modal ─────────────────────────────────────────────────────
     public bool $openSyllabusModal = false;
@@ -110,13 +134,16 @@ class AddExam extends Component
         'syllabusFilterStandard'   => ['except' => ''],
         'syllabusFilterSection'    => ['except' => ''],
         'syllabusFilterSubject'    => ['except' => ''],
+        'filterPaperExam'          => ['except' => ''],
+        'filterPaperStandard'      => ['except' => ''],
+        'filterPaperSection'       => ['except' => ''],
         'perPage'                  => ['except' => 10],
     ];
 
     public function mount(): void
     {
         // Homework tab was removed — quietly snap stale bookmarks back to Exams.
-        if (!in_array($this->activeTab, ['exams', 'syllabus'], true)) {
+        if (!in_array($this->activeTab, ['exams', 'syllabus', 'papers'], true)) {
             $this->activeTab = 'exams';
         }
 
@@ -127,7 +154,7 @@ class AddExam extends Component
 
     public function setTab(string $tab): void
     {
-        $this->activeTab = in_array($tab, ['exams', 'syllabus'], true) ? $tab : 'exams';
+        $this->activeTab = in_array($tab, ['exams', 'syllabus', 'papers'], true) ? $tab : 'exams';
         $this->resetPage();
     }
 
@@ -708,6 +735,216 @@ class AddExam extends Component
         }
     }
 
+    // ═════════════════════════════════════════════════════════════════
+    //  EXAM PAPERS TAB — upload a question paper per (exam, class, section)
+    // ═════════════════════════════════════════════════════════════════
+
+    /** Load sections for a class into the paper-modal section dropdown. */
+    private function loadPaperModalSections($standardId): void
+    {
+        if (!$standardId) {
+            $this->paperModalSections = [];
+            return;
+        }
+
+        $this->paperModalSections = Section::where('organization_id', Auth::user()->organization_id)
+            ->where('standard_id', $standardId)
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->get(['id', 'name'])
+            ->toArray();
+    }
+
+    public function updatedPaperStandard($value): void
+    {
+        $this->paperSection = '';
+        $this->loadPaperModalSections($value);
+    }
+
+    // Filter cascade (Exam → Class → Section) resets downstream selections.
+    public function updatedFilterPaperStandard($value): void
+    {
+        $this->filterPaperSection = '';
+        $this->resetPage();
+    }
+
+    public function updatedFilterPaperExam(): void    { $this->resetPage(); }
+    public function updatedFilterPaperSection(): void { $this->resetPage(); }
+
+    public function clearPaperFilters(): void
+    {
+        $this->reset(['filterPaperExam', 'filterPaperStandard', 'filterPaperSection']);
+        $this->resetPage();
+    }
+
+    public function openPaperModal(): void
+    {
+        $this->reset(['paperId', 'paperExam', 'paperStandard', 'paperSection', 'paperTitle', 'paperFile', 'paperModalSections']);
+        $this->paperIsEdit    = false;
+        $this->showPaperModal = true;
+        $this->resetValidation();
+    }
+
+    public function openEditPaperModal(int $id): void
+    {
+        $paper = ExamPaper::where('id', $id)
+            ->where('organization_id', Auth::user()->organization_id)
+            ->first();
+        if (!$paper) {
+            $this->notification()->error('Not found', 'Exam paper not found.');
+            return;
+        }
+
+        $this->paperId       = $paper->id;
+        $this->paperExam     = (string) $paper->exam_id;
+        $this->paperStandard = (string) $paper->standard_id;
+        $this->loadPaperModalSections($paper->standard_id);
+        $this->paperSection  = $paper->section_id ? (string) $paper->section_id : '';
+        $this->paperTitle    = (string) $paper->title;
+        $this->paperFile     = null;
+        $this->paperIsEdit   = true;
+        $this->showPaperModal = true;
+        $this->resetValidation();
+    }
+
+    public function closePaperModal(): void
+    {
+        $this->showPaperModal = false;
+        $this->reset(['paperId', 'paperExam', 'paperStandard', 'paperSection', 'paperTitle', 'paperFile', 'paperModalSections']);
+        $this->resetValidation();
+    }
+
+    public function savePaper(): void
+    {
+        $rules = [
+            'paperExam'     => 'required|exists:exams,id',
+            'paperStandard' => 'required|exists:standards,id',
+            'paperSection'  => 'nullable|exists:sections,id',
+            'paperTitle'    => 'required|string|max:255',
+            'paperFile'     => ($this->paperIsEdit ? 'nullable' : 'required') . '|file|mimes:pdf|max:5120', // 5 MB
+        ];
+
+        $this->validate($rules, [
+            'paperExam.required'     => 'Please select an exam.',
+            'paperStandard.required' => 'Please select a class.',
+            'paperTitle.required'    => 'Please enter a title.',
+            'paperFile.required'     => 'Please choose a PDF file.',
+            'paperFile.mimes'        => 'The paper must be a PDF file.',
+            'paperFile.max'          => 'The PDF must be 5 MB or smaller.',
+        ]);
+
+        try {
+            $orgId = Auth::user()->organization_id;
+
+            $data = [
+                'exam_id'     => $this->paperExam,
+                'standard_id' => $this->paperStandard,
+                'section_id'  => $this->paperSection ?: null,
+                'title'       => $this->paperTitle,
+            ];
+
+            if ($this->paperIsEdit) {
+                $paper = ExamPaper::where('id', $this->paperId)
+                    ->where('organization_id', $orgId)
+                    ->firstOrFail();
+
+                if ($this->paperFile) {
+                    if ($paper->file_path) {
+                        Storage::disk('s3')->delete($paper->file_path);
+                    }
+                    $data['file_path']   = $this->paperFile->store('admin/exam-papers/' . $orgId, 's3');
+                    $data['uploaded_by'] = Auth::id();
+                }
+
+                $paper->update($data);
+                $this->notification()->success('Updated', 'Exam paper updated successfully.');
+            } else {
+                $data['organization_id'] = $orgId;
+                $data['uploaded_by']     = Auth::id();
+                $data['file_path']       = $this->paperFile->store('admin/exam-papers/' . $orgId, 's3');
+                ExamPaper::create($data);
+                $this->notification()->success('Uploaded', 'Exam paper uploaded successfully.');
+            }
+
+            $this->closePaperModal();
+        } catch (\Throwable $e) {
+            logger()->error('ExamPaper save error: ' . $e->getMessage());
+            $this->notification()->error('Error', $e->getMessage());
+        }
+    }
+
+    public function onDeletePaper(int $id): void
+    {
+        $this->paperDeleteId          = $id;
+        $this->showPaperDeleteConfirm = true;
+    }
+
+    public function cancelDeletePaper(): void
+    {
+        $this->paperDeleteId          = null;
+        $this->showPaperDeleteConfirm = false;
+    }
+
+    public function confirmDeletePaper(): void
+    {
+        $paper = ExamPaper::where('id', $this->paperDeleteId)
+            ->where('organization_id', Auth::user()->organization_id)
+            ->first();
+
+        if ($paper) {
+            if ($paper->file_path) {
+                Storage::disk('s3')->delete($paper->file_path);
+            }
+            $paper->delete();
+            $this->notification()->success('Deleted', 'Exam paper deleted.');
+        }
+
+        $this->paperDeleteId          = null;
+        $this->showPaperDeleteConfirm = false;
+    }
+
+    public function downloadPaper(int $id): mixed
+    {
+        $paper = ExamPaper::where('id', $id)
+            ->where('organization_id', Auth::user()->organization_id)
+            ->first();
+
+        if (!$paper || !$paper->file_path) {
+            $this->notification()->error('Not found', 'Paper file not found.');
+            return null;
+        }
+
+        if (!Storage::disk('s3')->exists($paper->file_path)) {
+            $this->notification()->error('File missing', 'File missing on storage. Please re-upload this paper.');
+            return null;
+        }
+
+        $filename = ($paper->title ?: 'exam-paper') . '.pdf';
+        $url = Storage::disk('s3')->temporaryUrl(
+            $paper->file_path,
+            now()->addMinutes(5),
+            [
+                'ResponseContentDisposition' => 'attachment; filename="' . $filename . '"',
+                'ResponseContentType'        => 'application/octet-stream',
+            ]
+        );
+        return $this->redirect($url);
+    }
+
+    /** Papers listing for the current org, filtered by Exam → Class → Section. */
+    private function getExamPapers()
+    {
+        $orgId = Auth::user()->organization_id;
+
+        return ExamPaper::with(['exam:id,exam_name,academic_year', 'standard:id,name', 'section:id,name'])
+            ->where('organization_id', $orgId)
+            ->when($this->filterPaperExam,     fn($q) => $q->where('exam_id', $this->filterPaperExam))
+            ->when($this->filterPaperStandard, fn($q) => $q->where('standard_id', $this->filterPaperStandard))
+            ->when($this->filterPaperSection,  fn($q) => $q->where('section_id', $this->filterPaperSection))
+            ->orderByDesc('created_at')
+            ->paginate($this->perPage, ['*'], 'papersPage');
+    }
+
     // ─── Render ─────────────────────────────────────────────────────────────
 
     public function render()
@@ -748,7 +985,22 @@ class AddExam extends Component
                 ->toArray();
         }
 
-        return view('livewire.admin.add-exam', compact('exams', 'syllabus', 'filterSections', 'filterSubjects'));
+        // Exam Papers tab data
+        $examPapers        = $this->getExamPapers();
+        $paperFilterSections = [];
+        if ($this->filterPaperStandard) {
+            $paperFilterSections = Section::where('organization_id', $orgId)
+                ->where('standard_id', $this->filterPaperStandard)
+                ->where('is_active', true)
+                ->orderBy('id')
+                ->get(['id', 'name'])
+                ->toArray();
+        }
+
+        return view('livewire.admin.add-exam', compact(
+            'exams', 'syllabus', 'filterSections', 'filterSubjects',
+            'examPapers', 'paperFilterSections'
+        ));
     }
 
     private function getExams()

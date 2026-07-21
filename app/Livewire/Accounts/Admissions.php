@@ -4,7 +4,9 @@ namespace App\Livewire\Accounts;
 
 use App\Models\Admin\AdmissionEnquiry;
 use App\Models\Admin\AdmissionExamPaper;
+use App\Models\Organization;
 use App\Models\Student\Standard;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -562,6 +564,48 @@ class Admissions extends Component
             ]
         );
         return $this->redirect($url);
+    }
+
+    // ─── Admission form PDF ──────────────────────────────────────────────────
+
+    /**
+     * Generate a clean, printable admission form for one enquiry — school
+     * details, the student's details, fee summary and instructions — and stream
+     * it to the browser as a download.
+     */
+    public function downloadAdmissionForm(int $id): mixed
+    {
+        $enquiry = AdmissionEnquiry::with('standard:id,name')
+            ->where('id', $id)
+            ->where('organization_id', $this->orgId())
+            ->first();
+
+        if (!$enquiry) {
+            $this->notification()->error('Not found', 'Admission enquiry not found.');
+            return null;
+        }
+
+        $org = Organization::find($this->orgId());
+
+        $instructions = [
+            'Please fill in all details in capital letters and verify them before submission.',
+            'Attach self-attested copies of the birth certificate, previous mark-sheet and transfer certificate (if any).',
+            'Attach two recent passport-size photographs of the student.',
+            'The admission fee once paid is non-refundable and non-transferable.',
+            'Admission is confirmed only after successful verification of documents and payment of fees.',
+            'The school reserves the right to accept or reject any admission application.',
+        ];
+
+        $pdf = Pdf::loadView('pdf.admission-form', compact('enquiry', 'org', 'instructions'))
+            ->setPaper('a4', 'portrait')
+            ->setOption('dpi', 150)
+            ->setOption('isHtml5ParserEnabled', true)
+            ->setOption('isRemoteEnabled', true)
+            ->setOption('defaultFont', 'DejaVu Sans');
+
+        $filename = 'admission-form-' . str_replace(' ', '-', strtolower($enquiry->student_name ?: 'student')) . '.pdf';
+
+        return response()->streamDownload(fn() => print($pdf->output()), $filename);
     }
 
     // ─── Render ──────────────────────────────────────────────────────────────

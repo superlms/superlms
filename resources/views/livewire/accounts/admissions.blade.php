@@ -8,7 +8,7 @@
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                     <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Admissions</h1>
-                    <p class="text-sm text-gray-500 mt-0.5">Manage student admissions and entrance papers</p>
+                    <p class="text-sm text-gray-500 mt-0.5">Manage student admissions and forms</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-3 divide-x divide-gray-200">
@@ -33,7 +33,7 @@
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                             </svg>
-                            <span class="hidden sm:inline">Upload Paper</span>
+                            <span class="hidden sm:inline">Upload Form</span>
                             <span class="sm:hidden">Upload</span>
                         </button>
                     @endif
@@ -69,7 +69,7 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        Exam Papers
+                        Admission Form
                     </span>
                 </button>
             </div>
@@ -203,6 +203,12 @@
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                                 </svg>
                                             </button>
+                                            <button wire:click="downloadAdmissionForm({{ $enquiry->id }})" title="Download Admission Form"
+                                                class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                            </button>
                                             <button wire:click="openFeeModal({{ $enquiry->id }})" title="Update Fee"
                                                 class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-green-50 hover:text-green-600 hover:border-green-200">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -310,8 +316,8 @@
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                             </svg>
                                         </div>
-                                        <p class="text-sm font-semibold text-gray-800">No exam papers uploaded</p>
-                                        <p class="text-xs text-gray-400 mt-1">Click "Upload Paper" to add the first paper.</p>
+                                        <p class="text-sm font-semibold text-gray-800">No admission forms uploaded</p>
+                                        <p class="text-xs text-gray-400 mt-1">Click "Upload Form" to add the first form.</p>
                                     </td>
                                 </tr>
                             @endforelse
@@ -531,7 +537,7 @@
                 {{-- Panel Header --}}
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-900">Upload Exam Paper</h2>
+                        <h2 class="text-lg font-semibold text-gray-900">Upload Admission Form</h2>
                         <p class="text-xs text-gray-500 mt-0.5">Maximum size: 1 MB · PDF only</p>
                     </div>
                     <button wire:click="closePaperModal"
@@ -543,7 +549,7 @@
                 <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Title <span class="text-red-500">*</span></label>
-                        <input wire:model.defer="paperTitle" type="text" placeholder="e.g. Class 10 Math Sample"
+                        <input wire:model.defer="paperTitle" type="text" placeholder="e.g. Class 10 Admission Form"
                             class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                         @error('paperTitle')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
@@ -594,7 +600,7 @@
                 {{-- Panel Header --}}
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-900">Edit Exam Paper</h2>
+                        <h2 class="text-lg font-semibold text-gray-900">Edit Admission Form</h2>
                         <p class="text-xs text-gray-500 mt-0.5">Replace PDF only if needed (max 1 MB)</p>
                     </div>
                     <button wire:click="closeEditPaperModal"
@@ -738,7 +744,7 @@
                         <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                     </div>
                     <div class="flex-1">
-                        <h3 class="text-base font-semibold text-gray-900 mb-1">Delete exam paper?</h3>
+                        <h3 class="text-base font-semibold text-gray-900 mb-1">Delete admission form?</h3>
                         <p class="text-sm text-gray-500">The PDF will be permanently removed from storage.</p>
                     </div>
                 </div>

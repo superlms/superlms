@@ -36,6 +36,15 @@
                             <span class="hidden sm:inline">Add Syllabus</span>
                             <span class="sm:hidden">New</span>
                         </button>
+                    @elseif ($activeTab === 'papers')
+                        <button wire:click="openPaperModal"
+                            class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                            </svg>
+                            <span class="hidden sm:inline">Upload Paper</span>
+                            <span class="sm:hidden">Upload</span>
+                        </button>
                     @endif
                 </div>
             </div>
@@ -70,6 +79,16 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                         </svg>
                         Exam Syllabus
+                    </span>
+                </button>
+                <button wire:click="setTab('papers')"
+                    class="px-4 py-3 text-sm font-medium border-b-2 transition-colors
+                           {{ $activeTab === 'papers' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
+                    <span class="inline-flex items-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Exam Papers
                     </span>
                 </button>
             </div>
@@ -121,6 +140,52 @@
 
                     @if ($search || $filterAcademicYear || $filterExamType || $filterTerm || $filterStatus)
                         <button wire:click="clearExamFilters"
+                            class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            Clear
+                        </button>
+                    @endif
+                </div>
+            </div>
+        @elseif ($activeTab === 'papers')
+            {{-- Exam Papers tab — Exam → Class → Section --}}
+            <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                        </svg>
+                        Filter by:
+                    </div>
+
+                    <select wire:model.live="filterPaperExam" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <option value="">All Exams</option>
+                        @foreach ($allExams as $e)
+                            <option value="{{ $e['id'] }}">{{ $e['exam_name'] }} ({{ $e['academic_year'] }})</option>
+                        @endforeach
+                    </select>
+
+                    <span class="text-gray-300">→</span>
+
+                    <select wire:model.live="filterPaperStandard" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <option value="">All Classes</option>
+                        @foreach ($allStandards as $s)
+                            <option value="{{ $s['id'] }}">{{ $s['name'] }}</option>
+                        @endforeach
+                    </select>
+
+                    <span class="text-gray-300">→</span>
+
+                    <select wire:model.live="filterPaperSection" @disabled(!$filterPaperStandard)
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
+                        <option value="">All Sections</option>
+                        @foreach ($paperFilterSections as $sec)
+                            <option value="{{ $sec['id'] }}">{{ $sec['name'] }}</option>
+                        @endforeach
+                    </select>
+
+                    @if ($filterPaperExam || $filterPaperStandard || $filterPaperSection)
+                        <button wire:click="clearPaperFilters"
                             class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             Clear
@@ -291,6 +356,83 @@
                     <div class="px-4 py-3 border-t border-gray-100">
                         {{ $exams->links() }}
                     </div>
+                @endif
+            </div>
+
+        @elseif ($activeTab === 'papers')
+            {{-- ═════ EXAM PAPERS TAB ═════ --}}
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Title</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Exam</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Class</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Section</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Uploaded</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @forelse ($examPapers as $paper)
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
+                                                <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                </svg>
+                                            </div>
+                                            <span class="text-sm font-semibold text-gray-900">{{ $paper->title }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-700">{{ $paper->exam->exam_name ?? '—' }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-700">{{ $paper->standard->name ?? '—' }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-700">{{ $paper->section->name ?? '—' }}</td>
+                                    <td class="px-4 py-3 text-xs text-gray-500">{{ $paper->created_at->format('d M Y, g:i A') }}</td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <button wire:click="downloadPaper({{ $paper->id }})" title="Download"
+                                                class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                </svg>
+                                            </button>
+                                            <button wire:click="openEditPaperModal({{ $paper->id }})" title="Edit"
+                                                class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
+                                            </button>
+                                            <button wire:click="onDeletePaper({{ $paper->id }})" title="Delete"
+                                                class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="6" class="px-4 py-16 text-center">
+                                        <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
+                                            <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                            </svg>
+                                        </div>
+                                        <p class="text-sm font-semibold text-gray-800">No exam papers uploaded</p>
+                                        <p class="text-xs text-gray-400 mt-1">Click "Upload Paper" to add a question paper for an exam.</p>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+
+                @if ($examPapers->hasPages())
+                    <div class="px-4 py-3 border-t border-gray-100">{{ $examPapers->links() }}</div>
                 @endif
             </div>
 
@@ -761,6 +903,116 @@
                         <span wire:loading.remove wire:target="confirmDelete">{{ $deleteTargetType === 'exam' ? 'Delete' : 'Remove' }}</span>
                         <span wire:loading wire:target="confirmDelete">Deleting...</span>
                     </button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- UPLOAD / EDIT EXAM PAPER SLIDE-IN PANEL --}}
+    @if ($showPaperModal)
+        <div class="fixed inset-0 z-50 overflow-hidden">
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closePaperModal"></div>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900">{{ $paperIsEdit ? 'Edit Exam Paper' : 'Upload Exam Paper' }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">Select the exam, class &amp; section, then upload the PDF (max 5 MB).</p>
+                    </div>
+                    <button wire:click="closePaperModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Exam <span class="text-red-500">*</span></label>
+                        <select wire:model.defer="paperExam" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
+                            <option value="">Select Exam</option>
+                            @foreach ($allExams as $e)
+                                <option value="{{ $e['id'] }}">{{ $e['exam_name'] }} ({{ $e['academic_year'] }})</option>
+                            @endforeach
+                        </select>
+                        @error('paperExam')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Class <span class="text-red-500">*</span></label>
+                            <select wire:model.live="paperStandard" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
+                                <option value="">Select Class</option>
+                                @foreach ($allStandards as $s)
+                                    <option value="{{ $s['id'] }}">{{ $s['name'] }}</option>
+                                @endforeach
+                            </select>
+                            @error('paperStandard')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Section</label>
+                            <select wire:model.defer="paperSection" @disabled(!$paperStandard)
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm disabled:opacity-50">
+                                <option value="">All / None</option>
+                                @foreach ($paperModalSections as $sec)
+                                    <option value="{{ $sec['id'] }}">{{ $sec['name'] }}</option>
+                                @endforeach
+                            </select>
+                            @error('paperSection')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Title <span class="text-red-500">*</span></label>
+                        <input wire:model.defer="paperTitle" type="text" placeholder="e.g. Mathematics Question Paper"
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                        @error('paperTitle')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                            PDF File @if (!$paperIsEdit)<span class="text-red-500">*</span>@endif
+                            <span class="text-xs font-normal text-gray-400">(max 5 MB)</span>
+                        </label>
+                        <input wire:model="paperFile" type="file" accept=".pdf" class="w-full text-sm">
+                        @if ($paperIsEdit)<p class="text-xs text-gray-400 mt-1">Leave empty to keep the existing PDF.</p>@endif
+                        <div wire:loading wire:target="paperFile" class="text-xs text-blue-600 mt-1">Uploading...</div>
+                        @if ($paperFile)
+                            <div class="mt-2 text-xs text-emerald-600">
+                                Selected: {{ $paperFile->getClientOriginalName() }}
+                                ({{ number_format($paperFile->getSize() / 1024, 2) }} KB)
+                            </div>
+                        @endif
+                        @error('paperFile')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+                </div>
+
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                    <button wire:click="closePaperModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                    <button wire:click="savePaper" wire:loading.attr="disabled"
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                        <span wire:loading.remove wire:target="savePaper">{{ $paperIsEdit ? 'Update Paper' : 'Upload Paper' }}</span>
+                        <span wire:loading wire:target="savePaper">Saving...</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- DELETE EXAM PAPER CONFIRM OVERLAY --}}
+    @if ($showPaperDeleteConfirm)
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="cancelDeletePaper"></div>
+            <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
+                <div class="flex items-start gap-4">
+                    <div class="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center flex-shrink-0">
+                        <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-base font-semibold text-gray-900 mb-1">Delete exam paper?</h3>
+                        <p class="text-sm text-gray-500">The PDF will be permanently removed from storage.</p>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end gap-2 mt-5">
+                    <button wire:click="cancelDeletePaper" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                    <button wire:click="confirmDeletePaper" class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md">Delete</button>
                 </div>
             </div>
         </div>

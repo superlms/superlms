@@ -137,8 +137,8 @@ class Users extends Component
             'email'             => 'required|email:rfc|max:191',
             'mobile'            => ['required', 'regex:/^[6-9]\d{9}$/'],
             'alternativeMobile' => ['nullable', 'regex:/^[6-9]\d{9}$/', 'different:mobile'],
-            'dob'               => 'required|date|before:today',
-            'dateOfJoining'     => 'required|date|before_or_equal:today',
+            'dob'               => 'nullable|date|before:today',
+            'dateOfJoining'     => 'nullable|date|before_or_equal:today',
             'gender'            => 'required|in:male,female,other',
             'image'             => 'nullable|image|mimes:jpg,jpeg,png,webp|max:1024',
         ];
@@ -221,9 +221,9 @@ class Users extends Component
             $user->email              = $this->email;
             $user->mobile_number      = $this->mobile;
             $user->alternative_mobile = $this->alternativeMobile ?: null;
-            $user->dob                = $this->dob;
+            $user->dob                = $this->dob ?: null;
             $user->gender             = $this->gender;
-            $user->date_of_joining    = $this->dateOfJoining;
+            $user->date_of_joining    = $this->dateOfJoining ?: null;
             $user->role               = 'sub-admin';
             $user->is_active          = (int) $this->isActive;
             $user->organization_id    = $this->orgId();

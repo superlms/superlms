@@ -37,7 +37,8 @@
                     <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
                     Filter by:
                 </div>
-                <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search name, email, mobile..."
+                <input wire:model.live.debounce.300ms="search" type="text" name="user-search" autocomplete="off"
+                    data-lpignore="true" data-1p-ignore data-form-type="other" placeholder="Search name, email, mobile..."
                     class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-purple-500 focus:border-purple-500" />
                 <select wire:model.live="filterStatus"
                     class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
@@ -196,37 +197,37 @@
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Full Name <span class="text-rose-500">*</span></label>
-                            <input type="text" wire:model.blur="fullName" maxlength="100" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="e.g. Rahul Sharma">
+                            <input type="text" wire:model="fullName" autocomplete="off" maxlength="100" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="e.g. Rahul Sharma">
                             @error('fullName') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
                         </div>
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Email <span class="text-rose-500">*</span></label>
-                            <input type="email" wire:model.blur="email" maxlength="191" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="user@example.com">
+                            <input type="email" wire:model="email" autocomplete="off" maxlength="191" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="user@example.com">
                             @error('email') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Mobile <span class="text-rose-500">*</span></label>
-                                <input type="text" wire:model.blur="mobile" maxlength="10" inputmode="numeric" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="10-digit">
+                                <input type="text" wire:model="mobile" autocomplete="off" maxlength="10" inputmode="numeric" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="10-digit">
                                 @error('mobile') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Alternative Mobile</label>
-                                <input type="text" wire:model.blur="alternativeMobile" maxlength="10" inputmode="numeric" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="optional">
+                                <input type="text" wire:model="alternativeMobile" autocomplete="off" maxlength="10" inputmode="numeric" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="optional">
                                 @error('alternativeMobile') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
                             </div>
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Date of Birth <span class="text-rose-500">*</span></label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Date of Birth <span class="text-gray-400 font-normal">(optional)</span></label>
                                 <input type="date" wire:model="dob" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
                                 @error('dob') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Date of Joining <span class="text-rose-500">*</span></label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Date of Joining <span class="text-gray-400 font-normal">(optional)</span></label>
                                 <input type="date" wire:model="dateOfJoining" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
                                 @error('dateOfJoining') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
                             </div>
