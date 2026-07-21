@@ -8,6 +8,8 @@ use App\Models\Teacher\AssignTeacherStandard;
 use App\Models\Teacher\TeacherSubject;
 use App\Models\Teacher\TeacherAttendance;
 use App\Exports\TeachersExport;
+use App\Support\PdfFonts;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Models\Student\Standard;
 use App\Models\Student\Section;
@@ -31,6 +33,9 @@ class Teacher extends Component
 
     // ─── Edit state ──────────────────────────────────────────────────────
     public $teacherData = [];
+
+    // ─── Export format chooser (Excel / PDF) ───────────────────────────
+    public bool $showExportPicker = false;
 
     // ─── Form Fields ─────────────────────────────────────────────────────
     public $dob              = '';
@@ -545,15 +550,20 @@ class Teacher extends Component
      * data plus overall attendance, the subjects the teacher is assigned to
      * (with class/section) and bank details. Missing values are shown as a dash.
      */
+    public function openExportPicker(): void  { $this->showExportPicker = true; }
+    public function closeExportPicker(): void { $this->showExportPicker = false; }
+
     public function exportTeachers(): StreamedResponse
     {
+        $this->showExportPicker = false;
+
         $org = Auth::user()->organization_id;
 
         [$headings, $rows] = $this->teacherExportData($org);
 
         $stamp = now()->format('Y-m-d');
 
-        // Excel only (.xlsx).
+        // Excel (.xlsx).
         $xlsx = Excel::raw(new TeachersExport($headings, $rows), \Maatwebsite\Excel\Excel::XLSX);
 
         return response()->streamDownload(function () use ($xlsx) {
@@ -561,6 +571,71 @@ class Teacher extends Component
         }, "teachers_{$stamp}.xlsx", [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
+    }
+
+    /** Export teachers as a nicely formatted PDF. */
+    public function exportTeachersPdf(): StreamedResponse
+    {
+        $this->showExportPicker = false;
+
+        $org = Auth::user()->organization_id;
+        [$headings, $rows] = $this->teacherExportData($org);
+
+        $orgModel = Organization::find($org);
+        $school = [
+            'name' => $orgModel?->name,
+            'logo' => ($orgModel?->logo && \Illuminate\Support\Str::startsWith($orgModel->logo, ['http://', 'https://'])) ? $orgModel->logo : null,
+        ];
+
+        $columns = [
+            'S.No', 'Employee ID', 'Full Name', 'Mobile', 'Gender', 'Qualification',
+            'Date of Joining', 'Attendance %', 'Subjects (with Class)', 'Status',
+        ];
+
+        $bytes = $this->renderExportPdf('pdf.tabular-export', [
+            'title'       => 'Teachers Report',
+            'school'      => $school,
+            'columns'     => $columns,
+            'rowsByGroup' => ['' => $rows],   // no grouping for teachers
+            'total'       => count($rows),
+        ]);
+
+        $stamp = now()->format('Y-m-d');
+        return response()->streamDownload(fn () => print($bytes), "teachers_{$stamp}.pdf", [
+            'Content-Type' => 'application/pdf',
+        ]);
+    }
+
+    /**
+     * Render a landscape export PDF with our bundled fonts; falls back to
+     * default fonts if the dompdf font cache can't be written.
+     */
+    protected function renderExportPdf(string $view, array $data): string
+    {
+        $fontCache = storage_path('fonts');
+        if (!is_dir($fontCache)) {
+            @mkdir($fontCache, 0775, true);
+        }
+
+        $render = function (string $fontCss) use ($view, $data, $fontCache): string {
+            return Pdf::loadView($view, $data + compact('fontCss'))
+                ->setPaper('a4', 'landscape')
+                ->setOption('dpi', 130)
+                ->setOption('isHtml5ParserEnabled', true)
+                ->setOption('isRemoteEnabled', true)
+                ->setOption('isFontSubsettingEnabled', true)
+                ->setOption('fontDir', $fontCache)
+                ->setOption('fontCache', $fontCache)
+                ->setOption('defaultFont', 'DejaVu Sans')
+                ->output();
+        };
+
+        try {
+            return $render(PdfFonts::faceCss());
+        } catch (\Throwable $e) {
+            logger()->warning('Export PDF custom-font render failed, using fallback: ' . $e->getMessage());
+            return $render('');
+        }
     }
 
     /**

@@ -7,10 +7,10 @@
      HEADER + FILTER BAR (exams-style)
 ══════════════════════════════════════════════════ --}}
 <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-    <div class="px-4 sm:px-6 py-3 sm:py-4">
+    <div class="px-4 sm:px-6 py-3">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-                <h1 class="text-lg sm:text-2xl font-bold text-gray-900">Syllabus</h1>
+                <h1 class="text-lg sm:text-xl font-bold text-gray-900">Syllabus</h1>
                 <p class="text-sm text-gray-500 mt-0.5">Manage chapters and topics</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">

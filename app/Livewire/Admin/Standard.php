@@ -27,6 +27,9 @@ class Standard extends Component
     public $openSubject  = false;
     public $editId       = null;
 
+    // "Add" chooser — pick Class / Section / Subject before the form opens
+    public bool $showAddPicker = false;
+
     // Inline delete-confirm state (replaces WireUi dialog so the button always works)
     public bool $showDeleteConfirm = false;
     public ?string $deleteTargetType = null; // 'class' | 'section' | 'subject'
@@ -293,9 +296,10 @@ class Standard extends Component
 
     public function closeModal(): void
     {
-        $this->openStandard = false;
-        $this->openSection  = false;
-        $this->openSubject  = false;
+        $this->openStandard  = false;
+        $this->openSection   = false;
+        $this->openSubject   = false;
+        $this->showAddPicker = false;
         $this->reset([
             'editId', 'standardName', 'standardCode', 'standardOrder',
             'sectionName', 'sectionCode', 'sectionDescription', 'selectedStandard',
@@ -332,6 +336,31 @@ class Standard extends Component
             'subjectImagePreview', 'subjectDetailImagePreview', 'existingSubjects',
         ]);
         $this->subjectActive = true;
+    }
+
+    // ─── Add chooser ──────────────────────────────────────────────────────────
+
+    public function openAddPicker(): void
+    {
+        $this->showAddPicker = true;
+    }
+
+    public function closeAddPicker(): void
+    {
+        $this->showAddPicker = false;
+    }
+
+    /** Pick what to add, then open the matching form. */
+    public function chooseAdd(string $type): void
+    {
+        $this->showAddPicker = false;
+
+        match ($type) {
+            'class'   => $this->onStandard(),
+            'section' => $this->onSection(),
+            'subject' => $this->onSubject(),
+            default   => null,
+        };
     }
 
     // ─── Open modals ──────────────────────────────────────────────────────────

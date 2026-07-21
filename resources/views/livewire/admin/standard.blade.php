@@ -9,36 +9,20 @@
     {{-- ══════════════════════════════════════════════════
          HEADER
     ══════════════════════════════════════════════════ --}}
-    <div class="bg-white border-b border-gray-200 px-6 py-5">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-                <h1 class="text-2xl font-bold text-gray-900">Academic Structure</h1>
+                <h1 class="text-lg sm:text-xl font-bold text-gray-900">Academic Structure</h1>
                 <p class="text-sm text-gray-500 mt-0.5">Manage classes, sections & subjects</p>
             </div>
             <div class="flex flex-wrap gap-2">
-                <button wire:click="onStandard"
+                <button wire:click="openAddPicker"
                     class="inline-flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700
                            text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
-                    Add Class
-                </button>
-                <button wire:click="onSection"
-                    class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700
-                           text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add Section
-                </button>
-                <button wire:click="onSubject"
-                    class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700
-                           text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add Subject
+                    Add
                 </button>
             </div>
         </div>
@@ -335,7 +319,7 @@
                 @else
                     <div class="bg-white rounded-xl border border-gray-200 px-4 py-16 text-center">
                         <p class="text-sm font-medium text-gray-600">No sections in this class</p>
-                        <p class="text-xs text-gray-400 mt-1">Use <strong>Add Section</strong> above to create one.</p>
+                        <p class="text-xs text-gray-400 mt-1">Use <strong>Add</strong> above and choose <strong>Section</strong>.</p>
                     </div>
                 @endif
             @endif
@@ -414,7 +398,7 @@
                 @else
                     <div class="bg-white rounded-xl border border-gray-200 px-4 py-16 text-center">
                         <p class="text-sm font-medium text-gray-600">No subjects in this section</p>
-                        <p class="text-xs text-gray-400 mt-1">Use <strong>Add Subject</strong> above to create one.</p>
+                        <p class="text-xs text-gray-400 mt-1">Use <strong>Add</strong> above and choose <strong>Subject</strong>.</p>
                     </div>
                 @endif
             @endif
@@ -432,6 +416,59 @@
 
         </div>{{-- end wire:loading.remove --}}
     </div>
+
+    {{-- ══════════════════════════════════════════════════
+         ADD CHOOSER — pick what to add first
+    ══════════════════════════════════════════════════ --}}
+    @if ($showAddPicker)
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/30 backdrop-blur-[1.5px]" wire:click="closeAddPicker"></div>
+            <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+                <div class="flex items-center justify-between mb-1">
+                    <h3 class="text-lg font-bold text-gray-900">What would you like to add?</h3>
+                    <button wire:click="closeAddPicker" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500 mb-5">Choose a type and the form will open accordingly.</p>
+
+                <div class="space-y-3">
+                    <button wire:click="chooseAdd('class')"
+                        class="w-full flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-colors text-left">
+                        <span class="w-10 h-10 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 14l9-5-9-5-9 5 9 5z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 14l6.16-3.42a12 12 0 01.16 6.42L12 14z" /></svg>
+                        </span>
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-gray-900">Class</p>
+                            <p class="text-xs text-gray-500">Create a new class / standard</p>
+                        </div>
+                    </button>
+
+                    <button wire:click="chooseAdd('section')"
+                        class="w-full flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-left">
+                        <span class="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
+                        </span>
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-gray-900">Section</p>
+                            <p class="text-xs text-gray-500">Add a section under a class</p>
+                        </div>
+                    </button>
+
+                    <button wire:click="chooseAdd('subject')"
+                        class="w-full flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 hover:border-emerald-300 hover:bg-emerald-50 transition-colors text-left">
+                        <span class="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                        </span>
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-gray-900">Subject</p>
+                            <p class="text-xs text-gray-500">Add a subject to a class &amp; sections</p>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
 
     {{-- ══════════════════════════════════════════════════
          ADD / EDIT CLASS — SLIDE-IN PANEL

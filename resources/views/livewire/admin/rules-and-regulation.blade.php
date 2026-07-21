@@ -56,7 +56,7 @@
             @endphp
 
             {{-- COMPACT HEADER (super-admin about-app style) --}}
-            <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4">
+            <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div class="flex items-center gap-3 min-w-0">
                         <x-admin.back-to-more />
@@ -64,7 +64,7 @@
                             alt="Logo"
                             class="w-12 h-12 rounded-xl object-contain border border-gray-200 shadow-sm bg-white p-1 flex-shrink-0">
                         <div class="min-w-0">
-                            <h1 class="text-lg sm:text-2xl font-bold text-gray-900 truncate">Rules & Regulations</h1>
+                            <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">Rules & Regulations</h1>
                             <p class="text-sm text-gray-500 mt-0.5 truncate">
                                 Last Updated: {{ \Carbon\Carbon::parse($content['last_updated'])->format('d M Y, h:i A') }}
                             </p>

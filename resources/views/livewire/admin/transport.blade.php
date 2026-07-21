@@ -4,9 +4,9 @@
      HEADER + TABS + EXAMS-STYLE FILTER BAR
 ══════════════════════════════════════════════════ --}}
 <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-    <div class="px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div class="px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-            <h1 class="text-lg sm:text-2xl font-bold text-gray-900">Transportation</h1>
+            <h1 class="text-lg sm:text-xl font-bold text-gray-900">Transportation</h1>
             <p class="text-sm text-gray-500 mt-0.5">Manage routes, drivers, students &amp; transport fees</p>
         </div>
         <div class="flex flex-wrap items-center gap-3">

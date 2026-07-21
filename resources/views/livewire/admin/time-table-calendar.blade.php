@@ -3,10 +3,10 @@
     {{-- ══════════════════════════════════════════════════
          HEADER
     ══════════════════════════════════════════════════ --}}
-    <div class="bg-white border-b border-gray-200 px-6 py-5 sticky top-0 z-50">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sticky top-0 z-50">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-                <h1 class="text-2xl font-bold text-gray-900">School Calendar</h1>
+                <h1 class="text-lg sm:text-xl font-bold text-gray-900">School Calendar</h1>
                 <p class="text-sm text-gray-500 mt-0.5">Manage your academic schedule and events</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
