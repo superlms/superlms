@@ -1,7 +1,6 @@
 <div class="min-h-screen bg-gray-50"
     x-data
     x-on:open-list-pdf.window="window.open($event.detail.url, '_blank')">
-    <x-admin.back-to-more />
     @php
         // Static color classes so Tailwind keeps them (no dynamic string building).
         $colorMap = [
@@ -21,9 +20,12 @@
     {{-- ─── Header ─────────────────────────────────────────── --}}
     <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 sticky top-0 z-30">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-                <h1 class="text-lg sm:text-2xl font-bold text-gray-900">Lists</h1>
-                <p class="text-sm text-gray-500 mt-0.5">Build printable lists — pick a type, choose columns, generate a PDF</p>
+            <div class="flex items-center gap-2.5">
+                <x-admin.back-to-more />
+                <div>
+                    <h1 class="text-lg sm:text-2xl font-bold text-gray-900">Lists</h1>
+                    <p class="text-sm text-gray-500 mt-0.5">Build printable lists — pick a type, choose columns, generate a PDF</p>
+                </div>
             </div>
             <button wire:click="openPanel"
                 class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm">

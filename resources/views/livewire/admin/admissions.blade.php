@@ -1,5 +1,4 @@
 <div class="min-h-screen bg-gray-50">
-    <x-admin.back-to-more />
 
     {{-- ══════════════════════════════════════════════════
          HEADER (full-width, sticky)
@@ -7,9 +6,12 @@
     <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
         <div class="px-4 sm:px-6 py-3 sm:py-4">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                    <h1 class="text-lg sm:text-2xl font-bold text-gray-900">Admissions</h1>
-                    <p class="text-sm text-gray-500 mt-0.5">Manage student admissions and forms</p>
+                <div class="flex items-center gap-2.5">
+                    <x-admin.back-to-more />
+                    <div>
+                        <h1 class="text-lg sm:text-2xl font-bold text-gray-900">Admissions</h1>
+                        <p class="text-sm text-gray-500 mt-0.5">Manage student admissions and forms</p>
+                    </div>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-3 divide-x divide-gray-200">

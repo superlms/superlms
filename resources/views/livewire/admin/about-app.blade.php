@@ -1,5 +1,4 @@
 <div class="min-h-screen bg-gray-50">
-    <x-admin.back-to-more />
 
     @if (!$aboutApp)
         <div class="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
@@ -19,6 +18,7 @@
         <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-2.5 sm:py-3">
             <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center gap-2.5 min-w-0">
+                    <x-admin.back-to-more />
                     <img src="{{ $aboutApp?->logo ?: asset('website-image/Group 11525.png') }}" alt="Platform Logo"
                         class="w-9 h-9 rounded-lg object-contain border border-gray-200 shadow-sm bg-white p-1 flex-shrink-0">
                     <div class="min-w-0">

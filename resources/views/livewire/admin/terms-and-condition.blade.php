@@ -1,5 +1,4 @@
 <div class="min-h-screen bg-gray-50">
-    <x-admin.back-to-more />
 
     @if (!$hasData)
         <div class="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
@@ -20,10 +19,11 @@
         <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div class="flex items-center gap-3 min-w-0">
+                    <x-admin.back-to-more />
                     <img src="{{ $platformLogo ?: asset('website-image/Group 11525.png') }}" alt="Platform Logo"
                         class="w-12 h-12 rounded-xl object-contain border border-gray-200 shadow-sm bg-white p-1 flex-shrink-0">
                     <div class="min-w-0">
-                        <h1 class="text-lg sm:text-2xl font-bold text-gray-900 truncate">{{ $platformName }}</h1>
+                        <h1 class="text-lg sm:text-2xl font-bold text-gray-900 truncate">Terms &amp; Conditions</h1>
                         @if ($companyName)
                             <p class="text-sm text-gray-500 mt-0.5 truncate">{{ $companyName }}</p>
                         @endif
