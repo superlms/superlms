@@ -15,7 +15,7 @@
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Academic Structure</h1>
             </div>
             <div class="flex flex-wrap gap-2">
-                <button wire:click="openAddPicker"
+                <button wire:click="openAddForm"
                     class="inline-flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700
                            text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -419,281 +419,193 @@
     {{-- ══════════════════════════════════════════════════
          ADD CHOOSER — pick what to add first
     ══════════════════════════════════════════════════ --}}
-    @if ($showAddPicker)
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/30 backdrop-blur-[1.5px]" wire:click="closeAddPicker"></div>
-            <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-                <div class="flex items-center justify-between mb-1">
-                    <h3 class="text-lg font-bold text-gray-900">What would you like to add?</h3>
-                    <button wire:click="closeAddPicker" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
-                <p class="text-xs text-gray-500 mb-5">Choose a type and the form will open accordingly.</p>
-
-                <div class="space-y-3">
-                    <button wire:click="chooseAdd('class')"
-                        class="w-full flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-colors text-left">
-                        <span class="w-10 h-10 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center flex-shrink-0">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 14l9-5-9-5-9 5 9 5z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 14l6.16-3.42a12 12 0 01.16 6.42L12 14z" /></svg>
-                        </span>
-                        <div class="min-w-0">
-                            <p class="text-sm font-semibold text-gray-900">Class</p>
-                            <p class="text-xs text-gray-500">Create a new class / standard</p>
-                        </div>
-                    </button>
-
-                    <button wire:click="chooseAdd('section')"
-                        class="w-full flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors text-left">
-                        <span class="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
-                        </span>
-                        <div class="min-w-0">
-                            <p class="text-sm font-semibold text-gray-900">Section</p>
-                            <p class="text-xs text-gray-500">Add a section under a class</p>
-                        </div>
-                    </button>
-
-                    <button wire:click="chooseAdd('subject')"
-                        class="w-full flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 hover:border-emerald-300 hover:bg-emerald-50 transition-colors text-left">
-                        <span class="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
-                        </span>
-                        <div class="min-w-0">
-                            <p class="text-sm font-semibold text-gray-900">Subject</p>
-                            <p class="text-xs text-gray-500">Add a subject to a class &amp; sections</p>
-                        </div>
-                    </button>
-                </div>
-            </div>
-        </div>
-    @endif
-
-    {{-- ══════════════════════════════════════════════════
-         ADD / EDIT CLASS — SLIDE-IN PANEL
-    ══════════════════════════════════════════════════ --}}
-    @if ($openStandard)
-        <div class="fixed inset-0 z-50 overflow-hidden">
-            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeModal"></div>
-            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
-                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                    <div>
-                        <h2 class="text-lg font-semibold text-gray-900">{{ $editId ? 'Edit Class' : 'New Class' }}</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">{{ $editId ? 'Update class details' : 'Create a new class' }}</p>
-                    </div>
-                    <button wire:click="closeModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
-
-                <form wire:submit.prevent="saveStandard" class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Class Name <span class="text-red-500">*</span></label>
-                        <input wire:model.defer="standardName" type="text" placeholder="e.g. Class 10"
-                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-purple-500 focus:border-purple-500">
-                        @error('standardName')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Code <span class="text-red-500">*</span></label>
-                        <input wire:model.defer="standardCode" type="text" placeholder="e.g. STD-10"
-                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-purple-500 focus:border-purple-500">
-                        @error('standardCode')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Display Order</label>
-                        <input wire:model.defer="standardOrder" type="number" placeholder="0"
-                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-purple-500 focus:border-purple-500">
-                    </div>
-
-                    <label class="flex items-center gap-2 text-sm text-gray-700">
-                        <input type="checkbox" wire:model.defer="standardActive" class="rounded">
-                        Active
-                    </label>
-                </form>
-
-                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
-                    <button wire:click="closeModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                    <button wire:click="saveStandard" wire:loading.attr="disabled"
-                        class="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
-                        <span wire:loading.remove wire:target="saveStandard">{{ $editId ? 'Update Class' : 'Create Class' }}</span>
-                        <span wire:loading wire:target="saveStandard">Saving...</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-    @endif
-
-    {{-- ══════════════════════════════════════════════════
-         ADD / EDIT SECTION — SLIDE-IN PANEL
-    ══════════════════════════════════════════════════ --}}
-    @if ($openSection)
-        <div class="fixed inset-0 z-50 overflow-hidden">
-            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeModal"></div>
-            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
-                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                    <div>
-                        <h2 class="text-lg font-semibold text-gray-900">{{ $editId ? 'Edit Section' : 'New Section' }}</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">{{ $editId ? 'Update section details' : 'Add a section to a class' }}</p>
-                    </div>
-                    <button wire:click="closeModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
-
-                <form wire:submit.prevent="saveSection" class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Section Name <span class="text-red-500">*</span></label>
-                            <input wire:model.defer="sectionName" type="text" placeholder="e.g. A"
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                            @error('sectionName')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Code <span class="text-red-500">*</span></label>
-                            <input wire:model.defer="sectionCode" type="text" placeholder="e.g. SEC-A"
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                            @error('sectionCode')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Class <span class="text-red-500">*</span></label>
-                        <select wire:model.defer="selectedStandard"
-                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
-                            <option value="">Select Class</option>
-                            @foreach ($standards as $s)
-                                <option value="{{ $s->id }}">{{ $s->name }}</option>
-                            @endforeach
-                        </select>
-                        @error('selectedStandard')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
-                    </div>
-
-                    <label class="flex items-center gap-2 text-sm text-gray-700">
-                        <input type="checkbox" wire:model.defer="sectionActive" class="rounded">
-                        Active
-                    </label>
-                </form>
-
-                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
-                    <button wire:click="closeModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                    <button wire:click="saveSection" wire:loading.attr="disabled"
-                        class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
-                        <span wire:loading.remove wire:target="saveSection">{{ $editId ? 'Update Section' : 'Create Section' }}</span>
-                        <span wire:loading wire:target="saveSection">Saving...</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-    @endif
-
-    {{-- ══════════════════════════════════════════════════
-         ADD / EDIT SUBJECT — SLIDE-IN PANEL
-    ══════════════════════════════════════════════════ --}}
-    @if ($openSubject)
+    @if ($openForm)
         <div class="fixed inset-0 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col">
+                {{-- Header --}}
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-900">{{ $editId ? 'Edit Subject' : 'New Subject' }}</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">{{ $editId ? 'Update subject details' : 'Add a subject and assign it to sections' }}</p>
+                        <h2 class="text-lg font-semibold text-gray-900">
+                            @if ($editId)
+                                {{ $addType === 'class' ? 'Edit Class' : ($addType === 'section' ? 'Edit Section' : 'Edit Subject') }}
+                            @else
+                                Add to Academic Structure
+                            @endif
+                        </h2>
+                        <p class="text-xs text-gray-500 mt-0.5">
+                            {{ $editId ? 'Update details' : 'Choose what to add, then fill in its details.' }}
+                        </p>
                     </div>
                     <button wire:click="closeModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
 
-                <form wire:submit.prevent="saveSubject" class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-                    <div class="grid grid-cols-2 gap-3">
+                <form wire:submit.prevent="save" class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+
+                    {{-- Step 1: pick what to add (hidden while editing) --}}
+                    @unless ($editId)
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Subject Name <span class="text-red-500">*</span></label>
-                            <input wire:model.defer="subjectName" type="text" placeholder="e.g. Mathematics"
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
-                            @error('subjectName')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">What would you like to add? <span class="text-red-500">*</span></label>
+                            <select wire:model.live="addType" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm bg-white">
+                                <option value="">Select type…</option>
+                                <option value="class">Class</option>
+                                <option value="section">Section</option>
+                                <option value="subject">Subject</option>
+                            </select>
+                        </div>
+                    @endunless
+
+                    @if ($addType === '')
+                        <div class="text-center py-12 border border-dashed border-gray-200 rounded-xl">
+                            <p class="text-sm font-medium text-gray-600">Pick a type above</p>
+                            <p class="text-xs text-gray-400 mt-1">Its form will appear here.</p>
+                        </div>
+                    @endif
+
+                    {{-- ─── CLASS fields ─── --}}
+                    @if ($addType === 'class')
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Class Name <span class="text-red-500">*</span></label>
+                            <input wire:model.defer="standardName" type="text" placeholder="e.g. Class 10"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-purple-500 focus:border-purple-500">
+                            @error('standardName')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Code <span class="text-red-500">*</span></label>
-                            <input wire:model.defer="subjectCode" type="text" placeholder="e.g. MATH"
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
-                            @error('subjectCode')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                            <input wire:model.defer="standardCode" type="text" placeholder="e.g. STD-10"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-purple-500 focus:border-purple-500">
+                            @error('standardCode')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
-                    </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Display Order</label>
+                            <input wire:model.defer="standardOrder" type="number" placeholder="0"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-purple-500 focus:border-purple-500">
+                        </div>
+                        <label class="flex items-center gap-2 text-sm text-gray-700">
+                            <input type="checkbox" wire:model.defer="standardActive" class="rounded"> Active
+                        </label>
+                    @endif
 
-                    <div class="grid grid-cols-2 gap-3">
+                    {{-- ─── SECTION fields ─── --}}
+                    @if ($addType === 'section')
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Section Name <span class="text-red-500">*</span></label>
+                                <input wire:model.defer="sectionName" type="text" placeholder="e.g. A"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                @error('sectionName')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Code <span class="text-red-500">*</span></label>
+                                <input wire:model.defer="sectionCode" type="text" placeholder="e.g. SEC-A"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                @error('sectionCode')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                        </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Class <span class="text-red-500">*</span></label>
-                            <select wire:model.live="selectedStandardForSubject"
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
+                            <select wire:model.defer="selectedStandard" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
                                 <option value="">Select Class</option>
                                 @foreach ($standards as $s)
                                     <option value="{{ $s->id }}">{{ $s->name }}</option>
                                 @endforeach
                             </select>
-                            @error('selectedStandardForSubject')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                            @error('selectedStandard')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                        <label class="flex items-center gap-2 text-sm text-gray-700">
+                            <input type="checkbox" wire:model.defer="sectionActive" class="rounded"> Active
+                        </label>
+                    @endif
+
+                    {{-- ─── SUBJECT fields ─── --}}
+                    @if ($addType === 'subject')
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Subject Name <span class="text-red-500">*</span></label>
+                                <input wire:model.defer="subjectName" type="text" placeholder="e.g. Mathematics"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+                                @error('subjectName')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Code <span class="text-red-500">*</span></label>
+                                <input wire:model.defer="subjectCode" type="text" placeholder="e.g. MATH"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+                                @error('subjectCode')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Class <span class="text-red-500">*</span></label>
+                                <select wire:model.live="selectedStandardForSubject" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
+                                    <option value="">Select Class</option>
+                                    @foreach ($standards as $s)
+                                        <option value="{{ $s->id }}">{{ $s->name }}</option>
+                                    @endforeach
+                                </select>
+                                @error('selectedStandardForSubject')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Sections <span class="text-red-500">*</span></label>
+                                <div class="border border-gray-300 rounded-md px-3 py-2 max-h-32 overflow-y-auto bg-white {{ !$selectedStandardForSubject ? 'opacity-60' : '' }}">
+                                    @if ($selectedStandardForSubject && $sections->count())
+                                        @foreach ($sections as $sec)
+                                            <label class="flex items-center gap-2 py-1 text-sm">
+                                                <input type="checkbox" wire:model="selectedSectionsForSubject" value="{{ $sec->id }}" class="rounded">
+                                                {{ $sec->name }}
+                                                @if ($sec->code) <span class="text-xs text-gray-400">({{ $sec->code }})</span> @endif
+                                            </label>
+                                        @endforeach
+                                    @else
+                                        <span class="text-xs text-gray-400">{{ $selectedStandardForSubject ? 'No sections in this class.' : 'Select a class first.' }}</span>
+                                    @endif
+                                </div>
+                                @error('selectedSectionsForSubject')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Sections <span class="text-red-500">*</span></label>
-                            <div class="border border-gray-300 rounded-md px-3 py-2 max-h-32 overflow-y-auto bg-white {{ !$selectedStandardForSubject ? 'opacity-60' : '' }}">
-                                @if ($selectedStandardForSubject && $sections->count())
-                                    @foreach ($sections as $sec)
-                                        <label class="flex items-center gap-2 py-1 text-sm">
-                                            <input type="checkbox" wire:model="selectedSectionsForSubject" value="{{ $sec->id }}" class="rounded">
-                                            {{ $sec->name }}
-                                            @if ($sec->code) <span class="text-xs text-gray-400">({{ $sec->code }})</span> @endif
-                                        </label>
-                                    @endforeach
-                                @else
-                                    <span class="text-xs text-gray-400">{{ $selectedStandardForSubject ? 'No sections in this class.' : 'Select a class first.' }}</span>
-                                @endif
-                            </div>
-                            @error('selectedSectionsForSubject')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Subject Image</label>
+                            @if ($subjectImagePreview)
+                                <div class="mb-2 flex items-center gap-3">
+                                    <img src="{{ $subjectImagePreview }}" class="w-16 h-16 rounded-md object-cover border">
+                                    <button type="button" wire:click="$set('subjectImagePreview', null); $set('subjectImageUrl', null)"
+                                        class="text-xs text-red-600 border border-red-200 px-2 py-1 rounded-md hover:bg-red-50">Remove</button>
+                                </div>
+                            @endif
+                            <input type="file" wire:model="subjectImage" accept="image/*"
+                                class="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100">
+                            <p class="text-xs text-gray-400 mt-1">PNG, JPG up to 2MB</p>
+                            <div wire:loading wire:target="subjectImage" class="text-xs text-purple-600 mt-1">Uploading...</div>
+                            @error('subjectImage')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Subject Image</label>
-                        @if ($subjectImagePreview)
-                            <div class="mb-2 flex items-center gap-3">
-                                <img src="{{ $subjectImagePreview }}" class="w-16 h-16 rounded-md object-cover border">
-                                <button type="button"
-                                    wire:click="$set('subjectImagePreview', null); $set('subjectImageUrl', null)"
-                                    class="text-xs text-red-600 border border-red-200 px-2 py-1 rounded-md hover:bg-red-50">Remove</button>
-                            </div>
-                        @endif
-                        <input type="file" wire:model="subjectImage" accept="image/*"
-                            class="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100">
-                        <p class="text-xs text-gray-400 mt-1">PNG, JPG up to 2MB</p>
-                        <div wire:loading wire:target="subjectImage" class="text-xs text-purple-600 mt-1">Uploading...</div>
-                        @error('subjectImage')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
-                        <textarea wire:model.defer="subjectDescription" rows="3" placeholder="Optional description"
-                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm resize-none"></textarea>
-                    </div>
-
-                    <div class="flex flex-wrap gap-6">
-                        <label class="flex items-center gap-2 text-sm text-gray-700">
-                            <input type="checkbox" wire:model.defer="isMandatory" class="rounded">
-                            Mandatory Subject
-                        </label>
-                        <label class="flex items-center gap-2 text-sm text-gray-700">
-                            <input type="checkbox" wire:model.defer="subjectActive" class="rounded">
-                            Active
-                        </label>
-                    </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
+                            <textarea wire:model.defer="subjectDescription" rows="3" placeholder="Optional description"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm resize-none"></textarea>
+                        </div>
+                        <div class="flex flex-wrap gap-6">
+                            <label class="flex items-center gap-2 text-sm text-gray-700">
+                                <input type="checkbox" wire:model.defer="isMandatory" class="rounded"> Mandatory Subject
+                            </label>
+                            <label class="flex items-center gap-2 text-sm text-gray-700">
+                                <input type="checkbox" wire:model.defer="subjectActive" class="rounded"> Active
+                            </label>
+                        </div>
+                    @endif
                 </form>
 
+                {{-- Footer --}}
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
                     <button wire:click="closeModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                    <button wire:click="saveSubject" wire:loading.attr="disabled"
-                        class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
-                        <span wire:loading.remove wire:target="saveSubject">{{ $editId ? 'Update Subject' : 'Create Subject' }}</span>
-                        <span wire:loading wire:target="saveSubject">Saving...</span>
-                    </button>
+                    @if ($addType)
+                        <button wire:click="save" wire:loading.attr="disabled"
+                            class="px-5 py-2 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60
+                                {{ $addType === 'class' ? 'bg-purple-600 hover:bg-purple-700' : ($addType === 'section' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-emerald-600 hover:bg-emerald-700') }}">
+                            <span wire:loading.remove wire:target="save">{{ $editId ? 'Update' : 'Create' }} {{ ucfirst($addType) }}</span>
+                            <span wire:loading wire:target="save">Saving...</span>
+                        </button>
+                    @endif
                 </div>
             </div>
         </div>

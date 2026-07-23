@@ -792,27 +792,45 @@
                     </div>
                 </form>
 
-                {{-- Footer — Cancel + single Save / Update button --}}
-                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
-                    <button type="button" wire:click="closeModal"
-                        class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">
-                        Cancel
-                    </button>
+                {{-- Footer — Save & Next (left, add mode) + Cancel / Save (right) --}}
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between gap-2 flex-shrink-0">
+                    {{-- Left: Save & Next — saves this student, resets the form and keeps
+                         the panel open so the next student can be added right away. --}}
+                    <div>
+                        @unless ($editId)
+                            <button type="button" wire:click="onSave(true)" wire:loading.attr="disabled" wire:target="onSave"
+                                class="px-4 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-md
+                                       hover:bg-indigo-100 flex items-center gap-1.5 disabled:opacity-60">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                                </svg>
+                                <span wire:loading.remove wire:target="onSave">Save &amp; Next</span>
+                                <span wire:loading wire:target="onSave">Saving...</span>
+                            </button>
+                        @endunless
+                    </div>
 
-                    {{-- Use wire:click instead of the HTML5 form="…" + type=submit trick.
-                         The external-button trick depends on the browser firing the form's
-                         submit event for a button outside the form — which is fragile across
-                         Livewire morph cycles and some browser/extension combinations. A
-                         plain wire:click is bulletproof. The form's wire:submit.prevent
-                         still handles Enter-key submission from any input. --}}
-                    <button type="button" wire:click="onSave" wire:loading.attr="disabled" wire:target="onSave"
-                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md
-                               flex items-center gap-1.5 disabled:opacity-60">
-                        <span wire:loading.remove wire:target="onSave">
-                            {{ $editId ? ($this->isOrphaned ? 'Update (Reassign Class)' : 'Update Student') : 'Create Student' }}
-                        </span>
-                        <span wire:loading wire:target="onSave">Saving...</span>
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button type="button" wire:click="closeModal"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">
+                            Cancel
+                        </button>
+
+                        {{-- Use wire:click instead of the HTML5 form="…" + type=submit trick.
+                             The external-button trick depends on the browser firing the form's
+                             submit event for a button outside the form — which is fragile across
+                             Livewire morph cycles and some browser/extension combinations. A
+                             plain wire:click is bulletproof. The form's wire:submit.prevent
+                             still handles Enter-key submission from any input. --}}
+                        <button type="button" wire:click="onSave" wire:loading.attr="disabled" wire:target="onSave"
+                            class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md
+                                   flex items-center gap-1.5 disabled:opacity-60">
+                            <span wire:loading.remove wire:target="onSave">
+                                {{ $editId ? ($this->isOrphaned ? 'Update (Reassign Class)' : 'Update Student') : 'Create Student' }}
+                            </span>
+                            <span wire:loading wire:target="onSave">Saving...</span>
+                        </button>
+                    </div>
                 </div>
 
             </div>

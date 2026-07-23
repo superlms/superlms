@@ -300,7 +300,7 @@ class Student extends Component
         return !empty($this->studentData['id']) && empty($this->studentsClass);
     }
 
-    public function onSave(): void
+    public function onSave(bool $keepOpen = false): void
     {
         // Clear any save error banner from a previous attempt.
         $this->saveError = '';
@@ -664,6 +664,13 @@ class Student extends Component
             $this->resetForm();
             $this->loadStats();
             $this->resetPage();
+
+            // "Save & Next": keep the slide-in open with a fresh, blank form so
+            // the admin can immediately add the next student.
+            if ($keepOpen) {
+                $this->open = true;
+            }
+
             $stepLog('done');
         } catch (\Throwable $e) {
             // \Throwable catches both \Exception and \Error (TypeError etc.) —

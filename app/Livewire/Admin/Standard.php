@@ -22,13 +22,12 @@ class Standard extends Component
 {
     use WireUiActions, WithFileUploads;
 
-    public $openStandard = false;
-    public $openSection  = false;
-    public $openSubject  = false;
     public $editId       = null;
 
-    // "Add" chooser — pick Class / Section / Subject before the form opens
-    public bool $showAddPicker = false;
+    // Unified add/edit slide-in: choose what to add first (Class / Section /
+    // Subject) and the matching form fields appear below in the same panel.
+    public bool $openForm  = false;
+    public string $addType = ''; // '' | 'class' | 'section' | 'subject'
 
     // Inline delete-confirm state (replaces WireUi dialog so the button always works)
     public bool $showDeleteConfirm = false;
@@ -296,10 +295,8 @@ class Standard extends Component
 
     public function closeModal(): void
     {
-        $this->openStandard  = false;
-        $this->openSection   = false;
-        $this->openSubject   = false;
-        $this->showAddPicker = false;
+        $this->openForm = false;
+        $this->addType  = '';
         $this->reset([
             'editId', 'standardName', 'standardCode', 'standardOrder',
             'sectionName', 'sectionCode', 'sectionDescription', 'selectedStandard',
@@ -338,24 +335,26 @@ class Standard extends Component
         $this->subjectActive = true;
     }
 
-    // ─── Add chooser ──────────────────────────────────────────────────────────
+    // ─── Unified add slide-in ───────────────────────────────────────────────
 
-    public function openAddPicker(): void
+    /** Open the unified add panel — the user picks a type, then fields appear. */
+    public function openAddForm(): void
     {
-        $this->showAddPicker = true;
+        $this->editId  = null;
+        $this->addType = '';
+        $this->resetStandardFields();
+        $this->resetSectionFields();
+        $this->resetSubjectFields();
+        $this->openForm = true;
     }
 
-    public function closeAddPicker(): void
+    /** When the "what to add" selector changes, prep that type's fields. */
+    public function updatedAddType(): void
     {
-        $this->showAddPicker = false;
-    }
+        $this->editId = null;
+        $this->resetValidation();
 
-    /** Pick what to add, then open the matching form. */
-    public function chooseAdd(string $type): void
-    {
-        $this->showAddPicker = false;
-
-        match ($type) {
+        match ($this->addType) {
             'class'   => $this->onStandard(),
             'section' => $this->onSection(),
             'subject' => $this->onSubject(),
@@ -363,29 +362,35 @@ class Standard extends Component
         };
     }
 
-    // ─── Open modals ──────────────────────────────────────────────────────────
+    /** Save whichever type is currently selected in the unified panel. */
+    public function save(): void
+    {
+        match ($this->addType) {
+            'class'   => $this->saveStandard(),
+            'section' => $this->saveSection(),
+            'subject' => $this->saveSubject(),
+            default   => null,
+        };
+    }
+
+    // ─── Per-type field prep (no open flag; panel is already open) ──────────────
 
     public function onStandard(): void
     {
-        $this->editId = null;
         $this->resetStandardFields();
-        $this->openStandard = true;
     }
 
     public function onSection(): void
     {
-        $this->editId = null;
         $this->resetSectionFields();
         // Prefill class from drill-down filter if present
         if ($this->filterStandard) {
             $this->selectedStandard = $this->filterStandard;
         }
-        $this->openSection = true;
     }
 
     public function onSubject(): void
     {
-        $this->editId = null;
         $this->resetSubjectFields();
         // Prefill class/section from drill-down filters if present
         if ($this->filterSubjectStandard) {
@@ -396,7 +401,6 @@ class Standard extends Component
                 $this->selectedSectionsForSubject = [(int) $this->filterSection];
             }
         }
-        $this->openSubject = true;
     }
 
     // ─── Save Standard ────────────────────────────────────────────────────────
@@ -643,7 +647,8 @@ class Standard extends Component
             $this->standardBoard  = $s->board ?: $this->resolveOrgBoard();
             $this->standardOrder  = $s->order;
             $this->standardActive = $s->is_active;
-            $this->openStandard   = true;
+            $this->addType        = 'class';
+            $this->openForm       = true;
         }
     }
 
@@ -657,7 +662,8 @@ class Standard extends Component
             $this->sectionDescription = $s->description;
             $this->selectedStandard   = $s->standard_id;
             $this->sectionActive      = $s->is_active;
-            $this->openSection        = true;
+            $this->addType            = 'section';
+            $this->openForm           = true;
         }
     }
 
@@ -685,7 +691,8 @@ class Standard extends Component
                 ->where('standard_id', $ss->standard_id)->pluck('section_id')->toArray();
             $this->loadExistingSubjectsForStandard();
         }
-        $this->openSubject = true;
+        $this->addType  = 'subject';
+        $this->openForm = true;
     }
 
     public function onEditStandard(int $id): void  { $this->editStandard($id); }
