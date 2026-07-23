@@ -99,33 +99,27 @@
 
                     {{-- Countdown + Resend --}}
                     <div class="text-center" x-data="{
-                        countdown: @entangle('countdown'),
-                        canResend: @entangle('canResend'),
-                        timer: null,
-                        startTimer() {
-                            if (this.timer) clearInterval(this.timer);
-                            this.timer = setInterval(() => {
-                                if (this.countdown > 0) {
-                                    this.countdown--;
-                                } else {
-                                    this.canResend = true;
-                                    clearInterval(this.timer);
-                                    this.timer = null;
-                                    $wire.timerFinished();
-                                }
-                            }, 1000);
+                        until: @entangle('resendAvailableAt'),
+                        now: Math.floor(Date.now() / 1000),
+                        sync() { this.now = Math.floor(Date.now() / 1000); },
+                        get remaining() { return Math.max(0, (this.until || 0) - this.now); },
+                        get canResend() { return this.remaining <= 0; },
+                        get label() {
+                            const m = Math.floor(this.remaining / 60);
+                            const s = this.remaining % 60;
+                            return m + ':' + String(s).padStart(2, '0');
                         }
                     }" x-init="
-                        startTimer();
-                        $watch('canResend', value => {
-                            if (value === false && countdown > 0) startTimer();
-                        });
+                        sync();
+                        setInterval(() => sync(), 500);
+                        document.addEventListener('visibilitychange', () => sync());
+                        window.addEventListener('focus', () => sync());
+                        $watch('until', () => sync());
                     ">
                         <template x-if="!canResend">
                             <p class="text-sm text-gray-500">
                                 Resend OTP in
-                                <span class="font-semibold text-emerald-600"
-                                    x-text="Math.floor(countdown / 60) + ':' + String(countdown % 60).padStart(2, '0')"></span>
+                                <span class="font-semibold text-emerald-600" x-text="label"></span>
                             </p>
                         </template>
                         <template x-if="canResend">

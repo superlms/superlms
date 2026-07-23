@@ -9,8 +9,11 @@ use Livewire\Component;
 class VerifyOtp extends Component
 {
     public $otp = ['', '', '', '', '', ''];
-    public int $countdown = 120;
-    public bool $canResend = false;
+
+    /** Unix timestamp (server clock) before which Resend OTP stays disabled. */
+    public int $resendAvailableAt = 0;
+
+    private const RESEND_COOLDOWN = 120;
 
     public function mount()
     {
@@ -21,6 +24,9 @@ class VerifyOtp extends Component
         if (session('accounts_otp_verified')) {
             return redirect()->route('accounts.dashboard', ['organization' => Auth::user()->organization_id]);
         }
+
+        // OTP was just sent during login — start the resend cooldown.
+        $this->resendAvailableAt = now()->getTimestamp() + self::RESEND_COOLDOWN;
     }
 
     public function updatedOtp(): void
@@ -56,7 +62,9 @@ class VerifyOtp extends Component
 
     public function resendOtp(): void
     {
-        if (!$this->canResend) {
+        // Server-side cooldown guard — independent of any client timer state, so
+        // a single click always works the moment the cooldown has elapsed.
+        if (now()->getTimestamp() < $this->resendAvailableAt) {
             return;
         }
 
@@ -64,18 +72,12 @@ class VerifyOtp extends Component
 
         try {
             OtpMailService::sendOtp($user, 'Accounts Panel');
-            $this->countdown = 120;
-            $this->canResend = false;
+            $this->resendAvailableAt = now()->getTimestamp() + self::RESEND_COOLDOWN;
             $this->otp = ['', '', '', '', '', ''];
             session()->flash('success', 'OTP resent to your email.');
         } catch (\Exception $e) {
             $this->addError('otp', 'Failed to resend OTP: ' . $e->getMessage());
         }
-    }
-
-    public function timerFinished(): void
-    {
-        $this->canResend = true;
     }
 
     public function render()

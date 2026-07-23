@@ -86,29 +86,35 @@
     </div>
 </div>
 
-<!-- Static sidebar for desktop -->
-<div class="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
+<!-- Static sidebar for desktop (collapsible icon rail ⇆ full) -->
+<div class="lms-rail hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0">
     <div class="flex-1 flex flex-col min-h-0 bg-white border-r border-gray-200">
+        <!-- Three-dot toggle -->
+        <div class="lms-topbar flex items-center justify-between px-3 pt-3">
+            <button @click="sidebarOpen = !sidebarOpen" type="button"
+                :title="sidebarOpen ? 'Collapse menu' : 'Expand menu'"
+                class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <circle cx="12" cy="5" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="12" cy="19" r="1.7" />
+                </svg>
+            </button>
+        </div>
         <!-- Logo section -->
-        <div class="flex-shrink-0 px-4 py-4 border-b border-gray-200">
-            <div class="flex flex-col items-center gap-2">
-                <div class="flex-shrink-0 flex flex-col items-center">
-                    <img src="{{ auth()->user()->organization && auth()->user()->organization->logo ? auth()->user()->organization->logo : asset('website-image/Group 11525.png') }}"
-                        alt="Logo" class="w-24 h-24 object-contain">
-                    <h2 class="text-sm font-bold text-gray-900 text-center">
-                        {{ auth()->user()->organization->name }}
-                    </h2>
-                    <span class="text-xs font-medium text-emerald-600">Accounts Panel</span>
-                </div>
-            </div>
+        <div class="lms-logo-wrap flex-shrink-0 flex flex-col items-center px-4 pb-4 pt-1 border-b border-gray-200">
+            <img src="{{ auth()->user()->organization && auth()->user()->organization->logo ? auth()->user()->organization->logo : asset('website-image/Group 11525.png') }}"
+                alt="Logo" class="lms-logo-img w-14 h-14 object-contain">
+            <h2 class="lms-logo-name text-sm font-bold text-gray-900 text-center mt-1">
+                {{ auth()->user()->organization->name }}
+            </h2>
+            <span class="lms-logo-sub text-xs font-medium text-emerald-600">Accounts Panel</span>
         </div>
 
         <!-- Scrollable navigation area -->
         <div id="sidebar-nav" class="flex-1 flex flex-col overflow-y-auto">
-            <nav class="flex-1 px-4 py-4 space-y-6">
+            <nav class="lms-nav flex-1 px-4 py-4 space-y-6">
                 <!-- Dashboard Section -->
                 <div>
-                    <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">Accounts Panel</h3>
+                    <h3 class="lms-section-title text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">Accounts Panel</h3>
                     <div class="space-y-1">
                         @auth
                             @php
@@ -120,11 +126,12 @@
                                     $routeParams = ['organization' => $currentOrganization];
                                 @endphp
                                 <a href="{{ route($menu_item['link'], $routeParams) }}"
-                                    class="{{ $is_active ? 'bg-emerald-50 text-emerald-700 border-r-2 border-emerald-500' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }} group flex items-center px-2 py-2 text-sm font-medium rounded-lg transition-colors duration-150">
+                                    title="{{ $menu_item['title'] }}"
+                                    class="{{ $is_active ? 'bg-emerald-50 text-emerald-700 border-r-2 border-emerald-500' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }} lms-nav-link group flex items-center px-2 py-2 text-sm font-medium rounded-lg transition-colors duration-150">
                                     <x-icon
-                                        class="{{ $is_active ? 'text-emerald-500' : 'text-gray-400 group-hover:text-gray-600' }} mr-2 flex-shrink-0 h-4 w-4"
+                                        class="{{ $is_active ? 'text-emerald-500' : 'text-gray-400 group-hover:text-gray-600' }} lms-ico mr-2 flex-shrink-0 h-4 w-4"
                                         name="{{ $menu_item['icon'] }}" />
-                                    {{ $menu_item['title'] }}
+                                    <span class="lms-label">{{ $menu_item['title'] }}</span>
                                 </a>
                             @endforeach
                         @endauth

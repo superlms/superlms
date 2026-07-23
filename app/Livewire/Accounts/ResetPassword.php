@@ -16,8 +16,11 @@ class ResetPassword extends Component
     public string $password_confirmation = '';
     public bool $showPassword = false;
     public bool $showConfirmPassword = false;
-    public int $countdown = 120;
-    public bool $canResend = false;
+
+    /** Unix timestamp (server clock) before which Resend OTP stays disabled. */
+    public int $resendAvailableAt = 0;
+
+    private const RESEND_COOLDOWN = 120;
 
     public function sendOtp(): void
     {
@@ -33,8 +36,7 @@ class ResetPassword extends Component
         try {
             OtpMailService::sendOtp($user, 'Accounts Panel');
             $this->step = 2;
-            $this->countdown = 120;
-            $this->canResend = false;
+            $this->resendAvailableAt = now()->getTimestamp() + self::RESEND_COOLDOWN;
         } catch (\Exception $e) {
             $this->addError('email', 'Failed to send OTP: ' . $e->getMessage());
         }
@@ -110,15 +112,13 @@ class ResetPassword extends Component
 
     public function resendOtp(): void
     {
-        if (!$this->canResend) {
+        // Server-side cooldown guard — independent of any client timer state, so
+        // a single click always works the moment the cooldown has elapsed.
+        if (now()->getTimestamp() < $this->resendAvailableAt) {
             return;
         }
+        $this->otp = ['', '', '', '', '', ''];
         $this->sendOtp();
-    }
-
-    public function timerFinished(): void
-    {
-        $this->canResend = true;
     }
 
     public function render()

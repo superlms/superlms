@@ -4,6 +4,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {{-- Restore the collapsed/expanded sidebar preference before first paint (no FOUC). --}}
+    <script>try{ if(localStorage.getItem('lmsSidebar')==='open'){ document.documentElement.classList.add('sidebar-expanded'); } }catch(e){}</script>
     <link rel="icon" type="image/png" href="{{ url('website-image/Group 11525.png') }}" />
     @include('partials.pwa-head')
     @wireUiScripts
@@ -70,14 +72,43 @@
         #main-scroll .lms-header-noanim .lms-collapsible {
             transition: none !important;
         }
+
+        /* ─── Collapsible desktop sidebar ───
+           Default (no `.sidebar-expanded` on <html>) = icon-only rail; clicking
+           the three-dot toggle expands it to the full labelled sidebar and the
+           content area shrinks to match. Widths are driven by a CSS variable so
+           we never depend on Tailwind classes that aren't in the compiled build. */
+        @media (min-width: 768px) {
+            :root { --lms-sb: 4.75rem; }
+            html.sidebar-expanded { --lms-sb: 16rem; }
+
+            .lms-aside, .lms-rail { width: var(--lms-sb) !important; transition: width .2s ease; }
+            .lms-navbar { left: var(--lms-sb) !important; padding-left: 0 !important; transition: left .2s ease; }
+            .lms-main   { left: var(--lms-sb) !important; transition: left .2s ease; }
+
+            /* Collapsed state: hide labels/section titles/logo text, center icons. */
+            html:not(.sidebar-expanded) .lms-label,
+            html:not(.sidebar-expanded) .lms-section-title,
+            html:not(.sidebar-expanded) .lms-logo-name,
+            html:not(.sidebar-expanded) .lms-logo-sub { display: none !important; }
+
+            html:not(.sidebar-expanded) .lms-nav-link { justify-content: center; padding-left: .5rem; padding-right: .5rem; }
+            html:not(.sidebar-expanded) .lms-ico { margin-right: 0 !important; }
+            html:not(.sidebar-expanded) .lms-topbar { justify-content: center !important; }
+            html:not(.sidebar-expanded) .lms-logo-wrap { padding-left: .25rem !important; padding-right: .25rem !important; }
+            html:not(.sidebar-expanded) .lms-logo-img { width: 2.5rem !important; height: 2.5rem !important; }
+            html:not(.sidebar-expanded) .lms-nav { padding-left: .5rem !important; padding-right: .5rem !important; }
+        }
     </style>
 </head>
 
 {{-- offcanvas drives the mobile sidebar drawer (the navbar hamburger flips it).
      Kept at body level so every page inherits the same state. --}}
 <body class="bg-gray-50 h-screen w-screen overflow-hidden"
-      x-data="{ offcanvas: false }"
-      x-effect="document.body.classList.toggle('drawer-open', offcanvas)"
+      x-data="{ offcanvas: false, sidebarOpen: document.documentElement.classList.contains('sidebar-expanded') }"
+      x-effect="document.body.classList.toggle('drawer-open', offcanvas);
+                document.documentElement.classList.toggle('sidebar-expanded', sidebarOpen);
+                try { localStorage.setItem('lmsSidebar', sidebarOpen ? 'open' : 'closed'); } catch (e) {}"
       x-on:keydown.escape.window="offcanvas = false">
 
     <x-notifications position="top-end" />
@@ -87,7 +118,7 @@
         {{-- ─── SIDEBAR — invisible/non-blocking on mobile, fixed rail on md+
              (each sidebar partial includes BOTH a `md:hidden` off-canvas
               drawer and a `hidden md:flex` static rail). ─── --}}
-        <aside class="z-50 w-0 md:w-64 md:fixed md:inset-y-0 md:left-0
+        <aside class="lms-aside z-50 w-0 md:fixed md:inset-y-0 md:left-0
                       md:shadow-md md:overflow-y-auto md:overflow-x-hidden">
             @if (in_array(Auth::user()->role, ['super-admin', 'sub-super-admin']))
                 @include('admin-components.super-admin-sidebar')
@@ -100,14 +131,14 @@
     @endif
 
     {{-- ─── NAVBAR (fixed, sits above everything; offset by sidebar on md+) ─── --}}
-    <header class="fixed top-0 left-0 right-0 z-40 md:pl-64">
+    <header class="lms-navbar fixed top-0 left-0 right-0 z-40">
         @livewire('components.nav-bar')
     </header>
 
     {{-- ─── MAIN CONTENT WRAPPER ─── --}}
     {{-- Offset left by sidebar width, offset top by navbar height --}}
     {{-- Only THIS div scrolls --}}
-    <div id="main-scroll" class="fixed inset-0 md:left-64 top-16 overflow-y-auto overflow-x-hidden">
+    <div id="main-scroll" class="lms-main fixed inset-0 top-16 overflow-y-auto overflow-x-hidden">
 
         {{-- Background decorative blobs (contained inside this wrapper) --}}
         <div class="relative min-h-full w-full">
