@@ -10,7 +10,6 @@
             <div class="flex items-center justify-between gap-3">
                 <div class="min-w-0">
                     <h1 class="text-lg sm:text-xl font-bold text-gray-900">Ledger</h1>
-                    <p class="text-sm text-gray-500 mt-0.5 truncate">Track every credit and expense — fees in, salaries out</p>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
                     <button wire:click="openCredit"

@@ -10,7 +10,6 @@
                     <x-admin.back-to-more />
                     <div>
                         <h1 class="text-lg sm:text-xl font-bold text-gray-900">Rate Our LMS</h1>
-                        <p class="text-sm text-gray-500 mt-0.5">Share your experience and help us improve {{ $organization->name ?? 'our platform' }}</p>
                     </div>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">

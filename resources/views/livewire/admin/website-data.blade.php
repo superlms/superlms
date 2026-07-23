@@ -9,7 +9,6 @@
                 </a>
                 <div class="min-w-0">
                     <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">Website Data</h1>
-                    <p class="text-xs text-gray-500 mt-0.5">Manage the content shown on your school's public website. Pages, theme &amp; domain are set by SUPERLMS.</p>
                 </div>
             </div>
             <div class="flex items-center gap-2 flex-shrink-0">

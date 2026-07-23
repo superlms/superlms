@@ -17,7 +17,6 @@
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             <div>
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Payroll</h1>
-                <p class="text-sm text-gray-500 mt-0.5">Manage employees, attendance and salaries</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 {{-- Chips only on Employees tab --}}

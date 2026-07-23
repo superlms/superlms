@@ -236,6 +236,65 @@
             @endif
 
             {{-- ---------------------------------------------------------- --}}
+            {{--  FEE CYCLE (school-configured installments)                 --}}
+            {{-- ---------------------------------------------------------- --}}
+            @if(!empty($feeCycles))
+                @foreach($feeCycles as $cycle)
+                    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                        <div class="px-5 py-3.5 border-b border-gray-50 flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <svg class="w-4 h-4 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                </svg>
+                                <p class="text-sm font-semibold text-gray-700 truncate">
+                                    {{ ucfirst($cycle['fee_type']) }} Fee Cycle
+                                    <span class="text-gray-400 font-normal">· {{ $cycle['label'] }} · {{ $cycle['count'] }} installment{{ $cycle['count'] === 1 ? '' : 's' }}</span>
+                                </p>
+                            </div>
+                            <span class="text-xs font-medium text-gray-400 whitespace-nowrap flex-shrink-0">
+                                {{ $cycle['paid_count'] }}/{{ $cycle['count'] }} paid · {{ $cycle['year'] }}
+                            </span>
+                        </div>
+                        <div class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            @foreach($cycle['installments'] as $inst)
+                                @php
+                                    $stCfg = [
+                                        'paid'    => ['bg-emerald-50 border-emerald-200', 'text-emerald-700', 'bg-emerald-100 text-emerald-700', 'Paid'],
+                                        'partial' => ['bg-amber-50 border-amber-200',      'text-amber-700',   'bg-amber-100 text-amber-700',     'Partial'],
+                                        'pending' => ['bg-white border-gray-200',          'text-gray-700',    'bg-gray-100 text-gray-500',       'Pending'],
+                                        'na'      => ['bg-gray-50 border-gray-200',        'text-gray-400',    'bg-gray-100 text-gray-400',       '—'],
+                                    ][$inst['status']];
+                                    $pct = rtrim(rtrim(number_format($inst['percent'], 2), '0'), '.');
+                                @endphp
+                                <div class="rounded-xl border {{ $stCfg[0] }} p-3">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <p class="text-xs font-semibold {{ $stCfg[1] }} truncate">{{ $inst['label'] }}</p>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $stCfg[2] }} flex-shrink-0">{{ $stCfg[3] }}</span>
+                                    </div>
+                                    <p class="text-base font-bold text-gray-800 mt-1.5">₹{{ number_format($inst['amount'], 2) }}</p>
+                                    <div class="flex items-center justify-between mt-1">
+                                        <span class="text-[11px] text-gray-400">{{ $pct }}% of fee</span>
+                                        @if($inst['due_date'])
+                                            <span class="text-[11px] {{ $inst['overdue'] ? 'text-red-500 font-medium' : 'text-gray-400' }}">
+                                                Due {{ $inst['due_date'] }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                    @if($inst['status'] === 'partial')
+                                        <p class="text-[11px] text-amber-600 mt-1">Paid ₹{{ number_format($inst['paid'], 2) }}</p>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                        <p class="px-5 pb-3 -mt-1 text-[11px] text-gray-400">
+                            Installment status is derived from the total {{ $cycle['fee_type'] }} fee paid, applied in order.
+                        </p>
+                    </div>
+                @endforeach
+            @endif
+
+            {{-- ---------------------------------------------------------- --}}
             {{--  SUBMIT PAYMENT FORM                                        --}}
             {{-- ---------------------------------------------------------- --}}
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm">

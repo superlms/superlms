@@ -24,7 +24,6 @@
                 <x-admin.back-to-more />
                 <div>
                     <h1 class="text-lg sm:text-xl font-bold text-gray-900">Lists</h1>
-                    <p class="text-sm text-gray-500 mt-0.5">Build printable lists — pick a type, choose columns, generate a PDF</p>
                 </div>
             </div>
             <button wire:click="openPanel"

@@ -65,9 +65,6 @@
                             class="w-12 h-12 rounded-xl object-contain border border-gray-200 shadow-sm bg-white p-1 flex-shrink-0">
                         <div class="min-w-0">
                             <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">Rules & Regulations</h1>
-                            <p class="text-sm text-gray-500 mt-0.5 truncate">
-                                Last Updated: {{ \Carbon\Carbon::parse($content['last_updated'])->format('d M Y, h:i A') }}
-                            </p>
                         </div>
                     </div>
                     <div class="flex gap-2 items-center flex-shrink-0">

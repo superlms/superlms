@@ -15,7 +15,6 @@
                     <x-admin.back-to-more />
                     <div>
                         <h1 class="text-lg sm:text-xl font-bold text-gray-900">Contact Super Admin</h1>
-                        <p class="text-sm text-gray-500 mt-0.5">Send and manage your queries to Super Admin</p>
                     </div>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">

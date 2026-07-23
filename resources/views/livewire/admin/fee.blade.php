@@ -47,7 +47,6 @@
                     @endif
                     <div>
                         <h1 class="text-lg sm:text-xl font-bold text-gray-900">{{ $headerTitle }}</h1>
-                        <p class="text-sm text-gray-500 mt-0.5">{{ $headerDesc }}</p>
                     </div>
                 </div>
 

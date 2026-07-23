@@ -13,7 +13,6 @@
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Academic Structure</h1>
-                <p class="text-sm text-gray-500 mt-0.5">Manage classes, sections & subjects</p>
             </div>
             <div class="flex flex-wrap gap-2">
                 <button wire:click="openAddPicker"

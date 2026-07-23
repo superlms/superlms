@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Accounts;
 
+use App\Models\Admin\Fee\FeeCycle;
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Student\Section;
@@ -26,6 +27,9 @@ class FeeSubmission extends Component
     public $studentTransactions = [];
     public $studentInfo = [];
     public $feeBreakdown = [];
+
+    // Fee cycle installments (school-configured) with per-installment status
+    public $feeCycles = [];
 
     // Payment form
     public $submitAmount = '';
@@ -90,6 +94,7 @@ class FeeSubmission extends Component
         $this->studentTransactions = [];
         $this->studentInfo = [];
         $this->feeBreakdown = [];
+        $this->feeCycles = [];
         $this->analyticsData = [];
     }
 
@@ -156,8 +161,98 @@ class FeeSubmission extends Component
             'total_remaining' => max(0, $totalFee - $totalPaid),
         ];
 
+        // School-configured fee cycle (installments) with per-installment status
+        $this->feeCycles = $this->buildFeeCycles(
+            $orgId,
+            ['academic' => $academicPaid, 'transport' => $transportPaid],
+            ['academic' => $totalAcademicFee, 'transport' => $totalTransportFee],
+        );
+
         // Analytics data for charts
         $this->loadAnalytics();
+    }
+
+    /**
+     * Build the school's fee cycle for each fee type that has a total due.
+     * Each FeeCycle row is one installment defined by its % of the class fee; the
+     * paid amount is waterfall-allocated across installments in serial order so
+     * every installment shows a Paid / Partial / Pending status.
+     */
+    private function buildFeeCycles(int $orgId, array $paid, array $totals): array
+    {
+        $out = [];
+
+        foreach (['academic', 'transport'] as $type) {
+            $total = (float) ($totals[$type] ?? 0);
+            if ($total <= 0) {
+                continue;
+            }
+
+            $cycles = FeeCycle::where('organization_id', $orgId)
+                ->where('fee_type', $type)
+                ->where('is_active', true)
+                ->get();
+
+            if ($cycles->isEmpty()) {
+                continue;
+            }
+
+            // Use the latest academic year that actually has installments.
+            $year   = $cycles->max('academic_year');
+            $cycles = $cycles->where('academic_year', $year)
+                ->sortBy('payment_serial')
+                ->values();
+            if ($cycles->isEmpty()) {
+                continue;
+            }
+
+            $remaining    = (float) ($paid[$type] ?? 0);
+            $installments = [];
+
+            foreach ($cycles as $c) {
+                $amount  = round(((float) $c->fee_percent / 100) * $total, 2);
+                $covered = min($remaining, $amount);
+                $remaining = max(0, $remaining - $covered);
+
+                $status = $amount <= 0
+                    ? 'na'
+                    : ($covered >= $amount - 0.01
+                        ? 'paid'
+                        : ($covered > 0 ? 'partial' : 'pending'));
+
+                $due = $c->due_date;
+                $installments[] = [
+                    'serial'   => (int) $c->payment_serial,
+                    'label'    => $due ? $due->format('M Y') : ('Installment ' . $c->payment_serial),
+                    'due_date' => $due ? $due->format('d M Y') : null,
+                    'overdue'  => $due && $status !== 'paid' && $due->isPast(),
+                    'percent'  => (float) $c->fee_percent,
+                    'amount'   => $amount,
+                    'paid'     => $covered,
+                    'status'   => $status,
+                ];
+            }
+
+            $count = count($installments);
+            $out[] = [
+                'fee_type'     => $type,
+                'label'        => match ($count) {
+                    12      => 'Monthly',
+                    4       => 'Quarterly',
+                    2       => 'Half-Yearly',
+                    1       => 'One-Time',
+                    default => 'Custom',
+                },
+                'year'         => $year,
+                'total'        => $total,
+                'paid'         => (float) ($paid[$type] ?? 0),
+                'paid_count'   => collect($installments)->where('status', 'paid')->count(),
+                'count'        => $count,
+                'installments' => $installments,
+            ];
+        }
+
+        return $out;
     }
 
     private function loadAnalytics(): void

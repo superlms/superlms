@@ -6,7 +6,6 @@
             <x-admin.back-to-more />
             <div>
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Documents</h1>
-                <p class="text-xs sm:text-sm text-gray-500 mt-0.5">Documents shared with your school by SUPERLMS.</p>
             </div>
         </div>
     </div>

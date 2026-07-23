@@ -5,7 +5,6 @@
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">More</h1>
-                <p class="text-sm text-gray-500 mt-0.5">Account, policies and quick utilities</p>
             </div>
         </div>
     </div>

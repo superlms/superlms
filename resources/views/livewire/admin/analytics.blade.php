@@ -12,7 +12,6 @@
                     </span>
                     <div>
                         <h1 class="text-lg sm:text-xl font-bold text-gray-900">Analytics Dashboard</h1>
-                        <p class="text-sm text-gray-500 mt-0.5">Attendance, admissions, fees &amp; performance insights</p>
                     </div>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">

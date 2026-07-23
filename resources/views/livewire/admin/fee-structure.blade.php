@@ -7,7 +7,6 @@
         <div class="px-4 sm:px-6 py-3">
             <div>
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Fee Structure</h1>
-                <p class="text-sm text-gray-500 mt-0.5">Academic fee structure &amp; transport fee overview</p>
             </div>
         </div>
         @endunless

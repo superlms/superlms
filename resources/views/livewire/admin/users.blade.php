@@ -10,7 +10,6 @@
                     <x-admin.back-to-more />
                     <div>
                         <h1 class="text-lg sm:text-xl font-bold text-gray-900">Users</h1>
-                        <p class="text-sm text-gray-500 mt-0.5">Create sub-admins and grant scoped access</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-4">

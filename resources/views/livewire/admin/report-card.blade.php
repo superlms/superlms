@@ -12,7 +12,6 @@
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
                         <h1 class="text-lg sm:text-xl font-bold text-gray-900">Report Card</h1>
-                        <p class="text-sm text-gray-500 mt-0.5">Issue, manage and download academic report cards</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
                         <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-3 divide-x divide-gray-200">
@@ -207,7 +206,6 @@
                     </button>
                     <div>
                         <h1 class="text-lg sm:text-xl font-bold text-gray-900">Issue Report Cards</h1>
-                        <p class="text-sm text-gray-500 mt-0.5">Select class and section, then choose students to issue report cards</p>
                     </div>
                 </div>
             </div>

@@ -19,9 +19,6 @@
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Dashboard</h1>
-                <p class="text-sm text-gray-500 mt-0.5">
-                    Welcome back, {{ auth()->user()->name }} · here's what's happening today
-                </p>
             </div>
             <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 <span class="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-600 whitespace-nowrap">

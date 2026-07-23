@@ -23,7 +23,6 @@
         <div class="px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Attendance</h1>
-                <p class="text-sm text-gray-500 mt-0.5">Mark &amp; review teacher and student attendance</p>
             </div>
             @if ($mainTab === 'teacher')
                 @if ($teacherView === 'mark')
