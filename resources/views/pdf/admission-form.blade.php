@@ -2,6 +2,7 @@
     $fmtDate = fn($d) => $d ? \Carbon\Carbon::parse($d)->format('d M Y') : '—';
     $money   = fn($v) => 'Rs. ' . number_format((float) ($v ?? 0), 2);
     $val     = fn($v) => ($v !== null && $v !== '') ? $v : '—';
+    $documents = $documents ?? [];
 @endphp
 <!DOCTYPE html>
 <html>
@@ -10,119 +11,153 @@
     <style>
         {!! $fontCss !!}
 
+        @page { margin: 0; }
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; }
         body {
             font-family: 'Poppins', 'DejaVu Sans', sans-serif;
-            color: #1f2933;
-            font-size: 11.5px;
+            color: #334155;
+            font-size: 11px;
             line-height: 1.5;
         }
-        .page { padding: 30px 38px 26px; }
+        .page { padding: 34px 40px 30px; }
 
-        /* ── Centered school masthead ── */
-        .masthead { text-align: center; padding-bottom: 14px; }
-        .masthead .logo { height: 74px; width: auto; margin: 0 auto 8px; display: block; }
+        /* ── Masthead ── */
+        table.mast { width: 100%; border-collapse: collapse; }
+        table.mast td { vertical-align: middle; }
+        .mast-logo { width: 66px; padding-right: 14px; }
+        .mast-logo img { height: 60px; width: auto; display: block; }
         .school-name {
             font-family: 'PT Serif Bold', serif;
-            font-size: 25px;
-            color: #1e1b4b;
-            letter-spacing: .3px;
-            margin: 2px 0 4px;
+            font-size: 23px;
+            color: #0f172a;
+            letter-spacing: .2px;
+            line-height: 1.15;
+            margin: 0 0 3px;
         }
-        .school-line { font-size: 10.5px; color: #6b7280; margin: 1px 0; }
-        .school-line .sep { color: #c7cad1; padding: 0 5px; }
+        .school-sub { font-size: 9.5px; color: #64748b; line-height: 1.45; }
+        .school-sub .sep { color: #cbd5e1; padding: 0 6px; }
+        .mast-photo { width: 92px; text-align: right; }
+        .photo-box {
+            width: 82px; height: 100px; float: right;
+            border: 1px dashed #94a3b8; border-radius: 4px;
+            color: #94a3b8; font-size: 8.5px; text-align: center;
+            line-height: 1.4; padding-top: 38px;
+        }
 
-        .rule { border: 0; border-top: 2px solid #4f46e5; margin: 6px 0 0; }
-        .rule-soft { border: 0; border-top: 1px solid #e5e7eb; margin: 0 0 16px; }
+        .rule { border: 0; border-top: 2px solid #1d4ed8; margin: 12px 0 0; }
+        .rule-thin { border: 0; border-top: 1px solid #e2e8f0; margin: 3px 0 0; }
 
-        /* ── Title ribbon ── */
-        .ribbon {
-            background: #4f46e5;
-            color: #fff;
-            text-align: center;
+        /* ── Title band ── */
+        table.title-band { width: 100%; border-collapse: collapse; margin: 18px 0 6px; }
+        .title-band .t-main {
             font-family: 'Poppins Bold', sans-serif;
-            font-size: 14px;
-            letter-spacing: 4px;
-            padding: 8px 0;
-            border-radius: 6px;
-            margin: 16px 0 18px;
+            font-size: 15px; letter-spacing: 3px; color: #0f172a;
         }
+        .title-band .t-meta { text-align: right; font-size: 9.5px; color: #64748b; }
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 11px; font-size: 9px;
+                 font-family: 'Poppins SemiBold', sans-serif; letter-spacing: .3px; }
+        .badge-green { background: #dcfce7; color: #15803d; }
+        .badge-amber { background: #fef3c7; color: #b45309; }
 
         /* ── Section headers ── */
         .section-title {
             font-family: 'Poppins SemiBold', sans-serif;
-            font-size: 11.5px;
-            color: #4338ca;
-            text-transform: uppercase;
-            letter-spacing: 1.2px;
-            border-bottom: 1.5px solid #e0e0f5;
-            padding: 0 0 5px 0;
-            margin: 18px 0 9px;
+            font-size: 10px; color: #1d4ed8;
+            text-transform: uppercase; letter-spacing: 1.4px;
+            margin: 20px 0 8px; padding-left: 9px;
+            border-left: 3px solid #1d4ed8;
         }
 
-        /* ── Detail grids ── */
+        /* ── Detail grid ── */
         table.details { width: 100%; border-collapse: collapse; }
-        table.details td { padding: 4px 6px; vertical-align: top; }
-        td.label { color: #6b7280; width: 20%; font-size: 10.5px; }
-        td.value { color: #111827; font-family: 'Poppins SemiBold', sans-serif; width: 30%; font-size: 11px; }
+        table.details td { padding: 5px 8px; vertical-align: top; border-bottom: 1px solid #f1f5f9; }
+        td.label { color: #64748b; width: 19%; font-size: 9.5px; text-transform: uppercase; letter-spacing: .4px; }
+        td.value { color: #0f172a; font-family: 'Poppins SemiBold', sans-serif; width: 31%; font-size: 11px; }
 
-        .badge { display: inline-block; padding: 1px 9px; border-radius: 10px; font-size: 9.5px;
-                 font-family: 'Poppins SemiBold', sans-serif; }
-        .badge-green { background: #dcfce7; color: #15803d; }
-        .badge-amber { background: #fef3c7; color: #b45309; }
-
-        /* ── Fee tables ── */
+        /* ── Fee table ── */
         table.fee { width: 100%; border-collapse: collapse; margin-top: 2px; }
         table.fee th {
-            background: #eef2ff; color: #3730a3; text-align: left;
-            font-family: 'Poppins SemiBold', sans-serif; font-size: 10px;
-            text-transform: uppercase; letter-spacing: .5px; padding: 7px 10px;
-            border: 1px solid #e0e0f5;
+            background: #f8fafc; color: #475569; text-align: left;
+            font-family: 'Poppins SemiBold', sans-serif; font-size: 9px;
+            text-transform: uppercase; letter-spacing: .6px; padding: 8px 12px;
+            border-bottom: 1.5px solid #e2e8f0;
         }
         table.fee th.amt, table.fee td.amt { text-align: right; }
-        table.fee td { padding: 7px 10px; border: 1px solid #ececef; font-size: 11px; }
+        table.fee td { padding: 7px 12px; border-bottom: 1px solid #f1f5f9; font-size: 10.5px; color: #334155; }
         table.fee tr.total td {
-            background: #4f46e5; color: #fff; font-family: 'Poppins Bold', sans-serif;
-            font-size: 12px; border: 1px solid #4f46e5;
+            background: #0f172a; color: #fff; font-family: 'Poppins Bold', sans-serif;
+            font-size: 11.5px; border: 0;
         }
-        .muted-note { font-size: 9.5px; color: #9ca3af; margin-top: 4px; }
+        table.fee tr.total td.amt { color: #fff; }
+        .muted-note { font-size: 9.5px; color: #94a3b8; margin-top: 4px; padding-left: 2px; }
+
+        /* ── Documents ── */
+        ul.docs { list-style: none; margin: 2px 0 0; padding: 0; }
+        ul.docs li {
+            display: inline-block; margin: 0 6px 6px 0; padding: 4px 11px;
+            background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 12px;
+            font-size: 9.5px; color: #475569;
+        }
 
         /* ── Instructions ── */
-        ol.instructions { margin: 4px 0 0 16px; padding: 0; }
-        ol.instructions li { font-size: 10.5px; color: #374151; margin-bottom: 5px; line-height: 1.5; }
+        ol.instructions { margin: 4px 0 0 15px; padding: 0; }
+        ol.instructions li { font-size: 9.8px; color: #475569; margin-bottom: 5px; line-height: 1.5; }
 
         /* ── Signatures ── */
-        table.sign { width: 100%; margin-top: 42px; }
-        table.sign td { width: 50%; text-align: center; font-size: 10.5px; color: #374151; }
-        .sign-line { border-top: 1px solid #9ca3af; margin: 0 24px; padding-top: 5px;
-                     font-family: 'Poppins SemiBold', sans-serif; }
+        table.sign { width: 100%; margin-top: 46px; border-collapse: collapse; }
+        table.sign td { width: 50%; text-align: center; font-size: 9.5px; color: #475569; padding: 0 18px; }
+        .sign-line { border-top: 1px solid #94a3b8; margin: 0 10px; padding-top: 6px;
+                     font-family: 'Poppins SemiBold', sans-serif; color: #334155; }
 
-        .footer { margin-top: 18px; text-align: center; font-size: 9px; color: #a1a1aa;
+        .footer { margin-top: 22px; padding-top: 10px; border-top: 1px solid #e2e8f0;
+                  text-align: center; font-size: 8.5px; color: #94a3b8;
                   font-family: 'PT Serif', serif; font-style: italic; }
     </style>
 </head>
 <body>
 <div class="page">
 
-    {{-- ═══ Centered school masthead ═══ --}}
-    <div class="masthead">
-        @if (!empty($school['logo']))
-            <img src="{{ $school['logo'] }}" class="logo" alt="">
-        @endif
-        <div class="school-name">{{ $school['name'] ?: 'School' }}</div>
-        @if (!empty($school['address']))
-            <div class="school-line">{{ $school['address'] }}</div>
-        @endif
-        <div class="school-line">
-            @if (!empty($school['email'])){{ $school['email'] }}@endif
-            @if (!empty($school['contact']))<span class="sep">|</span>{{ $school['contact'] }}@endif
-            @if (!empty($school['website']))<span class="sep">|</span>{{ $school['website'] }}@endif
-        </div>
-    </div>
+    {{-- ═══ Masthead ═══ --}}
+    <table class="mast">
+        <tr>
+            @if (!empty($school['logo']))
+                <td class="mast-logo"><img src="{{ $school['logo'] }}" alt=""></td>
+            @endif
+            <td class="mast-info">
+                <div class="school-name">{{ $school['name'] ?: 'School' }}</div>
+                @if (!empty($school['address']))
+                    <div class="school-sub">{{ $school['address'] }}</div>
+                @endif
+                <div class="school-sub">
+                    @if (!empty($school['contact'])){{ $school['contact'] }}@endif
+                    @if (!empty($school['email']))<span class="sep">|</span>{{ $school['email'] }}@endif
+                    @if (!empty($school['website']))<span class="sep">|</span>{{ $school['website'] }}@endif
+                </div>
+            </td>
+            <td class="mast-photo">
+                <div class="photo-box">Affix<br>Passport<br>Photo</div>
+            </td>
+        </tr>
+    </table>
     <hr class="rule">
+    <hr class="rule-thin">
 
-    <div class="ribbon">ADMISSION FORM</div>
+    {{-- ═══ Title band ═══ --}}
+    <table class="title-band">
+        <tr>
+            <td class="t-main">ADMISSION FORM</td>
+            <td class="t-meta">
+                Date: {{ $fmtDate($enquiry->created_at) }}
+                &nbsp;&nbsp;
+                @if (($enquiry->status ?? '') === 'updated')
+                    <span class="badge badge-green">Updated</span>
+                @else
+                    <span class="badge badge-amber">Pending</span>
+                @endif
+            </td>
+        </tr>
+    </table>
 
     {{-- ═══ Student details ═══ --}}
     <div class="section-title">Student Details</div>
@@ -140,24 +175,13 @@
             <td class="label">Email</td><td class="value">{{ $val($enquiry->email) }}</td>
         </tr>
         <tr>
-            <td class="label">Admission Date</td><td class="value">{{ $fmtDate($enquiry->created_at) }}</td>
-            <td class="label">Status</td>
-            <td class="value">
-                @if (($enquiry->status ?? '') === 'updated')
-                    <span class="badge badge-green">Updated</span>
-                @else
-                    <span class="badge badge-amber">Pending</span>
-                @endif
-            </td>
-        </tr>
-        <tr>
             <td class="label">Address</td>
-            <td class="value" colspan="3" style="font-family:'Poppins',sans-serif;font-weight:normal;">{{ $val($enquiry->address) }}</td>
+            <td class="value" colspan="3" style="font-family:'Poppins',sans-serif;">{{ $val($enquiry->address) }}</td>
         </tr>
     </table>
 
     {{-- ═══ Class fee structure ═══ --}}
-    <div class="section-title">Fee Structure @if ($feeYear)<span style="color:#9ca3af;font-family:'Poppins',sans-serif;text-transform:none;letter-spacing:0;">· {{ $enquiry->standard->name ?? 'Class' }} · {{ $feeYear }}</span>@endif</div>
+    <div class="section-title">Fee Structure @if ($feeYear)<span style="color:#94a3b8;font-family:'Poppins',sans-serif;text-transform:none;letter-spacing:0;">— {{ $enquiry->standard->name ?? 'Class' }} · {{ $feeYear }}</span>@endif</div>
     @if (count($feeRows))
         <table class="fee">
             <thead>
@@ -195,6 +219,16 @@
             <td class="label">Collected On</td><td class="value">{{ $fmtDate($enquiry->fee_collected_at) }}</td>
         </tr>
     </table>
+
+    {{-- ═══ Documents attached ═══ --}}
+    @if (count($documents))
+        <div class="section-title">Documents Attached</div>
+        <ul class="docs">
+            @foreach ($documents as $doc)
+                <li>{{ $doc }}</li>
+            @endforeach
+        </ul>
+    @endif
 
     {{-- ═══ Instructions ═══ --}}
     <div class="section-title">Instructions</div>

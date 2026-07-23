@@ -33,6 +33,10 @@ class Admissions extends Component
     public $editEnquiryId       = null;
     public bool $enquiryModalOpen = false;
 
+    // ─── Multiple documents (name + file, max 2 MB each) ─────────────────────
+    public array $docRows  = [];   // [['name'=>, 'path'=>, 'original_name'=>], ...]
+    public $docFiles       = [];   // new uploads keyed by row index
+
     // ─── Update (result) form ────────────────────────────────────────────────
     public $updateEnquiryId      = null;
     public bool $updateModalOpen = false;
@@ -140,6 +144,11 @@ class Admissions extends Component
             $this->paymentMode    = $e->payment_mode ?: 'cash';
             $this->collectedBy    = (string) ($e->collected_by ?? '');
             $this->feeCollectedAt = $e->fee_collected_at ? $e->fee_collected_at->format('Y-m-d') : '';
+            $this->docRows = collect($e->documents ?? [])->map(fn ($d) => [
+                'name'          => $d['name'] ?? '',
+                'path'          => $d['path'] ?? null,
+                'original_name' => $d['original_name'] ?? null,
+            ])->values()->all();
         }
     }
 
@@ -147,6 +156,27 @@ class Admissions extends Component
     {
         $this->enquiryModalOpen = false;
         $this->resetEnquiryForm();
+    }
+
+    // ─── Document rows ───────────────────────────────────────────────────────
+
+    public function addDocRow(): void
+    {
+        $this->docRows[] = ['name' => '', 'path' => null, 'original_name' => null];
+    }
+
+    public function removeDocRow(int $i): void
+    {
+        unset($this->docRows[$i]);
+        $this->docRows = array_values($this->docRows);
+
+        // Keep the sparse docFiles keys aligned with the reindexed rows.
+        $newFiles = [];
+        foreach ($this->docFiles as $k => $f) {
+            if ((int) $k === $i) continue;
+            $newFiles[$k > $i ? $k - 1 : $k] = $f;
+        }
+        $this->docFiles = $newFiles;
     }
 
     public function saveEnquiry(): void
@@ -165,6 +195,20 @@ class Admissions extends Component
             'feeCollectedAt' => 'nullable|date',
         ]);
 
+        // Each attached document ≤ 2 MB.
+        $fileRules = [];
+        foreach ($this->docFiles as $i => $f) {
+            if ($f) {
+                $fileRules["docFiles.$i"] = 'file|mimes:pdf,jpg,jpeg,png,webp,doc,docx|max:2048';
+            }
+        }
+        if ($fileRules) {
+            $this->validate($fileRules, [
+                'docFiles.*.max'   => 'Each document must be 2 MB or smaller.',
+                'docFiles.*.mimes' => 'Allowed document types: PDF, JPG, PNG, WEBP, DOC, DOCX.',
+            ]);
+        }
+
         try {
             $data = [
                 'student_name'     => $this->studentName,
@@ -178,6 +222,7 @@ class Admissions extends Component
                 'payment_mode'     => $this->paymentMode ?: null,
                 'collected_by'     => $this->collectedBy ?: null,
                 'fee_collected_at' => $this->feeCollectedAt ?: null,
+                'documents'        => $this->processDocuments(),
             ];
 
             if ($this->editEnquiryId) {
@@ -231,6 +276,11 @@ class Admissions extends Component
             'result_pdf'     => $enquiry->result_pdf,
             'status'         => $enquiry->status,
             'created_at'     => $enquiry->created_at->format('d M Y, g:i A'),
+            'documents'      => collect($enquiry->documents ?? [])->values()->map(fn ($d, $i) => [
+                'index'    => $i,
+                'name'     => $d['name'] ?? ($d['original_name'] ?? 'Document'),
+                'has_file' => !empty($d['path']),
+            ])->all(),
         ];
         $this->viewModalOpen = true;
     }
@@ -388,8 +438,43 @@ class Admissions extends Component
             'studentName', 'email', 'mobile', 'guardianName',
             'address', 'standardId', 'stream', 'admissionFee',
             'paymentMode', 'collectedBy', 'feeCollectedAt',
+            'docRows', 'docFiles',
         ]);
         $this->resetValidation();
+    }
+
+    /** Upload any new document files to S3 and return the documents metadata array. */
+    private function processDocuments(): ?array
+    {
+        $orgId = $this->orgId();
+        $docs  = [];
+
+        foreach ($this->docRows as $i => $row) {
+            $name = trim($row['name'] ?? '');
+            $path = $row['path'] ?? null;
+            $orig = $row['original_name'] ?? null;
+
+            $file = $this->docFiles[$i] ?? null;
+            if ($file) {
+                if ($path) {
+                    try { Storage::disk('s3')->delete($path); } catch (\Throwable $e) {}
+                }
+                $path = $file->store('admin/admissions/documents/' . $orgId, 's3');
+                $orig = $file->getClientOriginalName();
+            }
+
+            if ($name === '' && !$path) {
+                continue; // skip blank rows
+            }
+
+            $docs[] = [
+                'name'          => $name !== '' ? $name : ($orig ?? 'Document'),
+                'path'          => $path,
+                'original_name' => $orig,
+            ];
+        }
+
+        return $docs ?: null;
     }
 
     private function resetUpdateForm(): void
@@ -576,6 +661,36 @@ class Admissions extends Component
         return $this->redirect($url);
     }
 
+    public function downloadDocument(int $id, int $index): mixed
+    {
+        $enquiry = AdmissionEnquiry::where('id', $id)
+            ->where('organization_id', $this->orgId())
+            ->first();
+
+        $doc = ($enquiry?->documents ?? [])[$index] ?? null;
+        if (!$doc || empty($doc['path'])) {
+            $this->notification()->error('Document not found.');
+            return null;
+        }
+
+        if (!Storage::disk('s3')->exists($doc['path'])) {
+            $this->notification()->error('File missing on storage. Please re-upload this document.');
+            return null;
+        }
+
+        $ext      = pathinfo($doc['original_name'] ?? $doc['path'], PATHINFO_EXTENSION) ?: 'pdf';
+        $filename = \Illuminate\Support\Str::slug($doc['name'] ?? 'document') . '.' . $ext;
+        $url = Storage::disk('s3')->temporaryUrl(
+            $doc['path'],
+            now()->addMinutes(5),
+            [
+                'ResponseContentDisposition' => 'attachment; filename="' . $filename . '"',
+                'ResponseContentType'        => 'application/octet-stream',
+            ]
+        );
+        return $this->redirect($url);
+    }
+
     // ─── Admission form PDF ──────────────────────────────────────────────────
 
     /**
@@ -640,7 +755,13 @@ class Admissions extends Component
             @mkdir($fontCache, 0775, true);
         }
 
-        $data = compact('enquiry', 'school', 'feeRows', 'feeTotal', 'feeYear', 'instructions');
+        $documents = collect($enquiry->documents ?? [])
+            ->map(fn ($d) => $d['name'] ?? ($d['original_name'] ?? null))
+            ->filter()
+            ->values()
+            ->all();
+
+        $data = compact('enquiry', 'school', 'feeRows', 'feeTotal', 'feeYear', 'instructions', 'documents');
 
         $render = function (string $fontCss) use ($data, $fontCache): string {
             return Pdf::loadView('pdf.admission-form', $data + compact('fontCss'))

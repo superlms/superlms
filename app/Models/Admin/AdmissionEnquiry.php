@@ -27,6 +27,7 @@ class AdmissionEnquiry extends Model
         'obtained_marks',
         'remarks',
         'result_pdf',
+        'documents',
         'status',
     ];
 
@@ -36,6 +37,7 @@ class AdmissionEnquiry extends Model
         'fee_collected_at' => 'date',
         'total_marks'      => 'decimal:2',
         'obtained_marks'   => 'decimal:2',
+        'documents'        => 'array',
     ];
 
     public function organization(): BelongsTo

@@ -414,6 +414,43 @@
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Address</label>
                             <textarea wire:model.defer="address" rows="3" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm resize-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
                         </div>
+
+                        {{-- ─── Documents (name + file, max 2 MB each) ─── --}}
+                        <div class="col-span-2 border-t border-gray-100 pt-4 mt-1">
+                            <div class="flex items-center justify-between mb-2">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Documents</label>
+                                    <p class="text-xs text-gray-400">Attach multiple files — name + file, max 2&nbsp;MB each.</p>
+                                </div>
+                                <button type="button" wire:click="addDocRow"
+                                    class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded-md hover:bg-blue-100 transition-colors flex-shrink-0">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                                    Add document
+                                </button>
+                            </div>
+
+                            @forelse ($docRows as $i => $row)
+                                <div wire:key="doc-{{ $i }}" class="flex items-start gap-2 mb-2 bg-gray-50 border border-gray-200 rounded-lg p-2.5">
+                                    <div class="flex-1 min-w-0 space-y-1.5">
+                                        <input type="text" wire:model.defer="docRows.{{ $i }}.name" placeholder="Document name (e.g. Birth Certificate)"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                        <input type="file" wire:model="docFiles.{{ $i }}" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+                                            class="w-full text-xs text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-white file:border file:border-gray-300 file:text-gray-700 hover:file:bg-gray-50">
+                                        <div wire:loading wire:target="docFiles.{{ $i }}" class="text-xs text-blue-600">Uploading…</div>
+                                        @if (!empty($row['original_name']))
+                                            <p class="text-xs text-gray-500 truncate">Current: <span class="text-gray-700">{{ $row['original_name'] }}</span></p>
+                                        @endif
+                                        @error("docFiles.{$i}")<p class="text-xs text-red-500">{{ $message }}</p>@enderror
+                                    </div>
+                                    <button type="button" wire:click="removeDocRow({{ $i }})" title="Remove"
+                                        class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md flex-shrink-0">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                    </button>
+                                </div>
+                            @empty
+                                <p class="text-xs text-gray-400 bg-gray-50 border border-dashed border-gray-200 rounded-lg px-3 py-4 text-center">No documents added yet.</p>
+                            @endforelse
+                        </div>
                     </div>
                 </div>
 
@@ -518,6 +555,27 @@
                         <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Address</p>
                         <p class="text-sm text-gray-700 whitespace-pre-line">{{ $viewEnquiryData['address'] }}</p>
                     </div>
+                    @if (!empty($viewEnquiryData['documents']))
+                        <div class="border-t border-gray-100 pt-5">
+                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-2">Documents</p>
+                            <div class="space-y-1.5">
+                                @foreach ($viewEnquiryData['documents'] as $doc)
+                                    <div class="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                                        <span class="text-sm text-gray-700 truncate flex items-center gap-2 min-w-0">
+                                            <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                                            <span class="truncate">{{ $doc['name'] }}</span>
+                                        </span>
+                                        @if ($doc['has_file'])
+                                            <button wire:click="downloadDocument({{ $viewEnquiryData['id'] }}, {{ $doc['index'] }})" title="Download"
+                                                class="p-1.5 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 flex-shrink-0">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                            </button>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
                     @if ($viewEnquiryData['status'] === 'updated')
                         <div class="border-t border-gray-100 pt-5">
                             <p class="text-xs text-gray-400 uppercase tracking-wider mb-2">Result</p>
