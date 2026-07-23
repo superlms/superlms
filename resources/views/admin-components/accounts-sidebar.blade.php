@@ -94,8 +94,8 @@
             <button @click="sidebarOpen = !sidebarOpen" type="button"
                 :title="sidebarOpen ? 'Collapse menu' : 'Expand menu'"
                 class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <circle cx="12" cy="5" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="12" cy="19" r="1.7" />
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
             </button>
         </div>
@@ -127,6 +127,7 @@
                                 @endphp
                                 <a href="{{ route($menu_item['link'], $routeParams) }}"
                                     title="{{ $menu_item['title'] }}"
+                                    @click="sidebarOpen = false; try { localStorage.setItem('lmsSidebar', 'closed') } catch (e) {}"
                                     class="{{ $is_active ? 'bg-emerald-50 text-emerald-700 border-r-2 border-emerald-500' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }} lms-nav-link group flex items-center px-2 py-2 text-sm font-medium rounded-lg transition-colors duration-150">
                                     <x-icon
                                         class="{{ $is_active ? 'text-emerald-500' : 'text-gray-400 group-hover:text-gray-600' }} lms-ico mr-2 flex-shrink-0 h-4 w-4"
