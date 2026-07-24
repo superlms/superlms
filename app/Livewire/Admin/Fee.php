@@ -140,6 +140,9 @@ class Fee extends Component
     public $editCycleId      = null;
     public bool $cycleModalOpen = false;
     public ?int $pendingDeleteCycleId = null;
+    // How the installments are generated when adding: '' (chooser) | monthly | quarterly | custom.
+    public string $cycleMode = '';
+    public $cycleMonthlyDueDay = 10;    // day-of-month each monthly installment is due
 
     // Installment calculator (per-class breakdown)
     public $calcStandardId = '';
@@ -1230,6 +1233,8 @@ class Fee extends Component
         if ($id) {
             $c = FeeCycle::forOrg($this->orgId())->find($id);
             if (!$c) return;
+            // Editing an existing installment is always a single-row (custom) edit.
+            $this->cycleMode          = 'custom';
             $this->cycleFeeType       = $c->fee_type;
             $this->cycleSerial        = $c->payment_serial;
             $this->cycleDueDate       = optional($c->due_date)->toDateString();
@@ -1238,6 +1243,13 @@ class Fee extends Component
             $this->cycleYear          = $c->academic_year;
         }
         $this->cycleModalOpen = true;
+    }
+
+    /** Pick how the cycle is built (monthly | quarterly | custom) from the chooser. */
+    public function setCycleMode(string $mode): void
+    {
+        $this->cycleMode = in_array($mode, ['monthly', 'quarterly', 'custom'], true) ? $mode : '';
+        $this->resetValidation();
     }
 
     public function closeCycleModal(): void
@@ -1252,18 +1264,37 @@ class Fee extends Component
             'editCycleId', 'cycleSerial', 'cycleDueDate',
             'cyclePenaltyPerDay', 'cycleFeePercent',
         ]);
-        $this->cycleFeeType = 'academic';
-        $this->cycleSerial  = 1;
+        $this->cycleMode          = '';
+        $this->cycleFeeType       = 'academic';
+        $this->cycleSerial        = 1;
         $this->cyclePenaltyPerDay = '0';
-        $this->cycleYear    = '2026-27';
+        $this->cycleMonthlyDueDay = 10;
+        $this->cycleYear          = '2026-27';
         $this->resetValidation();
+    }
+
+    /** First 4-digit year in an academic-year string, e.g. "2026-27" → 2026. */
+    private function cycleStartYear(): int
+    {
+        return (int) (preg_match('/\d{4}/', (string) $this->cycleYear, $m) ? $m[0] : now()->year);
     }
 
     public function saveCycle(): void
     {
+        // Monthly / Quarterly auto-split (add mode only) — generate the whole set.
+        if (!$this->editCycleId && $this->cycleMode === 'monthly') {
+            $this->generateMonthlyCycles();
+            return;
+        }
+        if (!$this->editCycleId && $this->cycleMode === 'quarterly') {
+            $this->generateQuarterlyCycles();
+            return;
+        }
+
+        // Custom (single installment) — add or edit.
         $this->validate([
             'cycleFeeType'    => 'required|string|max:20',
-            'cycleSerial'     => 'required|integer|min:1|max:8',
+            'cycleSerial'     => 'required|integer|min:1|max:12',
             'cycleDueDate'    => 'required|date',
             'cycleFeePercent' => 'required|numeric|min:0|max:100',
             'cycleYear'       => 'required|string|max:20',
@@ -1294,6 +1325,108 @@ class Fee extends Component
         }
 
         $this->closeCycleModal();
+    }
+
+    /**
+     * Split the full fee into 12 equal monthly installments for the academic
+     * year (April → March). Each is due on the chosen day-of-month. Replaces any
+     * existing installments for this fee type + year.
+     */
+    private function generateMonthlyCycles(): void
+    {
+        $this->validate([
+            'cycleFeeType'       => 'required|string|max:20',
+            'cycleYear'          => 'required|string|max:20',
+            'cycleMonthlyDueDay' => 'required|integer|min:1|max:28',
+        ]);
+
+        $startYear = $this->cycleStartYear();
+        $dueDay    = (int) $this->cycleMonthlyDueDay;
+        $per       = round(100 / 12, 2);
+
+        $this->replaceCycles(function () use ($startYear, $dueDay, $per) {
+            for ($i = 0; $i < 12; $i++) {
+                // Academic year runs April(startYear) → March(startYear+1).
+                $month = \Carbon\Carbon::create($startYear, 4, 1)->addMonths($i);
+                $due   = $month->copy()->day(min($dueDay, $month->daysInMonth));
+                // Load the rounding remainder onto the last installment so the set sums to 100%.
+                $percent = $i === 11 ? round(100 - $per * 11, 2) : $per;
+
+                FeeCycle::create([
+                    'organization_id' => $this->orgId(),
+                    'fee_type'        => $this->cycleFeeType,
+                    'payment_serial'  => $i + 1,
+                    'start_date'      => $month->copy()->startOfMonth()->toDateString(),
+                    'end_date'        => $month->copy()->endOfMonth()->toDateString(),
+                    'due_date'        => $due->toDateString(),
+                    'penalty_per_day' => $this->cyclePenaltyPerDay ?: 0,
+                    'fee_percent'     => $percent,
+                    'amount'          => 0,
+                    'academic_year'   => $this->cycleYear,
+                    'is_active'       => true,
+                ]);
+            }
+        });
+
+        $this->notification()->success('12 monthly installments created!');
+        $this->closeCycleModal();
+    }
+
+    /**
+     * Split the full fee into 4 equal quarterly installments (Apr–Jun, Jul–Sep,
+     * Oct–Dec, Jan–Mar). Each is due on the last day of its quarter's last month.
+     * Replaces any existing installments for this fee type + year.
+     */
+    private function generateQuarterlyCycles(): void
+    {
+        $this->validate([
+            'cycleFeeType' => 'required|string|max:20',
+            'cycleYear'    => 'required|string|max:20',
+        ]);
+
+        $y = $this->cycleStartYear();
+        // [startMonth, startYear, endMonth, endYear]
+        $quarters = [
+            [4, $y, 6, $y],
+            [7, $y, 9, $y],
+            [10, $y, 12, $y],
+            [1, $y + 1, 3, $y + 1],
+        ];
+
+        $this->replaceCycles(function () use ($quarters) {
+            foreach ($quarters as $i => [$sM, $sY, $eM, $eY]) {
+                $start = \Carbon\Carbon::create($sY, $sM, 1)->startOfMonth();
+                $end   = \Carbon\Carbon::create($eY, $eM, 1)->endOfMonth();
+
+                FeeCycle::create([
+                    'organization_id' => $this->orgId(),
+                    'fee_type'        => $this->cycleFeeType,
+                    'payment_serial'  => $i + 1,
+                    'start_date'      => $start->toDateString(),
+                    'end_date'        => $end->toDateString(),
+                    'due_date'        => $end->toDateString(),
+                    'penalty_per_day' => $this->cyclePenaltyPerDay ?: 0,
+                    'fee_percent'     => 25,
+                    'amount'          => 0,
+                    'academic_year'   => $this->cycleYear,
+                    'is_active'       => true,
+                ]);
+            }
+        });
+
+        $this->notification()->success('4 quarterly installments created!');
+        $this->closeCycleModal();
+    }
+
+    /** Clear existing installments for the current fee type + year, then run $build. */
+    private function replaceCycles(callable $build): void
+    {
+        FeeCycle::forOrg($this->orgId())
+            ->where('fee_type', $this->cycleFeeType)
+            ->where('academic_year', $this->cycleYear)
+            ->delete();
+
+        $build();
     }
 
     public function deleteCycle(int $id): void { $this->pendingDeleteCycleId = $id; }

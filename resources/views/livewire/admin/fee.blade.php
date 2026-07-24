@@ -96,7 +96,7 @@
                         <button wire:click="openCycleModal()"
                             class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                            <span class="hidden sm:inline">Add Installment</span>
+                            <span class="hidden sm:inline">Add Fee Cycle</span>
                             <span class="sm:hidden">New</span>
                         </button>
                     @elseif ($activeTab === 'account_users')
@@ -1402,16 +1402,61 @@
             <div class="fixed inset-0 z-50 overflow-hidden">
                 <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeCycleModal"></div>
                 <div class="absolute top-0 right-0 bottom-0 w-full max-w-md bg-white shadow-2xl flex flex-col">
+                    @php
+                        $cycleTitle = $editCycleId
+                            ? 'Edit Installment'
+                            : ($cycleMode === '' ? 'Add Fee Cycle'
+                                : ($cycleMode === 'monthly' ? 'Monthly Fee Cycle'
+                                    : ($cycleMode === 'quarterly' ? 'Quarterly Fee Cycle' : 'Custom Installment')));
+                    @endphp
                     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                        <div>
-                            <h2 class="text-lg font-semibold text-gray-900">{{ $editCycleId ? 'Edit Installment' : 'Add Installment' }}</h2>
-                            <p class="text-xs text-gray-500 mt-0.5">Set the due date and the % of the fee to collect</p>
+                        <div class="flex items-center gap-2 min-w-0">
+                            @if (!$editCycleId && $cycleMode !== '')
+                                <button wire:click="setCycleMode('')" title="Back" class="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                                </button>
+                            @endif
+                            <div class="min-w-0">
+                                <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $cycleTitle }}</h2>
+                                <p class="text-xs text-gray-500 mt-0.5">
+                                    @if (!$editCycleId && $cycleMode === '')
+                                        Choose how you want to build the fee cycle
+                                    @else
+                                        The rupee amount is computed per class from its own fee
+                                    @endif
+                                </p>
+                            </div>
                         </div>
-                        <button wire:click="closeCycleModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                        <button wire:click="closeCycleModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                         </button>
                     </div>
                     <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+
+                        {{-- ── STEP 1: how to add (add mode only) ── --}}
+                        @if (!$editCycleId && $cycleMode === '')
+                            @php
+                                $cycleModes = [
+                                    ['monthly',   'Monthly',   'Split the full fee into 12 equal installments, one due each month.', 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'],
+                                    ['quarterly', 'Quarterly', 'Split the full fee into 4 equal parts (Apr–Jun, Jul–Sep, Oct–Dec, Jan–Mar).', 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'],
+                                    ['custom',    'Custom',    'Add a single installment yourself with its own % and due date.', 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z'],
+                                ];
+                            @endphp
+                            <div class="space-y-3">
+                                @foreach ($cycleModes as [$mode, $label, $desc, $icon])
+                                    <button wire:click="setCycleMode('{{ $mode }}')" type="button"
+                                        class="w-full text-left flex items-start gap-3 p-4 rounded-xl border border-gray-200 hover:border-purple-300 hover:bg-purple-50/40 transition-colors">
+                                        <div class="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
+                                            <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $icon }}" /></svg>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <h3 class="text-sm font-semibold text-gray-900">{{ $label }}</h3>
+                                            <p class="text-xs text-gray-500 mt-0.5 leading-snug">{{ $desc }}</p>
+                                        </div>
+                                    </button>
+                                @endforeach
+                            </div>
+                        @else
 
                         {{-- Previously-added installments (for the chosen fee type & year) --}}
                         @php $prevInstallments = $cycleExisting->where('id', '!=', $editCycleId); @endphp
@@ -1430,17 +1475,14 @@
                                         <span>{{ rtrim(rtrim(number_format($prevInstallments->sum('fee_percent'), 2), '0'), '.') }}%</span>
                                     </div>
                                 </div>
+                                @if (in_array($cycleMode, ['monthly', 'quarterly'], true))
+                                    <p class="text-[11px] text-indigo-500 mt-2">These will be replaced by the {{ $cycleMode }} split.</p>
+                                @endif
                             </div>
                         @endif
 
+                        {{-- Fee type + academic year (all modes) --}}
                         <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Installment No. <span class="text-red-500">*</span></label>
-                                <select wire:model="cycleSerial" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                                    @for ($i = 1; $i <= 8; $i++)<option value="{{ $i }}">Installment {{ $i }}</option>@endfor
-                                </select>
-                                @error('cycleSerial')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
-                            </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Fee Type</label>
                                 <select wire:model.live="cycleFeeType" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
@@ -1448,36 +1490,82 @@
                                     <option value="transport">Transport</option>
                                 </select>
                             </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Due Date <span class="text-red-500">*</span></label>
-                                <input type="date" wire:model="cycleDueDate" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                                @error('cycleDueDate')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Academic Year</label>
+                                <input type="text" wire:model.live="cycleYear" placeholder="2026-27" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                             </div>
+                        </div>
+
+                        {{-- ── MONTHLY ── --}}
+                        @if ($cycleMode === 'monthly')
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Due day of month <span class="text-red-500">*</span></label>
+                                    <select wire:model="cycleMonthlyDueDay" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                        @for ($d = 1; $d <= 28; $d++)<option value="{{ $d }}">{{ $d }}</option>@endfor
+                                    </select>
+                                    @error('cycleMonthlyDueDay')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Penalty / Day (₹)</label>
+                                    <input type="number" step="0.01" min="0" wire:model="cyclePenaltyPerDay" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                </div>
+                            </div>
+                            <div class="bg-purple-50 border border-purple-100 rounded-lg px-4 py-3 text-xs text-purple-700">
+                                Creates <strong>12 installments</strong> (Apr → Mar), each ≈ <strong>8.33%</strong> of the fee, due on day <strong>{{ $cycleMonthlyDueDay }}</strong> of each month.
+                            </div>
+
+                        {{-- ── QUARTERLY ── --}}
+                        @elseif ($cycleMode === 'quarterly')
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Penalty / Day (₹)</label>
                                 <input type="number" step="0.01" min="0" wire:model="cyclePenaltyPerDay" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                             </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Fee % to Collect <span class="text-red-500">*</span></label>
-                            <input type="number" step="0.01" min="0" max="100" wire:model="cycleFeePercent" placeholder="e.g. 25" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                            <p class="mt-1 text-[11px] text-gray-400">Applied to each class's own total fee automatically.</p>
-                            @error('cycleFeePercent')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Academic Year</label>
-                            <input type="text" wire:model.live="cycleYear" placeholder="2026-27" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                        </div>
+                            <div class="bg-purple-50 border border-purple-100 rounded-lg px-4 py-3 text-xs text-purple-700 space-y-0.5">
+                                <p>Creates <strong>4 installments</strong> of <strong>25%</strong> each, due on the last day of each quarter:</p>
+                                <p class="text-purple-600">Q1 Apr–Jun · Q2 Jul–Sep · Q3 Oct–Dec · Q4 Jan–Mar</p>
+                            </div>
+
+                        {{-- ── CUSTOM ── --}}
+                        @else
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Installment No. <span class="text-red-500">*</span></label>
+                                    <select wire:model="cycleSerial" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                        @for ($i = 1; $i <= 12; $i++)<option value="{{ $i }}">Installment {{ $i }}</option>@endfor
+                                    </select>
+                                    @error('cycleSerial')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Due Date <span class="text-red-500">*</span></label>
+                                    <input type="date" wire:model="cycleDueDate" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                    @error('cycleDueDate')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Fee % to Collect <span class="text-red-500">*</span></label>
+                                    <input type="number" step="0.01" min="0" max="100" wire:model="cycleFeePercent" placeholder="e.g. 25" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                    @error('cycleFeePercent')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Penalty / Day (₹)</label>
+                                    <input type="number" step="0.01" min="0" wire:model="cyclePenaltyPerDay" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                </div>
+                            </div>
+                        @endif
+
+                        @endif
                     </div>
                     <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
                         <button wire:click="closeCycleModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                        <button wire:click="saveCycle" wire:loading.attr="disabled"
-                            class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
-                            <span wire:loading.remove wire:target="saveCycle">{{ $editCycleId ? 'Update Installment' : 'Add Installment' }}</span>
-                            <span wire:loading wire:target="saveCycle">Saving…</span>
-                        </button>
+                        @if ($editCycleId || $cycleMode !== '')
+                            <button wire:click="saveCycle" wire:loading.attr="disabled"
+                                class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                                <span wire:loading.remove wire:target="saveCycle">{{ $editCycleId ? 'Update Installment' : ($cycleMode === 'custom' ? 'Add Installment' : 'Generate Cycle') }}</span>
+                                <span wire:loading wire:target="saveCycle">Saving…</span>
+                            </button>
+                        @endif
                     </div>
                 </div>
             </div>
