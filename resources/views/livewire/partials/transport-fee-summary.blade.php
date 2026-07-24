@@ -6,6 +6,7 @@
      style), and the detail card drops its own Add Payment / Change buttons. --}}
 @php
     $feeChromeInHeader = $feeChromeInHeader ?? false;
+    $filterInHeader    = $filterInHeader ?? false;
     $summary = $summaryOverride ?? $this->feeSummary();
 @endphp
 
@@ -222,6 +223,14 @@
         @endif
     </div>
 
+@elseif (!$feeStudentId && $filterInHeader)
+    {{-- Filter lives in the host header (student style) → just prompt here. --}}
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
+        <div class="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
+            <svg class="w-7 h-7 text-blue-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 9m0 8V9m0 0L9 7"/></svg>
+        </div>
+        <p class="text-sm text-gray-600 font-medium">Pick a route and student from the filter above to view the fee summary.</p>
+    </div>
 @elseif (!$feeStudentId)
     {{-- ══════════════════ LEGACY LAYOUT (fee-structure hosts) ══════════════════ --}}
     {{-- ─── Filter: route → student ──────────────────────── --}}

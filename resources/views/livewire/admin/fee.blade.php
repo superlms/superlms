@@ -396,7 +396,12 @@
     {{--          component so the two stay 1:1 in sync.)                  --}}
     {{-- ════════════════════════════════════════════════════════════════ --}}
     @if ($activeTab === 'fee_structure')
-        <livewire:admin.fee-structure :embedded="true" />
+        {{-- Break out of the parent content padding so the embedded component's
+             header (sub-tabs + filter) sits flush & full-width under the Fee
+             header, exactly like a standalone functionality page. --}}
+        <div class="-mx-4 sm:-mx-6 -mt-4 sm:-mt-6">
+            <livewire:admin.fee-structure :embedded="true" />
+        </div>
     @endif
 
 
