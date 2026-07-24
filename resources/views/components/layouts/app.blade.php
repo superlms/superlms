@@ -4,8 +4,10 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    {{-- Restore the collapsed/expanded sidebar preference before first paint (no FOUC). --}}
-    <script>try{ if(localStorage.getItem('lmsSidebar')==='open'){ document.documentElement.classList.add('sidebar-expanded'); } }catch(e){}</script>
+    {{-- Restore the collapsed/expanded sidebar preference before first paint (no FOUC).
+         Default is EXPANDED (the width every functionality screen is laid out for);
+         collapse to the icon rail only when the user explicitly chose it. --}}
+    <script>try{ if(localStorage.getItem('lmsSidebar')!=='closed'){ document.documentElement.classList.add('sidebar-expanded'); } }catch(e){}</script>
     <link rel="icon" type="image/png" href="{{ url('website-image/Group 11525.png') }}" />
     @include('partials.pwa-head')
     @wireUiScripts

@@ -127,7 +127,6 @@
                                 @endphp
                                 <a href="{{ route($menu_item['link'], $routeParams) }}"
                                     title="{{ $menu_item['title'] }}"
-                                    @click="sidebarOpen = false; try { localStorage.setItem('lmsSidebar', 'closed') } catch (e) {}"
                                     class="{{ $is_active ? 'bg-emerald-50 text-emerald-700 border-r-2 border-emerald-500' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50' }} lms-nav-link group flex items-center px-2 py-2 text-sm font-medium rounded-lg transition-colors duration-150">
                                     <x-icon
                                         class="{{ $is_active ? 'text-emerald-500' : 'text-gray-400 group-hover:text-gray-600' }} lms-ico mr-2 flex-shrink-0 h-4 w-4"
