@@ -40,6 +40,14 @@ class FeeStructure extends Component
     // ─── Delete confirm ─────────────────────────────────────────────────────────
     public ?int $pendingDeleteStructureId = null;
 
+    // ─── Group (class+section) edit / view / delete ───────────────────────────────
+    public bool $editingGroup       = false;
+    public $editGroupStandardId     = null;
+    public $editGroupSectionId      = null; // null = "All Sections" bucket
+    public ?array $pendingDeleteGroup = null; // ['standard_id'=>, 'section_id'=>]
+    public bool $viewGroupOpen      = false;
+    public array $viewGroupData     = [];
+
     // ─── Tabs: academic | transport_routes | transport_fees ──────────────────────
     public string $activeTab = 'academic';
 
@@ -124,6 +132,34 @@ class FeeStructure extends Component
         ]);
 
         try {
+            if ($this->editingGroup) {
+                // Replace the whole class+section group with the edited rows.
+                FeeStructureModel::where('organization_id', $this->orgId())
+                    ->where('fee_type', 'academic')
+                    ->where('standard_id', $this->editGroupStandardId)
+                    ->when($this->editGroupSectionId,
+                        fn ($q) => $q->where('section_id', $this->editGroupSectionId),
+                        fn ($q) => $q->whereNull('section_id'))
+                    ->delete();
+
+                $sectionId = $this->editGroupSectionId;
+                foreach ($this->feeRows as $row) {
+                    FeeStructureModel::create([
+                        'organization_id' => $this->orgId(),
+                        'standard_id'     => $this->structureStandardId,
+                        'section_id'      => $sectionId,
+                        'fee_name'        => $row['name'],
+                        'amount'          => $row['amount'],
+                        'fee_type'        => 'academic',
+                        'academic_year'   => $this->academicYear,
+                        'is_active'       => true,
+                    ]);
+                }
+                $this->notification()->success('Fee structure updated successfully!');
+                $this->closeStructureModal();
+                return;
+            }
+
             if ($this->editStructureId) {
                 $row = $this->feeRows[0] ?? ['name' => '', 'amount' => 0];
                 FeeStructureModel::where('organization_id', $this->orgId())
@@ -162,6 +198,89 @@ class FeeStructure extends Component
         }
     }
 
+    // ─── Group operations (the listing groups one card per class+section) ─────────
+
+    /** Open the structure modal pre-loaded with every fee row of a class+section. */
+    public function editGroup($standardId, $sectionId = null): void
+    {
+        $this->resetStructureForm();
+
+        $rows = FeeStructureModel::where('organization_id', $this->orgId())
+            ->where('fee_type', 'academic')
+            ->where('standard_id', $standardId)
+            ->when($sectionId, fn ($q) => $q->where('section_id', $sectionId),
+                              fn ($q) => $q->whereNull('section_id'))
+            ->orderBy('id')
+            ->get();
+
+        if ($rows->isEmpty()) return;
+
+        $this->editingGroup        = true;
+        $this->editGroupStandardId = $standardId;
+        $this->editGroupSectionId  = $sectionId;
+        $this->structureStandardId = $standardId;
+        $this->structureSectionIds = $sectionId ? [$sectionId] : [];
+        $this->academicYear        = $rows->first()->academic_year ?: '2026-27';
+        $this->feeRows             = $rows->map(fn ($r) => ['name' => $r->fee_name, 'amount' => $r->amount])->toArray();
+        $this->editStructureId     = null;
+        $this->structureModalOpen  = true;
+    }
+
+    public function viewGroup($standardId, $sectionId = null): void
+    {
+        $rows = FeeStructureModel::with(['standard', 'section'])
+            ->where('organization_id', $this->orgId())
+            ->where('fee_type', 'academic')
+            ->where('standard_id', $standardId)
+            ->when($sectionId, fn ($q) => $q->where('section_id', $sectionId),
+                              fn ($q) => $q->whereNull('section_id'))
+            ->orderBy('id')
+            ->get();
+
+        if ($rows->isEmpty()) return;
+
+        $this->viewGroupData = [
+            'class'   => $rows->first()->standard->name ?? '—',
+            'section' => $rows->first()->section->name ?? 'All Sections',
+            'year'    => $rows->first()->academic_year,
+            'rows'    => $rows->map(fn ($r) => ['fee_name' => $r->fee_name, 'amount' => (float) $r->amount])->toArray(),
+            'total'   => (float) $rows->sum('amount'),
+        ];
+        $this->viewGroupOpen = true;
+    }
+
+    public function closeViewGroup(): void
+    {
+        $this->viewGroupOpen = false;
+        $this->viewGroupData = [];
+    }
+
+    public function deleteGroup($standardId, $sectionId = null): void
+    {
+        $this->pendingDeleteGroup = ['standard_id' => $standardId, 'section_id' => $sectionId];
+    }
+
+    public function cancelDeleteGroup(): void
+    {
+        $this->pendingDeleteGroup = null;
+    }
+
+    public function doDeleteGroup(): void
+    {
+        if (!$this->pendingDeleteGroup) return;
+
+        FeeStructureModel::where('organization_id', $this->orgId())
+            ->where('fee_type', 'academic')
+            ->where('standard_id', $this->pendingDeleteGroup['standard_id'])
+            ->when($this->pendingDeleteGroup['section_id'],
+                fn ($q) => $q->where('section_id', $this->pendingDeleteGroup['section_id']),
+                fn ($q) => $q->whereNull('section_id'))
+            ->delete();
+
+        $this->pendingDeleteGroup = null;
+        $this->notification()->success('Fee structure deleted!');
+    }
+
     public function viewStructure(int $id): void
     {
         $s = FeeStructureModel::with(['standard', 'section'])
@@ -198,7 +317,8 @@ class FeeStructure extends Component
 
     private function resetStructureForm(): void
     {
-        $this->reset(['editStructureId', 'structureStandardId', 'structureSectionIds']);
+        $this->reset(['editStructureId', 'structureStandardId', 'structureSectionIds',
+                      'editingGroup', 'editGroupStandardId', 'editGroupSectionId']);
         $this->academicYear = '2026-27';
         $this->feeRows = [['name' => '', 'amount' => '']];
         $this->resetValidation();
@@ -209,6 +329,14 @@ class FeeStructure extends Component
     public function updatedFilterStructureStandard(): void { $this->filterStructureSection = ''; $this->resetPage(); }
     public function updatedFilterStructureSection(): void { $this->resetPage(); }
     public function updatedSearch(): void { $this->resetPage(); }
+
+    public function clearStructureFilters(): void
+    {
+        $this->filterStructureStandard = '';
+        $this->filterStructureSection  = '';
+        $this->search = '';
+        $this->resetPage();
+    }
 
     public function render()
     {
@@ -232,15 +360,30 @@ class FeeStructure extends Component
         $totalAcademicAmt = FeeStructureModel::where('organization_id', $orgId)->where('fee_type', 'academic')->sum('amount');
         $routeCount       = Transportation::where('organization_id', $orgId)->count();
 
-        // Academic structures (academic tab)
-        $structures = FeeStructureModel::with(['standard', 'section'])
+        // Academic structures (academic tab) — grouped one card per class+section.
+        $rows = FeeStructureModel::with(['standard', 'section'])
             ->where('organization_id', $orgId)
             ->where('fee_type', 'academic')
             ->when($this->filterStructureStandard, fn($q) => $q->where('standard_id', $this->filterStructureStandard))
             ->when($this->filterStructureSection, fn($q) => $q->where('section_id', $this->filterStructureSection))
             ->when($this->search, fn($q) => $q->where('fee_name', 'like', "%{$this->search}%"))
-            ->orderBy('standard_id')->orderBy('section_id')
-            ->paginate($this->perPage);
+            ->orderBy('standard_id')->orderBy('section_id')->orderBy('id')
+            ->get();
+
+        $structureGroups = $rows
+            ->groupBy(fn($r) => $r->standard_id . '-' . ($r->section_id ?? 0))
+            ->map(fn($g) => [
+                'standard_id' => $g->first()->standard_id,
+                'section_id'  => $g->first()->section_id,
+                'class'       => $g->first()->standard->name ?? '—',
+                'section'     => $g->first()->section->name ?? 'All Sections',
+                'year'        => $g->first()->academic_year,
+                'rows'        => $g->values(),
+                'total'       => (float) $g->sum('amount'),
+            ])
+            ->values();
+
+        $structureGrandTotal = (float) $rows->sum('amount');
 
         // Transport routes (route-wise tab)
         $routes = collect();
@@ -252,14 +395,15 @@ class FeeStructure extends Component
         }
 
         return view('livewire.accounts.fee-structure', [
-            'standards'        => $standards,
-            'sections'         => $sections,
-            'formSections'     => $formSections,
-            'structures'       => $structures,
-            'routes'           => $routes,
-            'academicCount'    => $academicCount,
-            'totalAcademicAmt' => $totalAcademicAmt,
-            'routeCount'       => $routeCount,
+            'standards'           => $standards,
+            'sections'            => $sections,
+            'formSections'        => $formSections,
+            'structureGroups'     => $structureGroups,
+            'structureGrandTotal' => $structureGrandTotal,
+            'routes'              => $routes,
+            'academicCount'       => $academicCount,
+            'totalAcademicAmt'    => $totalAcademicAmt,
+            'routeCount'          => $routeCount,
         ]);
     }
 }
