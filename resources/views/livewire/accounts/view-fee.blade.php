@@ -6,8 +6,7 @@
         {{-- Title row + sub-tabs --}}
         <div class="px-6 pt-4 pb-0 flex items-end justify-between gap-4 flex-wrap">
             <div class="pb-3">
-                <h1 class="text-xl font-bold text-emerald-700 leading-tight">View Fee</h1>
-                <p class="text-xs text-gray-400 mt-0.5">View fee details by student or by class</p>
+                <h1 class="text-lg sm:text-xl font-bold text-gray-900">View Fee</h1>
             </div>
             {{-- Sub-tab buttons --}}
             <div class="flex gap-1 pb-0">

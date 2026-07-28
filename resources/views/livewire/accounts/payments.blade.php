@@ -6,8 +6,7 @@
             {{-- Title row --}}
             <div class="flex items-center justify-between mb-3">
                 <div>
-                    <h1 class="text-xl font-bold text-gray-900 leading-tight">Payments</h1>
-                    <p class="text-xs text-gray-500 mt-0.5">View all fee payment records</p>
+                    <h1 class="text-lg sm:text-xl font-bold text-gray-900">Payments</h1>
                 </div>
                 <button wire:click="resetFilters"
                     class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-medium text-gray-600 bg-white hover:bg-gray-50 transition">

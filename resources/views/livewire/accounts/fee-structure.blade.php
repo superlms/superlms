@@ -2,11 +2,10 @@
 
     {{-- ══════════ STICKY HEADER — title + stats + tabs + filter band ══════════ --}}
     <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div class="px-4 sm:px-6 py-4 sm:py-5">
+        <div class="px-4 sm:px-6 py-3">
             <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                 <div>
-                    <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Fee Structure</h1>
-                    <p class="text-sm text-gray-500 mt-0.5">Academic fee structure &amp; transport fee overview</p>
+                    <h1 class="text-lg sm:text-xl font-bold text-gray-900">Fee Structure</h1>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-xs font-medium text-gray-600">

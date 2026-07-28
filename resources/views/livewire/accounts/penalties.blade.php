@@ -5,8 +5,7 @@
         <div class="px-6 pt-4 pb-3">
             {{-- Title row --}}
             <div class="mb-3">
-                <h1 class="text-xl font-bold text-gray-900 leading-tight">Penalties</h1>
-                <p class="text-xs text-gray-500 mt-0.5">Configure late fee penalty rules and monitor overdue charges</p>
+                <h1 class="text-lg sm:text-xl font-bold text-gray-900">Penalties</h1>
             </div>
 
             {{-- Analytics Strip --}}

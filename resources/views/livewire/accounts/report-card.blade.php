@@ -8,11 +8,10 @@
              HEADER (full-width, sticky, analytics + Issue button)
         ══════════════════════════════════════════════════ --}}
         <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-            <div class="px-4 sm:px-6 py-4 sm:py-5">
+            <div class="px-4 sm:px-6 py-3">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
-                        <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Report Card</h1>
-                        <p class="text-sm text-gray-500 mt-0.5">Issue, manage and download academic report cards</p>
+                        <h1 class="text-lg sm:text-xl font-bold text-gray-900">Report Card</h1>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
                         <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-3 divide-x divide-gray-200">
@@ -197,7 +196,7 @@
              ISSUE REPORT CARD SCREEN
         ══════════════════════════════════════════════════ --}}
         <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-            <div class="px-4 sm:px-6 py-4 sm:py-5">
+            <div class="px-4 sm:px-6 py-3">
                 <div class="flex items-center gap-3">
                     <button wire:click="backToList"
                         class="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
@@ -206,8 +205,7 @@
                         </svg>
                     </button>
                     <div>
-                        <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Issue Report Cards</h1>
-                        <p class="text-sm text-gray-500 mt-0.5">Select class and section, then choose students to issue report cards</p>
+                        <h1 class="text-lg sm:text-xl font-bold text-gray-900">Issue Report Cards</h1>
                     </div>
                 </div>
             </div>

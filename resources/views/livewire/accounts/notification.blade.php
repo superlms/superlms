@@ -4,8 +4,7 @@
     <div class="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
         <div class="px-6 pt-4 pb-3 flex items-center justify-between gap-4">
             <div>
-                <h1 class="text-xl font-bold text-emerald-700 leading-tight">Send Notification</h1>
-                <p class="text-xs text-gray-400 mt-0.5">Send push notifications to students and teachers</p>
+                <h1 class="text-lg sm:text-xl font-bold text-gray-900">Send Notification</h1>
             </div>
         </div>
 

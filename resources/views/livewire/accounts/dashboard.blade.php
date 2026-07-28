@@ -1,11 +1,10 @@
 <div class="min-h-screen bg-gray-50">
 
     {{-- ══════════ HEADER ══════════ --}}
-    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 sm:py-5">
+    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-                <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Accounts Dashboard</h1>
-                <p class="text-sm text-gray-500 mt-0.5">Welcome, {{ auth()->user()->name }} · {{ auth()->user()->organization->name ?? '' }}</p>
+                <h1 class="text-lg sm:text-xl font-bold text-gray-900">Accounts Dashboard</h1>
             </div>
             <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-600">
                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>

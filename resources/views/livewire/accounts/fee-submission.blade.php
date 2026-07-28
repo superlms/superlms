@@ -5,8 +5,7 @@
     <div class="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
         <div class="px-6 py-4 flex items-center justify-between">
             <div>
-                <h1 class="text-xl font-bold text-emerald-700 leading-tight">Fee Submission</h1>
-                <p class="text-xs text-gray-400 mt-0.5">Submit fee payments and manage student dues</p>
+                <h1 class="text-lg sm:text-xl font-bold text-gray-900">Fee Submission</h1>
             </div>
             @if(!empty($studentInfo) && count($studentTransactions) > 0)
                 <button wire:click="toggleTransactionHistory"
