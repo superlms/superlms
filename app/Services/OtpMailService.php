@@ -2,12 +2,21 @@
 
 namespace App\Services;
 
+use App\Mail\LoginOtpMail;
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class OtpMailService
 {
     /**
-     * Generate a 6-digit OTP, save it to the user, and send via ZeptoMail OTP template.
+     * Generate a 6-digit OTP, save it to the user, and deliver it.
+     *
+     * Primary channel is the ZeptoMail OTP template. If that fails (e.g. the
+     * ZeptoMail account is out of credit / unreachable), we fall back to the
+     * app's own mailer (SMTP/SES/…) so a single provider outage doesn't lock
+     * everyone out of their panel. If neither channel can deliver, a clean
+     * exception is thrown for the caller to surface — 2FA is never skipped.
      */
     public static function sendOtp(User $user, string $panelName): void
     {
@@ -18,6 +27,44 @@ class OtpMailService
             'otp_expires_at' => now()->addMinutes(2),
         ]);
 
+        // ── Primary: ZeptoMail template ──
+        try {
+            self::sendViaZeptoMail($user, $panelName, $otp);
+            return;
+        } catch (\Throwable $e) {
+            Log::warning('OTP primary (ZeptoMail) send failed — trying SMTP fallback', [
+                'email' => $user->email,
+                'panel' => $panelName,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // ── Fallback: app mailer (SMTP/SES/…) ──
+        // Only meaningful when a real delivery transport is configured. The
+        // 'log'/'array' mailers "succeed" without delivering anything, which
+        // would strand the user on the verify screen with no code — so treat
+        // those as no fallback and surface a clean error instead.
+        if (!self::hasRealMailer()) {
+            throw new \RuntimeException("Couldn't send the OTP email right now. Please try again in a moment.");
+        }
+
+        try {
+            Mail::to($user->email)->send(new LoginOtpMail($otp, $user->name ?? '', $panelName));
+        } catch (\Throwable $e) {
+            Log::error('OTP SMTP fallback send failed', [
+                'email' => $user->email,
+                'panel' => $panelName,
+                'error' => $e->getMessage(),
+            ]);
+            throw new \RuntimeException("Couldn't send the OTP email right now. Please try again in a moment.");
+        }
+    }
+
+    /**
+     * Deliver the OTP through the ZeptoMail transactional template.
+     */
+    private static function sendViaZeptoMail(User $user, string $panelName, string $otp): void
+    {
         $templateKey = config('services.zeptomail.otp_template_key');
 
         if (!$templateKey) {
@@ -31,6 +78,16 @@ class OtpMailService
             'team' => $panelName,
             'product_name' => 'SuperLMS',
         ]);
+    }
+
+    /**
+     * True when the default mailer is a real delivery transport (not log/array).
+     */
+    private static function hasRealMailer(): bool
+    {
+        $mailer = config('mail.default');
+
+        return !in_array($mailer, ['log', 'array', null, ''], true);
     }
 
     /**

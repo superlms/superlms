@@ -64,9 +64,9 @@ class Login extends Component
         // Generate and send OTP for 2-step verification
         try {
             OtpMailService::sendOtp($user, 'Accounts Panel');
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             logger()->error('OTP send failed during login: ' . $e->getMessage());
-            $this->addError('email', 'Failed to send OTP. Please try again.' . $e->getMessage());
+            $this->addError('email', $e->getMessage());
             Auth::guard('accounts')->logout();
             return;
         }
