@@ -62,6 +62,15 @@ class Login extends Component
             return;
         }
 
+        // 2FA temporarily disabled (ZeptoMail out of credit) — sign in directly.
+        // The OTP step below is left intact; flip services.otp.login_enabled back
+        // on to restore it.
+        if (!OtpMailService::loginOtpEnabled()) {
+            Auth::guard('superadmin')->login($user);
+            return redirect()->route('super-admin.quick-links')
+                ->with('success', 'Login successful.');
+        }
+
         // The OTP is saved to the user inside sendOtp BEFORE the email is sent,
         // so even if email delivery fails we can still continue. TEMPORARY: if
         // delivery fails (e.g. ZeptoMail outage), log the OTP so a super-admin

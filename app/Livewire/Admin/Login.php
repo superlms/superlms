@@ -75,6 +75,22 @@ class Login extends Component
             return;
         }
 
+        // 2FA temporarily disabled (ZeptoMail out of credit) — sign in directly.
+        // The OTP step below is left intact; flip services.otp.login_enabled back
+        // on to restore it.
+        if (!OtpMailService::loginOtpEnabled()) {
+            Auth::guard('admin')->login($user);
+
+            $landingRoute = 'admin.quick-links';
+            if ($user->role === 'sub-admin') {
+                $permissions  = (array) $user->permissions;
+                $landingRoute = $permissions[0] ?? 'admin.profile';
+            }
+
+            return redirect()->route($landingRoute, ['organization' => $user->organization_id])
+                ->with('success', 'Login successful.');
+        }
+
         try {
             OtpMailService::sendOtp($user, 'School Admin');
         } catch (\Exception $e) {

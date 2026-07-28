@@ -81,4 +81,13 @@ return [
         'sub_super_admin_password_template_key' => env('ZEPTOMAIL_SUB_SUPER_ADMIN_TEMPLATE_KEY', '2518b.67c7a493957be4c4.k1.944e75c0-7ae7-11f1-84db-62df313bf14d.19f427eff1c'),
     ],
 
+    'otp' => [
+        // Login 2-step (OTP) verification for the super-admin / admin / accounts
+        // panels. TEMPORARILY DISABLED while ZeptoMail is out of credit — the OTP
+        // code is left fully intact and simply skipped when this is false.
+        // Re-enable by setting LOGIN_OTP_ENABLED=true (or flipping the default
+        // below back to true). NOTHING is deleted.
+        'login_enabled' => env('LOGIN_OTP_ENABLED', false),
+    ],
+
 ];

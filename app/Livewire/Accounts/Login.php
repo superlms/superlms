@@ -61,6 +61,15 @@ class Login extends Component
         // Clear any previous OTP verification so user must verify again
         session()->forget('accounts_otp_verified');
 
+        // 2FA temporarily disabled (ZeptoMail out of credit) — sign in directly.
+        // The OTP flow below is left intact; flip services.otp.login_enabled back
+        // on to restore it.
+        if (!OtpMailService::loginOtpEnabled()) {
+            session(['accounts_otp_verified' => true]);
+            return redirect()->route('accounts.dashboard', ['organization' => $user->organization_id])
+                ->with('success', 'Login successful.');
+        }
+
         // Generate and send OTP for 2-step verification
         try {
             OtpMailService::sendOtp($user, 'Accounts Panel');

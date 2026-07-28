@@ -10,6 +10,18 @@ use Illuminate\Support\Facades\Mail;
 class OtpMailService
 {
     /**
+     * Whether login 2-step (OTP) verification is currently enabled.
+     *
+     * Temporarily false while ZeptoMail is out of credit. When false, the
+     * login flows sign the user in straight after the password check and skip
+     * the OTP send/verify steps — the OTP code stays in place, just unused.
+     */
+    public static function loginOtpEnabled(): bool
+    {
+        return (bool) config('services.otp.login_enabled', true);
+    }
+
+    /**
      * Generate a 6-digit OTP, save it to the user, and deliver it.
      *
      * Primary channel is the ZeptoMail OTP template. If that fails (e.g. the
