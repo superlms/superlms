@@ -32,15 +32,7 @@ class Credit extends Component
     // ── Delete confirm ───────────────────────────────────────────────────────
     public ?int $pendingDeleteId = null;
 
-    // ── Filters ──────────────────────────────────────────────────────────────
-    public string $search       = '';
-    public string $statusFilter = '';
-
-    protected $queryString = [
-        'search'       => ['except' => ''],
-        'statusFilter' => ['except' => ''],
-    ];
-
+    // Auto-set end date when start date changes (start + 20 days)
     public function updatedCreditStartDate(string $value): void
     {
         if ($value) {
@@ -48,12 +40,14 @@ class Credit extends Component
         }
     }
 
+    // ── Tabs ─────────────────────────────────────────────────────────────────
     public function setTab(string $tab): void
     {
         $this->activeTab = $tab;
         $this->resetPage();
     }
 
+    // ── Open "Ask Credit" modal ───────────────────────────────────────────────
     public function openAskCreditModal(): void
     {
         $this->editQueryId     = null;
@@ -65,6 +59,7 @@ class Credit extends Component
         $this->showCreditModal = true;
     }
 
+    // ── Open Edit modal (pending queries only) ────────────────────────────────
     public function openEditModal(int $id): void
     {
         $query = CreditQuery::forOrg(Auth::user()->organization_id)->findOrFail($id);
@@ -87,6 +82,7 @@ class Credit extends Component
         $this->editQueryId     = null;
     }
 
+    // ── Submit / Update ───────────────────────────────────────────────────────
     public function saveCreditQuery(): void
     {
         $this->validate([
@@ -94,7 +90,7 @@ class Credit extends Component
             'creditStartDate' => 'required|date',
             'creditEndDate'   => 'required|date|after:creditStartDate',
             'creditHeading'   => 'required|string|max:255',
-            'creditReason'    => 'required|string|min:10',
+            'creditReason'    => 'required|string|min:10|max:2000',
         ]);
 
         $data = [
@@ -121,6 +117,7 @@ class Credit extends Component
         $this->closeCreditModal();
     }
 
+    // ── View query ────────────────────────────────────────────────────────────
     public function viewQuery(int $id): void
     {
         $this->viewQueryId   = $id;
@@ -133,8 +130,12 @@ class Credit extends Component
         $this->viewQueryId   = null;
     }
 
-    public function confirmDelete(int $id): void  { $this->pendingDeleteId = $id; }
-    public function cancelDelete(): void          { $this->pendingDeleteId = null; }
+    // ── Delete ────────────────────────────────────────────────────────────────
+    public function confirmDelete(int $id): void
+    {
+        $this->pendingDeleteId = $id;
+    }
+
     public function executeDelete(): void
     {
         CreditQuery::forOrg(Auth::user()->organization_id)
@@ -144,16 +145,17 @@ class Credit extends Component
         $this->notification()->success('Deleted', 'Credit query deleted successfully.');
     }
 
+    public function cancelDelete(): void
+    {
+        $this->pendingDeleteId = null;
+    }
+
+    // ── Render ────────────────────────────────────────────────────────────────
     public function render()
     {
         $orgId = Auth::user()->organization_id;
 
         $queries = CreditQuery::forOrg($orgId)
-            ->when($this->search, fn($q) => $q->where(fn($s) =>
-                $s->where('heading', 'like', "%{$this->search}%")
-                  ->orWhere('reason', 'like', "%{$this->search}%")
-            ))
-            ->when($this->statusFilter, fn($q) => $q->where('status', $this->statusFilter))
             ->latest()
             ->paginate(10);
 
