@@ -76,9 +76,12 @@ $keyFile = Join-Path $PSScriptRoot "$KeyName.pem"
 awscli ec2 describe-key-pairs --key-names $KeyName 2>$null | Out-Null
 if ($LASTEXITCODE -ne 0) {
   Write-Host "==> Creating key pair $KeyName -> $keyFile" -ForegroundColor Cyan
+  # NOTE: aws --output text returns the PEM as multiple lines, which PowerShell
+  # captures as a string array. Join with LF (NOT -NoNewline alone, which would
+  # concatenate the lines into one and produce an unusable key).
   $km = aws ec2 create-key-pair --key-name $KeyName --query "KeyMaterial" `
     --output text --profile $Profile --region $Region
-  Set-Content -Path $keyFile -Value $km -NoNewline -Encoding ascii
+  [System.IO.File]::WriteAllText($keyFile, (($km -join "`n") + "`n"))
   Write-Host "    Saved private key: $keyFile  (keep it safe!)"
 } else {
   Write-Host "==> Key pair $KeyName already exists in AWS"
