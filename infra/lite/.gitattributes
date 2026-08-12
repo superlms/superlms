@@ -1,0 +1,7 @@
+# These run on the Linux box — force LF so the shebang never breaks on a
+# Windows checkout/commit round-trip.
+*.sh    text eol=lf
+Caddyfile text eol=lf
+*.cnf   text eol=lf
+*.conf  text eol=lf
+.env.prod.example text eol=lf

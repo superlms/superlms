@@ -1,0 +1,22 @@
+# MySQL 8 tuning for the lite single-box (t4g.medium, 4 GB shared with app).
+# Conservative so MySQL, Redis and PHP coexist without OOM. If you move DB to a
+# dedicated/bigger box later, raise innodb_buffer_pool_size to ~60-70% of RAM.
+[mysqld]
+# ~4-5k students' data + indexes fits comfortably in ~768 MB of buffer pool.
+innodb_buffer_pool_size        = 768M
+innodb_log_file_size           = 256M
+innodb_flush_log_at_trx_commit = 1          # durable (safe); use 2 only if you accept ~1s loss on crash
+innodb_flush_method            = O_DIRECT
+
+max_connections                = 100        # web(8) + worker + scheduler + headroom
+table_open_cache               = 2000
+thread_cache_size              = 16
+
+# utf8mb4 everywhere (matches the app).
+character-set-server           = utf8mb4
+collation-server               = utf8mb4_unicode_ci
+
+# Slow query visibility (rotate/inspect occasionally).
+slow_query_log                 = 1
+slow_query_log_file            = /var/lib/mysql/slow.log
+long_query_time                = 2
