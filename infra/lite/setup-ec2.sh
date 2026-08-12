@@ -20,11 +20,12 @@ sudo dnf -y install docker git
 sudo systemctl enable --now docker
 sudo usermod -aG docker ec2-user
 
-echo "==> [2/6] Docker Compose v2 plugin (arm64)"
+echo "==> [2/6] Docker Compose v2 plugin (auto-detect arch)"
 COMPOSE_VER="v2.29.7"
+ARCH="$(uname -m)"   # x86_64 or aarch64 — matches the compose release asset names
 sudo mkdir -p /usr/libexec/docker/cli-plugins
 sudo curl -fsSL \
-  "https://github.com/docker/compose/releases/download/${COMPOSE_VER}/docker-compose-linux-aarch64" \
+  "https://github.com/docker/compose/releases/download/${COMPOSE_VER}/docker-compose-linux-${ARCH}" \
   -o /usr/libexec/docker/cli-plugins/docker-compose
 sudo chmod +x /usr/libexec/docker/cli-plugins/docker-compose
 
