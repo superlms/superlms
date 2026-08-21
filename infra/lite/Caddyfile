@@ -27,6 +27,19 @@
 	}
 }
 
+# ── Media CDN (cdn.superlms.in) — served from THIS box, origin = new S3 bucket.
+# Replaces the old-account CloudFront so the media domain no longer depends on
+# that (soon-to-be-decommissioned) account. Only the public media prefixes are
+# ever referenced (admin/ super-admin/ superadmin/ website/); db-backups/ and
+# livewire-tmp/ stay private. Caddy issues/renews the cdn cert from Let's
+# Encrypt automatically once cdn.{$APP_DOMAIN} resolves to this box.
+cdn.{$APP_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy https://superlms-media-033649549123.s3.ap-south-1.amazonaws.com {
+		header_up Host superlms-media-033649549123.s3.ap-south-1.amazonaws.com
+	}
+}
+
 # ── School custom domains (optional) ──────────────────────────────────────
 # The app can serve schools on their own domains. To auto-issue certs for
 # arbitrary domains, uncomment the block below AND expose an app endpoint that
