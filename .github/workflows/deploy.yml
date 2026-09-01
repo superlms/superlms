@@ -1,10 +1,10 @@
 name: Deploy
 
 # PRs + pushes run `validate` (fast, no secrets, no infra).
-# Only pushes to main, with `validate` green, proceed to `deploy`, which SSHes
-# into the single-box (infra/lite / Docker Compose) and runs a pull-based deploy
-# (git pull -> build image -> migrate -> restart the stack). The old ECS/ECR/OIDC
-# path is gone (that account was decommissioned in the lite migration).
+# Only pushes to main, with `validate` green, proceed to `deploy`, which runs ON
+# the single-box via a self-hosted runner (infra/lite / Docker Compose): git pull
+# -> build image -> migrate -> restart the stack. The old ECS/ECR/OIDC path is
+# gone (that account was decommissioned in the lite migration).
 
 on:
   push:
@@ -126,42 +126,29 @@ jobs:
           echo "All routes resolved."
 
   # ──────────────────────────────────────────────────────────────────────
-  # JOB 2 — DEPLOY  (single-box / infra/lite: SSH -> git pull -> deploy.sh)
-  # No AWS creds needed. Requires two repo secrets:
-  #   DEPLOY_HOST     — the box's Elastic IP (or a DNS name that resolves to it)
-  #   DEPLOY_SSH_KEY  — the PRIVATE key (contents of infra/lite/superlms-key.pem)
-  # The box already has the repo cloned at /opt/superlms and infra/lite/.env set.
-  # deploy.sh builds the image, runs migrations once, and (re)starts the stack.
+  # JOB 2 — DEPLOY  (runs ON the single-box via a self-hosted runner)
+  # The box's Security Group only allows SSH from the operator's home IP, so a
+  # GitHub-hosted runner can't reach it. Instead a self-hosted runner installed
+  # on the box (labels: self-hosted, superlms-box) picks up this job over its
+  # OUTBOUND connection to GitHub — nothing new is exposed. It runs as ec2-user
+  # (owns /opt/superlms, in the docker group). No checkout: we operate on the
+  # already-cloned repo at /opt/superlms directly. deploy.sh builds the image,
+  # runs migrations once, and (re)starts the stack. No secrets needed.
   # ──────────────────────────────────────────────────────────────────────
   deploy:
-    name: Deploy to single-box (SSH + Docker Compose)
+    name: Deploy to single-box (self-hosted runner)
     needs: validate
     if: >-
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, superlms-box]
     timeout-minutes: 30
-    environment: production
     steps:
-      - name: Deploy over SSH (git pull + build + migrate + restart)
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      - name: Pull latest + deploy (build, migrate, restart)
         run: |
           set -euo pipefail
-          if [ -z "${DEPLOY_HOST:-}" ] || [ -z "${DEPLOY_SSH_KEY:-}" ]; then
-            echo "::error::DEPLOY_HOST and DEPLOY_SSH_KEY repo secrets must be set."
-            exit 1
-          fi
-          mkdir -p ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
-          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes ec2-user@"$DEPLOY_HOST" bash -se <<'REMOTE'
-            set -euo pipefail
-            cd /opt/superlms
-            git fetch --prune origin main
-            git reset --hard origin/main
-            cd infra/lite
-            ./deploy.sh
-          REMOTE
+          cd /opt/superlms
+          git fetch --prune origin main
+          git reset --hard origin/main
+          cd infra/lite
+          ./deploy.sh
