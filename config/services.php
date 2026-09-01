@@ -83,11 +83,10 @@ return [
 
     'otp' => [
         // Login 2-step (OTP) verification for the super-admin / admin / accounts
-        // panels. TEMPORARILY DISABLED while ZeptoMail is out of credit — the OTP
-        // code is left fully intact and simply skipped when this is false.
-        // Re-enable by setting LOGIN_OTP_ENABLED=true (or flipping the default
-        // below back to true). NOTHING is deleted.
-        'login_enabled' => env('LOGIN_OTP_ENABLED', false),
+        // panels. Re-enabled — ZeptoMail is healthy again (and OTP falls back to
+        // app SMTP if a send fails). Set LOGIN_OTP_ENABLED=false to skip the OTP
+        // step in an emergency.
+        'login_enabled' => env('LOGIN_OTP_ENABLED', true),
     ],
 
 ];
