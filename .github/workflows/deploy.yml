@@ -1,8 +1,10 @@
 name: Deploy
 
 # PRs + pushes run `validate` (fast, no secrets, no infra).
-# Only pushes to main, with `validate` green, proceed to `deploy` (build ARM64
-# image -> push to ECR -> roll the ECS services -> run migrations).
+# Only pushes to main, with `validate` green, proceed to `deploy`, which SSHes
+# into the single-box (infra/lite / Docker Compose) and runs a pull-based deploy
+# (git pull -> build image -> migrate -> restart the stack). The old ECS/ECR/OIDC
+# path is gone (that account was decommissioned in the lite migration).
 
 on:
   push:
@@ -124,101 +126,42 @@ jobs:
           echo "All routes resolved."
 
   # ──────────────────────────────────────────────────────────────────────
-  # JOB 2 — DEPLOY  (build ARM64 -> ECR -> ECS rolling deploy -> migrate)
-  # Auth is via GitHub OIDC assuming AWS_DEPLOY_ROLE_ARN — no stored AWS keys.
+  # JOB 2 — DEPLOY  (single-box / infra/lite: SSH -> git pull -> deploy.sh)
+  # No AWS creds needed. Requires two repo secrets:
+  #   DEPLOY_HOST     — the box's Elastic IP (or a DNS name that resolves to it)
+  #   DEPLOY_SSH_KEY  — the PRIVATE key (contents of infra/lite/superlms-key.pem)
+  # The box already has the repo cloned at /opt/superlms and infra/lite/.env set.
+  # deploy.sh builds the image, runs migrations once, and (re)starts the stack.
   # ──────────────────────────────────────────────────────────────────────
   deploy:
-    name: Build, push, and deploy to ECS
+    name: Deploy to single-box (SSH + Docker Compose)
     needs: validate
     if: >-
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    runs-on: ubuntu-latest       # native amd64 -> matches the x86_64 ECS task defs
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
-    permissions:
-      id-token: write            # required for OIDC
-      contents: read
-    env:
-      AWS_REGION: ap-south-1
-      ECR_REPO: superlms-app
-      ECS_STACK: superlms-ecs
-      CLUSTER: superlms
-
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ap-south-1
-
-      - name: Login to Amazon ECR
-        id: ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build & push image (linux/amd64)
+      - name: Deploy over SSH (git pull + build + migrate + restart)
         env:
-          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
-          set -e
-          IMAGE="$REGISTRY/$ECR_REPO"
-          SHA="${GITHUB_SHA::12}"
-          docker build --platform linux/amd64 --target runtime -t "$IMAGE:$SHA" -t "$IMAGE:latest" .
-          docker push "$IMAGE:$SHA"
-          docker push "$IMAGE:latest"
-          echo "IMAGE_TAG=$SHA" >> "$GITHUB_ENV"
-
-      # ECS-native deploy (no CloudFormation): for each role, take the current
-      # task definition, swap in the new image, register a new revision, then
-      # point the service at it. Infra itself is managed separately by the infra
-      # scripts - CI only ships the new image. Needs only ECS + PassRole perms.
-      - name: Register new task defs + roll services
-        env:
-          REGISTRY: ${{ steps.ecr.outputs.registry }}
-        run: |
-          set -e
-          IMAGE="$REGISTRY/$ECR_REPO:$IMAGE_TAG"
-          for fam in superlms-web superlms-worker superlms-scheduler superlms-migrate; do
-            aws ecs describe-task-definition --task-definition "$fam" --query taskDefinition > /tmp/td.json
-            jq --arg IMG "$IMAGE" '
-              .containerDefinitions[0].image = $IMG
-              | {family, taskRoleArn, executionRoleArn, networkMode, containerDefinitions,
-                 requiresCompatibilities, cpu, memory, runtimePlatform}
-            ' /tmp/td.json > /tmp/$fam.json
-            aws ecs register-task-definition --cli-input-json file:///tmp/$fam.json >/dev/null
-            echo "registered $fam -> $IMAGE"
-          done
-          for svc in superlms-web superlms-worker superlms-scheduler; do
-            aws ecs update-service --cluster "$CLUSTER" --service "$svc" \
-              --task-definition "$svc" --force-new-deployment >/dev/null
-            echo "updated service $svc"
-          done
-
-      # One-off migrate task on the new image (network copied from the web service).
-      # Assumes backward-compatible migrations.
-      - name: Run DB migrations (one-off task)
-        run: |
-          set -e
-          NETCFG=$(aws ecs describe-services --cluster "$CLUSTER" --services superlms-web \
-            --query "services[0].networkConfiguration" --output json)
-          TASK=$(aws ecs run-task --cluster "$CLUSTER" --task-definition superlms-migrate \
-            --launch-type FARGATE --network-configuration "$NETCFG" \
-            --query "tasks[0].taskArn" --output text)
-          echo "migrate task: $TASK"
-          aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK"
-          DESC=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK" --output json)
-          CODE=$(echo "$DESC" | jq -r '.tasks[0].containers[0].exitCode')
-          echo "migrate exit code: $CODE"
-          # A null/None exit code means the container never ran (task failed to
-          # start) — surface stopCode + stoppedReason so the real cause (e.g. a
-          # malformed secret) is visible in the logs instead of a bare "None".
-          if [ "$CODE" != "0" ]; then
-            echo "::error::migrate task did not exit 0 (exit code: $CODE)"
-            echo "$DESC" | jq -r '.tasks[0] | "stopCode: \(.stopCode)\nstoppedReason: \(.stoppedReason)\ncontainerReason: \(.containers[0].reason)"'
+          set -euo pipefail
+          if [ -z "${DEPLOY_HOST:-}" ] || [ -z "${DEPLOY_SSH_KEY:-}" ]; then
+            echo "::error::DEPLOY_HOST and DEPLOY_SSH_KEY repo secrets must be set."
             exit 1
           fi
-
-      - name: Wait for web service to stabilize
-        run: aws ecs wait services-stable --cluster "$CLUSTER" --services superlms-web
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes ec2-user@"$DEPLOY_HOST" bash -se <<'REMOTE'
+            set -euo pipefail
+            cd /opt/superlms
+            git fetch --prune origin main
+            git reset --hard origin/main
+            cd infra/lite
+            ./deploy.sh
+          REMOTE
