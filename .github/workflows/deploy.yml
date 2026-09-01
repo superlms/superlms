@@ -151,4 +151,4 @@ jobs:
           git fetch --prune origin main
           git reset --hard origin/main
           cd infra/lite
-          ./deploy.sh
+          bash ./deploy.sh
