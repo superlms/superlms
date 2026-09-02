@@ -281,6 +281,25 @@ class LmsMigrate extends Command
             $this->info('created [super_admin_document_organization] pivot table');
         }
 
+        // School-admin owned documents: files an admin uploads and manages for
+        // their own organization (add / edit / download / delete).
+        if (!Schema::hasTable('admin_documents')) {
+            Schema::create('admin_documents', function (Blueprint $table) {
+                $table->id();
+                $table->unsignedBigInteger('organization_id');
+                $table->string('title');
+                $table->text('description')->nullable();
+                $table->string('file_path');                         // S3 key
+                $table->string('file_name');                         // original filename
+                $table->unsignedBigInteger('file_size')->default(0); // bytes
+                $table->string('mime_type')->nullable();
+                $table->unsignedBigInteger('uploaded_by')->nullable();
+                $table->timestamps();
+                $table->index(['organization_id', 'created_at']);
+            });
+            $this->info('created [admin_documents] table');
+        }
+
         // Ensure role_user pivot table exists (not covered by a regular migration)
         if (!Schema::hasTable('role_user')) {
             Schema::create('role_user', function (Blueprint $table) {
