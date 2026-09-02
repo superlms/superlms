@@ -12,7 +12,7 @@ class More extends Component
         ['title' => 'Admissions',          'route' => 'admin.admissions',           'icon' => 'user-plus'],
         ['title' => 'Website Data',         'route' => 'admin.website-data',         'icon' => 'globe-alt'],
         ['title' => 'Documents',            'route' => 'admin.documents',            'icon' => 'document-text'],
-        ['title' => 'Lists',               'route' => 'admin.lists',                'icon' => 'queue-list'],
+        ['title' => 'Credit',              'route' => 'admin.credit',               'icon' => 'credit-card'],
         ['title' => 'Rules & Regulation',  'route' => 'admin.rules-and-regulation', 'icon' => 'clipboard'],
         ['title' => 'Contact Admin',       'route' => 'admin.contact-admin',        'icon' => 'chat-bubble-left'],
         ['title' => 'About App',           'route' => 'admin.about-app',            'icon' => 'information-circle'],

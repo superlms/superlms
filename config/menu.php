@@ -57,12 +57,6 @@ return [
             'prefix' => 'admin.payroll',
         ],
         [
-            'title' => 'Credit',
-            'link' => 'admin.credit',
-            'icon' => 'credit-card',
-            'prefix' => 'admin.credit',
-        ],
-        [
             'title' => 'Attendance',
             'link' => 'admin.attendance',
             'icon' => 'check-circle',
@@ -139,6 +133,12 @@ return [
             'link' => 'admin.id-card',
             'icon' => 'identification',
             'prefix' => 'admin.id-card',
+        ],
+        [
+            'title' => 'Lists',
+            'link' => 'admin.lists',
+            'icon' => 'queue-list',
+            'prefix' => 'admin.lists',
         ],
         [
             'title' => 'Exam',
