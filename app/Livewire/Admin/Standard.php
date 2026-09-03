@@ -411,10 +411,9 @@ class Standard extends Component
 
         $this->validate([
             'standardName' => 'required|string|max:255',
-            'standardCode' => 'required|string|max:50',
         ]);
 
-        // Same-name OR same-code within org cannot exist
+        // Same-name within org cannot exist
         $dupName = StudentStandard::where('organization_id', $orgId)
             ->where('name', $this->standardName)
             ->when($this->editId, fn($q) => $q->where('id', '!=', $this->editId))
@@ -424,18 +423,8 @@ class Standard extends Component
             return;
         }
 
-        $dupCode = StudentStandard::where('organization_id', $orgId)
-            ->where('code', $this->standardCode)
-            ->when($this->editId, fn($q) => $q->where('id', '!=', $this->editId))
-            ->exists();
-        if ($dupCode) {
-            $this->addError('standardCode', 'A class with this code already exists.');
-            return;
-        }
-
         $data = [
             'name'            => $this->standardName,
-            'code'            => $this->standardCode,
             'board'           => $this->standardBoard ?: $this->resolveOrgBoard(),
             'order'           => $this->standardOrder ? (int) $this->standardOrder : 0,
             'is_active'       => $this->standardActive,
@@ -460,24 +449,21 @@ class Standard extends Component
     {
         $this->validate([
             'sectionName'      => 'required|string|max:255',
-            'sectionCode'      => 'required|string|max:50',
             'selectedStandard' => 'required|exists:standards,id',
         ]);
 
-        // Same name+code combo cannot duplicate within a class
+        // Same name cannot duplicate within a class
         $dup = Section::where('standard_id', $this->selectedStandard)
             ->where('name', $this->sectionName)
-            ->where('code', $this->sectionCode)
             ->when($this->editId, fn($q) => $q->where('id', '!=', $this->editId))
             ->exists();
         if ($dup) {
-            $this->addError('sectionName', 'A section with this name and code already exists in the selected class.');
+            $this->addError('sectionName', 'A section with this name already exists in the selected class.');
             return;
         }
 
         $data = [
             'name'            => $this->sectionName,
-            'code'            => $this->sectionCode,
             'description'     => $this->sectionDescription,
             'standard_id'     => $this->selectedStandard,
             'is_active'       => $this->sectionActive,
@@ -503,7 +489,6 @@ class Standard extends Component
     {
         $this->validate([
             'subjectName'                  => 'required|string|max:255',
-            'subjectCode'                  => 'required|string|max:50',
             'selectedStandardForSubject'   => 'required|exists:standards,id',
             'selectedSectionsForSubject'   => 'required|array|min:1',
             'selectedSectionsForSubject.*' => 'exists:sections,id',
@@ -528,21 +513,6 @@ class Standard extends Component
                 ->first();
         }
 
-        // Which subject id (if any) to ignore in the duplicate checks below —
-        // the one being edited, or the same-name subject we're about to reuse.
-        $ignoreId = $this->editId ?: ($existing->id ?? null);
-
-        // A DIFFERENT subject in this class already using this code → block.
-        $dupCode = StandardSubject::where('standard_id', $this->selectedStandardForSubject)
-            ->whereHas('subject', fn($q) => $q->where('code', $this->subjectCode)
-                ->when($ignoreId, fn($q) => $q->where('id', '!=', $ignoreId)))
-            ->exists();
-
-        if ($dupCode) {
-            $this->addError('subjectCode', 'A subject with this code already exists in the selected class.');
-            return;
-        }
-
         // Reusing an existing subject that is ALREADY linked to every selected
         // section is a true no-op duplicate → block. Otherwise we fall through
         // and repair the missing links.
@@ -559,7 +529,6 @@ class Standard extends Component
 
         $subjectData = [
             'name'            => $this->subjectName,
-            'code'            => $this->subjectCode,
             'description'     => $this->subjectDescription,
             'organization_id' => Auth::user()->organization_id,
             'is_active'       => $this->subjectActive,
