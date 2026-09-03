@@ -25,7 +25,7 @@ class ResetPassword extends Component
         $this->validate(['email' => 'required|email']);
 
         $user = User::where('email', $this->email)
-            ->whereIn('role', ['admin', 'super-admin'])
+            ->whereIn('role', ['admin', 'super-admin', 'sub-admin'])
             ->first();
 
         if (!$user) {
@@ -63,7 +63,7 @@ class ResetPassword extends Component
         }
 
         $user = User::where('email', $this->email)
-            ->whereIn('role', ['admin', 'super-admin'])
+            ->whereIn('role', ['admin', 'super-admin', 'sub-admin'])
             ->first();
 
         if (!$user) {
@@ -98,7 +98,7 @@ class ResetPassword extends Component
         ]);
 
         $user = User::where('email', $this->email)
-            ->whereIn('role', ['admin', 'super-admin'])
+            ->whereIn('role', ['admin', 'super-admin', 'sub-admin'])
             ->first();
 
         if (!$user) {
