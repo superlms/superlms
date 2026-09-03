@@ -642,12 +642,12 @@
 
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Start Date <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Start Date</label>
                             <input wire:model.defer="startDate" type="date" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
                             @error('startDate')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">End Date <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">End Date</label>
                             <input wire:model.defer="endDate" type="date" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
                             @error('endDate')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
