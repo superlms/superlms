@@ -197,7 +197,15 @@ class AccountUsers extends Component
                 $schoolUserData
             );
 
-            $this->notification()->success('User Updated', 'Account user updated successfully.');
+            // Password changed on edit → email the new credentials.
+            if ($this->password) {
+                $this->sendCredentialsEmail($user, $this->password);
+            }
+
+            $this->notification()->success(
+                'User Updated',
+                $this->password ? 'Account user updated and new credentials emailed.' : 'Account user updated successfully.'
+            );
         } else {
             $user = User::create([
                 'name'            => $this->name,
@@ -231,7 +239,10 @@ class AccountUsers extends Component
 
             SchoolUser::create($schoolUserData);
 
-            $this->notification()->success('User Created', 'Account user created successfully.');
+            // Email the login credentials to the new account user (never blocks the save).
+            $this->sendCredentialsEmail($user, $this->password);
+
+            $this->notification()->success('User Created', 'Account user created and credentials emailed.');
         }
 
         $this->showPanel = false;
@@ -269,6 +280,41 @@ class AccountUsers extends Component
             'Status Updated',
             $newStatus ? 'User activated.' : 'User deactivated.'
         );
+    }
+
+    /**
+     * Email login credentials to an account user. Mirrors the sub-admin flow
+     * (App\Livewire\Admin\Users) but points at the accounts login portal.
+     * Never throws — a mail failure must not roll back the saved user.
+     */
+    protected function sendCredentialsEmail(User $user, string $plainPassword): void
+    {
+        try {
+            $templateKey = config('services.zeptomail.teacher_password_template_key');
+            if (!$templateKey) {
+                logger()->warning('No password template key configured — skipping account-user credentials email.');
+                return;
+            }
+
+            $schoolName = optional($user->organization)->name ?: 'SUPERLMS';
+
+            \App\Services\ZeptoMailService::sendTemplate(
+                $templateKey,
+                $user->email,
+                $user->name,
+                [
+                    'password'      => $plainPassword,
+                    'email_address' => $user->email,
+                    'school_name'   => $schoolName,
+                    'username'      => $user->name,
+                    'name'          => $user->name,
+                    'login_url'     => route('accounts.login'),
+                ]
+            );
+            logger()->info('Account-user credentials emailed to: ' . $user->email);
+        } catch (\Throwable $e) {
+            logger()->error('Account-user credentials email failed for ' . $user->email . ': ' . $e->getMessage());
+        }
     }
 
     private function resetForm()
