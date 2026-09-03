@@ -337,7 +337,7 @@ class Attendance extends Component
             $this->assignEditId = $id;
             $this->assignTeacherId = $a->teacher_detail_id;
             $this->assignStandardId = $a->standard_id;
-            $this->assignSectionId = $a->section_id;
+            $this->assignSectionId = $a->section_id ?: '';
             $this->showAssignPanel = true;
         }
     }
@@ -375,7 +375,9 @@ class Attendance extends Component
                 'organization_id'   => $orgId,
                 'teacher_detail_id' => $this->assignTeacherId,
                 'standard_id'       => $this->assignStandardId,
-                'section_id'        => $this->assignSectionId ?: null,
+                // section_id is NOT NULL default 0 (foreignIdFor ->default(0));
+                // writing null 500s, so use 0 for "no section".
+                'section_id'        => $this->assignSectionId ?: 0,
             ]
         );
 
