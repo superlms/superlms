@@ -185,7 +185,18 @@
                         @endforeach
                     </select>
 
-                    @if ($filterPaperExam || $filterPaperStandard || $filterPaperSection)
+                    <span class="text-gray-300">→</span>
+
+                    <select wire:model.live="filterPaperSubject"
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <option value="">All Subjects</option>
+                        @foreach ($paperFilterSubjects as $sub)
+                            <option value="{{ $sub['id'] }}">{{ $sub['name'] }}</option>
+                        @endforeach
+                        <option value="other">Other</option>
+                    </select>
+
+                    @if ($filterPaperExam || $filterPaperStandard || $filterPaperSection || $filterPaperSubject)
                         <button wire:click="clearPaperFilters"
                             class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -380,6 +391,7 @@
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Exam</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Class</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Section</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Subject</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Uploaded</th>
                                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
@@ -394,12 +406,25 @@
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                                 </svg>
                                             </div>
-                                            <span class="text-sm font-semibold text-gray-900">{{ $paper->title }}</span>
+                                            <div class="min-w-0">
+                                                <span class="block text-sm font-semibold text-gray-900">{{ $paper->title }}</span>
+                                                @if ($paper->description)
+                                                    <span class="block text-xs text-gray-400 truncate max-w-xs" title="{{ $paper->description }}">
+                                                        {{ \Illuminate\Support\Str::limit($paper->description, 70) }}
+                                                    </span>
+                                                @endif
+                                            </div>
                                         </div>
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-700">{{ $paper->exam->exam_name ?? '—' }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-700">{{ $paper->standard->name ?? '—' }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-700">{{ $paper->section->name ?? '—' }}</td>
+                                    <td class="px-4 py-3">
+                                        <span class="text-xs font-medium px-2 py-0.5 rounded
+                                            {{ $paper->subject ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-600' }}">
+                                            {{ $paper->subjectLabel() }}
+                                        </span>
+                                    </td>
                                     <td class="px-4 py-3 text-xs text-gray-500">{{ $paper->created_at->format('d M Y, g:i A') }}</td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-center gap-1">
@@ -426,7 +451,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="px-4 py-16 text-center">
+                                    <td colspan="7" class="px-4 py-16 text-center">
                                         <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
                                             <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -926,7 +951,7 @@
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div>
                         <h2 class="text-lg font-semibold text-gray-900">{{ $paperIsEdit ? 'Edit Exam Paper' : 'Upload Exam Paper' }}</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">Select the exam, class &amp; section, then upload the PDF (max 5 MB).</p>
+                        <p class="text-xs text-gray-500 mt-0.5">Pick the exam, class, section &amp; subject, then upload the PDF (max 5 MB).</p>
                     </div>
                     <button wire:click="closePaperModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -958,7 +983,7 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Section</label>
-                            <select wire:model.defer="paperSection" @disabled(!$paperStandard)
+                            <select wire:model.live="paperSection" @disabled(!$paperStandard)
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm disabled:opacity-50">
                                 <option value="">All / None</option>
                                 @foreach ($paperModalSections as $sec)
@@ -969,6 +994,28 @@
                         </div>
                     </div>
 
+                    {{-- Subject - the class's own subjects, plus an "Other" bucket for
+                         papers that don't belong to any one subject. --}}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Subject <span class="text-red-500">*</span></label>
+                        <select wire:model.defer="paperSubject" @disabled(!$paperStandard)
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm disabled:opacity-50">
+                            <option value="">Select Subject</option>
+                            @foreach ($paperModalSubjects as $sub)
+                                <option value="{{ $sub['id'] }}">{{ $sub['name'] }}</option>
+                            @endforeach
+                            <option value="other">Other</option>
+                        </select>
+                        <p class="text-xs text-gray-400 mt-1">
+                            @if (!$paperStandard)
+                                Choose a class first.
+                            @else
+                                Pick <strong>Other</strong> for a paper that isn't tied to one of these subjects.
+                            @endif
+                        </p>
+                        @error('paperSubject')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Title <span class="text-red-500">*</span></label>
                         <input wire:model.defer="paperTitle" type="text" placeholder="e.g. Mathematics Question Paper"
@@ -976,21 +1023,73 @@
                         @error('paperTitle')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
 
-                    <div>
+                    <div x-data>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">
                             PDF File @if (!$paperIsEdit)<span class="text-red-500">*</span>@endif
                             <span class="text-xs font-normal text-gray-400">(max 5 MB)</span>
                         </label>
-                        <input wire:model="paperFile" type="file" accept=".pdf" class="w-full text-sm">
-                        @if ($paperIsEdit)<p class="text-xs text-gray-400 mt-1">Leave empty to keep the existing PDF.</p>@endif
-                        <div wire:loading wire:target="paperFile" class="text-xs text-blue-600 mt-1">Uploading...</div>
+
+                        {{-- Click-anywhere drop-zone wrapping a hidden file input. --}}
+                        <label for="paperFileInput"
+                            class="flex items-center gap-3 w-full px-4 py-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
+                            <span class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
+                                <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                </svg>
+                            </span>
+                            <span class="min-w-0">
+                                <span class="block text-sm font-medium text-gray-700">Click to choose a PDF</span>
+                                <span class="block text-xs text-gray-400">
+                                    PDF only, up to 5 MB@if ($paperIsEdit) - leave empty to keep the current file@endif
+                                </span>
+                            </span>
+                        </label>
+                        <input id="paperFileInput" x-ref="paperFileInput" wire:model="paperFile" type="file"
+                            accept="application/pdf,.pdf" class="hidden">
+
+                        <div wire:loading wire:target="paperFile" class="flex items-center gap-2 mt-2 text-xs text-blue-600">
+                            <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                            </svg>
+                            Uploading...
+                        </div>
+
                         @if ($paperFile)
-                            <div class="mt-2 text-xs text-emerald-600">
-                                Selected: {{ $paperFile->getClientOriginalName() }}
-                                ({{ number_format($paperFile->getSize() / 1024, 2) }} KB)
+                            <div wire:loading.remove wire:target="paperFile"
+                                class="mt-2 flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-emerald-200 bg-emerald-50">
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <svg class="w-4 h-4 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span class="text-xs text-emerald-800 truncate">{{ $paperFile->getClientOriginalName() }}</span>
+                                    <span class="text-[11px] text-emerald-600 flex-shrink-0">
+                                        ({{ number_format($paperFile->getSize() / 1024, 1) }} KB)
+                                    </span>
+                                </div>
+                                <button type="button" title="Remove"
+                                    x-on:click="$refs.paperFileInput.value = ''; $wire.set('paperFile', null)"
+                                    class="p-1 rounded text-emerald-700 hover:bg-emerald-100 flex-shrink-0">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
                             </div>
                         @endif
                         @error('paperFile')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+
+                    {{-- Description (optional, 3000 characters) --}}
+                    <div x-data="{ len: @js(mb_strlen($paperDescription ?? '')) }">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-sm font-medium text-gray-700">Description</label>
+                            <span class="text-xs text-gray-400"><span x-text="len">0</span>/3000</span>
+                        </div>
+                        <textarea wire:model.defer="paperDescription" rows="4" maxlength="3000"
+                            x-on:input="len = $event.target.value.length"
+                            placeholder="Optional notes about this paper - instructions, sections covered, marking scheme..."
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm resize-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                        @error('paperDescription')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                 </div>
 

@@ -22,6 +22,9 @@ class AddExam extends Component
 {
     use WireUiActions, WithPagination, WithFileUploads;
 
+    /** Subject dropdown escape hatch — a paper that belongs to no class subject. */
+    public const PAPER_SUBJECT_OTHER = 'other';
+
     // ─── Tabs ────────────────────────────────────────────────────────────────
     public string $activeTab = 'exams'; // 'exams' | 'syllabus' | 'papers'
 
@@ -72,14 +75,18 @@ class AddExam extends Component
     public string $paperExam      = '';
     public string $paperStandard  = '';
     public string $paperSection   = '';
+    public string $paperSubject   = ''; // subject id, or self::PAPER_SUBJECT_OTHER
     public string $paperTitle     = '';
+    public string $paperDescription = '';
     public $paperFile             = null;
     public array $paperModalSections = []; // sections for the class chosen in the modal
+    public array $paperModalSubjects = []; // subjects for the class (+ section) chosen in the modal
 
-    // Filters (Exam → Class → Section)
+    // Filters (Exam → Class → Section → Subject)
     public string $filterPaperExam     = '';
     public string $filterPaperStandard = '';
     public string $filterPaperSection  = '';
+    public string $filterPaperSubject  = '';
 
     // Delete confirm
     public bool $showPaperDeleteConfirm = false;
@@ -138,6 +145,7 @@ class AddExam extends Component
         'filterPaperExam'          => ['except' => ''],
         'filterPaperStandard'      => ['except' => ''],
         'filterPaperSection'       => ['except' => ''],
+        'filterPaperSubject'       => ['except' => ''],
         'perPage'                  => ['except' => 10],
     ];
 
@@ -783,31 +791,97 @@ class AddExam extends Component
             ->toArray();
     }
 
+    /**
+     * Subjects taught in a class — narrowed to the section when one is given.
+     * Falls back to the class-level pivot so the dropdown is never silently
+     * empty, and to every active subject when no class is chosen yet.
+     */
+    private function subjectsForClass($standardId, $sectionId = null): array
+    {
+        $orgId = Auth::user()->organization_id;
+
+        if (!$standardId) {
+            return Subject::where('organization_id', $orgId)
+                ->where('is_active', true)
+                ->orderBy('id')
+                ->get(['id', 'name'])
+                ->toArray();
+        }
+
+        $subjectIds = [];
+
+        if ($sectionId) {
+            $subjectIds = DB::table('section_subjects')
+                ->where('section_id', $sectionId)
+                ->where('standard_id', $standardId)
+                ->pluck('subject_id')
+                ->toArray();
+        }
+
+        if (empty($subjectIds)) {
+            $subjectIds = DB::table('standard_subjects')
+                ->where('standard_id', $standardId)
+                ->pluck('subject_id')
+                ->toArray();
+        }
+
+        return Subject::where('organization_id', $orgId)
+            ->whereIn('id', $subjectIds)
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->get(['id', 'name'])
+            ->toArray();
+    }
+
+    private function loadPaperModalSubjects(): void
+    {
+        $this->paperModalSubjects = $this->paperStandard
+            ? $this->subjectsForClass($this->paperStandard, $this->paperSection ?: null)
+            : [];
+    }
+
     public function updatedPaperStandard($value): void
     {
         $this->paperSection = '';
+        $this->paperSubject = '';
         $this->loadPaperModalSections($value);
+        $this->loadPaperModalSubjects();
     }
 
-    // Filter cascade (Exam → Class → Section) resets downstream selections.
+    // Section narrows the subject list (section_subjects → standard_subjects).
+    public function updatedPaperSection($value): void
+    {
+        $this->paperSubject = '';
+        $this->loadPaperModalSubjects();
+    }
+
+    // Filter cascade (Exam → Class → Section → Subject) resets downstream selections.
     public function updatedFilterPaperStandard($value): void
     {
         $this->filterPaperSection = '';
+        $this->filterPaperSubject = '';
         $this->resetPage();
     }
 
     public function updatedFilterPaperExam(): void    { $this->resetPage(); }
-    public function updatedFilterPaperSection(): void { $this->resetPage(); }
+    public function updatedFilterPaperSubject(): void { $this->resetPage(); }
+
+    public function updatedFilterPaperSection(): void
+    {
+        $this->filterPaperSubject = '';
+        $this->resetPage();
+    }
 
     public function clearPaperFilters(): void
     {
-        $this->reset(['filterPaperExam', 'filterPaperStandard', 'filterPaperSection']);
+        $this->reset(['filterPaperExam', 'filterPaperStandard', 'filterPaperSection', 'filterPaperSubject']);
         $this->resetPage();
     }
 
     public function openPaperModal(): void
     {
-        $this->reset(['paperId', 'paperExam', 'paperStandard', 'paperSection', 'paperTitle', 'paperFile', 'paperModalSections']);
+        $this->reset(['paperId', 'paperExam', 'paperStandard', 'paperSection', 'paperSubject', 'paperTitle',
+            'paperDescription', 'paperFile', 'paperModalSections', 'paperModalSubjects']);
         $this->paperIsEdit    = false;
         $this->showPaperModal = true;
         $this->resetValidation();
@@ -828,7 +902,13 @@ class AddExam extends Component
         $this->paperStandard = (string) $paper->standard_id;
         $this->loadPaperModalSections($paper->standard_id);
         $this->paperSection  = $paper->section_id ? (string) $paper->section_id : '';
-        $this->paperTitle    = (string) $paper->title;
+        $this->loadPaperModalSubjects();
+        // A saved paper with no subject was filed under "Other".
+        $this->paperSubject  = $paper->subject_id
+            ? (string) $paper->subject_id
+            : self::PAPER_SUBJECT_OTHER;
+        $this->paperTitle       = (string) $paper->title;
+        $this->paperDescription = (string) ($paper->description ?? '');
         $this->paperFile     = null;
         $this->paperIsEdit   = true;
         $this->showPaperModal = true;
@@ -838,7 +918,8 @@ class AddExam extends Component
     public function closePaperModal(): void
     {
         $this->showPaperModal = false;
-        $this->reset(['paperId', 'paperExam', 'paperStandard', 'paperSection', 'paperTitle', 'paperFile', 'paperModalSections']);
+        $this->reset(['paperId', 'paperExam', 'paperStandard', 'paperSection', 'paperSubject', 'paperTitle',
+            'paperDescription', 'paperFile', 'paperModalSections', 'paperModalSubjects']);
         $this->resetValidation();
     }
 
@@ -848,14 +929,22 @@ class AddExam extends Component
             'paperExam'     => 'required|exists:exams,id',
             'paperStandard' => 'required|exists:standards,id',
             'paperSection'  => 'nullable|exists:sections,id',
+            // Either one of the class's subjects, or the explicit "Other" bucket.
+            'paperSubject'  => $this->paperSubject === self::PAPER_SUBJECT_OTHER
+                ? 'required|string'
+                : 'required|exists:subjects,id',
             'paperTitle'    => 'required|string|max:255',
+            'paperDescription' => 'nullable|string|max:3000',
             'paperFile'     => ($this->paperIsEdit ? 'nullable' : 'required') . '|file|mimes:pdf|max:5120', // 5 MB
         ];
 
         $this->validate($rules, [
             'paperExam.required'     => 'Please select an exam.',
             'paperStandard.required' => 'Please select a class.',
+            'paperSubject.required'  => 'Please select a subject (or choose Other).',
+            'paperSubject.exists'    => 'Please select a valid subject.',
             'paperTitle.required'    => 'Please enter a title.',
+            'paperDescription.max'   => 'Description may not be longer than 3000 characters.',
             'paperFile.required'     => 'Please choose a PDF file.',
             'paperFile.mimes'        => 'The paper must be a PDF file.',
             'paperFile.max'          => 'The PDF must be 5 MB or smaller.',
@@ -868,7 +957,11 @@ class AddExam extends Component
                 'exam_id'     => $this->paperExam,
                 'standard_id' => $this->paperStandard,
                 'section_id'  => $this->paperSection ?: null,
+                'subject_id'  => $this->paperSubject === self::PAPER_SUBJECT_OTHER
+                    ? null
+                    : $this->paperSubject,
                 'title'       => $this->paperTitle,
+                'description' => $this->paperDescription ?: null,
             ];
 
             if ($this->paperIsEdit) {
@@ -964,11 +1057,16 @@ class AddExam extends Component
     {
         $orgId = Auth::user()->organization_id;
 
-        return ExamPaper::with(['exam:id,exam_name,academic_year', 'standard:id,name', 'section:id,name'])
+        return ExamPaper::with([
+                'exam:id,exam_name,academic_year', 'standard:id,name', 'section:id,name', 'subject:id,name',
+            ])
             ->where('organization_id', $orgId)
             ->when($this->filterPaperExam,     fn($q) => $q->where('exam_id', $this->filterPaperExam))
             ->when($this->filterPaperStandard, fn($q) => $q->where('standard_id', $this->filterPaperStandard))
             ->when($this->filterPaperSection,  fn($q) => $q->where('section_id', $this->filterPaperSection))
+            ->when($this->filterPaperSubject, fn($q) => $this->filterPaperSubject === self::PAPER_SUBJECT_OTHER
+                ? $q->whereNull('subject_id')
+                : $q->where('subject_id', $this->filterPaperSubject))
             ->orderByDesc('created_at')
             ->paginate($this->perPage, ['*'], 'papersPage');
     }
@@ -1025,9 +1123,16 @@ class AddExam extends Component
                 ->toArray();
         }
 
+        // Subject filter options follow the chosen class (+ section); with no
+        // class picked it lists every active subject in the school.
+        $paperFilterSubjects = $this->subjectsForClass(
+            $this->filterPaperStandard ?: null,
+            $this->filterPaperSection ?: null
+        );
+
         return view('livewire.admin.add-exam', compact(
             'exams', 'syllabus', 'filterSections', 'filterSubjects',
-            'examPapers', 'paperFilterSections'
+            'examPapers', 'paperFilterSections', 'paperFilterSubjects'
         ));
     }
 
