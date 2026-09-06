@@ -70,10 +70,7 @@ return [
         // hits another → 500 on every file upload. Default to the app's main
         // filesystem disk (S3 in production) so all tasks see the same temp files.
         'disk' => env('LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK', env('FILESYSTEM_DISK', 'local')), // 'local' | 's3'
-        // Livewire's own guard defaults to 12 MB, which would reject a large
-        // exam paper long before the component's own rules ran. Raised to 1 GB
-        // (in KB) to match docker/php/php.ini and docker/nginx/default.conf.
-        'rules' => ['required', 'file', 'max:1048576'],
+        'rules' => null,       // Example: ['file', 'mimes:png,jpg']  | Default: ['required', 'file', 'max:12288'] (12MB)
         'directory' => null,   // Example: 'tmp'                      | Default: 'livewire-tmp'
         'middleware' => null,  // Example: 'throttle:5,1'             | Default: 'throttle:60,1'
         'preview_mimes' => [   // Supported file types for temporary pre-signed file URLs...

@@ -897,9 +897,7 @@ class AddExam extends Component
                 : 'required|exists:subjects,id',
             'paperTitle'    => 'required|string|max:255',
             'paperDescription' => 'nullable|string|max:3000',
-            // 1 GB, in kilobytes. The whole stack has to agree: docker/php/php.ini,
-            // docker/nginx/default.conf and livewire.temporary_file_upload.rules.
-            'paperFile'     => ($this->paperIsEdit ? 'nullable' : 'required') . '|file|mimes:pdf|max:1048576',
+            'paperFile'     => ($this->paperIsEdit ? 'nullable' : 'required') . '|file|mimes:pdf|max:1024', // 1 MB
         ];
 
         $this->validate($rules, [
@@ -911,7 +909,7 @@ class AddExam extends Component
             'paperDescription.max'   => 'Description may not be longer than 3000 characters.',
             'paperFile.required'     => 'Please choose a PDF file.',
             'paperFile.mimes'        => 'The paper must be a PDF file.',
-            'paperFile.max'          => 'The PDF must be 1 GB or smaller.',
+            'paperFile.max'          => 'The PDF must be 1 MB or smaller.',
         ]);
 
         try {
