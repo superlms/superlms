@@ -58,25 +58,10 @@
 
                 <div class="w-full max-w-sm" x-data="{
                     otp: @js($otp),
-                    countdown: @js($countdown),
-                    interval: null,
                     init() {
-                        this.startTimer();
                         this.$watch('otp', (newOtp) => {
                             @this.set('otp', newOtp);
                         });
-                    },
-                    startTimer() {
-                        if (this.interval) clearInterval(this.interval);
-                        this.countdown = 120;
-                        this.interval = setInterval(() => {
-                            if (this.countdown > 0) {
-                                this.countdown--;
-                            } else {
-                                clearInterval(this.interval);
-                                @this.call('timerFinished');
-                            }
-                        }, 1000);
                     },
                     handleInput(index) {
                         if (this.otp[index].length === 1 && index < 5) {
@@ -87,14 +72,8 @@
                         if (this.otp[index].length === 0 && index > 0) {
                             this.$refs[`otp${index - 1}`].focus();
                         }
-                    },
-                    formatCountdown(seconds) {
-                        if (seconds <= 0) return 'Resend available';
-                        const minutes = Math.floor(seconds / 60);
-                        const secs = seconds % 60;
-                        return `${minutes}:${secs.toString().padStart(2, '0')}`;
                     }
-                }" @start-countdown.window="startTimer()">
+                }">
                     <div class="mb-4">
                         <label class="block text-gray-600 text-sm font-medium mb-1.5">OTP Code</label>
                         <div class="flex justify-between space-x-2">
@@ -114,13 +93,41 @@
                         @enderror
                     </div>
 
-                    <div class="flex items-center justify-between mb-6">
-                        <button wire:click="resendOtp" x-bind:disabled="countdown > 0"
+                    <div class="flex items-center justify-between mb-6" x-data="{
+                            resendAt: @js($resendAvailableAt),
+                            remaining: Math.max(0, @js($resendAvailableAt) - Math.floor(Date.now() / 1000)),
+                            interval: null,
+                            init() {
+                                this.start();
+                            },
+                            destroy() {
+                                if (this.interval) clearInterval(this.interval);
+                            },
+                            sync() {
+                                this.remaining = Math.max(0, this.resendAt - Math.floor(Date.now() / 1000));
+                                if (this.remaining === 0 && this.interval) {
+                                    clearInterval(this.interval);
+                                    this.interval = null;
+                                }
+                            },
+                            start() {
+                                if (this.interval) clearInterval(this.interval);
+                                this.sync();
+                                this.interval = setInterval(() => this.sync(), 1000);
+                            },
+                            label() {
+                                if (this.remaining <= 0) return 'Resend available';
+                                const minutes = Math.floor(this.remaining / 60);
+                                const secs = this.remaining % 60;
+                                return `${minutes}:${secs.toString().padStart(2, '0')}`;
+                            }
+                        }" @start-countdown.window="resendAt = $event.detail.resendAt; start()">
+                        <button wire:click="resendOtp" x-bind:disabled="remaining > 0"
                             class="text-sm"
-                            x-bind:class="countdown > 0 ? 'text-gray-400 cursor-not-allowed' : 'text-violet-600 hover:text-violet-800 hover:underline cursor-pointer'">
+                            x-bind:class="remaining > 0 ? 'text-gray-400 cursor-not-allowed' : 'text-violet-600 hover:text-violet-800 hover:underline cursor-pointer'">
                             Resend OTP
                         </button>
-                        <span class="text-sm text-gray-500" x-text="formatCountdown(countdown)"></span>
+                        <span class="text-sm text-gray-500" x-text="label()"></span>
                     </div>
 
                     <button wire:click="verifyOtp" wire:loading.attr="disabled"

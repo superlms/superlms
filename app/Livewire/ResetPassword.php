@@ -17,8 +17,17 @@ class ResetPassword extends Component
     public string $password_confirmation = '';
     public bool $showPassword = false;
     public bool $showConfirmPassword = false;
-    public int $countdown = 120;
-    public bool $canResend = false;
+
+    /** Seconds a user must wait before a fresh OTP can be requested. */
+    private const RESEND_COOLDOWN = 120;
+
+    /**
+     * Unix timestamp at which "Resend OTP" unlocks. Deliberately an absolute
+     * deadline rather than a ticking counter: the browser recomputes the
+     * remaining seconds from it, so a Livewire re-render (a wrong OTP, say)
+     * can no longer restart the countdown from the top.
+     */
+    public int $resendAvailableAt = 0;
 
     public function sendOtp(): void
     {
@@ -36,9 +45,8 @@ class ResetPassword extends Component
         try {
             OtpMailService::sendOtp($user, 'Admin Panel');
             $this->step = 2;
-            $this->countdown = 120;
-            $this->canResend = false;
-            $this->dispatch('start-countdown');
+            $this->resendAvailableAt = now()->addSeconds(self::RESEND_COOLDOWN)->timestamp;
+            $this->dispatch('start-countdown', resendAt: $this->resendAvailableAt);
         } catch (\Exception $e) {
             $this->addError('email', 'Failed to send OTP: ' . $e->getMessage());
         }
@@ -119,15 +127,11 @@ class ResetPassword extends Component
 
     public function resendOtp(): void
     {
-        if (!$this->canResend) {
+        // Enforced here rather than trusting the browser's countdown.
+        if (now()->timestamp < $this->resendAvailableAt) {
             return;
         }
         $this->sendOtp();
-    }
-
-    public function timerFinished(): void
-    {
-        $this->canResend = true;
     }
 
     public function render()
