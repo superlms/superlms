@@ -229,28 +229,32 @@ class Users extends Component
             $user->organization_id    = $this->orgId();
             $user->permissions        = $grants;
 
-            if (!$isEdit) {
-                $plainPassword  = substr(str_shuffle('abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789@#$!'), 0, 10);
+            // A new account, or an edit that moved the login to a different
+            // address, both get a freshly generated password — the old one is
+            // never mailed on to an address it was not issued to.
+            $emailChanged = $isEdit && $oldEmail && strcasecmp($oldEmail, $user->email) !== 0;
+
+            if (!$isEdit || $emailChanged) {
+                $plainPassword  = $this->generatePassword();
                 $user->password = Hash::make($plainPassword);
                 $user->rememberPlainPassword($plainPassword);
             }
 
             $user->save();
 
-            // Send credentials on creation — never blocks the save
-            if (!$isEdit && $plainPassword) {
+            // Credentials go to whatever address is now on the account.
+            // Never blocks the save.
+            if ($plainPassword) {
                 $this->sendCredentialsEmail($user, $plainPassword);
-            }
-
-            // Email changed on an edit → re-send credentials to the NEW address
-            // with the SAME (unchanged) password.
-            if ($isEdit && $oldEmail && strcasecmp($oldEmail, $user->email) !== 0) {
-                $this->sendCredentialsEmail($user, $user->plainPassword() ?? 'Use your existing password (unchanged)');
             }
 
             $this->notification()->success(
                 $isEdit ? 'User Updated' : 'User Created',
-                $isEdit ? 'Sub-admin updated successfully.' : 'Sub-admin created and credentials emailed.'
+                match (true) {
+                    !$isEdit      => 'Sub-admin created and credentials emailed.',
+                    $emailChanged => 'Email changed — a new password was generated and emailed to ' . $user->email . '.',
+                    default       => 'Sub-admin updated successfully.',
+                }
             );
 
             $this->closePanel();
@@ -259,6 +263,12 @@ class Users extends Component
             $this->notification()->error('Error Saving User', $e->getMessage());
             logger()->error('Sub-admin save error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
         }
+    }
+
+    /** A readable 10-character password (no look-alike characters). */
+    protected function generatePassword(): string
+    {
+        return substr(str_shuffle('abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789@#$!'), 0, 10);
     }
 
     protected function sendCredentialsEmail(User $user, string $plainPassword): void
@@ -283,6 +293,7 @@ class Users extends Component
                     'username'      => $user->name,
                     'name'          => $user->name,
                     'login_url'     => route('admin.login'),
+                    'reset_url'     => route('reset.password'),
                 ]
             );
             logger()->info('Sub-admin credentials emailed to: ' . $user->email);

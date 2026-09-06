@@ -25,6 +25,13 @@
                         <p class="text-sm text-gray-500 truncate">{{ $me->email }}</p>
                         <span class="mt-1 inline-flex items-center px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 text-xs font-medium">Sub-admin</span>
                     </div>
+                    {{-- Sub-admins manage their own login from their own card, rather
+                         than hunting for the button on the School Information panel. --}}
+                    <button wire:click="openPasswordPanel"
+                            class="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold rounded-lg shadow-sm transition-colors flex-shrink-0">
+                        <x-icon name="lock-closed" class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        Change Password
+                    </button>
                 </div>
                 <div class="px-5 py-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 text-sm">
                     <div class="flex justify-between sm:block">
