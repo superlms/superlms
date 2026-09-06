@@ -29,6 +29,12 @@ class ResetPassword extends Component
      */
     public int $resendAvailableAt = 0;
 
+    /**
+     * Unix timestamp the OTP lockout lifts at (0 = not locked out). Absolute so
+     * the browser can tick it down without a re-render restarting it.
+     */
+    public int $otpLockedUntil = 0;
+
     public function sendOtp(): void
     {
         $this->validate(['email' => 'required|email']);
@@ -48,7 +54,8 @@ class ResetPassword extends Component
             $this->resendAvailableAt = now()->addSeconds(self::RESEND_COOLDOWN)->timestamp;
             $this->dispatch('start-countdown', resendAt: $this->resendAvailableAt);
         } catch (\Exception $e) {
-            $this->addError('email', 'Failed to send OTP: ' . $e->getMessage());
+            $this->otpLockedUntil = OtpMailService::lockedUntil($user);
+            $this->addError($this->step === 2 ? 'otp' : 'email', $e->getMessage());
         }
     }
 
@@ -84,6 +91,7 @@ class ResetPassword extends Component
             $this->step = 3;
         } catch (\Exception $e) {
             $this->otp = ['', '', '', '', '', ''];
+            $this->otpLockedUntil = OtpMailService::lockedUntil($user);
             $this->addError('otp', $e->getMessage());
         }
     }

@@ -22,6 +22,12 @@ class Login extends Component
     public int    $countdown = 120;
     public bool   $canResend = false;
 
+    /**
+     * Unix timestamp the OTP lockout lifts at (0 = not locked out). Absolute so
+     * the browser can tick it down without a re-render restarting it.
+     */
+    public int $otpLockedUntil = 0;
+
     protected $rules = [
         'email'    => 'required|email',
         'password' => 'required',
@@ -94,6 +100,13 @@ class Login extends Component
         try {
             OtpMailService::sendOtp($user, 'School Admin');
         } catch (\Exception $e) {
+            // A lockout is a deliberate refusal, not a delivery failure — say so
+            // rather than hiding it behind the generic message.
+            if ($lockedUntil = OtpMailService::lockedUntil($user)) {
+                $this->otpLockedUntil = $lockedUntil;
+                $this->addError('email', $e->getMessage());
+                return;
+            }
             logger()->error('OTP send failed during admin login: ' . $e->getMessage());
             $this->addError('email', 'Failed to send OTP. Please try again.');
             return;
@@ -142,6 +155,7 @@ class Login extends Component
             OtpMailService::verifyOtp($user, $entered);
         } catch (\Exception $e) {
             $this->otp = ['', '', '', '', '', ''];
+            $this->otpLockedUntil = OtpMailService::lockedUntil($user);
             $this->addError('otp', $e->getMessage());
             return;
         }
@@ -180,7 +194,8 @@ class Login extends Component
             $this->canResend = false;
             $this->resetValidation('otp');
         } catch (\Exception $e) {
-            $this->addError('otp', 'Failed to resend OTP: ' . $e->getMessage());
+            $this->otpLockedUntil = OtpMailService::lockedUntil($user);
+            $this->addError('otp', $e->getMessage());
         }
     }
 

@@ -19,6 +19,12 @@ class ForgotPassword extends Component
     public int   $countdown = 120;
     public bool  $canResend = false;
 
+    /**
+     * Unix timestamp the OTP lockout lifts at (0 = not locked out). Absolute so
+     * the browser can tick it down without a re-render restarting it.
+     */
+    public int $otpLockedUntil = 0;
+
     public string $password = '';
     public string $password_confirmation = '';
     public bool   $showPassword = false;
@@ -41,7 +47,13 @@ class ForgotPassword extends Component
             return;
         }
 
-        OtpMailService::sendOtp($user, 'Super Admin Panel');
+        try {
+            OtpMailService::sendOtp($user, 'Super Admin Panel');
+        } catch (\Throwable $e) {
+            $this->otpLockedUntil = OtpMailService::lockedUntil($user);
+            $this->addError('email', $e->getMessage());
+            return;
+        }
 
         $this->otp       = ['', '', '', '', '', ''];
         $this->countdown = 120;
@@ -80,6 +92,7 @@ class ForgotPassword extends Component
             OtpMailService::verifyOtp($user, $entered);
         } catch (\Exception $e) {
             $this->otp = ['', '', '', '', '', ''];
+            $this->otpLockedUntil = OtpMailService::lockedUntil($user);
             $this->addError('otp', $e->getMessage());
             return;
         }
@@ -104,7 +117,13 @@ class ForgotPassword extends Component
             return;
         }
 
-        OtpMailService::sendOtp($user, 'Super Admin Panel');
+        try {
+            OtpMailService::sendOtp($user, 'Super Admin Panel');
+        } catch (\Throwable $e) {
+            $this->otpLockedUntil = OtpMailService::lockedUntil($user);
+            $this->addError('otp', $e->getMessage());
+            return;
+        }
 
         $this->otp       = ['', '', '', '', '', ''];
         $this->countdown = 120;

@@ -21,6 +21,12 @@ class Login extends Component
     public int   $countdown = 120;
     public bool  $canResend = false;
 
+    /**
+     * Unix timestamp the OTP lockout lifts at (0 = not locked out). Absolute so
+     * the browser can tick it down without a re-render restarting it.
+     */
+    public int $otpLockedUntil = 0;
+
     public function login()
     {
         $this->validate([
@@ -78,6 +84,13 @@ class Login extends Component
         try {
             OtpMailService::sendOtp($user, 'Super Admin');
         } catch (\Throwable $e) {
+            // A lockout must stop the flow; only delivery failures fall through
+            // to the log-the-OTP escape hatch below.
+            if ($lockedUntil = OtpMailService::lockedUntil($user)) {
+                $this->otpLockedUntil = $lockedUntil;
+                $this->addError('email', $e->getMessage());
+                return;
+            }
             \Log::warning('SUPERADMIN OTP email failed; OTP for ' . $user->email . ' = ' . $user->otp . ' (expires 2 min)', ['err' => $e->getMessage()]);
         }
 
@@ -120,6 +133,7 @@ class Login extends Component
             return redirect()->route('super-admin.quick-links');
         } catch (\Exception $e) {
             $this->otp = ['', '', '', '', '', ''];
+            $this->otpLockedUntil = OtpMailService::lockedUntil($user);
             $this->addError('otp', $e->getMessage());
         }
     }
@@ -144,7 +158,8 @@ class Login extends Component
             $this->canResend = false;
             $this->resetValidation('otp');
         } catch (\Exception $e) {
-            $this->addError('otp', 'Failed to resend OTP: ' . $e->getMessage());
+            $this->otpLockedUntil = OtpMailService::lockedUntil($user);
+            $this->addError('otp', $e->getMessage());
         }
     }
 

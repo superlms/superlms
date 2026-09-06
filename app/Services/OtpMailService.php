@@ -4,11 +4,18 @@ namespace App\Services;
 
 use App\Mail\LoginOtpMail;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class OtpMailService
 {
+    /** Wrong OTP entries allowed before the user is made to wait. */
+    public const MAX_ATTEMPTS = 3;
+
+    /** How long that wait lasts. */
+    public const LOCKOUT_MINUTES = 5;
+
     /**
      * Whether login 2-step (OTP) verification is currently enabled.
      *
@@ -32,6 +39,11 @@ class OtpMailService
      */
     public static function sendOtp(User $user, string $panelName): void
     {
+        // Resending must not be a way around the lockout.
+        if ($remaining = self::lockoutSecondsRemaining($user)) {
+            throw new \RuntimeException(self::lockoutMessage($remaining));
+        }
+
         $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
         $user->update([
@@ -107,6 +119,10 @@ class OtpMailService
      */
     public static function verifyOtp(User $user, string $enteredOtp): bool
     {
+        if ($remaining = self::lockoutSecondsRemaining($user)) {
+            throw new \Exception(self::lockoutMessage($remaining));
+        }
+
         if (empty($user->otp)) {
             throw new \Exception('No OTP was requested.');
         }
@@ -117,12 +133,91 @@ class OtpMailService
         }
 
         if ($user->otp !== $enteredOtp) {
-            throw new \Exception('Invalid OTP. Please try again.');
+            $attempts = self::registerFailedAttempt($user);
+
+            if ($attempts >= self::MAX_ATTEMPTS) {
+                // Burn the code too, so sitting out the wait still requires a
+                // freshly mailed OTP rather than another go at this one.
+                self::clearOtp($user);
+                throw new \Exception(self::lockoutMessage(self::LOCKOUT_MINUTES * 60));
+            }
+
+            $left = self::MAX_ATTEMPTS - $attempts;
+            throw new \Exception('Invalid OTP. ' . $left . ' attempt' . ($left === 1 ? '' : 's') . ' left.');
         }
 
         self::clearOtp($user);
+        self::clearAttempts($user);
 
         return true;
+    }
+
+    /**
+     * Record a wrong entry and return the running count. Reaching the limit
+     * starts the lockout window.
+     */
+    private static function registerFailedAttempt(User $user): int
+    {
+        $attempts = (int) Cache::get(self::attemptsKey($user), 0) + 1;
+
+        if ($attempts >= self::MAX_ATTEMPTS) {
+            Cache::put(
+                self::lockoutKey($user),
+                now()->addMinutes(self::LOCKOUT_MINUTES)->timestamp,
+                now()->addMinutes(self::LOCKOUT_MINUTES),
+            );
+            Cache::forget(self::attemptsKey($user));
+        } else {
+            // Outlive the lockout window so attempts can't be reset by waiting
+            // slightly less than it.
+            Cache::put(self::attemptsKey($user), $attempts, now()->addMinutes(self::LOCKOUT_MINUTES * 2));
+        }
+
+        return $attempts;
+    }
+
+    /**
+     * Unix timestamp the lockout lifts at, or 0 when the user isn't locked out.
+     * Absolute rather than a countdown so the browser can tick it down itself.
+     */
+    public static function lockedUntil(User $user): int
+    {
+        $until = (int) Cache::get(self::lockoutKey($user), 0);
+
+        return $until > now()->timestamp ? $until : 0;
+    }
+
+    public static function lockoutSecondsRemaining(User $user): int
+    {
+        $until = self::lockedUntil($user);
+
+        return $until > 0 ? $until - now()->timestamp : 0;
+    }
+
+    /** Wipe the attempt counter and any active lockout. */
+    public static function clearAttempts(User $user): void
+    {
+        Cache::forget(self::attemptsKey($user));
+        Cache::forget(self::lockoutKey($user));
+    }
+
+    private static function attemptsKey(User $user): string
+    {
+        return 'otp_attempts:' . $user->id;
+    }
+
+    private static function lockoutKey(User $user): string
+    {
+        return 'otp_lockout:' . $user->id;
+    }
+
+    private static function lockoutMessage(int $seconds): string
+    {
+        return sprintf(
+            'Too many incorrect attempts. Try again after %d:%02d.',
+            intdiv($seconds, 60),
+            $seconds % 60,
+        );
     }
 
     /**

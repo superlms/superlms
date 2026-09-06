@@ -135,6 +135,8 @@
                         <span class="text-sm text-gray-500" x-text="label()"></span>
                     </div>
 
+                    <x-otp-lockout :until="$otpLockedUntil" />
+
                     <button wire:click="verifyOtp" wire:loading.attr="disabled"
                         class="w-full py-3 bg-violet-600 text-white font-medium rounded-xl hover:bg-violet-700 transition duration-200 disabled:opacity-50">
                         <span wire:loading.remove wire:target="verifyOtp">Verify OTP</span>

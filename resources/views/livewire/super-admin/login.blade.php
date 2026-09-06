@@ -135,6 +135,8 @@
                         <p class="text-red-500 text-xs text-center mb-3">{{ $message }}</p>
                     @enderror
 
+                    <x-otp-lockout :until="$otpLockedUntil" />
+
                     <button wire:click="verifyOtp" wire:loading.attr="disabled"
                         class="w-full py-3 bg-violet-600 text-white font-medium rounded-xl hover:bg-violet-700 transition duration-200 disabled:opacity-60 mb-4">
                         <span wire:loading.remove wire:target="verifyOtp">Verify &amp; Login</span>
