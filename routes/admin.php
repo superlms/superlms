@@ -102,6 +102,8 @@ Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
         Route::get('/teacher', Teacher::class)->name('admin.teacher');
         Route::get('/announcement', Announcement::class)->name('admin.announcement');
         Route::get('/timetable', TimeTable::class)->name('admin.timetable');
+        Route::get('/timetable/print', [TimetablePdfController::class, 'printList'])
+            ->name('admin.timetable.print');
         Route::get('/timetable/{standard}/{section}/pdf', [TimetablePdfController::class, 'download'])
             ->whereNumber(['standard', 'section'])
             ->name('admin.timetable.pdf');

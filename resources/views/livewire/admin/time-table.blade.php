@@ -17,6 +17,45 @@
                         <span class="px-4">Timetable Created: <strong class="text-emerald-600">{{ $timetableCreated }}</strong></span>
                         <span class="pl-4">Remaining: <strong class="text-amber-600">{{ $remainingSections }}</strong></span>
                     </div>
+                    @php
+                        $ttPrintUrl = null;
+                        if ($viewMode === 'class' && $filterClass && $filterSection) {
+                            $ttPrintUrl = route('admin.timetable.print', array_filter([
+                                'organization' => auth()->user()->organization_id,
+                                'mode'         => 'class',
+                                'standard'     => $filterClass,
+                                'section'      => $filterSection,
+                                'days'         => implode(',', $filterDays),
+                            ]));
+                        } elseif ($viewMode === 'teacher' && $filterTeacher) {
+                            $ttPrintUrl = route('admin.timetable.print', array_filter([
+                                'organization' => auth()->user()->organization_id,
+                                'mode'         => 'teacher',
+                                'teacher'      => $filterTeacher,
+                                'days'         => implode(',', $filterDays),
+                            ]));
+                        }
+                    @endphp
+                    @if ($ttPrintUrl)
+                        <a href="{{ $ttPrintUrl }}" target="_blank"
+                            title="Print timetable (landscape PDF)"
+                            class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-lg transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                            </svg>
+                            <span class="hidden sm:inline">Print</span>
+                        </a>
+                    @else
+                        <span title="{{ $viewMode === 'class' ? 'Select a class and section to print' : 'Select a teacher to print' }}"
+                            class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-gray-100 text-gray-400 text-sm font-semibold rounded-lg cursor-not-allowed">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                            </svg>
+                            <span class="hidden sm:inline">Print</span>
+                        </span>
+                    @endif
                     <button wire:click="onCreateTimetable"
                         class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -204,9 +243,9 @@
                                     @if ($viewMode === 'teacher')
                                         <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Class · Section</th>
                                     @endif
+                                    <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Time</th>
                                     <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Subject</th>
                                     <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Teacher(s)</th>
-                                    <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Time</th>
                                     <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Days</th>
                                 </tr>
                             </thead>
@@ -221,6 +260,9 @@
                                                 </span>
                                             </td>
                                         @endif
+                                        <td class="px-3 py-2.5 text-sm text-gray-700 whitespace-nowrap">
+                                            {{ \Carbon\Carbon::parse($g['start_time'])->format('h:i A') }} – {{ \Carbon\Carbon::parse($g['end_time'])->format('h:i A') }}
+                                        </td>
                                         <td class="px-3 py-2.5 text-sm font-medium text-gray-800">{{ $g['subject'] }}</td>
                                         <td class="px-3 py-2.5">
                                             <div class="space-y-1">
@@ -235,9 +277,6 @@
                                                     </div>
                                                 @endforeach
                                             </div>
-                                        </td>
-                                        <td class="px-3 py-2.5 text-sm text-gray-700 whitespace-nowrap">
-                                            {{ \Carbon\Carbon::parse($g['start_time'])->format('h:i A') }} – {{ \Carbon\Carbon::parse($g['end_time'])->format('h:i A') }}
                                         </td>
                                         <td class="px-3 py-2.5">
                                             <div class="flex flex-wrap gap-1">
