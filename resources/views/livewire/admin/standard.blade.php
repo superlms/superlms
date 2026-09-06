@@ -160,9 +160,8 @@
                     <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden">
                         <div class="grid grid-cols-12 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                             <div class="col-span-1">#</div>
-                            <div class="col-span-2">Class</div>
-                            <div class="col-span-2">Code</div>
-                            <div class="col-span-3">Sections</div>
+                            <div class="col-span-3">Class</div>
+                            <div class="col-span-4">Sections</div>
                             <div class="col-span-1">Board</div>
                             <div class="col-span-1 text-center">Status</div>
                             <div class="col-span-2 text-right">Actions</div>
@@ -176,17 +175,10 @@
                             <div class="grid grid-cols-12 items-center px-4 py-3 border-b border-gray-100 last:border-0 hover:bg-purple-50/40 transition-colors cursor-pointer"
                                 wire:click="drillIntoClass({{ $std->id }})">
                                 <div class="col-span-1 text-sm text-gray-500">{{ $filteredStandards->firstItem() + $idx }}</div>
-                                <div class="col-span-2 flex items-center gap-2.5">
-                                    <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                        <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z" />
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
-                                        </svg>
-                                    </div>
+                                <div class="col-span-3">
                                     <p class="font-semibold text-gray-900 text-sm truncate">{{ $std->name }}</p>
                                 </div>
-                                <div class="col-span-2 text-sm text-gray-700">{{ $std->code }}</div>
-                                <div class="col-span-3 text-sm text-gray-600">
+                                <div class="col-span-4 text-sm text-gray-600">
                                     @if (count($sectionShow))
                                         <div class="flex flex-wrap items-center gap-1">
                                             @foreach ($sectionShow as $name)
@@ -258,9 +250,8 @@
                     <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden">
                         <div class="grid grid-cols-12 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                             <div class="col-span-1">#</div>
-                            <div class="col-span-3">Section</div>
-                            <div class="col-span-2">Code</div>
-                            <div class="col-span-3">Class</div>
+                            <div class="col-span-4">Section</div>
+                            <div class="col-span-4">Class</div>
                             <div class="col-span-1 text-center">Status</div>
                             <div class="col-span-2 text-right">Actions</div>
                         </div>
@@ -268,17 +259,10 @@
                             <div class="grid grid-cols-12 items-center px-4 py-3 border-b border-gray-100 last:border-0 hover:bg-blue-50/40 transition-colors cursor-pointer"
                                 wire:click="drillIntoSection({{ $section->id }})">
                                 <div class="col-span-1 text-sm text-gray-500">{{ $filteredSections->firstItem() + $idx }}</div>
-                                <div class="col-span-3 flex items-center gap-2.5">
-                                    <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        </svg>
-                                    </div>
+                                <div class="col-span-4">
                                     <p class="font-semibold text-gray-900 text-sm truncate">{{ $section->name }}</p>
                                 </div>
-                                <div class="col-span-2 text-sm text-gray-700">{{ $section->code }}</div>
-                                <div class="col-span-3 text-sm text-gray-600">{{ $section->standard->name ?? '—' }}</div>
+                                <div class="col-span-4 text-sm text-gray-600">{{ $section->standard->name ?? '—' }}</div>
                                 <div class="col-span-1 text-center">
                                     <span class="inline-block px-2 py-0.5 text-xs rounded-full font-medium
                                         {{ $section->is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600' }}">
