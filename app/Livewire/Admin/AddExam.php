@@ -51,7 +51,6 @@ class AddExam extends Component
     // Custom delete overlay (replaces broken WireUI dialog)
     public bool $showDeleteConfirm = false;
     public $deleteTargetId         = null;
-    public string $deleteTargetType = 'exam'; // 'exam' | 'syllabus'
 
     // ─── Exam filters ───────────────────────────────────────────────────────
     public $search             = '';
@@ -440,14 +439,6 @@ class AddExam extends Component
     public function onDeleteExam($id): void
     {
         $this->deleteTargetId   = $id;
-        $this->deleteTargetType = 'exam';
-        $this->showDeleteConfirm = true;
-    }
-
-    public function onDeleteSyllabusGroup($examId, $standardId, $subjectId): void
-    {
-        $this->deleteTargetId    = ['exam_id' => $examId, 'standard_id' => $standardId, 'subject_id' => $subjectId];
-        $this->deleteTargetType  = 'syllabus';
         $this->showDeleteConfirm = true;
     }
 
@@ -460,22 +451,12 @@ class AddExam extends Component
     public function confirmDelete(): void
     {
         try {
-            if ($this->deleteTargetType === 'exam') {
-                $exam = Exam::find($this->deleteTargetId);
-                if ($exam) {
-                    // Cascade delete syllabus rows for this exam
-                    ExamSyllabusChapter::where('exam_id', $exam->id)->delete();
-                    $exam->delete();
-                    $this->notification()->success('Exam deleted successfully!');
-                }
-            } elseif ($this->deleteTargetType === 'syllabus' && is_array($this->deleteTargetId)) {
-                $t = $this->deleteTargetId;
-                ExamSyllabusChapter::where('exam_id', $t['exam_id'])
-                    ->where('standard_id', $t['standard_id'])
-                    ->where('subject_id', $t['subject_id'])
-                    ->where('organization_id', Auth::user()->organization_id)
-                    ->delete();
-                $this->notification()->success('Syllabus removed successfully!');
+            $exam = Exam::find($this->deleteTargetId);
+            if ($exam) {
+                // Cascade delete syllabus rows for this exam
+                ExamSyllabusChapter::where('exam_id', $exam->id)->delete();
+                $exam->delete();
+                $this->notification()->success('Exam deleted successfully!');
             }
             $this->loadStatistics();
         } catch (\Exception $e) {
@@ -524,10 +505,11 @@ class AddExam extends Component
         $this->sylModalSectionId  = $sectionId !== null ? (string) $sectionId : '';
         $this->sylModalSubjectId  = (string) $subjectId;
 
-        // Re-run the cascading loaders so dependent option lists are populated.
-        $this->updatedSylModalStandardId($this->sylModalStandardId);
-        $this->updatedSylModalSectionId($this->sylModalSectionId);
-        $this->updatedSylModalSubjectId($this->sylModalSubjectId);
+        // Load the option lists directly: the updated* hooks clear everything
+        // downstream, which would wipe the very selection we're restoring.
+        $this->loadSylModalSections($standardId);
+        $this->loadSylModalSubjects();
+        $this->loadSylModalChapters(); // also re-ticks the chapters already saved
 
         $this->openSyllabusModal = true;
     }
@@ -553,6 +535,30 @@ class AddExam extends Component
         ]);
     }
 
+    /** Sections of a class, for the syllabus modal's Section dropdown. */
+    private function loadSylModalSections($standardId): void
+    {
+        if (!$standardId) {
+            $this->sylModalSections = [];
+            return;
+        }
+
+        $this->sylModalSections = Section::where('organization_id', Auth::user()->organization_id)
+            ->where('standard_id', $standardId)
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->get(['id', 'name'])
+            ->toArray();
+    }
+
+    /** Subjects of the chosen class (+ section), for the Subject dropdown. */
+    private function loadSylModalSubjects(): void
+    {
+        $this->sylModalSubjects = $this->sylModalStandardId
+            ? $this->subjectsForClass($this->sylModalStandardId, $this->sylModalSectionId ?: null)
+            : [];
+    }
+
     public function updatedSylModalStandardId($value): void
     {
         // Reset everything downstream when class changes.
@@ -562,18 +568,7 @@ class AddExam extends Component
         $this->sylModalSubjects    = [];
         $this->sylModalChapters    = [];
 
-        if (!$value) {
-            $this->sylModalSections = [];
-            return;
-        }
-
-        $orgId = Auth::user()->organization_id;
-        $this->sylModalSections = Section::where('organization_id', $orgId)
-            ->where('standard_id', $value)
-            ->where('is_active', true)
-            ->orderBy('id')
-            ->get(['id', 'name'])
-            ->toArray();
+        $this->loadSylModalSections($value);
     }
 
     public function updatedSylModalSectionId($value): void
@@ -583,40 +578,23 @@ class AddExam extends Component
         $this->sylModalChapterIds = [];
         $this->sylModalChapters   = [];
 
-        if (!$value || !$this->sylModalStandardId) {
-            $this->sylModalSubjects = [];
-            return;
-        }
-
-        $orgId = Auth::user()->organization_id;
-
-        // Subjects mapped to THIS (class + section) via the section_subjects
-        // pivot. Fall back to the standard_subjects pivot if the section has
-        // no specific mapping so the dropdown is never silently empty.
-        $sectionSubjectIds = DB::table('section_subjects')
-            ->where('section_id', $value)
-            ->where('standard_id', $this->sylModalStandardId)
-            ->pluck('subject_id')
-            ->toArray();
-
-        if (empty($sectionSubjectIds)) {
-            $sectionSubjectIds = DB::table('standard_subjects')
-                ->where('standard_id', $this->sylModalStandardId)
-                ->pluck('subject_id')
-                ->toArray();
-        }
-
-        $this->sylModalSubjects = Subject::where('organization_id', $orgId)
-            ->whereIn('id', $sectionSubjectIds)
-            ->where('is_active', true)
-            ->orderBy('id')
-            ->get(['id', 'name'])
-            ->toArray();
+        $this->loadSylModalSubjects();
     }
 
     public function updatedSylModalSubjectId($value): void
     {
         $this->sylModalChapterIds = [];
+        $this->loadSylModalChapters();
+    }
+
+    /**
+     * Chapters available for the chosen class (+ section) and subject, each
+     * annotated with the exam that currently owns it, plus the chapters this
+     * exam already has saved (pre-ticked).
+     */
+    private function loadSylModalChapters(): void
+    {
+        $value = $this->sylModalSubjectId;
 
         if (!$value || !$this->sylModalStandardId) {
             $this->sylModalChapters = [];
@@ -708,7 +686,9 @@ class AddExam extends Component
             'sylModalStandardId' => 'required|integer',
             'sylModalSectionId'  => 'nullable|integer',
             'sylModalSubjectId'  => 'required|integer',
-            'sylModalChapterIds' => 'required|array|min:1',
+            // Editing may legitimately end with nothing ticked — that is how a
+            // syllabus is removed now that the list has no delete button.
+            'sylModalChapterIds' => $this->sylModalIsEdit ? 'array' : 'required|array|min:1',
         ], [
             'sylModalExamId.required'     => 'Please select an exam.',
             'sylModalStandardId.required' => 'Please select a class.',
@@ -762,7 +742,9 @@ class AddExam extends Component
             });
 
             $this->notification()->success(
-                $this->sylModalIsEdit ? 'Syllabus updated successfully!' : 'Syllabus saved successfully!'
+                empty($this->sylModalChapterIds)
+                    ? 'Syllabus removed — every chapter was deselected.'
+                    : ($this->sylModalIsEdit ? 'Syllabus updated successfully!' : 'Syllabus saved successfully!')
             );
             $this->loadStatistics();
             $this->closeSyllabusModal();
