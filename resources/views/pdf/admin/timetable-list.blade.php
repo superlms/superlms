@@ -5,8 +5,11 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <title>Timetable — {{ $heading }}</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        @page { size: A4 landscape; margin: 12mm 14mm 16mm 14mm; }
+        /* NB: do NOT add `margin: 0` to this universal rule — in dompdf the `*`
+           selector also matches the page box and silently wipes out the @page
+           margins below, which makes the sheet bleed to the paper edge. */
+        * { box-sizing: border-box; }
+        @page { margin: 12mm 14mm 16mm 14mm; }
 
         body {
             font-family: "DejaVu Sans", "Helvetica", Arial, sans-serif;
@@ -137,13 +140,13 @@
         <table class="sheet">
             <thead>
                 <tr>
-                    <th style="width: 8mm;">#</th>
+                    <th style="width: 5%;">#</th>
                     @if ($mode === 'teacher')
                         <th style="width: 16%;">Class &middot; Section</th>
                     @endif
                     <th style="width: {{ $mode === 'teacher' ? '18%' : '20%' }};">Time</th>
                     <th style="width: {{ $mode === 'teacher' ? '20%' : '24%' }};">Subject</th>
-                    <th>Teacher(s)</th>
+                    <th style="width: {{ $mode === 'teacher' ? '24%' : '31%' }};">Teacher(s)</th>
                     <th style="width: {{ $mode === 'teacher' ? '17%' : '20%' }};">Days</th>
                 </tr>
             </thead>
