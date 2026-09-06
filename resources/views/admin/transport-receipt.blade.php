@@ -5,13 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Transport Fee Receipt — {{ $payment->receipt_number }}</title>
     <style>
-        /* Keep the header gradient and the amount panel on paper too - without
-           this browsers drop every background and the print looks nothing like
-           what is on screen. */
-        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        @page { size: A4; margin: 14mm; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        /* The printed sheet is the reference: white ground, no page padding and
+           no card chrome. The screen simply shows the same thing, so a preview
+           is a true preview. Nothing here changes what the printer receives. */
         body { font-family: 'Segoe UI', Arial, sans-serif; color: #1f2937; background: #fff; }
-        /* Floating so the receipt below sits exactly where it will print. */
+        /* Out of the flow, so the receipt sits where it will print. */
         .toolbar { position: fixed; bottom: 20px; right: 20px; z-index: 10; }
         .toolbar button { background: #111827; color: #fff; border: 0; padding: 8px 18px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
         .receipt { width: 600px; max-width: 100%; margin: 0 auto; background: #fff; overflow: hidden; }
@@ -29,11 +28,7 @@
         .sign { display: flex; justify-content: space-between; margin-top: 36px; font-size: 12px; }
         .sign div { border-top: 1px solid #9ca3af; padding-top: 4px; width: 180px; text-align: center; }
         .foot { background: #f9fafb; padding: 10px; text-align: center; font-size: 11px; color: #9ca3af; border-top: 1px solid #eee; }
-        /* Nothing to undo for print any more — only the button is hidden. */
-        @media print {
-            .toolbar { display: none; }
-            .receipt { break-inside: avoid; }
-        }
+        @media print { .toolbar { display: none; } }
     </style>
 </head>
 <body>
