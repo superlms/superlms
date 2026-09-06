@@ -115,7 +115,7 @@
         <!-- Logo section -->
         <div class="lms-logo-wrap flex-shrink-0 flex flex-col items-center px-4 pb-4 pt-1 border-b border-gray-200">
             <img src="{{ auth()->user()->organization && auth()->user()->organization->logo ? auth()->user()->organization->logo : asset('website-image/Group 11525.png') }}"
-                alt="Logo" class="lms-logo-img w-16 h-16 object-contain">
+                alt="Logo" class="lms-logo-img w-[4.5rem] h-[4.5rem] object-contain">
             <h2 class="lms-logo-name text-sm font-bold text-gray-900 text-center mt-1">
                 {{ auth()->user()->organization->name }}
             </h2>

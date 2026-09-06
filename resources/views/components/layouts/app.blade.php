@@ -76,7 +76,7 @@
         }
 
         /* Sidebar logo, expanded state. The collapsed rail overrides it below. */
-        .lms-logo-img { width: 4rem !important; height: 4rem !important; }
+        .lms-logo-img { width: 4.5rem !important; height: 4.5rem !important; }
 
         /* ─── Collapsible desktop sidebar ───
            Default (no `.sidebar-expanded` on <html>) = icon-only rail; clicking
