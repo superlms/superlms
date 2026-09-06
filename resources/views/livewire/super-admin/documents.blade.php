@@ -83,7 +83,14 @@
                                     </div>
                                 </td>
                                 <td class="px-4 py-3">
-                                    @if ($doc->audience_scope === 'all')
+                                    @if ($doc->audience_scope === 'private')
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[11px] font-semibold">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                            </svg>
+                                            Kept private
+                                        </span>
+                                    @elseif ($doc->audience_scope === 'all')
                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-[11px] font-semibold">All schools</span>
                                     @else
                                         <span class="text-xs text-gray-600">{{ $doc->organizations->pluck('name')->take(2)->join(', ') }}@if ($doc->organizations->count() > 2) +{{ $doc->organizations->count() - 2 }}@endif</span>
@@ -185,25 +192,39 @@
                     </div>
 
                     <div class="border-t border-gray-100 pt-5">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Send to</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Who gets this document?</label>
 
-                        @if ($orgLocked)
-                            <p class="text-xs text-gray-500">
-                                Restricted to <strong class="text-gray-800">{{ $organizations->first()->name ?? 'your school' }}</strong>.
-                            </p>
-                        @else
-                            <div class="flex flex-wrap gap-2 mb-3">
+                        {{-- Keep it here, or push it down to schools. --}}
+                        <div class="flex flex-wrap gap-2 mb-3">
+                            <button type="button" wire:click="$set('audienceScope', 'private')"
+                                class="px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors
+                                       {{ $audienceScope === 'private' ? 'bg-gray-800 border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50' }}">
+                                Keep with me
+                            </button>
+                            @unless ($orgLocked)
                                 <button type="button" wire:click="$set('audienceScope', 'all')"
                                     class="px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors
                                            {{ $audienceScope === 'all' ? 'bg-purple-600 border-purple-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50' }}">
                                     All schools
                                 </button>
-                                <button type="button" wire:click="$set('audienceScope', 'selected')"
-                                    class="px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors
-                                           {{ $audienceScope === 'selected' ? 'bg-purple-600 border-purple-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50' }}">
-                                    Specific schools
-                                </button>
-                            </div>
+                            @endunless
+                            <button type="button" wire:click="$set('audienceScope', 'selected')"
+                                class="px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors
+                                       {{ $audienceScope === 'selected' ? 'bg-purple-600 border-purple-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50' }}">
+                                {{ $orgLocked ? 'Send to my school' : 'Specific schools' }}
+                            </button>
+                        </div>
+
+                        @if ($audienceScope === 'private')
+                            <p class="text-xs text-gray-500">
+                                Stored here only — no school sees it and no notification is sent.
+                                You can send it later by editing this document.
+                            </p>
+                        @elseif ($orgLocked)
+                            <p class="text-xs text-gray-500">
+                                Goes to <strong class="text-gray-800">{{ $organizations->first()->name ?? 'your school' }}</strong>.
+                            </p>
+                        @else
 
                             @if ($audienceScope === 'selected')
                                 <div class="max-h-56 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-50">
@@ -227,7 +248,9 @@
                     <button wire:click="closePanel" type="button" class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800">Cancel</button>
                     <button wire:click="save" type="button" wire:loading.attr="disabled" wire:target="save,file"
                         class="inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white text-sm font-medium px-5 py-2 rounded-lg">
-                        <span wire:loading.remove wire:target="save">{{ $editId ? 'Update Document' : 'Send Document' }}</span>
+                        <span wire:loading.remove wire:target="save">
+                            {{ $editId ? 'Update Document' : ($audienceScope === 'private' ? 'Save Document' : 'Send Document') }}
+                        </span>
                         <span wire:loading wire:target="save">Saving…</span>
                     </button>
                 </div>

@@ -68,9 +68,19 @@ class SuperAdminDocument extends Model
         return round($bytes / (1024 ** $i), $i ? 1 : 0) . ' ' . $units[$i];
     }
 
+    /** True when the super-admin kept this document instead of sending it. */
+    public function isPrivate(): bool
+    {
+        return $this->audience_scope === 'private';
+    }
+
     /** True when this document is visible to the given organization id. */
     public function visibleToOrg(int $orgId): bool
     {
+        if ($this->isPrivate()) {
+            return false;
+        }
+
         if ($this->audience_scope === 'all') {
             return true;
         }
@@ -81,6 +91,7 @@ class SuperAdminDocument extends Model
     /** Limit a query to documents visible to a given organization. */
     public function scopeForOrganization($query, int $orgId)
     {
+        // A 'private' document matches neither branch, so it stays hidden.
         return $query->where(function ($q) use ($orgId) {
             $q->where('audience_scope', 'all')
               ->orWhereHas('organizations', fn ($o) => $o->where('organizations.id', $orgId));

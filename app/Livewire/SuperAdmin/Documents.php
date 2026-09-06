@@ -34,7 +34,7 @@ class Documents extends Component
     public string $description   = '';
     public $file                 = null;
     public string $existingFileName = '';
-    public string $audienceScope = 'all';   // all | selected
+    public string $audienceScope = 'all';   // private | all | selected
     public array  $selectedOrgs  = [];
 
     // ─── Filters ─────────────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ class Documents extends Component
         $this->audienceScope    = $doc->audience_scope;
         $this->selectedOrgs     = $doc->organizations->pluck('id')->all();
 
-        if ($lockedOrgId = $this->lockedOrganizationId()) {
+        if (($lockedOrgId = $this->lockedOrganizationId()) && $this->audienceScope !== 'private') {
             $this->audienceScope = 'selected';
             $this->selectedOrgs  = [$lockedOrgId];
         }
@@ -137,8 +137,9 @@ class Documents extends Component
 
     public function save(): void
     {
-        // Sub-super-admin can never broadcast beyond its own org.
-        if ($lockedOrgId = $this->lockedOrganizationId()) {
+        // Sub-super-admin can never broadcast beyond its own org — unless the
+        // document is being kept private, which reaches no school at all.
+        if (($lockedOrgId = $this->lockedOrganizationId()) && $this->audienceScope !== 'private') {
             $this->audienceScope = 'selected';
             $this->selectedOrgs  = [$lockedOrgId];
         }
@@ -148,7 +149,7 @@ class Documents extends Component
             'description'     => 'nullable|string|max:1000',
             // File is required when creating; optional (keep existing) when editing.
             'file'            => ($this->editId ? 'nullable' : 'required') . '|file|max:5120', // KB → 5 MB
-            'audienceScope'   => 'required|in:all,selected',
+            'audienceScope'   => 'required|in:private,all,selected',
             'selectedOrgs'    => 'required_if:audienceScope,selected|array',
             'selectedOrgs.*'  => 'exists:organizations,id',
         ], [
@@ -189,6 +190,12 @@ class Documents extends Component
             $doc->organizations()->sync($this->selectedOrgs);
         }
 
+        // A private document stays here: no school sees it, nobody is notified.
+        if ($this->audienceScope === 'private') {
+            $this->notification()->success('Document saved', 'Kept private — no school can see it.');
+            return;
+        }
+
         $this->notifyAdmins($doc);
         $this->notification()->success('Document sent', 'Schools can now view and download it.');
     }
@@ -220,6 +227,7 @@ class Documents extends Component
         if ($this->audienceScope === 'selected') {
             $doc->organizations()->sync($this->selectedOrgs);
         } else {
+            // 'all' resolves without the pivot; 'private' must reach nobody.
             $doc->organizations()->detach();
         }
 
@@ -231,7 +239,12 @@ class Documents extends Component
             }
         }
 
-        $this->notification()->success('Document updated', 'Your changes have been saved.');
+        $this->notification()->success(
+            'Document updated',
+            $this->audienceScope === 'private'
+                ? 'Kept private — no school can see it.'
+                : 'Your changes have been saved.'
+        );
     }
 
     /** Target organization ids for a document (resolved from its audience). */
@@ -380,7 +393,15 @@ class Documents extends Component
         $lockedOrgId = $this->lockedOrganizationId();
 
         $documents = SuperAdminDocument::with('organizations:id,name')
-            ->when($lockedOrgId, fn ($q) => $q->forOrganization($lockedOrgId))
+            ->when($lockedOrgId, function ($q) use ($lockedOrgId) {
+                // Everything this school can see, plus my own private uploads.
+                $q->where(function ($w) use ($lockedOrgId) {
+                    $w->where('audience_scope', 'all')
+                      ->orWhere(fn ($p) => $p->where('audience_scope', 'private')
+                          ->where('uploaded_by', Auth::id()))
+                      ->orWhereHas('organizations', fn ($o) => $o->where('organizations.id', $lockedOrgId));
+                });
+            })
             ->when($this->search, function ($q) {
                 $term = '%' . $this->search . '%';
                 $q->where(function ($w) use ($term) {

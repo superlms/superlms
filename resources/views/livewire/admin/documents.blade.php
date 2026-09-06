@@ -7,7 +7,6 @@
                 <x-admin.back-to-more />
                 <div class="min-w-0">
                     <h1 class="text-lg sm:text-xl font-bold text-gray-900">Documents</h1>
-                    <p class="text-xs text-gray-400 mt-0.5">Upload and manage your school's documents.</p>
                 </div>
             </div>
             <button wire:click="openCreate"
