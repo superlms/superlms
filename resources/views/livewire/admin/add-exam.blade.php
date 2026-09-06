@@ -14,6 +14,7 @@
                         <span class="pr-4">Total: <strong class="text-gray-800">{{ $totalExams }}</strong></span>
                         <span class="px-4">Published: <strong class="text-emerald-600">{{ $publishedExams }}</strong></span>
                         <span class="px-4">Upcoming: <strong class="text-amber-500">{{ $upcomingExams }}</strong></span>
+                        <span class="px-4">Completed: <strong class="text-blue-600">{{ $completedExams }}</strong></span>
                         <span class="pl-4">Syllabus: <strong class="text-blue-600">{{ $totalSyllabusRows }}</strong></span>
                     </div>
 
@@ -53,6 +54,7 @@
                 <span>Total: <strong class="text-gray-800">{{ $totalExams }}</strong></span>
                 <span>Published: <strong class="text-emerald-600">{{ $publishedExams }}</strong></span>
                 <span>Upcoming: <strong class="text-amber-500">{{ $upcomingExams }}</strong></span>
+                <span>Completed: <strong class="text-blue-600">{{ $completedExams }}</strong></span>
                 <span>Syllabus: <strong class="text-blue-600">{{ $totalSyllabusRows }}</strong></span>
             </div>
         </div>
@@ -304,11 +306,20 @@
                                         {{ ($exam->uses_grading_system ?? false) ? '—' : ($exam->passing_marks ?? '—') }}
                                     </td>
                                     <td class="px-4 py-3 text-center">
-                                        <button wire:click="onTogglePublish({{ $exam->id }})"
-                                            class="text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide
-                                                {{ $exam->is_published ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">
-                                            {{ $exam->is_published ? 'Published' : 'Draft' }}
-                                        </button>
+                                        {{-- Completed is set when an exam's dates are edited and its
+                                             end date has already passed; it is a state, not a toggle. --}}
+                                        @if ($exam->isCompleted())
+                                            <span class="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-blue-100 text-blue-700"
+                                                title="Ended on {{ $exam->end_date?->format('d M Y') }}">
+                                                Completed
+                                            </span>
+                                        @else
+                                            <button wire:click="onTogglePublish({{ $exam->id }})"
+                                                class="text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide
+                                                    {{ $exam->is_published ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">
+                                                {{ $exam->is_published ? 'Published' : 'Draft' }}
+                                            </button>
+                                        @endif
                                     </td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-center gap-1">
@@ -848,7 +859,7 @@
                     <div class="min-w-0">
                         <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $viewModalTitle }}</h2>
                         <p class="text-xs text-gray-500 mt-0.5">
-                            {{ $viewData['exam']->is_published ? 'Published' : 'Draft' }} ·
+                            {{ $viewData['exam']->isCompleted() ? 'Completed' : ($viewData['exam']->is_published ? 'Published' : 'Draft') }} ·
                             {{ $viewData['exam']->academic_year }}
                         </p>
                     </div>
