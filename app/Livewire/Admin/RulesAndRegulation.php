@@ -15,6 +15,9 @@ class RulesAndRegulation extends Component
 
     public $activeTab = 'view'; // ← view first
 
+    /** True while the editor is showing the built-in rules, unsaved. */
+    public bool $usingDefaults = false;
+
     // Form fields
     public $sections       = [];
     public $existingContent = null;
@@ -43,13 +46,18 @@ class RulesAndRegulation extends Component
         $this->existingContent = AdminRulesAndRegulation::where('organization_id', $this->organizationId)
             ->first();
 
+        $this->usingDefaults = false;
+
         if ($this->existingContent) {
             $content            = $this->existingContent->content ?? [];
             $this->sections     = $content['sections'] ?? [];
             $this->additionalInfo = $content['additional_info'] ?? [];
         } else {
-            $this->sections       = [['head' => '', 'desc' => '']];
+            // Nothing published yet: open the editor on the standard set of
+            // school rules so the admin edits real text instead of a blank row.
+            $this->sections       = \App\Support\DefaultSchoolRules::sections();
             $this->additionalInfo = [];
+            $this->usingDefaults  = true;
         }
 
         $this->files      = [];

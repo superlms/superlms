@@ -262,6 +262,17 @@
                     </button>
                 </div>
                 <div class="p-6 space-y-4">
+                    @if ($usingDefaults)
+                        <div class="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                            <svg class="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <p class="text-xs text-amber-800 leading-relaxed">
+                                These are the standard school rules, loaded for you to start from. Edit or remove
+                                whichever you like and press <strong>Save</strong> to publish them as your school's rules.
+                            </p>
+                        </div>
+                    @endif
                     @foreach ($sections as $index => $section)
                         <div class="border border-gray-200 rounded-xl p-4 hover:border-red-200 transition-colors">
                             <div class="flex items-center justify-between mb-3">
