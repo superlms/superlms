@@ -550,6 +550,60 @@
                         <div><p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Stream</p><p class="text-sm text-gray-800">{{ $viewEnquiryData['stream'] }}</p></div>
                         <div><p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Admission Fee</p><p class="text-sm font-semibold text-gray-800">₹{{ $viewEnquiryData['admission_fee'] }}</p></div>
                     </div>
+                    {{-- Fee status — what was charged, what has been collected, what is left. --}}
+                    @php
+                        $feeChip = [
+                            'paid'    => ['Fully Paid',     'bg-emerald-100 text-emerald-700'],
+                            'partial' => ['Partially Paid', 'bg-amber-100 text-amber-700'],
+                            'pending' => ['Not Collected',  'bg-gray-100 text-gray-600'],
+                        ][$viewEnquiryData['fee_status']] ?? ['Not Collected', 'bg-gray-100 text-gray-600'];
+                    @endphp
+                    <div class="border-t border-gray-100 pt-5">
+                        <div class="flex items-center justify-between gap-3 mb-3">
+                            <p class="text-xs text-gray-400 uppercase tracking-wider">Fee Status</p>
+                            <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide {{ $feeChip[1] }}">
+                                {{ $feeChip[0] }}
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-3">
+                            <div class="rounded-lg border border-gray-200 px-3 py-2.5">
+                                <p class="text-[11px] text-gray-500">Total Fee</p>
+                                <p class="text-sm font-semibold text-gray-800">₹{{ number_format($viewEnquiryData['fee_total'], 2) }}</p>
+                            </div>
+                            <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+                                <p class="text-[11px] text-emerald-700">Collected</p>
+                                <p class="text-sm font-semibold text-emerald-700">₹{{ number_format($viewEnquiryData['fee_collected'], 2) }}</p>
+                            </div>
+                            <div class="rounded-lg border px-3 py-2.5 {{ $viewEnquiryData['fee_pending'] > 0 ? 'border-red-200 bg-red-50' : 'border-gray-200' }}">
+                                <p class="text-[11px] {{ $viewEnquiryData['fee_pending'] > 0 ? 'text-red-700' : 'text-gray-500' }}">Pending</p>
+                                <p class="text-sm font-semibold {{ $viewEnquiryData['fee_pending'] > 0 ? 'text-red-700' : 'text-gray-800' }}">
+                                    ₹{{ number_format($viewEnquiryData['fee_pending'], 2) }}
+                                </p>
+                            </div>
+                        </div>
+
+                        @if ($viewEnquiryData['fee_collected'] > 0)
+                            <div class="grid grid-cols-3 gap-6 mt-3">
+                                <div>
+                                    <p class="text-xs text-gray-500">Mode</p>
+                                    <p class="text-sm text-gray-800 capitalize">{{ $viewEnquiryData['payment_mode'] ?: '—' }}</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500">Collected By</p>
+                                    <p class="text-sm text-gray-800 truncate">{{ $viewEnquiryData['collected_by'] ?: '—' }}</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500">Collected On</p>
+                                    <p class="text-sm text-gray-800">{{ $viewEnquiryData['fee_collected_at'] ?: '—' }}</p>
+                                </div>
+                            </div>
+                            <p class="text-[11px] text-gray-400 mt-2">
+                                This collection appears in the Ledger as an "Admission Fee" credit.
+                            </p>
+                        @endif
+                    </div>
+
                     <div class="border-t border-gray-100 pt-5">
                         <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Address</p>
                         <p class="text-sm text-gray-700 whitespace-pre-line">{{ $viewEnquiryData['address'] }}</p>

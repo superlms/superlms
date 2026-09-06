@@ -260,6 +260,11 @@ class Admissions extends Component
             ->first();
         if (!$enquiry) return;
 
+        // Fee position for this applicant: what was charged, what came in,
+        // and what is still outstanding. Ledger credits the collected part.
+        $feeTotal     = (float) ($enquiry->admission_fee ?? 0);
+        $feeCollected = (float) ($enquiry->collected_amount ?? 0);
+
         $this->viewEnquiryData = [
             'id'             => $enquiry->id,
             'student_name'   => $enquiry->student_name,
@@ -270,6 +275,19 @@ class Admissions extends Component
             'class'          => $enquiry->standard->name ?? '—',
             'stream'         => $enquiry->stream ?? '—',
             'admission_fee'  => $enquiry->admission_fee,
+            'fee_total'      => $feeTotal,
+            'fee_collected'  => $feeCollected,
+            'fee_pending'    => max($feeTotal - $feeCollected, 0),
+            'fee_status'     => match (true) {
+                $feeCollected <= 0                        => 'pending',
+                $feeTotal > 0 && $feeCollected >= $feeTotal => 'paid',
+                default                                   => 'partial',
+            },
+            'payment_mode'     => $enquiry->payment_mode,
+            'collected_by'     => $enquiry->collected_by,
+            'fee_collected_at' => $enquiry->fee_collected_at
+                ? $enquiry->fee_collected_at->format('d M Y')
+                : null,
             'total_marks'    => $enquiry->total_marks,
             'obtained_marks' => $enquiry->obtained_marks,
             'remarks'        => $enquiry->remarks ?? '—',
