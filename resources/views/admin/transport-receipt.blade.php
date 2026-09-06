@@ -5,11 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Transport Fee Receipt — {{ $payment->receipt_number }}</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; color: #1f2937; background: #f3f4f6; padding: 24px; }
-        .toolbar { text-align: center; margin-bottom: 16px; }
-        .toolbar button { background: #111827; color: #fff; border: 0; padding: 8px 18px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 600; }
-        .receipt { width: 600px; max-width: 100%; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; }
+        /* Keep the header gradient and the amount panel on paper too - without
+           this browsers drop every background and the print looks nothing like
+           what is on screen. */
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        @page { size: A4; margin: 14mm; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; color: #1f2937; background: #fff; }
+        /* Floating so the receipt below sits exactly where it will print. */
+        .toolbar { position: fixed; bottom: 20px; right: 20px; z-index: 10; }
+        .toolbar button { background: #111827; color: #fff; border: 0; padding: 8px 18px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+        .receipt { width: 600px; max-width: 100%; margin: 0 auto; background: #fff; overflow: hidden; }
         .head { background: linear-gradient(135deg,#2563eb,#4f46e5); color: #fff; padding: 20px 24px; text-align: center; }
         .head h1 { font-size: 20px; }
         .head p { font-size: 12px; opacity: .9; margin-top: 2px; }
@@ -24,7 +29,11 @@
         .sign { display: flex; justify-content: space-between; margin-top: 36px; font-size: 12px; }
         .sign div { border-top: 1px solid #9ca3af; padding-top: 4px; width: 180px; text-align: center; }
         .foot { background: #f9fafb; padding: 10px; text-align: center; font-size: 11px; color: #9ca3af; border-top: 1px solid #eee; }
-        @media print { body { background: #fff; padding: 0; } .toolbar { display: none; } .receipt { border: none; } }
+        /* Nothing to undo for print any more — only the button is hidden. */
+        @media print {
+            .toolbar { display: none; }
+            .receipt { break-inside: avoid; }
+        }
     </style>
 </head>
 <body>
