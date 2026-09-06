@@ -31,8 +31,11 @@
         @media print { .toolbar { display: none; } }
     </style>
 </head>
+@php $autoPrint = request()->boolean('print'); @endphp
 <body>
-    <div class="toolbar"><button onclick="window.print()">🖨 Print / Save as PDF</button></div>
+    @unless ($autoPrint)
+        <div class="toolbar"><button onclick="window.print()">🖨 Print / Save as PDF</button></div>
+    @endunless
 
     <div class="receipt">
         <div class="head">
@@ -66,5 +69,20 @@
         </div>
         <div class="foot">Generated {{ now()->format('d M Y H:i') }} · This is a system-generated receipt.</div>
     </div>
+
+    @if ($autoPrint)
+        {{-- Opened from the Transactions list: print this sheet straight away and
+             close the window once the dialog is done, so the receipt itself is
+             never something the user has to look at or dismiss. --}}
+        <script>
+            window.addEventListener('load', function () {
+                window.focus();
+                window.print();
+            });
+            window.addEventListener('afterprint', function () {
+                window.close();
+            });
+        </script>
+    @endif
 </body>
 </html>
