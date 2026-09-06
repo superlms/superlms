@@ -10,7 +10,10 @@ use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -46,7 +49,6 @@ class Transport extends Component
     public string $driver_phone        = '';
     public string $license_no          = '';
     public string $driver_vehicle_no   = '';
-    public string $driver_vehicle_type = '';
     public string $driver_address      = '';
     public int    $experience_years    = 0;
     public bool   $driver_is_active    = true;
@@ -56,6 +58,10 @@ class Transport extends Component
 
     // ─── Transportation (Route) Form ───────────────────────
     public string $route_name          = '';
+    /** Vehicle types this route runs — one route row is created per type. */
+    public array   $route_vehicle_types = [];
+    /** Group key of the route being edited (a group is one row per type). */
+    public ?string $editTransportGroup  = null;
     public ?int   $driver_detail_id    = null;
     public string $pickup_time         = '';
     public string $drop_time           = '';
@@ -77,7 +83,8 @@ class Transport extends Component
 
     // ─── Delete confirm ────────────────────────────────────
     public ?int $pendingDeleteDriverId = null;
-    public ?int $pendingDeleteRouteId  = null;
+    /** Route group key pending deletion (a group is one row per vehicle type). */
+    public ?string $pendingDeleteRouteId = null;
 
     public array $availableDrivers = [];
     public array $vehicleTypes = ['Bus', 'Mini Bus', 'Van', 'Auto', 'Car', 'Other'];
@@ -105,7 +112,12 @@ class Transport extends Component
 
         return [
             'drivers'         => DriverDetail::where('organization_id', $orgId)->where('is_active', true)->count(),
-            'routes'          => Transportation::where('organization_id', $orgId)->where('is_active', true)->count(),
+            // Counted as the listing shows them: one route per group, not one
+            // per vehicle-type row.
+            'routes'          => Transportation::where('organization_id', $orgId)
+                ->where('is_active', true)
+                ->distinct()
+                ->count(DB::raw('COALESCE(route_group, id)')),
             'students'        => DB::table('transportation_students')->where('organization_id', $orgId)->count(),
             'monthly_revenue' => Transportation::where('organization_id', $orgId)
                 ->where('is_active', true)->withCount('students')->get()
@@ -156,7 +168,6 @@ class Transport extends Component
         $this->driver_phone        = $driver->phone ?? '';
         $this->license_no          = $driver->license_no ?? '';
         $this->driver_vehicle_no   = $driver->vehicle_no ?? '';
-        $this->driver_vehicle_type = $driver->vehicle_type ?? '';
         $this->driver_address      = $driver->address ?? '';
         $this->experience_years    = $driver->experience_years ?? 0;
         $this->driver_is_active    = $driver->is_active;
@@ -174,7 +185,6 @@ class Transport extends Component
             'driver_phone'        => 'required|regex:/^[6-9]\d{9}$/',
             'license_no'          => 'nullable|string|max:50',
             'driver_vehicle_no'   => 'nullable|string|max:30',
-            'driver_vehicle_type' => 'nullable|string|max:50',
             'driver_address'      => 'nullable|string|max:500',
             'experience_years'    => 'nullable|integer|min:0|max:50',
             'driver_image'        => 'nullable|image|max:1024', // 1 MB
@@ -214,7 +224,6 @@ class Transport extends Component
                     'phone'            => $this->driver_phone,
                     'license_no'       => $this->license_no,
                     'vehicle_no'       => $this->driver_vehicle_no,
-                    'vehicle_type'     => $this->driver_vehicle_type,
                     'address'          => $this->driver_address,
                     'experience_years' => $this->experience_years,
                     'is_active'        => $this->driver_is_active,
@@ -239,7 +248,6 @@ class Transport extends Component
                     'phone'            => $this->driver_phone,
                     'license_no'       => $this->license_no,
                     'vehicle_no'       => $this->driver_vehicle_no,
-                    'vehicle_type'     => $this->driver_vehicle_type,
                     'address'          => $this->driver_address,
                     'experience_years' => $this->experience_years,
                     'is_active'        => true,
@@ -351,7 +359,7 @@ class Transport extends Component
     {
         $this->reset([
             'driver_name', 'driver_email', 'driver_phone',
-            'license_no', 'driver_vehicle_no', 'driver_vehicle_type',
+            'license_no', 'driver_vehicle_no',
             'driver_address', 'experience_years', 'driver_is_active',
             'driver_image', 'driver_image_existing', 'driver_routes',
         ]);
@@ -362,39 +370,67 @@ class Transport extends Component
     public function createTransport(): void
     {
         $this->resetTransportForm();
-        $this->editTransportId = null;
-        $this->transportModal  = true;
+        $this->editTransportId    = null;
+        $this->editTransportGroup = null;
+        $this->transportModal     = true;
     }
 
-    public function editTransport(int $id): void
+    /** Every row of one route group, oldest first. */
+    private function groupRows(string $group)
     {
-        $t = Transportation::findOrFail($id);
-        $this->editTransportId     = $t->id;
-        $this->route_name          = $t->route_name;
-        // 0 = "no driver" sentinel → null. Driver is assigned from the Driver form.
-        $this->driver_detail_id    = $t->driver_detail_id ?: null;
-        $this->pickup_time         = $t->pickup_time ?? '';
-        $this->drop_time           = $t->drop_time ?? '';
-        $this->monthly_fee         = (float) $t->monthly_fee;
-        $this->capacity            = (int) $t->capacity;
-        $this->transport_is_active = $t->is_active;
-        $this->transportModal      = true;
+        return Transportation::where('organization_id', $this->organizationId)
+            ->where('route_group', $group)
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
+     * Edit a whole route group: the shared details come from its first row and
+     * the vehicle types from every row in it.
+     */
+    public function editTransport(string $group): void
+    {
+        $rows  = $this->groupRows($group);
+        $first = $rows->first();
+
+        if (!$first) {
+            $this->notification()->error('Error!', 'Route not found');
+            return;
+        }
+
+        $this->editTransportGroup   = $group;
+        $this->editTransportId      = $first->id;
+        $this->route_name           = $first->route_name;
+        $this->route_vehicle_types  = $rows->pluck('vehicle_type')->filter()->unique()->values()->all();
+        $this->driver_detail_id     = $first->driver_detail_id ?: null;
+        $this->pickup_time          = $first->pickup_time ?? '';
+        $this->drop_time            = $first->drop_time ?? '';
+        $this->monthly_fee          = (float) $first->monthly_fee;
+        $this->capacity             = (int) $first->capacity;
+        $this->transport_is_active  = (bool) $first->is_active;
+        $this->transportModal       = true;
     }
 
     public function saveTransport(): void
     {
         $this->validate([
-            'route_name'  => 'required|string|max:255',
-            'pickup_time' => 'nullable|string|max:20',
-            'drop_time'   => 'nullable|string|max:20',
-            'monthly_fee' => 'nullable|numeric|min:0|max:9999999',
-            'capacity'    => 'nullable|integer|min:0|max:1000',
+            'route_name'            => 'required|string|max:255',
+            'route_vehicle_types'   => 'required|array|min:1',
+            'route_vehicle_types.*' => 'string|max:50',
+            'pickup_time'           => 'nullable|string|max:20',
+            'drop_time'             => 'nullable|string|max:20',
+            'monthly_fee'           => 'nullable|numeric|min:0|max:9999999',
+            'capacity'              => 'nullable|integer|min:0|max:1000',
+        ], [
+            'route_vehicle_types.required' => 'Pick at least one vehicle type.',
+            'route_vehicle_types.min'      => 'Pick at least one vehicle type.',
         ]);
 
-        // Driver is no longer chosen here — it's assigned from the Driver form.
-        // On create, driver_detail_id defaults to 0 ("no driver"); on edit the
-        // existing driver assignment is preserved by not touching it.
-        $data = [
+        $types = array_values(array_unique(array_filter($this->route_vehicle_types)));
+
+        // Shared across every row of the group. The driver is assigned from the
+        // Driver form, so it is never written here.
+        $shared = [
             'organization_id' => $this->organizationId,
             'route_name'      => $this->route_name,
             'pickup_time'     => $this->pickup_time ?: null,
@@ -405,53 +441,129 @@ class Transport extends Component
         ];
 
         try {
-            if ($this->editTransportId) {
-                Transportation::findOrFail($this->editTransportId)->update($data);
-            } else {
-                Transportation::create($data);
-            }
+            DB::transaction(function () use ($types, $shared) {
+                if ($this->editTransportGroup) {
+                    $this->updateRouteGroup($this->editTransportGroup, $types, $shared);
+                    return;
+                }
+
+                // One row per vehicle type, tied together by a shared group key.
+                $group = (string) Str::uuid();
+                foreach ($types as $type) {
+                    Transportation::create($shared + [
+                        'vehicle_type' => $type,
+                        'route_group'  => $group,
+                    ]);
+                }
+            });
+
             unset($this->statistics);
-            $this->notification()->success('Success!', $this->editTransportId ? 'Route updated' : 'Route created');
+
+            $this->notification()->success(
+                'Success!',
+                $this->editTransportGroup
+                    ? 'Route updated'
+                    : (count($types) > 1
+                        ? count($types) . ' routes created — one per vehicle type'
+                        : 'Route created')
+            );
+
             $this->closeTransportModal();
         } catch (\Exception $e) {
             $this->notification()->error('Error!', 'Failed to save route: ' . $e->getMessage());
         }
     }
 
-    public function confirmDeleteRoute(int $id): void { $this->pendingDeleteRouteId = $id; }
+    /**
+     * Apply the edit across a group: shared fields on every row, a new row for
+     * each newly ticked vehicle type, and rows dropped for types that were
+     * unticked — except any that still has students riding it.
+     */
+    private function updateRouteGroup(string $group, array $types, array $shared): void
+    {
+        $rows     = $this->groupRows($group);
+        $existing = $rows->pluck('vehicle_type')->filter()->values()->all();
+
+        foreach ($rows as $row) {
+            $row->update($shared);
+        }
+
+        foreach (array_diff($types, $existing) as $type) {
+            Transportation::create($shared + [
+                'vehicle_type' => $type,
+                'route_group'  => $group,
+            ]);
+        }
+
+        $kept = [];
+        foreach ($rows as $row) {
+            if (in_array($row->vehicle_type, $types, true)) {
+                continue;
+            }
+
+            if ($row->students()->count() > 0) {
+                $kept[] = $row->vehicle_type;
+                continue;
+            }
+
+            $row->delete();
+        }
+
+        if ($kept) {
+            $this->notification()->warning(
+                'Kept in place',
+                implode(', ', $kept) . ' still has students assigned, so it was not removed.'
+            );
+        }
+    }
+
+    public function confirmDeleteRoute(string $group): void { $this->pendingDeleteRouteId = $group; }
     public function cancelDeleteRoute(): void { $this->pendingDeleteRouteId = null; }
+
     public function executeDeleteRoute(): void
     {
         if (!$this->pendingDeleteRouteId) return;
+
         try {
-            Transportation::findOrFail($this->pendingDeleteRouteId)->delete();
+            // Deleting a route deletes every vehicle-type row under it.
+            $this->groupRows((string) $this->pendingDeleteRouteId)->each->delete();
             unset($this->statistics);
             $this->notification()->success('Deleted!', 'Route deleted');
         } catch (\Exception $e) {
             $this->notification()->error('Error!', 'Failed to delete route');
         }
+
         $this->pendingDeleteRouteId = null;
     }
 
-    public function toggleTransportStatus(int $id): void
+    public function toggleTransportStatus(string $group): void
     {
-        $t = Transportation::findOrFail($id);
-        $t->update(['is_active' => !$t->is_active]);
+        $rows = $this->groupRows($group);
+        if ($rows->isEmpty()) return;
+
+        // One switch for the whole route: if any row is live, they all go off.
+        $next = !$rows->contains(fn ($r) => (bool) $r->is_active);
+        $rows->each->update(['is_active' => $next]);
+
         unset($this->statistics);
         $this->notification()->success('Updated!', 'Route status changed');
     }
 
     public function closeTransportModal(): void
     {
-        $this->transportModal  = false;
-        $this->editTransportId = null;
+        $this->transportModal     = false;
+        $this->editTransportId    = null;
+        $this->editTransportGroup = null;
         $this->resetTransportForm();
         $this->resetValidation();
     }
 
     private function resetTransportForm(): void
     {
-        $this->reset(['route_name', 'driver_detail_id', 'pickup_time', 'drop_time', 'monthly_fee', 'capacity', 'transport_is_active']);
+        $this->reset([
+            'route_name', 'route_vehicle_types', 'driver_detail_id',
+            'pickup_time', 'drop_time', 'monthly_fee', 'capacity', 'transport_is_active',
+        ]);
         $this->transport_is_active = true;
         $this->monthly_fee = 0;
         $this->capacity = 0;
@@ -466,16 +578,33 @@ class Transport extends Component
         ]);
     }
 
+    /**
+     * Every route row, labelled with its vehicle type — the driver form and the
+     * filters assign per vehicle-type route, not per route name.
+     */
     private function getRouteOptions()
     {
         if (!$this->organizationId) return collect();
+
         return Transportation::where('organization_id', $this->organizationId)
-            ->orderBy('route_name')->get(['id', 'route_name']);
+            ->orderBy('route_name')
+            ->orderBy('vehicle_type')
+            ->get(['id', 'route_name', 'vehicle_type'])
+            ->each(function ($r) {
+                $r->label = $r->route_name . ($r->vehicle_type ? ' — ' . $r->vehicle_type : '');
+            });
     }
 
+    /**
+     * The routes listing shows ONE row per route, with its vehicle types beside
+     * it — even though each type is its own row underneath, so a driver can be
+     * assigned to the Bus and the Van separately.
+     */
     private function getTransportations()
     {
-        if (!$this->organizationId) return collect()->paginate($this->perPage);
+        if (!$this->organizationId) {
+            return new LengthAwarePaginator([], 0, $this->perPage);
+        }
 
         $query = Transportation::with(['driver.user', 'students'])
             ->where('organization_id', $this->organizationId);
@@ -491,9 +620,42 @@ class Transport extends Component
         }
 
         // Order by pickup time (earliest first); routes without a time go last
-        return $query->orderByRaw('pickup_time IS NULL, pickup_time ASC')
+        $rows = $query->orderByRaw('pickup_time IS NULL, pickup_time ASC')
             ->orderBy('route_name')
-            ->paginate($this->perPage);
+            ->orderBy('id')
+            ->get();
+
+        $groups = $rows
+            ->groupBy(fn ($r) => $r->route_group ?: 'r' . $r->id)
+            ->map(function ($rows, $key) {
+                $first = $rows->first();
+
+                return (object) [
+                    'key'           => (string) $key,
+                    'route_name'    => $first->route_name,
+                    'vehicle_types' => $rows->pluck('vehicle_type')->filter()->unique()->values()->all(),
+                    'driver'        => $first->driver,
+                    'driver_names'  => $rows->map(fn ($r) => $r->driver?->user?->name)->filter()->unique()->values()->all(),
+                    'vehicle_nos'   => $rows->map(fn ($r) => $r->driver?->vehicle_no)->filter()->unique()->values()->all(),
+                    'pickup_time'   => $first->pickup_time,
+                    'drop_time'     => $first->drop_time,
+                    'monthly_fee'   => (float) $first->monthly_fee,
+                    'capacity'      => (int) $first->capacity,
+                    'students'      => $rows->sum(fn ($r) => $r->students->count()),
+                    'is_active'     => $rows->contains(fn ($r) => (bool) $r->is_active),
+                ];
+            })
+            ->values();
+
+        $page = $this->getPage();
+
+        return new LengthAwarePaginator(
+            $groups->forPage($page, $this->perPage)->values(),
+            $groups->count(),
+            $this->perPage,
+            $page,
+            ['path' => Paginator::resolveCurrentPath()]
+        );
     }
 
     private function getDrivers()

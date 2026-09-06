@@ -16,6 +16,8 @@ class Transportation extends Model
     protected $fillable = [
         'organization_id',
         'route_name',
+        'vehicle_type',
+        'route_group',
         'driver_detail_id',
         'pickup_time',
         'drop_time',

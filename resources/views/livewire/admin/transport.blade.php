@@ -76,7 +76,7 @@
                     class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-64">
                 <select wire:model.live="filterRoute" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[140px]">
                     <option value="">All Routes</option>
-                    @foreach ($routeOptions as $r)<option value="{{ $r->id }}">{{ $r->route_name }}</option>@endforeach
+                    @foreach ($routeOptions as $r)<option value="{{ $r->id }}">{{ $r->label }}</option>@endforeach
                 </select>
                 <select wire:model.live="filterStatus" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[120px]">
                     <option value="">All Status</option>
@@ -86,7 +86,7 @@
             @elseif ($activeTab === 'students')
                 <select wire:model.live="filterRoute" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[180px]">
                     <option value="">Select Route *</option>
-                    @foreach ($routeOptions as $r)<option value="{{ $r->id }}">{{ $r->route_name }}</option>@endforeach
+                    @foreach ($routeOptions as $r)<option value="{{ $r->id }}">{{ $r->label }}</option>@endforeach
                 </select>
                 <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search student name / admission…"
                     class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-64">
@@ -114,8 +114,9 @@
                 <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
                     <tr>
                         <th class="px-4 py-3 text-left">Route</th>
+                        <th class="px-4 py-3 text-left">Vehicle Type</th>
                         <th class="px-4 py-3 text-left">Driver</th>
-                        <th class="px-4 py-3 text-left">Vehicle</th>
+                        <th class="px-4 py-3 text-left">Vehicle No.</th>
                         <th class="px-4 py-3 text-left">Pickup</th>
                         <th class="px-4 py-3 text-right w-24">Monthly</th>
                         <th class="px-4 py-3 text-right w-24">Annual×11</th>
@@ -127,43 +128,54 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     @forelse ($transportations as $t)
-                        <tr wire:key="route-{{ $t->id }}" class="hover:bg-gray-50">
+                        <tr wire:key="route-{{ $t->key }}" class="hover:bg-gray-50">
                             <td class="px-4 py-3 font-medium text-gray-900">{{ $t->route_name }}</td>
                             <td class="px-4 py-3">
-                                <div class="flex items-center gap-2">
-                                    @if ($t->driver?->image)
-                                        <img src="{{ $t->driver->image }}" class="w-7 h-7 rounded-full object-cover border border-gray-200">
-                                    @else
-                                        <div class="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 text-xs font-bold">{{ strtoupper(substr($t->driver?->user?->name ?? 'D', 0, 1)) }}</div>
-                                    @endif
-                                    <span class="text-gray-700">{{ $t->driver?->user?->name ?? '—' }}</span>
-                                </div>
+                                @forelse ($t->vehicle_types as $vt)
+                                    <span class="inline-block bg-indigo-50 text-indigo-700 rounded px-1.5 py-0.5 text-xs font-medium mr-1">{{ $vt }}</span>
+                                @empty
+                                    <span class="text-gray-400">—</span>
+                                @endforelse
                             </td>
-                            <td class="px-4 py-3 text-gray-600">{{ $t->driver?->vehicle_no ?? '—' }}</td>
+                            <td class="px-4 py-3">
+                                @if (count($t->driver_names))
+                                    <div class="flex items-center gap-2">
+                                        @if ($t->driver?->image)
+                                            <img src="{{ $t->driver->image }}" class="w-7 h-7 rounded-full object-cover border border-gray-200">
+                                        @else
+                                            <div class="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 text-xs font-bold">{{ strtoupper(substr($t->driver_names[0], 0, 1)) }}</div>
+                                        @endif
+                                        <span class="text-gray-700">{{ implode(', ', $t->driver_names) }}</span>
+                                    </div>
+                                @else
+                                    <span class="text-gray-400">—</span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 text-gray-600">{{ count($t->vehicle_nos) ? implode(', ', $t->vehicle_nos) : '—' }}</td>
                             <td class="px-4 py-3 text-gray-600">{{ $t->pickup_time ?: '—' }}</td>
                             <td class="px-4 py-3 text-right text-blue-700 font-semibold">₹{{ number_format($t->monthly_fee, 0) }}</td>
                             <td class="px-4 py-3 text-right text-emerald-700 font-semibold">₹{{ number_format($this->annualFee($t->monthly_fee), 0) }}</td>
                             <td class="px-4 py-3 text-center text-gray-600">{{ $t->capacity ?: '—' }}</td>
-                            <td class="px-4 py-3 text-center text-gray-600">{{ $t->students->count() }}</td>
+                            <td class="px-4 py-3 text-center text-gray-600">{{ $t->students }}</td>
                             <td class="px-4 py-3 text-center">
-                                <button wire:click="toggleTransportStatus({{ $t->id }})"
+                                <button wire:click="toggleTransportStatus('{{ $t->key }}')"
                                     class="text-[11px] font-semibold px-2 py-0.5 rounded-full {{ $t->is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500' }}">
                                     {{ $t->is_active ? 'Active' : 'Inactive' }}
                                 </button>
                             </td>
                             <td class="px-4 py-3">
                                 <div class="flex items-center justify-center gap-1">
-                                    <button wire:click="editTransport({{ $t->id }})" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md" title="Edit">
+                                    <button wire:click="editTransport('{{ $t->key }}')" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md" title="Edit">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                     </button>
-                                    <button wire:click="confirmDeleteRoute({{ $t->id }})" class="p-1.5 text-red-600 hover:bg-red-50 rounded-md" title="Delete">
+                                    <button wire:click="confirmDeleteRoute('{{ $t->key }}')" class="p-1.5 text-red-600 hover:bg-red-50 rounded-md" title="Delete">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                     </button>
                                 </div>
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="10" class="px-4 py-12 text-center text-gray-400">No routes found. <button wire:click="createTransport" class="text-blue-600 hover:underline ml-1">Add the first route →</button></td></tr>
+                        <tr><td colspan="11" class="px-4 py-12 text-center text-gray-400">No routes found. <button wire:click="createTransport" class="text-blue-600 hover:underline ml-1">Add the first route →</button></td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -209,12 +221,12 @@
                             </td>
                             <td class="px-4 py-3 text-gray-700">{{ $d->phone ?: '—' }}</td>
                             <td class="px-4 py-3 text-gray-600 font-mono text-xs">{{ $d->license_no ?: '—' }}</td>
-                            <td class="px-4 py-3 text-gray-700">{{ $d->vehicle_no ?: '—' }}{{ $d->vehicle_type ? ' · ' . $d->vehicle_type : '' }}</td>
+                            <td class="px-4 py-3 text-gray-700">{{ $d->vehicle_no ?: '—' }}</td>
                             <td class="px-4 py-3 text-center text-gray-600">{{ $d->experience_years ?: 0 }}y</td>
                             <td class="px-4 py-3">
                                 <div class="flex flex-wrap gap-1">
                                     @forelse ($d->transportations as $r)
-                                        <span class="inline-block bg-blue-50 text-blue-700 rounded px-1.5 py-0.5 text-xs">{{ $r->route_name }}</span>
+                                        <span class="inline-block bg-blue-50 text-blue-700 rounded px-1.5 py-0.5 text-xs">{{ $r->route_name }}@if ($r->vehicle_type) · {{ $r->vehicle_type }}@endif</span>
                                     @empty
                                         <span class="text-xs text-gray-400">—</span>
                                     @endforelse
@@ -393,13 +405,6 @@
                         <input type="text" wire:model="driver_vehicle_no" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Vehicle Type</label>
-                        <select wire:model="driver_vehicle_type" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm bg-white">
-                            <option value="">Select…</option>
-                            @foreach ($vehicleTypes as $vt)<option value="{{ $vt }}">{{ $vt }}</option>@endforeach
-                        </select>
-                    </div>
-                    <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Experience (yrs)</label>
                         <input type="number" min="0" max="50" wire:model="experience_years" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500">
                     </div>
@@ -424,7 +429,12 @@
                             @foreach ($routeOptions as $r)
                                 <label class="flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 cursor-pointer">
                                     <input type="checkbox" wire:model="driver_routes" value="{{ $r->id }}" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                                    <span class="text-sm text-gray-700">{{ $r->route_name }}</span>
+                                    <span class="text-sm text-gray-700">
+                                        {{ $r->route_name }}
+                                        @if ($r->vehicle_type)
+                                            <span class="ml-1 inline-block bg-indigo-50 text-indigo-700 rounded px-1.5 py-0.5 text-[11px] font-medium">{{ $r->vehicle_type }}</span>
+                                        @endif
+                                    </span>
                                 </label>
                             @endforeach
                         </div>
@@ -463,6 +473,31 @@
                     <input type="text" wire:model="route_name" placeholder="e.g. Route 1 — North Zone"
                         class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500">
                     @error('route_name')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                        Vehicle Type <span class="text-red-500">*</span>
+                    </label>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach ($vehicleTypes as $vt)
+                            <label class="inline-flex items-center gap-2 px-3 py-1.5 border rounded-lg cursor-pointer transition-colors
+                                {{ in_array($vt, $route_vehicle_types) ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50' }}">
+                                <input type="checkbox" wire:model.live="route_vehicle_types" value="{{ $vt }}"
+                                    class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="text-sm font-medium">{{ $vt }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1.5">
+                        @if (count($route_vehicle_types) > 1)
+                            {{ count($route_vehicle_types) }} routes will be created — one per vehicle type. The list
+                            shows them as a single route, and a driver is assigned to each type separately.
+                        @else
+                            Pick more than one to run this route with several vehicle types.
+                        @endif
+                    </p>
+                    @error('route_vehicle_types')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
