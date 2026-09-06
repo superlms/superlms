@@ -389,6 +389,7 @@ class TimeTableCalendar extends LivewireCalendar
             'section' => $event->academic?->section?->name,
             'subject' => $event->academic?->subject?->name,
             'teacher' => $event->academic?->teacher?->name,
+            'attachment' => $event->attachment ?? null,
             'is_completed' => Carbon::parse($event->date)->lt(Carbon::today()),
         ];
 

@@ -47,6 +47,11 @@
                  width, with overflow-x as a safety valve on very narrow phones. --}}
             <div class="flex flex-nowrap items-center justify-between gap-1 sm:gap-2 overflow-x-auto px-3 py-2.5 border border-gray-300 rounded-md">
                 @foreach ($colorOptions as $hex)
+                    @php
+                        // Light swatches (yellow, lime) need a dark tick to stay readable.
+                        [$r, $g, $b] = sscanf($hex, '#%02x%02x%02x');
+                        $tickClass = (0.299 * $r + 0.587 * $g + 0.114 * $b) / 255 > 0.6 ? 'text-gray-900' : 'text-white';
+                    @endphp
                     <button type="button" title="{{ $hex }}"
                         x-on:click="picked = @js($hex)"
                         :class="(picked || '').toLowerCase() === @js(strtolower($hex))
@@ -56,7 +61,7 @@
                         style="background-color: {{ $hex }}">
                         {{-- Hidden until Alpine boots; x-show clears the inline display. --}}
                         <svg x-show="(picked || '').toLowerCase() === @js(strtolower($hex))" style="display: none"
-                            class="w-3 h-3 sm:w-4 sm:h-4 mx-auto text-white" fill="none" stroke="currentColor"
+                            class="w-3 h-3 sm:w-4 sm:h-4 mx-auto {{ $tickClass }}" fill="none" stroke="currentColor"
                             stroke-width="3" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                         </svg>

@@ -20,21 +20,27 @@ class EventForm extends Component
 {
     use WireUiActions, WithFileUploads;
 
-    /** Fixed swatch palette for the event colour picker (click to pick one). */
+    /**
+     * Fixed swatch palette for the event colour picker: twelve universally
+     * distinct hues (no two read as the same shade, and no white/near-white).
+     */
     public const COLORS = [
-        '#3b82f6', // blue
-        '#6366f1', // indigo
-        '#8b5cf6', // violet
-        '#d946ef', // fuchsia
-        '#ec4899', // pink
-        '#ef4444', // red
-        '#f97316', // orange
-        '#f59e0b', // amber
-        '#84cc16', // lime
-        '#22c55e', // green
-        '#14b8a6', // teal
-        '#0ea5e9', // sky
+        '#E6194B', // red
+        '#F58231', // orange
+        '#FFE119', // yellow
+        '#BFEF45', // lime
+        '#3CB44B', // green
+        '#469990', // teal
+        '#42D4F4', // cyan
+        '#4363D8', // blue
+        '#911EB4', // purple
+        '#F032E6', // magenta
+        '#9A6324', // brown
+        '#808080', // grey
     ];
+
+    /** Blue — the colour a brand-new event starts on. */
+    public const DEFAULT_COLOR = '#4363D8';
 
     public $date;
     public $event;
@@ -49,7 +55,7 @@ class EventForm extends Component
     public $start_time = '';
     public $end_time = '';
     public $event_type = 'class';
-    public $color = self::COLORS[0];
+    public $color = self::DEFAULT_COLOR;
     public $is_all_day = false;
     
     // Academic details
