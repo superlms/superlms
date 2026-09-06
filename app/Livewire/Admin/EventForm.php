@@ -20,6 +20,22 @@ class EventForm extends Component
 {
     use WireUiActions, WithFileUploads;
 
+    /** Fixed swatch palette for the event colour picker (click to pick one). */
+    public const COLORS = [
+        '#3b82f6', // blue
+        '#6366f1', // indigo
+        '#8b5cf6', // violet
+        '#d946ef', // fuchsia
+        '#ec4899', // pink
+        '#ef4444', // red
+        '#f97316', // orange
+        '#f59e0b', // amber
+        '#84cc16', // lime
+        '#22c55e', // green
+        '#14b8a6', // teal
+        '#0ea5e9', // sky
+    ];
+
     public $date;
     public $event;
     public $mode = 'create';
@@ -33,7 +49,7 @@ class EventForm extends Component
     public $start_time = '';
     public $end_time = '';
     public $event_type = 'class';
-    public $color = '#3b82f6';
+    public $color = self::COLORS[0];
     public $is_all_day = false;
     
     // Academic details
@@ -281,6 +297,8 @@ class EventForm extends Component
 
     public function render()
     {
-        return view('livewire.admin.event-form');
+        return view('livewire.admin.event-form', [
+            'colorOptions' => self::COLORS,
+        ]);
     }
 }
