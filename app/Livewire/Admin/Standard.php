@@ -64,7 +64,7 @@ class Standard extends Component
     public $filterSection      = '';
 
     // Subject fields
-    public $subjectName, $subjectCode, $subjectDescription;
+    public $subjectName, $subjectCode;
     public $subjectActive                = true;
     public $selectedStandardForSubject   = null;
     public $selectedSectionsForSubject   = [];
@@ -295,7 +295,7 @@ class Standard extends Component
         $this->reset([
             'editId', 'standardName', 'standardCode', 'standardOrder',
             'sectionName', 'sectionCode', 'sectionDescription', 'selectedStandard',
-            'subjectName', 'subjectCode', 'subjectDescription', 'subjectActive',
+            'subjectName', 'subjectCode', 'subjectActive',
             'selectedStandardForSubject', 'selectedSectionsForSubject', 'isMandatory',
             'subjectDetailImage', 'subjectDetailImageUrl',
             'subjectDetailImagePreview', 'existingSubjects',
@@ -322,7 +322,7 @@ class Standard extends Component
     private function resetSubjectFields(): void
     {
         $this->reset([
-            'subjectName', 'subjectCode', 'subjectDescription',
+            'subjectName', 'subjectCode',
             'selectedStandardForSubject', 'selectedSectionsForSubject', 'isMandatory',
             'subjectDetailImage', 'subjectDetailImageUrl',
             'subjectDetailImagePreview', 'existingSubjects',
@@ -523,7 +523,6 @@ class Standard extends Component
 
         $subjectData = [
             'name'            => $this->subjectName,
-            'description'     => $this->subjectDescription,
             'organization_id' => Auth::user()->organization_id,
             'is_active'       => $this->subjectActive,
         ];
@@ -627,7 +626,6 @@ class Standard extends Component
         $this->editId               = $id;
         $this->subjectName          = $subject->name;
         $this->subjectCode          = $subject->code;
-        $this->subjectDescription   = $subject->description;
         $this->subjectActive        = $subject->is_active;
         $this->subjectDetailImageUrl = $subject->detail_image;
         $this->subjectDetailImagePreview = $subject->detail_image;
