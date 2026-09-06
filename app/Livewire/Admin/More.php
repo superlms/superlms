@@ -20,6 +20,7 @@ class More extends Component
         ['title' => 'Terms & Conditions',  'route' => 'admin.terms-and-condition',  'icon' => 'document-text'],
         ['title' => 'Privacy Policy',      'route' => 'admin.privacy-policy',       'icon' => 'lock-closed'],
         ['title' => 'Terms Of Use',        'route' => 'admin.terms-of-use',         'icon' => 'document-text'],
+        ['title' => 'Setting',             'route' => 'admin.setting',              'icon' => 'cog-6-tooth'],
     ];
 
     public $organization = null;

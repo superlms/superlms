@@ -26,6 +26,7 @@ use App\Livewire\Admin\Support;
 use App\Livewire\Admin\IdCard;
 use App\Livewire\Admin\AdmitCard;
 use App\Livewire\Admin\SeatingPlan;
+use App\Livewire\Admin\Setting;
 use App\Livewire\Admin\ExamCopy;
 use App\Livewire\Admin\ReportCard;
 use App\Livewire\Admin\ContactAdmin;
@@ -152,6 +153,7 @@ Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
         Route::get('/credit', Credit::class)->name('admin.credit');
         Route::get('/terms-of-use', TermOfUse::class)->name('admin.terms-of-use');
         Route::get('/account-users', AccountUsers::class)->name('admin.account-users');
+        Route::get('/setting', Setting::class)->name('admin.setting');
 
         //Navbar Route
         Route::get('/profile', Profile::class)->name('admin.profile');
