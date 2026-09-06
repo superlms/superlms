@@ -274,7 +274,10 @@ class Users extends Component
     protected function sendCredentialsEmail(User $user, string $plainPassword): void
     {
         try {
-            $templateKey = config('services.zeptomail.teacher_password_template_key');
+            // Dedicated sub-admin template, falling back to the shared password
+            // template if the key is ever cleared.
+            $templateKey = config('services.zeptomail.sub_admin_password_template_key')
+                ?: config('services.zeptomail.teacher_password_template_key');
             if (!$templateKey) {
                 logger()->warning('No password template key configured — skipping sub-admin credentials email.');
                 return;

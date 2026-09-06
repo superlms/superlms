@@ -79,6 +79,8 @@ return [
         'password_changed_template_key' => env('ZEPTOMAIL_PASSWORD_CHANGED_TEMPLATE_KEY'),
         'school_creation_template_key'  => env('ZEPTOMAIL_SCHOOL_CREATION_TEMPLATE_KEY'),
         'sub_super_admin_password_template_key' => env('ZEPTOMAIL_SUB_SUPER_ADMIN_TEMPLATE_KEY', '2518b.67c7a493957be4c4.k1.944e75c0-7ae7-11f1-84db-62df313bf14d.19f427eff1c'),
+        // School sub-admins created from the admin panel's Users screen.
+        'sub_admin_password_template_key' => env('ZEPTOMAIL_SUB_ADMIN_TEMPLATE_KEY', '2518b.67c7a493957be4c4.k1.f5b13d10-aa13-11f1-8b6f-62df313bf14d.1a077a6c361'),
     ],
 
     'otp' => [
