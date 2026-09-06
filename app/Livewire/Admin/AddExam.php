@@ -209,17 +209,13 @@ class AddExam extends Component
 
         $this->totalExams     = Exam::where('organization_id', $orgId)->count();
         $this->publishedExams = Exam::where('organization_id', $orgId)
-            ->where('is_published', true)
-            ->where(fn ($q) => $q->whereNull('status')->orWhere('status', '!=', Exam::STATUS_COMPLETED))
-            ->count();
-        $this->completedExams = Exam::where('organization_id', $orgId)
-            ->where('status', Exam::STATUS_COMPLETED)
-            ->count();
-        $this->upcomingExams  = Exam::where('organization_id', $orgId)->where('start_date', '>', now())->count();
+            ->withStatus(Exam::STATUS_PUBLISHED)->count();
+        $this->upcomingExams  = Exam::where('organization_id', $orgId)
+            ->withStatus(Exam::STATUS_UPCOMING)->count();
         $this->activeExams    = Exam::where('organization_id', $orgId)
-            ->where('start_date', '<=', now())
-            ->where('end_date', '>=', now())
-            ->count();
+            ->withStatus(Exam::STATUS_ACTIVE)->count();
+        $this->completedExams = Exam::where('organization_id', $orgId)
+            ->withStatus(Exam::STATUS_COMPLETED)->count();
         $this->totalSyllabusRows = ExamSyllabusChapter::where('organization_id', $orgId)->count();
     }
 
@@ -317,26 +313,10 @@ class AddExam extends Component
 
             if ($this->editId) {
                 $exam = Exam::findOrFail($this->editId);
-
-                // Only a change to the exam's dates re-evaluates its status:
-                // a published exam whose end date has passed becomes
-                // "Completed" (and drops back if the dates move forward again).
-                $datesChanged = $exam->start_date?->format('Y-m-d') !== ($this->startDate ?: null)
-                    || $exam->end_date?->format('Y-m-d') !== ($this->endDate ?: null);
-
                 $exam->fill($examData);
-
-                if ($datesChanged) {
-                    $exam->status = $exam->statusForCurrentDates();
-                }
-
                 $exam->save();
 
-                $this->notification()->success(
-                    $exam->isCompleted() && $datesChanged
-                        ? 'Exam updated — the end date has passed, so it is now marked Completed.'
-                        : 'Exam updated successfully!'
-                );
+                $this->notification()->success('Exam updated successfully!');
             } else {
                 Exam::create($examData);
                 $this->notification()->success('Exam created successfully!');
@@ -402,7 +382,7 @@ class AddExam extends Component
                 'Exam Type'     => $this->examTypes[$exam->exam_type] ?? $exam->exam_type,
                 'Total Marks'   => ($exam->uses_grading_system ?? false) ? 'N/A (Grading)' : $exam->total_marks,
                 'Passing Marks' => ($exam->uses_grading_system ?? false) ? 'N/A (Grading)' : $exam->passing_marks,
-                'Status'        => $exam->isCompleted() ? 'Completed' : ($exam->is_published ? 'Published' : 'Draft'),
+                'Status'        => $exam->statusLabel(),
                 'Created By'    => $exam->createdBy->name ?? 'N/A',
                 'Created'       => $exam->created_at->format('d M Y, g:i A'),
                 'Last Updated'  => $exam->updated_at->format('d M Y, g:i A'),
@@ -1136,16 +1116,7 @@ class AddExam extends Component
             $query->where('term', $this->filterTerm);
         }
         if ($this->filterStatus) {
-            match ($this->filterStatus) {
-                'published' => $query->where('is_published', true)
-                                     ->where(fn ($q) => $q->whereNull('status')
-                                         ->orWhere('status', '!=', Exam::STATUS_COMPLETED)),
-                'draft'     => $query->where('is_published', false),
-                'active'    => $query->where('start_date', '<=', now())->where('end_date', '>=', now()),
-                'upcoming'  => $query->where('start_date', '>', now()),
-                'completed' => $query->where('status', Exam::STATUS_COMPLETED),
-                default     => null,
-            };
+            $query->withStatus($this->filterStatus);
         }
 
         // Default sort: by exam start date, earliest first. Exams without a

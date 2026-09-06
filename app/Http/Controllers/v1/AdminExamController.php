@@ -69,7 +69,8 @@ class AdminExamController extends ApiController
             'uses_grading_system' => $grading,
             'is_published'  => (bool) $e->is_published,
             'is_completed'  => $e->isCompleted(),
-            'status_label'  => $e->isCompleted() ? 'Completed' : ((bool) $e->is_published ? 'Published' : 'Draft'),
+            'status'        => $e->currentStatus(),
+            'status_label'  => $e->statusLabel(),
             'created_by'    => $e->createdBy->name ?? null,
             'created_at'    => optional($e->created_at)->toIso8601String(),
         ];
@@ -87,18 +88,7 @@ class AdminExamController extends ApiController
             ->when($request->filled('academic_year'), fn ($q) => $q->where('academic_year', $request->academic_year))
             ->when($request->filled('exam_type'), fn ($q) => $q->where('exam_type', $request->exam_type))
             ->when($request->filled('term'), fn ($q) => $q->where('term', $request->term))
-            ->when($request->filled('status'), function ($q) use ($request) {
-                match ($request->status) {
-                    'published' => $q->where('is_published', true)
-                                      ->where(fn ($sub) => $sub->whereNull('status')
-                                          ->orWhere('status', '!=', Exam::STATUS_COMPLETED)),
-                    'draft'     => $q->where('is_published', false),
-                    'active'    => $q->where('start_date', '<=', now())->where('end_date', '>=', now()),
-                    'upcoming'  => $q->where('start_date', '>', now()),
-                    'completed' => $q->where('status', Exam::STATUS_COMPLETED),
-                    default     => null,
-                };
-            });
+            ->when($request->filled('status'), fn ($q) => $q->withStatus($request->status));
 
         $paginator = $query->orderByRaw('start_date IS NULL, start_date ASC')->orderBy('id')
             ->paginate((int) $request->input('per_page', 10));
@@ -119,15 +109,10 @@ class AdminExamController extends ApiController
     {
         return [
             'total'     => Exam::where('organization_id', $orgId)->count(),
-            'published' => Exam::where('organization_id', $orgId)
-                ->where('is_published', true)
-                ->where(fn ($q) => $q->whereNull('status')->orWhere('status', '!=', Exam::STATUS_COMPLETED))
-                ->count(),
-            'completed' => Exam::where('organization_id', $orgId)
-                ->where('status', Exam::STATUS_COMPLETED)->count(),
-            'upcoming'  => Exam::where('organization_id', $orgId)->where('start_date', '>', now())->count(),
-            'active'    => Exam::where('organization_id', $orgId)
-                ->where('start_date', '<=', now())->where('end_date', '>=', now())->count(),
+            'published' => Exam::where('organization_id', $orgId)->withStatus(Exam::STATUS_PUBLISHED)->count(),
+            'upcoming'  => Exam::where('organization_id', $orgId)->withStatus(Exam::STATUS_UPCOMING)->count(),
+            'active'    => Exam::where('organization_id', $orgId)->withStatus(Exam::STATUS_ACTIVE)->count(),
+            'completed' => Exam::where('organization_id', $orgId)->withStatus(Exam::STATUS_COMPLETED)->count(),
             'syllabus_rows' => ExamSyllabusChapter::where('organization_id', $orgId)->count(),
         ];
     }
@@ -197,18 +182,7 @@ class AdminExamController extends ApiController
         if (!$exam) return $this->error('Exam not found.', 404);
         if ($err = $this->validateWith($request, $this->examRules($request))) return $err;
 
-        // Same rule as the admin panel: editing an exam's dates re-evaluates its
-        // status, so a published exam whose end date has passed reads Completed.
-        $datesChanged = $exam->start_date?->format('Y-m-d') !== ($request->start_date ?: null)
-            || $exam->end_date?->format('Y-m-d') !== ($request->end_date ?: null);
-
-        $exam->fill($this->examPayload($request, $user->organization_id, $user->id, false));
-
-        if ($datesChanged) {
-            $exam->status = $exam->statusForCurrentDates();
-        }
-
-        $exam->save();
+        $exam->update($this->examPayload($request, $user->organization_id, $user->id, false));
 
         return $this->success($this->shapeExam($exam->fresh('createdBy')), 'Exam updated successfully!');
     }
