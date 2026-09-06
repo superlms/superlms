@@ -317,6 +317,23 @@
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0 bg-white">
                     <div class="flex items-center gap-2.5 min-w-0">
                         @if (isset($sliderData['mode']) && $sliderData['mode'] === 'view')
+                            <span class="block w-2 h-2 rounded-full flex-shrink-0"
+                                style="background-color: {{ $sliderData['event']['color'] ?? '#4363D8' }}"></span>
+                        @endif
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $sliderTitle }}</h2>
+                    </div>
+                    <button wire:click="closeSlider"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                {{-- ✅ Scrollable body (only this section scrolls — header & footer stay fixed) --}}
+                <div class="flex-1 overflow-y-auto px-6 py-6">
+
+                    @if (isset($sliderData['mode']) && $sliderData['mode'] === 'view')
                         {{-- ══ VIEW MODE — same label/value layout as the Exams view panel ══ --}}
                         @php
                             $ev = $sliderData['event'];
