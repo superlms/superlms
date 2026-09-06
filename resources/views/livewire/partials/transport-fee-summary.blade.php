@@ -210,11 +210,24 @@
                                     <td class="px-4 py-3 text-right font-semibold text-gray-800">₹{{ number_format($p->amount, 0) }}</td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-center gap-1.5">
-                                            <a href="{{ route(request()->routeIs('accounts.*') ? 'accounts.transport.receipt' : 'admin.transport.receipt', ['organization' => auth()->user()->organization_id, 'id' => $p->id]) }}"
-                                                target="_blank"
-                                                class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600" title="Receipt">
+                                            <button type="button" x-data title="Print receipt"
+                                                x-on:click="
+                                                    const url = @js(route(request()->routeIs('accounts.*') ? 'accounts.transport.receipt' : 'admin.transport.receipt', ['organization' => auth()->user()->organization_id, 'id' => $p->id]));
+                                                    document.getElementById('receipt-print-frame')?.remove();
+                                                    const frame = document.createElement('iframe');
+                                                    frame.id = 'receipt-print-frame';
+                                                    frame.setAttribute('aria-hidden', 'true');
+                                                    frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+                                                    frame.onload = () => {
+                                                        try { frame.contentWindow.focus(); frame.contentWindow.print(); }
+                                                        catch (e) { frame.remove(); window.open(url, '_blank'); }
+                                                    };
+                                                    document.body.appendChild(frame);
+                                                    frame.src = url;
+                                                "
+                                                class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600">
                                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-                                            </a>
+                                            </button>
                                             @unless ($feeReadOnly)
                                                 <button wire:click="confirmDeletePayment({{ $p->id }})"
                                                     class="p-1.5 rounded-md border border-red-200 text-red-500 hover:bg-red-50" title="Delete">
@@ -430,11 +443,24 @@
                                 <td class="px-4 py-3 text-right font-semibold text-gray-800">₹{{ number_format($p->amount, 0) }}</td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center justify-center gap-1.5">
-                                        <a href="{{ route(request()->routeIs('accounts.*') ? 'accounts.transport.receipt' : 'admin.transport.receipt', ['organization' => auth()->user()->organization_id, 'id' => $p->id]) }}"
-                                            target="_blank"
-                                            class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600" title="Receipt">
+                                        <button type="button" x-data title="Print receipt"
+                                            x-on:click="
+                                                    const url = @js(route(request()->routeIs('accounts.*') ? 'accounts.transport.receipt' : 'admin.transport.receipt', ['organization' => auth()->user()->organization_id, 'id' => $p->id]));
+                                                    document.getElementById('receipt-print-frame')?.remove();
+                                                const frame = document.createElement('iframe');
+                                                frame.id = 'receipt-print-frame';
+                                                frame.setAttribute('aria-hidden', 'true');
+                                                frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+                                                frame.onload = () => {
+                                                    try { frame.contentWindow.focus(); frame.contentWindow.print(); }
+                                                    catch (e) { frame.remove(); window.open(url, '_blank'); }
+                                                };
+                                                document.body.appendChild(frame);
+                                                frame.src = url;
+                                            "
+                                            class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600">
                                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-                                        </a>
+                                        </button>
                                         @unless ($feeReadOnly)
                                             <button wire:click="confirmDeletePayment({{ $p->id }})"
                                                 class="p-1.5 rounded-md border border-red-200 text-red-500 hover:bg-red-50" title="Delete">
