@@ -295,50 +295,46 @@
          VIEW SLIDE-IN PANEL
     ══════════════════════════════════════════════════ --}}
     @if ($showDetailModal && $selectedEnquiry && $activeTab === 'website')
-        {{-- Website enquiry detail (public site submission) --}}
+        {{-- Website enquiry detail — same label/value rows as the Exams view panel. --}}
         <div class="fixed inset-0 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeDetailModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
 
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                    <div class="flex items-center gap-2.5 min-w-0">
-                        <span class="block w-2 h-2 rounded-full flex-shrink-0 bg-blue-500"></span>
-                        <div class="min-w-0">
-                            <h2 class="text-lg font-semibold text-gray-900 truncate">Website Enquiry</h2>
-                            <p class="text-xs text-gray-500 mt-0.5">From public website · {{ $selectedEnquiry->created_at->format('d M Y · g:i A') }}</p>
-                        </div>
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">Website Enquiry</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">
+                            From public website · {{ $selectedEnquiry->created_at->format('d M Y, g:i A') }}
+                        </p>
                     </div>
                     <button wire:click="closeDetailModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-                    <div class="grid grid-cols-2 gap-6">
-                        <div>
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Name</p>
-                            <p class="text-sm text-gray-800 truncate">{{ $selectedEnquiry->name ?? '—' }}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Phone</p>
-                            <p class="text-sm text-gray-800 truncate">{{ $selectedEnquiry->phone ?: '—' }}</p>
-                        </div>
-                        <div class="col-span-2">
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Email</p>
-                            <p class="text-sm text-gray-800 truncate">{{ $selectedEnquiry->email ?: '—' }}</p>
-                        </div>
-                    </div>
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                    @php
+                        $rows = [
+                            'Name'     => $selectedEnquiry->name ?: '—',
+                            'Phone'    => $selectedEnquiry->phone ?: '—',
+                            'Email'    => $selectedEnquiry->email ?: '—',
+                            'Subject'  => $selectedEnquiry->subject ?: '—',
+                            'Received' => $selectedEnquiry->created_at->format('d M Y, g:i A'),
+                        ];
+                    @endphp
 
-                    <div class="border-t border-gray-100"></div>
+                    @foreach ($rows as $label => $value)
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
+                            <span class="col-span-2 text-gray-800 font-medium break-words">{{ $value }}</span>
+                        </div>
+                    @endforeach
 
-                    <div>
-                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-2">Subject</p>
-                        <p class="text-base font-medium text-gray-900">{{ $selectedEnquiry->subject ?: '—' }}</p>
-                    </div>
-
-                    <div>
-                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-2">Message</p>
-                        <p class="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{{ $selectedEnquiry->message ?: '—' }}</p>
+                    <div class="grid grid-cols-3 gap-3 text-sm">
+                        <span class="text-xs text-gray-400 uppercase tracking-wider">Message</span>
+                        <span class="col-span-2 text-gray-800 font-medium whitespace-pre-line leading-relaxed">
+                            {{ $selectedEnquiry->message ?: '—' }}
+                        </span>
                     </div>
                 </div>
 
@@ -348,7 +344,18 @@
             </div>
         </div>
     @elseif ($showDetailModal && $selectedEnquiry)
-        @php $detailQueryText = $selectedEnquiry->teacher_query ?? $selectedEnquiry->student_query ?? ''; @endphp
+        {{-- Student / teacher enquiry detail — same rows, plus reply state. --}}
+        @php
+            $detailQueryText = $selectedEnquiry->teacher_query ?? $selectedEnquiry->student_query ?? '';
+            $rows = [
+                'From'         => $selectedEnquiry->user?->name ?: '—',
+                'Email'        => $selectedEnquiry->user?->email ?: '—',
+                'Organization' => $selectedEnquiry->organization?->name ?: '—',
+                'Topic'        => $selectedEnquiry->topic ?: '—',
+                'Status'       => $selectedEnquiry->admin_reply ? 'Replied' : 'Pending',
+                'Received'     => $selectedEnquiry->created_at->format('d M Y, g:i A'),
+            ];
+        @endphp
         <div class="fixed inset-0 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeDetailModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
@@ -368,61 +375,54 @@
                     </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-                    <div class="grid grid-cols-2 gap-6">
-                        <div>
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">From</p>
-                            <p class="text-sm text-gray-800 truncate">{{ $selectedEnquiry->user?->name ?? '—' }}</p>
-                            <p class="text-xs text-gray-400 truncate">{{ $selectedEnquiry->user?->email ?? '' }}</p>
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                    @foreach ($rows as $label => $value)
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
+                            <span class="col-span-2 text-gray-800 font-medium break-words">{{ $value }}</span>
                         </div>
-                        <div>
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Organization</p>
-                            <p class="text-sm text-gray-800 truncate">{{ $selectedEnquiry->organization?->name ?? '—' }}</p>
-                        </div>
-                    </div>
+                    @endforeach
 
-                    <div class="border-t border-gray-100"></div>
-
-                    <div>
-                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-2">Topic</p>
-                        <p class="text-base font-medium text-gray-900">{{ $selectedEnquiry->topic ?? '—' }}</p>
-                    </div>
-
-                    <div>
-                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-2">Message</p>
-                        <p class="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{{ $detailQueryText }}</p>
+                    <div class="grid grid-cols-3 gap-3 text-sm">
+                        <span class="text-xs text-gray-400 uppercase tracking-wider">Message</span>
+                        <span class="col-span-2 text-gray-800 font-medium whitespace-pre-line leading-relaxed">
+                            {{ $detailQueryText ?: '—' }}
+                        </span>
                     </div>
 
                     @if ($selectedEnquiry->image)
                         @php $ext = strtolower(pathinfo(parse_url($selectedEnquiry->image, PHP_URL_PATH), PATHINFO_EXTENSION)); @endphp
-                        <div>
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-2">Attachment</p>
-                            @if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp']))
-                                <img src="{{ $selectedEnquiry->image }}" class="w-full rounded-md border border-gray-200">
-                            @elseif ($ext === 'pdf')
-                                <iframe src="{{ $selectedEnquiry->image }}" class="w-full h-72 border border-gray-200 rounded-md"></iframe>
-                            @endif
-                            <a href="{{ $selectedEnquiry->image }}" target="_blank" class="text-xs text-blue-600 hover:underline mt-2 inline-block">Open in new tab ↗</a>
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">Attachment</span>
+                            <span class="col-span-2">
+                                @if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp']))
+                                    <a href="{{ $selectedEnquiry->image }}" target="_blank" rel="noopener">
+                                        <img src="{{ $selectedEnquiry->image }}" alt="Attachment"
+                                            class="max-h-40 rounded-md border border-gray-200">
+                                    </a>
+                                @endif
+                                <a href="{{ $selectedEnquiry->image }}" target="_blank" rel="noopener"
+                                    class="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-blue-200 bg-blue-50 text-xs font-medium text-blue-700 hover:bg-blue-100">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                    </svg>
+                                    Open attachment
+                                </a>
+                            </span>
                         </div>
                     @endif
 
                     @if ($selectedEnquiry->admin_reply)
-                        <div class="border-t border-gray-100"></div>
-                        <div>
-                            <div class="flex items-center justify-between mb-2">
-                                <p class="text-xs text-gray-400 uppercase tracking-wider">Admin Reply</p>
-                                <span class="text-xs text-gray-400">{{ $selectedEnquiry->updated_at->format('d M Y · g:i A') }}</span>
-                            </div>
-                            <div class="bg-gray-50 border-l-2 border-blue-500 rounded-r-md px-4 py-3">
-                                <p class="text-sm text-gray-800 whitespace-pre-line leading-relaxed">{{ $selectedEnquiry->admin_text }}</p>
-                            </div>
-                        </div>
-                    @else
-                        <div class="flex items-center gap-2.5 text-sm text-amber-700 border-t border-gray-100 pt-5">
-                            <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            No reply sent yet
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">
+                                Reply
+                                <span class="block normal-case tracking-normal text-[11px] text-gray-300 mt-0.5">
+                                    {{ $selectedEnquiry->updated_at->format('d M Y, g:i A') }}
+                                </span>
+                            </span>
+                            <span class="col-span-2 text-gray-800 font-medium whitespace-pre-line leading-relaxed">
+                                {{ $selectedEnquiry->admin_text }}
+                            </span>
                         </div>
                     @endif
                 </div>
