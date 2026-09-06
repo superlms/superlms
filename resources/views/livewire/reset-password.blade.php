@@ -72,8 +72,12 @@
                         if (this.otp[index].length === 0 && index > 0) {
                             this.$refs[`otp${index - 1}`].focus();
                         }
+                    },
+                    clearOtp() {
+                        this.otp = ['', '', '', '', '', ''];
+                        this.$refs.otp0?.focus();
                     }
-                }">
+                }" @clear-otp="clearOtp()">
                     <div class="mb-4">
                         <label class="block text-gray-600 text-sm font-medium mb-1.5">OTP Code</label>
                         <div class="flex justify-between space-x-2">
@@ -123,6 +127,7 @@
                             }
                         }" @start-countdown.window="resendAt = $event.detail.resendAt; start()">
                         <button wire:click="resendOtp" x-bind:disabled="remaining > 0"
+                            x-on:click="$dispatch('clear-otp')"
                             class="text-sm"
                             x-bind:class="remaining > 0 ? 'text-gray-400 cursor-not-allowed' : 'text-violet-600 hover:text-violet-800 hover:underline cursor-pointer'">
                             Resend OTP

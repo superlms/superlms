@@ -131,6 +131,12 @@ class ResetPassword extends Component
         if (now()->timestamp < $this->resendAvailableAt) {
             return;
         }
+
+        // A new code is on its way, so the stale one must not linger in the
+        // boxes. The view clears them on click too, so it looks instant.
+        $this->otp = ['', '', '', '', '', ''];
+        $this->resetErrorBag('otp');
+
         $this->sendOtp();
     }
 
