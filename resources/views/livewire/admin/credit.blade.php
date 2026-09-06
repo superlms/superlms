@@ -207,83 +207,144 @@
     {{-- ══════════ VIEW QUERY SLIDE-IN PANEL ══════════ --}}
     @if ($showViewModal && $selectedQuery)
         @php
-            $q = $selectedQuery;
-            $sc = match($q->status) {
-                'approved'   => 'bg-emerald-50 text-emerald-700 border-emerald-100',
-                'denied'     => 'bg-red-50 text-red-700 border-red-100',
-                'processing' => 'bg-blue-50 text-blue-700 border-blue-100',
-                default      => 'bg-amber-50 text-amber-700 border-amber-100',
-            };
+            $q  = $selectedQuery;
+            $rp = $q->repayment();
+            $org = auth()->user()->organization;
+
+            // Same label/value layout the Exams view panel uses.
+            $rows = [
+                'Status'    => ucfirst($q->status),
+                'Heading'   => $q->heading,
+                'Amount'    => '₹' . number_format($q->amount, 2),
+                'Start Date' => $q->start_date?->format('d M Y') ?? '—',
+                'Last Date'  => $q->end_date?->format('d M Y') ?? '—',
+                'Requested' => $q->created_at->format('d M Y, g:i A'),
+            ];
+
+            if ($q->status === 'approved') {
+                $rows['Approved On'] = $q->approved_at?->format('d M Y') ?? '—';
+            }
         @endphp
         <div class="fixed inset-0 z-[9999] overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeViewModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                    <div>
-                        <h2 class="text-lg font-semibold text-gray-900">Credit Query Details</h2>
-                        <p class="text-xs text-gray-500 mt-0.5 truncate">{{ $q->heading }}</p>
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">Credit Query Details</h2>
+                        <p class="text-xs text-gray-500 mt-0.5 truncate">{{ ucfirst($q->status) }} · {{ $q->created_at->format('d M Y') }}</p>
                     </div>
-                    <button wire:click="closeViewModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                    <button wire:click="closeViewModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-3">
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs px-3 py-1 rounded-full font-medium border {{ $sc }}">{{ ucfirst($q->status) }}</span>
-                        <span class="text-xs text-gray-400">{{ $q->created_at->format('d M Y, g:i A') }}</span>
-                    </div>
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
 
-                    <div class="grid grid-cols-3 gap-3">
-                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-100"><p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Amount</p><p class="text-sm font-semibold text-gray-800">₹{{ number_format($q->amount, 0) }}</p></div>
-                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-100"><p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Start</p><p class="text-sm font-medium text-gray-800">{{ $q->start_date->format('d M Y') }}</p></div>
-                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-100"><p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">End</p><p class="text-sm font-medium text-gray-800">{{ $q->end_date->format('d M Y') }}</p></div>
-                    </div>
-
-                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Heading</p>
-                        <p class="text-sm font-medium text-gray-800">{{ $q->heading }}</p>
-                    </div>
-                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Reason</p>
-                        <p class="text-sm text-gray-700 whitespace-pre-line">{{ $q->reason }}</p>
-                    </div>
-
+                    {{-- ── What is owed, once the credit is approved ── --}}
                     @if ($q->status === 'approved')
-                        @php $org = auth()->user()->organization; @endphp
-                        <div class="grid grid-cols-2 gap-3">
-                            <div class="bg-gray-50 rounded-lg p-3 border border-gray-100"><p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Penalties/Day</p><p class="text-sm font-medium text-gray-800">₹{{ number_format($q->penalties_per_day ?? 0, 0) }}</p></div>
-                            <div class="bg-gray-50 rounded-lg p-3 border border-gray-100"><p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Approved On</p><p class="text-sm font-medium text-gray-800">{{ $q->approved_at?->format('d M Y') ?? '—' }}</p></div>
+                        <div class="rounded-xl border px-4 py-3.5
+                            {{ $rp['settled']
+                                ? 'border-gray-200 bg-gray-50'
+                                : ($rp['is_overdue'] ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50') }}">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <p class="text-[11px] font-semibold uppercase tracking-wider
+                                        {{ $rp['settled'] ? 'text-gray-500' : ($rp['is_overdue'] ? 'text-red-600' : 'text-emerald-700') }}">
+                                        {{ $rp['settled'] ? 'Settled — total paid' : 'Payable till date' }}
+                                    </p>
+                                    <p class="text-2xl font-bold mt-0.5
+                                        {{ $rp['settled'] ? 'text-gray-700' : ($rp['is_overdue'] ? 'text-red-700' : 'text-emerald-700') }}">
+                                        ₹{{ number_format($rp['total'], 2) }}
+                                    </p>
+                                    <p class="text-xs text-gray-500 mt-0.5">
+                                        ₹{{ number_format($rp['principal'], 2) }} credit
+                                        @if ($rp['penalty'] > 0)
+                                            + ₹{{ number_format($rp['penalty'], 2) }} penalty
+                                        @endif
+                                    </p>
+                                </div>
+                                <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide flex-shrink-0
+                                    {{ $rp['settled']
+                                        ? 'bg-gray-200 text-gray-600'
+                                        : ($rp['is_overdue'] ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700') }}">
+                                    {{ $rp['settled'] ? 'Paid' : ($rp['is_overdue'] ? 'Overdue' : 'On time') }}
+                                </span>
+                            </div>
+
+                            <p class="text-xs mt-2.5 {{ $rp['is_overdue'] && !$rp['settled'] ? 'text-red-700' : 'text-gray-500' }}">
+                                @if ($rp['settled'])
+                                    Collected on {{ $q->collected_at->format('d M Y') }} — the last date was
+                                    {{ $rp['due_date']?->format('d M Y') ?? '—' }}.
+                                @elseif ($rp['is_overdue'])
+                                    Last date was <strong>{{ $rp['due_date']?->format('d M Y') ?? '—' }}</strong> —
+                                    {{ $rp['days_overdue'] }} day{{ $rp['days_overdue'] === 1 ? '' : 's' }} overdue.
+                                    Pay as soon as possible; the penalty keeps growing each day.
+                                @elseif ($rp['due_date'])
+                                    Pay by <strong>{{ $rp['due_date']->format('d M Y') }}</strong> —
+                                    {{ $rp['days_left'] }} day{{ $rp['days_left'] === 1 ? '' : 's' }} left.
+                                @else
+                                    No last date is set on this credit.
+                                @endif
+                            </p>
                         </div>
 
-                        @if ($org && $org->bank_name)
-                            <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                                <p class="text-xs text-gray-400 uppercase tracking-wider mb-2">Bank Details on File</p>
-                                <div class="grid grid-cols-2 gap-x-4 gap-y-2">
-                                    @foreach([
-                                        'Bank'    => $org->bank_name,
-                                        'Acc No'  => $org->bank_account_no,
-                                        'IFSC'    => $org->bank_ifsc,
-                                        'Branch'  => $org->bank_branch,
-                                        'Holder'  => $org->bank_holder_name,
-                                    ] as $lbl => $val)
-                                        <div class="min-w-0"><p class="text-[11px] text-gray-400">{{ $lbl }}</p><p class="text-sm font-medium font-mono text-gray-800 truncate">{{ $val ?: '—' }}</p></div>
-                                    @endforeach
-                                </div>
+                        {{-- The arithmetic behind that figure --}}
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <div>
+                                <p class="text-[11px] text-gray-400 uppercase tracking-wider">Penalty / Day</p>
+                                <p class="font-semibold text-gray-800">₹{{ number_format($rp['per_day'], 2) }}</p>
                             </div>
-                        @endif
+                            <div>
+                                <p class="text-[11px] text-gray-400 uppercase tracking-wider">Days Overdue</p>
+                                <p class="font-semibold {{ $rp['days_overdue'] > 0 ? 'text-red-600' : 'text-gray-800' }}">{{ $rp['days_overdue'] }}</p>
+                            </div>
+                            <div>
+                                <p class="text-[11px] text-gray-400 uppercase tracking-wider">Penalty So Far</p>
+                                <p class="font-semibold {{ $rp['penalty'] > 0 ? 'text-red-600' : 'text-gray-800' }}">₹{{ number_format($rp['penalty'], 2) }}</p>
+                            </div>
+                        </div>
+
+                        <div class="border-t border-gray-100"></div>
                     @endif
 
+                    {{-- ── The request itself ── --}}
+                    @foreach ($rows as $label => $value)
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
+                            <span class="col-span-2 text-gray-800 font-medium break-words">{{ $value }}</span>
+                        </div>
+                    @endforeach
+
+                    <div class="grid grid-cols-3 gap-3 text-sm">
+                        <span class="text-xs text-gray-400 uppercase tracking-wider">Reason</span>
+                        <span class="col-span-2 text-gray-800 font-medium whitespace-pre-line leading-relaxed">{{ $q->reason ?: '—' }}</span>
+                    </div>
+
                     @if ($q->admin_remark)
-                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Admin Remark</p>
-                            <p class="text-sm text-gray-700">{{ $q->admin_remark }}</p>
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">Admin Remark</span>
+                            <span class="col-span-2 text-gray-800 font-medium whitespace-pre-line leading-relaxed">{{ $q->admin_remark }}</span>
+                        </div>
+                    @endif
+
+                    @if ($q->status === 'approved' && $org && $org->bank_name)
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">Bank on File</span>
+                            <span class="col-span-2 text-gray-800">
+                                <span class="block font-medium">{{ $org->bank_name }}</span>
+                                <span class="block font-mono text-xs text-gray-600 mt-0.5">
+                                    {{ $org->bank_account_no ?: '—' }} · {{ $org->bank_ifsc ?: '—' }}
+                                </span>
+                                <span class="block text-xs text-gray-500 mt-0.5">
+                                    {{ $org->bank_branch ?: '—' }}{{ $org->bank_holder_name ? ' · ' . $org->bank_holder_name : '' }}
+                                </span>
+                            </span>
                         </div>
                     @endif
                 </div>
 
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
-                    <button wire:click="closeViewModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Close</button>
+                    <button wire:click="closeViewModal" class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
                 </div>
             </div>
         </div>
