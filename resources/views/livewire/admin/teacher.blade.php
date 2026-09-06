@@ -126,21 +126,11 @@
         ══════════════════════════════════════════════════ --}}
         <div class="hidden md:block bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
-                <table class="w-full table-fixed">
-                    <colgroup>
-                        <col class="w-12">
-                        <col class="w-[24%]">
-                        <col class="w-[12%]">
-                        <col class="w-[22%]">
-                        <col class="w-[16%]">
-                        <col class="w-[12%]">
-                        <col class="w-[8%]">
-                        <col class="w-[6%]">
-                    </colgroup>
+                <table class="w-full">
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
                             <th
-                                class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">
                                 S.No</th>
                             <th
                                 class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -167,7 +157,7 @@
                                         class="text-sm text-gray-500 font-medium">{{ $teachers->firstItem() + $index }}</span>
                                 </td>
                                 <td class="px-4 py-3">
-                                    <div class="flex items-center gap-3 min-w-0">
+                                    <div class="flex items-center gap-3">
                                         @if ($teacher->user?->image)
                                             <img src="{{ $teacher->user->image }}"
                                                 class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0 cursor-pointer"
@@ -183,17 +173,16 @@
                                             <p class="text-sm font-semibold text-gray-900 truncate"
                                                 title="{{ $teacher->user?->name ?? '' }}">
                                                 {{ $teacher->user?->name ?? '—' }}</p>
-                                            <p class="text-xs text-gray-400 capitalize truncate">
+                                            <p class="text-xs text-gray-400 capitalize">
                                                 {{ $teacher->user?->gender ?? '' }}</p>
                                         </div>
                                     </div>
                                 </td>
                                 <td class="px-4 py-3">
-                                    <span class="text-sm text-gray-700 truncate block"
-                                        title="{{ $teacher->phone ?? '' }}">{{ $teacher->phone ?? '—' }}</span>
+                                    <span class="text-sm text-gray-700">{{ $teacher->phone ?? '—' }}</span>
                                 </td>
                                 <td class="px-4 py-3">
-                                    <span class="text-sm text-gray-600 truncate block"
+                                    <span class="text-sm text-gray-600 truncate block max-w-[200px]"
                                         title="{{ $teacher->user?->email ?? '' }}">{{ $teacher->user?->email ?? '—' }}</span>
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap">
