@@ -344,17 +344,7 @@
                             <div class="grid grid-cols-12 items-center px-4 py-3 border-b border-gray-100 last:border-0 hover:bg-emerald-50/40 transition-colors">
                                 <div class="col-span-1 text-sm text-gray-500">{{ $filteredSubjects->firstItem() + $idx }}</div>
                                 <div class="col-span-3 flex items-center gap-2.5">
-                                    @if ($subject->image)
-                                        <img src="{{ $subject->image }}" alt="{{ $subject->name }}"
-                                            class="w-8 h-8 rounded-lg object-cover border border-gray-100 flex-shrink-0">
-                                    @else
-                                        <div class="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                            <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                            </svg>
-                                        </div>
-                                    @endif
+                                    <x-subject-icon :name="$subject->name" />
                                     <p class="font-semibold text-gray-900 text-sm truncate">{{ $subject->name }}</p>
                                 </div>
                                 <div class="col-span-2 text-sm text-gray-700">{{ $subject->code }}</div>
@@ -509,7 +499,7 @@
                     @if ($addType === 'subject')
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Subject Name <span class="text-red-500">*</span></label>
-                            <input wire:model.defer="subjectName" type="text" placeholder="e.g. Mathematics"
+                            <input wire:model.live.debounce.400ms="subjectName" type="text" placeholder="e.g. Mathematics"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
                             @error('subjectName')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
@@ -542,20 +532,15 @@
                                 @error('selectedSectionsForSubject')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                             </div>
                         </div>
+                        {{-- No image upload: the icon comes from the subject name itself. --}}
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Subject Image</label>
-                            @if ($subjectImagePreview)
-                                <div class="mb-2 flex items-center gap-3">
-                                    <img src="{{ $subjectImagePreview }}" class="w-16 h-16 rounded-md object-cover border">
-                                    <button type="button" wire:click="$set('subjectImagePreview', null); $set('subjectImageUrl', null)"
-                                        class="text-xs text-red-600 border border-red-200 px-2 py-1 rounded-md hover:bg-red-50">Remove</button>
-                                </div>
-                            @endif
-                            <input type="file" wire:model="subjectImage" accept="image/*"
-                                class="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100">
-                            <p class="text-xs text-gray-400 mt-1">PNG, JPG up to 2MB</p>
-                            <div wire:loading wire:target="subjectImage" class="text-xs text-purple-600 mt-1">Uploading...</div>
-                            @error('subjectImage')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Icon</label>
+                            <div class="flex items-center gap-3 px-3.5 py-3 border border-gray-200 rounded-md bg-gray-50">
+                                <x-subject-icon :name="$subjectName" size="w-10 h-10" />
+                                <p class="text-xs text-gray-500">
+                                    Picked automatically from the subject name. Unrecognised subjects get a default icon.
+                                </p>
+                            </div>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Description</label>

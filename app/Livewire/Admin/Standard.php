@@ -70,10 +70,11 @@ class Standard extends Component
     public $selectedSectionsForSubject   = [];
     public $isMandatory                  = true;
     public $existingSubjects             = [];
-    public $subjectImage;
+    // Subjects no longer carry an uploaded image — the icon is derived from the
+    // subject name (App\Support\SubjectIcons). The detail image is still used
+    // by the content screens, so it stays.
     public $subjectDetailImage;
-    public $subjectImageUrl, $subjectDetailImageUrl;
-    public $subjectImagePreview          = null;
+    public $subjectDetailImageUrl;
     public $subjectDetailImagePreview    = null;
 
     protected $listeners = [
@@ -103,12 +104,6 @@ class Standard extends Component
     }
 
     // Watch file uploads to generate previews
-    public function updatedSubjectImage(): void
-    {
-        $this->validate(['subjectImage' => 'nullable|image|max:2048']);
-        $this->subjectImagePreview = $this->subjectImage?->temporaryUrl();
-    }
-
     public function updatedSubjectDetailImage(): void
     {
         $this->validate(['subjectDetailImage' => 'nullable|image|max:2048']);
@@ -302,8 +297,8 @@ class Standard extends Component
             'sectionName', 'sectionCode', 'sectionDescription', 'selectedStandard',
             'subjectName', 'subjectCode', 'subjectDescription', 'subjectActive',
             'selectedStandardForSubject', 'selectedSectionsForSubject', 'isMandatory',
-            'subjectImage', 'subjectDetailImage', 'subjectImageUrl', 'subjectDetailImageUrl',
-            'subjectImagePreview', 'subjectDetailImagePreview', 'existingSubjects',
+            'subjectDetailImage', 'subjectDetailImageUrl',
+            'subjectDetailImagePreview', 'existingSubjects',
         ]);
         $this->standardActive = true;
         $this->sectionActive = true;
@@ -329,8 +324,8 @@ class Standard extends Component
         $this->reset([
             'subjectName', 'subjectCode', 'subjectDescription',
             'selectedStandardForSubject', 'selectedSectionsForSubject', 'isMandatory',
-            'subjectImage', 'subjectDetailImage', 'subjectImageUrl', 'subjectDetailImageUrl',
-            'subjectImagePreview', 'subjectDetailImagePreview', 'existingSubjects',
+            'subjectDetailImage', 'subjectDetailImageUrl',
+            'subjectDetailImagePreview', 'existingSubjects',
         ]);
         $this->subjectActive = true;
     }
@@ -492,7 +487,6 @@ class Standard extends Component
             'selectedStandardForSubject'   => 'required|exists:standards,id',
             'selectedSectionsForSubject'   => 'required|array|min:1',
             'selectedSectionsForSubject.*' => 'exists:sections,id',
-            'subjectImage'                 => 'nullable|image|max:2048',
             'subjectDetailImage'           => 'nullable|image|max:2048',
         ], [
             'selectedSectionsForSubject.required' => 'Please select at least one section.',
@@ -534,18 +528,7 @@ class Standard extends Component
             'is_active'       => $this->subjectActive,
         ];
 
-        // Image upload
-        if ($this->subjectImage) {
-            if ($this->editId) {
-                $old = Subject::find($this->editId)?->image;
-                if ($old) Storage::disk('s3')->delete(parse_url($old, PHP_URL_PATH));
-            }
-            $path = $this->subjectImage->store('admin/subjects/images', 's3');
-            Storage::disk('s3')->setVisibility($path, 'public');
-            $subjectData['image'] = Storage::disk('s3')->url($path);
-        } elseif ($this->subjectImageUrl) {
-            $subjectData['image'] = $this->subjectImageUrl;
-        }
+        // No subject image: the icon is derived from the name at render time.
 
         // Detail image upload
         if ($this->subjectDetailImage) {
@@ -646,9 +629,7 @@ class Standard extends Component
         $this->subjectCode          = $subject->code;
         $this->subjectDescription   = $subject->description;
         $this->subjectActive        = $subject->is_active;
-        $this->subjectImageUrl      = $subject->image;
         $this->subjectDetailImageUrl = $subject->detail_image;
-        $this->subjectImagePreview  = $subject->image;
         $this->subjectDetailImagePreview = $subject->detail_image;
 
         $ss = StandardSubject::where('subject_id', $id)->first();

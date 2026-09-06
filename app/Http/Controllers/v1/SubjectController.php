@@ -60,7 +60,7 @@ class SubjectController extends Controller
                         return [
                             'id' => $sectionSubject->subject_id,
                             'name' => $sectionSubject->subject->name ?? null,
-                            'image' => $sectionSubject->subject->image ?? null,
+                            'image' => $sectionSubject->subject?->iconUrl(),
                             'detail_image' => $sectionSubject->subject->detail_image ?? null,
                             'is_mandatory' => true,
                             'type' => 'section_subject'
@@ -80,7 +80,7 @@ class SubjectController extends Controller
                     return [
                         'id' => $standardSubject->subject_id,
                         'name' => $standardSubject->subject->name ?? null,
-                        'image' => $standardSubject->subject->image ?? null,
+                        'image' => $standardSubject->subject?->iconUrl(),
                         'detail_image' => $standardSubject->subject->detail_image ?? null,
                         'is_mandatory' => $standardSubject->is_mandatory,
                         'type' => 'standard_subject'
@@ -140,7 +140,7 @@ class SubjectController extends Controller
                         'subject_id' => $ts->subject_id,
                         'subject_name' => $ts->subject->name,
                         'subject_code' => $ts->subject->code,
-                        'subject_image' => $ts->subject->image ?? null,
+                        'subject_image' => $ts->subject?->iconUrl(),
                         'subject_detail_image' => $ts->subject->detail_image ?? null,
                         'standard_id' => $ts->standard_id,
                         'standard_name' => $ts->standard->name ?? null,
@@ -158,7 +158,7 @@ class SubjectController extends Controller
                         'subject_id' => $tt->subject_id,
                         'subject_name' => $tt->subject->name,
                         'subject_code' => $tt->subject->code,
-                        'subject_image' => $tt->subject->image ?? null,
+                        'subject_image' => $tt->subject?->iconUrl(),
                         'subject_detail_image' => $tt->subject->detail_image ?? null,
                         'standard_id' => $tt->standard_id,
                         'standard_name' => $tt->standard->name ?? null,

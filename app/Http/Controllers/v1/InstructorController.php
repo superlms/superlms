@@ -224,7 +224,7 @@ class InstructorController extends ApiController
                     'id'    => $tt->subject->id,
                     'name'  => $tt->subject->name,
                     'code'  => $tt->subject->code,
-                    'image' => $tt->subject->image,
+                    'image' => $tt->subject?->iconUrl(),
                 ])
                 ->unique('id')
                 ->values(),
@@ -261,7 +261,7 @@ class InstructorController extends ApiController
                     'id'    => $s->subject->id,
                     'name'  => $s->subject->name,
                     'code'  => $s->subject->code,
-                    'image' => $s->subject->image,
+                    'image' => $s->subject?->iconUrl(),
                 ])
                 ->unique('id')
                 ->values(),

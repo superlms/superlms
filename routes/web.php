@@ -109,6 +109,12 @@ Route::get('/pwa/manifest/{role}', function (string $role) {
         ->header('Cache-Control', 'private, no-store');
 })->name('pwa.manifest');
 
+// Built-in subject icons (public, immutable) — the SVG form of the tiles the
+// admin panel draws inline, so the mobile apps can show the same artwork.
+Route::get('/subject-icon/{key}', [\App\Http\Controllers\SubjectIconController::class, 'show'])
+    ->where('key', '[a-z-]+')
+    ->name('subject.icon');
+
 //SuperLMS Website (must be before admin — avoids {organization} wildcard swallowing /web/* routes)
 require __DIR__.'/website.php';
 

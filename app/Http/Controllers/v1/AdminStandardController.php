@@ -386,7 +386,9 @@ class AdminStandardController extends ApiController
             'code'         => $s->code,
             'description'  => $s->description,
             'is_active'    => (bool) $s->is_active,
-            'image_url'    => $this->absUrl($s->image),
+            // Subjects no longer carry an uploaded image - the icon is derived
+            // from the subject name (App\Support\SubjectIcons).
+            'image_url'    => $s->iconUrl(),
             'detail_image_url' => $this->absUrl($s->detail_image),
             'standard_id'  => $standard?->id,
             'standard_name' => $standard?->name,

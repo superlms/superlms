@@ -169,7 +169,7 @@ class BookController extends ApiController
                 'id'    => $book->subject->id,
                 'name'  => $book->subject->name,
                 // Subject icon image (full S3 URL or null). Shown on the book card.
-                'image' => $book->subject->image ?? null,
+                'image' => $book->subject?->iconUrl(),
             ] : null,
         ];
 
