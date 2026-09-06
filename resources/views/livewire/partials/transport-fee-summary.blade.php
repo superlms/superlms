@@ -1,11 +1,12 @@
 {{-- Transport Fee Summary tab — shared by Admin & Accounts Transport + FeeStructure.
      Requires HandlesTransportFees trait on the host component.
-     $feeChromeInHeader (optional): when true the host renders the Pay Now button in
-     its own header, so this partial uses the student-style layout — the student's
-     fee analytics band sits between the header and the route→student filter (ledger
-     style), and the detail card drops its own Add Payment / Change buttons. --}}
+     $feeChromeInHeader (optional): student-style layout.
+     $feeFilterInHeader (optional): the host renders the route→student filter in its
+     own header bar, so this partial drops its filter card and puts Add Payment on
+     the student detail card instead. --}}
 @php
     $feeChromeInHeader = $feeChromeInHeader ?? false;
+    $feeFilterInHeader = $feeFilterInHeader ?? false;
     $filterInHeader    = $filterInHeader ?? false;
     $summary = $summaryOverride ?? $this->feeSummary();
 @endphp
@@ -14,83 +15,40 @@
     {{-- ══════════════════ STUDENT-STYLE LAYOUT ══════════════════ --}}
     <div class="space-y-5">
 
-        {{-- ─── Fee analytics band (between header & filter, ledger style) ─── --}}
+        @unless ($feeFilterInHeader)
+            {{-- Route → student filter, for hosts that don't carry it in their header --}}
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-5">
+                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-3">
+                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                    Filter by:
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Route</label>
+                        <select wire:model.live="feeFilterRoute" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-blue-500">
+                            <option value="">Select route…</option>
+                            @foreach ($this->feeRouteOptions() as $r)<option value="{{ $r->id }}">{{ $r->route_name }}</option>@endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Student</label>
+                        <select wire:model.live="feeStudentId" @disabled(empty($feeFilterRoute))
+                            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <option value="">{{ $feeFilterRoute ? 'Select student…' : 'Pick a route first' }}</option>
+                            @foreach ($this->feeRouteStudents() as $st)
+                                <option value="{{ $st->id }}">{{ $st->full_name }} · {{ $st->admission_no }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+            </div>
+        @endunless
+
         @if ($summary)
+            {{-- ─── Student detail card, with the fee figures folded in ─── --}}
             @php $pct = $summary['annual'] > 0 ? round(($summary['paid'] / $summary['annual']) * 100) : 0; @endphp
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                <div class="flex flex-wrap items-center gap-x-8 gap-y-4 px-5 py-4">
-                    <div class="flex items-center gap-3 min-w-0 mr-auto">
-                        @if ($summary['student']->user?->image)
-                            <img src="{{ $summary['student']->user->image }}" class="w-11 h-11 rounded-full object-cover border-2 border-white shadow flex-shrink-0">
-                        @else
-                            <div class="w-11 h-11 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 text-base font-bold flex-shrink-0">
-                                {{ strtoupper(substr($summary['student']->full_name ?? 'S', 0, 1)) }}
-                            </div>
-                        @endif
-                        <div class="min-w-0">
-                            <p class="text-xs text-gray-400 uppercase tracking-wider font-semibold">Fee Analytics</p>
-                            <p class="text-sm font-bold text-gray-900 truncate">{{ $summary['student']->full_name }}</p>
-                            <p class="text-xs text-gray-500 truncate">{{ $summary['student']->admission_no }}</p>
-                        </div>
-                    </div>
-
-                    <div class="text-center">
-                        <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Monthly</p>
-                        <p class="text-lg font-bold text-gray-800 mt-0.5">₹{{ number_format($summary['monthly'], 0) }}</p>
-                    </div>
-                    <div class="text-center">
-                        <p class="text-[11px] font-semibold text-blue-500 uppercase tracking-wider">Annual</p>
-                        <p class="text-lg font-bold text-blue-600 mt-0.5">₹{{ number_format($summary['annual'], 0) }}</p>
-                        <p class="text-[10px] text-gray-400">× {{ $summary['months_count'] }} months</p>
-                    </div>
-                    <div class="text-center">
-                        <p class="text-[11px] font-semibold text-emerald-600 uppercase tracking-wider">Paid</p>
-                        <p class="text-lg font-bold text-emerald-600 mt-0.5">₹{{ number_format($summary['paid'], 0) }}</p>
-                        <p class="text-[10px] text-gray-400">{{ $summary['payments']->count() }} receipt(s)</p>
-                    </div>
-                    <div class="text-center">
-                        <p class="text-[11px] font-semibold {{ $summary['remaining'] > 0 ? 'text-red-600' : 'text-gray-400' }} uppercase tracking-wider">Remaining</p>
-                        <p class="text-lg font-bold {{ $summary['remaining'] > 0 ? 'text-red-600' : 'text-gray-400' }} mt-0.5">₹{{ number_format($summary['remaining'], 0) }}</p>
-                        <p class="text-[10px] text-gray-400">{{ $pct }}% collected</p>
-                    </div>
-                </div>
-                <div class="h-1.5 bg-gray-100">
-                    <div class="h-full bg-emerald-500" style="width: {{ min(100, $pct) }}%"></div>
-                </div>
-            </div>
-        @endif
-
-        {{-- ─── Student-style filter: route → student ─── --}}
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-5">
-            <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-3">
-                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-                Filter by:
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Route</label>
-                    <select wire:model.live="feeFilterRoute" class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-blue-500">
-                        <option value="">Select route…</option>
-                        @foreach ($this->feeRouteOptions() as $r)<option value="{{ $r->id }}">{{ $r->route_name }}</option>@endforeach
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1">Student</label>
-                    <select wire:model.live="feeStudentId" @disabled(empty($feeFilterRoute))
-                        class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
-                        <option value="">{{ $feeFilterRoute ? 'Select student…' : 'Pick a route first' }}</option>
-                        @foreach ($this->feeRouteStudents() as $s)
-                            <option value="{{ $s->id }}">{{ $s->full_name }} · {{ $s->admission_no }}</option>
-                        @endforeach
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        @if ($summary)
-            {{-- ─── Student detail card (no analytics / no Add Payment · Change) ─── --}}
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                <div class="flex flex-wrap items-center gap-4 px-5 py-4">
+                <div class="flex flex-wrap items-center justify-between gap-x-8 gap-y-4 px-5 py-4">
                     <div class="flex items-center gap-4 min-w-0">
                         @if ($summary['student']->user?->image)
                             <img src="{{ $summary['student']->user->image }}" class="w-14 h-14 rounded-full object-cover border-2 border-white shadow flex-shrink-0">
@@ -108,8 +66,50 @@
                             <p class="text-xs text-gray-400 mt-0.5 truncate">
                                 <svg class="w-3.5 h-3.5 inline -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 9m0 8V9m0 0L9 7"/></svg>
                                 Route: <strong class="text-gray-700">{{ $summary['route']->route_name ?? '—' }}</strong>
+                                @if ($summary['route']?->vehicle_type)
+                                    <span class="ml-1 inline-block bg-indigo-50 text-indigo-700 rounded px-1.5 py-0.5 text-[10px] font-medium">{{ $summary['route']->vehicle_type }}</span>
+                                @endif
                             </p>
                         </div>
+                    </div>
+
+                    {{-- Fee figures, inline rather than in a card of their own --}}
+                    <div class="flex flex-wrap items-center gap-x-7 gap-y-3">
+                        <div>
+                            <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Monthly</p>
+                            <p class="text-base font-bold text-gray-800">₹{{ number_format($summary['monthly'], 0) }}</p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Annual</p>
+                            <p class="text-base font-bold text-blue-600">₹{{ number_format($summary['annual'], 0) }}</p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Paid</p>
+                            <p class="text-base font-bold text-emerald-600">₹{{ number_format($summary['paid'], 0) }}</p>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Remaining</p>
+                            <p class="text-base font-bold {{ $summary['remaining'] > 0 ? 'text-red-600' : 'text-gray-400' }}">
+                                ₹{{ number_format($summary['remaining'], 0) }}
+                            </p>
+                        </div>
+                        @if ($feeFilterInHeader)
+                            <button wire:click="openPaymentPanel"
+                                class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                                Add Payment
+                            </button>
+                        @endif
+                    </div>
+                </div>
+
+                {{-- Collection progress --}}
+                <div class="px-5 pb-3">
+                    <div class="flex items-center gap-3">
+                        <div class="h-1.5 flex-1 bg-gray-100 rounded-full overflow-hidden">
+                            <div class="h-full bg-emerald-500 rounded-full" style="width: {{ min(100, $pct) }}%"></div>
+                        </div>
+                        <span class="text-[11px] font-medium text-gray-400 flex-shrink-0">{{ $pct }}% collected · {{ $summary['payments']->count() }} receipt(s)</span>
                     </div>
                 </div>
 
@@ -126,12 +126,34 @@
                 </div>
             </div>
 
-            {{-- ─── Monthly fee status ─── --}}
+            {{-- ─── Monthly fee status: the whole academic year ─── --}}
+            @php
+                $monthChips = [
+                    'paid'     => ['Paid',     'border-emerald-200 bg-emerald-50', 'bg-emerald-500', 'text-emerald-700'],
+                    'partial'  => ['Partial',  'border-amber-200 bg-amber-50',     'bg-amber-500',   'text-amber-700'],
+                    'unpaid'   => ['Unpaid',   'border-red-200 bg-red-50',         'bg-red-500',     'text-red-700'],
+                    'upcoming' => ['Upcoming', 'border-blue-200 bg-blue-50',       'bg-blue-400',    'text-blue-700'],
+                    'not_used' => ['Not used', 'border-gray-200 bg-gray-50',       'bg-gray-300',    'text-gray-400'],
+                ];
+                $monthCounts = collect($summary['month_status'])->countBy('status');
+            @endphp
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                    <h4 class="text-sm font-semibold text-gray-700">Monthly Fee Status</h4>
-                    <div class="flex items-center gap-3">
-                        <span class="text-xs text-gray-400">Up to the current month</span>
+                <div class="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-700">Monthly Fee Status</h4>
+                        <p class="text-xs text-gray-400 mt-0.5">Apr – Mar · {{ $summary['months_count'] }} of 12 months billed</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        {{-- Legend, doubling as a count per state --}}
+                        <div class="flex flex-wrap items-center gap-3">
+                            @foreach ($monthChips as $state => $chip)
+                                <span class="inline-flex items-center gap-1.5 text-[11px] text-gray-500">
+                                    <span class="w-2 h-2 rounded-full {{ $chip[2] }}"></span>
+                                    {{ $chip[0] }}
+                                    <span class="font-semibold text-gray-700">{{ $monthCounts[$state] ?? 0 }}</span>
+                                </span>
+                            @endforeach
+                        </div>
                         @if ($summary['route'])
                             <button wire:click="editTransportStudent({{ $summary['student']->id }}, {{ $summary['route']->id }})"
                                 class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 border border-emerald-200 rounded-md px-2.5 py-1 hover:bg-emerald-50">
@@ -141,30 +163,30 @@
                         @endif
                     </div>
                 </div>
-                @if (!empty($summary['month_status']))
-                    <div class="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                        @foreach ($summary['month_status'] as $m)
-                            @php
-                                $chip = match ($m['status']) {
-                                    'paid'    => ['bg-emerald-50 border-emerald-200', 'text-emerald-700', 'bg-emerald-100 text-emerald-700', 'Paid'],
-                                    'partial' => ['bg-amber-50 border-amber-200', 'text-amber-700', 'bg-amber-100 text-amber-700', 'Partial'],
-                                    default   => ['bg-red-50 border-red-200', 'text-red-700', 'bg-red-100 text-red-700', 'Unpaid'],
-                                };
-                            @endphp
-                            <div class="rounded-lg border p-3 {{ $chip[0] }}">
-                                <div class="flex items-center justify-between mb-1">
-                                    <p class="text-sm font-bold text-gray-800">{{ substr($m['label'], 0, 3) }}</p>
-                                    <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full {{ $chip[2] }}">{{ $chip[3] }}</span>
-                                </div>
-                                <p class="text-xs {{ $chip[1] }}">
-                                    ₹{{ number_format($m['paid'], 0) }} / ₹{{ number_format($m['amount'], 0) }}
+
+                <div class="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5">
+                    @foreach ($summary['month_status'] as $m)
+                        @php $chip = $monthChips[$m['status']] ?? $monthChips['not_used']; @endphp
+                        <div class="rounded-lg border px-3 py-2.5 {{ $chip[1] }} {{ $m['is_current'] ? 'ring-1 ring-gray-900/20' : '' }}">
+                            <div class="flex items-center justify-between gap-2">
+                                <p class="text-sm font-bold text-gray-800">
+                                    {{ substr($m['label'], 0, 3) }}
+                                    <span class="text-[10px] font-normal text-gray-400">'{{ substr($m['year'], 2) }}</span>
                                 </p>
+                                <span class="w-2 h-2 rounded-full flex-shrink-0 {{ $chip[2] }}"></span>
                             </div>
-                        @endforeach
-                    </div>
-                @else
-                    <div class="px-5 py-8 text-center text-sm text-gray-400">No billable months have started yet.</div>
-                @endif
+                            <p class="text-[11px] font-medium {{ $chip[3] }} mt-1">
+                                @if ($m['status'] === 'not_used')
+                                    Not used
+                                @elseif ($m['status'] === 'upcoming')
+                                    Upcoming · ₹{{ number_format($m['amount'], 0) }}
+                                @else
+                                    ₹{{ number_format($m['paid'], 0) }} / ₹{{ number_format($m['amount'], 0) }}
+                                @endif
+                            </p>
+                        </div>
+                    @endforeach
+                </div>
             </div>
 
             {{-- ─── Transactions ─── --}}
@@ -358,9 +380,11 @@
                     @foreach ($summary['month_status'] as $m)
                         @php
                             $chip = match ($m['status']) {
-                                'paid'    => ['bg-emerald-50 border-emerald-200', 'text-emerald-700', 'bg-emerald-100 text-emerald-700', 'Paid'],
-                                'partial' => ['bg-amber-50 border-amber-200', 'text-amber-700', 'bg-amber-100 text-amber-700', 'Partial'],
-                                default   => ['bg-red-50 border-red-200', 'text-red-700', 'bg-red-100 text-red-700', 'Unpaid'],
+                                'paid'     => ['bg-emerald-50 border-emerald-200', 'text-emerald-700', 'bg-emerald-100 text-emerald-700', 'Paid'],
+                                'partial'  => ['bg-amber-50 border-amber-200', 'text-amber-700', 'bg-amber-100 text-amber-700', 'Partial'],
+                                'upcoming' => ['bg-blue-50 border-blue-200', 'text-blue-700', 'bg-blue-100 text-blue-700', 'Upcoming'],
+                                'not_used' => ['bg-gray-50 border-gray-200', 'text-gray-400', 'bg-gray-100 text-gray-500', 'Not used'],
+                                default    => ['bg-red-50 border-red-200', 'text-red-700', 'bg-red-100 text-red-700', 'Unpaid'],
                             };
                         @endphp
                         <div class="rounded-lg border p-3 {{ $chip[0] }}">
@@ -369,7 +393,11 @@
                                 <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full {{ $chip[2] }}">{{ $chip[3] }}</span>
                             </div>
                             <p class="text-xs {{ $chip[1] }}">
-                                ₹{{ number_format($m['paid'], 0) }} / ₹{{ number_format($m['amount'], 0) }}
+                                @if ($m['status'] === 'not_used')
+                                    Not billed
+                                @else
+                                    ₹{{ number_format($m['paid'], 0) }} / ₹{{ number_format($m['amount'], 0) }}
+                                @endif
                             </p>
                         </div>
                     @endforeach

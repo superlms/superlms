@@ -27,12 +27,6 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
                     Add Driver
                 </button>
-            @elseif ($activeTab === 'fees' && $feeStudentId)
-                <button wire:click="openPaymentPanel"
-                    class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                    Pay Now
-                </button>
             @endif
         </div>
     </div>
@@ -50,8 +44,7 @@
         </div>
     </div>
 
-    {{-- Filter bar (exams-style thin gray) — tab-aware. Hidden on Fee Summary. --}}
-    @if ($activeTab !== 'fees')
+    {{-- Filter bar (exams-style thin gray) — tab-aware. --}}
     <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
         <div class="flex flex-wrap items-center gap-3">
             <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
@@ -90,10 +83,22 @@
                 </select>
                 <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search student name / admission…"
                     class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-64">
+            @elseif ($activeTab === 'fees')
+                <select wire:model.live="feeFilterRoute" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[180px]">
+                    <option value="">Select Route *</option>
+                    @foreach ($this->feeRouteOptions() as $r)<option value="{{ $r->id }}">{{ $r->route_name }}@if ($r->vehicle_type) — {{ $r->vehicle_type }}@endif</option>@endforeach
+                </select>
+                <select wire:model.live="feeStudentId" @disabled(empty($feeFilterRoute))
+                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[220px] disabled:opacity-50">
+                    <option value="">{{ $feeFilterRoute ? 'Select Student *' : 'Pick a route first' }}</option>
+                    @foreach ($this->feeRouteStudents() as $st)
+                        <option value="{{ $st->id }}">{{ $st->full_name }} · {{ $st->admission_no }}</option>
+                    @endforeach
+                </select>
             @endif
 
-            @if ($search || $filterDriver || $filterRoute || $filterStatus)
-                <button wire:click="$set('search',''); $set('filterDriver',''); $set('filterRoute',''); $set('filterStatus','')"
+            @if ($activeTab === 'fees' ? ($feeFilterRoute || $feeStudentId) : ($search || $filterDriver || $filterRoute || $filterStatus))
+                <button wire:click="$set('search',''); $set('filterDriver',''); $set('filterRoute',''); $set('filterStatus',''); $set('feeFilterRoute',''); $set('feeStudentId','')"
                     class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     Clear
@@ -101,7 +106,6 @@
             @endif
         </div>
     </div>
-    @endif
 </div>
 
 <div class="p-4 sm:p-6">
@@ -339,7 +343,7 @@
 
 {{-- ═══════════════════════ FEE SUMMARY TAB ═══════════════════════ --}}
 @if ($activeTab === 'fees')
-    @include('livewire.partials.transport-fee-summary', ['feeChromeInHeader' => true])
+    @include('livewire.partials.transport-fee-summary', ['feeChromeInHeader' => true, 'feeFilterInHeader' => true])
 @endif
 
 </div>

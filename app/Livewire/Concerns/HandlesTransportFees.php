@@ -383,7 +383,9 @@ trait HandlesTransportFees
     public function feeRouteOptions()
     {
         return Transportation::where('organization_id', $this->txOrgId())
-            ->orderBy('route_name')->get(['id', 'route_name']);
+            ->orderBy('route_name')
+            ->orderBy('vehicle_type')
+            ->get(['id', 'route_name', 'vehicle_type']);
     }
 
     /** Students of the route currently chosen in the fee-summary filter. */
@@ -493,32 +495,40 @@ trait HandlesTransportFees
         $remaining = $paid;
         $rows = [];
 
+        // Every month of the academic year is listed, so the card reads as a
+        // full calendar rather than a list that stops at today:
+        //   not_used → the student is not billed for that month
+        //   upcoming → billable, but the month has not started
+        //   paid / partial / unpaid → billable and already begun
         foreach (array_keys($this->monthsOrder) as $key) {
-            if (empty($months[$key])) {
-                continue; // disabled month → not billed, not shown
-            }
             $mnum       = $monthNum[$key];
             $year       = $mnum >= 4 ? $startYear : $startYear + 1;
             $monthStart = \Carbon\Carbon::create($year, $mnum, 1)->startOfMonth();
+            $billable   = !empty($months[$key]);
+            $alloc      = 0.0;
 
-            if ($monthStart->gt($curMonthStart)) {
-                continue; // only show months up to the current month
+            if (!$billable) {
+                $status = 'not_used';
+            } elseif ($monthStart->gt($curMonthStart)) {
+                $status = 'upcoming';
+            } else {
+                $alloc     = $monthly > 0 ? max(0, min($remaining, $monthly)) : 0;
+                $remaining = max(0, $remaining - $alloc);
+
+                $status = ($monthly > 0 && $alloc >= $monthly)
+                    ? 'paid'
+                    : ($alloc > 0 ? 'partial' : 'unpaid');
             }
 
-            $alloc     = $monthly > 0 ? min($remaining, $monthly) : 0;
-            $alloc     = max(0, $alloc);
-            $remaining = max(0, $remaining - $alloc);
-
-            $status = ($monthly > 0 && $alloc >= $monthly)
-                ? 'paid'
-                : ($alloc > 0 ? 'partial' : 'unpaid');
-
             $rows[] = [
-                'key'    => $key,
-                'label'  => $this->monthsOrder[$key],
-                'amount' => $monthly,
-                'paid'   => round($alloc, 2),
-                'status' => $status,
+                'key'       => $key,
+                'label'     => $this->monthsOrder[$key],
+                'year'      => $year,
+                'amount'    => $billable ? $monthly : 0.0,
+                'paid'      => round($alloc, 2),
+                'status'    => $status,
+                'billable'  => $billable,
+                'is_current' => $monthStart->equalTo($curMonthStart),
             ];
         }
 
