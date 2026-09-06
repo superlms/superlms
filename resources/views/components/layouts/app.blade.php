@@ -75,6 +75,9 @@
             transition: none !important;
         }
 
+        /* Sidebar logo, expanded state. The collapsed rail overrides it below. */
+        .lms-logo-img { width: 4rem !important; height: 4rem !important; }
+
         /* ─── Collapsible desktop sidebar ───
            Default (no `.sidebar-expanded` on <html>) = icon-only rail; clicking
            the three-dot toggle expands it to the full labelled sidebar and the
@@ -82,7 +85,7 @@
            we never depend on Tailwind classes that aren't in the compiled build. */
         @media (min-width: 768px) {
             :root { --lms-sb: 4.75rem; }
-            html.sidebar-expanded { --lms-sb: 16rem; }
+            html.sidebar-expanded { --lms-sb: 253px; }
 
             .lms-aside, .lms-rail { width: var(--lms-sb) !important; transition: width .2s ease; }
             .lms-navbar { left: var(--lms-sb) !important; padding-left: 0 !important; transition: left .2s ease; }
