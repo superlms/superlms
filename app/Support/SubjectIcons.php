@@ -33,8 +33,10 @@ class SubjectIcons
         'chemistry' => 'chemistry',
         'biology' => 'biology', 'bio' => 'biology', 'botany' => 'biology', 'zoology' => 'biology',
         'science' => 'science', 'general science' => 'science', 'vigyan' => 'science',
-        'environmental studies' => 'environment', 'evs' => 'environment',
-        'environmental science' => 'environment', 'environment' => 'environment',
+        'environmental studies' => 'environment', 'environmental study' => 'environment',
+        'environment studies' => 'environment', 'environmental education' => 'environment',
+        'evs' => 'environment', 'environmental science' => 'environment',
+        'environment science' => 'environment', 'environment' => 'environment',
         'astronomy' => 'astronomy', 'space science' => 'astronomy',
 
         // ── Languages ──
@@ -63,6 +65,7 @@ class SubjectIcons
         // ── Commerce ──
         'economics' => 'economics', 'arthashastra' => 'economics',
         'business studies' => 'business', 'business study' => 'business',
+        'business' => 'business', 'business administration' => 'business',
         'commerce' => 'business', 'entrepreneurship' => 'business',
         'accountancy' => 'accountancy', 'accounts' => 'accountancy', 'accounting' => 'accountancy',
         'book keeping' => 'accountancy', 'bookkeeping' => 'accountancy',
@@ -74,8 +77,10 @@ class SubjectIcons
         'information technology' => 'computer', 'it' => 'computer', 'coding' => 'computer',
 
         // ── Arts & activity ──
-        'art' => 'art', 'arts' => 'art', 'fine arts' => 'art', 'drawing' => 'art',
+        'art' => 'art', 'arts' => 'art', 'fine art' => 'art', 'fine arts' => 'art',
+        'drawing' => 'art', 'drawings' => 'art', 'drawing and painting' => 'art',
         'painting' => 'art', 'craft' => 'art', 'art and craft' => 'art',
+        'art craft' => 'art', 'creative art' => 'art',
         'music' => 'music', 'sangeet' => 'music', 'dance' => 'music', 'vocal music' => 'music',
         'physical education' => 'physical education', 'pe' => 'physical education',
         'pt' => 'physical education', 'sports' => 'physical education',
@@ -151,6 +156,20 @@ class SubjectIcons
 
         if (isset(self::ALIASES[$normalized])) {
             return self::ALIASES[$normalized];
+        }
+
+        // Dotted or spaced initialisms — "E.V.S.", "S.S.T.", "P. T." — normalize
+        // to single letters separated by spaces. Join them back up and retry.
+        if (preg_match('/^(?:\p{L}\s)+\p{L}$/u', $normalized)) {
+            $joined = str_replace(' ', '', $normalized);
+
+            if (isset(self::ALIASES[$joined])) {
+                return self::ALIASES[$joined];
+            }
+
+            if (isset(self::ICONS[$joined])) {
+                return $joined;
+            }
         }
 
         // A named icon used verbatim ("Physics" → 'physics').
