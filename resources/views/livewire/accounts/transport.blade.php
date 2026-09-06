@@ -203,7 +203,7 @@
                                     @endif
                                     <div class="min-w-0">
                                         <p class="font-medium text-gray-900 truncate">{{ $d->user->name ?? '—' }}</p>
-                                        <p class="text-xs text-gray-400 truncate">{{ $d->user->email ?? '' }}</p>
+                                        <p class="text-xs text-gray-400 truncate">{{ str_ends_with($d->user->email ?? '', \App\Livewire\Accounts\Transport::DRIVER_EMAIL_DOMAIN) ? '' : ($d->user->email ?? '') }}</p>
                                     </div>
                                 </div>
                             </td>
@@ -375,12 +375,12 @@
                         @error('driver_name')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Email <span class="text-red-500">*</span></label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
                         <input type="email" wire:model="driver_email" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500">
                         @error('driver_email')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Phone</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Phone <span class="text-red-500">*</span></label>
                         <input type="text" wire:model="driver_phone" maxlength="10" inputmode="numeric" placeholder="10-digit mobile" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500">
                         @error('driver_phone')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                     </div>

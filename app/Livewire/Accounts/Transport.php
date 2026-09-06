@@ -25,6 +25,9 @@ class Transport extends Component
     #[Url(keep: true)]
     public string $activeTab = 'transportation'; // transportation | drivers | students | fees
 
+    /** Domain used for the stand-in address when a driver is saved without an email. */
+    public const DRIVER_EMAIL_DOMAIN = '@drivers.superlms.local';
+
     protected function txOrgId(): int
     {
         return (int) Auth::user()->organization_id;
@@ -147,7 +150,9 @@ class Transport extends Component
         $driver = DriverDetail::with('user')->findOrFail($id);
         $this->editDriverId        = $driver->id;
         $this->driver_name         = $driver->user->name ?? '';
-        $this->driver_email        = $driver->user->email ?? '';
+        $this->driver_email        = $this->isPlaceholderDriverEmail($driver->user->email ?? '')
+            ? ''
+            : ($driver->user->email ?? '');
         $this->driver_phone        = $driver->phone ?? '';
         $this->license_no          = $driver->license_no ?? '';
         $this->driver_vehicle_no   = $driver->vehicle_no ?? '';
@@ -165,8 +170,8 @@ class Transport extends Component
     {
         $rules = [
             'driver_name'         => 'required|string|max:255',
-            'driver_email'        => 'required|email|max:255',
-            'driver_phone'        => 'nullable|regex:/^[6-9]\d{9}$/',
+            'driver_email'        => 'nullable|email|max:255',
+            'driver_phone'        => 'required|regex:/^[6-9]\d{9}$/',
             'license_no'          => 'nullable|string|max:50',
             'driver_vehicle_no'   => 'nullable|string|max:30',
             'driver_vehicle_type' => 'nullable|string|max:50',
@@ -175,9 +180,10 @@ class Transport extends Component
             'driver_image'        => 'nullable|image|max:1024', // 1 MB
         ];
         if (!$this->editDriverId) {
-            $rules['driver_email'] = 'required|email|unique:users,email';
+            $rules['driver_email'] = 'nullable|email|unique:users,email';
         }
         $this->validate($rules, [
+            'driver_phone.required' => 'Mobile number is required.',
             'driver_phone.regex' => 'Enter a valid 10-digit mobile number.',
             'driver_image.max'   => 'Photo must be 1 MB or smaller.',
         ]);
@@ -198,7 +204,11 @@ class Transport extends Component
 
             if ($this->editDriverId) {
                 $driver = DriverDetail::findOrFail($this->editDriverId);
-                $driver->user->update(['name' => $this->driver_name, 'email' => $this->driver_email]);
+                $driver->user->update([
+                    'name'          => $this->driver_name,
+                    'email'         => $this->driver_email !== '' ? $this->driver_email : $driver->user->email,
+                    'mobile_number' => $this->driver_phone,
+                ]);
                 $driver->update([
                     'image'            => $imageUrl,
                     'phone'            => $this->driver_phone,
@@ -213,7 +223,9 @@ class Transport extends Component
             } else {
                 $user = User::create([
                     'name'            => $this->driver_name,
-                    'email'           => $this->driver_email,
+                    'email'           => $this->driver_email !== ''
+                        ? $this->driver_email
+                        : $this->placeholderDriverEmail($this->driver_phone),
                     'mobile_number'   => $this->driver_phone,
                     'password'        => Hash::make('123456'),
                     'role'            => 'driver',
@@ -247,6 +259,27 @@ class Transport extends Component
             DB::rollBack();
             $this->notification()->error('Error!', 'Failed to save driver: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Drivers can be saved without an email, but users.email is NOT NULL and
+     * unique - mint a placeholder from the (required) mobile number instead.
+     */
+    private function isPlaceholderDriverEmail(?string $email): bool
+    {
+        return $email !== null && str_ends_with($email, self::DRIVER_EMAIL_DOMAIN);
+    }
+
+    private function placeholderDriverEmail(string $phone): string
+    {
+        $base  = 'driver' . ($phone !== '' ? '.' . $phone : '') . '.' . $this->organizationId;
+        $email = $base . self::DRIVER_EMAIL_DOMAIN;
+        $i     = 1;
+        while (User::where('email', $email)->exists()) {
+            $email = $base . '-' . $i++ . self::DRIVER_EMAIL_DOMAIN;
+        }
+
+        return $email;
     }
 
     /**
