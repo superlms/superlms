@@ -801,65 +801,93 @@
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeMemberPanel"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
 
-                <button wire:click="closeMemberPanel"
-                    class="absolute top-4 right-4 z-20 w-9 h-9 flex items-center justify-center rounded-full bg-white border border-gray-200 hover:bg-red-50 hover:border-red-300 text-gray-500 hover:text-red-500 transition-colors shadow-md">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-
-                <div class="flex-1 overflow-y-auto px-6 pt-6 pb-6 space-y-5">
-                    <div>
-                        <h2 class="text-lg font-semibold text-gray-900">
+                {{-- Fixed header --}}
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">
                             {{ $editMemberIndex !== null ? 'Edit Member' : 'Add Member' }}
                         </h2>
-                        <p class="text-xs text-gray-500 mt-0.5">Fill in the member details below</p>
+                        <p class="text-xs text-gray-500 mt-0.5">Name, designation and an optional photo</p>
                     </div>
+                    <button wire:click="closeMemberPanel"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
 
-                    {{-- Photo --}}
-                    <div class="flex items-center gap-4">
-                        @if ($newMemberPhoto instanceof \Livewire\Features\SupportFileUploads\TemporaryUploadedFile)
-                            <img src="{{ $newMemberPhoto->temporaryUrl() }}" class="w-16 h-16 rounded-full object-cover border-2 border-white shadow flex-shrink-0">
-                        @elseif (!empty($newMember['photo_path']))
-                            <img src="{{ $newMember['photo_path'] }}" class="w-16 h-16 rounded-full object-cover border-2 border-white shadow flex-shrink-0">
-                        @else
-                            <div class="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center border-2 border-white shadow flex-shrink-0">
-                                <svg class="w-7 h-7 text-amber-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                </svg>
-                            </div>
-                        @endif
-                        <div class="flex-1">
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Photo</label>
-                            <input type="file" wire:model="newMemberPhoto" accept="image/*"
-                                class="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 border border-gray-300 rounded-md">
-                            <p class="text-xs text-gray-400 mt-1">JPG/PNG up to 2MB. Leave empty to keep current.</p>
-                            <div wire:loading wire:target="newMemberPhoto" class="text-xs text-amber-600 mt-1">Uploading…</div>
-                            @error('newMemberPhoto')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
-                        </div>
-                    </div>
-
+                {{-- Scrollable body --}}
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Name <span class="text-red-500">*</span></label>
                         <input type="text" wire:model.defer="newMember.name" placeholder="e.g. Mr. Sharma"
-                            class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500">
-                        @error('newMember.name')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                        @error('newMember.name')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Designation <span class="text-red-500">*</span></label>
                         <input type="text" wire:model.defer="newMember.designation" placeholder="e.g. Principal"
-                            class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500">
-                        @error('newMember.designation')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                        @error('newMember.designation')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+
+                    {{-- Photo — click-anywhere drop zone over a hidden input --}}
+                    <div x-data>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                            Photo <span class="text-xs font-normal text-gray-400">(Optional · JPG/PNG, max 2 MB)</span>
+                        </label>
+                        <label for="memberPhotoInput"
+                            class="flex items-center gap-3 w-full px-4 py-3.5 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
+                            @if ($newMemberPhoto instanceof \Livewire\Features\SupportFileUploads\TemporaryUploadedFile)
+                                <img src="{{ $newMemberPhoto->temporaryUrl() }}" class="w-12 h-12 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                            @elseif (!empty($newMember['photo_path']))
+                                <img src="{{ $newMember['photo_path'] }}" class="w-12 h-12 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                            @else
+                                <span class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                    </svg>
+                                </span>
+                            @endif
+                            <span class="min-w-0">
+                                <span class="block text-sm font-medium text-gray-700">Click to choose a photo</span>
+                                <span class="block text-xs text-gray-400">
+                                    JPG or PNG, up to 2 MB@if ($editMemberIndex !== null) · leave empty to keep the current one@endif
+                                </span>
+                            </span>
+                        </label>
+                        <input id="memberPhotoInput" x-ref="memberPhotoInput" type="file" wire:model="newMemberPhoto"
+                            accept="image/*" class="hidden">
+
+                        <div wire:loading wire:target="newMemberPhoto" class="flex items-center gap-2 mt-2 text-xs text-blue-600">
+                            <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                            </svg>
+                            Uploading...
+                        </div>
+
+                        @if ($newMemberPhoto instanceof \Livewire\Features\SupportFileUploads\TemporaryUploadedFile)
+                            <button type="button"
+                                x-on:click="$refs.memberPhotoInput.value = ''; $wire.set('newMemberPhoto', null)"
+                                wire:loading.remove wire:target="newMemberPhoto"
+                                class="mt-2 text-xs font-medium text-red-600 hover:text-red-700">
+                                Remove selected photo
+                            </button>
+                        @endif
+                        @error('newMemberPhoto')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                 </div>
 
+                {{-- Fixed footer --}}
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
                     <button wire:click="closeMemberPanel" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
                     <button wire:click="saveMember" wire:loading.attr="disabled"
                         class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
-                        <span wire:loading.remove wire:target="saveMember">{{ $editMemberIndex !== null ? 'Update' : 'Add Member' }}</span>
-                        <span wire:loading wire:target="saveMember">Saving…</span>
+                        <span wire:loading.remove wire:target="saveMember">{{ $editMemberIndex !== null ? 'Update Member' : 'Add Member' }}</span>
+                        <span wire:loading wire:target="saveMember">Saving...</span>
                     </button>
                 </div>
             </div>
@@ -874,44 +902,90 @@
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeDocumentPanel"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
 
-                <button wire:click="closeDocumentPanel"
-                    class="absolute top-4 right-4 z-20 w-9 h-9 flex items-center justify-center rounded-full bg-white border border-gray-200 hover:bg-red-50 hover:border-red-300 text-gray-500 hover:text-red-500 transition-colors shadow-md">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-
-                <div class="flex-1 overflow-y-auto px-6 pt-6 pb-6 space-y-5">
-                    <div>
-                        <h2 class="text-lg font-semibold text-gray-900">Add Document</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">Upload a PDF up to 2MB. Will be saved when you click "Save All Changes".</p>
+                {{-- Fixed header --}}
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">Add Document</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">Queued here, saved when you press "Save All Changes"</p>
                     </div>
+                    <button wire:click="closeDocumentPanel"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
 
+                {{-- Scrollable body --}}
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Title <span class="text-red-500">*</span></label>
                         <input type="text" wire:model.defer="newDocument.title" placeholder="e.g. Affiliation Certificate"
-                            class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500">
-                        @error('newDocument.title')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                        @error('newDocument.title')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
 
-                    <div>
+                    {{-- File — click-anywhere drop zone over a hidden input --}}
+                    <div x-data>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">
-                            File <span class="text-red-500">*</span>
-                            <span class="text-gray-400 font-normal">(PDF only — max 2MB)</span>
+                            PDF File <span class="text-red-500">*</span>
+                            <span class="text-xs font-normal text-gray-400">(max 2 MB)</span>
                         </label>
-                        <input type="file" wire:model="newDocumentFile" accept=".pdf"
-                            class="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-cyan-50 file:text-cyan-700 hover:file:bg-cyan-100 border border-gray-300 rounded-md">
-                        <div wire:loading wire:target="newDocumentFile" class="text-xs text-cyan-600 mt-1.5">Uploading…</div>
-                        @error('newDocumentFile')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                        <label for="schoolDocInput"
+                            class="flex items-center gap-3 w-full px-4 py-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
+                            <span class="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
+                                <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                </svg>
+                            </span>
+                            <span class="min-w-0">
+                                <span class="block text-sm font-medium text-gray-700">Click to choose a PDF</span>
+                                <span class="block text-xs text-gray-400">PDF only, up to 2 MB</span>
+                            </span>
+                        </label>
+                        <input id="schoolDocInput" x-ref="schoolDocInput" type="file" wire:model="newDocumentFile"
+                            accept="application/pdf,.pdf" class="hidden">
+
+                        <div wire:loading wire:target="newDocumentFile" class="flex items-center gap-2 mt-2 text-xs text-blue-600">
+                            <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                            </svg>
+                            Uploading...
+                        </div>
+
+                        @if ($newDocumentFile)
+                            <div wire:loading.remove wire:target="newDocumentFile"
+                                class="mt-2 flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-emerald-200 bg-emerald-50">
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <svg class="w-4 h-4 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span class="text-xs text-emerald-800 truncate">{{ $newDocumentFile->getClientOriginalName() }}</span>
+                                    <span class="text-[11px] text-emerald-600 flex-shrink-0">
+                                        ({{ number_format($newDocumentFile->getSize() / 1024, 1) }} KB)
+                                    </span>
+                                </div>
+                                <button type="button" title="Remove"
+                                    x-on:click="$refs.schoolDocInput.value = ''; $wire.set('newDocumentFile', null)"
+                                    class="p-1 rounded text-emerald-700 hover:bg-emerald-100 flex-shrink-0">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                        @endif
+                        @error('newDocumentFile')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                 </div>
 
+                {{-- Fixed footer --}}
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
                     <button wire:click="closeDocumentPanel" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
                     <button wire:click="saveDocumentPanel" wire:loading.attr="disabled"
                         class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
-                        <span wire:loading.remove wire:target="saveDocumentPanel">Queue Document</span>
-                        <span wire:loading wire:target="saveDocumentPanel">Queueing…</span>
+                        <span wire:loading.remove wire:target="saveDocumentPanel">Add Document</span>
+                        <span wire:loading wire:target="saveDocumentPanel">Adding...</span>
                     </button>
                 </div>
             </div>
