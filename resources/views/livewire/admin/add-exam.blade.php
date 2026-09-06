@@ -806,11 +806,11 @@
                                         // Edit-mode: nothing is locked — taken chapters can be transferred.
                                         $isLocked = !$sylModalIsEdit && $ownedByOther;
                                     @endphp
-                                    <label class="flex items-start gap-3 p-3 transition-colors
+                                    <label class="flex items-center gap-3 px-3 py-2.5 transition-colors
                                                   {{ $isLocked ? 'bg-gray-50 cursor-not-allowed opacity-70' : 'hover:bg-gray-50 cursor-pointer' }}">
                                         <input type="checkbox" wire:model.live="sylModalChapterIds" value="{{ $ch['id'] }}"
                                             @disabled($isLocked)
-                                            class="mt-0.5 rounded text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed">
+                                            class="rounded text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed">
                                         <div class="flex-1 min-w-0">
                                             <div class="flex flex-wrap items-center gap-2">
                                                 <p class="text-sm font-medium {{ $isLocked ? 'text-gray-500' : 'text-gray-900' }}">
@@ -825,12 +825,6 @@
                                                     </span>
                                                 @endif
                                             </div>
-                                            @if (!empty($ch['description']))
-                                                <p class="text-xs text-gray-500 mt-0.5 line-clamp-1">{{ $ch['description'] }}</p>
-                                            @endif
-                                            @if (!empty($ch['topics']))
-                                                <p class="text-xs text-gray-400 mt-1">{{ count($ch['topics']) }} topic(s)</p>
-                                            @endif
                                         </div>
                                     </label>
                                 @endforeach
@@ -931,7 +925,7 @@
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div>
                         <h2 class="text-lg font-semibold text-gray-900">{{ $paperIsEdit ? 'Edit Exam Paper' : 'Upload Exam Paper' }}</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">Pick the exam, class, section &amp; subject, then upload the PDF (max 5 MB).</p>
+                        <p class="text-xs text-gray-500 mt-0.5">Pick the exam, class, section &amp; subject, then upload the PDF (max 1 GB).</p>
                     </div>
                     <button wire:click="closePaperModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -1006,7 +1000,7 @@
                     <div x-data>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">
                             PDF File @if (!$paperIsEdit)<span class="text-red-500">*</span>@endif
-                            <span class="text-xs font-normal text-gray-400">(max 5 MB)</span>
+                            <span class="text-xs font-normal text-gray-400">(max 1 GB)</span>
                         </label>
 
                         {{-- Click-anywhere drop-zone wrapping a hidden file input. --}}
@@ -1020,7 +1014,7 @@
                             <span class="min-w-0">
                                 <span class="block text-sm font-medium text-gray-700">Click to choose a PDF</span>
                                 <span class="block text-xs text-gray-400">
-                                    PDF only, up to 5 MB@if ($paperIsEdit) - leave empty to keep the current file@endif
+                                    PDF only, up to 1 GB@if ($paperIsEdit) - leave empty to keep the current file@endif
                                 </span>
                             </span>
                         </label>
@@ -1044,7 +1038,9 @@
                                     </svg>
                                     <span class="text-xs text-emerald-800 truncate">{{ $paperFile->getClientOriginalName() }}</span>
                                     <span class="text-[11px] text-emerald-600 flex-shrink-0">
-                                        ({{ number_format($paperFile->getSize() / 1024, 1) }} KB)
+                                        ({{ $paperFile->getSize() >= 1048576
+                                            ? number_format($paperFile->getSize() / 1048576, 1) . ' MB'
+                                            : number_format($paperFile->getSize() / 1024, 1) . ' KB' }})
                                     </span>
                                 </div>
                                 <button type="button" title="Remove"

@@ -585,8 +585,8 @@ class AddExam extends Component
 
         // Chapters for this class + subject (section-scoped if section provided
         // AND chapters carry a section_id; otherwise show class-wide chapters).
-        $chapterQuery = Chapter::with('topics:id,chapter_id,topic_name')
-            ->where('organization_id', $orgId)
+        // The picker lists chapter names only, so topics/description stay out of it.
+        $chapterQuery = Chapter::where('organization_id', $orgId)
             ->where('standard_id', $this->sylModalStandardId)
             ->where('subject_id', $value);
 
@@ -599,7 +599,7 @@ class AddExam extends Component
 
         $chapters = $chapterQuery
             ->orderBy('order')
-            ->get(['id', 'name', 'description', 'order'])
+            ->get(['id', 'name', 'order'])
             ->toArray();
 
         // Find which chapters are already owned by ANOTHER exam's syllabus.
@@ -897,7 +897,9 @@ class AddExam extends Component
                 : 'required|exists:subjects,id',
             'paperTitle'    => 'required|string|max:255',
             'paperDescription' => 'nullable|string|max:3000',
-            'paperFile'     => ($this->paperIsEdit ? 'nullable' : 'required') . '|file|mimes:pdf|max:5120', // 5 MB
+            // 1 GB, in kilobytes. The whole stack has to agree: docker/php/php.ini,
+            // docker/nginx/default.conf and livewire.temporary_file_upload.rules.
+            'paperFile'     => ($this->paperIsEdit ? 'nullable' : 'required') . '|file|mimes:pdf|max:1048576',
         ];
 
         $this->validate($rules, [
@@ -909,7 +911,7 @@ class AddExam extends Component
             'paperDescription.max'   => 'Description may not be longer than 3000 characters.',
             'paperFile.required'     => 'Please choose a PDF file.',
             'paperFile.mimes'        => 'The paper must be a PDF file.',
-            'paperFile.max'          => 'The PDF must be 5 MB or smaller.',
+            'paperFile.max'          => 'The PDF must be 1 GB or smaller.',
         ]);
 
         try {
