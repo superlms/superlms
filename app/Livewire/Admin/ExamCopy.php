@@ -469,29 +469,10 @@ class ExamCopy extends Component
                 }
             });
 
-            // Saving lands the admin back on the Exam Copies home screen (the
-            // list) rather than leaving them inside the upload panel.
-            $examId     = $this->uploadExam;
-            $standardId = $this->uploadStandard;
-            $sectionId  = $this->uploadSection;
-
+            // Saving lands the admin back on the Exam Copies home screen with a
+            // clean slate — panel closed and every filter cleared.
             $this->closeUploadModal();
-
-            // Pre-load the list with exactly what was just uploaded, so the home
-            // screen isn't empty (the list only renders once filtered).
-            $this->filterExam     = (string) $examId;
-            $this->filterStandard = (string) $standardId;
-            $this->filterSection  = (string) $sectionId;
-            $this->filterSubject  = '';
-            $this->filterStudent  = '';
-            $this->search         = '';
-
-            $this->filterSections = Section::where('standard_id', $standardId)
-                ->where('is_active', true)->get();
-            $this->loadSubjectsForStandard($standardId, $sectionId);
-            $this->loadFilterStudents();
-            $this->resetPage();
-            $this->loadStatistics();
+            $this->clearSubjectFilters();
 
             $this->notification()->success('Uploaded', "{$savedCount} record(s) saved in one go.");
         } catch (\Throwable $e) {
@@ -711,12 +692,12 @@ class ExamCopy extends Component
     /** True once enough filters are chosen for the list to render. */
     public function getFiltersAppliedProperty(): bool
     {
-        return (bool) ($this->filterExam && $this->filterStandard && $this->filterSection);
+        return (bool) ($this->filterExam && $this->filterStandard && $this->filterSection && $this->filterSubject);
     }
 
     private function getExamCopies()
     {
-        // Nothing is listed until exam → class → section have been picked.
+        // Nothing is listed until exam → class → section → subject are picked.
         if (!$this->filtersApplied) {
             return new \Illuminate\Pagination\LengthAwarePaginator([], 0, $this->perPage);
         }

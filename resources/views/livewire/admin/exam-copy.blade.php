@@ -37,7 +37,7 @@
             </div>
         </div>
 
-        {{-- Filter bar — the list stays empty until exam → class → section are set --}}
+        {{-- Filter bar — the list stays empty until exam → class → section → subject are set --}}
         <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
             <div class="flex flex-wrap items-center gap-3">
                 <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
@@ -70,7 +70,7 @@
 
                 <select wire:model.live="filterSubject" @disabled(!$filterSection)
                     class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed min-w-[130px]">
-                    <option value="">All Subjects</option>
+                    <option value="">Select Subject</option>
                     @foreach ($filterSubjects as $sub)
                         <option value="{{ $sub->id }}">{{ $sub->name }}</option>
                     @endforeach
@@ -110,7 +110,7 @@
                         <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
                     </div>
                     <p class="text-sm font-semibold text-gray-800">Choose a filter to see exam copies</p>
-                    <p class="text-xs text-gray-400 mt-1">Pick an exam, class and section above. Subject and student are optional.</p>
+                    <p class="text-xs text-gray-400 mt-1">Pick an exam, class, section and subject above. Student is optional.</p>
                 </div>
             </div>
         @else
