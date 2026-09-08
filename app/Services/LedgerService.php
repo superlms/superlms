@@ -101,14 +101,14 @@ class LedgerService
 
         // ── Fee payments (credit) ──────────────────────────────────────────
         self::dateScoped(FeePayment::where('organization_id', $orgId), 'payment_date', $start, $end)
-            ->with('studentDetail:id,full_name')
+            ->with('studentDetail:id,full_name,admission_no')
             ->orderBy('payment_date')
             ->get()
             ->each(function ($p) use ($rows, $school) {
                 $penalty = (float) ($p->penalty_amount ?? 0);
                 // fee_type is academic|transport; an older blank row reads as academic.
                 $label   = ucfirst((string) ($p->fee_type ?: 'academic')) . ' Fee';
-                $student = $p->studentDetail->full_name ?? ($p->submitted_by ?: 'Student');
+                $student = self::studentLabel($p->studentDetail, $p->submitted_by ?: 'Student');
                 $rows->push([
                     'date'    => Carbon::parse($p->payment_date),
                     'time'    => optional($p->created_at)->format('g:i A'),
@@ -129,11 +129,11 @@ class LedgerService
         // ── Transport fee payments (credit) ────────────────────────────────
         if (Schema::hasTable('transport_fee_payments')) {
             self::dateScoped(TransportFeePayment::where('organization_id', $orgId), 'payment_date', $start, $end)
-                ->with('studentDetail:id,full_name')
+                ->with('studentDetail:id,full_name,admission_no')
                 ->orderBy('payment_date')
                 ->get()
                 ->each(function ($p) use ($rows, $school) {
-                    $student = $p->studentDetail->full_name ?? 'Student';
+                    $student = self::studentLabel($p->studentDetail);
                     $rows->push([
                         'date'    => Carbon::parse($p->payment_date),
                         'time'    => optional($p->created_at)->format('g:i A'),
@@ -281,6 +281,22 @@ class LedgerService
     {
         return Schema::hasTable('admission_enquiries')
             && Schema::hasColumn('admission_enquiries', 'collected_amount');
+    }
+
+    /**
+     * A fee payer reads as "Name (Admission No.)" so two students with the same
+     * name are still told apart; the number is dropped when there isn't one.
+     */
+    protected static function studentLabel($student, string $fallback = 'Student'): string
+    {
+        $name = trim((string) ($student->full_name ?? ''));
+        if ($name === '') {
+            return $fallback;
+        }
+
+        $admission = trim((string) ($student->admission_no ?? ''));
+
+        return $admission !== '' ? $name . ' (' . $admission . ')' : $name;
     }
 
     /** School name for the From/To labels, cached per request. */
