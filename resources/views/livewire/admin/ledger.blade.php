@@ -152,31 +152,34 @@
         @endif
 
         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full">
+            {{-- Fixed percentage columns: the table is always exactly as wide as
+                 the card, so the listing never scrolls sideways — long values
+                 wrap onto the next line instead. --}}
+            <div>
+                <table class="w-full table-fixed">
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Particulars</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">From</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">To</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Mode</th>
-                            <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Credit</th>
-                            <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Expense</th>
-                            <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Balance</th>
-                            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                            <th class="w-[9%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                            <th class="w-[22%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Particulars</th>
+                            <th class="w-[11%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">From</th>
+                            <th class="w-[11%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">To</th>
+                            <th class="w-[9%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Mode</th>
+                            <th class="w-[10%] px-3 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Credit</th>
+                            <th class="w-[10%] px-3 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Expense</th>
+                            <th class="w-[10%] px-3 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Balance</th>
+                            <th class="w-[8%] px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         @forelse ($entries as $row)
                             <tr class="hover:bg-gray-50 transition-colors">
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                <td class="px-3 py-3 text-sm text-gray-600">
                                     {{ $row['date']->format('d M Y') }}
                                     @if (!empty($row['time']))
                                         <span class="block text-[11px] text-gray-400">{{ $row['time'] }}</span>
                                     @endif
                                 </td>
-                                <td class="px-4 py-3">
+                                <td class="px-3 py-3">
                                     @php
                                         // Every automatic source gets its own colour so the credits
                                         // (academic / transport / admission fee) and the expense
@@ -189,10 +192,10 @@
                                             default         => 'bg-blue-50 text-blue-600',
                                         };
                                     @endphp
-                                    {{-- Long text is cut with an ellipsis; the full
-                                         value stays available on hover. --}}
-                                    <div class="flex items-center gap-2 max-w-[320px]">
-                                        <p class="text-sm font-medium text-gray-900 truncate" title="{{ $row['reason'] }}">{{ $row['reason'] }}</p>
+                                    {{-- Particulars reads in full again, wrapping
+                                         inside its column rather than being cut. --}}
+                                    <div class="flex items-start gap-2 flex-wrap">
+                                        <p class="text-sm font-medium text-gray-900 break-words">{{ $row['reason'] }}</p>
                                         @if ($row['source'] !== 'Manual')
                                             <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0 {{ $srcClass }}">
                                                 {{ $row['source'] }}
@@ -200,32 +203,27 @@
                                         @endif
                                     </div>
                                 </td>
-                                <td class="px-4 py-3 text-sm text-gray-600">
-                                    <div class="max-w-[160px] truncate" title="{{ $row['from'] ?? '—' }}">{{ $row['from'] ?? '—' }}</div>
-                                </td>
-                                <td class="px-4 py-3 text-sm text-gray-600">
-                                    <div class="max-w-[160px] truncate" title="{{ $row['to'] ?? '—' }}">{{ $row['to'] ?? '—' }}</div>
-                                </td>
-                                <td class="px-4 py-3 text-sm text-gray-500">
+                                <td class="px-3 py-3 text-sm text-gray-600 break-words">{{ $row['from'] ?? '—' }}</td>
+                                <td class="px-3 py-3 text-sm text-gray-600 break-words">{{ $row['to'] ?? '—' }}</td>
+                                <td class="px-3 py-3 text-sm text-gray-500">
                                     {{-- Payment mode, with how the row got here underneath it. --}}
-                                    <div class="max-w-[130px] truncate" title="{{ $row['mode'] ?: '—' }}">{{ $row['mode'] ?: '—' }}</div>
+                                    <div class="break-words">{{ $row['mode'] ?: '—' }}</div>
                                     @if (empty($row['manual_id']))
                                         <span class="mt-1 inline-block text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-500" title="Recorded automatically — view only">Auto</span>
                                     @else
                                         <span class="mt-1 inline-block text-[10px] font-medium px-1.5 py-0.5 rounded bg-purple-50 text-purple-600" title="Added by hand in the ledger">Manual</span>
                                     @endif
                                 </td>
-                                <td class="px-4 py-3 text-right text-sm font-semibold text-emerald-600">
+                                <td class="px-3 py-3 text-right text-sm font-semibold text-emerald-600">
                                     {{ $row['type'] === 'credit' ? '₹' . number_format($row['amount'], 2) : '—' }}
                                 </td>
-                                <td class="px-4 py-3 text-right text-sm font-semibold text-red-600">
+                                <td class="px-3 py-3 text-right text-sm font-semibold text-red-600">
                                     {{ $row['type'] === 'expense' ? '₹' . number_format($row['amount'], 2) : '—' }}
                                 </td>
-                                <td class="px-4 py-3 text-right text-sm font-semibold {{ $row['balance'] >= 0 ? 'text-gray-800' : 'text-red-600' }}">
+                                <td class="px-3 py-3 text-right text-sm font-semibold {{ $row['balance'] >= 0 ? 'text-gray-800' : 'text-red-600' }}">
                                     ₹{{ number_format($row['balance'], 2) }}
                                 </td>
-                                <td class="px-4 py-3">
-                                    <div class="flex items-center justify-center gap-1">
+                                <td class="px-3 py-3">                                    <div class="flex items-center justify-center gap-1">
                                         {{-- View is available for every row (auto + manual) --}}
                                         <button title="View details"
                                             @click="viewRow = {

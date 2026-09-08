@@ -8,91 +8,89 @@
 
         /* No `* { margin: 0 }` here — that wipes the @page margins and the
            statement bleeds to the paper edge. */
-        @page { margin: 30px 34px 46px 34px; }
+        @page { margin: 26px 34px 46px 34px; }
         * { box-sizing: border-box; }
         body {
             font-family: 'Poppins', 'DejaVu Sans', sans-serif;
-            font-size: 10px; color: #1a1a1a; line-height: 1.45;
+            font-size: 11px; color: #111; line-height: 1.45;
         }
         /* dompdf collapses font-weight per family, so each weight is its own
            family name (see App\Support\PdfFonts). */
         .semi { font-family: 'Poppins SemiBold', 'Poppins', sans-serif; }
         .bold { font-family: 'Poppins Bold', 'Poppins', sans-serif; }
 
+        /* ─── Generated stamp, top-right above everything ───────────────── */
+        .genline { text-align: right; font-size: 8px; color: #333; letter-spacing: 0.3px; }
+
         /* ─── Masthead (everything centred) ─────────────────────────────── */
-        .masthead { text-align: center; }
-        .masthead .logo { height: 54px; width: auto; }
+        .masthead { text-align: center; margin-top: 16px; }
+        .masthead .logo { height: 108px; width: auto; }
         .school-name {
             font-family: 'Poppins Bold', 'Poppins', sans-serif;
-            font-size: 19px; color: #111; letter-spacing: 0.2px; margin-top: 6px;
+            font-size: 21px; color: #111; letter-spacing: 0.2px; margin-top: 1px;
         }
-        .school-address { font-size: 8.5px; color: #6b7280; margin-top: 3px; }
-        .school-contact { font-size: 8.5px; color: #4b5563; margin-top: 2px; }
-        .school-contact span { color: #d1d5db; }
+        .school-address { font-size: 11px; color: #222; margin-top: 4px; }
+        .school-contact { font-size: 11px; color: #222; margin-top: 2px; }
+        .school-contact span { color: #555; }
 
-        .rule { height: 1.5px; background: #111; margin: 10px 0 0; }
+        .rule { height: 1.5px; background: #111; margin: 11px 0 0; }
 
-        .stmt-tag { text-align: center; margin-top: 9px; }
+        .stmt-tag { text-align: center; margin: 10px 0 14px; }
         .stmt-tag .t1 {
             font-family: 'Poppins SemiBold', 'Poppins', sans-serif;
-            font-size: 11px; letter-spacing: 2.5px; color: #111; text-transform: uppercase;
+            font-size: 12px; letter-spacing: 2.5px; color: #111; text-transform: uppercase;
         }
-        .stmt-tag .t2 { font-size: 8px; color: #9ca3af; margin-top: 2px; letter-spacing: 0.4px; }
-
-        /* ─── Account name (centred) ────────────────────────────────────── */
-        .acct { text-align: center; margin: 14px 0 12px; padding: 8px 0;
-                border-top: 1px solid #ececec; border-bottom: 1px solid #ececec; }
-        .acct .k { font-size: 7.5px; text-transform: uppercase; letter-spacing: 1.2px; color: #9ca3af; }
-        .acct .v { font-family: 'Poppins SemiBold', 'Poppins', sans-serif;
-                   font-size: 13px; color: #111; margin-top: 2px; }
 
         /* ─── Account info grid ─────────────────────────────────────────── */
         .info { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
         .info td { width: 50%; vertical-align: top; padding: 0; }
         .info .kv { width: 100%; border-collapse: collapse; }
-        .info .kv td { padding: 2px 0; }
-        .info .k { width: 96px; color: #9ca3af; font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.4px; }
-        .info .v { color: #111; font-size: 9.5px; font-family: 'Poppins SemiBold', 'Poppins', sans-serif; }
+        .info .kv td { padding: 2.5px 0; }
+        .info .k { width: 100px; color: #333; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.4px; }
+        .info .v { color: #111; font-size: 11px; font-family: 'Poppins SemiBold', 'Poppins', sans-serif; }
 
         /* ─── Summary chips ─────────────────────────────────────────────── */
-        .summary { width: 100%; border-collapse: collapse; margin-bottom: 16px; border: 1px solid #dcdcdc; }
-        .summary td { width: 25%; padding: 8px 10px; border-right: 1px solid #ececec; }
+        .summary { width: 100%; border-collapse: collapse; margin-bottom: 16px; border: 1px solid #bdbdbd; }
+        .summary td { width: 25%; padding: 9px 10px; border-right: 1px solid #dcdcdc; }
         .summary td:last-child { border-right: 0; }
-        .summary .label { font-size: 7.5px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; }
+        .summary .label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: #333; }
         .summary .value { font-family: 'Poppins SemiBold', 'Poppins', sans-serif;
-                          font-size: 12px; color: #111; margin-top: 3px; }
-        .summary .dep { color: #047857; }
-        .summary .wdr { color: #b91c1c; }
+                          font-size: 13px; color: #111; margin-top: 3px; }
+        .summary .dep { color: #046c4e; }
+        .summary .wdr { color: #a31616; }
 
         /* ─── Statement table ───────────────────────────────────────────── */
         table.stmt { width: 100%; border-collapse: collapse; }
         table.stmt thead th {
             font-family: 'Poppins SemiBold', 'Poppins', sans-serif;
-            font-size: 8px; text-transform: uppercase; letter-spacing: 0.5px; color: #4b5563;
-            padding: 7px 8px; text-align: left; border-top: 1.5px solid #111; border-bottom: 1px solid #111;
+            font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.5px; color: #111;
+            padding: 8px; text-align: left; border-top: 1.5px solid #111; border-bottom: 1px solid #111;
         }
-        table.stmt tbody td { padding: 7px 8px; border-bottom: 1px solid #ededed; font-size: 9px; vertical-align: top; }
-        table.stmt tbody tr:nth-child(even) td { background: #fafafa; }
+        table.stmt tbody td { padding: 8px; border-bottom: 1px solid #dcdcdc; font-size: 10.5px; vertical-align: top; }
+        table.stmt tbody tr:nth-child(even) td { background: #f4f4f4; }
         .num { text-align: right; white-space: nowrap; }
-        .dep { color: #047857; }
-        .wdr { color: #b91c1c; }
-        .date-cell { white-space: nowrap; color: #333; }
-        .date-cell .time { display: block; font-size: 7.5px; color: #9ca3af; margin-top: 1px; }
+        .dep { color: #046c4e; }
+        .wdr { color: #a31616; }
+        .date-cell { white-space: nowrap; color: #111; }
+        .date-cell .time { display: block; font-size: 9px; color: #444; margin-top: 1px; }
         .desc .title { color: #111; font-family: 'Poppins SemiBold', 'Poppins', sans-serif; }
-        .desc .meta { color: #9ca3af; font-size: 7.5px; margin-top: 2px; }
-        .desc .tag { color: #9ca3af; text-transform: uppercase; letter-spacing: 0.3px; font-size: 7px; }
+        .desc .meta { color: #444; font-size: 9px; margin-top: 2px; }
+        .desc .tag { color: #333; text-transform: uppercase; letter-spacing: 0.3px; font-size: 8.5px; }
         .bal { font-family: 'Poppins SemiBold', 'Poppins', sans-serif; color: #111; }
 
         .row-open td, .row-close td, .row-total td { font-family: 'Poppins SemiBold', 'Poppins', sans-serif; }
-        .row-open td { border-bottom: 1px solid #111; color: #333; }
-        .row-close td { border-top: 1.5px solid #111; border-bottom: 1.5px solid #111; color: #111; font-size: 10px; }
-        .row-total td { border-top: 1px solid #ccc; color: #333; }
+        .row-open td { border-bottom: 1px solid #111; color: #111; }
+        .row-close td { border-top: 1.5px solid #111; border-bottom: 1.5px solid #111; color: #111; font-size: 11.5px; }
+        .row-total td { border-top: 1px solid #999; color: #111; }
 
-        .foot-note { margin-top: 14px; font-size: 8px; color: #9ca3af; line-height: 1.5; }
-        .footer { position: fixed; bottom: -28px; left: 0; right: 0; text-align: center; font-size: 7.5px; color: #c4c4c4; }
+        .foot-note { margin-top: 14px; font-size: 9px; color: #333; line-height: 1.55; }
+        .footer { position: fixed; bottom: -28px; left: 0; right: 0; text-align: center; font-size: 8.5px; color: #444; }
     </style>
 </head>
 <body>
+
+    {{-- When the statement was produced — small, top-right, above the masthead --}}
+    <div class="genline">Generated {{ $generatedAt->format('d M Y, g:i A') }}</div>
 
     {{-- ─── Masthead: logo, name, address, then contacts on one line ────── --}}
     <div class="masthead">
@@ -125,13 +123,6 @@
 
     <div class="stmt-tag">
         <div class="t1">Account Statement</div>
-        <div class="t2">Generated {{ $generatedAt->format('d M Y, g:i A') }}</div>
-    </div>
-
-    {{-- ─── Account name, centred above the rest of the details ────────── --}}
-    <div class="acct">
-        <div class="k">Account Name</div>
-        <div class="v">{{ $org->bank_holder_name ?: ($org->name ?? '—') }}</div>
     </div>
 
     {{-- ─── Account / period details ───────────────────────────────────── --}}
@@ -184,11 +175,11 @@
     <table class="stmt">
         <thead>
             <tr>
-                <th style="width: 58px;">Date</th>
+                <th style="width: 62px;">Date</th>
                 <th>Description</th>
-                <th class="num" style="width: 78px;">Deposit</th>
-                <th class="num" style="width: 78px;">Withdrawal</th>
-                <th class="num" style="width: 82px;">Balance</th>
+                <th class="num" style="width: 82px;">Deposit</th>
+                <th class="num" style="width: 82px;">Withdrawal</th>
+                <th class="num" style="width: 86px;">Balance</th>
             </tr>
         </thead>
         <tbody>
@@ -216,7 +207,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="5" style="text-align:center; padding: 22px; color:#aaa;">
+                    <td colspan="5" style="text-align:center; padding: 22px; color:#333;">
                         No transactions in this period.
                     </td>
                 </tr>
