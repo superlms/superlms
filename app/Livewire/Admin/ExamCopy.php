@@ -154,36 +154,24 @@ class ExamCopy extends Component
         $this->pendingUploads  = (clone $q)->whereNull('pdf_path')->count();
     }
 
-    public function showTab(string $tab): void
-    {
-        $this->activeTab = $tab;
-        $this->resetPage();
-
-        if ($tab === 'by-student') {
-            $this->reset(['byStudentExam', 'byStudentStandard', 'byStudentSection', 'byStudentStudent', 'studentResults']);
-            $this->sections = collect();
-            $this->students = collect();
-        } else {
-            $this->loadStatistics();
-        }
-    }
-
     // ═══════════════════════════════════════════════════════════════
-    //  FILTER CASCADES (by-subject tab)
+    //  FILTER CASCADES
     // ═══════════════════════════════════════════════════════════════
 
     public function updatedFilterStandard($value): void
     {
         $this->filterSection = '';
         $this->filterSubject = '';
+        $this->filterStudent = '';
+        $this->filterStudents = collect();
         $this->resetPage();
 
         if ($value) {
-            $this->sections = Section::where('standard_id', $value)
+            $this->filterSections = Section::where('standard_id', $value)
                 ->where('is_active', true)->get();
             $this->loadSubjectsForStandard($value);
         } else {
-            $this->sections = collect();
+            $this->filterSections = collect();
             $this->loadFilters();
         }
         $this->loadStatistics();
@@ -192,6 +180,7 @@ class ExamCopy extends Component
     public function updatedFilterSection($value): void
     {
         $this->filterSubject = '';
+        $this->filterStudent = '';
         $this->resetPage();
 
         if ($value && $this->filterStandard) {
@@ -199,109 +188,21 @@ class ExamCopy extends Component
         } elseif ($this->filterStandard) {
             $this->loadSubjectsForStandard($this->filterStandard);
         }
+        $this->loadFilterStudents();
         $this->loadStatistics();
     }
 
     public function updatedFilterSubject(): void { $this->resetPage(); $this->loadStatistics(); }
+    public function updatedFilterStudent(): void { $this->resetPage(); $this->loadStatistics(); }
     public function updatedFilterExam(): void    { $this->resetPage(); $this->loadStatistics(); }
     public function updatedSearch(): void        { $this->resetPage(); }
 
     public function clearSubjectFilters(): void
     {
-        $this->reset(['search', 'filterExam', 'filterStandard', 'filterSection', 'filterSubject']);
-        $this->sections = collect();
+        $this->reset(['search', 'filterExam', 'filterStandard', 'filterSection', 'filterSubject', 'filterStudent']);
         $this->resetPage();
         $this->loadFilters();
         $this->loadStatistics();
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    //  BY-STUDENT TAB cascades
-    // ═══════════════════════════════════════════════════════════════
-
-    public function updatedByStudentStandard($value): void
-    {
-        $this->byStudentSection = '';
-        $this->byStudentStudent = '';
-        $this->studentResults   = [];
-
-        if ($value) {
-            $this->sections = Section::where('standard_id', $value)
-                ->where('is_active', true)->get();
-        } else {
-            $this->sections = collect();
-            $this->students = collect();
-        }
-    }
-
-    public function updatedByStudentExam(): void    { $this->studentResults = []; $this->autoSearchStudent(); }
-    public function updatedByStudentStudent(): void { $this->studentResults = []; $this->autoSearchStudent(); }
-
-    private function autoSearchStudent(): void
-    {
-        if ($this->byStudentExam && $this->byStudentStandard && $this->byStudentSection && $this->byStudentStudent) {
-            $this->searchPerformance();
-        }
-    }
-
-    public function updatedByStudentSection($value): void
-    {
-        $this->byStudentStudent = '';
-        $this->studentResults   = [];
-
-        if ($value && $this->byStudentStandard) {
-            $this->students = StudentDetail::where('standard_id', $this->byStudentStandard)
-                ->where('section_id', $value)
-                ->with('user:id,name')
-                ->orderBy('full_name')
-                ->orderBy('roll_no')
-                ->get(['id', 'user_id', 'roll_no', 'admission_no', 'image', 'full_name']);
-        } else {
-            $this->students = collect();
-        }
-    }
-
-    public function clearStudentFilters(): void
-    {
-        $this->reset(['byStudentExam', 'byStudentStandard', 'byStudentSection', 'byStudentStudent', 'studentResults']);
-        $this->sections = collect();
-        $this->students = collect();
-    }
-
-    public function searchPerformance(): void
-    {
-        $this->validate([
-            'byStudentExam'     => 'required',
-            'byStudentStandard' => 'required',
-            'byStudentSection'  => 'required',
-            'byStudentStudent'  => 'required',
-        ], [
-            'byStudentExam.required'     => 'Please select an exam',
-            'byStudentStandard.required' => 'Please select a class',
-            'byStudentSection.required'  => 'Please select a section',
-            'byStudentStudent.required'  => 'Please select a student',
-        ]);
-
-        $results = ModelsExamCopy::with([
-                'exam:id,exam_name',
-                'standard:id,name',
-                'section:id,name',
-                'subject:id,name',
-                'studentDetail:id,user_id,roll_no,admission_no,image,full_name',
-                'studentDetail.user:id,name',
-            ])
-            ->where('exam_id', $this->byStudentExam)
-            ->where('standard_id', $this->byStudentStandard)
-            ->where('section_id', $this->byStudentSection)
-            ->where('student_detail_id', $this->byStudentStudent)
-            ->get();
-
-        if ($results->isEmpty()) {
-            $this->studentResults = [];
-            return;
-        }
-
-        $this->studentResults = $results->toArray();
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -312,6 +213,7 @@ class ExamCopy extends Component
     {
         $this->reset(['uploadExam', 'uploadStandard', 'uploadSection', 'uploadSubject', 'studentPdfs', 'uploadedFiles']);
         $this->sections = collect();
+        $this->subjects = collect();
         $this->students = collect();
         $this->showUploadModal = true;
     }
@@ -319,7 +221,12 @@ class ExamCopy extends Component
     public function closeUploadModal(): void
     {
         $this->showUploadModal = false;
+        $this->showUploadDeleteConfirm = false;
+        $this->pendingUploadDeleteStudent = null;
         $this->reset(['uploadExam', 'uploadStandard', 'uploadSection', 'uploadSubject', 'studentPdfs', 'uploadedFiles']);
+        $this->sections = collect();
+        $this->subjects = collect();
+        $this->students = collect();
     }
 
     public function updatedUploadStandard($value): void
@@ -446,7 +353,7 @@ class ExamCopy extends Component
         $orgId = Auth::user()->organization_id;
 
         if ($sectionId) {
-            $this->subjects = Subject::join('section_subjects', 'subjects.id', '=', 'section_subjects.subject_id')
+            $this->filterSubjects = Subject::join('section_subjects', 'subjects.id', '=', 'section_subjects.subject_id')
                 ->where('section_subjects.section_id', $sectionId)
                 ->where('section_subjects.standard_id', $standardId)
                 ->where('subjects.organization_id', $orgId)
@@ -456,7 +363,7 @@ class ExamCopy extends Component
                 ->orderBy('subjects.name')
                 ->get();
         } else {
-            $this->subjects = Subject::join('standard_subjects', 'subjects.id', '=', 'standard_subjects.subject_id')
+            $this->filterSubjects = Subject::join('standard_subjects', 'subjects.id', '=', 'standard_subjects.subject_id')
                 ->where('standard_subjects.standard_id', $standardId)
                 ->where('subjects.organization_id', $orgId)
                 ->where('subjects.is_active', true)
@@ -464,10 +371,6 @@ class ExamCopy extends Component
                 ->distinct()
                 ->orderBy('subjects.name')
                 ->get();
-        }
-
-        if ($this->subjects->isEmpty()) {
-            $this->subjects = collect();
         }
     }
 
@@ -566,10 +469,31 @@ class ExamCopy extends Component
                 }
             });
 
-            $this->notification()->success('Uploaded', "{$savedCount} record(s) saved in one go.");
-            $this->uploadedFiles = [];
-            $this->loadStudentPdfs();
+            // Saving lands the admin back on the Exam Copies home screen (the
+            // list) rather than leaving them inside the upload panel.
+            $examId     = $this->uploadExam;
+            $standardId = $this->uploadStandard;
+            $sectionId  = $this->uploadSection;
+
+            $this->closeUploadModal();
+
+            // Pre-load the list with exactly what was just uploaded, so the home
+            // screen isn't empty (the list only renders once filtered).
+            $this->filterExam     = (string) $examId;
+            $this->filterStandard = (string) $standardId;
+            $this->filterSection  = (string) $sectionId;
+            $this->filterSubject  = '';
+            $this->filterStudent  = '';
+            $this->search         = '';
+
+            $this->filterSections = Section::where('standard_id', $standardId)
+                ->where('is_active', true)->get();
+            $this->loadSubjectsForStandard($standardId, $sectionId);
+            $this->loadFilterStudents();
+            $this->resetPage();
             $this->loadStatistics();
+
+            $this->notification()->success('Uploaded', "{$savedCount} record(s) saved in one go.");
         } catch (\Throwable $e) {
             // Clean up any S3 uploads on failure so we don't orphan files.
             foreach ($uploadedNew ?? [] as $path) {
@@ -577,6 +501,31 @@ class ExamCopy extends Component
             }
             logger()->error('ExamCopy uploadPdfs: ' . $e->getMessage());
             $this->notification()->error('Upload failed', $e->getMessage());
+        }
+    }
+
+    /** Ask before removing an already-uploaded PDF from the upload panel. */
+    public function askDeletePdfInUpload(int $studentId): void
+    {
+        $this->pendingUploadDeleteStudent = $studentId;
+        $this->showUploadDeleteConfirm    = true;
+    }
+
+    public function cancelUploadDelete(): void
+    {
+        $this->showUploadDeleteConfirm    = false;
+        $this->pendingUploadDeleteStudent = null;
+    }
+
+    public function confirmDeletePdfInUpload(): void
+    {
+        $studentId = $this->pendingUploadDeleteStudent;
+
+        $this->showUploadDeleteConfirm    = false;
+        $this->pendingUploadDeleteStudent = null;
+
+        if ($studentId) {
+            $this->deletePdfInUpload((int) $studentId);
         }
     }
 
@@ -620,7 +569,13 @@ class ExamCopy extends Component
     //  EDIT single copy
     // ═══════════════════════════════════════════════════════════════
 
-    public function openEditModal(int $id): void
+    /** Same panel as Edit, but framed as the first upload for a pending copy. */
+    public function openUploadForRow(int $id): void
+    {
+        $this->openEditModal($id, 'upload');
+    }
+
+    public function openEditModal(int $id, string $mode = 'edit'): void
     {
         $copy = ModelsExamCopy::with([
                 'exam:id,exam_name',
@@ -634,6 +589,7 @@ class ExamCopy extends Component
         if (!$copy) return;
 
         $this->editCopyId = $id;
+        $this->editMode   = $copy->pdf_path ? 'edit' : $mode;
         $this->editCopyMeta = [
             'student_name'  => $copy->studentDetail->user->name ?? '—',
             'admission_no'  => $copy->studentDetail->admission_no ?? '—',
@@ -652,17 +608,21 @@ class ExamCopy extends Component
     public function closeEditModal(): void
     {
         $this->showEditModal = false;
+        $this->editMode      = 'edit';
         $this->editCopyId    = null;
         $this->editCopyMeta  = [];
         $this->editRemarks   = '';
         $this->editPdf       = null;
+        $this->resetValidation();
     }
 
     public function saveEdit(): void
     {
         $this->validate([
             'editRemarks' => 'nullable|string|max:1000',
-            'editPdf'     => 'nullable|file|mimes:pdf|max:5120',
+            'editPdf'     => ($this->editMode === 'upload' ? 'required' : 'nullable') . '|file|mimes:pdf|max:5120',
+        ], [
+            'editPdf.required' => 'Please choose a PDF to upload.',
         ]);
 
         try {
@@ -681,8 +641,12 @@ class ExamCopy extends Component
                 $data['uploaded_by'] = Auth::id();
             }
 
+            $wasUpload = $this->editMode === 'upload';
             $copy->update($data);
-            $this->notification()->success('Updated', 'Exam copy updated successfully.');
+            $this->notification()->success(
+                $wasUpload ? 'Uploaded' : 'Updated',
+                $wasUpload ? 'Exam copy uploaded successfully.' : 'Exam copy updated successfully.'
+            );
             $this->closeEditModal();
             $this->loadStatistics();
         } catch (\Exception $e) {
@@ -738,14 +702,23 @@ class ExamCopy extends Component
 
     public function render()
     {
-        $examCopies = $this->getExamCopies();
-        return view('livewire.admin.exam-copy', compact('examCopies'));
+        $examCopies     = $this->getExamCopies();
+        $filtersApplied = $this->filtersApplied;
+
+        return view('livewire.admin.exam-copy', compact('examCopies', 'filtersApplied'));
+    }
+
+    /** True once enough filters are chosen for the list to render. */
+    public function getFiltersAppliedProperty(): bool
+    {
+        return (bool) ($this->filterExam && $this->filterStandard && $this->filterSection);
     }
 
     private function getExamCopies()
     {
-        if ($this->activeTab !== 'by-subject') {
-            return collect();
+        // Nothing is listed until exam → class → section have been picked.
+        if (!$this->filtersApplied) {
+            return new \Illuminate\Pagination\LengthAwarePaginator([], 0, $this->perPage);
         }
 
         $orgId = Auth::user()->organization_id;
@@ -771,6 +744,7 @@ class ExamCopy extends Component
         if ($this->filterStandard) $query->where('standard_id', $this->filterStandard);
         if ($this->filterSection)  $query->where('section_id', $this->filterSection);
         if ($this->filterSubject)  $query->where('subject_id', $this->filterSubject);
+        if ($this->filterStudent)  $query->where('student_detail_id', $this->filterStudent);
 
         return $query->orderByDesc('created_at')->paginate($this->perPage);
     }
