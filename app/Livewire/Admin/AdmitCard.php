@@ -49,9 +49,16 @@ class AdmitCard extends Component
     public string $genCriteria   = 'none'; // attendance | fee | none
     public        $genPercentage = 75;
 
-    // ─── Print-selection modal ───────────────────────────────────────────────────
-    public bool  $showPrintModal = false;
-    public array $printSelected  = [];
+    // ─── Print-selection panel ───────────────────────────────────────────────────
+    // The panel carries its own exam → class → section pickers: printing starts
+    // by saying who you are printing for, not by whatever the list is filtered to.
+    public bool   $showPrintModal = false;
+    public string $printExam      = '';
+    public string $printStandard  = '';
+    public string $printSection   = '';
+    /** Include cards that have already been printed once (a reprint run). */
+    public bool   $printIncludeDone = false;
+    public array  $printSelected  = [];
 
     // ─── Delete ─────────────────────────────────────────────────────────────────
     public bool  $showDeleteModal  = false;
@@ -331,17 +338,31 @@ class AdmitCard extends Component
     // ═══════════════════════════════════════════════════════════════════════════
     public function openPrintModal(): void
     {
-        if (!$this->examFilter || !$this->standardFilter) {
-            $this->notification()->error('Pick exam & class', 'Select an exam and a class in the filter first.');
-            return;
-        }
-        $this->printSelected  = $this->printableCards->pluck('id')->map(fn ($id) => (string) $id)->toArray();
-        $this->showPrintModal = true;
+        // Seeded from the list's filters, but the panel's own pickers decide.
+        $this->printExam        = $this->examFilter;
+        $this->printStandard    = $this->standardFilter;
+        $this->printSection     = $this->sectionFilter;
+        $this->printIncludeDone = false;
+        $this->showPrintModal   = true;
+        $this->syncPrintSelection();
     }
 
     public function closePrintModal(): void
     {
         $this->showPrintModal = false;
+    }
+
+    /** Changing any of the panel's pickers rebuilds the list and the selection. */
+    public function updatedPrintExam(): void     { $this->syncPrintSelection(); }
+    public function updatedPrintStandard(): void { $this->printSection = ''; $this->syncPrintSelection(); }
+    public function updatedPrintSection(): void  { $this->syncPrintSelection(); }
+    public function updatedPrintIncludeDone(): void { $this->syncPrintSelection(); }
+
+    /** Tick everything the current pickers offer. */
+    private function syncPrintSelection(): void
+    {
+        unset($this->printableCards);
+        $this->printSelected = $this->printableCards->pluck('id')->map(fn ($id) => (string) $id)->toArray();
     }
 
     public function selectAllPrint(): void
@@ -356,15 +377,37 @@ class AdmitCard extends Component
 
     public function printSelectedCards(): void
     {
-        $ids = array_filter($this->printSelected);
+        if (!$this->printExam || !$this->printStandard) {
+            $this->notification()->error('Pick exam & class', 'Choose the exam and class you are printing for.');
+            return;
+        }
+
+        $ids = array_values(array_filter($this->printSelected));
         if (empty($ids)) {
             $this->notification()->error('Nothing selected', 'Select at least one student to print.');
             return;
         }
 
+        // Stamp them as printed, so the next run only produces the cards issued
+        // since — the 30 that were left behind, not all 50 again.
+        ModelAdmitCard::where('organization_id', $this->orgId())
+            ->whereIn('id', $ids)
+            ->update(['printed_at' => now()]);
+
         $url = route('admin.admit-card.print-all', $this->orgSlug()) . '?' . http_build_query(['ids' => implode(',', $ids)]);
         $this->showPrintModal = false;
+        unset($this->printableCards);
         $this->dispatch('open-in-new-tab', url: $url);
+    }
+
+    /** Undo the printed stamp for one card, so it comes out on the next run. */
+    public function markUnprinted(int $id): void
+    {
+        ModelAdmitCard::where('organization_id', $this->orgId())
+            ->where('id', $id)
+            ->update(['printed_at' => null]);
+        unset($this->printableCards);
+        $this->notification()->success('Queued again', 'That card will print on the next run.');
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -453,18 +496,47 @@ class AdmitCard extends Component
             ->where('organization_id', $this->orgId())->orderBy('id')->get();
     }
 
-    /** Issued cards for the current exam + class (+ section) — used by print modal. */
+    /**
+     * The cards the print panel offers: issued for the chosen exam + class
+     * (+ section), and by default only those never printed — so a second run
+     * after a second batch of issues produces just the new ones.
+     */
     #[\Livewire\Attributes\Computed]
     public function printableCards()
     {
-        if (!$this->examFilter || !$this->standardFilter) return collect();
+        if (!$this->printExam || !$this->printStandard) return collect();
+
         return ModelAdmitCard::with('studentDetail:id,full_name,admission_no')
             ->where('organization_id', $this->orgId())
-            ->where('exam_id', $this->examFilter)
-            ->where('standard_id', $this->standardFilter)
-            ->when($this->sectionFilter, fn ($q) => $q->where('section_id', $this->sectionFilter))
-            ->orderBy('roll_number')
+            ->where('exam_id', $this->printExam)
+            ->where('standard_id', $this->printStandard)
+            ->when($this->printSection, fn ($q) => $q->where('section_id', $this->printSection))
+            ->when(!$this->printIncludeDone, fn ($q) => $q->unprinted())
+            ->orderByRaw('CAST(roll_number AS UNSIGNED), roll_number')
             ->get();
+    }
+
+    /** How many of the chosen exam+class have already been printed. */
+    #[\Livewire\Attributes\Computed]
+    public function alreadyPrintedCount(): int
+    {
+        if (!$this->printExam || !$this->printStandard) return 0;
+
+        return ModelAdmitCard::where('organization_id', $this->orgId())
+            ->where('exam_id', $this->printExam)
+            ->where('standard_id', $this->printStandard)
+            ->when($this->printSection, fn ($q) => $q->where('section_id', $this->printSection))
+            ->whereNotNull('printed_at')
+            ->count();
+    }
+
+    /** Sections for the print panel's own class picker. */
+    #[\Livewire\Attributes\Computed]
+    public function printSections()
+    {
+        if (!$this->printStandard) return collect();
+        return Section::where('standard_id', $this->printStandard)
+            ->where('organization_id', $this->orgId())->orderBy('id')->get();
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

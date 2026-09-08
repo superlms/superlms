@@ -39,7 +39,8 @@ class AdmitCard extends Model
         'prohibited_items',
         'created_by',
         'updated_by',
-        'subjects'
+        'subjects',
+        'printed_at',
     ];
 
     protected $casts = [
@@ -48,7 +49,14 @@ class AdmitCard extends Model
         'prohibited_items' => 'array',
         'issue_date' => 'date',
         'reporting_time' => 'datetime',
+        'printed_at' => 'datetime',
     ];
+
+    /** Never printed yet — the ones a fresh print run should produce. */
+    public function scopeUnprinted($query)
+    {
+        return $query->whereNull('printed_at');
+    }
 
     public function studentDetail()
     {

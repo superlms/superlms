@@ -51,7 +51,8 @@ class AdmitCardController extends Controller
             ->when(!$ids && $request->exam_id, fn($q) => $q->where('exam_id', $request->exam_id))
             ->when(!$ids && $request->standard_id, fn($q) => $q->where('standard_id', $request->standard_id))
             ->when(!$ids && $request->section_id, fn($q) => $q->where('section_id', $request->section_id))
-            ->orderBy('roll_number')
+            // Natural roll order, so 2 comes before 10 on the sheet.
+            ->orderByRaw('CAST(roll_number AS UNSIGNED), roll_number')
             ->get();
 
         $admitCards->each(fn($card) => $card->seating_label = $this->resolveSeating($card));

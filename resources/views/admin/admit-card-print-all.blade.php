@@ -2,194 +2,158 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Print All Admit Cards</title>
+    <title>Print Admit Cards</title>
     <style>
+        /* Ten cards to an A4 sheet: two columns, five rows. Each card is sized
+           in mm so the grid lands the same on screen and on paper. */
+        @page { size: A4 portrait; margin: 7mm; }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; font-size: 12px; color: #111; background: #fff; }
+        body { font-family: Arial, Helvetica, sans-serif; color: #111; background: #eceff3; }
 
-        .page { padding: 20px 24px; max-width: 780px; margin: 0 auto; page-break-after: always; }
-        .page:last-child { page-break-after: avoid; }
+        .sheet {
+            width: 196mm;
+            margin: 0 auto 6mm;
+            background: #fff;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(5, 54mm);
+            gap: 3mm;
+            page-break-after: always;
+        }
+        .sheet:last-child { page-break-after: auto; }
 
-        .header { text-align: center; margin-bottom: 12px; }
-        .header img.logo { height: 80px; width: 80px; object-fit: contain; margin-bottom: 4px; }
-        .header .school-name { font-size: 20px; font-weight: 900; color: #111; text-transform: uppercase; }
-        .header .address { font-size: 10px; color: #444; margin-top: 3px; line-height: 1.5; }
+        .card {
+            border: 1px solid #111;
+            padding: 3mm 3.5mm;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
 
-        .ac-title { text-align: center; margin: 12px 0 8px; }
-        .ac-title p { font-size: 12px; font-weight: 700; }
+        /* ── Head: school on the left, the words Admit Card on the right ── */
+        .c-head { display: flex; align-items: center; gap: 2.5mm; border-bottom: 1px solid #111; padding-bottom: 1.6mm; }
+        .c-head .logo { height: 9mm; width: 9mm; object-fit: contain; flex: 0 0 9mm; }
+        .c-head .who { min-width: 0; flex: 1; }
+        .c-head .school { font-size: 9.5pt; font-weight: bold; line-height: 1.15; text-transform: uppercase;
+                          overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .c-head .exam { font-size: 6.5pt; color: #333; margin-top: 0.4mm;
+                        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .c-head .tag { font-size: 6pt; font-weight: bold; letter-spacing: 0.4pt; text-align: right; flex: 0 0 auto; }
 
-        .card-box { border: 1.5px solid #333; }
+        /* ── Body: photo beside the student's details ── */
+        .c-body { display: flex; gap: 2.5mm; padding-top: 1.8mm; flex: 1; min-height: 0; }
+        .c-photo { width: 16mm; height: 20mm; border: 1px solid #999; object-fit: cover; flex: 0 0 16mm; }
+        .c-photo-blank { width: 16mm; height: 20mm; border: 1px dashed #bbb; flex: 0 0 16mm;
+                         font-size: 5.5pt; color: #aaa; display: flex; align-items: center; justify-content: center; text-align: center; }
+        .c-name { font-size: 9pt; font-weight: bold; line-height: 1.15;
+                  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-        .info-table { width: 100%; border-collapse: collapse; }
-        .info-table td { border: 1px solid #555; padding: 4px 7px; font-size: 10.5px; vertical-align: middle; }
-        .info-table .label { font-weight: 700; background: #f5f5f5; white-space: nowrap; width: 120px; }
+        .kv { width: 100%; border-collapse: collapse; margin-top: 1mm; }
+        .kv td { font-size: 6.8pt; padding: 0.5mm 0; vertical-align: top; line-height: 1.25; }
+        .kv td.k { color: #555; width: 15mm; white-space: nowrap; }
+        .kv td.v { font-weight: bold; }
 
-        .subject-table { width: 100%; border-collapse: collapse; margin-top: 2px; }
-        .subject-table th { border: 1px solid #555; padding: 4px 5px; font-size: 10px; font-weight: 700; background: #f0f0f0; text-align: center; }
-        .subject-table td { border: 1px solid #555; padding: 4px 5px; font-size: 10px; text-align: center; }
-        .subject-table td:nth-child(2) { text-align: left; }
+        /* ── Foot: card number and a line to sign ── */
+        .c-foot { display: flex; align-items: flex-end; justify-content: space-between;
+                  gap: 2mm; border-top: 1px solid #111; padding-top: 1.2mm; }
+        .c-foot .no { font-size: 6pt; color: #333; }
+        .c-foot .sign { font-size: 5.5pt; color: #333; text-align: center; }
+        .c-foot .sign .line { border-top: 1px solid #111; width: 24mm; margin-bottom: 0.6mm; }
 
-        .eligible     { color: #166534; font-weight: 600; }
-        .not-eligible { color: #991b1b; font-weight: 600; }
-        .issue-date { padding: 5px 7px; font-size: 10.5px; border-top: 1px solid #555; }
+        .toolbar { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: #1e293b;
+                   padding: 8px 16px; display: flex; align-items: center; gap: 10px; }
+        .toolbar button { border: none; padding: 6px 18px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
+        .toolbar .go { background: #4f46e5; color: #fff; }
+        .toolbar .close { background: #64748b; color: #fff; }
+        .toolbar .count { color: #cbd5e1; font-size: 12px; }
 
-        .instructions-section { margin-top: 14px; }
-        .instructions-section h4 { font-size: 11px; font-weight: 700; text-align: center; margin-bottom: 6px; text-decoration: underline; }
-        .instructions-section ol { padding-left: 16px; }
-        .instructions-section ol li { font-size: 10px; margin-bottom: 3px; line-height: 1.5; }
-
-        .no-print { display: block; }
+        .empty { max-width: 196mm; margin: 60px auto; background: #fff; padding: 40px; text-align: center; color: #666; }
 
         @media print {
+            body { background: #fff; }
             .no-print { display: none !important; }
-            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .sheet { margin: 0; width: auto; }
+            .card { break-inside: avoid; }
         }
     </style>
 </head>
 <body>
 
-<div class="no-print" style="position:fixed;top:0;left:0;right:0;z-index:100;background:#1e293b;padding:8px 16px;display:flex;align-items:center;gap:10px;">
-    <button onclick="window.print()" style="background:#4f46e5;color:#fff;border:none;padding:6px 18px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">Print All ({{ count($admitCards) }} Cards)</button>
-    <button onclick="window.close()" style="background:#64748b;color:#fff;border:none;padding:6px 18px;border-radius:6px;cursor:pointer;font-size:13px;">Close</button>
+<div class="toolbar no-print">
+    <button class="go" onclick="window.print()">Print</button>
+    <button class="close" onclick="window.close()">Close</button>
+    <span class="count">{{ count($admitCards) }} card(s) · 10 per A4 sheet</span>
 </div>
 <div style="height:44px;" class="no-print"></div>
 
-@forelse($admitCards as $admitCard)
-<div class="page">
-
-    <div class="header">
-        @if($organization->logo)
-            <img class="logo" src="{{ public_path('storage/' . $organization->logo) }}" alt="Logo">
-        @endif
-        <div class="school-name">{{ $organization->name }}</div>
-        <div class="address">
-            {{ $organization->address }}
-            @if($organization->mobile_number)
-                <br>{{ $organization->mobile_number }}
-                @if($organization->email) / {{ $organization->email }} @endif
-            @endif
-        </div>
-    </div>
-
-    <div class="ac-title">
-        <p>Admit Card</p>
-        <p>{{ $admitCard->academic_year }}/ Exam: {{ $admitCard->exam_name }}</p>
-    </div>
-
-    <div class="card-box">
-        <table class="info-table">
-            <tr>
-                <td class="label">Student Name:</td>
-                <td colspan="3">{{ $admitCard->student_name }}</td>
-            </tr>
-            <tr>
-                <td class="label">Mother's Name:</td>
-                <td>{{ $admitCard->mother_name ?: '—' }}</td>
-                <td class="label">Father's Name:</td>
-                <td>{{ $admitCard->father_name ?: '—' }}</td>
-            </tr>
-            <tr>
-                <td class="label">Admission No:</td>
-                <td>{{ $admitCard->studentDetail?->admission_no ?? '—' }}</td>
-                <td class="label">Roll No:</td>
-                <td>{{ $admitCard->roll_number }}</td>
-            </tr>
-            <tr>
-                <td class="label">School Name:</td>
-                <td colspan="3">{{ $organization->name }}</td>
-            </tr>
-            <tr>
-                <td class="label">Program Name:</td>
-                <td>{{ $admitCard->exam_name }}</td>
-                <td class="label">Class/Section</td>
-                <td>
-                    {{ $admitCard->studentDetail?->standard?->name ?? '—' }}
-                    @if($admitCard->studentDetail?->section?->name)
-                        / {{ $admitCard->studentDetail->section->name }}
+@forelse($admitCards->chunk(10) as $sheet)
+    <div class="sheet">
+        @foreach($sheet as $admitCard)
+            <div class="card">
+                <div class="c-head">
+                    @if($organization->logo)
+                        <img class="logo" src="{{ $organization->logo }}" alt="">
                     @endif
-                </td>
-            </tr>
-        </table>
+                    <div class="who">
+                        <div class="school">{{ $organization->name }}</div>
+                        <div class="exam">{{ $admitCard->exam_name }}@if($admitCard->academic_year) · {{ $admitCard->academic_year }}@endif</div>
+                    </div>
+                    <div class="tag">ADMIT<br>CARD</div>
+                </div>
 
-        <table style="width:100%;border-collapse:collapse;">
-            <tr><td style="height:7px;border-left:1px solid #555;border-right:1px solid #555;"></td></tr>
-        </table>
-
-        @if(!empty($admitCard->subjects))
-        <table class="subject-table">
-            <thead>
-                <tr>
-                    <th style="width:65px;">Subject Code</th>
-                    <th>Course Name</th>
-                    <th style="width:80px;">Date</th>
-                    <th style="width:75px;">Day</th>
-                    <th style="width:95px;">Seating Plan</th>
-                    <th style="width:75px;">Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($admitCard->subjects as $i => $subject)
-                @php
-                    $subjectModel = \App\Models\Student\Subject::find($subject['subject_id'] ?? null);
-                    $code = $subjectModel?->code ?? str_pad($i + 1, 3, '0', STR_PAD_LEFT);
-                    $examDate = isset($subject['exam_date']) ? \Carbon\Carbon::parse($subject['exam_date']) : null;
-                    $seatingPlan = $admitCard->seating_label ?? '';
-                    if (!$seatingPlan) {
-                        if ($admitCard->room_number && $admitCard->seat_number) {
-                            $seatingPlan = 'R(' . $admitCard->room_number . ')/ S(' . $admitCard->seat_number . ')';
-                        } elseif ($admitCard->seat_number) {
-                            $seatingPlan = 'S(' . $admitCard->seat_number . ')';
-                        } elseif ($admitCard->room_number) {
-                            $seatingPlan = 'R(' . $admitCard->room_number . ')';
-                        }
-                    }
-                    $subjectStatus = $subject['status'] ?? 'eligible';
-                @endphp
-                <tr>
-                    <td>{{ $code }}</td>
-                    <td>{{ $subject['subject_name'] ?? '—' }}</td>
-                    <td>{{ $examDate ? $examDate->format('d/m/Y') : '—' }}</td>
-                    <td>{{ $examDate ? $examDate->format('l') : '—' }}</td>
-                    <td>{{ $seatingPlan ?: '—' }}</td>
-                    <td>
-                        @if($subjectStatus === 'not_eligible')
-                            <span class="not-eligible">Not Eligible</span>
-                        @else
-                            <span class="eligible">Eligible</span>
-                        @endif
-                    </td>
-                </tr>
-                @endforeach
-            </tbody>
-        </table>
-        @endif
-
-        <div class="issue-date">Issue Date: {{ $admitCard->issue_date?->format('d/m/Y') ?? now()->format('d/m/Y') }}</div>
-    </div>
-
-    <div class="instructions-section">
-        <h4>Instructions to Candidates</h4>
-        @if($admitCard->instructions)
-            <ol>
-                @foreach(array_filter(preg_split('/\r?\n|(?<=\.)(?=\s*\d+\.)/', $admitCard->instructions)) as $line)
-                    @if(trim($line))
-                        <li>{{ preg_replace('/^\d+\.\s*/', '', trim($line)) }}</li>
+                <div class="c-body">
+                    @if($admitCard->student_photo)
+                        <img class="c-photo" src="{{ $admitCard->student_photo }}" alt="">
+                    @else
+                        <div class="c-photo-blank">Photo</div>
                     @endif
-                @endforeach
-            </ol>
-        @else
-            <ol>
-                <li>Enter the examination hall 15 minutes before the scheduled time. Students coming 15 minutes after commencement of the examination will not be permitted to enter or write the exam.</li>
-                <li>Without identity card and Hall Ticket, no student will be permitted to enter the Exam Hall.</li>
-                <li>Read all instructions printed on the answer book and follow them strictly.</li>
-                <li>Candidates should handover the answer script to the invigilator before leaving the exam Hall.</li>
-            </ol>
-        @endif
-    </div>
 
-</div>
+                    <div style="min-width:0; flex:1;">
+                        <div class="c-name">{{ $admitCard->student_name }}</div>
+                        <table class="kv">
+                            <tr>
+                                <td class="k">Class</td>
+                                <td class="v">{{ $admitCard->studentDetail?->standard?->name ?? '—' }}@if($admitCard->studentDetail?->section) · {{ $admitCard->studentDetail->section->name }}@endif</td>
+                            </tr>
+                            <tr>
+                                <td class="k">Roll No.</td>
+                                <td class="v">{{ $admitCard->roll_number ?: '—' }}</td>
+                            </tr>
+                            @if($admitCard->exam_roll_number)
+                                <tr>
+                                    <td class="k">Exam Roll</td>
+                                    <td class="v">{{ $admitCard->exam_roll_number }}</td>
+                                </tr>
+                            @endif
+                            @if($admitCard->father_name)
+                                <tr>
+                                    <td class="k">Father</td>
+                                    <td class="v">{{ $admitCard->father_name }}</td>
+                                </tr>
+                            @endif
+                            @if($admitCard->seating_label)
+                                <tr>
+                                    <td class="k">Seat</td>
+                                    <td class="v">{{ $admitCard->seating_label }}</td>
+                                </tr>
+                            @endif
+                        </table>
+                    </div>
+                </div>
+
+                <div class="c-foot">
+                    <div class="no">No. {{ $admitCard->admit_card_number }}</div>
+                    <div class="sign">
+                        <div class="line"></div>
+                        Signatory
+                    </div>
+                </div>
+            </div>
+        @endforeach
+    </div>
 @empty
-<div style="text-align:center;padding:40px;color:#666;">No admit cards found.</div>
+    <div class="empty">No admit cards to print.</div>
 @endforelse
 
 </body>
