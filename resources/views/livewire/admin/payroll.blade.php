@@ -448,70 +448,43 @@
                 </div>
 
             @elseif ($attView === 'employee' && $attEmp)
-                {{-- ─── EMPLOYEE VIEW: chosen month, or the whole year day-by-day ─── --}}
-                @php
-                    $cP = $attCounts['present'] ?? 0; $cA = $attCounts['absent'] ?? 0;
-                    $cH = $attCounts['half_day'] ?? 0; $cL = $attCounts['leave'] ?? 0;
-                    $cHol = $attCounts['holiday'] ?? 0; $cM = $attCounts['marked'] ?? 0;
-                    $pct = $cM > 0 ? round(($cP + 0.5 * $cH) / $cM * 100) : 0;
-                @endphp
+                {{-- ─── EMPLOYEE VIEW: a card per month, three to a row ─── --}}
                 <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div class="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-indigo-50 flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                            <h3 class="text-sm font-semibold text-gray-700">{{ $attEmp->name }} <span class="font-normal text-gray-400">· {{ $attPeriodLabel }}</span></h3>
-                            <p class="text-[11px] text-gray-400 capitalize">{{ $attEmp->type }}{{ $attEmp->designation ? ' · ' . $attEmp->designation : '' }}</p>
-                        </div>
-                        <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">{{ $pct }}% present</span>
+                    <div class="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-indigo-50">
+                        <h3 class="text-sm font-semibold text-gray-700">{{ $attEmp->name }} <span class="font-normal text-gray-400">· {{ $attPeriodLabel }}</span></h3>
+                        <p class="text-[11px] text-gray-400 capitalize">{{ $attEmp->type }}{{ $attEmp->designation ? ' · ' . $attEmp->designation : '' }}</p>
                     </div>
                     <div class="p-4">
-                        {{-- Summary --}}
-                        <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 text-center mb-4">
-                            <div class="rounded-lg bg-emerald-50 border border-emerald-100 py-2"><p class="text-lg font-bold text-emerald-600">{{ $cP }}</p><p class="text-[10px] text-emerald-500 uppercase">Present</p></div>
-                            <div class="rounded-lg bg-red-50 border border-red-100 py-2"><p class="text-lg font-bold text-red-600">{{ $cA }}</p><p class="text-[10px] text-red-500 uppercase">Absent</p></div>
-                            <div class="rounded-lg bg-amber-50 border border-amber-100 py-2"><p class="text-lg font-bold text-amber-600">{{ $cH }}</p><p class="text-[10px] text-amber-500 uppercase">Half</p></div>
-                            <div class="rounded-lg bg-blue-50 border border-blue-100 py-2"><p class="text-lg font-bold text-blue-600">{{ $cL }}</p><p class="text-[10px] text-blue-500 uppercase">Leave</p></div>
-                            <div class="rounded-lg bg-gray-50 border border-gray-200 py-2"><p class="text-lg font-bold text-gray-500">{{ $cHol }}</p><p class="text-[10px] text-gray-400 uppercase">Holiday</p></div>
-                            <div class="rounded-lg bg-gray-100 border border-gray-200 py-2"><p class="text-lg font-bold text-gray-800">{{ $cM }}</p><p class="text-[10px] text-gray-400 uppercase">Marked</p></div>
-                        </div>
-
-                        {{-- One real calendar per month, each with that month's own
+                        {{-- Each month is its own small calendar carrying its own
                              numbers: green present, red absent, yellow half day,
-                             white holiday. --}}
+                             white holiday. Twelve months land as 3 × 4. --}}
                         @php
                             $dayCell = [
-                                'present'  => 'bg-emerald-500 text-white border-emerald-500',
-                                'absent'   => 'bg-red-500 text-white border-red-500',
-                                'half_day' => 'bg-yellow-300 text-yellow-900 border-yellow-400',
-                                'leave'    => 'bg-blue-500 text-white border-blue-500',
-                                'holiday'  => 'bg-white text-gray-700 border-gray-200',
+                                'present'  => 'bg-emerald-500 text-white',
+                                'absent'   => 'bg-red-500 text-white',
+                                'half_day' => 'bg-yellow-300 text-yellow-900',
+                                'leave'    => 'bg-blue-500 text-white',
+                                'holiday'  => 'bg-white text-gray-600 border border-gray-200',
                             ];
                         @endphp
 
-                        @forelse ($attMonths as $ym => $m)
-                            @php $mc = $m['counts']; @endphp
-                            <div class="mb-5 rounded-xl border border-gray-200 overflow-hidden">
-                                {{-- Month head + that month's analytics --}}
-                                <div class="px-3.5 py-2.5 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2">
-                                    <p class="text-sm font-semibold text-gray-800">{{ $m['label'] }}</p>
-                                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
-                                        <span class="text-emerald-700">Present <strong>{{ $mc['present'] }}</strong></span>
-                                        <span class="text-red-700">Absent <strong>{{ $mc['absent'] }}</strong></span>
-                                        <span class="text-yellow-700">Half <strong>{{ $mc['half_day'] }}</strong></span>
-                                        <span class="text-blue-700">Leave <strong>{{ $mc['leave'] }}</strong></span>
-                                        <span class="text-gray-600">Holiday <strong>{{ $mc['holiday'] }}</strong></span>
-                                        <span class="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 font-semibold">{{ $m['pct'] }}%</span>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            @forelse ($attMonths as $ym => $m)
+                                @php $mc = $m['counts']; @endphp
+                                <div class="rounded-lg border border-gray-200 p-3" wire:key="cal-{{ $ym }}">
+                                    <div class="flex items-baseline justify-between mb-2">
+                                        <p class="text-xs font-semibold text-gray-800">{{ $m['label'] }}</p>
+                                        <span class="text-[11px] font-semibold text-indigo-600">{{ $m['pct'] }}%</span>
                                     </div>
-                                </div>
 
-                                <div class="p-3">
                                     {{-- Sunday-first weekday header --}}
-                                    <div class="grid grid-cols-7 gap-1.5 mb-1.5">
-                                        @foreach (['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $dow)
-                                            <div class="text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{{ $dow }}</div>
+                                    <div class="grid grid-cols-7 gap-1 mb-1">
+                                        @foreach (['S', 'M', 'T', 'W', 'T', 'F', 'S'] as $dow)
+                                            <div class="text-center text-[9px] font-semibold text-gray-400">{{ $dow }}</div>
                                         @endforeach
                                     </div>
 
-                                    <div class="grid grid-cols-7 gap-1.5">
+                                    <div class="grid grid-cols-7 gap-1">
                                         {{-- Blanks before the 1st so the weekdays line up --}}
                                         @for ($b = 0; $b < $m['lead']; $b++)
                                             <div></div>
@@ -519,25 +492,34 @@
 
                                         @foreach ($m['cells'] as $d)
                                             @if (!$d['in_period'])
-                                                <div class="rounded-lg border border-dashed border-gray-200 py-2 text-center text-xs text-gray-300">{{ $d['day'] }}</div>
+                                                <div class="rounded py-1 text-center text-[10px] text-gray-300">{{ $d['day'] }}</div>
                                             @else
-                                                <div class="rounded-lg border py-2 text-center {{ $dayCell[$d['status']] ?? $dayCell['holiday'] }} {{ $d['dim'] ? 'opacity-30' : '' }}"
+                                                <div class="rounded py-1 text-center text-[10px] font-semibold leading-none {{ $dayCell[$d['status']] ?? $dayCell['holiday'] }} {{ $d['dim'] ? 'opacity-30' : '' }}"
                                                     title="{{ \Carbon\Carbon::parse($d['date'])->format('D, d M Y') }} · {{ ucfirst(str_replace('_', ' ', $d['status'])) }}">
-                                                    <div class="text-sm font-semibold leading-none">{{ $d['day'] }}</div>
+                                                    {{ $d['day'] }}
                                                 </div>
                                             @endif
                                         @endforeach
                                     </div>
-                                </div>
-                            </div>
-                        @empty
-                            <p class="text-sm text-gray-400 text-center py-6">Nothing to show for this period.</p>
-                        @endforelse
 
-                        <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500 mt-1">
+                                    {{-- That month's analytics --}}
+                                    <div class="flex flex-wrap gap-x-2 gap-y-0.5 mt-2.5 pt-2 border-t border-gray-100 text-[10px]">
+                                        <span class="text-emerald-700">P <strong>{{ $mc['present'] }}</strong></span>
+                                        <span class="text-red-700">A <strong>{{ $mc['absent'] }}</strong></span>
+                                        <span class="text-yellow-700">H <strong>{{ $mc['half_day'] }}</strong></span>
+                                        <span class="text-blue-700">L <strong>{{ $mc['leave'] }}</strong></span>
+                                        <span class="text-gray-500">Hol <strong>{{ $mc['holiday'] }}</strong></span>
+                                    </div>
+                                </div>
+                            @empty
+                                <p class="sm:col-span-2 lg:col-span-3 text-sm text-gray-400 text-center py-6">Nothing to show for this period.</p>
+                            @endforelse
+                        </div>
+
+                        <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500 mt-3">
                             <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-500 align-middle"></span> Present</span>
                             <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-red-500 align-middle"></span> Absent</span>
-                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-yellow-300 border border-yellow-400 align-middle"></span> Half day</span>
+                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-yellow-300 align-middle"></span> Half day</span>
                             <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-blue-500 align-middle"></span> Leave</span>
                             <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-white border border-gray-300 align-middle"></span> Holiday / not marked</span>
                         </div>

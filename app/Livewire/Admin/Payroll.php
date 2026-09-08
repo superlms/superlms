@@ -404,10 +404,17 @@ class Payroll extends Component
         $this->attendanceDraft[$empId] = $status;
     }
 
-    /** Persist all drafted (non-teacher) attendance, then return to the view screen. */
+    /**
+     * Persist all drafted (non-teacher) attendance and land on that date's view.
+     *
+     * Marking a date that was already marked overwrites it — updateOrCreate is
+     * keyed on employee + date, so the same day can be corrected as often as
+     * needed without ever doubling up.
+     */
     public function submitAttendance(): void
     {
-        $org = $this->orgId();
+        $org  = $this->orgId();
+        $date = $this->attendanceDate;
         $count = 0;
 
         foreach ($this->attendanceDraft as $empId => $status) {
@@ -416,20 +423,34 @@ class Payroll extends Component
             if (!$emp || $emp->isTeacher()) continue;
 
             AdminAttendance::updateOrCreate(
-                ['admin_employee_id' => $empId, 'date' => $this->attendanceDate],
+                ['admin_employee_id' => $empId, 'date' => $date],
                 ['organization_id' => $org, 'status' => $status]
             );
             $count++;
         }
 
-        if ($count === 0) {
+        $alreadyMarked = AdminAttendance::forOrganization($org)->where('date', $date)->exists();
+
+        if ($count === 0 && !$alreadyMarked) {
             $this->notification()->error('Nothing to submit — pick a status for at least one employee.');
             return;
         }
 
-        $this->attendanceDraft = [];
-        $this->attendanceMode  = 'view';
-        $this->notification()->success('Attendance marked successfully', "{$count} employee(s) updated for " . Carbon::parse($this->attendanceDate)->format('d M Y') . '.');
+        // Straight to that date's attendance, whatever was being viewed before.
+        $this->attendanceDraft      = [];
+        $this->attendanceMode       = 'view';
+        $this->attendanceDate       = $date;
+        $this->attEmpId             = '';
+        $this->attMonth             = '';
+        $this->attStatus            = '';
+        $this->filterAttendanceType = '';
+
+        if ($count === 0) {
+            $this->notification()->success('Nothing changed', 'Showing the attendance already saved for ' . Carbon::parse($date)->format('d M Y') . '.');
+            return;
+        }
+
+        $this->notification()->success('Attendance saved', "{$count} employee(s) updated for " . Carbon::parse($date)->format('d M Y') . '.');
     }
 
     /** Saved status for a non-teacher on the current date (teachers read from teacher module). */
