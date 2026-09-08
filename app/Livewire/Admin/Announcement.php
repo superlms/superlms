@@ -38,6 +38,13 @@ class Announcement extends Component
     #[Rule('required|in:all,user,teacher')]
     public $type = 'all';
 
+    /**
+     * Which class a student announcement goes to. '' = every class, otherwise a
+     * standard id — only meaningful while $type is 'user'.
+     */
+    #[Rule('nullable|exists:standards,id')]
+    public $standardId = '';
+
     #[Rule('nullable|image|max:1024')] // 1MB max
     public $announcementImage;
 
@@ -83,7 +90,13 @@ class Announcement extends Component
             $query->where('type', $this->typeFilter);
         }
 
-        $announcements = $query->paginate(10);
+        $announcements = $query->with('standard:id,name')->paginate(10);
+
+        // Classes for the "which students?" picker.
+        $standards = \App\Models\Student\Standard::where('organization_id', Auth::user()->organization_id)
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->get(['id', 'name']);
 
         // Stats
         $baseQuery = AnnouncementModel::where('organization_id', Auth::user()->organization_id);
@@ -95,7 +108,7 @@ class Announcement extends Component
                 ->whereYear('created_at', Carbon::now()->subMonth()->year)->count(),
         ];
 
-        return view('livewire.admin.announcement', compact('announcements', 'stats'));
+        return view('livewire.admin.announcement', compact('announcements', 'stats', 'standards'));
     }
 
     public function updatedDateFilter(): void
@@ -158,6 +171,10 @@ class Announcement extends Component
             'announcement_name' => $this->announcementName,
             'announcement_content' => $this->announcementContent,
             'type' => $this->type,
+            // Only a student announcement can be aimed at a class; null = all.
+            'standard_id' => $this->type === 'user' && $this->standardId
+                ? (int) $this->standardId
+                : null,
         ];
 
         $existing = $this->editId ? AnnouncementModel::find($this->editId) : null;
@@ -266,7 +283,16 @@ class Announcement extends Component
         $this->announcementName = $announcement->announcement_name;
         $this->announcementContent = $announcement->announcement_content;
         $this->type = $announcement->type;
+        $this->standardId = $announcement->standard_id ? (string) $announcement->standard_id : '';
         $this->open = true;
+    }
+
+    /** Leaving the student audience drops any class narrowing with it. */
+    public function updatedType($value): void
+    {
+        if ($value !== 'user') {
+            $this->standardId = '';
+        }
     }
 
     public function onDelete($id)
@@ -348,6 +374,7 @@ class Announcement extends Component
             'announcementName',
             'announcementContent',
             'type',
+            'standardId',
             'announcementImage',
             'announcementPdf',
             'announcementFile',

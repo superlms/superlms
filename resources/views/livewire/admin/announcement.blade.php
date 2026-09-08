@@ -143,6 +143,12 @@
                                             <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide {{ $tc['pill'] }}">
                                                 {{ $announcement->type === 'user' ? 'Student' : ucfirst($announcement->type) }}
                                             </span>
+                                            {{-- Which class it was aimed at, when it wasn't the whole school --}}
+                                            @if ($announcement->type === 'user' && $announcement->standard)
+                                                <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                                                    {{ $announcement->standard->name }}
+                                                </span>
+                                            @endif
                                             @if ($announcement->announcement_image)
                                                 <span class="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
                                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -325,7 +331,9 @@
                         <div class="grid grid-cols-3 gap-2">
                             @foreach ($audienceOptions as $value => $opt)
                                 <label class="cursor-pointer">
-                                    <input type="radio" wire:model.defer="type" value="{{ $value }}" class="peer sr-only">
+                                    {{-- Live, so the class picker can appear the
+                                         moment Students is chosen. --}}
+                                    <input type="radio" wire:model.live="type" value="{{ $value }}" class="peer sr-only">
                                     <div class="px-3 py-2.5 text-center text-sm font-medium border-2 rounded-md transition-all border-gray-200 text-gray-600 hover:bg-gray-50 {{ $opt['classes'] }}">
                                         {{ $opt['label'] }}
                                     </div>
@@ -335,6 +343,26 @@
                         @error('type')
                             <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>
                         @enderror
+
+                        {{-- Students only: all of them, or just one class. --}}
+                        @if ($type === 'user')
+                            <div class="mt-3">
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Which students</label>
+                                <select wire:model.live="standardId"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">All Classes</option>
+                                    @foreach ($standards as $std)
+                                        <option value="{{ $std->id }}">{{ $std->name }}</option>
+                                    @endforeach
+                                </select>
+                                <p class="mt-1.5 text-xs text-gray-500">
+                                    {{ $standardId
+                                        ? 'Only students of ' . (optional($standards->firstWhere('id', (int) $standardId))->name ?? 'this class') . ' will see it.'
+                                        : 'Every student in the school will see it.' }}
+                                </p>
+                                @error('standardId')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                        @endif
                     </div>
 
                     {{-- ── Unified attachment uploader — Image OR PDF ── --}}
@@ -504,6 +532,11 @@
                             <span class="text-xs font-semibold px-2 py-0.5 rounded-full {{ $typeColors[$selectedAnnouncement->type] ?? 'bg-gray-100 text-gray-700' }}">
                                 {{ $selectedAnnouncement->type === 'user' ? 'Students' : ucfirst($selectedAnnouncement->type) }}
                             </span>
+                            @if ($selectedAnnouncement->type === 'user')
+                                <span class="ml-1.5 text-xs text-gray-600">
+                                    {{ $selectedAnnouncement->standard?->name ?? 'All classes' }}
+                                </span>
+                            @endif
                         </span>
                     </div>
 

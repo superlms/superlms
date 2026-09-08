@@ -43,6 +43,7 @@ class AnnouncementController extends Controller
             //   admin/others → sees everything
             $allowed = $this->allowedTypesForUser($user);
             $query->whereIn('type', $allowed);
+            $this->scopeToClass($query, $user);
 
             // Optional explicit narrowing within the allowed set (for app tabs).
             // Accepts friendly aliases: both→all, student→user.
@@ -129,6 +130,17 @@ class AnnouncementController extends Controller
                 );
             }
 
+            // …and, for a student, that it isn't aimed at another class.
+            if ($user->role === 'user' && $announcement->standard_id) {
+                $standardId = \App\Models\Student\StudentDetail::where('user_id', $user->id)->value('standard_id');
+                if ((int) $announcement->standard_id !== (int) $standardId) {
+                    return $this->responseService->errorResponse(
+                        'You dont have access to this announcement',
+                        403
+                    );
+                }
+            }
+
             $announcementData = $announcement->toArray();
 
             // Add creator details
@@ -173,6 +185,27 @@ class AnnouncementController extends Controller
      *
      * @return array<int,string>
      */
+    /**
+     * A student announcement can be aimed at one class. A student sees the
+     * school-wide ones (standard_id null) plus the ones for their own class;
+     * everyone else sees the lot.
+     */
+    private function scopeToClass($query, $user): void
+    {
+        if ($user->role !== 'user') {
+            return;
+        }
+
+        $standardId = \App\Models\Student\StudentDetail::where('user_id', $user->id)->value('standard_id');
+
+        $query->where(function ($q) use ($standardId) {
+            $q->whereNull('standard_id');
+            if ($standardId) {
+                $q->orWhere('standard_id', $standardId);
+            }
+        });
+    }
+
     private function allowedTypesForUser($user): array
     {
         return match ($user->role) {

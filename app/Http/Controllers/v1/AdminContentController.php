@@ -55,6 +55,9 @@ class AdminContentController extends ApiController
         return [
             'id'                   => $a->id,
             'type'                 => $a->type,
+            // null = every class; only set on student announcements.
+            'standard_id'          => $a->standard_id,
+            'standard_name'        => $a->standard?->name,
             'announcement_name'    => $a->announcement_name,
             'announcement_content' => $a->announcement_content,
             'image_url'            => $this->absUrl($a->announcement_image),
@@ -70,7 +73,7 @@ class AdminContentController extends ApiController
         [$user, $err] = $this->guard();
         if ($err) return $err;
 
-        $query = Announcement::with('user:id,name')
+        $query = Announcement::with(['user:id,name', 'standard:id,name'])
             ->where('organization_id', $user->organization_id)
             ->latest();
 
@@ -124,6 +127,7 @@ class AdminContentController extends ApiController
             'announcement_name'    => 'required|string|max:255',
             'announcement_content' => 'required|string',
             'type'                 => 'required|in:all,user,teacher',
+            'standard_id'          => 'nullable|exists:standards,id',
             'file'                 => 'nullable|file|mimes:jpg,jpeg,png,gif,webp,pdf|max:5120',
         ])) return $err;
 
@@ -133,12 +137,14 @@ class AdminContentController extends ApiController
             'announcement_name'    => $request->announcement_name,
             'announcement_content' => $request->announcement_content,
             'type'                 => $request->type,
+            // Only a student announcement can be aimed at a class; null = all.
+            'standard_id'          => $request->type === 'user' ? ($request->standard_id ?: null) : null,
         ];
         $this->applyAnnouncementFile($request, $data, null);
 
         $a = Announcement::create($data);
 
-        return $this->success($this->shapeAnnouncement($a->load('user:id,name')), 'Announcement created.');
+        return $this->success($this->shapeAnnouncement($a->load(['user:id,name', 'standard:id,name'])), 'Announcement created.');
     }
 
     /** POST /admin/announcements/{id} (multipart update) */
@@ -154,6 +160,7 @@ class AdminContentController extends ApiController
             'announcement_name'    => 'required|string|max:255',
             'announcement_content' => 'required|string',
             'type'                 => 'required|in:all,user,teacher',
+            'standard_id'          => 'nullable|exists:standards,id',
             'file'                 => 'nullable|file|mimes:jpg,jpeg,png,gif,webp,pdf|max:5120',
         ])) return $err;
 
@@ -161,11 +168,13 @@ class AdminContentController extends ApiController
             'announcement_name'    => $request->announcement_name,
             'announcement_content' => $request->announcement_content,
             'type'                 => $request->type,
+            // Only a student announcement can be aimed at a class; null = all.
+            'standard_id'          => $request->type === 'user' ? ($request->standard_id ?: null) : null,
         ];
         $this->applyAnnouncementFile($request, $data, $a);
         $a->update($data);
 
-        return $this->success($this->shapeAnnouncement($a->fresh('user:id,name')), 'Announcement updated.');
+        return $this->success($this->shapeAnnouncement($a->fresh(['user:id,name', 'standard:id,name'])), 'Announcement updated.');
     }
 
     /** DELETE /admin/announcements/{id} */
