@@ -1,4 +1,34 @@
-<div class="min-h-screen bg-gray-50" x-data="{ showView: false, viewRow: {} }">
+<div class="min-h-screen bg-gray-50"
+    x-data="{
+        showView: false,
+        viewRow: {},
+
+        showExport: false,
+        expMode: 'range',
+        expFrom: @js($startDate ?: now()->startOfMonth()->toDateString()),
+        expTo: @js($endDate ?: now()->toDateString()),
+        expDay: @js(now()->toDateString()),
+
+        openExport() { this.showExport = true },
+        canExport() {
+            if (this.expMode === 'all') return true;
+            if (this.expMode === 'day') return !! this.expDay;
+            return !! (this.expFrom && this.expTo);
+        },
+        exportUrl() {
+            const params = new URLSearchParams();
+            if (this.expMode === 'all') {
+                params.set('overall', '1');
+            } else if (this.expMode === 'day') {
+                params.set('start_date', this.expDay);
+                params.set('end_date', this.expDay);
+            } else {
+                params.set('start_date', this.expFrom);
+                params.set('end_date', this.expTo);
+            }
+            return @js(route('admin.ledger.statement', ['organization' => auth()->user()->organization_id])) + '?' + params.toString();
+        },
+    }">
     <style>[x-cloak]{display:none !important;}</style>
 
     {{-- ══════════════════════════════════════════════════
@@ -116,16 +146,15 @@
                     Overall
                 </button>
 
-                <a href="{{ $isOverall
-                        ? route('admin.ledger.statement', ['organization' => auth()->user()->organization_id, 'overall' => 1])
-                        : route('admin.ledger.statement', ['organization' => auth()->user()->organization_id, 'start_date' => $startDate, 'end_date' => $endDate]) }}"
-                    target="_blank"
+                {{-- The period is chosen in the export dialog, so a statement is
+                     never downloaded for whatever window happens to be on screen. --}}
+                <button type="button" @click="openExport()"
                     class="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-blue-600 bg-white border border-blue-200 rounded-md hover:bg-blue-50">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     Export PDF
-                </a>
+                </button>
             </div>
         </div>
     </div>
@@ -392,93 +421,148 @@
         </div>
     @endif
 
-    {{-- VIEW TRANSACTION SLIDE-IN PANEL (client-side, works for every row) --}}
+    {{-- EXPORT STATEMENT DIALOG — pick the period before the PDF is built --}}
+    <div x-cloak x-show="showExport" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" @click="showExport = false"></div>
+        <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-base font-semibold text-gray-900">Export Statement</h3>
+                <p class="text-xs text-gray-500 mt-0.5">Choose the period the PDF should cover.</p>
+            </div>
+
+            <div class="px-6 py-5 space-y-4">
+                <div class="flex items-center gap-1 p-1 bg-gray-100 rounded-lg">
+                    <button type="button" @click="expMode = 'range'"
+                        class="flex-1 px-3 py-1.5 text-xs font-medium rounded-md"
+                        :class="expMode === 'range' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'">
+                        Date range
+                    </button>
+                    <button type="button" @click="expMode = 'day'"
+                        class="flex-1 px-3 py-1.5 text-xs font-medium rounded-md"
+                        :class="expMode === 'day' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'">
+                        Single day
+                    </button>
+                    <button type="button" @click="expMode = 'all'"
+                        class="flex-1 px-3 py-1.5 text-xs font-medium rounded-md"
+                        :class="expMode === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'">
+                        All time
+                    </button>
+                </div>
+
+                <div x-show="expMode === 'range'" class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1.5">From</label>
+                        <input type="date" x-model="expFrom" :max="expTo"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1.5">To</label>
+                        <input type="date" x-model="expTo" :min="expFrom"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div x-show="expMode === 'day'">
+                    <label class="block text-xs font-medium text-gray-600 mb-1.5">Date</label>
+                    <input type="date" x-model="expDay"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <p x-show="expMode === 'all'" class="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-md px-3 py-2.5">
+                    Every transaction ever recorded, with no date window.
+                </p>
+            </div>
+
+            <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2">
+                <button type="button" @click="showExport = false" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                <a :href="exportUrl()" target="_blank" @click="showExport = false"
+                    class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md inline-flex items-center gap-1.5"
+                    :class="canExport() ? '' : 'opacity-50 pointer-events-none'">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Download PDF
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {{-- VIEW TRANSACTION SLIDE-IN PANEL (client-side, works for every row).
+         Same plain label/value layout as the Exams view panel. --}}
     <div x-cloak x-show="showView" class="fixed inset-0 z-50 overflow-hidden">
         <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" @click="showView = false"></div>
-        <div class="absolute top-0 right-0 bottom-0 w-full max-w-md bg-white shadow-2xl flex flex-col"
+        <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col"
             x-transition:enter="transition ease-out duration-200"
             x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
             x-transition:leave="transition ease-in duration-150"
             x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full">
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                 <div class="min-w-0">
-                    <h2 class="text-lg font-semibold text-gray-900">Transaction Details</h2>
-                    <p class="text-xs text-gray-500 mt-0.5 truncate" x-text="viewRow.reason"></p>
+                    <h2 class="text-lg font-semibold text-gray-900 truncate" x-text="viewRow.reason"></h2>
+                    <p class="text-xs text-gray-500 mt-0.5"
+                        x-text="(viewRow.type === 'expense' ? 'Expense' : 'Credit') + ' · ' + (viewRow.source || '') + ' · ' + (viewRow.date || '')"></p>
                 </div>
-                <button @click="showView = false" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                <button @click="showView = false" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>
 
-            <div class="flex-1 overflow-y-auto px-6 py-6 space-y-3">
-                <div class="rounded-lg px-3.5 py-3 border"
-                    :class="viewRow.type === 'expense' ? 'bg-red-50 border-red-100' : 'bg-emerald-50 border-emerald-100'">
-                    <p class="text-xs uppercase tracking-wider mb-0.5"
-                        :class="viewRow.type === 'expense' ? 'text-red-400' : 'text-emerald-500'"
-                        x-text="viewRow.type === 'expense' ? 'Expense' : 'Credit'"></p>
-                    <p class="text-xl font-bold"
-                        :class="viewRow.type === 'expense' ? 'text-red-600' : 'text-emerald-600'">
-                        ₹<span x-text="viewRow.amount"></span>
-                    </p>
+            <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                <div class="grid grid-cols-3 gap-3 text-sm">
+                    <span class="text-xs text-gray-400 uppercase tracking-wider">Type</span>
+                    <span class="col-span-2 font-medium"
+                        :class="viewRow.type === 'expense' ? 'text-red-600' : 'text-emerald-600'"
+                        x-text="viewRow.type === 'expense' ? 'Expense' : 'Credit'"></span>
                 </div>
-
-                <div class="grid grid-cols-2 gap-3">
-                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Date</p>
-                        <p class="text-sm font-medium text-gray-800">
-                            <span x-text="viewRow.date"></span>
-                            <span class="text-gray-400" x-show="viewRow.time" x-text="viewRow.time ? '· ' + viewRow.time : ''"></span>
-                        </p>
-                    </div>
-                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Source</p>
-                        <p class="text-sm font-medium text-gray-800" x-text="viewRow.source"></p>
-                    </div>
+                <div class="grid grid-cols-3 gap-3 text-sm">
+                    <span class="text-xs text-gray-400 uppercase tracking-wider">Amount</span>
+                    <span class="col-span-2 font-semibold"
+                        :class="viewRow.type === 'expense' ? 'text-red-600' : 'text-emerald-600'">₹<span x-text="viewRow.amount"></span></span>
                 </div>
-
-                <div class="grid grid-cols-2 gap-3">
-                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">From</p>
-                        <p class="text-sm font-medium text-gray-800" x-text="viewRow.from"></p>
-                    </div>
-                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">To</p>
-                        <p class="text-sm font-medium text-gray-800" x-text="viewRow.to"></p>
-                    </div>
+                <div class="grid grid-cols-3 gap-3 text-sm">
+                    <span class="text-xs text-gray-400 uppercase tracking-wider">Date</span>
+                    <span class="col-span-2 text-gray-800 font-medium"
+                        x-text="viewRow.date + (viewRow.time ? ' · ' + viewRow.time : '')"></span>
                 </div>
-
-                <div class="grid grid-cols-2 gap-3">
-                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-100" x-show="viewRow.collectedBy">
-                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Collected by</p>
-                        <p class="text-sm font-medium text-gray-800" x-text="viewRow.collectedBy"></p>
-                    </div>
-                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Mode</p>
-                        <p class="text-sm font-medium text-gray-800" x-text="viewRow.mode"></p>
-                    </div>
+                <div class="grid grid-cols-3 gap-3 text-sm">
+                    <span class="text-xs text-gray-400 uppercase tracking-wider">Source</span>
+                    <span class="col-span-2 text-gray-800 font-medium" x-text="viewRow.source"></span>
                 </div>
-
-                <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                    <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Particulars</p>
-                    <p class="text-sm font-medium text-gray-800" x-text="viewRow.reason"></p>
+                <div class="grid grid-cols-3 gap-3 text-sm">
+                    <span class="text-xs text-gray-400 uppercase tracking-wider">From</span>
+                    <span class="col-span-2 text-gray-800 font-medium" x-text="viewRow.from"></span>
                 </div>
-
-                <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                    <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Running balance</p>
-                    <p class="text-sm font-semibold text-blue-600">₹<span x-text="viewRow.balance"></span></p>
+                <div class="grid grid-cols-3 gap-3 text-sm">
+                    <span class="text-xs text-gray-400 uppercase tracking-wider">To</span>
+                    <span class="col-span-2 text-gray-800 font-medium" x-text="viewRow.to"></span>
                 </div>
-
-                {{-- Fee collections and salary payouts land here on their own; they
-                     are read-only and can only be corrected in their own module. --}}
-                <p x-show="!viewRow.manual" class="text-xs text-gray-500 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5">
-                    Recorded automatically from
-                    <strong class="text-gray-700" x-text="viewRow.source"></strong>.
-                    This entry is view only — edit it in the module it came from.
-                </p>
+                <div class="grid grid-cols-3 gap-3 text-sm" x-show="viewRow.collectedBy">
+                    <span class="text-xs text-gray-400 uppercase tracking-wider">Collected by</span>
+                    <span class="col-span-2 text-gray-800 font-medium" x-text="viewRow.collectedBy"></span>
+                </div>
+                <div class="grid grid-cols-3 gap-3 text-sm">
+                    <span class="text-xs text-gray-400 uppercase tracking-wider">Mode</span>
+                    <span class="col-span-2 text-gray-800 font-medium" x-text="viewRow.mode"></span>
+                </div>
+                <div class="grid grid-cols-3 gap-3 text-sm">
+                    <span class="text-xs text-gray-400 uppercase tracking-wider">Particulars</span>
+                    <span class="col-span-2 text-gray-800 font-medium" x-text="viewRow.reason"></span>
+                </div>
+                <div class="grid grid-cols-3 gap-3 text-sm">
+                    <span class="text-xs text-gray-400 uppercase tracking-wider">Running balance</span>
+                    <span class="col-span-2 text-gray-800 font-medium">₹<span x-text="viewRow.balance"></span></span>
+                </div>
+                <div class="grid grid-cols-3 gap-3 text-sm">
+                    <span class="text-xs text-gray-400 uppercase tracking-wider">Entry</span>
+                    {{-- Fee collections and salary payouts land here on their own;
+                         they can only be corrected in the module they came from. --}}
+                    <span class="col-span-2 text-gray-800 font-medium"
+                        x-text="viewRow.manual ? 'Manual — editable here' : 'Automatic — view only'"></span>
+                </div>
             </div>
 
             <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
-                <button @click="showView = false" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Close</button>
+                <button @click="showView = false" class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
             </div>
         </div>
     </div>

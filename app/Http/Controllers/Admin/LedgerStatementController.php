@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Admin\SchoolInfo;
 use App\Models\Organization;
 use App\Services\LedgerService;
+use App\Support\PdfFonts;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -85,6 +87,7 @@ class LedgerStatementController extends Controller
         $data = [
             'org'          => $org,
             'logoSrc'      => $logoSrc,
+            'contact'      => $this->contactLine($orgId, $org),
             'rows'         => $rows,
             'opening'      => round($opening, 2),
             'closing'      => round($balance, 2),
@@ -97,12 +100,62 @@ class LedgerStatementController extends Controller
             'netBalance'   => LedgerService::netBalance($orgId),
         ];
 
-        $pdf = Pdf::loadView('admin.ledger-statement', $data)->setPaper('a4', 'portrait');
-
         $fileName = $overall
             ? 'ledger_statement_all_' . now()->format('Ymd') . '.pdf'
             : 'ledger_statement_' . $start->format('Ymd') . '_' . $end->format('Ymd') . '.pdf';
 
-        return $pdf->stream($fileName);
+        return $this->render($data)->stream($fileName);
+    }
+
+    /**
+     * Load the statement with our bundled Poppins faces. dompdf needs a
+     * writable font cache; if that fails we still render, just with the
+     * default face rather than no PDF at all.
+     */
+    protected function render(array $data)
+    {
+        $fontCache = storage_path('fonts');
+        if (!is_dir($fontCache)) {
+            @mkdir($fontCache, 0775, true);
+        }
+
+        $load = fn (string $fontCss) => Pdf::loadView('admin.ledger-statement', $data + compact('fontCss'))
+            ->setPaper('a4', 'portrait')
+            ->setOption('dpi', 130)
+            ->setOption('isHtml5ParserEnabled', true)
+            ->setOption('isRemoteEnabled', true)
+            ->setOption('isFontSubsettingEnabled', true)
+            ->setOption('fontDir', $fontCache)
+            ->setOption('fontCache', $fontCache)
+            ->setOption('defaultFont', 'DejaVu Sans');
+
+        try {
+            return $load(PdfFonts::faceCss());
+        } catch (\Throwable $e) {
+            logger()->warning('Ledger statement font embedding failed: ' . $e->getMessage());
+            return $load('');
+        }
+    }
+
+    /**
+     * Address / email / website / phone for the masthead. The school record is
+     * the authority; the website builder's SchoolInfo fills the gaps and is the
+     * only place a website address is kept.
+     */
+    protected function contactLine(int $orgId, ?Organization $org): array
+    {
+        $info = null;
+        try {
+            $info = SchoolInfo::where('organization_id', $orgId)->first();
+        } catch (\Throwable $e) {
+            // school_infos may not exist on an older schema — masthead still renders.
+        }
+
+        return [
+            'address' => $org?->address ?: ($info->school_address ?? null),
+            'email'   => $org?->email ?: ($info->school_email ?? null),
+            'mobile'  => $org?->mobile_number ?: ($info->school_mobile ?? null),
+            'website' => $info->website_url ?? null,
+        ];
     }
 }
