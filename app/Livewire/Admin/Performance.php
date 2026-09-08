@@ -39,14 +39,6 @@ class Performance extends Component
     #[Url] public string $filterSubject  = '';
     #[Url] public string $filterStudent  = '';
 
-    // ─── View by Student tab ──────────────────────────────────────────────────
-    public string $selectedExam       = '';
-    public string $selectedStandard   = '';
-    public string $selectedSection    = '';
-    public string $selectedSubject    = '';
-    public string $selectedStudent    = '';
-    public array  $studentPerformance = [];
-
     // ─── Delete confirm overlay (replaces broken WireUI dialog) ───────────────
     public bool $showDeleteConfirm = false;
     public ?int $deleteTargetId    = null;
@@ -115,12 +107,7 @@ class Performance extends Component
     {
         $this->activeTab = $tab;
 
-        if ($tab === 'student') {
-            $this->reset(['selectedExam', 'selectedStandard', 'selectedSection', 'selectedStudent', 'studentPerformance']);
-            $this->sections = [];
-            $this->students = [];
-            $this->loadFilters();
-        } elseif ($tab === 'performers') {
+        if ($tab === 'performers') {
             $this->performers = [];
         } else {
             $this->resetPage();
@@ -171,70 +158,6 @@ class Performance extends Component
         $this->students = [];
         $this->loadFilters();
         $this->resetPage();
-    }
-
-    // ─── Student tab (View by Student) ───────────────────────────────────────
-    public function updatedSelectedExam(): void
-    {
-        $this->studentPerformance = [];
-        $this->autoSearchStudent();
-    }
-    public function updatedSelectedStandard(mixed $value): void
-    {
-        $this->selectedSection    = '';
-        $this->selectedSubject    = '';
-        $this->selectedStudent    = '';
-        $this->students           = [];
-        $this->studentPerformance = [];
-        if ($value) {
-            $this->sections = Section::where('standard_id', $value)->where('is_active', true)->orderBy('id')->get();
-            $this->loadSubjectsForStandard($value);
-        } else {
-            $this->sections = [];
-            $this->loadFilters();
-        }
-    }
-    public function updatedSelectedSection(mixed $value): void
-    {
-        // A new section means a new student list, so the student has to be
-        // picked again — the subject filter starts clear too.
-        $this->selectedSubject    = '';
-        $this->selectedStudent    = '';
-        $this->studentPerformance = [];
-        if ($value && $this->selectedStandard) {
-            $this->students = $this->loadStudents($this->selectedStandard, $value);
-            $this->loadSubjectsForStandard($this->selectedStandard, $value);
-        } else {
-            $this->students = [];
-        }
-    }
-    public function updatedSelectedSubject(): void
-    {
-        $this->studentPerformance = [];
-        $this->autoSearchStudent();
-    }
-    public function updatedSelectedStudent(): void
-    {
-        // Picking a student shows every subject of that exam; the subject filter
-        // is something you narrow to afterwards, so it starts clear.
-        $this->selectedSubject    = '';
-        $this->studentPerformance = [];
-        $this->autoSearchStudent();
-    }
-
-    private function autoSearchStudent(): void
-    {
-        if ($this->selectedExam && $this->selectedStandard && $this->selectedSection && $this->selectedStudent) {
-            $this->searchPerformance();
-        }
-    }
-
-    public function clearStudentFilters(): void
-    {
-        $this->reset(['selectedExam', 'selectedStandard', 'selectedSection', 'selectedSubject', 'selectedStudent', 'studentPerformance']);
-        $this->sections = [];
-        $this->students = [];
-        $this->loadFilters();
     }
 
     // ─── Upload Marks slide-in ───────────────────────────────────────────────
@@ -410,19 +333,10 @@ class Performance extends Component
             $this->loadStats();
 
             // Saved — close the sheet and land back on the Performance home
-            // screen, pointed at the marks that were just entered.
+            // screen with a clean slate: no filter carried over from the upload.
             $this->activeTab = 'subject';
             $this->closeUploadModal();
-
-            $this->filterExam     = (string) $this->uploadExam;
-            $this->filterStandard = (string) $this->uploadStandard;
-            $this->filterSection  = (string) $this->uploadSection;
-            $this->filterSubject  = (string) $this->uploadSubject;
-            $this->filterStudent  = '';
-            $this->sections       = Section::where('standard_id', $this->uploadStandard)->where('is_active', true)->get();
-            $this->loadSubjectsForStandard($this->uploadStandard, $this->uploadSection);
-            $this->students       = $this->loadStudents($this->uploadStandard, $this->uploadSection);
-            $this->resetPage();
+            $this->clearFilters();
         } catch (\Exception $e) {
             logger()->error('Performance uploadMarks: ' . $e->getMessage());
             $this->notification()->error('Error saving marks', $e->getMessage());
@@ -644,46 +558,6 @@ class Performance extends Component
     {
         $this->deleteTargetId = $id;
         $this->confirmDelete();
-    }
-
-    public function searchPerformance(): void
-    {
-        try {
-            $this->validate([
-                'selectedExam'     => 'required',
-                'selectedStandard' => 'required',
-                'selectedSection'  => 'required',
-                'selectedStudent'  => 'required',
-            ], [
-                'selectedExam.required'     => 'Please select an exam',
-                'selectedStandard.required' => 'Please select a class',
-                'selectedSection.required'  => 'Please select a section',
-                'selectedStudent.required'  => 'Please select a student',
-            ]);
-
-            $query = ExamCopy::with([
-                'exam', 'standard', 'section', 'subject', 'studentDetail.user', 'examSubjectMarks.subject'
-            ])
-                ->where('exam_id', $this->selectedExam)
-                ->where('standard_id', $this->selectedStandard)
-                ->where('section_id', $this->selectedSection)
-                ->where('student_detail_id', $this->selectedStudent);
-
-            if ($this->selectedSubject) {
-                $query->where('subject_id', $this->selectedSubject);
-            }
-
-            $results = $query->get();
-            $this->studentPerformance = $results->isEmpty() ? [] : $results->toArray();
-            if ($results->isEmpty()) {
-                $this->notification()->warning('No Results', 'No records found for the selected criteria.');
-            }
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            throw $e;
-        } catch (\Exception $e) {
-            $this->studentPerformance = [];
-            $this->notification()->error('Error', 'An error occurred while searching.');
-        }
     }
 
     public function onDownloadPdf(?int $examCopyId = null, string $type = 'single'): void
