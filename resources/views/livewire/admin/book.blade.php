@@ -111,11 +111,10 @@
                                 <img src="{{ $book->book_logo }}" alt="{{ $book->title }}"
                                     class="w-full h-full object-cover">
                             @else
-                                <div class="w-full h-full flex flex-col items-center justify-center text-gray-400 p-4">
-                                    <svg class="w-12 h-12 mb-2" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                    </svg>
-                                    <span class="text-xs">No Cover</span>
+                                {{-- No cover uploaded: fall back to the subject's own icon. --}}
+                                <div class="w-full h-full flex flex-col items-center justify-center gap-2 p-4">
+                                    <x-subject-icon :name="$book->subject->name ?? null" size="w-16 h-16" />
+                                    <span class="text-xs text-gray-500 text-center">{{ $book->subject->name ?? 'Subject' }}</span>
                                 </div>
                             @endif
 
@@ -262,7 +261,7 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {{-- Cover Image (student-style inline: thumb + file input) --}}
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Cover Image <span class="text-gray-400 font-normal">(Optional, max 1 MB)</span></label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Cover Image <span class="text-gray-400 font-normal">(Optional, max 1 MB — the subject icon stands in)</span></label>
                             <div class="flex items-center gap-3 min-w-0">
                                 @if ($tempLogoUrl)
                                     <img src="{{ $tempLogoUrl }}" class="w-12 h-16 rounded object-cover border border-gray-200 flex-shrink-0">
@@ -283,7 +282,7 @@
 
                         {{-- PDF (student-style inline: icon + file input) --}}
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">PDF <span class="text-gray-400 font-normal">(Optional, max 5 MB)</span></label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">PDF <span class="text-red-500">*</span> <span class="text-gray-400 font-normal">(max 20 MB)</span></label>
                             <div class="flex items-center gap-3 min-w-0">
                                 <div class="w-12 h-12 rounded bg-red-50 flex items-center justify-center flex-shrink-0">
                                     <svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
@@ -340,8 +339,10 @@
                         @if ($viewBook->book_logo)
                             <img src="{{ $viewBook->book_logo }}" class="h-48 w-36 object-cover rounded-lg border border-gray-200 shadow-md">
                         @else
-                            <div class="h-48 w-36 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400">
-                                <svg class="w-12 h-12" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                            {{-- No cover uploaded: the subject's own icon stands in. --}}
+                            <div class="h-48 w-36 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200 flex flex-col items-center justify-center gap-2">
+                                <x-subject-icon :name="$viewBook->subject->name ?? null" size="w-20 h-20" />
+                                <span class="text-xs text-gray-500 text-center px-2">{{ $viewBook->subject->name ?? 'Subject' }}</span>
                             </div>
                         @endif
                     </div>

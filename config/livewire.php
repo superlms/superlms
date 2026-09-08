@@ -70,7 +70,10 @@ return [
         // hits another → 500 on every file upload. Default to the app's main
         // filesystem disk (S3 in production) so all tasks see the same temp files.
         'disk' => env('LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK', env('FILESYSTEM_DISK', 'local')), // 'local' | 's3'
-        'rules' => null,       // Example: ['file', 'mimes:png,jpg']  | Default: ['required', 'file', 'max:12288'] (12MB)
+        // Library PDFs are allowed up to 20MB, and this gate runs BEFORE the
+        // component's own rules — leaving it at Livewire's 12MB default would
+        // reject those uploads before validation ever sees them.
+        'rules' => ['required', 'file', 'max:20480'], // 20MB
         'directory' => null,   // Example: 'tmp'                      | Default: 'livewire-tmp'
         'middleware' => null,  // Example: 'throttle:5,1'             | Default: 'throttle:60,1'
         'preview_mimes' => [   // Supported file types for temporary pre-signed file URLs...

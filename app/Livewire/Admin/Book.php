@@ -19,6 +19,9 @@ class Book extends Component
 {
     use WireUiActions, WithFileUploads, WithPagination;
 
+    /** Every book must carry a PDF, and it may not exceed 20MB. */
+    public const PDF_MAX_KB = 20480;
+
     public $open = false;
     public $showViewModal = false;
     public $editId = null;
@@ -252,9 +255,9 @@ class Book extends Component
     public function updatedPdfFile()
     {
         $this->validate([
-            'pdf_file' => 'file|mimes:pdf|max:5120',
+            'pdf_file' => 'file|mimes:pdf|max:' . self::PDF_MAX_KB,
         ], [
-            'pdf_file.max' => 'PDF must be 5 MB (5120 KB) or smaller.',
+            'pdf_file.max' => 'PDF must be 20 MB or smaller.',
         ]);
         $this->tempPdfUrl = $this->pdf_file->getClientOriginalName();
     }
@@ -274,35 +277,53 @@ class Book extends Component
     {
         $orgId = Auth::user()->organization_id;
 
+        $this->title = trim((string) $this->title);
+
+        // section_id is NOT NULL default 0, so "whole class" is stored as 0 —
+        // comparing against null would never match an existing row.
+        $sectionKey = (int) ($this->section_id ?: 0);
+
+        // A PDF is required for every book: always on add, and on edit only if
+        // the book somehow has none yet (the stored file counts otherwise).
+        $existing = $this->editId ? ModalBook::find($this->editId) : null;
+        $pdfRule  = (!$this->editId || empty($existing?->pdf_file)) ? 'required' : 'nullable';
+
         $this->validate([
             'title' => [
                 'required', 'string', 'max:100',
                 Rule::unique('books', 'title')
-                    ->where(fn($q) => $q
-                        ->where('organization_id', $orgId)
-                        ->where('standard_id', $this->standard_id)
-                        ->where('section_id', $this->section_id ?: null)
-                    )
+                    ->where(function ($q) use ($orgId, $sectionKey) {
+                        $q->where('organization_id', $orgId)
+                            ->where('standard_id', $this->standard_id);
+
+                        // "Whole class" rows may be 0 or, on older data, null.
+                        return $sectionKey === 0
+                            ? $q->where(fn($w) => $w->where('section_id', 0)->orWhereNull('section_id'))
+                            : $q->where('section_id', $sectionKey);
+                    })
                     ->ignore($this->editId),
             ],
             'standard_id' => 'required|exists:standards,id',
             'section_id'  => 'nullable|exists:sections,id',
             'subject_id'  => 'required|exists:subjects,id',
             'book_logo'   => 'nullable|image|max:1024',
-            'pdf_file'    => 'nullable|file|mimes:pdf|max:5120',
+            'pdf_file'    => $pdfRule . '|file|mimes:pdf|max:' . self::PDF_MAX_KB,
             'is_active'   => 'boolean',
         ], [
-            'title.max'      => 'Book title may not be longer than 100 characters.',
-            'title.unique'   => 'A book with this name already exists for this class and section.',
-            'book_logo.max'  => 'Cover image must be 1 MB (1024 KB) or smaller.',
-            'pdf_file.max'   => 'PDF must be 5 MB (5120 KB) or smaller.',
+            'title.max'         => 'Book title may not be longer than 100 characters.',
+            'title.unique'      => 'A book with this name already exists for this class and section.',
+            'book_logo.max'     => 'Cover image must be 1 MB (1024 KB) or smaller.',
+            'pdf_file.required' => 'The book PDF is required.',
+            'pdf_file.max'      => 'PDF must be 20 MB or smaller.',
+            'pdf_file.mimes'    => 'The book file must be a PDF.',
         ]);
 
         try {
             $data = [
                 'title' => $this->title,
                 'standard_id' => $this->standard_id,
-                'section_id' => $this->section_id ?: null,
+                // 0 = the whole class; the column is NOT NULL default 0.
+                'section_id' => $sectionKey,
                 'subject_id' => $this->subject_id,
                 'is_active' => $this->is_active,
                 'organization_id' => Auth::user()->organization_id,

@@ -148,18 +148,29 @@ class AdminBookController extends ApiController
 
     private function rules(int $orgId, Request $request, ?int $ignoreId): array
     {
+        // section_id is NOT NULL default 0, so "whole class" is 0 — but older
+        // rows can hold null, and both must count as the same class-section.
+        $sectionKey = (int) ($request->section_id ?: 0);
+
+        // Same rule as the admin screen: every book carries a PDF, up to 20MB.
+        $pdfRequired = $ignoreId === null
+            || empty(Book::where('organization_id', $orgId)->where('id', $ignoreId)->value('pdf_file'));
+
         return [
             'title' => ['required', 'string', 'max:255',
-                Rule::unique('books', 'title')->where(fn ($q) => $q
-                    ->where('organization_id', $orgId)
-                    ->where('standard_id', $request->standard_id)
-                    ->where('section_id', $request->section_id ?: null))
-                    ->ignore($ignoreId)],
+                Rule::unique('books', 'title')->where(function ($q) use ($orgId, $request, $sectionKey) {
+                    $q->where('organization_id', $orgId)
+                        ->where('standard_id', $request->standard_id);
+
+                    return $sectionKey === 0
+                        ? $q->where(fn ($w) => $w->where('section_id', 0)->orWhereNull('section_id'))
+                        : $q->where('section_id', $sectionKey);
+                })->ignore($ignoreId)],
             'standard_id' => 'required|exists:standards,id',
             'section_id'  => 'nullable|exists:sections,id',
             'subject_id'  => 'required|exists:subjects,id',
             'book_logo'   => 'nullable|image|max:2048',
-            'pdf_file'    => 'nullable|file|mimes:pdf|max:10240',
+            'pdf_file'    => ($pdfRequired ? 'required' : 'nullable') . '|file|mimes:pdf|max:20480',
             'is_active'   => 'nullable|boolean',
         ];
     }
@@ -179,7 +190,8 @@ class AdminBookController extends ApiController
             $data = [
                 'title'           => $request->title,
                 'standard_id'     => $request->standard_id,
-                'section_id'      => $request->section_id ?: null,
+                // 0 = the whole class; the column is NOT NULL default 0.
+                'section_id'      => (int) ($request->section_id ?: 0),
                 'subject_id'      => $request->subject_id,
                 'is_active'       => $request->boolean('is_active', true),
                 'organization_id' => $orgId,
@@ -212,7 +224,7 @@ class AdminBookController extends ApiController
             $data = [
                 'title'       => $request->title,
                 'standard_id' => $request->standard_id,
-                'section_id'  => $request->section_id ?: null,
+                'section_id'  => (int) ($request->section_id ?: 0),
                 'subject_id'  => $request->subject_id,
                 'is_active'   => $request->boolean('is_active', $book->is_active),
             ];
