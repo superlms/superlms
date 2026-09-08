@@ -29,6 +29,21 @@ class Payroll extends Component
     // ─── Active Tab ───────────────────────────────────────────────────────────
     public string $activeTab = 'employees';
 
+    /**
+     * The order staff are listed in across every tab: management first, then
+     * drivers, then the rest of the employees, with teachers last (their
+     * attendance lives in the Teacher module, so they read as an appendix here).
+     */
+    public const TYPE_ORDER = ['management' => 1, 'driver' => 2, 'employee' => 3, 'teacher' => 4];
+
+    /** Apply that order, then name, to any employee collection. */
+    private function sortByType($employees)
+    {
+        return $employees
+            ->sortBy(fn ($e) => [self::TYPE_ORDER[$e->type] ?? 9, mb_strtolower((string) $e->name)])
+            ->values();
+    }
+
     // ─── Employee Form ────────────────────────────────────────────────────────
     public bool   $showEmpModal       = false;
     public        $editEmpId          = null;
@@ -52,7 +67,7 @@ class Payroll extends Component
     // ─── Employee list filters ────────────────────────────────────────────────
     public string $empSearch     = '';
     public string $empTypeFilter = '';
-    public string $empSort       = 'name_asc';
+    public string $empSort       = 'type_order';
 
     // ─── Employee Detail Modal ────────────────────────────────────────────────
     public bool $showEmpDetailModal = false;
@@ -70,7 +85,11 @@ class Payroll extends Component
     public string $attYear              = ''; // year for the whole-year employee view
     public string $attStatus            = ''; // status filter: present|absent|half_day|leave|holiday
     public array  $attendanceDraft      = []; // admin_employee_id => status (non-teacher only)
-    public string $attendanceMode       = 'view'; // 'view' | 'mark'
+    // 'view' → the filters and read-only views
+    // 'pick_date' → step 1 of marking: choose the day
+    // 'mark' → step 2: mark everyone (teachers excluded, they come from their own module)
+    public string $attendanceMode       = 'view';
+    public string $markDate             = ''; // the date chosen in step 1
 
     // ─── Salary ───────────────────────────────────────────────────────────────
     public string $salaryMonth        = '';
@@ -327,17 +346,35 @@ class Payroll extends Component
         $this->attendanceDraft = [];
     }
 
-    /** Open the marking screen (defaults the mark date to today). */
+    /** Step 1 of marking: ask which date is being marked. */
     public function startMarking(): void
     {
-        if ($this->attendanceDate === '') {
-            $this->attendanceDate = now()->format('Y-m-d');
-        }
-        $this->attendanceMode  = 'mark';
+        $this->resetValidation();
+        $this->markDate        = $this->attendanceDate ?: now()->format('Y-m-d');
+        $this->attendanceMode  = 'pick_date';
         $this->attendanceDraft = [];
     }
 
-    /** Leave the marking screen without saving. */
+    /** Step 2: the date is settled, now mark the staff for it. */
+    public function confirmMarkDate(): void
+    {
+        $this->validate([
+            'markDate' => 'required|date|before_or_equal:today',
+        ], [], ['markDate' => 'date']);
+
+        $this->attendanceDate  = $this->markDate;
+        $this->attendanceDraft = [];
+        $this->attendanceMode  = 'mark';
+    }
+
+    /** Back from the marking list to the date step. */
+    public function backToDatePick(): void
+    {
+        $this->attendanceMode  = 'pick_date';
+        $this->attendanceDraft = [];
+    }
+
+    /** Leave the marking screens without saving. */
     public function cancelMarking(): void
     {
         $this->attendanceMode  = 'view';
@@ -407,7 +444,7 @@ class Payroll extends Component
     public function clearEmpFilters(): void
     {
         $this->reset(['empSearch', 'empTypeFilter']);
-        $this->empSort = 'name_asc';
+        $this->empSort = 'type_order';
     }
 
     public function clearAttFilters(): void
@@ -417,10 +454,13 @@ class Payroll extends Component
     }
 
     /**
-     * Build the selected employee's day-by-day attendance for the active period
-     * (a single month if attMonth is set, otherwise the whole attYear up to today).
-     * Returns per-month day chips plus overall counts. Days with no record are
-     * treated as "holiday".
+     * Build the selected employee's attendance for the active period (a single
+     * month if attMonth is set, otherwise the whole attYear up to today) as real
+     * month calendars: seven columns starting on Sunday, every day of the month
+     * present, and the days outside the period rendered blank.
+     *
+     * Returns the overall counts plus, per month, its own counts, present-%,
+     * leading blank cells and day cells. Days with no record read as "holiday".
      */
     private function buildEmployeeDays(AdminEmployee $emp): array
     {
@@ -437,10 +477,11 @@ class Payroll extends Component
         }
         if ($end->gt($today)) $end = $today->copy();
 
-        $counts  = ['present' => 0, 'absent' => 0, 'half_day' => 0, 'leave' => 0, 'holiday' => 0, 'marked' => 0];
-        $byMonth = [];
+        $blank   = ['present' => 0, 'absent' => 0, 'half_day' => 0, 'leave' => 0, 'holiday' => 0, 'marked' => 0];
+        $counts  = $blank;
+        $months  = [];
         if ($start->gt($end)) {
-            return ['counts' => $counts, 'byMonth' => $byMonth];
+            return ['counts' => $counts, 'months' => $months];
         }
 
         // Load the period's records once, keyed by Y-m-d.
@@ -460,29 +501,66 @@ class Payroll extends Component
                 });
         }
 
-        for ($d = $start->copy(); $d->lte($end); $d->addDay()) {
-            $ds     = $d->format('Y-m-d');
-            $status = $map[$ds] ?? 'holiday';
+        // Walk whole months so each calendar is complete, and mark the days that
+        // fall outside the period (before it started, or still to come) as blank.
+        $cursor = $start->copy()->startOfMonth();
+        $last   = $end->copy()->startOfMonth();
 
-            if ($status === 'holiday') {
-                $counts['holiday']++;
-            } else {
-                $counts[$status] = ($counts[$status] ?? 0) + 1;
-                $counts['marked']++;
+        while ($cursor->lte($last)) {
+            $ym         = $cursor->format('Y-m');
+            $monthStart = $cursor->copy()->startOfMonth();
+            $daysInMonth = (int) $monthStart->daysInMonth;
+
+            $mCounts = $blank;
+            $cells   = [];
+
+            for ($n = 1; $n <= $daysInMonth; $n++) {
+                $d  = $monthStart->copy()->day($n);
+                $ds = $d->format('Y-m-d');
+
+                if ($d->lt($start) || $d->gt($end)) {
+                    $cells[] = ['day' => $n, 'date' => $ds, 'status' => null, 'in_period' => false, 'dim' => false];
+                    continue;
+                }
+
+                $status = $map[$ds] ?? 'holiday';
+
+                if ($status === 'holiday') {
+                    $counts['holiday']++;
+                    $mCounts['holiday']++;
+                } else {
+                    $counts[$status]  = ($counts[$status] ?? 0) + 1;
+                    $mCounts[$status] = ($mCounts[$status] ?? 0) + 1;
+                    $counts['marked']++;
+                    $mCounts['marked']++;
+                }
+
+                $cells[] = [
+                    'day'       => $n,
+                    'date'      => $ds,
+                    'status'    => $status,
+                    'in_period' => true,
+                    // The status filter fades the days that don't match rather
+                    // than pulling them out and breaking the calendar grid.
+                    'dim'       => $this->attStatus !== '' && $status !== $this->attStatus,
+                ];
             }
 
-            // Status filter narrows only what's displayed, not the counts.
-            if ($this->attStatus && $status !== $this->attStatus) continue;
-
-            $byMonth[$d->format('Y-m')][] = [
-                'date'   => $ds,
-                'day'    => (int) $d->format('j'),
-                'status' => $status,
-                'dow'    => $d->format('D'),
+            $months[$ym] = [
+                'label'  => $monthStart->format('F Y'),
+                // Sunday-first grid: how many blank cells before the 1st.
+                'lead'   => (int) $monthStart->dayOfWeek,
+                'cells'  => $cells,
+                'counts' => $mCounts,
+                'pct'    => $mCounts['marked'] > 0
+                    ? (int) round(($mCounts['present'] + 0.5 * $mCounts['half_day']) / $mCounts['marked'] * 100)
+                    : 0,
             ];
+
+            $cursor->addMonthNoOverflow();
         }
 
-        return ['counts' => $counts, 'byMonth' => $byMonth];
+        return ['counts' => $counts, 'months' => $months];
     }
 
     public function clearSalaryFilters(): void
@@ -653,28 +731,34 @@ class Payroll extends Component
                     || str_contains(mb_strtolower((string) $e->designation), $t)
                     || str_contains(mb_strtolower((string) $e->mobile), $t));
             });
+        // Default order is management → driver → employee → teacher.
         $employeesList = match ($this->empSort) {
-            'name_desc'   => $employeesList->sortByDesc('name'),
-            'salary_asc'  => $employeesList->sortBy('salary'),
-            'salary_desc' => $employeesList->sortByDesc('salary'),
-            'type'        => $employeesList->sortBy('type'),
-            default       => $employeesList->sortBy('name'),
+            'name_asc'    => $employeesList->sortBy('name')->values(),
+            'name_desc'   => $employeesList->sortByDesc('name')->values(),
+            'salary_asc'  => $employeesList->sortBy('salary')->values(),
+            'salary_desc' => $employeesList->sortByDesc('salary')->values(),
+            default       => $this->sortByType($employeesList),
         };
-        $employeesList = $employeesList->values();
 
-        // Attendance tab list (type filter) — used by the mark screen and the
-        // date-mode view, and as the options for the employee dropdown.
-        $attEmployees = $allEmployees
-            ->when($this->filterAttendanceType, fn($c) => $c->where('type', $this->filterAttendanceType))
-            ->values();
+        // Attendance tab list (type filter) — used by the date-mode view and as
+        // the options for the employee dropdown, in the same type order.
+        $attEmployees = $this->sortByType(
+            $allEmployees->when($this->filterAttendanceType, fn($c) => $c->where('type', $this->filterAttendanceType))
+        );
 
-        // Salary tab list: search + type
-        $salaryEmployees = $allEmployees
-            ->when($this->filterSalaryType, fn($c) => $c->where('type', $this->filterSalaryType))
-            ->when($this->salarySearch, function ($c) {
-                $t = mb_strtolower(trim($this->salarySearch));
-                return $c->filter(fn($e) => str_contains(mb_strtolower($e->name), $t));
-            })->values();
+        // Marking list: teachers are never marked here — their attendance comes
+        // from the Teacher Attendance module.
+        $markEmployees = $attEmployees->where('type', '!=', 'teacher')->values();
+
+        // Salary tab list: search + type, same order again
+        $salaryEmployees = $this->sortByType(
+            $allEmployees
+                ->when($this->filterSalaryType, fn($c) => $c->where('type', $this->filterSalaryType))
+                ->when($this->salarySearch, function ($c) {
+                    $t = mb_strtolower(trim($this->salarySearch));
+                    return $c->filter(fn($e) => str_contains(mb_strtolower($e->name), $t));
+                })
+        );
 
         $allEmployeesForFilter = $allEmployees;
 
@@ -696,7 +780,7 @@ class Payroll extends Component
         //   attView === 'employee' → the picked employee's month / whole year
         $attView        = null;
         $attEmp         = null;
-        $attByMonth     = [];
+        $attMonths      = [];
         $attCounts      = [];
         $attPeriodLabel = '';
 
@@ -706,7 +790,7 @@ class Payroll extends Component
                 if ($attEmp) {
                     $attView        = 'employee';
                     $built          = $this->buildEmployeeDays($attEmp);
-                    $attByMonth     = $built['byMonth'];
+                    $attMonths      = $built['months'];
                     $attCounts      = $built['counts'];
                     if ($this->attMonth) {
                         $attPeriodLabel = Carbon::parse($this->attMonth . '-01')->format('F Y');
@@ -760,11 +844,12 @@ class Payroll extends Component
         return view('livewire.admin.payroll', compact(
             'employeesList',
             'attEmployees',
+            'markEmployees',
             'salaryEmployees',
             'empStats',
             'attView',
             'attEmp',
-            'attByMonth',
+            'attMonths',
             'attCounts',
             'attPeriodLabel',
             'salaryBreakdowns',

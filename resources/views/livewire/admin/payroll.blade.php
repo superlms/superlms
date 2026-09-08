@@ -19,13 +19,16 @@
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Payroll</h1>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-                {{-- Chips only on Employees tab --}}
+                {{-- Same divided analytics strip the Students header uses --}}
+                <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-3 divide-x divide-gray-200">
+                    <span class="pr-4">Total: <strong class="text-gray-800">{{ $empStats['total'] }}</strong></span>
+                    <span class="px-4">Management: <strong class="text-purple-600">{{ $empStats['management'] }}</strong></span>
+                    <span class="px-4">Drivers: <strong class="text-amber-600">{{ $empStats['driver'] }}</strong></span>
+                    <span class="px-4">Employees: <strong class="text-emerald-600">{{ $empStats['employee'] }}</strong></span>
+                    <span class="pl-4">Teachers: <strong class="text-blue-600">{{ $empStats['teacher'] }}</strong></span>
+                </div>
+
                 @if ($activeTab === 'employees')
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-xs font-medium text-gray-600">Total <strong class="text-gray-900">{{ $empStats['total'] }}</strong></span>
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-xs font-medium text-blue-600">Teachers <strong>{{ $empStats['teacher'] }}</strong></span>
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-50 border border-purple-100 text-xs font-medium text-purple-600">Mgmt <strong>{{ $empStats['management'] }}</strong></span>
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-xs font-medium text-emerald-600">Staff <strong>{{ $empStats['employee'] }}</strong></span>
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-100 text-xs font-medium text-amber-600">Drivers <strong>{{ $empStats['driver'] }}</strong></span>
                     <button wire:click="openEmpModal()"
                         class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors ml-1">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
@@ -42,6 +45,15 @@
                     </button>
                 @endif
             </div>
+        </div>
+
+        {{-- Mobile / Tablet stats --}}
+        <div class="flex lg:hidden items-center gap-3 sm:gap-4 text-xs text-gray-500 mt-3 flex-wrap">
+            <span>Total: <strong class="text-gray-800">{{ $empStats['total'] }}</strong></span>
+            <span>Management: <strong class="text-purple-600">{{ $empStats['management'] }}</strong></span>
+            <span>Drivers: <strong class="text-amber-600">{{ $empStats['driver'] }}</strong></span>
+            <span>Employees: <strong class="text-emerald-600">{{ $empStats['employee'] }}</strong></span>
+            <span>Teachers: <strong class="text-blue-600">{{ $empStats['teacher'] }}</strong></span>
         </div>
     </div>
 
@@ -83,13 +95,13 @@
                     Sort:
                 </div>
                 <select wire:model.live="empSort" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <option value="type_order">Type (Mgmt → Driver → Employee → Teacher)</option>
                     <option value="name_asc">Name (A–Z)</option>
                     <option value="name_desc">Name (Z–A)</option>
                     <option value="salary_asc">Salary (Low–High)</option>
                     <option value="salary_desc">Salary (High–Low)</option>
-                    <option value="type">Type</option>
                 </select>
-                @if ($empSearch || $empTypeFilter || $empSort !== 'name_asc')
+                @if ($empSearch || $empTypeFilter || $empSort !== 'type_order')
                     <button wire:click="clearEmpFilters" class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         Clear
@@ -288,12 +300,44 @@
         {{-- ══════════ ATTENDANCE TAB ══════════ --}}
         @if ($activeTab === 'attendance')
 
-            @if ($attendanceMode === 'mark')
-                {{-- ─── MARK SCREEN ─── --}}
+            @if ($attendanceMode === 'pick_date')
+                {{-- ─── STEP 1: WHICH DAY ARE WE MARKING? ─── --}}
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm max-w-lg mx-auto">
+                    <div class="px-5 py-4 border-b border-gray-100">
+                        <h3 class="text-base font-semibold text-gray-900">Mark Attendance</h3>
+                        <p class="text-xs text-gray-500 mt-0.5">Step 1 of 2 — pick the date you are marking.</p>
+                    </div>
+                    <div class="px-5 py-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Date <span class="text-red-500">*</span></label>
+                        <input type="date" wire:model.defer="markDate" max="{{ now()->format('Y-m-d') }}"
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                        @error('markDate')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        <p class="text-xs text-gray-500 mt-3">
+                            Teachers are not marked here — their attendance comes from the Teacher Attendance module.
+                        </p>
+                    </div>
+                    <div class="px-5 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2">
+                        <button wire:click="cancelMarking" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                        <button wire:click="confirmMarkDate"
+                            class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-md inline-flex items-center gap-1.5">
+                            Continue
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+                        </button>
+                    </div>
+                </div>
+
+            @elseif ($attendanceMode === 'mark')
+                {{-- ─── STEP 2: MARK THE STAFF (no teachers) ─── --}}
                 <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                     <div class="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-teal-50 flex flex-wrap items-center justify-between gap-2">
-                        <h3 class="text-sm font-semibold text-gray-700">Mark Attendance — {{ \Carbon\Carbon::parse($attendanceDate)->format('d M Y') }}</h3>
-                        <span class="text-xs text-gray-400">Teachers are read-only (synced from Teacher Attendance)</span>
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-700">Mark Attendance — {{ \Carbon\Carbon::parse($attendanceDate)->format('d M Y') }}</h3>
+                            <p class="text-[11px] text-gray-500 mt-0.5">Step 2 of 2 — management, drivers and employees.</p>
+                        </div>
+                        <button wire:click="backToDatePick" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-md hover:bg-gray-50">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                            Change date
+                        </button>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full">
@@ -306,7 +350,7 @@
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100">
-                                @forelse ($attEmployees as $i => $emp)
+                                @forelse ($markEmployees as $i => $emp)
                                     @php $sel = $attendanceDraft[$emp->id] ?? $this->getAttendanceStatus($emp->id); @endphp
                                     <tr class="hover:bg-gray-50/50 transition-colors" wire:key="mark-{{ $emp->id }}">
                                         <td class="px-4 py-3 text-xs text-gray-400">{{ $i + 1 }}</td>
@@ -324,27 +368,16 @@
                                             <span class="text-xs px-2 py-0.5 rounded-full font-medium border capitalize {{ $typeChip[$emp->type] ?? 'bg-gray-50 text-gray-600 border-gray-200' }}">{{ $emp->type }}</span>
                                         </td>
                                         <td class="px-4 py-3">
-                                            @if ($emp->isTeacher())
-                                                <div class="flex items-center gap-2">
-                                                    @if ($sel)
-                                                        <span class="text-xs px-2 py-1 rounded-full font-medium capitalize {{ ['present' => 'bg-green-50 text-green-700 border border-green-100', 'absent' => 'bg-red-50 text-red-700 border border-red-100', 'half_day' => 'bg-amber-50 text-amber-700 border border-amber-100', 'leave' => 'bg-blue-50 text-blue-700 border border-blue-100'][$sel] ?? 'bg-gray-50 text-gray-600' }}">{{ str_replace('_', ' ', $sel) }}</span>
-                                                    @else
-                                                        <span class="text-xs text-gray-400">Not marked</span>
-                                                    @endif
-                                                    <span class="text-[10px] text-gray-400 italic">from Teacher Attendance</span>
-                                                </div>
-                                            @else
-                                                <div class="flex items-center gap-1">
-                                                    @foreach (['present' => 'P', 'absent' => 'A', 'half_day' => 'H', 'leave' => 'L'] as $st => $ltr)
-                                                        @php $active = ['present' => 'bg-green-500 text-white', 'absent' => 'bg-red-500 text-white', 'half_day' => 'bg-amber-500 text-white', 'leave' => 'bg-blue-500 text-white'][$st]; @endphp
-                                                        <button wire:click="setDraft({{ $emp->id }}, '{{ $st }}')"
-                                                            class="w-8 h-7 text-xs font-bold rounded-lg transition-colors {{ $sel === $st ? $active : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">{{ $ltr }}</button>
-                                                    @endforeach
-                                                    @isset($attendanceDraft[$emp->id])
-                                                        <span class="ml-1 text-[10px] text-amber-600 font-medium">unsaved</span>
-                                                    @endisset
-                                                </div>
-                                            @endif
+                                            <div class="flex items-center gap-1">
+                                                @foreach (['present' => 'P', 'absent' => 'A', 'half_day' => 'H', 'leave' => 'L'] as $st => $ltr)
+                                                    @php $active = ['present' => 'bg-green-500 text-white', 'absent' => 'bg-red-500 text-white', 'half_day' => 'bg-amber-500 text-white', 'leave' => 'bg-blue-500 text-white'][$st]; @endphp
+                                                    <button wire:click="setDraft({{ $emp->id }}, '{{ $st }}')"
+                                                        class="w-8 h-7 text-xs font-bold rounded-lg transition-colors {{ $sel === $st ? $active : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">{{ $ltr }}</button>
+                                                @endforeach
+                                                @isset($attendanceDraft[$emp->id])
+                                                    <span class="ml-1 text-[10px] text-amber-600 font-medium">unsaved</span>
+                                                @endisset
+                                            </div>
                                         </td>
                                     </tr>
                                 @empty
@@ -441,33 +474,72 @@
                             <div class="rounded-lg bg-gray-100 border border-gray-200 py-2"><p class="text-lg font-bold text-gray-800">{{ $cM }}</p><p class="text-[10px] text-gray-400 uppercase">Marked</p></div>
                         </div>
 
-                        {{-- Day-by-day, grouped by month --}}
-                        @forelse ($attByMonth as $ym => $days)
-                            <div class="mb-4">
-                                <p class="text-xs font-semibold text-gray-600 mb-1.5">{{ \Carbon\Carbon::parse($ym . '-01')->format('F Y') }}</p>
-                                <div class="grid grid-cols-7 sm:grid-cols-10 md:grid-cols-12 gap-1.5">
-                                    @foreach ($days as $d)
-                                        @php
-                                            $cell = ['present' => 'bg-emerald-100 text-emerald-700 border-emerald-200', 'absent' => 'bg-red-100 text-red-700 border-red-200', 'half_day' => 'bg-amber-100 text-amber-700 border-amber-200', 'leave' => 'bg-blue-100 text-blue-700 border-blue-200'][$d['status']] ?? 'bg-gray-50 text-gray-400 border-gray-200';
-                                            $mark = ['present' => 'P', 'absent' => 'A', 'half_day' => 'H', 'leave' => 'L'][$d['status']] ?? '·';
-                                        @endphp
-                                        <div class="rounded-md border {{ $cell }} p-1.5 text-center" title="{{ \Carbon\Carbon::parse($d['date'])->format('D, d M Y') }} · {{ ucfirst(str_replace('_', ' ', $d['status'])) }}">
-                                            <div class="text-[10px] opacity-70 leading-none">{{ $d['day'] }}</div>
-                                            <div class="text-xs font-bold leading-tight mt-0.5">{{ $mark }}</div>
-                                        </div>
-                                    @endforeach
+                        {{-- One real calendar per month, each with that month's own
+                             numbers: green present, red absent, yellow half day,
+                             white holiday. --}}
+                        @php
+                            $dayCell = [
+                                'present'  => 'bg-emerald-500 text-white border-emerald-500',
+                                'absent'   => 'bg-red-500 text-white border-red-500',
+                                'half_day' => 'bg-yellow-300 text-yellow-900 border-yellow-400',
+                                'leave'    => 'bg-blue-500 text-white border-blue-500',
+                                'holiday'  => 'bg-white text-gray-700 border-gray-200',
+                            ];
+                        @endphp
+
+                        @forelse ($attMonths as $ym => $m)
+                            @php $mc = $m['counts']; @endphp
+                            <div class="mb-5 rounded-xl border border-gray-200 overflow-hidden">
+                                {{-- Month head + that month's analytics --}}
+                                <div class="px-3.5 py-2.5 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2">
+                                    <p class="text-sm font-semibold text-gray-800">{{ $m['label'] }}</p>
+                                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+                                        <span class="text-emerald-700">Present <strong>{{ $mc['present'] }}</strong></span>
+                                        <span class="text-red-700">Absent <strong>{{ $mc['absent'] }}</strong></span>
+                                        <span class="text-yellow-700">Half <strong>{{ $mc['half_day'] }}</strong></span>
+                                        <span class="text-blue-700">Leave <strong>{{ $mc['leave'] }}</strong></span>
+                                        <span class="text-gray-600">Holiday <strong>{{ $mc['holiday'] }}</strong></span>
+                                        <span class="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 font-semibold">{{ $m['pct'] }}%</span>
+                                    </div>
+                                </div>
+
+                                <div class="p-3">
+                                    {{-- Sunday-first weekday header --}}
+                                    <div class="grid grid-cols-7 gap-1.5 mb-1.5">
+                                        @foreach (['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $dow)
+                                            <div class="text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{{ $dow }}</div>
+                                        @endforeach
+                                    </div>
+
+                                    <div class="grid grid-cols-7 gap-1.5">
+                                        {{-- Blanks before the 1st so the weekdays line up --}}
+                                        @for ($b = 0; $b < $m['lead']; $b++)
+                                            <div></div>
+                                        @endfor
+
+                                        @foreach ($m['cells'] as $d)
+                                            @if (!$d['in_period'])
+                                                <div class="rounded-lg border border-dashed border-gray-200 py-2 text-center text-xs text-gray-300">{{ $d['day'] }}</div>
+                                            @else
+                                                <div class="rounded-lg border py-2 text-center {{ $dayCell[$d['status']] ?? $dayCell['holiday'] }} {{ $d['dim'] ? 'opacity-30' : '' }}"
+                                                    title="{{ \Carbon\Carbon::parse($d['date'])->format('D, d M Y') }} · {{ ucfirst(str_replace('_', ' ', $d['status'])) }}">
+                                                    <div class="text-sm font-semibold leading-none">{{ $d['day'] }}</div>
+                                                </div>
+                                            @endif
+                                        @endforeach
+                                    </div>
                                 </div>
                             </div>
                         @empty
-                            <p class="text-sm text-gray-400 text-center py-6">No days match this filter.</p>
+                            <p class="text-sm text-gray-400 text-center py-6">Nothing to show for this period.</p>
                         @endforelse
 
-                        <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-400 mt-1">
-                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-200 border border-emerald-300 align-middle"></span> Present</span>
-                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-red-200 border border-red-300 align-middle"></span> Absent</span>
-                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-amber-200 border border-amber-300 align-middle"></span> Half</span>
-                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-blue-200 border border-blue-300 align-middle"></span> Leave</span>
-                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-gray-100 border border-gray-300 align-middle"></span> Holiday / not marked</span>
+                        <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500 mt-1">
+                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-500 align-middle"></span> Present</span>
+                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-red-500 align-middle"></span> Absent</span>
+                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-yellow-300 border border-yellow-400 align-middle"></span> Half day</span>
+                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-blue-500 align-middle"></span> Leave</span>
+                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-white border border-gray-300 align-middle"></span> Holiday / not marked</span>
                         </div>
                     </div>
                 </div>
