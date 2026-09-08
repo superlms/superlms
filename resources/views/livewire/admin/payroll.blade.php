@@ -558,6 +558,7 @@
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Base</th>
                                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500">P / A / H</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Payable</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Marked</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Status</th>
                                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500">Action</th>
                             </tr>
@@ -589,6 +590,20 @@
                                         <span class="text-amber-500 font-semibold">{{ $b['halfDay'] }}</span>
                                     </td>
                                     <td class="px-4 py-3 text-sm font-bold text-gray-900">₹{{ number_format($b['payable'], 0) }}</td>
+                                    {{-- What was actually marked against this month,
+                                         which can differ from the calculated payable. --}}
+                                    <td class="px-4 py-3">
+                                        @if ($payment)
+                                            <span class="text-sm font-semibold {{ $isPaid ? 'text-emerald-700' : 'text-gray-700' }}">₹{{ number_format($payment->amount, 0) }}</span>
+                                            @if ($isPaid && (float) $payment->amount !== (float) $b['payable'])
+                                                <span class="block text-[10px] text-amber-600">
+                                                    {{ (float) $payment->amount > (float) $b['payable'] ? '+' : '−' }}₹{{ number_format(abs((float) $payment->amount - (float) $b['payable']), 0) }} vs payable
+                                                </span>
+                                            @endif
+                                        @else
+                                            <span class="text-xs text-gray-400">—</span>
+                                        @endif
+                                    </td>
                                     <td class="px-4 py-3">
                                         @if ($isPaid)
                                             <span class="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium bg-green-50 text-green-700 border border-green-100"><span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Paid</span>
@@ -612,7 +627,7 @@
                                     </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="8" class="px-4 py-8 text-center text-sm text-gray-400">No employees found</td></tr>
+                                <tr><td colspan="9" class="px-4 py-8 text-center text-sm text-gray-400">No employees found</td></tr>
                             @endforelse
                         </tbody>
                         @if ($salaryEmployees->count())
@@ -620,7 +635,8 @@
                                 <tr>
                                     <td colspan="5" class="px-4 py-2.5 text-xs font-semibold text-gray-600">Total ({{ $salaryEmployees->count() }} employees)</td>
                                     <td class="px-4 py-2.5 text-sm font-bold text-gray-800">₹{{ number_format($totalPayable, 0) }}</td>
-                                    <td colspan="2" class="px-4 py-2.5 text-xs text-gray-500">Paid: <strong class="text-emerald-700">₹{{ number_format($totalPaidAmount, 0) }}</strong></td>
+                                    <td class="px-4 py-2.5 text-sm font-bold text-emerald-700">₹{{ number_format($totalPaidAmount, 0) }}</td>
+                                    <td colspan="2" class="px-4 py-2.5 text-xs text-gray-500">Paid this month</td>
                                 </tr>
                             </tfoot>
                         @endif
