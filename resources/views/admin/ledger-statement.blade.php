@@ -71,16 +71,16 @@
         table.stmt tbody td { padding: 8px; border-bottom: 1px solid #dcdcdc; font-size: 10.5px; vertical-align: top; }
         table.stmt tbody tr:nth-child(even) td { background: #f4f4f4; }
         .num { text-align: right; white-space: nowrap; }
-        /* Deposit / withdrawal figures: solid colour, semibold, and a couple of
-           points larger than the rest of the row so the money reads first. */
-        .dep { color: #0a8a4a; font-family: 'Poppins SemiBold', 'Poppins', sans-serif; font-size: 12.5px; }
-        .wdr { color: #d01414; font-family: 'Poppins SemiBold', 'Poppins', sans-serif; font-size: 12.5px; }
-        .date-cell { white-space: nowrap; color: #111; }
-        .date-cell .time { display: block; font-size: 9px; color: #111; margin-top: 1px; }
-        .desc .title { color: #111; font-family: 'Poppins SemiBold', 'Poppins', sans-serif; }
-        .desc .meta { color: #111; font-size: 9.5px; margin-top: 2px; }
-        .desc .tag { color: #111; text-transform: uppercase; letter-spacing: 0.3px; font-size: 9px; }
-        .bal { font-family: 'Poppins SemiBold', 'Poppins', sans-serif; color: #111; }
+        /* Deposit / withdrawal figures: solid colour, semibold, and the largest
+           type in the row so the money reads first. */
+        .dep { color: #0a8a4a; font-family: 'Poppins SemiBold', 'Poppins', sans-serif; font-size: 14.5px; }
+        .wdr { color: #d01414; font-family: 'Poppins SemiBold', 'Poppins', sans-serif; font-size: 14.5px; }
+        .date-cell { white-space: nowrap; color: #111; font-size: 12px; }
+        .date-cell .time { display: block; font-size: 10.5px; color: #111; margin-top: 1px; }
+        .desc .title { color: #111; font-family: 'Poppins SemiBold', 'Poppins', sans-serif; font-size: 12.5px; }
+        .desc .meta { color: #111; font-size: 11.5px; margin-top: 2px; }
+        .desc .tag { color: #111; text-transform: uppercase; letter-spacing: 0.3px; font-size: 11px; }
+        .bal { font-family: 'Poppins SemiBold', 'Poppins', sans-serif; color: #111; font-size: 12.5px; }
 
         .row-open td, .row-close td, .row-total td { font-family: 'Poppins SemiBold', 'Poppins', sans-serif; }
         .row-open td { border-bottom: 1px solid #111; color: #111; }
@@ -179,13 +179,13 @@
     <table class="stmt">
         <thead>
             <tr>
-                <th style="width: 58px;">Date</th>
+                {{-- Widths follow the larger cell type: the date and the three
+                     money columns must never wrap. --}}
+                <th style="width: 74px;">Date</th>
                 <th>Description</th>
-                {{-- Wider than the type needs: the amounts print two points
-                     larger and must not wrap. --}}
-                <th class="num" style="width: 94px;">Deposit</th>
-                <th class="num" style="width: 94px;">Withdrawal</th>
-                <th class="num" style="width: 88px;">Balance</th>
+                <th class="num" style="width: 112px;">Deposit</th>
+                <th class="num" style="width: 112px;">Withdrawal</th>
+                <th class="num" style="width: 100px;">Balance</th>
             </tr>
         </thead>
         <tbody>
