@@ -22,7 +22,7 @@
                     <img src="{{ $aboutApp?->logo ?: asset('website-image/Group 11525.png') }}" alt="Platform Logo"
                         class="w-9 h-9 rounded-lg object-contain border border-gray-200 shadow-sm bg-white p-1 flex-shrink-0">
                     <div class="min-w-0">
-                        <h1 class="text-base sm:text-lg font-bold text-gray-900 truncate">{{ $aboutApp->heading ?? 'About App' }}</h1>
+                        <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">{{ $aboutApp->heading ?? 'About App' }}</h1>
                         <p class="text-xs text-gray-500 truncate">{{ $aboutApp->sub_heading ?? 'Platform application details' }}</p>
                     </div>
                 </div>

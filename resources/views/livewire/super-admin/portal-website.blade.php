@@ -3,7 +3,7 @@
     <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-                <h1 class="text-xl font-bold text-gray-900">School Websites</h1>
+                <h1 class="text-lg sm:text-xl font-bold text-gray-900">School Websites</h1>
             </div>
             <div class="relative">
                 <input type="text" wire:model.live.debounce.300ms="search" placeholder="Search schools..."

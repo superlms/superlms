@@ -25,6 +25,22 @@ class LedgerTransaction extends Model
         'txn_date' => 'date',
     ];
 
+    /** A manual entry stays editable for this many days after it was added. */
+    public const EDIT_WINDOW_DAYS = 7;
+
+    /**
+     * Manual entries can be corrected for a week after they were recorded;
+     * after that the ledger is closed and the row is read-only.
+     */
+    public function isEditable(): bool
+    {
+        if (!$this->created_at) {
+            return true;
+        }
+
+        return $this->created_at->copy()->addDays(self::EDIT_WINDOW_DAYS)->isFuture();
+    }
+
     public function organization()
     {
         return $this->belongsTo(Organization::class);

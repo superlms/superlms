@@ -5,7 +5,7 @@
         <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
 
             {{-- Page heading (first item in the filter row). --}}
-            <h1 class="text-base sm:text-lg font-semibold text-gray-900 mr-1">Quick Links</h1>
+            <h1 class="text-lg sm:text-xl font-bold text-gray-900 mr-1">Quick Links</h1>
 
             {{-- Divider --}}
             <span class="hidden sm:block h-5 w-px bg-gray-200"></span>

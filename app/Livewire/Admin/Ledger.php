@@ -35,10 +35,6 @@ class Ledger extends Component
     /** Selectable payment modes for manual entries. */
     public array $modes = ['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Card', 'Other'];
 
-    // ─── Delete confirm overlay ──────────────────────────────────────────────
-    public bool $showDeleteConfirm = false;
-    public $deleteId = null;
-
     protected $queryString = [
         'startDate' => ['except' => ''],
         'endDate'   => ['except' => ''],
@@ -114,11 +110,21 @@ class Ledger extends Component
         $this->showModal    = true;
     }
 
-    /** Load an existing manual entry into the same slide-in for editing. */
+    /**
+     * Load an existing manual entry into the same slide-in for editing.
+     * Past the 7-day correction window the entry is closed for good, so the
+     * button is gone and this refuses to open it anyway.
+     */
     public function openEdit(int $id): void
     {
         $txn = LedgerTransaction::where('organization_id', Auth::user()->organization_id)->find($id);
         if (!$txn) return;
+
+        if (!$txn->isEditable()) {
+            session()->flash('ledger_msg', 'This entry is older than '
+                . LedgerTransaction::EDIT_WINDOW_DAYS . ' days and can no longer be edited.');
+            return;
+        }
 
         $this->resetValidation();
         $this->editingId    = $txn->id;
@@ -191,9 +197,19 @@ class Ledger extends Component
         ];
 
         if ($this->editingId) {
-            LedgerTransaction::where('organization_id', Auth::user()->organization_id)
-                ->where('id', $this->editingId)
-                ->update($payload);
+            $txn = LedgerTransaction::where('organization_id', Auth::user()->organization_id)
+                ->find($this->editingId);
+
+            // The window can close between opening the panel and saving.
+            if (!$txn || !$txn->isEditable()) {
+                $this->showModal = false;
+                $this->editingId = null;
+                session()->flash('ledger_msg', 'This entry is older than '
+                    . LedgerTransaction::EDIT_WINDOW_DAYS . ' days and can no longer be edited.');
+                return;
+            }
+
+            $txn->update($payload);
             $msg = ($isExpense ? 'Expense' : 'Credit') . ' updated successfully.';
         } else {
             LedgerTransaction::create($payload + [
@@ -206,32 +222,6 @@ class Ledger extends Component
         $this->showModal = false;
         $this->editingId = null;
         session()->flash('ledger_msg', $msg);
-    }
-
-    // ─── Delete (manual entries only) ────────────────────────────────────────
-
-    public function confirmDelete($id): void
-    {
-        $this->deleteId = $id;
-        $this->showDeleteConfirm = true;
-    }
-
-    public function cancelDelete(): void
-    {
-        $this->showDeleteConfirm = false;
-        $this->deleteId = null;
-    }
-
-    public function deleteManual(): void
-    {
-        if ($this->deleteId) {
-            LedgerTransaction::where('organization_id', Auth::user()->organization_id)
-                ->where('id', $this->deleteId)
-                ->delete();
-            session()->flash('ledger_msg', 'Manual entry deleted.');
-        }
-        $this->showDeleteConfirm = false;
-        $this->deleteId = null;
     }
 
     // ─── Render ───────────────────────────────────────────────────────────────

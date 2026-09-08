@@ -35,39 +35,22 @@
          HEADER (full-width, sticky, analytics + actions)
     ══════════════════════════════════════════════════ --}}
     <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
+        {{-- Title row: same shape and height as the Transportation header —
+             title on the left, divided analytics then the buttons on the right. --}}
         <div class="px-4 sm:px-6 py-3">
-            {{-- Title row: the four analytics sit inline between the title and the
-                 buttons, rounded to whole rupees so they stay short enough to fit.
-                 The exact paise are in each chip's tooltip. --}}
-            <div class="flex items-center justify-between gap-3">
-                <div class="min-w-0">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
                     <h1 class="text-lg sm:text-xl font-bold text-gray-900">Ledger</h1>
                 </div>
 
-                <div class="hidden xl:flex items-center gap-2 ml-auto mr-1 flex-shrink-0">
-                    <span title="₹{{ number_format($netBalance, 2) }}"
-                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-50 border border-gray-200 whitespace-nowrap">
-                        <span class="text-[10px] uppercase tracking-wider text-gray-400">Net</span>
-                        <strong class="text-xs {{ $netBalance >= 0 ? 'text-emerald-600' : 'text-red-600' }}">₹{{ number_format($netBalance) }}</strong>
-                    </span>
-                    <span title="₹{{ number_format($periodCredit, 2) }}"
-                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-50 border border-gray-200 whitespace-nowrap">
-                        <span class="text-[10px] uppercase tracking-wider text-gray-400">Credit</span>
-                        <strong class="text-xs text-emerald-600">₹{{ number_format($periodCredit) }}</strong>
-                    </span>
-                    <span title="₹{{ number_format($periodExpense, 2) }}"
-                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-50 border border-gray-200 whitespace-nowrap">
-                        <span class="text-[10px] uppercase tracking-wider text-gray-400">Expense</span>
-                        <strong class="text-xs text-red-600">₹{{ number_format($periodExpense) }}</strong>
-                    </span>
-                    <span title="₹{{ number_format($closingBalance, 2) }}"
-                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-50 border border-gray-200 whitespace-nowrap">
-                        <span class="text-[10px] uppercase tracking-wider text-gray-400">Closing</span>
-                        <strong class="text-xs text-blue-600">₹{{ number_format($closingBalance) }}</strong>
-                    </span>
-                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200 mr-1">
+                        <span class="pr-4">Net: <strong class="{{ $netBalance >= 0 ? 'text-emerald-600' : 'text-red-600' }}">₹{{ number_format($netBalance, 2) }}</strong></span>
+                        <span class="px-4">Credit: <strong class="text-emerald-600">₹{{ number_format($periodCredit, 2) }}</strong></span>
+                        <span class="px-4">Expense: <strong class="text-red-600">₹{{ number_format($periodExpense, 2) }}</strong></span>
+                        <span class="pl-4">Closing: <strong class="text-blue-600">₹{{ number_format($closingBalance, 2) }}</strong></span>
+                    </div>
 
-                <div class="flex items-center gap-2 flex-shrink-0">
                     <button wire:click="openCredit"
                         class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -84,12 +67,10 @@
                     </button>
                 </div>
             </div>
-        </div>
 
-        {{-- Narrow screens can't fit the chips beside the buttons, so they fall
-             back to their own strip there. --}}
-        <div class="xl:hidden border-t border-gray-200 px-4 sm:px-6 py-2.5">
-            <div class="flex items-center gap-x-4 gap-y-1 text-xs text-gray-500 flex-wrap">
+            {{-- Mobile/Tablet stats — inside the same block, so the desktop
+                 header stays exactly as tall as Transportation's. --}}
+            <div class="flex lg:hidden items-center gap-3 sm:gap-4 text-xs text-gray-500 mt-3 flex-wrap">
                 <span>Net: <strong class="{{ $netBalance >= 0 ? 'text-emerald-600' : 'text-red-600' }}">₹{{ number_format($netBalance, 2) }}</strong></span>
                 <span>Credit: <strong class="text-emerald-600">₹{{ number_format($periodCredit, 2) }}</strong></span>
                 <span>Expense: <strong class="text-red-600">₹{{ number_format($periodExpense, 2) }}</strong></span>
@@ -197,30 +178,43 @@
                                 </td>
                                 <td class="px-4 py-3">
                                     @php
-                                        // Every source gets its own colour so the automatic credits
-                                        // (academic / transport / admission fee) and the automatic
-                                        // expense (salary) are told apart at a glance.
+                                        // Every automatic source gets its own colour so the credits
+                                        // (academic / transport / admission fee) and the expense
+                                        // (salary) are told apart at a glance. Manual rows carry no
+                                        // badge here — they are tagged in the Mode column instead.
                                         $srcClass = match ($row['source']) {
                                             'Salary'        => 'bg-orange-50 text-orange-600',
-                                            'Manual'        => 'bg-purple-50 text-purple-600',
                                             'Transport Fee' => 'bg-cyan-50 text-cyan-700',
                                             'Admission Fee' => 'bg-teal-50 text-teal-700',
                                             default         => 'bg-blue-50 text-blue-600',
                                         };
                                     @endphp
-                                    <div class="flex items-center gap-2">
-                                        <p class="text-sm font-medium text-gray-900">{{ $row['reason'] }}</p>
-                                        <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded {{ $srcClass }}">
-                                            {{ $row['source'] }}
-                                        </span>
-                                        @if (empty($row['manual_id']))
-                                            <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-500" title="Recorded automatically — view only">Auto</span>
+                                    {{-- Long text is cut with an ellipsis; the full
+                                         value stays available on hover. --}}
+                                    <div class="flex items-center gap-2 max-w-[320px]">
+                                        <p class="text-sm font-medium text-gray-900 truncate" title="{{ $row['reason'] }}">{{ $row['reason'] }}</p>
+                                        @if ($row['source'] !== 'Manual')
+                                            <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0 {{ $srcClass }}">
+                                                {{ $row['source'] }}
+                                            </span>
                                         @endif
                                     </div>
                                 </td>
-                                <td class="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{{ $row['from'] ?? '—' }}</td>
-                                <td class="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{{ $row['to'] ?? '—' }}</td>
-                                <td class="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{{ $row['mode'] ?: '—' }}</td>
+                                <td class="px-4 py-3 text-sm text-gray-600">
+                                    <div class="max-w-[160px] truncate" title="{{ $row['from'] ?? '—' }}">{{ $row['from'] ?? '—' }}</div>
+                                </td>
+                                <td class="px-4 py-3 text-sm text-gray-600">
+                                    <div class="max-w-[160px] truncate" title="{{ $row['to'] ?? '—' }}">{{ $row['to'] ?? '—' }}</div>
+                                </td>
+                                <td class="px-4 py-3 text-sm text-gray-500">
+                                    {{-- Payment mode, with how the row got here underneath it. --}}
+                                    <div class="max-w-[130px] truncate" title="{{ $row['mode'] ?: '—' }}">{{ $row['mode'] ?: '—' }}</div>
+                                    @if (empty($row['manual_id']))
+                                        <span class="mt-1 inline-block text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-500" title="Recorded automatically — view only">Auto</span>
+                                    @else
+                                        <span class="mt-1 inline-block text-[10px] font-medium px-1.5 py-0.5 rounded bg-purple-50 text-purple-600" title="Added by hand in the ledger">Manual</span>
+                                    @endif
+                                </td>
                                 <td class="px-4 py-3 text-right text-sm font-semibold text-emerald-600">
                                     {{ $row['type'] === 'credit' ? '₹' . number_format($row['amount'], 2) : '—' }}
                                 </td>
@@ -247,6 +241,7 @@
                                                 amount: @js(number_format($row['amount'], 2)),
                                                 balance: @js(number_format($row['balance'], 2)),
                                                 manual: @js(!empty($row['manual_id'])),
+                                                editable: @js(!empty($row['editable'])),
                                             }; showView = true"
                                             class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -255,18 +250,14 @@
                                             </svg>
                                         </button>
 
-                                        {{-- Edit & Delete only for manually-added entries --}}
-                                        @if (!empty($row['manual_id']))
+                                        {{-- Edit only for manual entries, and only for a
+                                             week after they were added. Nothing is ever
+                                             deleted from the ledger. --}}
+                                        @if (!empty($row['manual_id']) && ($row['editable'] ?? false))
                                             <button wire:click="openEdit({{ $row['manual_id'] }})" title="Edit entry"
                                                 class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                </svg>
-                                            </button>
-                                            <button wire:click="confirmDelete({{ $row['manual_id'] }})" title="Delete entry"
-                                                class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                 </svg>
                                             </button>
                                         @endif
@@ -385,36 +376,6 @@
                         class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
                         <span wire:loading.remove wire:target="saveManual">{{ $editingId ? 'Update' : 'Save' }} {{ $modalType === 'expense' ? 'Expense' : 'Credit' }}</span>
                         <span wire:loading wire:target="saveManual">Saving...</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-    @endif
-
-    {{-- DELETE CONFIRM OVERLAY --}}
-    @if ($showDeleteConfirm)
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="cancelDelete"></div>
-            <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
-                <div class="flex items-start gap-4">
-                    <div class="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center flex-shrink-0">
-                        <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                    </div>
-                    <div class="flex-1">
-                        <h3 class="text-base font-semibold text-gray-900 mb-1">Delete this entry?</h3>
-                        <p class="text-sm text-gray-500">
-                            This removes the manual ledger entry. Automatic fee &amp; salary rows can't be deleted here.
-                        </p>
-                    </div>
-                </div>
-                <div class="flex items-center justify-end gap-2 mt-5">
-                    <button wire:click="cancelDelete" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                    <button wire:click="deleteManual" wire:loading.attr="disabled"
-                        class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:opacity-60 flex items-center gap-1.5">
-                        <span wire:loading.remove wire:target="deleteManual">Delete</span>
-                        <span wire:loading wire:target="deleteManual">Deleting...</span>
                     </button>
                 </div>
             </div>
@@ -555,9 +516,12 @@
                 <div class="grid grid-cols-3 gap-3 text-sm">
                     <span class="text-xs text-gray-400 uppercase tracking-wider">Entry</span>
                     {{-- Fee collections and salary payouts land here on their own;
-                         they can only be corrected in the module they came from. --}}
+                         they can only be corrected in the module they came from.
+                         A manual entry is editable for a week, then it closes. --}}
                     <span class="col-span-2 text-gray-800 font-medium"
-                        x-text="viewRow.manual ? 'Manual — editable here' : 'Automatic — view only'"></span>
+                        x-text="viewRow.manual
+                            ? (viewRow.editable ? 'Manual — editable for 7 days from entry' : 'Manual — edit window closed')
+                            : 'Automatic — view only'"></span>
                 </div>
             </div>
 

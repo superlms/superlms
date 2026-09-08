@@ -6,7 +6,7 @@
     <div class="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div class="px-3 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div class="min-w-0">
-                <h1 class="text-lg sm:text-2xl font-bold text-gray-900 truncate">Super Admin Dashboard</h1>
+                <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">Super Admin Dashboard</h1>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
                 <a href="{{ route('super-admin.schools') }}"
