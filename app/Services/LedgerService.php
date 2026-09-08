@@ -106,7 +106,8 @@ class LedgerService
             ->get()
             ->each(function ($p) use ($rows, $school) {
                 $penalty = (float) ($p->penalty_amount ?? 0);
-                $label   = ucfirst((string) $p->fee_type) . ' Fee';
+                // fee_type is academic|transport; an older blank row reads as academic.
+                $label   = ucfirst((string) ($p->fee_type ?: 'academic')) . ' Fee';
                 $student = $p->studentDetail->full_name ?? ($p->submitted_by ?: 'Student');
                 $rows->push([
                     'date'    => Carbon::parse($p->payment_date),

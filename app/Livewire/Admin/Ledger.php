@@ -124,7 +124,8 @@ class Ledger extends Component
         $this->editingId    = $txn->id;
         $this->modalType    = $txn->type === 'expense' ? 'expense' : 'credit';
         $this->mDate        = Carbon::parse($txn->txn_date)->toDateString();
-        $this->mAmount      = $txn->amount;
+        // A saved amount of 0 must come back as "0", not an empty box.
+        $this->mAmount      = self::amountForInput($txn->amount);
         $this->mParty       = $txn->party ?? '';
         // party_to doubles as "To" (expense) or "Collected by" (credit).
         $this->mPartyTo     = $this->modalType === 'expense' ? ($txn->party_to ?? '') : '';
@@ -140,11 +141,27 @@ class Ledger extends Component
         $this->editingId = null;
     }
 
+    /**
+     * Amount as the number input wants it: a real "0" for a zero entry (never an
+     * empty field), and no trailing ".00" noise on whole rupees.
+     */
+    protected static function amountForInput($amount): string
+    {
+        if ($amount === null || $amount === '') {
+            return '';
+        }
+
+        $fixed = number_format((float) $amount, 2, '.', '');
+
+        return rtrim(rtrim($fixed, '0'), '.') ?: '0';
+    }
+
     public function saveManual(): void
     {
         $this->validate([
             'mDate'        => 'required|date',
-            'mAmount'      => 'required|numeric|min:0.01',
+            // 0 is a legitimate entry (a waived / nil line), so it must save as 0.
+            'mAmount'      => 'required|numeric|min:0',
             'mParty'       => 'nullable|string|max:255',
             'mPartyTo'     => 'nullable|string|max:255',
             'mCollectedBy' => 'nullable|string|max:255',
@@ -165,7 +182,7 @@ class Ledger extends Component
         // party_to stores the payee "To" for expenses, or "Collected by" for credits.
         $payload = [
             'type'     => $isExpense ? 'expense' : 'credit',
-            'amount'   => $this->mAmount,
+            'amount'   => (float) $this->mAmount,
             'txn_date' => $this->mDate,
             'party'    => $this->mParty ?: null,
             'party_to' => $isExpense ? ($this->mPartyTo ?: null) : ($this->mCollectedBy ?: null),

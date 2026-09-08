@@ -6,39 +6,64 @@
     ══════════════════════════════════════════════════ --}}
     <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
         <div class="px-4 sm:px-6 py-3">
-            {{-- Title row: buttons stay pinned to the right and never wrap below --}}
+            {{-- Title row: the four analytics sit inline between the title and the
+                 buttons, rounded to whole rupees so they stay short enough to fit.
+                 The exact paise are in each chip's tooltip. --}}
             <div class="flex items-center justify-between gap-3">
                 <div class="min-w-0">
                     <h1 class="text-lg sm:text-xl font-bold text-gray-900">Ledger</h1>
                 </div>
+
+                <div class="hidden xl:flex items-center gap-2 ml-auto mr-1 flex-shrink-0">
+                    <span title="₹{{ number_format($netBalance, 2) }}"
+                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-50 border border-gray-200 whitespace-nowrap">
+                        <span class="text-[10px] uppercase tracking-wider text-gray-400">Net</span>
+                        <strong class="text-xs {{ $netBalance >= 0 ? 'text-emerald-600' : 'text-red-600' }}">₹{{ number_format($netBalance) }}</strong>
+                    </span>
+                    <span title="₹{{ number_format($periodCredit, 2) }}"
+                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-50 border border-gray-200 whitespace-nowrap">
+                        <span class="text-[10px] uppercase tracking-wider text-gray-400">Credit</span>
+                        <strong class="text-xs text-emerald-600">₹{{ number_format($periodCredit) }}</strong>
+                    </span>
+                    <span title="₹{{ number_format($periodExpense, 2) }}"
+                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-50 border border-gray-200 whitespace-nowrap">
+                        <span class="text-[10px] uppercase tracking-wider text-gray-400">Expense</span>
+                        <strong class="text-xs text-red-600">₹{{ number_format($periodExpense) }}</strong>
+                    </span>
+                    <span title="₹{{ number_format($closingBalance, 2) }}"
+                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-50 border border-gray-200 whitespace-nowrap">
+                        <span class="text-[10px] uppercase tracking-wider text-gray-400">Closing</span>
+                        <strong class="text-xs text-blue-600">₹{{ number_format($closingBalance) }}</strong>
+                    </span>
+                </div>
+
                 <div class="flex items-center gap-2 flex-shrink-0">
                     <button wire:click="openCredit"
                         class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                         </svg>
-                        <span class="hidden sm:inline">Add Credit</span>
-                        <span class="sm:hidden">Credit</span>
+                        Credit
                     </button>
                     <button wire:click="openExpense"
                         class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
                         </svg>
-                        <span class="hidden sm:inline">Add Expense</span>
-                        <span class="sm:hidden">Expense</span>
+                        Expense
                     </button>
                 </div>
             </div>
         </div>
 
-        {{-- Analytics strip — divided from the header, sits above the filters --}}
-        <div class="border-t border-gray-200 px-4 sm:px-6 py-3">
-            <div class="flex items-center gap-x-4 gap-y-1 text-xs sm:text-sm text-gray-500 flex-wrap sm:divide-x sm:divide-gray-200">
-                <span class="sm:pr-4">Net: <strong class="{{ $netBalance >= 0 ? 'text-emerald-600' : 'text-red-600' }}">₹{{ number_format($netBalance, 2) }}</strong></span>
-                <span class="sm:px-4">Credit: <strong class="text-emerald-600">₹{{ number_format($periodCredit, 2) }}</strong></span>
-                <span class="sm:px-4">Expense: <strong class="text-red-600">₹{{ number_format($periodExpense, 2) }}</strong></span>
-                <span class="sm:pl-4">Closing: <strong class="text-blue-600">₹{{ number_format($closingBalance, 2) }}</strong></span>
+        {{-- Narrow screens can't fit the chips beside the buttons, so they fall
+             back to their own strip there. --}}
+        <div class="xl:hidden border-t border-gray-200 px-4 sm:px-6 py-2.5">
+            <div class="flex items-center gap-x-4 gap-y-1 text-xs text-gray-500 flex-wrap">
+                <span>Net: <strong class="{{ $netBalance >= 0 ? 'text-emerald-600' : 'text-red-600' }}">₹{{ number_format($netBalance, 2) }}</strong></span>
+                <span>Credit: <strong class="text-emerald-600">₹{{ number_format($periodCredit, 2) }}</strong></span>
+                <span>Expense: <strong class="text-red-600">₹{{ number_format($periodExpense, 2) }}</strong></span>
+                <span>Closing: <strong class="text-blue-600">₹{{ number_format($closingBalance, 2) }}</strong></span>
             </div>
         </div>
 
@@ -142,12 +167,26 @@
                                     @endif
                                 </td>
                                 <td class="px-4 py-3">
+                                    @php
+                                        // Every source gets its own colour so the automatic credits
+                                        // (academic / transport / admission fee) and the automatic
+                                        // expense (salary) are told apart at a glance.
+                                        $srcClass = match ($row['source']) {
+                                            'Salary'        => 'bg-orange-50 text-orange-600',
+                                            'Manual'        => 'bg-purple-50 text-purple-600',
+                                            'Transport Fee' => 'bg-cyan-50 text-cyan-700',
+                                            'Admission Fee' => 'bg-teal-50 text-teal-700',
+                                            default         => 'bg-blue-50 text-blue-600',
+                                        };
+                                    @endphp
                                     <div class="flex items-center gap-2">
                                         <p class="text-sm font-medium text-gray-900">{{ $row['reason'] }}</p>
-                                        <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded
-                                            {{ $row['source'] === 'Salary' ? 'bg-orange-50 text-orange-600' : ($row['source'] === 'Manual' ? 'bg-purple-50 text-purple-600' : 'bg-blue-50 text-blue-600') }}">
+                                        <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded {{ $srcClass }}">
                                             {{ $row['source'] }}
                                         </span>
+                                        @if (empty($row['manual_id']))
+                                            <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-500" title="Recorded automatically — view only">Auto</span>
+                                        @endif
                                     </div>
                                 </td>
                                 <td class="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{{ $row['from'] ?? '—' }}</td>
@@ -178,6 +217,7 @@
                                                 type: @js($row['type']),
                                                 amount: @js(number_format($row['amount'], 2)),
                                                 balance: @js(number_format($row['balance'], 2)),
+                                                manual: @js(!empty($row['manual_id'])),
                                             }; showView = true"
                                             class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -427,6 +467,14 @@
                     <p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Running balance</p>
                     <p class="text-sm font-semibold text-blue-600">₹<span x-text="viewRow.balance"></span></p>
                 </div>
+
+                {{-- Fee collections and salary payouts land here on their own; they
+                     are read-only and can only be corrected in their own module. --}}
+                <p x-show="!viewRow.manual" class="text-xs text-gray-500 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5">
+                    Recorded automatically from
+                    <strong class="text-gray-700" x-text="viewRow.source"></strong>.
+                    This entry is view only — edit it in the module it came from.
+                </p>
             </div>
 
             <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
