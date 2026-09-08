@@ -19,6 +19,21 @@ class ExamCopy extends Model
         'breakup' => 'array',
     ];
 
+    /**
+     * The grade as the CURRENT scale reads it (config/grading.php), worked out
+     * from the stored percentage rather than the `grade` column — so records
+     * saved under an older scale still display today's letters.
+     */
+    public function getGradeLetterAttribute(): string
+    {
+        if ($this->is_absent) {
+            return 'AB';
+        }
+
+        return app(\App\Services\GradingService::class)
+            ->gradeLetter((float) $this->percentage) ?? ($this->grade ?: 'F');
+    }
+
     public function organization()
     {
         return $this->belongsTo(Organization::class);

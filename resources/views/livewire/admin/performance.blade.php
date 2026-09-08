@@ -1,23 +1,31 @@
 <div class="min-h-screen bg-gray-50">
 
 @php
+    {{-- Grades come from config/grading.php: O > 90, A+ 81–90, A 71–80,
+         B 61–70, C 51–60, D 41–50, P 35–40, F below 35. --}}
     $gradeBadge = function ($grade) {
         return match (true) {
-            in_array($grade, ['A+', 'A']) => 'bg-green-100 text-green-700',
-            in_array($grade, ['B+', 'B']) => 'bg-blue-100 text-blue-700',
-            in_array($grade, ['C+', 'C']) => 'bg-yellow-100 text-yellow-700',
-            $grade === 'D'                => 'bg-orange-100 text-orange-700',
-            default                       => 'bg-red-100 text-red-700',
+            $grade === 'O'  => 'bg-emerald-100 text-emerald-700',
+            $grade === 'A+' => 'bg-green-100 text-green-700',
+            $grade === 'A'  => 'bg-green-100 text-green-700',
+            $grade === 'B'  => 'bg-blue-100 text-blue-700',
+            $grade === 'C'  => 'bg-yellow-100 text-yellow-700',
+            $grade === 'D'  => 'bg-orange-100 text-orange-700',
+            $grade === 'P'  => 'bg-gray-100 text-gray-600',
+            default         => 'bg-red-100 text-red-700',
         };
     };
+    {{-- Grade from the live percentage, so records saved under an older scale
+         still read in today's letters. --}}
+    $gradeOf = fn ($pct) => app(\App\Services\GradingService::class)->gradeLetter((float) $pct) ?? 'F';
     $perfRemark = function ($pct) {
-        if ($pct >= 90) return ['label' => 'Outstanding', 'cls' => 'bg-emerald-100 text-emerald-700'];
-        if ($pct >= 80) return ['label' => 'Excellent',   'cls' => 'bg-green-100 text-green-700'];
-        if ($pct >= 70) return ['label' => 'Very Good',   'cls' => 'bg-blue-100 text-blue-700'];
-        if ($pct >= 60) return ['label' => 'Good',        'cls' => 'bg-indigo-100 text-indigo-700'];
-        if ($pct >= 50) return ['label' => 'Average',     'cls' => 'bg-yellow-100 text-yellow-700'];
-        if ($pct >= 40) return ['label' => 'Below Avg',   'cls' => 'bg-orange-100 text-orange-700'];
-        if ($pct >= 33) return ['label' => 'Pass',        'cls' => 'bg-gray-100 text-gray-600'];
+        if ($pct > 90)  return ['label' => 'Outstanding', 'cls' => 'bg-emerald-100 text-emerald-700'];
+        if ($pct >= 81) return ['label' => 'Excellent',   'cls' => 'bg-green-100 text-green-700'];
+        if ($pct >= 71) return ['label' => 'Very Good',   'cls' => 'bg-blue-100 text-blue-700'];
+        if ($pct >= 61) return ['label' => 'Good',        'cls' => 'bg-indigo-100 text-indigo-700'];
+        if ($pct >= 51) return ['label' => 'Fair',        'cls' => 'bg-yellow-100 text-yellow-700'];
+        if ($pct >= 41) return ['label' => 'Average',     'cls' => 'bg-orange-100 text-orange-700'];
+        if ($pct >= 35) return ['label' => 'Pass',        'cls' => 'bg-gray-100 text-gray-600'];
         return ['label' => 'Fail', 'cls' => 'bg-red-100 text-red-700'];
     };
 @endphp
@@ -79,10 +87,15 @@
                     <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
                     Filter by:
                 </div>
-                <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search student / exam / subject..."
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                <select wire:model.live="filterStandard"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[120px]">
+                {{-- Exam → Class → Section → Subject. Changing the exam keeps
+                     the rest of the filtering exactly as it is. --}}
+                <select wire:model.live="filterExam"
+                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[140px]">
+                    <option value="">Select Exam</option>
+                    @foreach ($exams as $e)<option value="{{ $e->id }}">{{ $e->exam_name }}</option>@endforeach
+                </select>
+                <select wire:model.live="filterStandard" @disabled(!$filterExam)
+                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]">
                     <option value="">Select Class</option>
                     @foreach ($standards as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
                 </select>
@@ -91,16 +104,13 @@
                     <option value="">Select Section</option>
                     @foreach ($sections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
                 </select>
-                <select wire:model.live="filterExam"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[120px]">
-                    <option value="">All Exams</option>
-                    @foreach ($exams as $e)<option value="{{ $e->id }}">{{ $e->exam_name }}</option>@endforeach
-                </select>
-                <select wire:model.live="filterSubject" @disabled(!$filterStandard)
+                <select wire:model.live="filterSubject" @disabled(!$filterSection)
                     class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]">
                     <option value="">All Subjects</option>
                     @foreach ($subjects as $sub)<option value="{{ $sub->id }}">{{ $sub->name }}</option>@endforeach
                 </select>
+                <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search student / exam / subject..."
+                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 @if ($search || $filterExam || $filterStandard || $filterSection || $filterSubject)
                     <button wire:click="clearFilters"
                         class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
@@ -135,15 +145,17 @@
                     <option value="">Select Section</option>
                     @foreach ($sections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
                 </select>
-                <select wire:model.live="selectedSubject" @disabled(!$selectedSection)
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]">
-                    <option value="">All Subjects</option>
-                    @foreach ($subjects as $sub)<option value="{{ $sub->id }}">{{ $sub->name }}</option>@endforeach
-                </select>
+                {{-- Student comes before the subject: picking one shows every
+                     subject of that exam, and the subject narrows it after. --}}
                 <select wire:model.live="selectedStudent" @disabled(!$selectedSection)
                     class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed min-w-[160px]">
                     <option value="">Select Student</option>
                     @foreach ($students as $st)<option value="{{ $st->id }}">{{ $st->user?->name ?? $st->full_name ?? 'N/A' }}</option>@endforeach
+                </select>
+                <select wire:model.live="selectedSubject" @disabled(!$selectedStudent)
+                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]">
+                    <option value="">All Subjects</option>
+                    @foreach ($subjects as $sub)<option value="{{ $sub->id }}">{{ $sub->name }}</option>@endforeach
                 </select>
                 @if ($selectedExam || $selectedStandard || $selectedSection || $selectedSubject || $selectedStudent)
                     <button wire:click="clearStudentFilters"
@@ -164,13 +176,14 @@
                     <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
                     Filter by:
                 </div>
+                {{-- Exam → Class → Section, then an optional subject. --}}
                 <select wire:model.live="perfExam"
                     class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[140px]">
-                    <option value="">All Exams</option>
+                    <option value="">Select Exam</option>
                     @foreach ($exams as $e)<option value="{{ $e->id }}">{{ $e->exam_name }}</option>@endforeach
                 </select>
-                <select wire:model.live="perfStandard"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[120px]">
+                <select wire:model.live="perfStandard" @disabled(!$perfExam)
+                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]">
                     <option value="">Select Class</option>
                     @foreach ($standards as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
                 </select>
@@ -208,12 +221,13 @@
 ═══════════════════════════════════════════════ --}}
 @if ($activeTab === 'subject')
 
-    @if (!$filterStandard || !$filterSection)
+    @if (!$filterExam || !$filterStandard || !$filterSection)
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
             <div class="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
                 <svg class="w-7 h-7 text-blue-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-3-3v6m9 5a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h10l5 5v11z"/></svg>
             </div>
-            <p class="text-sm text-gray-600 font-medium">Select a class and section to view performance records.</p>
+            <p class="text-sm text-gray-600 font-medium">Pick Exam → Class → Section to view performance records.</p>
+            <p class="text-xs text-gray-400 mt-1">Subject filter is optional.</p>
         </div>
     @elseif ($examCopies->total() === 0)
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
@@ -276,7 +290,7 @@
                                     @if ($ec->is_absent)
                                         <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-700">AB</span>
                                     @else
-                                        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full {{ $gradeBadge($ec->grade) }}">{{ $ec->grade }}</span>
+                                        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full {{ $gradeBadge($ec->grade_letter) }}">{{ $ec->grade_letter }}</span>
                                     @endif
                                 </td>
                                 <td class="px-4 py-3">
@@ -285,13 +299,10 @@
                                             class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                         </button>
+                                        {{-- View and edit only: marks are corrected, never dropped. --}}
                                         <button wire:click="onEdit({{ $ec->id }})" title="Edit"
                                             class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                        </button>
-                                        <button wire:click="onDelete({{ $ec->id }})" title="Delete"
-                                            class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                         </button>
                                     </div>
                                 </td>
@@ -359,43 +370,47 @@
                 </div>
             </div>
 
-            {{-- Subject-wise table (Total before Obtained) --}}
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="bg-gray-50 border-b border-gray-100">
-                            <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-12">#</th>
-                            <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Subject</th>
-                            <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</th>
-                            <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Obtained</th>
-                            <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">%</th>
-                            <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Grade</th>
-                            <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Remarks</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        @foreach ($studentPerformance as $i => $perf)
-                            <tr class="hover:bg-gray-50/70">
-                                <td class="px-5 py-3 text-gray-400 text-xs font-medium">{{ $i + 1 }}</td>
-                                <td class="px-5 py-3 font-semibold text-gray-800">{{ $perf['subject']['name'] ?? '—' }}</td>
-                                <td class="px-5 py-3 text-sm text-gray-700">{{ $perf['max_marks'] ?? '—' }}</td>
-                                <td class="px-5 py-3 font-bold text-blue-600">{{ $perf['marks_obtained'] ?? '—' }}</td>
-                                <td class="px-5 py-3 text-sm font-medium text-gray-600">{{ $perf['percentage'] ?? 0 }}%</td>
-                                <td class="px-5 py-3">
-                                    <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full {{ $gradeBadge($perf['grade'] ?? 'F') }}">{{ $perf['grade'] ?? '—' }}</span>
-                                </td>
-                                <td class="px-5 py-3 text-gray-500 text-xs">{{ $perf['remarks'] ?? '—' }}</td>
-                            </tr>
-                        @endforeach
-                        <tr class="bg-blue-50 font-semibold">
-                            <td class="px-5 py-3" colspan="2"><span class="text-sm text-blue-700">Total</span></td>
-                            <td class="px-5 py-3 text-blue-600">{{ $totalMax }}</td>
-                            <td class="px-5 py-3 text-blue-700">{{ $totalObt }}</td>
-                            <td class="px-5 py-3 text-blue-700 font-bold">{{ $overallPct }}%</td>
-                            <td colspan="2"></td>
-                        </tr>
-                    </tbody>
-                </table>
+            {{-- One card per subject. With no subject filter every subject of
+                 the exam is here; pick one and only that card remains. --}}
+            <div class="p-4 sm:p-5">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    @foreach ($studentPerformance as $perf)
+                        @php
+                            $pPct    = (float) ($perf['percentage'] ?? 0);
+                            $pAbsent = !empty($perf['is_absent']);
+                            $pGrade  = $pAbsent ? 'AB' : ($gradeOf($pPct));
+                        @endphp
+                        <div class="rounded-lg border border-gray-200 p-4">
+                            <div class="flex items-start justify-between gap-2">
+                                <p class="text-sm font-semibold text-gray-900">{{ $perf['subject']['name'] ?? '—' }}</p>
+                                <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full flex-shrink-0 {{ $gradeBadge($pGrade) }}">{{ $pGrade }}</span>
+                            </div>
+
+                            @if ($pAbsent)
+                                <p class="mt-3 text-sm font-semibold text-red-600">Absent</p>
+                            @else
+                                <p class="mt-3 text-2xl font-bold text-blue-600 leading-none">
+                                    {{ $perf['marks_obtained'] ?? '—' }}
+                                    <span class="text-sm font-medium text-gray-400">/ {{ $perf['max_marks'] ?? '—' }}</span>
+                                </p>
+                                <p class="mt-1.5 text-xs font-medium text-gray-500">{{ $pPct }}%</p>
+                            @endif
+
+                            @if (!empty($perf['remarks']))
+                                <p class="mt-2.5 pt-2.5 border-t border-gray-100 text-xs text-gray-500">{{ $perf['remarks'] }}</p>
+                            @endif
+                        </div>
+                    @endforeach
+
+                    {{-- Total across whatever is on screen --}}
+                    <div class="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+                        <p class="text-sm font-semibold text-blue-800">Total</p>
+                        <p class="mt-3 text-2xl font-bold text-blue-700 leading-none">
+                            {{ $totalObt }}<span class="text-sm font-medium text-blue-400"> / {{ $totalMax }}</span>
+                        </p>
+                        <p class="mt-1.5 text-xs font-semibold text-blue-600">{{ $overallPct }}%</p>
+                    </div>
+                </div>
             </div>
         </div>
     @else
@@ -409,13 +424,13 @@
 ═══════════════════════════════════════════════ --}}
 @elseif ($activeTab === 'performers')
 
-    @if (!$perfStandard || !$perfSection)
+    @if (!$perfExam || !$perfStandard || !$perfSection)
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
             <div class="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
                 <svg class="w-7 h-7 text-blue-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872"/></svg>
             </div>
-            <p class="text-sm text-gray-600 font-medium">Pick a class and section to view performers.</p>
-            <p class="text-xs text-gray-400 mt-1">Exam / Subject / Student filters narrow the list further.</p>
+            <p class="text-sm text-gray-600 font-medium">Pick Exam → Class → Section to rank the students.</p>
+            <p class="text-xs text-gray-400 mt-1">Without a subject they are ranked on their overall marks in that exam; pick one and the ranking is on that subject alone.</p>
         </div>
     @elseif (count($performers) === 0)
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-10 text-center">
@@ -424,7 +439,9 @@
     @else
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="px-5 py-3.5 border-b border-gray-100 flex items-center gap-3">
-                <h3 class="font-semibold text-gray-900 text-sm">Ranked by Obtained Marks (desc)</h3>
+                <h3 class="font-semibold text-gray-900 text-sm">
+                    {{ $perfSubject ? 'Ranked by this subject\'s marks' : 'Ranked by overall marks in this exam' }}
+                </h3>
                 <span class="ml-auto text-xs font-medium bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full">{{ count($performers) }} students</span>
             </div>
             <div class="overflow-x-auto">
@@ -493,7 +510,8 @@
      UPLOAD MARKS SLIDE-IN (exams-style)
 ═══════════════════════════════════════════════ --}}
 @if ($showUploadModal)
-<div class="fixed inset-0 z-50 overflow-hidden">
+@teleport('body')
+<div class="fixed inset-0 z-[70] overflow-hidden">
     <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeUploadModal"></div>
     <div class="absolute top-0 right-0 bottom-0 w-full max-w-5xl bg-white shadow-2xl flex flex-col">
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -653,7 +671,9 @@
             </p>
             <div class="flex gap-2">
                 <button wire:click="closeUploadModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                <button wire:click="uploadMarks" wire:loading.attr="disabled"
+                {{-- Target the save itself: without it any other in-flight
+                     request (a filter change, the search) disables this. --}}
+                <button wire:click="uploadMarks" wire:loading.attr="disabled" wire:target="uploadMarks"
                     class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
                     <span wire:loading.remove wire:target="uploadMarks">Save All Marks</span>
                     <span wire:loading wire:target="uploadMarks">Saving…</span>
@@ -662,6 +682,7 @@
         </div>
     </div>
 </div>
+@endteleport
 @endif
 
 {{-- ═══════════════════════════════════════════════
@@ -669,7 +690,8 @@
 ═══════════════════════════════════════════════ --}}
 @if ($showSlider && isset($sliderData['exam_copy']))
 @php $ec = $sliderData['exam_copy']; @endphp
-<div class="fixed inset-0 z-50 overflow-hidden">
+@teleport('body')
+<div class="fixed inset-0 z-[70] overflow-hidden">
     <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeSlider"></div>
     <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -717,7 +739,7 @@
                 </div>
                 <div class="p-3 bg-orange-50 rounded-md border border-orange-100 text-center">
                     <p class="text-[10px] font-semibold uppercase tracking-wider text-orange-600 mb-1">Grade</p>
-                    <p class="text-2xl font-bold text-orange-700">{{ $ec->grade }}</p>
+                    <p class="text-2xl font-bold text-orange-700">{{ $ec->grade_letter }}</p>
                 </div>
             </div>
             @if ($ec->remarks)
@@ -732,13 +754,15 @@
         </div>
     </div>
 </div>
+@endteleport
 @endif
 
 {{-- ═══════════════════════════════════════════════
      EDIT SLIDE-IN
 ═══════════════════════════════════════════════ --}}
 @if ($showEditSlider)
-<div class="fixed inset-0 z-50 overflow-hidden">
+@teleport('body')
+<div class="fixed inset-0 z-[70] overflow-hidden">
     <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeEditSlider"></div>
     <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -790,13 +814,15 @@
         </div>
     </div>
 </div>
+@endteleport
 @endif
 
 {{-- ═══════════════════════════════════════════════
      DELETE CONFIRM OVERLAY (custom, no WireUI dialog)
 ═══════════════════════════════════════════════ --}}
 @if ($showDeleteConfirm)
-<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+@teleport('body')
+<div class="fixed inset-0 z-[70] flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="cancelDelete"></div>
     <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
         <div class="flex items-start gap-4">
@@ -818,6 +844,7 @@
         </div>
     </div>
 </div>
+@endteleport
 @endif
 
 </div>

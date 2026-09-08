@@ -31,8 +31,12 @@ class GradingService
 
         $pct = max(0, min(100, round($percentage, 2)));
 
+        // The scale is ordered high → low, so the first band the percentage
+        // reaches is its band. Matching on `min` alone means a fractional
+        // percentage between two printed ranges (90.5, say) still grades,
+        // instead of falling through the gap and coming back null.
         foreach ($this->scale() as $band) {
-            if ($pct >= $band['min'] && $pct <= $band['max']) {
+            if ($pct >= $band['min']) {
                 return $band;
             }
         }

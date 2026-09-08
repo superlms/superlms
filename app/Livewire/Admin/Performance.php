@@ -8,6 +8,7 @@ use App\Models\Student\Standard;
 use App\Models\Student\Section;
 use App\Models\Student\StudentDetail;
 use App\Models\Student\Subject;
+use App\Services\GradingService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -187,6 +188,8 @@ class Performance extends Component
     }
     public function updatedSelectedSection(mixed $value): void
     {
+        // A new section means a new student list, so the student has to be
+        // picked again — the subject filter starts clear too.
         $this->selectedSubject    = '';
         $this->selectedStudent    = '';
         $this->studentPerformance = [];
@@ -204,6 +207,9 @@ class Performance extends Component
     }
     public function updatedSelectedStudent(): void
     {
+        // Picking a student shows every subject of that exam; the subject filter
+        // is something you narrow to afterwards, so it starts clear.
+        $this->selectedSubject    = '';
         $this->studentPerformance = [];
         $this->autoSearchStudent();
     }
@@ -455,9 +461,16 @@ class Performance extends Component
         $this->perfSections = $this->perfStudents = $this->perfSubjects = [];
     }
 
+    /**
+     * Rank a section for one exam, best first.
+     *
+     * With no subject picked the ranking is on the student's OVERALL marks in
+     * that exam (every subject added up); pick a subject and it becomes that
+     * one subject's marks. Percentage breaks ties.
+     */
     public function loadPerformers(): void
     {
-        if (!$this->perfStandard || !$this->perfSection) {
+        if (!$this->perfExam || !$this->perfStandard || !$this->perfSection) {
             $this->performers = [];
             return;
         }
@@ -752,16 +765,14 @@ class Performance extends Component
         }
     }
 
+    /**
+     * One grade scale for the whole app — config/grading.php via GradingService:
+     *   above 90 → O, 81–90 → A+, 71–80 → A, 61–70 → B,
+     *   51–60 → C, 41–50 → D, 35–40 → P (pass), below 35 → F (fail).
+     */
     private function calculateGrade(float $pct): string
     {
-        if ($pct >= 90) return 'A+';
-        if ($pct >= 80) return 'A';
-        if ($pct >= 70) return 'B+';
-        if ($pct >= 60) return 'B';
-        if ($pct >= 50) return 'C+';
-        if ($pct >= 40) return 'C';
-        if ($pct >= 33) return 'D';
-        return 'F';
+        return app(GradingService::class)->gradeLetter($pct) ?? 'F';
     }
 
     // ─── Render ──────────────────────────────────────────────────────────────
@@ -777,8 +788,8 @@ class Performance extends Component
             return new \Illuminate\Pagination\LengthAwarePaginator([], 0, $this->perPage);
         }
 
-        // Subject tab is gated on class+section selection.
-        if (!$this->filterStandard || !$this->filterSection) {
+        // Subject tab is gated on exam → class → section being chosen.
+        if (!$this->filterExam || !$this->filterStandard || !$this->filterSection) {
             return new \Illuminate\Pagination\LengthAwarePaginator([], 0, $this->perPage);
         }
 
