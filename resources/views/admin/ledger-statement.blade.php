@@ -8,8 +8,10 @@
 
         /* No `* { margin: 0 }` here — that wipes the @page margins and the
            statement bleeds to the paper edge. */
-        @page { margin: 26px 34px 46px 34px; }
+        @page { margin: 20px 34px 46px 34px; }
         * { box-sizing: border-box; }
+        /* Every bit of text prints at full strength — no washed-out greys
+           anywhere in this document. */
         body {
             font-family: 'Poppins', 'DejaVu Sans', sans-serif;
             font-size: 11px; color: #111; line-height: 1.45;
@@ -20,18 +22,18 @@
         .bold { font-family: 'Poppins Bold', 'Poppins', sans-serif; }
 
         /* ─── Generated stamp, top-right above everything ───────────────── */
-        .genline { text-align: right; font-size: 8px; color: #333; letter-spacing: 0.3px; }
+        .genline { text-align: right; font-size: 9.5px; color: #111; letter-spacing: 0.3px; }
 
         /* ─── Masthead (everything centred) ─────────────────────────────── */
-        .masthead { text-align: center; margin-top: 16px; }
+        .masthead { text-align: center; margin-top: 4px; }
         .masthead .logo { height: 108px; width: auto; }
         .school-name {
             font-family: 'Poppins Bold', 'Poppins', sans-serif;
-            font-size: 21px; color: #111; letter-spacing: 0.2px; margin-top: 1px;
+            font-size: 21px; color: #111; letter-spacing: 0.2px; margin-top: 0;
         }
-        .school-address { font-size: 11px; color: #222; margin-top: 4px; }
-        .school-contact { font-size: 11px; color: #222; margin-top: 2px; }
-        .school-contact span { color: #555; }
+        .school-address { font-size: 11px; color: #111; margin-top: 4px; }
+        .school-contact { font-size: 11px; color: #111; margin-top: 2px; }
+        .school-contact span { color: #111; }
 
         .rule { height: 1.5px; background: #111; margin: 11px 0 0; }
 
@@ -46,18 +48,18 @@
         .info td { width: 50%; vertical-align: top; padding: 0; }
         .info .kv { width: 100%; border-collapse: collapse; }
         .info .kv td { padding: 2.5px 0; }
-        .info .k { width: 100px; color: #333; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.4px; }
+        .info .k { width: 100px; color: #111; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.4px; }
         .info .v { color: #111; font-size: 11px; font-family: 'Poppins SemiBold', 'Poppins', sans-serif; }
 
         /* ─── Summary chips ─────────────────────────────────────────────── */
         .summary { width: 100%; border-collapse: collapse; margin-bottom: 16px; border: 1px solid #bdbdbd; }
         .summary td { width: 25%; padding: 9px 10px; border-right: 1px solid #dcdcdc; }
         .summary td:last-child { border-right: 0; }
-        .summary .label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: #333; }
+        .summary .label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: #111; }
         .summary .value { font-family: 'Poppins SemiBold', 'Poppins', sans-serif;
                           font-size: 13px; color: #111; margin-top: 3px; }
-        .summary .dep { color: #046c4e; }
-        .summary .wdr { color: #a31616; }
+        .summary .dep { color: #0a8a4a; }
+        .summary .wdr { color: #d01414; }
 
         /* ─── Statement table ───────────────────────────────────────────── */
         table.stmt { width: 100%; border-collapse: collapse; }
@@ -69,13 +71,14 @@
         table.stmt tbody td { padding: 8px; border-bottom: 1px solid #dcdcdc; font-size: 10.5px; vertical-align: top; }
         table.stmt tbody tr:nth-child(even) td { background: #f4f4f4; }
         .num { text-align: right; white-space: nowrap; }
-        .dep { color: #046c4e; }
-        .wdr { color: #a31616; }
+        /* Deposit / withdrawal figures: solid colour, semibold. */
+        .dep { color: #0a8a4a; font-family: 'Poppins SemiBold', 'Poppins', sans-serif; }
+        .wdr { color: #d01414; font-family: 'Poppins SemiBold', 'Poppins', sans-serif; }
         .date-cell { white-space: nowrap; color: #111; }
-        .date-cell .time { display: block; font-size: 9px; color: #444; margin-top: 1px; }
+        .date-cell .time { display: block; font-size: 9px; color: #111; margin-top: 1px; }
         .desc .title { color: #111; font-family: 'Poppins SemiBold', 'Poppins', sans-serif; }
-        .desc .meta { color: #444; font-size: 9px; margin-top: 2px; }
-        .desc .tag { color: #333; text-transform: uppercase; letter-spacing: 0.3px; font-size: 8.5px; }
+        .desc .meta { color: #111; font-size: 9.5px; margin-top: 2px; }
+        .desc .tag { color: #111; text-transform: uppercase; letter-spacing: 0.3px; font-size: 9px; }
         .bal { font-family: 'Poppins SemiBold', 'Poppins', sans-serif; color: #111; }
 
         .row-open td, .row-close td, .row-total td { font-family: 'Poppins SemiBold', 'Poppins', sans-serif; }
@@ -83,8 +86,8 @@
         .row-close td { border-top: 1.5px solid #111; border-bottom: 1.5px solid #111; color: #111; font-size: 11.5px; }
         .row-total td { border-top: 1px solid #999; color: #111; }
 
-        .foot-note { margin-top: 14px; font-size: 9px; color: #333; line-height: 1.55; }
-        .footer { position: fixed; bottom: -28px; left: 0; right: 0; text-align: center; font-size: 8.5px; color: #444; }
+        .foot-note { margin-top: 14px; font-size: 9px; color: #111; line-height: 1.55; }
+        .footer { position: fixed; bottom: -28px; left: 0; right: 0; text-align: center; font-size: 8.5px; color: #111; }
     </style>
 </head>
 <body>
@@ -207,7 +210,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="5" style="text-align:center; padding: 22px; color:#333;">
+                    <td colspan="5" style="text-align:center; padding: 22px; color:#111;">
                         No transactions in this period.
                     </td>
                 </tr>
