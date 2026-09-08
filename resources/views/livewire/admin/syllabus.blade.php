@@ -434,42 +434,49 @@
 @if ($showTopicView)
 <div class="fixed inset-0 z-[60] overflow-hidden">
     <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeTopicView"></div>
-    <div class="absolute top-0 right-0 bottom-0 w-full max-w-md bg-white shadow-2xl flex flex-col">
+    {{-- Same plain label/value panel the Exams view uses --}}
+    <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-            <div>
-                <h2 class="text-lg font-semibold text-gray-900">Topic Details</h2>
-                <p class="text-xs text-gray-500 mt-0.5 truncate">{{ $topicViewData['name'] ?? '—' }}</p>
+            <div class="min-w-0">
+                <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $topicViewData['name'] ?? '—' }}</h2>
+                <p class="text-xs text-gray-500 mt-0.5 truncate">{{ $topicViewData['path'] ?? 'Topic' }}</p>
             </div>
-            <button wire:click="closeTopicView" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+            <button wire:click="closeTopicView" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
 
-        <div class="flex-1 overflow-y-auto px-6 py-6 space-y-3">
-            <div class="bg-gray-50 rounded-lg p-4 border border-gray-100">
-                <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Topic</p>
-                <p class="text-sm font-semibold text-gray-900">{{ $topicViewData['name'] ?? '—' }}</p>
+        <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+            <div class="grid grid-cols-3 gap-3 text-sm">
+                <span class="text-xs text-gray-400 uppercase tracking-wider">Topic</span>
+                <span class="col-span-2 text-gray-800 font-medium">{{ $topicViewData['name'] ?? '—' }}</span>
             </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div class="bg-gray-50 rounded-lg p-4 border border-gray-100">
-                    <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Chapter</p>
-                    <p class="text-sm font-medium text-gray-800">{{ $topicViewData['chapter'] ?? '—' }}</p>
-                </div>
-                <div class="bg-gray-50 rounded-lg p-4 border border-gray-100">
-                    <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Subject</p>
-                    <p class="text-sm font-medium text-gray-800">{{ $topicViewData['subject'] ?? '—' }}</p>
-                </div>
+            <div class="grid grid-cols-3 gap-3 text-sm">
+                <span class="text-xs text-gray-400 uppercase tracking-wider">Class</span>
+                <span class="col-span-2 text-gray-800 font-medium">{{ $topicViewData['class'] ?? '—' }}</span>
+            </div>
+            <div class="grid grid-cols-3 gap-3 text-sm">
+                <span class="text-xs text-gray-400 uppercase tracking-wider">Section</span>
+                <span class="col-span-2 text-gray-800 font-medium">{{ $topicViewData['section'] ?? '—' }}</span>
+            </div>
+            <div class="grid grid-cols-3 gap-3 text-sm">
+                <span class="text-xs text-gray-400 uppercase tracking-wider">Subject</span>
+                <span class="col-span-2 text-gray-800 font-medium">{{ $topicViewData['subject'] ?? '—' }}</span>
+            </div>
+            <div class="grid grid-cols-3 gap-3 text-sm">
+                <span class="text-xs text-gray-400 uppercase tracking-wider">Chapter</span>
+                <span class="col-span-2 text-gray-800 font-medium">{{ $topicViewData['chapter'] ?? '—' }}</span>
             </div>
             @if (!empty($topicViewData['order']))
-                <div class="bg-gray-50 rounded-lg p-4 border border-gray-100">
-                    <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Order</p>
-                    <p class="text-sm font-medium text-gray-800">#{{ $topicViewData['order'] }}</p>
+                <div class="grid grid-cols-3 gap-3 text-sm">
+                    <span class="text-xs text-gray-400 uppercase tracking-wider">Order</span>
+                    <span class="col-span-2 text-gray-800 font-medium">#{{ $topicViewData['order'] }}</span>
                 </div>
             @endif
         </div>
 
         <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
-            <button wire:click="closeTopicView" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Close</button>
+            <button wire:click="closeTopicView" class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
         </div>
     </div>
 </div>

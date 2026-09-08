@@ -543,15 +543,29 @@ class Syllabus extends Component
     // ─── Topic view / edit / delete (inline from the listing) ────────────
     public function onViewTopic(int $id): void
     {
-        $topic = Topic::with('chapter.subject')
+        // The class / section / subject all hang off the chapter, and a topic is
+        // meaningless without them — load the whole chain in one go.
+        $topic = Topic::with(['chapter.standard', 'chapter.section', 'chapter.subject'])
             ->where('organization_id', Auth::user()->organization_id)->find($id);
         if (!$topic) return;
 
+        $chapter = $topic->chapter;
+        $class   = $chapter?->standard?->name;
+        $section = $chapter?->section?->name;
+
         $this->topicViewData = [
             'name'    => $topic->topic_name,
-            'chapter' => $topic->chapter?->name ?? '—',
-            'subject' => $topic->chapter?->subject?->name ?? '—',
+            'class'   => $class ?: '—',
+            'section' => $section ?: 'All sections',
+            'subject' => $chapter?->subject?->name ?: '—',
+            'chapter' => $chapter?->name ?: '—',
             'order'   => $topic->order,
+            // One line that places the topic: Class 5 / A · Maths · Chapter 3
+            'path'    => implode(' · ', array_filter([
+                $class ? $class . ($section ? ' / ' . $section : '') : null,
+                $chapter?->subject?->name,
+                $chapter?->name,
+            ])),
         ];
         $this->showTopicView = true;
     }
