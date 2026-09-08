@@ -1,8 +1,8 @@
 <div class="min-h-screen bg-gray-50">
 
 @php
-    {{-- Grades come from config/grading.php: O > 90, A+ 81–90, A 71–80,
-         B 61–70, C 51–60, D 41–50, P 35–40, F below 35. --}}
+    // Grades come from config/grading.php: O > 90, A+ 81-90, A 71-80,
+    // B 61-70, C 51-60, D 41-50, P 35-40, F below 35.
     $gradeBadge = function ($grade) {
         return match (true) {
             $grade === 'O'  => 'bg-emerald-100 text-emerald-700',
@@ -15,8 +15,8 @@
             default         => 'bg-red-100 text-red-700',
         };
     };
-    {{-- Grade from the live percentage, so records saved under an older scale
-         still read in today's letters. --}}
+    // Grade from the live percentage, so records saved under an older scale
+    // still read in today's letters.
     $gradeOf = fn ($pct) => app(\App\Services\GradingService::class)->gradeLetter((float) $pct) ?? 'F';
     $perfRemark = function ($pct) {
         if ($pct > 90)  return ['label' => 'Outstanding', 'cls' => 'bg-emerald-100 text-emerald-700'];

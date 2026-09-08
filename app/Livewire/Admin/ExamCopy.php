@@ -21,9 +21,6 @@ class ExamCopy extends Component
 {
     use WireUiActions, WithPagination, WithFileUploads;
 
-    // ─── Tabs: 'by-subject' (formerly 'list') | 'by-student' (formerly 'view') ──
-    public string $activeTab = 'by-subject';
-
     // ─── Upload Copies modal (replaces former 'upload' tab) ─────────────────
     public bool $showUploadModal = false;
     public string $uploadExam     = '';
@@ -33,31 +30,30 @@ class ExamCopy extends Component
     public array  $studentPdfs    = [];
     public array  $uploadedFiles  = [];
 
-    // ─── Edit single exam copy modal ────────────────────────────────────────
+    // ─── Edit / upload single exam copy modal ───────────────────────────────
     public bool $showEditModal  = false;
+    public string $editMode     = 'edit';   // 'edit' | 'upload'
     public $editCopyId          = null;
     public $editCopyMeta        = [];
     public $editPdf             = null;
     public string $editRemarks  = '';
 
-    // ─── Delete confirm overlay ─────────────────────────────────────────────
+    // ─── Delete confirm overlay (list row) ──────────────────────────────────
     public bool $showDeleteConfirm = false;
     public $pendingDeleteId        = null;
 
-    // ─── Filters: by-subject tab ────────────────────────────────────────────
+    // ─── Delete confirm overlay (upload panel row) ──────────────────────────
+    public bool $showUploadDeleteConfirm = false;
+    public $pendingUploadDeleteStudent   = null;
+
+    // ─── Filters ────────────────────────────────────────────────────────────
     #[Url] public string $search         = '';
     #[Url] public int    $perPage        = 10;
     #[Url] public string $filterExam     = '';
     #[Url] public string $filterStandard = '';
     #[Url] public string $filterSection  = '';
     #[Url] public string $filterSubject  = '';
-
-    // ─── Filters: by-student tab ────────────────────────────────────────────
-    public string $byStudentExam     = '';
-    public string $byStudentStandard = '';
-    public string $byStudentSection  = '';
-    public string $byStudentStudent  = '';
-    public array  $studentResults    = [];
+    #[Url] public string $filterStudent  = '';
 
     // ─── Stats ──────────────────────────────────────────────────────────────
     public int $totalExamCopies = 0;
@@ -65,12 +61,20 @@ class ExamCopy extends Component
     public int $uploadedCopies  = 0;
     public int $pendingUploads  = 0;
 
-    // ─── Dropdown data ──────────────────────────────────────────────────────
+    // ─── Dropdown data: shared ──────────────────────────────────────────────
     public $exams;
     public $standards;
+
+    // ─── Dropdown data: upload panel ────────────────────────────────────────
     public $sections;
     public $subjects;
     public $students;
+
+    // ─── Dropdown data: filter bar (kept separate so opening the upload
+    //     panel can't rewrite what the filter bar is showing) ───────────────
+    public $filterSections;
+    public $filterSubjects;
+    public $filterStudents;
 
     public function mount(): void
     {
@@ -78,9 +82,12 @@ class ExamCopy extends Component
         $this->loadStatistics();
 
         if ($this->filterStandard) {
-            $this->sections = Section::where('standard_id', $this->filterStandard)
+            $this->filterSections = Section::where('standard_id', $this->filterStandard)
                 ->where('is_active', true)->get();
             $this->loadSubjectsForStandard($this->filterStandard, $this->filterSection ?: null);
+        }
+        if ($this->filterStandard && $this->filterSection) {
+            $this->loadFilterStudents();
         }
     }
 
@@ -100,13 +107,31 @@ class ExamCopy extends Component
             ->orderBy('id')
             ->get(['id', 'name']);
 
-        $this->subjects = Subject::where('organization_id', $orgId)
+        $this->filterSubjects = Subject::where('organization_id', $orgId)
             ->where('is_active', true)
             ->orderBy('id')
             ->get(['id', 'name']);
 
-        $this->sections  = collect();
-        $this->students  = collect();
+        $this->sections       = collect();
+        $this->subjects       = collect();
+        $this->students       = collect();
+        $this->filterSections = collect();
+        $this->filterStudents = collect();
+    }
+
+    private function loadFilterStudents(): void
+    {
+        if (!$this->filterStandard || !$this->filterSection) {
+            $this->filterStudents = collect();
+            return;
+        }
+
+        $this->filterStudents = StudentDetail::where('standard_id', $this->filterStandard)
+            ->where('section_id', $this->filterSection)
+            ->with('user:id,name')
+            ->orderBy('full_name')
+            ->orderBy('roll_no')
+            ->get(['id', 'user_id', 'roll_no', 'admission_no', 'full_name']);
     }
 
     public function loadStatistics(): void
@@ -118,6 +143,7 @@ class ExamCopy extends Component
         if ($this->filterStandard) $q->where('standard_id', $this->filterStandard);
         if ($this->filterSection)  $q->where('section_id', $this->filterSection);
         if ($this->filterSubject)  $q->where('subject_id', $this->filterSubject);
+        if ($this->filterStudent)  $q->where('student_detail_id', $this->filterStudent);
 
         $this->totalExamCopies = (clone $q)->count();
         $this->totalStudents   = (clone $q)
