@@ -58,8 +58,8 @@
         .summary .label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: #111; }
         .summary .value { font-family: 'Poppins SemiBold', 'Poppins', sans-serif;
                           font-size: 13px; color: #111; margin-top: 3px; }
-        .summary .dep { color: #0a8a4a; }
-        .summary .wdr { color: #d01414; }
+        .summary .dep { color: #0a8a4a; font-size: 15px; }
+        .summary .wdr { color: #d01414; font-size: 15px; }
 
         /* ─── Statement table ───────────────────────────────────────────── */
         table.stmt { width: 100%; border-collapse: collapse; }
@@ -71,9 +71,10 @@
         table.stmt tbody td { padding: 8px; border-bottom: 1px solid #dcdcdc; font-size: 10.5px; vertical-align: top; }
         table.stmt tbody tr:nth-child(even) td { background: #f4f4f4; }
         .num { text-align: right; white-space: nowrap; }
-        /* Deposit / withdrawal figures: solid colour, semibold. */
-        .dep { color: #0a8a4a; font-family: 'Poppins SemiBold', 'Poppins', sans-serif; }
-        .wdr { color: #d01414; font-family: 'Poppins SemiBold', 'Poppins', sans-serif; }
+        /* Deposit / withdrawal figures: solid colour, semibold, and a couple of
+           points larger than the rest of the row so the money reads first. */
+        .dep { color: #0a8a4a; font-family: 'Poppins SemiBold', 'Poppins', sans-serif; font-size: 12.5px; }
+        .wdr { color: #d01414; font-family: 'Poppins SemiBold', 'Poppins', sans-serif; font-size: 12.5px; }
         .date-cell { white-space: nowrap; color: #111; }
         .date-cell .time { display: block; font-size: 9px; color: #111; margin-top: 1px; }
         .desc .title { color: #111; font-family: 'Poppins SemiBold', 'Poppins', sans-serif; }
@@ -178,11 +179,13 @@
     <table class="stmt">
         <thead>
             <tr>
-                <th style="width: 62px;">Date</th>
+                <th style="width: 58px;">Date</th>
                 <th>Description</th>
-                <th class="num" style="width: 82px;">Deposit</th>
-                <th class="num" style="width: 82px;">Withdrawal</th>
-                <th class="num" style="width: 86px;">Balance</th>
+                {{-- Wider than the type needs: the amounts print two points
+                     larger and must not wrap. --}}
+                <th class="num" style="width: 94px;">Deposit</th>
+                <th class="num" style="width: 94px;">Withdrawal</th>
+                <th class="num" style="width: 88px;">Balance</th>
             </tr>
         </thead>
         <tbody>
