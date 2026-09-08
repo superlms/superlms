@@ -106,12 +106,16 @@
                 </select>
                 <select wire:model.live="filterSubject" @disabled(!$filterSection)
                     class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]">
-                    <option value="">All Subjects</option>
+                    <option value="">Select Subject</option>
                     @foreach ($subjects as $sub)<option value="{{ $sub->id }}">{{ $sub->name }}</option>@endforeach
                 </select>
-                <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search student / exam / subject..."
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                @if ($search || $filterExam || $filterStandard || $filterSection || $filterSubject)
+                {{-- Last filter: narrow the list to one child. --}}
+                <select wire:model.live="filterStudent" @disabled(!$filterSubject)
+                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed min-w-[160px]">
+                    <option value="">All Students</option>
+                    @foreach ($students as $st)<option value="{{ $st->id }}">{{ $st->user?->name ?? $st->full_name ?? 'N/A' }}</option>@endforeach
+                </select>
+                @if ($filterExam || $filterStandard || $filterSection || $filterSubject || $filterStudent)
                     <button wire:click="clearFilters"
                         class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -221,13 +225,13 @@
 ═══════════════════════════════════════════════ --}}
 @if ($activeTab === 'subject')
 
-    @if (!$filterExam || !$filterStandard || !$filterSection)
+    @if (!$filterExam || !$filterStandard || !$filterSection || !$filterSubject)
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
             <div class="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
                 <svg class="w-7 h-7 text-blue-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-3-3v6m9 5a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h10l5 5v11z"/></svg>
             </div>
-            <p class="text-sm text-gray-600 font-medium">Pick Exam → Class → Section to view performance records.</p>
-            <p class="text-xs text-gray-400 mt-1">Subject filter is optional.</p>
+            <p class="text-sm text-gray-600 font-medium">Pick Exam → Class → Section → Subject to see the marks.</p>
+            <p class="text-xs text-gray-400 mt-1">Then pick a student to narrow it to one child.</p>
         </div>
     @elseif ($examCopies->total() === 0)
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
@@ -379,36 +383,50 @@
                             $pPct    = (float) ($perf['percentage'] ?? 0);
                             $pAbsent = !empty($perf['is_absent']);
                             $pGrade  = $pAbsent ? 'AB' : ($gradeOf($pPct));
+                            $barPct  = max(0, min(100, $pPct));
+                            $barCls  = $pAbsent ? 'bg-red-400'
+                                : ($pPct >= 61 ? 'bg-emerald-500' : ($pPct >= 35 ? 'bg-amber-400' : 'bg-red-400'));
                         @endphp
-                        <div class="rounded-lg border border-gray-200 p-4">
-                            <div class="flex items-start justify-between gap-2">
-                                <p class="text-sm font-semibold text-gray-900">{{ $perf['subject']['name'] ?? '—' }}</p>
-                                <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full flex-shrink-0 {{ $gradeBadge($pGrade) }}">{{ $pGrade }}</span>
+                        <div class="rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors">
+                            <div class="flex items-center justify-between gap-2">
+                                <p class="text-sm font-medium text-gray-900 truncate">{{ $perf['subject']['name'] ?? '—' }}</p>
+                                <span class="text-[11px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0 {{ $gradeBadge($pGrade) }}">{{ $pGrade }}</span>
                             </div>
 
                             @if ($pAbsent)
-                                <p class="mt-3 text-sm font-semibold text-red-600">Absent</p>
+                                <p class="mt-3 text-sm text-red-600">Absent</p>
                             @else
-                                <p class="mt-3 text-2xl font-bold text-blue-600 leading-none">
-                                    {{ $perf['marks_obtained'] ?? '—' }}
-                                    <span class="text-sm font-medium text-gray-400">/ {{ $perf['max_marks'] ?? '—' }}</span>
-                                </p>
-                                <p class="mt-1.5 text-xs font-medium text-gray-500">{{ $pPct }}%</p>
+                                <div class="mt-3 flex items-baseline gap-1.5">
+                                    <span class="text-xl font-semibold text-gray-900 leading-none">{{ $perf['marks_obtained'] ?? '—' }}</span>
+                                    <span class="text-xs text-gray-400">/ {{ $perf['max_marks'] ?? '—' }}</span>
+                                    <span class="ml-auto text-xs font-medium text-gray-500">{{ $pPct }}%</span>
+                                </div>
+                                {{-- A thin bar reads faster than another number --}}
+                                <div class="mt-2.5 h-1 rounded-full bg-gray-100 overflow-hidden">
+                                    <div class="h-full rounded-full {{ $barCls }}" style="width: {{ $barPct }}%"></div>
+                                </div>
                             @endif
 
                             @if (!empty($perf['remarks']))
-                                <p class="mt-2.5 pt-2.5 border-t border-gray-100 text-xs text-gray-500">{{ $perf['remarks'] }}</p>
+                                <p class="mt-2.5 text-xs text-gray-500 truncate" title="{{ $perf['remarks'] }}">{{ $perf['remarks'] }}</p>
                             @endif
                         </div>
                     @endforeach
 
                     {{-- Total across whatever is on screen --}}
-                    <div class="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
-                        <p class="text-sm font-semibold text-blue-800">Total</p>
-                        <p class="mt-3 text-2xl font-bold text-blue-700 leading-none">
-                            {{ $totalObt }}<span class="text-sm font-medium text-blue-400"> / {{ $totalMax }}</span>
-                        </p>
-                        <p class="mt-1.5 text-xs font-semibold text-blue-600">{{ $overallPct }}%</p>
+                    <div class="rounded-lg border border-gray-900 bg-gray-900 p-4">
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="text-sm font-medium text-white">Total</p>
+                            <span class="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-white/15 text-white">{{ $gradeOf($overallPct) }}</span>
+                        </div>
+                        <div class="mt-3 flex items-baseline gap-1.5">
+                            <span class="text-xl font-semibold text-white leading-none">{{ $totalObt }}</span>
+                            <span class="text-xs text-white/50">/ {{ $totalMax }}</span>
+                            <span class="ml-auto text-xs font-medium text-white/80">{{ $overallPct }}%</span>
+                        </div>
+                        <div class="mt-2.5 h-1 rounded-full bg-white/20 overflow-hidden">
+                            <div class="h-full rounded-full bg-white" style="width: {{ max(0, min(100, $overallPct)) }}%"></div>
+                        </div>
                     </div>
                 </div>
             </div>

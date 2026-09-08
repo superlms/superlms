@@ -32,12 +32,12 @@ class Performance extends Component
     public array $editMarkData   = [];
 
     // ─── Filters (Subject tab) ────────────────────────────────────────────────
-    #[Url] public string $search         = '';
     #[Url] public int    $perPage        = 10;
     #[Url] public string $filterExam     = '';
     #[Url] public string $filterStandard = '';
     #[Url] public string $filterSection  = '';
     #[Url] public string $filterSubject  = '';
+    #[Url] public string $filterStudent  = '';
 
     // ─── View by Student tab ──────────────────────────────────────────────────
     public string $selectedExam       = '';
@@ -131,13 +131,15 @@ class Performance extends Component
     // ─── Filter updates (Subject tab) ────────────────────────────────────────
     public function updated(string $property, mixed $value): void
     {
-        if (in_array($property, ['search', 'filterExam', 'filterStandard', 'filterSection', 'filterSubject'])) {
+        if (in_array($property, ['filterExam', 'filterStandard', 'filterSection', 'filterSubject', 'filterStudent'])) {
             $this->resetPage();
         }
 
         if ($property === 'filterStandard') {
             $this->filterSection = '';
             $this->filterSubject = '';
+            $this->filterStudent = '';
+            $this->students      = [];
             if ($value) {
                 $this->sections = Section::where('standard_id', $value)->where('is_active', true)->get();
                 $this->loadSubjectsForStandard($value);
@@ -149,18 +151,24 @@ class Performance extends Component
 
         if ($property === 'filterSection') {
             $this->filterSubject = '';
+            $this->filterStudent = '';
             if ($value && $this->filterStandard) {
                 $this->loadSubjectsForStandard($this->filterStandard, $value);
+                // The student dropdown is the last filter, so its list is ready
+                // the moment a section is chosen.
+                $this->students = $this->loadStudents($this->filterStandard, $value);
             } elseif ($this->filterStandard) {
                 $this->loadSubjectsForStandard($this->filterStandard);
+                $this->students = [];
             }
         }
     }
 
     public function clearFilters(): void
     {
-        $this->reset(['search', 'filterExam', 'filterStandard', 'filterSection', 'filterSubject']);
+        $this->reset(['filterExam', 'filterStandard', 'filterSection', 'filterSubject', 'filterStudent']);
         $this->sections = [];
+        $this->students = [];
         $this->loadFilters();
         $this->resetPage();
     }
@@ -399,9 +407,22 @@ class Performance extends Component
                 $msg .= " {$absentCount} student(s) marked absent.";
             }
             $this->notification()->success('Saved!', $msg);
-            $this->loadStudentMarks();
-            $this->editingStudents = [];
             $this->loadStats();
+
+            // Saved — close the sheet and land back on the Performance home
+            // screen, pointed at the marks that were just entered.
+            $this->activeTab = 'subject';
+            $this->closeUploadModal();
+
+            $this->filterExam     = (string) $this->uploadExam;
+            $this->filterStandard = (string) $this->uploadStandard;
+            $this->filterSection  = (string) $this->uploadSection;
+            $this->filterSubject  = (string) $this->uploadSubject;
+            $this->filterStudent  = '';
+            $this->sections       = Section::where('standard_id', $this->uploadStandard)->where('is_active', true)->get();
+            $this->loadSubjectsForStandard($this->uploadStandard, $this->uploadSection);
+            $this->students       = $this->loadStudents($this->uploadStandard, $this->uploadSection);
+            $this->resetPage();
         } catch (\Exception $e) {
             logger()->error('Performance uploadMarks: ' . $e->getMessage());
             $this->notification()->error('Error saving marks', $e->getMessage());
@@ -788,8 +809,9 @@ class Performance extends Component
             return new \Illuminate\Pagination\LengthAwarePaginator([], 0, $this->perPage);
         }
 
-        // Subject tab is gated on exam → class → section being chosen.
-        if (!$this->filterExam || !$this->filterStandard || !$this->filterSection) {
+        // The list appears once exam → class → section → subject are chosen;
+        // the student dropdown then narrows it to one child.
+        if (!$this->filterExam || !$this->filterStandard || !$this->filterSection || !$this->filterSubject) {
             return new \Illuminate\Pagination\LengthAwarePaginator([], 0, $this->perPage);
         }
 
@@ -798,17 +820,10 @@ class Performance extends Component
             ->where('standard_id', $this->filterStandard)
             ->where('section_id',  $this->filterSection);
 
-        if ($this->search) {
-            $query->where(function ($q) {
-                $q->whereHas('studentDetail.user', fn($u) => $u->where('name', 'like', "%{$this->search}%"))
-                  ->orWhereHas('studentDetail', fn($s) => $s->where('full_name', 'like', "%{$this->search}%")
-                                                             ->orWhere('admission_no', 'like', "%{$this->search}%"))
-                  ->orWhereHas('exam',    fn($e) => $e->where('exam_name', 'like', "%{$this->search}%"))
-                  ->orWhereHas('subject', fn($s) => $s->where('name',      'like', "%{$this->search}%"));
-            });
-        }
-        if ($this->filterExam)    $query->where('exam_id',    $this->filterExam);
-        if ($this->filterSubject) $query->where('subject_id', $this->filterSubject);
+        $query->where('exam_id', $this->filterExam)
+            ->where('subject_id', $this->filterSubject);
+
+        if ($this->filterStudent) $query->where('student_detail_id', $this->filterStudent);
 
         return $query->orderBy('created_at', 'desc')->paginate($this->perPage);
     }
