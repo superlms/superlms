@@ -319,9 +319,31 @@ class IdCard extends Component
 
     /* ───────────────────────── Render ───────────────────────── */
 
+    /**
+     * Students are listed a class at a time. A school has hundreds of them and
+     * the whole roll is never the answer to anything, so the table waits until
+     * a class is picked. Teachers and employees are few enough to just list.
+     */
+    public function awaitingClass(): bool
+    {
+        return $this->cardType === 'student' && blank($this->standardFilter);
+    }
+
     public function render()
     {
         $orgId = Auth::user()->organization_id;
+
+        if ($this->awaitingClass()) {
+            return view('livewire.admin.id-card', [
+                'cards'     => new \Illuminate\Pagination\LengthAwarePaginator(
+                    [], 0, $this->perPage, 1,
+                    ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath()]
+                ),
+                'standards' => \App\Models\Student\Standard::where('organization_id', $orgId)
+                    ->where('is_active', true)->orderBy('id')->get(['id', 'name']),
+                'sections'  => collect(),
+            ]);
+        }
 
         if ($this->cardType === 'student') {
             $query = StudentIdCard::with(['studentDetail.user', 'studentDetail.standard', 'studentDetail.section', 'organization'])

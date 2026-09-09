@@ -76,13 +76,27 @@
                         Clear
                     </button>
                 @endif
-                <span class="ml-auto text-xs text-gray-500">Total: <strong class="text-gray-700">{{ $cards->total() }}</strong> card(s)</span>
+                @unless ($this->awaitingClass())
+                    <span class="ml-auto text-xs text-gray-500">Total: <strong class="text-gray-700">{{ $cards->total() }}</strong> card(s)</span>
+                @endunless
             </div>
         </div>
     </div>
 
     {{-- ══════════════ TABLE ══════════════ --}}
     <div class="p-4 sm:p-6">
+        @if ($this->awaitingClass())
+            {{-- A whole school's students is not a useful list: pick a class first. --}}
+            <div class="bg-white rounded-xl border border-gray-200 px-6 py-16 text-center">
+                <div class="w-12 h-12 mx-auto mb-3 bg-violet-50 rounded-full flex items-center justify-center">
+                    <svg class="w-6 h-6 text-violet-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                    </svg>
+                </div>
+                <p class="text-sm font-semibold text-gray-800">Choose a class to see student ID cards</p>
+                <p class="text-xs text-gray-400 mt-1">Pick a class from the filter above. Teachers and employees list straight away.</p>
+            </div>
+        @else
         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full">
@@ -173,6 +187,7 @@
                 <div class="px-4 py-3 border-t border-gray-100">{{ $cards->links() }}</div>
             @endif
         </div>
+        @endif
     </div>
 
     {{-- ══════════════ VIEW CARD MODAL ══════════════ --}}
