@@ -84,10 +84,14 @@
     }
 
     /* ── Facts ────────────────────────────────────────────────────────── */
-    .idc-rows { padding: 16px 22px 0; flex: 1 1 auto; min-height: 0; }
+    /* Six rows at 5px of padding overran the space left between the photo
+       block and the foot, so the last one -- the address, and the only one
+       that wraps -- was being clipped. Tightened enough to hold a three
+       line address. */
+    .idc-rows { padding: 10px 22px 0; flex: 1 1 auto; min-height: 0; }
     .idc-row {
         display: flex; align-items: baseline; gap: 10px;
-        padding: 5px 0; border-bottom: 1px solid var(--idc-line);
+        padding: 3px 0; border-bottom: 1px solid var(--idc-line);
         font-size: 9.5px; line-height: 1.4;
     }
     .idc-row:last-child { border-bottom: 0; }
