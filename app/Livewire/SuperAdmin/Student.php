@@ -15,6 +15,7 @@ use App\Models\Student\StudentAttendance;
 use App\Models\Student\StudentDetail;
 use App\Models\User;
 use App\Services\ZeptoMailService;
+use App\Support\Credentials;
 use App\Support\StudentNumbers;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -493,15 +494,16 @@ class Student extends Component
             $this->syncStudentRoute($detail, (bool) $this->editTransportation, $this->editRoute, $this->editOrgId);
         }
 
-        // Email changed → re-send credentials to the NEW address with the
-        // SAME (unchanged) password, exactly like the admin module.
+        // Email changed → send credentials to the NEW address, exactly like the
+        // admin module: the password they already have when we can recover it,
+        // a freshly set one when we can't.
         if ($oldEmail && strcasecmp($oldEmail, $this->editEmail) !== 0) {
             try {
                 $templateKey = config('services.zeptomail.student_password_template_key');
                 if ($templateKey) {
                     $fresh = User::find($this->editUserId);
                     ZeptoMailService::sendTemplate($templateKey, $this->editEmail, $this->editName, [
-                        'password'         => $fresh?->plainPassword() ?? 'Use your existing password (unchanged)',
+                        'password'         => $fresh ? Credentials::sendablePassword($fresh) : '',
                         'school_name'      => Organization::find($this->editOrgId)?->name ?? 'School',
                         'admission_number' => $detail?->admission_no ?? '',
                         'username'         => $this->editName,

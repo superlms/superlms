@@ -14,6 +14,7 @@ use App\Models\Organization;
 use App\Models\User;
 use App\Exports\StudentsExport;
 use App\Support\PdfFonts;
+use App\Support\Credentials;
 use App\Support\StudentNumbers;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
@@ -578,9 +579,10 @@ class Student extends Component
 
             // ─── After commit ─────────────────────────────────────────────
             if (!$isNew) {
-                // Email changed on an edit → send updated credentials to the NEW
-                // address. Password is unchanged — include the stored one when
-                // known, otherwise tell them to keep using their existing one.
+                // Email changed on an edit → send credentials to the NEW address,
+                // carrying a password the student can actually log in with: the
+                // one they already have when we can recover it, a freshly set
+                // one when we can't.
                 if ($oldStudentEmail && strcasecmp($oldStudentEmail, $student->email) !== 0) {
                     $emailTemplateKey = config('services.zeptomail.student_password_template_key');
                     if ($emailTemplateKey) {
@@ -590,7 +592,7 @@ class Student extends Component
                             'to_email'     => $student->email,
                             'to_name'      => $student->name,
                             'merge'        => [
-                                'password'         => $student->plainPassword() ?? 'Use your existing password (unchanged)',
+                                'password'         => Credentials::sendablePassword($student),
                                 'school_name'      => $schoolName,
                                 'admission_number' => $admissionNo,
                                 'username'         => $student->name,
