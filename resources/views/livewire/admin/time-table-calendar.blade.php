@@ -26,14 +26,16 @@
                     </span>
                 </div>
 
-                <button wire:click="onAddEvent"
-                    class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700
-                           text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add Event
-                </button>
+                @if (!$readOnly)
+                    <button wire:click="onAddEvent"
+                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700
+                               text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Event
+                    </button>
+                @endif
             </div>
         </div>
 
@@ -146,9 +148,12 @@
                                         $dayEvents = $isCurrentMonth ? $getEventsForDay($day) : [];
                                         $eventsCount = count($dayEvents);
                                     @endphp
-                                    <div class="min-h-32 p-2 border border-gray-100 cursor-pointer transition-all duration-200
-                                        {{ !$isCurrentMonth ? 'bg-gray-50/60' : 'bg-white hover:bg-blue-50/30' }}"
-                                        wire:click="onDayClick('{{ $day->year }}', '{{ $day->month }}', '{{ $day->day }}')">
+                                    {{-- Read-only: a day opens the "add event" panel, so it stops being
+                                         clickable (and stops looking clickable) when events can't be added. --}}
+                                    <div class="min-h-32 p-2 border border-gray-100 transition-all duration-200
+                                        {{ $readOnly ? '' : 'cursor-pointer' }}
+                                        {{ !$isCurrentMonth ? 'bg-gray-50/60' : ($readOnly ? 'bg-white' : 'bg-white hover:bg-blue-50/30') }}"
+                                        @if (!$readOnly) wire:click="onDayClick('{{ $day->year }}', '{{ $day->month }}', '{{ $day->day }}')" @endif>
 
                                         <div class="flex justify-between items-center mb-1.5">
                                             <span
@@ -263,14 +268,16 @@
                         </svg>
                     </div>
                     <p class="text-gray-500 text-sm mb-3">No upcoming events scheduled</p>
-                    <button wire:click="onAddEvent"
-                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700
-                               text-white text-sm font-semibold rounded-lg transition-colors">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add Upcoming Event
-                    </button>
+                    @if (!$readOnly)
+                        <button wire:click="onAddEvent"
+                            class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700
+                                   text-white text-sm font-semibold rounded-lg transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add Upcoming Event
+                        </button>
+                    @endif
                 </div>
             @endif
 
@@ -412,6 +419,7 @@
                             @endif
                         </p>
                         <div class="flex items-center gap-2">
+                            @if (!$readOnly)
                             <button wire:click="onDeleteEvent({{ $sliderData['event']['id'] ?? 0 }})"
                                 class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-red-200 hover:bg-red-50 text-red-600 text-sm font-medium rounded-md transition-colors">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -429,6 +437,7 @@
                                     </svg>
                                     Edit Event
                                 </button>
+                            @endif
                             @endif
                         </div>
                     @else

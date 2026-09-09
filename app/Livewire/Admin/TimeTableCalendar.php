@@ -22,6 +22,14 @@ class TimeTableCalendar extends LivewireCalendar
 
     // Inline delete confirm (kept here so the View slider can use it)
     public bool $showDeleteEventConfirm = false;
+
+    /**
+     * View-only: the accounts panel shows the school calendar but does not run
+     * it, so there is nothing there to add, edit or delete an event with. The
+     * guards below are the ones that matter -- a hidden button is still a
+     * callable Livewire method.
+     */
+    public bool $readOnly = false;
     public ?int $deleteEventId         = null;
 
     public function mount(
@@ -40,8 +48,10 @@ class TimeTableCalendar extends LivewireCalendar
         $dragAndDropEnabled = true,
         $dayClickEnabled = true,
         $eventClickEnabled = true,
-        $extras = []
+        $extras = [],
+        $readOnly = false
     ) {
+        $this->readOnly = (bool) $readOnly;
         $this->view = 'month';
         $this->showCalendar = true;
 
@@ -400,6 +410,8 @@ class TimeTableCalendar extends LivewireCalendar
 
     public function onDayClick($year, $month, $day)
     {
+        if ($this->readOnly) return;
+
         $this->selectedDate = Carbon::create($year, $month, $day);
         $this->sliderTitle = 'Add New Event';
         $this->sliderData = ['date' => $this->selectedDate->format('Y-m-d'), 'mode' => 'create'];
@@ -408,6 +420,8 @@ class TimeTableCalendar extends LivewireCalendar
 
     public function onAddEvent()
     {
+        if ($this->readOnly) return;
+
         $this->sliderTitle = 'Add New Event';
         $this->sliderData = ['date' => Carbon::today()->format('Y-m-d'), 'mode' => 'create'];
         $this->showSlider = true;
@@ -415,6 +429,8 @@ class TimeTableCalendar extends LivewireCalendar
 
     public function onEditEvent($eventId)
     {
+        if ($this->readOnly) return;
+
         $organizationId = Auth::user()->organization_id;
 
         $event = TimeTable::with([
@@ -449,6 +465,8 @@ class TimeTableCalendar extends LivewireCalendar
 
     public function onDeleteEvent($eventId): void
     {
+        if ($this->readOnly) return;
+
         $this->deleteEventId         = (int) $eventId;
         $this->showDeleteEventConfirm = true;
     }
@@ -461,6 +479,8 @@ class TimeTableCalendar extends LivewireCalendar
 
     public function confirmDeleteEvent(): void
     {
+        if ($this->readOnly) return;
+
         if (!$this->deleteEventId) {
             $this->cancelDeleteEvent();
             return;

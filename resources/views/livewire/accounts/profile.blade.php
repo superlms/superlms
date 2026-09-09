@@ -1,7 +1,7 @@
 <div class="min-h-screen bg-gray-50">
 
-    {{-- ══════════ HEADER (admin theme — sticky white) ══════════ --}}
-    {{-- Not sticky: this page has no filter bar to pin, and the shared
+    {{-- ══════════ HEADER ══════════
+         Not sticky: this page has no filter bar to pin, and the shared
          header-collapse script would empty a pinned bar into a blank strip. --}}
     <div class="bg-white border-b border-gray-200">
         <div class="px-4 sm:px-6 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
@@ -67,6 +67,11 @@
                         {{ $schoolUser['is_active'] ? 'Active' : 'Inactive' }}
                     </span>
                 @endif
+                <button wire:click="openPasswordPanel"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors flex-shrink-0">
+                    <x-icon name="lock-closed" class="w-3.5 h-3.5" />
+                    <span class="hidden sm:inline">Change Password</span>
+                </button>
             </div>
         </div>
 
@@ -75,14 +80,7 @@
 
             {{-- Left: Account Info --}}
             <div class="px-6 py-5 space-y-4">
-                <div class="flex items-center justify-between gap-3">
-                    <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Account</p>
-                    <button wire:click="openPasswordPanel"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors flex-shrink-0">
-                        <x-icon name="lock-closed" class="w-3.5 h-3.5" />
-                        Change Password
-                    </button>
-                </div>
+                <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Account</p>
                 <div class="space-y-3">
                     <div class="flex justify-between items-center">
                         <span class="text-sm text-gray-400">Email</span>
@@ -231,8 +229,8 @@
     {{-- ══════════ CHANGE PASSWORD ══════════
          The admin profile's flow, teleported to <body> so the panel paints over
          the navbar and sidebar rather than under them. --}}
-    @teleport('body')
     @if ($showPasswordPanel)
+        @teleport('body')
         <div class="fixed inset-0 z-[70] overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closePasswordPanel"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
@@ -321,6 +319,6 @@
                 </div>
             </div>
         </div>
+        @endteleport
     @endif
-    @endteleport
 </div>
