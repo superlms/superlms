@@ -26,7 +26,7 @@
            in that gap) and 6.4mm at the foot. */
         .topbar     { position: fixed; top: 3.1mm; left: 5.9mm; right: 5.9mm; }
         .frame      { position: fixed; top: 9.8mm; left: 5.9mm; right: 5.9mm; bottom: 6.4mm; }
-        .page       { padding: 15.5mm 14.6mm 21mm; }
+        .page       { padding: 15.5mm 14.6mm 19mm; }
         .page-foot  { position: fixed; left: 12.5mm; right: 13.6mm; bottom: 14mm; }
 
         .school-name { font-family: 'Merriweather', 'PT Serif', serif; }
@@ -80,9 +80,9 @@ table.info td.value2 { width: 25%; }
 table.marks { width: 100%; border-collapse: collapse; margin-bottom: 6px; table-layout: fixed; }
 table.marks th, table.marks td {
     border: 1px solid #aaaaaa; text-align: center; color: #000;
-    padding: 5px 1px; font-size: 10.9px; word-wrap: break-word;
+    padding: 4px 1px; font-size: 10.9px; word-wrap: break-word;
 }
-table.marks th { font-size: 12.1px; padding: 6px 2px; }
+table.marks th { font-size: 12.1px; padding: 5px 2px; }
 table.marks th.tiny { font-size: 10.9px; padding: 4px 1px; }
 table.marks th.mid  { font-size: 10.9px; padding: 4px 1px; }
 table.marks th.big  { font-size: 12.1px; }
