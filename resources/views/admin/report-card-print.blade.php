@@ -30,7 +30,7 @@
 
         .topbar    { position: absolute; top: 2.4mm; left: 5.9mm; right: 5.9mm; }
         .frame     { position: absolute; top: 9.8mm; left: 5.9mm; right: 5.9mm; bottom: 6.4mm; }
-        .page      { padding: 15.5mm 14.6mm 26mm; }
+        .page      { padding: 15.5mm 14.6mm 21mm; }
         .page-foot { position: absolute; left: 12.5mm; right: 13.6mm; bottom: 14mm; }
 
         .school-name { font-family: 'Merriweather', 'PT Serif', Georgia, serif; font-weight: 400; }
@@ -54,6 +54,9 @@
         @media print {
             body { background: #fff; padding: 0; }
             .no-print { display: none; }
+            /* min-height:297mm on a 297mm page rounds up into a second, blank
+               sheet. Pinning it just under A4 keeps the card on one page. */
+            .sheet { min-height: 0; height: 296mm; page-break-after: avoid; }
         }
 
         .no-print { width: 210mm; margin: 0 auto 12px; text-align: center; }
@@ -74,23 +77,26 @@
 
 /* ─── Masthead ───────────────────────────────────────────────────────── */
 .header { text-align: center; }
-.header img.logo { width: 145px; height: auto; display: block; margin: 0 auto; }
+.header img.logo { width: 145px; height: auto; display: block; margin: -4px auto 0; }
 /* Sits right under the logo, the way the school's card does. */
-.school-name { font-size: 23px; color: #000; letter-spacing: 0.2px; line-height: 1.1; margin-top: -7px; }
+.school-name { font-size: 23px; color: #000; letter-spacing: 0.2px; line-height: 1.1; margin-top: -7px; margin-bottom: 3px; }
 .school-address { font-size: 11.8px; color: #000; line-height: 1.35; }
-.doc-title { font-size: 14.1px; color: #000; margin-top: 7px; }
-.doc-session { font-size: 14.1px; color: #000; margin-bottom: 8px; }
+.doc-title { font-size: 14.1px; color: #000; margin-top: 4px; }
+.doc-session { font-size: 14.1px; color: #000; margin-bottom: 6px; }
 
 /* ─── Student info ───────────────────────────────────────────────────── */
-table.info { width: 100%; border-collapse: collapse; margin-bottom: 9px; table-layout: fixed; }
-table.info td { border: 1px solid #aaaaaa; padding: 6px 9px; font-size: 12.2px; color: #000; }
-table.info td.label  { width: 25.1%; }
-table.info td.value  { width: 33.2%; }
-table.info td.label2 { width: 18.4%; }
-table.info td.value2 { width: 23.3%; }   /* 25.1+33.2+18.4+23.3 = 100, so these rows end where the tables below do */
+table.info { width: 100%; border-collapse: collapse; margin-bottom: 6px; table-layout: fixed; }
+table.info td { border: 1px solid #aaaaaa; padding: 4px 9px; font-size: 12.2px; color: #000; }
+/* Four equal quarters, so a label and its value fill exactly half the row and
+   the divider between the two pairs lands dead centre. The name row spans the
+   last three, keeping its value full width after the first divider. */
+table.info td.label  { width: 25%; }
+table.info td.value  { width: 25%; }
+table.info td.label2 { width: 25%; }
+table.info td.value2 { width: 25%; }
 
 /* ─── Marks ──────────────────────────────────────────────────────────── */
-table.marks { width: 100%; border-collapse: collapse; margin-bottom: 10px; table-layout: fixed; }
+table.marks { width: 100%; border-collapse: collapse; margin-bottom: 6px; table-layout: fixed; }
 table.marks th, table.marks td {
     border: 1px solid #aaaaaa; text-align: center; color: #000;
     padding: 5px 1px; font-size: 10.9px; word-wrap: break-word;
@@ -104,19 +110,19 @@ table.marks td.subj { font-size: 11.8px; }
 table.marks td.foot-label { text-align: right; padding-right: 12px; }
 
 /* ─── Co-scholastic ──────────────────────────────────────────────────── */
-table.co-wrap { width: 100%; border-collapse: collapse; margin-bottom: 10px; table-layout: fixed; }
+table.co-wrap { width: 100%; border-collapse: collapse; margin-bottom: 6px; table-layout: fixed; }
 table.co-wrap > tbody > tr > td { padding: 0; vertical-align: top; }
 table.co-wrap > tbody > tr > td.left,
 table.co-wrap > tbody > tr > td.right { width: 49%; }
 table.co-wrap > tbody > tr > td.gap { width: 2%; }
 
 table.co { width: 100%; border-collapse: collapse; table-layout: fixed; }
-table.co th, table.co td { border: 1px solid #aaaaaa; padding: 6px 9px; font-size: 11.7px; color: #000; }
+table.co th, table.co td { border: 1px solid #aaaaaa; padding: 4px 9px; font-size: 11.7px; color: #000; }
 table.co th.grade-head, table.co td.grade { width: 18.1%; text-align: center; }
 
 /* ─── Attendance / remark ────────────────────────────────────────────── */
-table.bottom-info { width: 100%; border-collapse: collapse; margin-bottom: 10px; table-layout: fixed; }
-table.bottom-info td { border: 1px solid #aaaaaa; padding: 6px 9px; font-size: 11.7px; color: #000; }
+table.bottom-info { width: 100%; border-collapse: collapse; margin-bottom: 6px; table-layout: fixed; }
+table.bottom-info td { border: 1px solid #aaaaaa; padding: 4px 9px; font-size: 11.7px; color: #000; }
 table.bottom-info td.label { width: 14.3%; }
 table.bottom-info td.c2 { width: 24.1%; }
 table.bottom-info td.c3 { width: 24.7%; }

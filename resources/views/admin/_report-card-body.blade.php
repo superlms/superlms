@@ -13,7 +13,7 @@
                     affiliation number on the left corner, website on the right
       content       8.7mm inside the frame, so 14.6mm from the paper edge
       marks table   subject column 22.1%, every other column 7.08%
-      info table    25.1% / 33.2% / 18.4% / 23.3% (sums to 100, like the rest)
+      info table    four equal quarters, so each label+value pair is half a row
       attendance    14.3% / 24.1% / 24.7% / 36.9%
       co-scholastic two tables of 49%, 1.9% apart, grade column 18.1%
       table borders 1px #aaaaaa - grey, not black
@@ -163,11 +163,9 @@
         $website ?: null,
     ]));
 
-    // Just the values -- the cell is already labelled "Class/Section:", so
-    // repeating "Class-"/"Section-" inside it only wrapped the row onto three
-    // lines and made it taller than every other row in the table.
-    $classSection = trim(($student->standard->name ?? '')
-        . (!empty($student->section->name) ? ' / ' . $student->section->name : ''), ' /');
+    // The class on its own: the cell is already labelled, and the section added
+    // nothing but length -- enough of it to wrap the row onto a third line.
+    $classSection = trim((string) ($student->standard->name ?? ''));
 
     $a1 = $attendance['term1']   ?? ['present' => 0, 'total' => 0];
     $a2 = $attendance['term2']   ?? ['present' => 0, 'total' => 0];
