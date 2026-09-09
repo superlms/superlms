@@ -432,6 +432,18 @@ return [
             'prefix' => 'accounts.attendance',
         ],
         [
+            'title' => 'Ledger',
+            'link' => 'accounts.ledger',
+            'icon' => 'calculator',
+            'prefix' => 'accounts.ledger',
+        ],
+        [
+            'title' => 'Lists',
+            'link' => 'accounts.lists',
+            'icon' => 'queue-list',
+            'prefix' => 'accounts.lists',
+        ],
+        [
             'title' => 'Transport',
             'link' => 'accounts.transport',
             'icon' => 'truck',
@@ -442,12 +454,6 @@ return [
             'link' => 'accounts.calendar',
             'icon' => 'calendar',
             'prefix' => 'accounts.calendar',
-        ],
-        [
-            'title' => 'ID Card',
-            'link' => 'accounts.id-card',
-            'icon' => 'identification',
-            'prefix' => 'accounts.id-card',
         ],
         [
             'title' => 'Admit Card',

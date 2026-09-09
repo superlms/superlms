@@ -147,11 +147,23 @@ class Lists extends Component
             'month'       => in_array('month', array_keys($def['filters'])) ? $this->month : null,
         ], fn ($v) => $v !== null && $v !== '');
 
-        $url = route('admin.lists.pdf', ['organization' => $this->organization]) . '?' . http_build_query($query);
+        $url = route($this->pdfRouteName(), ['organization' => $this->organization]) . '?' . http_build_query($query);
 
         $this->showPanel = false;
         $this->dispatch('open-list-pdf', url: $url);
     }
+
+    /**
+     * The accounts panel runs this very component (see App\Livewire\Accounts\Lists),
+     * so both panels build the same lists from the same service. Only the PDF
+     * route and the back arrow differ — accounts reaches Lists from its sidebar,
+     * admin from the "More" screen.
+     */
+    protected function viewName(): string { return 'livewire.admin.lists'; }
+
+    protected function pdfRouteName(): string { return 'admin.lists.pdf'; }
+
+    protected function showsBackToMore(): bool { return true; }
 
     public function render()
     {
@@ -168,7 +180,8 @@ class Lists extends Component
         $exams = Exam::where('organization_id', $orgId)->orderByDesc('start_date')
             ->get(['id', 'exam_name', 'academic_year']);
 
-        return view('livewire.admin.lists', [
+        return view($this->viewName(), [
+            'showBackToMore' => $this->showsBackToMore(),
             'definitions' => ListReportService::definitions(),
             'standards'   => $standards,
             'sections'    => $sections,

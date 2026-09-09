@@ -21,7 +21,8 @@
     <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sticky top-0 z-30">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div class="flex items-center gap-2.5">
-                <x-admin.back-to-more />
+                {{-- Admin arrives here from "More"; accounts has Lists in its own sidebar. --}}
+                @if ($showBackToMore ?? true)<x-admin.back-to-more />@endif
                 <div>
                     <h1 class="text-lg sm:text-xl font-bold text-gray-900">Lists</h1>
                 </div>

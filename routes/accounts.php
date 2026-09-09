@@ -14,6 +14,8 @@ use App\Livewire\Accounts\Payments;
 use App\Livewire\Accounts\Penalties;
 use App\Livewire\Accounts\FeeCycles;
 use App\Livewire\Accounts\Attendance;
+use App\Livewire\Accounts\Ledger;
+use App\Livewire\Accounts\Lists;
 use App\Livewire\Accounts\Transport;
 use App\Livewire\Accounts\Calendar;
 use App\Livewire\Accounts\IdCard;
@@ -65,6 +67,14 @@ Route::prefix('accounts')->group(function () {
             Route::get('/penalties', Penalties::class)->name('accounts.penalties');
             Route::get('/fee-cycles', FeeCycles::class)->name('accounts.fee-cycles');
             Route::get('/attendance', Attendance::class)->name('accounts.attendance');
+            // Ledger and Lists are the admin screens re-served here; the PDFs reuse
+            // the admin controllers, which read the signed-in guard's organization.
+            Route::get('/ledger', Ledger::class)->name('accounts.ledger');
+            Route::get('/ledger/statement', [\App\Http\Controllers\Admin\LedgerStatementController::class, 'download'])
+                ->name('accounts.ledger.statement');
+            Route::get('/lists', Lists::class)->name('accounts.lists');
+            Route::get('/lists/pdf', [\App\Http\Controllers\Admin\ListReportController::class, 'generate'])
+                ->name('accounts.lists.pdf');
             Route::get('/transport', Transport::class)->name('accounts.transport');
             Route::get('/transport/receipt/{id}', [\App\Http\Controllers\Admin\TransportReceiptController::class, 'show'])->name('accounts.transport.receipt');
             Route::get('/calendar', Calendar::class)->name('accounts.calendar');

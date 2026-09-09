@@ -40,6 +40,15 @@ class Ledger extends Component
         'endDate'   => ['except' => ''],
     ];
 
+    /**
+     * The accounts panel runs this very component (see App\Livewire\Accounts\Ledger)
+     * so both panels read the same ledger from the same service — change one and
+     * the other follows. Only the view and the statement route differ.
+     */
+    protected function viewName(): string { return 'livewire.admin.ledger'; }
+
+    protected function statementRouteName(): string { return 'admin.ledger.statement'; }
+
     public function mount(): void
     {
         // Default window: current calendar month → today.
@@ -268,7 +277,8 @@ class Ledger extends Component
             ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath()]
         );
 
-        return view('livewire.admin.ledger', [
+        return view($this->viewName(), [
+            'statementUrl'   => route($this->statementRouteName(), ['organization' => $orgId]),
             'entries'        => $paginated,
             'netBalance'     => LedgerService::netBalance($orgId),
             'openingBalance' => $opening,

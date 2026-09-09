@@ -26,7 +26,8 @@
                 params.set('start_date', this.expFrom);
                 params.set('end_date', this.expTo);
             }
-            return @js(route('admin.ledger.statement', ['organization' => auth()->user()->organization_id])) + '?' + params.toString();
+            {{-- The component supplies this so the accounts panel can render this same view. --}}
+            return @js($statementUrl) + '?' + params.toString();
         },
     }">
     <style>[x-cloak]{display:none !important;}</style>

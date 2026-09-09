@@ -4,17 +4,19 @@ namespace App\Livewire\Accounts;
 
 use App\Models\Admin\SchoolUser;
 use App\Models\Organization;
-use App\Models\Student\StudentDetail;
-use App\Models\Teacher\TeacherDetail;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
 use Livewire\Component;
+use WireUi\Traits\WireUiActions;
 
 class Profile extends Component
 {
+    use WireUiActions;
+
     public $user = [];
     public $schoolUser = [];
     public $organization = [];
-    public array $analytics = [];
 
     public function mount(): void
     {
@@ -69,13 +71,69 @@ class Profile extends Component
                 'created_at'         => $org->created_at?->format('d M Y'),
             ];
         }
+    }
 
-        // Analytics: student & teacher counts for this organization
-        $this->analytics = [
-            'students' => StudentDetail::where('organization_id', $orgId)->count(),
-            'teachers' => TeacherDetail::where('organization_id', $orgId)->count(),
-            'staff'    => SchoolUser::where('organization_id', $orgId)->where('is_active', true)->count(),
-        ];
+    // ─── Change password ─────────────────────────────────────────────────
+    // Same flow the admin profile uses, so a change made here behaves exactly
+    // as it does there — including keeping the recoverable copy in step.
+
+    public bool $showPasswordPanel = false;
+    public $currentPassword;
+    public $newPassword;
+    public $confirmPassword;
+    public bool $showCurrentPassword = false;
+    public bool $showNewPassword     = false;
+    public bool $showConfirmPassword = false;
+
+    public function openPasswordPanel(): void
+    {
+        $this->reset(['currentPassword', 'newPassword', 'confirmPassword']);
+        $this->resetErrorBag();
+        $this->showPasswordPanel = true;
+    }
+
+    public function closePasswordPanel(): void
+    {
+        $this->reset(['currentPassword', 'newPassword', 'confirmPassword']);
+        $this->resetErrorBag();
+        $this->showPasswordPanel = false;
+    }
+
+    public function togglePasswordVisibility($field): void
+    {
+        if ($field === 'current') {
+            $this->showCurrentPassword = !$this->showCurrentPassword;
+        } elseif ($field === 'new') {
+            $this->showNewPassword = !$this->showNewPassword;
+        } elseif ($field === 'confirm') {
+            $this->showConfirmPassword = !$this->showConfirmPassword;
+        }
+    }
+
+    public function updatePassword(): void
+    {
+        $this->validate([
+            'currentPassword' => ['required', 'current_password'],
+            'newPassword' => [
+                'required',
+                'different:currentPassword',
+                Password::min(8)
+                    ->mixedCase()
+                    ->numbers()
+                    ->symbols()
+            ],
+            'confirmPassword' => ['required', 'same:newPassword'],
+        ]);
+
+        // Keeps users.password_plain in step, the way every other password path does.
+        Auth::user()->rememberPlainPassword($this->newPassword);
+        Auth::user()->update([
+            'password' => Hash::make($this->newPassword)
+        ]);
+
+        $this->reset(['currentPassword', 'newPassword', 'confirmPassword']);
+        $this->showPasswordPanel = false;
+        $this->notification()->success('Password updated.');
     }
 
     private function orgId(): int
