@@ -431,16 +431,16 @@
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeForm"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                    <div>
-                        <h2 class="text-lg font-semibold text-gray-900">{{ $editId ? 'Edit Assignment' : 'New Assignment' }}</h2>
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $editId ? 'Edit Assignment' : 'New Assignment' }}</h2>
                         <p class="text-xs text-gray-500 mt-0.5">Class, section, subject and the window it stays open for.</p>
                     </div>
-                    <button wire:click="closeForm" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                    <button wire:click="closeForm" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-5">
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
 
                     {{-- Class → Section → Subject --}}
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -643,15 +643,15 @@
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeView"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                    <div>
-                        <h2 class="text-lg font-semibold text-gray-900">{{ $viewAssignment->title }}</h2>
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $viewAssignment->title }}</h2>
                         <p class="text-xs text-gray-500 mt-0.5">
                             {{ $viewAssignment->standard->name ?? '—' }}
                             @if ($viewAssignment->section) · {{ $viewAssignment->section->name }} @endif
                             · {{ $viewAssignment->subject->name ?? '—' }}
                         </p>
                     </div>
-                    <button wire:click="closeView" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                    <button wire:click="closeView" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
@@ -663,20 +663,40 @@
                         $vsDone  = $viewStats['attempted'] ?? 0;
                         $vsPct   = $vsTotal > 0 ? (int) round($vsDone / $vsTotal * 100) : 0;
                         $submissionModeLabels = ['text' => 'Text only', 'file' => 'File only', 'both' => 'Text or file'];
+
+                        $viewDetails = [
+                            'Class'      => $viewAssignment->standard->name ?? '—',
+                            'Section'    => $viewAssignment->section->name ?? '—',
+                            'Subject'    => $viewAssignment->subject->name ?? '—',
+                            'Type'       => $viewAssignment->isMcq() ? 'MCQ' : 'Written',
+                            'Starts'     => $viewAssignment->start_date?->format('d M Y, h:i A') ?? '—',
+                            'Ends'       => $viewAssignment->end_date?->format('d M Y, h:i A') ?? '—',
+                            'Out of'     => $viewAssignment->maxMarks() > 0 ? $viewAssignment->maxMarks() . ' marks' : 'Not set',
+                            'Window'     => ucfirst($viewAssignment->windowStatus()),
+                            'Visibility' => $viewAssignment->is_active ? 'Published' : 'Draft',
+                            'Set by'     => $viewAssignment->user->name ?? '—',
+                        ];
+
+                        // Only a written assignment has an answer format to state.
+                        if (!$viewAssignment->isMcq()) {
+                            $viewDetails = array_slice($viewDetails, 0, 4, true)
+                                + ['Answer with' => $submissionModeLabels[$viewAssignment->submission_mode] ?? '—']
+                                + array_slice($viewDetails, 4, null, true);
+                        }
                     @endphp
                     <div class="border border-gray-200 rounded-lg overflow-hidden">
                         <div class="grid grid-cols-3 divide-x divide-gray-200">
                             <div class="px-4 py-3 text-center">
                                 <p class="text-xl font-bold text-emerald-600 tabular-nums">{{ $vsDone }}</p>
-                                <p class="text-[11px] text-gray-400 uppercase tracking-wide mt-0.5">Attempted</p>
+                                <p class="text-xs text-gray-400 uppercase tracking-wider mt-0.5">Attempted</p>
                             </div>
                             <div class="px-4 py-3 text-center">
                                 <p class="text-xl font-bold text-amber-600 tabular-nums">{{ $viewStats['pending'] ?? 0 }}</p>
-                                <p class="text-[11px] text-gray-400 uppercase tracking-wide mt-0.5">Not yet</p>
+                                <p class="text-xs text-gray-400 uppercase tracking-wider mt-0.5">Not yet</p>
                             </div>
                             <div class="px-4 py-3 text-center">
                                 <p class="text-xl font-bold text-gray-800 tabular-nums">{{ $vsTotal }}</p>
-                                <p class="text-[11px] text-gray-400 uppercase tracking-wide mt-0.5">In class</p>
+                                <p class="text-xs text-gray-400 uppercase tracking-wider mt-0.5">In class</p>
                             </div>
                         </div>
                         <div class="px-4 pb-3">
@@ -689,59 +709,17 @@
                         </div>
                     </div>
 
-                    {{-- Everything the form was filled in with. --}}
-                    <div class="grid grid-cols-2 gap-3 text-sm">
-                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <p class="text-[11px] text-gray-400 uppercase tracking-wide">Class</p>
-                            <p class="text-gray-800 font-medium">{{ $viewAssignment->standard->name ?? '—' }}</p>
+                    {{-- Everything the form was filled in with, as the exam panel lists it. --}}
+                    @foreach ($viewDetails as $label => $value)
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
+                            <span class="col-span-2 text-gray-800 font-medium">{{ $value }}</span>
                         </div>
-                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <p class="text-[11px] text-gray-400 uppercase tracking-wide">Section</p>
-                            <p class="text-gray-800 font-medium">{{ $viewAssignment->section->name ?? '—' }}</p>
-                        </div>
-                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <p class="text-[11px] text-gray-400 uppercase tracking-wide">Subject</p>
-                            <p class="text-gray-800 font-medium">{{ $viewAssignment->subject->name ?? '—' }}</p>
-                        </div>
-                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <p class="text-[11px] text-gray-400 uppercase tracking-wide">Type</p>
-                            <p class="text-gray-800 font-medium">{{ $viewAssignment->isMcq() ? 'MCQ' : 'Written' }}</p>
-                        </div>
-                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <p class="text-[11px] text-gray-400 uppercase tracking-wide">Starts</p>
-                            <p class="text-gray-800 font-medium">{{ $viewAssignment->start_date?->format('d M Y, h:i A') ?? '—' }}</p>
-                        </div>
-                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <p class="text-[11px] text-gray-400 uppercase tracking-wide">Ends</p>
-                            <p class="text-gray-800 font-medium">{{ $viewAssignment->end_date?->format('d M Y, h:i A') ?? '—' }}</p>
-                        </div>
-                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <p class="text-[11px] text-gray-400 uppercase tracking-wide">Out of</p>
-                            <p class="text-gray-800 font-medium">{{ $viewAssignment->maxMarks() > 0 ? $viewAssignment->maxMarks() . ' marks' : 'Not set' }}</p>
-                        </div>
-                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <p class="text-[11px] text-gray-400 uppercase tracking-wide">Window</p>
-                            <p class="text-gray-800 font-medium capitalize">{{ $viewAssignment->windowStatus() }}</p>
-                        </div>
-                        @unless ($viewAssignment->isMcq())
-                            <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                                <p class="text-[11px] text-gray-400 uppercase tracking-wide">Answer with</p>
-                                <p class="text-gray-800 font-medium">{{ $submissionModeLabels[$viewAssignment->submission_mode] ?? '—' }}</p>
-                            </div>
-                        @endunless
-                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <p class="text-[11px] text-gray-400 uppercase tracking-wide">Visibility</p>
-                            <p class="font-medium {{ $viewAssignment->is_active ? 'text-emerald-700' : 'text-gray-500' }}">{{ $viewAssignment->is_active ? 'Published' : 'Draft' }}</p>
-                        </div>
-                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 col-span-2">
-                            <p class="text-[11px] text-gray-400 uppercase tracking-wide">Set by</p>
-                            <p class="text-gray-800 font-medium">{{ $viewAssignment->user->name ?? '—' }}</p>
-                        </div>
-                    </div>
+                    @endforeach
 
                     @if ($viewAssignment->description)
                         <div>
-                            <p class="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Instructions</p>
+                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-1.5">Instructions</p>
                             <p class="text-sm text-gray-700 whitespace-pre-line">{{ $viewAssignment->description }}</p>
                         </div>
                     @endif
@@ -756,7 +734,7 @@
 
                     @if (!empty($viewQuestions))
                         <div>
-                            <p class="text-[11px] text-gray-400 uppercase tracking-wide mb-2">Questions ({{ count($viewQuestions) }})</p>
+                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-2">Questions ({{ count($viewQuestions) }})</p>
                             <div class="space-y-3">
                                 @foreach ($viewQuestions as $qi => $q)
                                     <div class="border border-gray-200 rounded-lg p-3">
@@ -776,6 +754,10 @@
                             </div>
                         </div>
                     @endif
+                </div>
+
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                    <button wire:click="closeView" class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
                 </div>
             </div>
         </div>
