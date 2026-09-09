@@ -6,7 +6,7 @@
     <title>Report Card - {{ $student->full_name ?? 'Student' }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         /* ─── The twin of report-card-pdf.blade.php. Every size, weight and
                colour is shared, and the sheet is the same box: the PDF prints
@@ -22,13 +22,16 @@
             color: #222;
         }
 
+        /* 5mm of paper outside the frame, matching the PDF's @page margin.
+           The margin lives here rather than on @page so the browser prints no
+           header or footer of its own — see the @page rule below. */
         .page {
             width: 200mm;
             min-height: 287mm;
-            margin: 0 auto;
+            margin: 5mm auto;
             background: #fff;
             border: 3px solid #1a3d8f;
-            padding: 11mm 11mm 7mm;
+            padding: 4mm 7mm 6mm;
             font-size: 12px;
             color: #222;
             display: flex;
@@ -36,7 +39,7 @@
         }
 
         /* ─── Top corners ─── */
-        table.topbar { width: 100%; border-collapse: collapse; margin-bottom: 2mm; }
+        table.topbar { width: 100%; border-collapse: collapse; margin-bottom: 1mm; }
         table.topbar td { font-size: 10px; font-weight: 500; color: #000; }
         table.topbar td.right { text-align: right; }
 
@@ -45,12 +48,18 @@
         /* width only, height auto — matches what dompdf can render, so the
            downloaded logo is the same shape and size as this one. */
         .header img.logo {
-            width: 90px; height: auto; display: block; margin: 0 auto 8px;
+            width: 120px; height: auto; display: block; margin: 0 auto 8px;
         }
-        .school-name { font-size: 26px; font-weight: 700; letter-spacing: 0.6px; color: #000; }
+        /* Merriweather at regular weight — a school name reads better set in a
+           serif than shouted in a heavy sans. */
+        .school-name {
+            font-family: 'Merriweather', 'PT Serif', Georgia, serif;
+            font-size: 27px; font-weight: 400; letter-spacing: 0.2px; color: #000;
+        }
         .school-address { font-size: 11px; margin-top: 3px; font-weight: 400; color: #000; }
-        .doc-title { font-weight: bold; font-size: 13px; margin-top: 10px; color: #000; }
-        .doc-session { font-weight: bold; font-size: 13px; margin-bottom: 10px; color: #000; }
+        .rule { border-bottom: 1px solid #1a3d8f; margin: 7px auto 0; width: 100%; }
+        .doc-title { font-weight: 600; font-size: 13px; margin-top: 8px; color: #000; letter-spacing: 0.3px; }
+        .doc-session { font-weight: 600; font-size: 13px; margin-bottom: 9px; color: #000; }
 
         /* ─── Student info ─── */
         table.info { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
@@ -108,11 +117,15 @@
             margin-top: 10px; letter-spacing: 0.3px;
         }
 
-        @page { size: A4 portrait; margin: 5mm; }
+        /* Zero page margin is what stops the browser printing its own header
+           and footer — the date at the top, the URL and page number at the
+           bottom. The 5mm of paper around the frame comes from .page's margin
+           instead. */
+        @page { size: A4 portrait; margin: 0; }
 
         @media print {
             body { background: #fff; padding: 0; }
-            .page { border: 3px solid #1a3d8f; margin: 0; }
+            .page { border: 3px solid #1a3d8f; margin: 5mm auto; }
             .no-print { display: none; }
         }
 

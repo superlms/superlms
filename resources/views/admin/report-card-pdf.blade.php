@@ -35,11 +35,12 @@
             border: 3px solid #1a3d8f;
         }
 
-        /* Bottom padding clears the pinned .page-foot, which is out of flow. */
-        .page { padding: 11mm 11mm 28mm; }
+        /* Tight top and sides so the masthead sits close to the frame.
+           Bottom clears the pinned .page-foot, which is out of flow. */
+        .page { padding: 4mm 7mm 26mm; }
 
         /* ─── Top corners: affiliation number left, website right ─── */
-        table.topbar { width: 100%; border-collapse: collapse; margin-bottom: 2mm; }
+        table.topbar { width: 100%; border-collapse: collapse; margin-bottom: 1mm; }
         table.topbar td { font-size: 10px; color: #000; padding: 0; }
         table.topbar td.right { text-align: right; }
 
@@ -47,19 +48,22 @@
         .header { text-align: center; margin-bottom: 8px; }
         /* width only, height auto: dompdf cannot clip an image to a circle, so
            both mediums size the logo the same way and keep its aspect. */
-        .header img.logo { width: 90px; height: auto; }
+        .header img.logo { width: 120px; height: auto; }
+        /* Merriweather at regular weight — a school name reads better set in a
+           serif than shouted in a heavy sans. */
         .school-name {
-            font-family: 'Poppins Bold', 'Poppins', sans-serif;
-            color: #000; font-size: 26px; letter-spacing: 0.6px;
+            font-family: 'Merriweather', 'PT Serif', serif;
+            color: #000; font-size: 27px; letter-spacing: 0.2px;
         }
         .school-address { font-size: 11px; margin-top: 3px; color: #000; }
+        .rule { border-bottom: 1px solid #1a3d8f; margin: 7px auto 0; width: 100%; }
         .doc-title {
-            font-family: 'Poppins Bold', 'Poppins', sans-serif;
-            font-size: 13px; margin-top: 10px; color: #000;
+            font-family: 'Poppins SemiBold', 'Poppins', sans-serif;
+            font-size: 13px; margin-top: 8px; color: #000; letter-spacing: 0.3px;
         }
         .doc-session {
-            font-family: 'Poppins Bold', 'Poppins', sans-serif;
-            font-size: 13px; margin-bottom: 10px; color: #000;
+            font-family: 'Poppins SemiBold', 'Poppins', sans-serif;
+            font-size: 13px; margin-bottom: 9px; color: #000;
         }
 
         /* ─── Student info ─── */
@@ -117,7 +121,7 @@
         }
 
         /* ─── Signatures + footnote, at the foot of the sheet ─── */
-        .page-foot { position: fixed; left: 11mm; right: 11mm; bottom: 7mm; }
+        .page-foot { position: fixed; left: 7mm; right: 7mm; bottom: 6mm; }
 
         table.sign-row { width: 100%; border-collapse: collapse; }
         table.sign-row td { width: 50%; padding: 0; }

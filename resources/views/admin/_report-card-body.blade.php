@@ -142,6 +142,16 @@
         $organization->email ?? null,
     ]);
 
+    // Website prints the way a school writes it on its letterhead: no
+    // protocol, no trailing slash, always a www.
+    $website = trim((string) ($organization->website ?? ''));
+    if ($website !== '') {
+        $website = rtrim(preg_replace('#^https?://#i', '', $website), '/');
+        if (!\Illuminate\Support\Str::startsWith(strtolower($website), 'www.')) {
+            $website = 'www.' . $website;
+        }
+    }
+
     $a1 = $attendance['term1']   ?? ['present' => 0, 'total' => 0];
     $a2 = $attendance['term2']   ?? ['present' => 0, 'total' => 0];
     $ao = $attendance['overall'] ?? ['present' => 0, 'total' => 0];
@@ -152,8 +162,8 @@
     {{-- ─── Top corners: affiliation number left, website right ─── --}}
     <table class="topbar">
         <tr>
-            <td>@if (!empty($organization->affiliation_no))Affliation No: {{ $organization->affiliation_no }}@endif</td>
-            <td class="right">@if (!empty($organization->website))website: {{ $organization->website }}@endif</td>
+            <td>@if (!empty($organization->affiliation_no))Affiliation No: {{ $organization->affiliation_no }}@endif</td>
+            <td class="right">{{ $website }}</td>
         </tr>
     </table>
 
@@ -167,6 +177,7 @@
         @if (!empty($contactBits))
             <div class="school-address">{{ implode(', ', $contactBits) }}</div>
         @endif
+        <div class="rule"></div>
         <div class="doc-title">Record of Academic Performance</div>
         <div class="doc-session">Session: {{ $reportCard->academic_year ?? 'N/A' }}</div>
     </div>

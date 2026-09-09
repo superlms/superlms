@@ -20,6 +20,8 @@ class PdfFonts
         'Poppins Bold'     => 'Poppins-Bold.ttf',
         'PT Serif'         => 'PT_Serif-Web-Regular.ttf',
         'PT Serif Bold'    => 'PT_Serif-Web-Bold.ttf',
+        'Merriweather'      => 'Merriweather-Regular.ttf',
+        'Merriweather Bold' => 'Merriweather-Bold.ttf',
     ];
 
     private static ?string $css = null;
