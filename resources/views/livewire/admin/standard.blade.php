@@ -451,6 +451,19 @@
                             @error('standardName')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Class Code <span class="text-red-500">*</span></label>
+                            <input wire:model.live.debounce.400ms="standardCode" type="text" placeholder="01"
+                                maxlength="10"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-purple-500 focus:border-purple-500">
+                            <p class="mt-1.5 text-xs text-gray-500">
+                                Roll numbers for this class start with the last digit of the code
+                                @php $preview = substr(preg_replace('/\D/', '', (string) $standardCode) ?: '0', -1); @endphp
+                                — code <span class="font-semibold text-gray-700">{{ $standardCode ?: '—' }}</span>
+                                gives <span class="font-semibold text-gray-700">{{ $preview }}01, {{ $preview }}02, {{ $preview }}03…</span>
+                            </p>
+                            @error('standardCode')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Display Order</label>
                             <input wire:model.defer="standardOrder" type="number" placeholder="0"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-purple-500 focus:border-purple-500">

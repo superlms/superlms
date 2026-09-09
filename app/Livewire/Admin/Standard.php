@@ -312,6 +312,8 @@ class Standard extends Component
         $this->reset(['standardName', 'standardCode', 'standardOrder']);
         $this->standardActive = true;
         $this->standardBoard  = $this->resolveOrgBoard();
+        // Suggest the next code in sequence — the admin can overwrite it.
+        $this->standardCode   = StudentNumbers::nextStandardCode(Auth::user()->organization_id);
     }
 
     private function resetSectionFields(): void
@@ -407,6 +409,10 @@ class Standard extends Component
 
         $this->validate([
             'standardName' => 'required|string|max:255',
+            'standardCode' => 'required|string|max:10',
+        ], [
+            'standardCode.required' => 'Please enter a class code.',
+            'standardCode.max'      => 'Class code may not be longer than 10 characters.',
         ]);
 
         // Same-name within org cannot exist
@@ -419,8 +425,21 @@ class Standard extends Component
             return;
         }
 
+        // Nor can two classes share a code — roll numbers are built from it.
+        $dupCode = StudentStandard::where('organization_id', $orgId)
+            ->where('code', $this->standardCode)
+            ->when($this->editId, fn($q) => $q->where('id', '!=', $this->editId))
+            ->exists();
+        if ($dupCode) {
+            $this->addError('standardCode', 'A class with this code already exists.');
+            return;
+        }
+
         $data = [
             'name'            => $this->standardName,
+            // Roll numbers are built from the last digit of this code, so what
+            // the admin types here decides what this class's rolls look like.
+            'code'            => $this->standardCode,
             'board'           => $this->standardBoard ?: $this->resolveOrgBoard(),
             'order'           => $this->standardOrder ? (int) $this->standardOrder : 0,
             'is_active'       => $this->standardActive,
@@ -428,21 +447,9 @@ class Standard extends Component
         ];
 
         if ($this->editId) {
-            $standard = StudentStandard::find($this->editId);
-
-            // The code is minted once and never renumbered — the student roll
-            // number is built from it, so changing it would orphan existing
-            // rolls. Only fill it in when the class predates auto-coding.
-            if (blank($standard->code)) {
-                $data['code'] = StudentNumbers::nextStandardCode($orgId);
-            }
-
-            $standard->update($data);
+            StudentStandard::find($this->editId)->update($data);
             $this->notification()->success('Class updated successfully!');
         } else {
-            // "01", "02", "03" … in creation order, per school. Roll numbers
-            // are derived from the last digit of this code.
-            $data['code'] = StudentNumbers::nextStandardCode($orgId);
             StudentStandard::create($data);
             $this->notification()->success('Class created successfully!');
         }
@@ -607,7 +614,8 @@ class Standard extends Component
         if ($s) {
             $this->editId         = $id;
             $this->standardName   = $s->name;
-            $this->standardCode   = $s->code;
+            // A class from before codes existed opens with the next one suggested.
+            $this->standardCode   = $s->code ?: StudentNumbers::nextStandardCode($s->organization_id);
             $this->standardBoard  = $s->board ?: $this->resolveOrgBoard();
             $this->standardOrder  = $s->order;
             $this->standardActive = $s->is_active;
