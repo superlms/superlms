@@ -209,7 +209,17 @@ class ReportCardController extends ApiController
 
         $data = app(ReportCardService::class)->buildPdfData($card);
 
-        $pdf = Pdf::loadView('admin.report-card-pdf', $data)->setPaper('a4', 'portrait');
+        // Same dompdf options the admin download uses, so the in-app preview
+        // and the downloaded file are the same document.
+        $fontDir = \App\Support\PdfFonts::cacheDir();
+
+        $pdf = Pdf::loadView('admin.report-card-pdf', $data)
+            ->setPaper('a4', 'portrait')
+            ->setOption('isHtml5ParserEnabled', true)
+            ->setOption('isRemoteEnabled', true)
+            ->setOption('isFontSubsettingEnabled', true)
+            ->setOption('fontDir', $fontDir)
+            ->setOption('fontCache', $fontDir);
         $name = str_replace(' ', '_', $student->full_name ?? 'student');
 
         return $pdf->stream("Report_Card_{$name}.pdf");

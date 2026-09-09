@@ -34,6 +34,12 @@ class ReportCard extends Component
     public $selectedStudents = [];
     public $issueStudentsLoaded = false;
 
+    // Issue details slide-in — what actually gets printed on the card.
+    public bool   $showIssueForm = false;
+    public string $issueDate     = '';
+    /** student_detail_id => ['name', 'admission_no', 'regd_no', 'remark', 'result'] */
+    public array  $issueRows     = [];
+
     public function mount()
     {
         //
@@ -61,6 +67,7 @@ class ReportCard extends Component
         $this->issueSection = '';
         $this->selectedStudents = [];
         $this->issueStudentsLoaded = false;
+        $this->closeIssueForm();
     }
 
     /**
@@ -218,9 +225,14 @@ class ReportCard extends Component
     }
 
     /**
-     * Issue report cards for selected students.
+     * Open the slide-in that collects what goes on the card — registration
+     * number, remark and result — one row per selected student.
+     *
+     * Regd. No is prefilled from the student's registration number and the
+     * result is left on "Auto" (worked out from the marks) so a school that
+     * doesn't care can just hit Issue.
      */
-    public function issueReportCards()
+    public function openIssueForm()
     {
         if (empty($this->selectedStudents)) {
             $this->notification()->warning(
@@ -230,6 +242,58 @@ class ReportCard extends Component
             return;
         }
 
+        $students = StudentDetail::whereIn('id', $this->selectedStudents)
+            ->where('organization_id', Auth::user()->organization_id)
+            ->orderBy('full_name')
+            ->get();
+
+        $this->issueRows = [];
+        foreach ($students as $student) {
+            $this->issueRows[$student->id] = [
+                'name'         => $student->full_name,
+                'admission_no' => $student->admission_no,
+                'regd_no'      => (string) ($student->registration_number ?? ''),
+                'remark'       => '',
+                'result'       => '',
+            ];
+        }
+
+        $this->issueDate     = now()->format('Y-m-d');
+        $this->showIssueForm = true;
+    }
+
+    public function closeIssueForm()
+    {
+        $this->showIssueForm = false;
+        $this->issueRows     = [];
+        $this->issueDate     = '';
+    }
+
+    /**
+     * Issue report cards for selected students, with the details typed on the
+     * slide-in. A blank remark or result is stored as null, which keeps the
+     * card deriving it from the marks the way it always did.
+     */
+    public function issueReportCards()
+    {
+        if (empty($this->issueRows)) {
+            $this->notification()->warning(
+                $title = 'Warning',
+                $description = 'Please select at least one student.'
+            );
+            return;
+        }
+
+        $this->validate([
+            'issueDate'            => 'required|date',
+            'issueRows.*.regd_no'  => 'nullable|string|max:50',
+            'issueRows.*.remark'   => 'nullable|string|max:500',
+            'issueRows.*.result'   => 'nullable|in:PASSED,FAILED',
+        ], [
+            'issueDate.required'   => 'Please pick an issue date.',
+            'issueRows.*.remark.max' => 'A remark may not be longer than 500 characters.',
+        ]);
+
         try {
             $orgId = Auth::user()->organization_id;
             $currentYear = now()->month >= 4
@@ -238,8 +302,9 @@ class ReportCard extends Component
 
             $issuedCount = 0;
             $skippedCount = 0;
+            $issuedAt = \Carbon\Carbon::parse($this->issueDate)->setTimeFrom(now());
 
-            foreach ($this->selectedStudents as $studentId) {
+            foreach ($this->issueRows as $studentId => $row) {
                 // Check if already issued
                 $existing = ReportCardModel::where('organization_id', $orgId)
                     ->where('student_detail_id', $studentId)
@@ -259,7 +324,10 @@ class ReportCard extends Component
                     'standard_id' => $this->issueStandard,
                     'section_id' => $this->issueSection,
                     'academic_year' => $currentYear,
-                    'issued_at' => now(),
+                    'regd_no' => trim((string) ($row['regd_no'] ?? '')) ?: null,
+                    'remark' => trim((string) ($row['remark'] ?? '')) ?: null,
+                    'result' => ($row['result'] ?? '') ?: null,
+                    'issued_at' => $issuedAt,
                     'issued_by' => Auth::id(),
                     'status' => 'issued',
                 ]);
@@ -278,6 +346,7 @@ class ReportCard extends Component
             );
 
             // Refresh the student list
+            $this->closeIssueForm();
             $this->selectedStudents = [];
             unset($this->issueStudents);
 

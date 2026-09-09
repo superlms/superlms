@@ -22,8 +22,17 @@ class ReportCardController extends Controller
         $reportCard = $this->getReportCard($id);
         $data = $this->buildReportCardData($reportCard);
 
+        // isRemoteEnabled so an S3-hosted school logo actually loads, and an
+        // explicit font cache so the bundled Poppins faces can be written.
+        $fontDir = \App\Support\PdfFonts::cacheDir();
+
         $pdf = Pdf::loadView('admin.report-card-pdf', $data)
-            ->setPaper('a4', 'portrait');
+            ->setPaper('a4', 'portrait')
+            ->setOption('isHtml5ParserEnabled', true)
+            ->setOption('isRemoteEnabled', true)
+            ->setOption('isFontSubsettingEnabled', true)
+            ->setOption('fontDir', $fontDir)
+            ->setOption('fontCache', $fontDir);
 
         $studentName = str_replace(' ', '_', $reportCard->studentDetail->full_name ?? 'student');
 

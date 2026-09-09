@@ -4,116 +4,122 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Report Card - {{ $student->full_name ?? 'Student' }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        /* ─── Screen + print share the same dimensions ─────────────────────
-           A4 portrait at 96dpi ≈ 794px wide. We constrain .sheet to 800px and
-           reuse identical typography to mirror the downloaded PDF. The look
-           is modelled after the Shreeji Public School template.
-        ─────────────────────────────────────────────────────────────── */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        @page { size: A4 portrait; margin: 14px; }
+        /* ─── The same sheet the PDF renders, for on-screen preview and the
+               browser's own print dialog. Sizes are in mm so what prints
+               matches the download. ─────────────────────────────────────── */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
-            font-family: Arial, "DejaVu Sans", sans-serif;
-            font-size: 10px;
-            color: #1f2937;
-            background: #f3f4f6;
+            font-family: 'Poppins', Arial, Helvetica, sans-serif;
+            background: #e9e9e9;
+            padding: 20px;
         }
 
-        .sheet {
-            max-width: 800px;
-            margin: 20px auto;
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 0 auto;
             background: #fff;
-            border: 1px solid #93c5fd;
-            padding: 14px 18px;
+            border: 3px solid #1a3d8f;
+            padding: 12mm 12mm 10mm;
+            position: relative;
+            font-size: 12px;
+            color: #222;
+            display: flex;
+            flex-direction: column;
         }
 
-        .topbar { width: 100%; font-size: 9px; color: #374151; margin-bottom: 8px; }
-        .topbar td { vertical-align: top; }
-        .topbar .right { text-align: right; }
+        /* ─── Top corners ─── */
+        table.topbar { width: 100%; border-collapse: collapse; margin-bottom: 2mm; }
+        table.topbar td { font-size: 10px; font-weight: 500; color: #000; }
+        table.topbar td.right { text-align: right; }
 
-        .brand { text-align: center; margin-bottom: 6px; }
-        .brand img { height: 75px; width: 75px; object-fit: contain; }
-        .brand .school-name {
-            font-family: "Times New Roman", Times, serif;
-            font-size: 26px;
-            font-weight: bold;
-            color: #111827;
-            letter-spacing: 0.3px;
-            margin-top: 2px;
-            border-bottom: 1px solid #1f2937;
-            padding-bottom: 2px;
-            display: inline-block;
+        /* ─── Header ─── */
+        .header { text-align: center; margin-bottom: 8px; }
+        .header img.logo {
+            width: 90px; height: 90px; display: block; margin: 0 auto 8px;
+            border-radius: 50%; object-fit: cover;
         }
-        .brand .address { font-size: 9px; color: #4b5563; margin-top: 4px; }
-        .brand .contact { font-size: 9px; color: #4b5563; }
-        .brand .doc-title { font-size: 13px; font-weight: bold; color: #111827; margin-top: 10px; }
-        .brand .session { font-size: 11px; font-weight: bold; color: #111827; margin-top: 2px; }
+        .school-name { font-size: 26px; font-weight: 700; letter-spacing: 0.6px; color: #000; }
+        .school-address { font-size: 11px; margin-top: 3px; font-weight: 400; color: #000; }
+        .doc-title { font-weight: bold; font-size: 13px; margin-top: 10px; color: #000; }
+        .doc-session { font-weight: bold; font-size: 13px; margin-bottom: 10px; color: #000; }
 
-        table.info { width: 100%; border-collapse: collapse; margin-top: 12px; }
-        table.info td { border: 1px solid #6b7280; padding: 6px 10px; font-size: 10px; }
-        table.info .label { font-weight: bold; width: 18%; background: #fff; }
-        table.info .value { width: 32%; }
+        /* ─── Student info ─── */
+        table.info { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        table.info td { border: 1px solid #000; padding: 4px 6px; font-size: 12px; }
+        table.info td.label { font-weight: bold; width: 16%; background: #fff; color: #000; }
+        table.info td.value { width: 34%; }
 
-        table.marks { width: 100%; border-collapse: collapse; margin-top: 12px; table-layout: fixed; }
+        /* ─── Marks ─── */
+        table.marks { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
         table.marks th, table.marks td {
-            border: 1px solid #6b7280;
-            text-align: center;
-            padding: 4px 2px;
-            font-size: 9px;
-            word-wrap: break-word;
+            border: 1px solid #000; text-align: center; padding: 3px 2px; font-size: 11px;
         }
-        table.marks th { font-weight: bold; }
-        table.marks td.subj, table.marks th.subj { text-align: left; padding-left: 6px; }
-        table.marks .grp { background: #ffffff; font-weight: bold; }
-        table.marks .bigtotal { font-size: 14px; font-weight: bold; vertical-align: middle; }
-        table.marks .totrow td { font-weight: bold; background: #f9fafb; }
-        table.marks .pctrow td { font-weight: bold; background: #f9fafb; }
-
-        table.cosch { width: 100%; border-collapse: separate; border-spacing: 8px 0; margin-top: 12px; }
-        table.cosch > tbody > tr > td { padding: 0; vertical-align: top; width: 50%; }
-        table.cosch > tbody > tr > td.cell-left  { padding-right: 4px; }
-        table.cosch > tbody > tr > td.cell-right { padding-left: 4px; }
-
-        table.cosch-inner { width: 100%; border-collapse: collapse; }
-        table.cosch-inner th, table.cosch-inner td { border: 1px solid #6b7280; padding: 6px 10px; font-size: 9px; }
-        table.cosch-inner th { background: #fff; font-weight: bold; text-align: left; }
-        table.cosch-inner .gd { text-align: center; width: 60px; font-weight: bold; }
-
-        table.foot { width: 100%; border-collapse: collapse; margin-top: 12px; }
-        table.foot td { border: 1px solid #6b7280; padding: 6px 10px; font-size: 9px; }
-        table.foot .label { font-weight: bold; width: 16%; background: #fff; }
-
-        .result { width: 100%; border-collapse: collapse; margin-top: 12px; }
-        .result td { font-size: 10px; padding: 4px 0; }
-        .result .r { text-align: right; }
-        .result strong { font-weight: bold; }
-
-        .sign { margin-top: 50px; width: 100%; }
-        .sign td { font-size: 11px; font-weight: bold; color: #111827; }
-        .sign .r { text-align: right; }
-
-        /* Print floating action */
-        .print-btn {
-            display: block; max-width: 220px; margin: 20px auto;
-            padding: 10px 24px; background: #2563eb; color: #fff;
-            border: none; border-radius: 6px; font-size: 14px;
-            cursor: pointer; text-align: center;
+        table.marks thead th { background: #fff; color: #000; font-weight: bold; }
+        table.marks td.subj, table.marks th.subj-head {
+            text-align: left; padding-left: 8px; font-weight: 500;
         }
-        .print-btn:hover { background: #1d4ed8; }
+        table.marks th.subj-head span { font-weight: normal; }
+        table.marks tr.totrow td, table.marks tr.pctrow td { font-weight: bold; background: #fff; color: #000; }
+
+        /* ─── Co-scholastic ─── */
+        table.co-wrap { width: 100%; border-collapse: separate; border-spacing: 0; margin-bottom: 10px; }
+        table.co-wrap > tbody > tr > td { width: 50%; vertical-align: top; padding: 0; }
+        table.co-wrap > tbody > tr > td.left { padding-right: 5px; }
+        table.co-wrap > tbody > tr > td.right { padding-left: 5px; }
+
+        table.co { width: 100%; border-collapse: collapse; }
+        table.co th, table.co td { border: 1px solid #000; padding: 4px 6px; font-size: 11.5px; }
+        table.co th { background: #fff; color: #000; font-weight: bold; }
+        table.co td.grade, table.co th.grade-head { text-align: center; width: 20%; }
+
+        /* ─── Attendance / remark ─── */
+        table.bottom-info { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        table.bottom-info td { border: 1px solid #000; padding: 4px 6px; font-size: 12px; }
+        table.bottom-info td.label { font-weight: bold; background: #fff; color: #000; }
+
+        /* ─── Issue / result ─── */
+        table.issue-row { width: 100%; border-collapse: collapse; margin-top: 4px; }
+        table.issue-row td { font-size: 12px; color: #000; }
+        table.issue-row td.result { text-align: right; font-weight: bold; }
+
+        /* ─── Signatures ─── */
+        table.sign-row { width: 100%; border-collapse: collapse; margin-top: auto; padding-top: 40px; }
+        table.sign-row td { width: 50%; padding-top: 40px; }
+        table.sign-row td.right { text-align: right; }
+        table.sign-row span {
+            border-top: 1px solid #000; padding-top: 6px; display: inline-block;
+            width: 160px; text-align: center; font-weight: bold; font-size: 12px; color: #000;
+        }
+
+        .footer-note {
+            text-align: center; font-size: 9.5px; color: #222;
+            margin-top: 10px; letter-spacing: 0.3px;
+        }
 
         @media print {
-            body { background: #fff; }
-            .sheet { margin: 0; max-width: 100%; }
-            .no-print { display: none !important; }
+            body { background: #fff; padding: 0; }
+            .page { border: 3px solid #1a3d8f; margin: 0; }
+            .no-print { display: none; }
+        }
+
+        .no-print { max-width: 210mm; margin: 0 auto 12px; text-align: center; }
+        .no-print button {
+            padding: 8px 18px; font-size: 14px; background: #333; color: #fff;
+            border: none; border-radius: 4px; cursor: pointer;
         }
     </style>
 </head>
 <body>
+    <div class="no-print">
+        <button onclick="window.print()">🖨️ Print / Save as PDF</button>
+    </div>
 
-<button class="print-btn no-print" onclick="window.print()">Print Report Card</button>
-
-@include('admin._report-card-body')
-
+    @include('admin._report-card-body')
 </body>
 </html>

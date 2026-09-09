@@ -359,16 +359,16 @@
                     @if ($this->issueStudents->isNotEmpty())
                         <div class="px-5 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
                             <div class="text-sm text-gray-600"><strong class="text-gray-900">{{ count($selectedStudents) }}</strong> student(s) selected</div>
-                            <button wire:click="issueReportCards" @disabled(empty($selectedStudents)) wire:loading.attr="disabled"
+                            <button wire:click="openIssueForm" @disabled(empty($selectedStudents)) wire:loading.attr="disabled"
                                 class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
-                                <svg wire:loading.remove wire:target="issueReportCards" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <svg wire:loading.remove wire:target="openIssueForm" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
-                                <svg wire:loading wire:target="issueReportCards" class="animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <svg wire:loading wire:target="openIssueForm" class="animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                                 </svg>
-                                Issue Report Cards
+                                Continue
                             </button>
                         </div>
                     @endif
@@ -387,4 +387,110 @@
             @endif
         </div>
     @endif
+
+{{-- ══════════════════════════════════════════════════
+     ISSUE DETAILS SLIDE-IN
+     What gets printed on the card: registration number, remark and result,
+     one row per selected student, plus a shared issue date.
+══════════════════════════════════════════════════ --}}
+@if ($showIssueForm)
+    @teleport('body')
+    <div class="fixed inset-0 z-[70] overflow-hidden">
+        <div class="absolute inset-0 bg-black/[0.08] backdrop-blur-[1.5px]" wire:click="closeIssueForm"></div>
+        <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
+
+            {{-- Header --}}
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900">Issue Report Cards</h2>
+                    <p class="text-xs text-gray-500 mt-0.5">
+                        {{ count($issueRows) }} student(s) — these details print on the card
+                    </p>
+                </div>
+                <button wire:click="closeIssueForm"
+                    class="w-9 h-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            {{-- Body --}}
+            <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+                <div class="max-w-xs">
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                        Issue Date <span class="text-red-500">*</span>
+                    </label>
+                    <input wire:model.defer="issueDate" type="date"
+                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
+                    @error('issueDate')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                    <p class="mt-1 text-xs text-gray-500">Prints as "Issue Date" on every card in this batch.</p>
+                </div>
+
+                <div class="border border-gray-200 rounded-xl overflow-hidden">
+                    <div class="grid grid-cols-12 gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        <div class="col-span-3">Student</div>
+                        <div class="col-span-2">Regd. No</div>
+                        <div class="col-span-5">Remark</div>
+                        <div class="col-span-2">Result</div>
+                    </div>
+
+                    @foreach ($issueRows as $studentId => $row)
+                        <div class="grid grid-cols-12 gap-2 px-4 py-3 border-b border-gray-100 last:border-0 items-start">
+                            <div class="col-span-3 min-w-0">
+                                <p class="text-sm font-medium text-gray-900 truncate">{{ $row['name'] ?: '—' }}</p>
+                                <p class="text-xs text-gray-400 truncate">{{ $row['admission_no'] ?: '—' }}</p>
+                            </div>
+                            <div class="col-span-2">
+                                <input wire:model.defer="issueRows.{{ $studentId }}.regd_no" type="text"
+                                    maxlength="50" placeholder="—"
+                                    class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm">
+                                @error('issueRows.' . $studentId . '.regd_no')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div class="col-span-5">
+                                <input wire:model.defer="issueRows.{{ $studentId }}.remark" type="text"
+                                    maxlength="500" placeholder="Leave blank to use the marks-based remark"
+                                    class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm">
+                                @error('issueRows.' . $studentId . '.remark')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div class="col-span-2">
+                                <select wire:model.defer="issueRows.{{ $studentId }}.result"
+                                    class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm">
+                                    <option value="">Auto</option>
+                                    <option value="PASSED">PASSED</option>
+                                    <option value="FAILED">FAILED</option>
+                                </select>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+
+                <p class="text-xs text-gray-500">
+                    Regd. No is prefilled from the student's registration number. Leave a remark blank
+                    and the card writes one from the percentage; leave Result on Auto and it passes
+                    anyone above 33% in every subject.
+                </p>
+            </div>
+
+            {{-- Footer --}}
+            <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+                <button wire:click="closeIssueForm" type="button"
+                    class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900">Cancel</button>
+                <button wire:click="issueReportCards" wire:loading.attr="disabled" wire:target="issueReportCards"
+                    class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
+                    <svg wire:loading.remove wire:target="issueReportCards" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <svg wire:loading wire:target="issueReportCards" class="animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    Issue {{ count($issueRows) }} Report Card(s)
+                </button>
+            </div>
+        </div>
+    </div>
+    @endteleport
+@endif
 </div>

@@ -25,6 +25,24 @@ class PdfFonts
     private static ?string $css = null;
 
     /**
+     * dompdf's font cache directory, created if it isn't there yet.
+     *
+     * dompdf writes the metrics for every embedded face here; if the directory
+     * is missing the render dies rather than falling back, so every PDF that
+     * uses these fonts should point at this.
+     */
+    public static function cacheDir(): string
+    {
+        $dir = storage_path('fonts');
+
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+
+        return $dir;
+    }
+
+    /**
      * @font-face CSS (data-URI embedded) for the bundled fonts. Memoised for
      * the request; missing files are skipped so a render never hard-fails.
      */
