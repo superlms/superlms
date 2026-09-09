@@ -18,25 +18,35 @@ use Illuminate\Support\Facades\DB;
  * Stand up the exams a report card expects, and fill them in.
  *
  * The report card prints marks under Term-1 (Unit Test-1, Unit Test-2, Mid
- * Term) and Term-2 (Unit Test-1, Unit Test-2, End Term). A school with no
- * exams has nothing to print, and the issue screen refuses every student with
- * "No published exams found", so a fresh school can't produce a single card.
- * This creates that set, wires up subjects if the sections have none, and
- * writes a mark for every student × subject × exam.
+ * Term) and Term-2 (Unit Test-1, Unit Test-2, End Term). Without that set
+ * there is nothing for the columns to draw, and the issue screen turns every
+ * student away.
  *
- * SAFETY: by default an organization is only touched when it has no exams and
- * no marks at all — nothing to overwrite, nothing to contradict. Attendance is
- * only filled when the organization has none. Pass --force to override, and
- * --org to limit the run to one school.
+ * Everything here is additive and gap-filling: exams are matched by name, term
+ * and session before being created, and a mark is only written where none
+ * exists. Nothing already recorded is changed.
+ *
+ * Marks are filled for EVERY published exam the school has, not only the six
+ * created here — the issue screen requires a mark for every published exam
+ * against every subject, so one stray exam with no marks blocks the whole
+ * class.
+ *
+ * Rows this command writes are tagged (`[seed]` in an exam's description, in
+ * an attendance row's remarks) so `lms:clear-seeded-report-card-data` can take
+ * them back out again.
  */
 class SeedReportCardData extends Command
 {
     protected $signature = 'lms:seed-report-card-data
                             {--org= : Only this organization id}
-                            {--force : Seed even when exams or marks already exist}
+                            {--only-empty : Skip any school that already has exams or marks}
+                            {--force : Seed even where the report-card set is already filled}
                             {--no-attendance : Skip the attendance fill}';
 
     protected $description = 'Create the report-card exam set and fill in marks so report cards can be issued';
+
+    /** Marks the rows this command wrote, so they can be removed again. */
+    public const SEED_TAG = '[seed]';
 
     /** The exam set the report card template is built around. */
     private const EXAM_SET = [
@@ -91,12 +101,12 @@ class SeedReportCardData extends Command
             return;
         }
 
-        if (!$this->option('force')) {
-            $hasExams = Exam::where('organization_id', $orgId)->exists();
-            $hasMarks = ExamCopy::where('organization_id', $orgId)->exists();
-
-            if ($hasExams || $hasMarks) {
-                $this->line("{$label}: already has exams or marks — skipped (use --force to seed anyway).");
+        // Strictest setting: leave alone any school that has started keeping
+        // records of its own.
+        if ($this->option('only-empty')) {
+            if (Exam::where('organization_id', $orgId)->exists()
+                || ExamCopy::where('organization_id', $orgId)->exists()) {
+                $this->line("{$label}: already has exams or marks — skipped (--only-empty).");
                 return;
             }
         }
@@ -104,10 +114,18 @@ class SeedReportCardData extends Command
         $this->info("{$label}: seeding…");
 
         $subjectsBySection = $this->ensureSubjects($orgId, $students);
-        $exams             = $this->ensureExams($orgId);
-        $marks             = $this->fillMarks($orgId, $students, $subjectsBySection, $exams);
+        $created           = $this->ensureExams($orgId);
 
-        $this->line("  exams: {$exams->count()}, marks written: {$marks}");
+        // Every published exam, not just the six — a published exam with no
+        // marks against it blocks the issue screen for the whole class.
+        $exams = Exam::where('organization_id', $orgId)
+            ->where('is_published', true)
+            ->orderBy('start_date')
+            ->get();
+
+        $marks = $this->fillMarks($orgId, $students, $subjectsBySection, $exams);
+
+        $this->line("  exams created: {$created}, published exams filled: {$exams->count()}, marks written: {$marks}");
 
         if (!$this->option('no-attendance')) {
             $days = $this->fillAttendance($orgId, $students);
@@ -174,14 +192,16 @@ class SeedReportCardData extends Command
 
     /**
      * The six exams the template draws, published and dated inside the running
-     * session so they read as Completed rather than Upcoming.
+     * session so they read as Completed rather than Upcoming. Matched on name,
+     * term and session first, so re-running adds nothing.
+     *
+     * @return int how many were newly created
      */
-    private function ensureExams(int $orgId)
+    private function ensureExams(int $orgId): int
     {
         $sessionStart = AcademicYear::start();
         $session      = AcademicYear::label();
-
-        $exams = collect();
+        $created      = 0;
 
         foreach (self::EXAM_SET as $spec) {
             // Months 4-12 fall in the session's first calendar year, 1-3 in the
@@ -189,7 +209,7 @@ class SeedReportCardData extends Command
             $year  = $spec['month'] >= 4 ? $sessionStart->year : $sessionStart->year + 1;
             $start = \Carbon\Carbon::create($year, $spec['month'], 10)->startOfDay();
 
-            $exams->push(Exam::firstOrCreate(
+            $exam = Exam::firstOrCreate(
                 [
                     'organization_id' => $orgId,
                     'exam_name'       => $spec['name'],
@@ -204,21 +224,30 @@ class SeedReportCardData extends Command
                     'passing_marks' => (int) ceil($spec['marks'] * 0.33),
                     'is_published'  => true,
                     'status'        => 'active',
-                    'description'   => $spec['term'] . ' — ' . $spec['name'],
+                    'description'   => self::SEED_TAG . ' ' . $spec['term'] . ' — ' . $spec['name'],
                 ],
-            ));
+            );
+
+            if ($exam->wasRecentlyCreated) {
+                $created++;
+            }
         }
 
-        return $exams;
+        return $created;
     }
 
     /**
-     * One mark per student × subject × exam. A student sits at a steady
-     * ability level across the year, so their marks read like a real child's
-     * rather than noise: a per-student band, jiggled a few percent per paper.
+     * One mark per student × subject × exam, for every published exam. A
+     * student sits at a steady ability level across the year, so their marks
+     * read like a real child's rather than noise: a per-student band, jiggled
+     * a few percent per paper.
      */
     private function fillMarks(int $orgId, $students, array $subjectsBySection, $exams): int
     {
+        if ($exams->isEmpty()) {
+            return 0;
+        }
+
         $examIds = $exams->pluck('id')->all();
 
         // Whatever is already recorded stays; we only fill the gaps.
@@ -247,7 +276,8 @@ class SeedReportCardData extends Command
                         continue;
                     }
 
-                    $max = (float) $exam->total_marks;
+                    // An exam with no total on it still needs a denominator.
+                    $max = (float) ($exam->total_marks ?: 100);
                     $pct = max(35, min(99, $ability + random_int(-8, 8)));
                     $obt = round($max * $pct / 100, 2);
 
@@ -286,8 +316,8 @@ class SeedReportCardData extends Command
 
     /**
      * Attendance for the session so far, so the card's attendance line isn't a
-     * row of 0/0. Sundays off, roughly nine days in ten present. Only runs for
-     * a school with no attendance at all.
+     * row of 0/0. Sundays off, roughly nine days in ten present. Skipped
+     * entirely for a school that already marks attendance.
      */
     private function fillAttendance(int $orgId, $students): int
     {
@@ -301,9 +331,9 @@ class SeedReportCardData extends Command
             return 0;
         }
 
-        $cursor      = AcademicYear::start();
-        $today       = now()->startOfDay();
-        $sessionEnd  = AcademicYear::end()->startOfDay();
+        $cursor     = AcademicYear::start();
+        $today      = now()->startOfDay();
+        $sessionEnd = AcademicYear::end()->startOfDay();
         // Up to today, but never past the end of the session.
         $end = $today->lt($sessionEnd) ? $today : $sessionEnd;
 
@@ -331,6 +361,7 @@ class SeedReportCardData extends Command
                     'organization_id'   => $orgId,
                     'attendance_date'   => $day,
                     'status'            => random_int(1, 100) <= 92 ? 1 : 0,
+                    'remarks'           => self::SEED_TAG,
                     'created_at'        => $now,
                     'updated_at'        => $now,
                 ];
