@@ -6,141 +6,115 @@
     <style>
         {!! \App\Support\PdfFonts::faceCss() !!}
 
-        /* ─── The downloaded PDF and the browser print view are the same
-               sheet. Every size, weight and colour below is the twin of
-               report-card-print.blade.php; only the two things dompdf cannot
-               do are handled differently:
+        /* ─── A copy of the school's own report card, measured off their PDF.
+               Same sheet as report-card-print.blade.php; only the positioning
+               of the frame, the topbar and the signatures differs, because
+               dompdf has no flexbox and ignores min-height, so those three are
+               pinned with position:fixed instead.
 
-                 · the navy frame is a position:fixed box covering the page,
-                   because dompdf ignores min-height, so a short report would
-                   otherwise get a border that hugs the content;
-                 · the signature block is pinned with position:fixed, because
-                   there is no flexbox to push it down with.
-
-               No `* { margin:0 }` — that wipes dompdf's @page margins and the
-               frame bleeds off the paper. ─────────────────────────────── */
-        @page { size: A4 portrait; margin: 5mm; }
+               No `* { margin:0 }` — that wipes dompdf's @page margins. ─── */
+        @page { size: A4 portrait; margin: 0; }
 
         html, body { margin: 0; padding: 0; }
         body {
             font-family: 'Poppins', 'DejaVu Sans', Arial, sans-serif;
             font-size: 12px;
-            color: #222;
+            color: #000;
         }
 
-        /* Navy frame around the whole sheet, not just the content. */
-        .frame {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            border: 3px solid #1a3d8f;
-        }
+        /* Frame inset 5.9mm at the sides, 9.8mm at the top (the topbar lives
+           in that gap) and 6.4mm at the foot. */
+        .topbar     { position: fixed; top: 3.1mm; left: 6.4mm; right: 8.5mm; }
+        .frame      { position: fixed; top: 9.8mm; left: 5.9mm; right: 5.9mm; bottom: 6.4mm; }
+        .page       { padding: 15.5mm 14.6mm 26mm; }
+        .page-foot  { position: fixed; left: 12.5mm; right: 13.6mm; bottom: 14mm; }
 
-        /* Tight top and sides so the masthead sits close to the frame.
-           Bottom clears the pinned .page-foot, which is out of flow. */
-        .page { padding: 4mm 7mm 26mm; }
-
-        /* ─── Top corners: affiliation number left, website right ─── */
-        table.topbar { width: 100%; border-collapse: collapse; margin-bottom: 1mm; }
-        table.topbar td { font-size: 10px; color: #000; padding: 0; }
-        table.topbar td.right { text-align: right; }
-
-        /* ─── Header ─── */
-        .header { text-align: center; margin-bottom: 8px; }
-        /* width only, height auto: dompdf cannot clip an image to a circle, so
-           both mediums size the logo the same way and keep its aspect. */
-        .header img.logo { width: 120px; height: auto; }
-        /* Merriweather at regular weight — a school name reads better set in a
-           serif than shouted in a heavy sans. */
-        .school-name {
-            font-family: 'Merriweather', 'PT Serif', serif;
-            color: #000; font-size: 27px; letter-spacing: 0.2px;
-        }
-        .school-address { font-size: 11px; margin-top: 3px; color: #000; }
-        .rule { border-bottom: 1px solid #1a3d8f; margin: 7px auto 0; width: 100%; }
-        .doc-title {
+        .school-name { font-family: 'Merriweather', 'PT Serif', serif; }
+        .doc-title, .doc-session,
+        table.info td.label, table.info td.label2,
+        table.marks th, table.marks td,
+        table.co th, table.co td.grade,
+        table.bottom-info td.label,
+        table.marks td.foot-label,
+        table.issue-row td.result span,
+        table.sign-row td {
             font-family: 'Poppins SemiBold', 'Poppins', sans-serif;
-            font-size: 13px; margin-top: 8px; color: #000; letter-spacing: 0.3px;
         }
-        .doc-session {
-            font-family: 'Poppins SemiBold', 'Poppins', sans-serif;
-            font-size: 13px; margin-bottom: 9px; color: #000;
-        }
-
-        /* ─── Student info ─── */
-        table.info { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-        table.info td { border: 1px solid #000; padding: 4px 6px; font-size: 12px; }
-        table.info td.label {
-            font-family: 'Poppins SemiBold', 'Poppins', sans-serif;
-            width: 16%; color: #000;
-        }
-        table.info td.value { width: 34%; }
-
-        /* ─── Marks ─── */
-        table.marks { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-        table.marks th, table.marks td {
-            border: 1px solid #000; text-align: center; padding: 3px 2px;
-            font-size: 11px; word-wrap: break-word;
-        }
-        table.marks thead th {
-            font-family: 'Poppins SemiBold', 'Poppins', sans-serif; color: #000;
-        }
-        table.marks td.subj, table.marks th.subj-head {
-            text-align: left; padding-left: 8px; width: 18%;
-        }
-        table.marks th.subj-head span { font-family: 'Poppins', sans-serif; }
-        table.marks tr.totrow td, table.marks tr.pctrow td {
-            font-family: 'Poppins SemiBold', 'Poppins', sans-serif; color: #000;
+        table.marks td.subj, table.marks th.tiny,
+        table.info td.value, table.info td.value2,
+        table.co td, table.bottom-info td {
+            font-family: 'Poppins', sans-serif;
         }
 
-        /* ─── Co-scholastic: two tables side by side (no flex in dompdf) ─── */
-        table.co-wrap { width: 100%; border-collapse: separate; border-spacing: 0; margin-bottom: 10px; }
-        table.co-wrap > tbody > tr > td { width: 50%; vertical-align: top; padding: 0; }
-        table.co-wrap > tbody > tr > td.left  { padding-right: 5px; }
-        table.co-wrap > tbody > tr > td.right { padding-left: 5px; }
+/* ─── Sheet ──────────────────────────────────────────────────────────── */
+.topbar { width: 100%; border-collapse: collapse; }
+.topbar td { font-size: 11.8px; color: #000; padding: 0; vertical-align: top; }
+.topbar td.right { text-align: right; }
 
-        table.co { width: 100%; border-collapse: collapse; }
-        table.co th, table.co td { border: 1px solid #000; padding: 4px 6px; font-size: 11.5px; }
-        table.co th {
-            font-family: 'Poppins SemiBold', 'Poppins', sans-serif; color: #000;
-        }
-        table.co td.grade, table.co th.grade-head { text-align: center; width: 20%; }
+.frame { border: 2px solid #428eb8; }
 
-        /* ─── Attendance / remark ─── */
-        table.bottom-info { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-        table.bottom-info td { border: 1px solid #000; padding: 4px 6px; font-size: 12px; }
-        table.bottom-info td.label {
-            font-family: 'Poppins SemiBold', 'Poppins', sans-serif; color: #000;
-        }
+/* ─── Masthead ───────────────────────────────────────────────────────── */
+.header { text-align: center; }
+.header img.logo { width: 145px; height: auto; }
+.school-name { font-size: 23px; color: #000; letter-spacing: 0.2px; }
+.school-address { font-size: 11.8px; color: #000; line-height: 1.35; }
+.doc-title { font-size: 14.1px; color: #000; margin-top: 7px; }
+.doc-session { font-size: 14.1px; color: #000; margin-bottom: 8px; }
 
-        /* ─── Issue date / result ─── */
-        table.issue-row { width: 100%; border-collapse: collapse; margin-top: 4px; }
-        table.issue-row td { font-size: 12px; padding: 0; color: #000; }
-        table.issue-row td.result {
-            text-align: right;
-            font-family: 'Poppins Bold', 'Poppins', sans-serif;
-        }
+/* ─── Student info ───────────────────────────────────────────────────── */
+table.info { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+table.info td { border: 1px solid #aaaaaa; padding: 6px 9px; font-size: 12.2px; color: #000; }
+table.info td.label  { width: 25.1%; }
+table.info td.value  { width: 33.2%; }
+table.info td.label2 { width: 18.4%; }
+table.info td.value2 { width: 23.5%; }
 
-        /* ─── Signatures + footnote, at the foot of the sheet ─── */
-        .page-foot { position: fixed; left: 7mm; right: 7mm; bottom: 6mm; }
+/* ─── Marks ──────────────────────────────────────────────────────────── */
+table.marks { width: 100%; border-collapse: collapse; margin-bottom: 9px; table-layout: fixed; }
+table.marks th, table.marks td {
+    border: 1px solid #aaaaaa; text-align: center; color: #000;
+    padding: 5px 1px; font-size: 10.9px; word-wrap: break-word;
+}
+table.marks th { font-size: 12.1px; padding: 6px 2px; }
+table.marks th.tiny { font-size: 6.5px; padding: 3px 1px; }
+table.marks th.mid  { font-size: 9px;   padding: 4px 1px; }
+table.marks th.big  { font-size: 12.1px; }
+table.marks .subj { width: 22.1%; text-align: left; padding-left: 9px; }
+table.marks td.subj { font-size: 11.8px; }
+table.marks td.foot-label { text-align: right; padding-right: 12px; }
 
-        table.sign-row { width: 100%; border-collapse: collapse; }
-        table.sign-row td { width: 50%; padding: 0; }
-        table.sign-row td.right { text-align: right; }
-        table.sign-row span {
-            border-top: 1px solid #000; padding-top: 6px;
-            display: inline-block; width: 160px; text-align: center;
-            font-family: 'Poppins SemiBold', 'Poppins', sans-serif;
-            font-size: 12px; color: #000;
-        }
+/* ─── Co-scholastic ──────────────────────────────────────────────────── */
+table.co-wrap { width: 100%; border-collapse: collapse; margin-bottom: 9px; table-layout: fixed; }
+table.co-wrap > tbody > tr > td { padding: 0; vertical-align: top; }
+table.co-wrap > tbody > tr > td.left,
+table.co-wrap > tbody > tr > td.right { width: 49%; }
+table.co-wrap > tbody > tr > td.gap { width: 2%; }
 
-        .footer-note {
-            text-align: center; font-size: 9.5px; color: #222;
-            margin-top: 10px; letter-spacing: 0.3px;
-        }
+table.co { width: 100%; border-collapse: collapse; table-layout: fixed; }
+table.co th, table.co td { border: 1px solid #aaaaaa; padding: 6px 9px; font-size: 11.7px; color: #000; }
+table.co th.grade-head, table.co td.grade { width: 18.1%; text-align: center; }
+
+/* ─── Attendance / remark ────────────────────────────────────────────── */
+table.bottom-info { width: 100%; border-collapse: collapse; margin-bottom: 9px; table-layout: fixed; }
+table.bottom-info td { border: 1px solid #aaaaaa; padding: 6px 9px; font-size: 11.7px; color: #000; }
+table.bottom-info td.label { width: 14.3%; }
+table.bottom-info td.c2 { width: 24.1%; }
+table.bottom-info td.c3 { width: 24.7%; }
+table.bottom-info td.c4 { width: 36.9%; }
+
+/* ─── Issue date / result — no borders ───────────────────────────────── */
+table.issue-row { width: 100%; border-collapse: collapse; margin-top: 6px; }
+table.issue-row td { font-size: 11.5px; padding: 0; color: #000; border: 0; }
+table.issue-row td.result { text-align: right; }
+
+/* ─── Signatures — bold, no rule above ───────────────────────────────── */
+table.sign-row { width: 100%; border-collapse: collapse; }
+table.sign-row td { width: 50%; padding: 0; font-size: 14.3px; color: #000; border: 0; }
+table.sign-row td.right { text-align: right; }
+
     </style>
 </head>
 <body>
-    <div class="frame"></div>
     @include('admin._report-card-body')
 </body>
 </html>

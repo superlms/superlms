@@ -3,11 +3,23 @@
       - resources/views/admin/report-card-pdf.blade.php   (DomPDF, A4 portrait)
       - resources/views/admin/report-card-print.blade.php (browser print)
 
-    The layout is the school's own template: a navy-framed A4 sheet, centred
-    masthead, bordered student-info table, a three-deep marks header split into
-    Term-1 / Term-2 / Final Result / Total, two co-scholastic tables side by
-    side, attendance and remark, then issue date, result and signatures. Only
-    the wrapping <style> differs between the two mediums.
+    The layout is a direct copy of the school's own report card. Every
+    measurement below was read off that PDF rather than eyeballed:
+
+      page          A4, 210 x 297mm
+      frame         inset 5.9mm left/right, 9.8mm top, 6.4mm bottom;
+                    2px solid #428eb8
+      topbar        ABOVE the frame - affiliation number left, website right
+      content       8.7mm inside the frame, so 14.6mm from the paper edge
+      marks table   subject column 22.1%, every other column 7.08%
+      info table    25.1% / 33.2% / 18.4% / 23.5%
+      attendance    14.3% / 24.1% / 24.7% / 36.9%
+      co-scholastic two tables of 49%, 1.9% apart, grade column 18.1%
+      table borders 1px #aaaaaa - grey, not black
+      signatures    bold, no rule above them, 14mm off the bottom
+
+    Wording matches the school's card as printed, typos and all
+    ("Affliation", "Performnace", "Attandance", "Principle").
 
     Variables in scope:
       $organization, $student, $reportCard,
@@ -22,14 +34,9 @@
 
 @php
     // ── Pre-compute per-subject and per-exam aggregates ────────────────
-    // Each row carries a Term-1 sub-total, a Term-2 sub-total, a Final-Result
-    // split (Practical / Theory) and a grand Total. The maths happens here so
-    // the markup below stays flat and reads top-to-bottom.
-
     $t1Exams = $term1Exams ?? collect();
     $t2Exams = $term2Exams ?? collect();
 
-    // Max marks for each term header row.
     $t1MaxTotal = (int) $t1Exams->sum(fn($e) => (int) ($e->total_marks ?? 0));
     $t2MaxTotal = (int) $t2Exams->sum(fn($e) => (int) ($e->total_marks ?? 0));
     $grandMaxTotal = $t1MaxTotal + $t2MaxTotal;
@@ -40,7 +47,6 @@
     $grandMax = 0;
     $passed = true;
 
-    // Helper to look up a student's exam copy for a given (exam, subject).
     $copyFor = function ($examId, $subjectId) use ($examCopies) {
         if (!isset($examCopies[$examId])) return null;
         return $examCopies[$examId]->firstWhere('subject_id', $subjectId);
@@ -112,10 +118,9 @@
     $t2OverallPct = $t2ColumnMax > 0 ? round(($t2ColumnTotal / $t2ColumnMax) * 100, 2) : 0;
     $overallPct   = $grandMax > 0 ? round(($grandObtained / $grandMax) * 100, 2) : 0;
 
-    // Column counts used by the colspan-heavy header rows.
     $t1Cols = $t1Exams->count() + 1; // sub-exams + Total
     $t2Cols = $t2Exams->count() + 1;
-    $tableCols = 1 /*subject*/ + $t1Cols + $t2Cols + 2 /*practical+theory*/ + 1 /*total*/;
+    $tableCols = 1 + $t1Cols + $t2Cols + 2 + 1;
 
     // ── Fields typed on the issue form, with their old derivations as a
     //    fallback for cards issued before that form existed ──
@@ -137,221 +142,234 @@
         }
     }
 
-    $contactBits = array_filter([
-        $organization->mobile_number ?? null,
-        $organization->email ?? null,
-    ]);
-
-    // Website prints the way a school writes it on its letterhead: no
-    // protocol, no trailing slash, always a www.
+    // The card prints the full address on one line and "phone / website" on
+    // the next, the way the school's own does.
     $website = trim((string) ($organization->website ?? ''));
     if ($website !== '') {
-        $website = rtrim(preg_replace('#^https?://#i', '', $website), '/');
-        if (!\Illuminate\Support\Str::startsWith(strtolower($website), 'www.')) {
-            $website = 'www.' . $website;
+        $bare = rtrim(preg_replace('#^https?://#i', '', $website), '/');
+        if (!\Illuminate\Support\Str::startsWith(strtolower($bare), 'www.')) {
+            $bare = 'www.' . $bare;
         }
+        $website = 'https://' . $bare;
     }
+
+    $contactLine = implode(' / ', array_filter([
+        $organization->mobile_number ?? null,
+        $website ?: null,
+    ]));
+
+    $classSection = trim('Class- ' . ($student->standard->name ?? ''))
+        . (!empty($student->section->name) ? '/  Section-' . $student->section->name : '');
 
     $a1 = $attendance['term1']   ?? ['present' => 0, 'total' => 0];
     $a2 = $attendance['term2']   ?? ['present' => 0, 'total' => 0];
     $ao = $attendance['overall'] ?? ['present' => 0, 'total' => 0];
 @endphp
 
-<div class="page">
+<div class="sheet">
 
-    {{-- ─── Top corners: affiliation number left, website right ─── --}}
+    {{-- ─── Above the frame: affiliation number left, website right ─── --}}
     <table class="topbar">
         <tr>
-            <td>@if (!empty($organization->affiliation_no))Affiliation No: {{ $organization->affiliation_no }}@endif</td>
-            <td class="right">{{ $website }}</td>
+            <td>@if (!empty($organization->affiliation_no))Affliation No: {{ $organization->affiliation_no }}@endif</td>
+            <td class="right">@if ($website)website:{{ $website }}@endif</td>
         </tr>
     </table>
 
-    {{-- ─── Masthead ─── --}}
-    <div class="header">
-        @if ($logoSrc)
-            <img class="logo" src="{{ $logoSrc }}" alt="School Logo">
-        @endif
-        <div class="school-name">{{ $organization->name ?? 'School Name' }}</div>
-        <div class="school-address">{{ $organization->address ?? '' }}</div>
-        @if (!empty($contactBits))
-            <div class="school-address">{{ implode(', ', $contactBits) }}</div>
-        @endif
-        <div class="rule"></div>
-        <div class="doc-title">Record of Academic Performance</div>
-        <div class="doc-session">Session: {{ $reportCard->academic_year ?? 'N/A' }}</div>
-    </div>
+    {{-- The blue rule around the whole sheet, drawn as its own box so it
+         frames the page rather than hugging the content. --}}
+    <div class="frame"></div>
 
-    {{-- ─── Student info ─── --}}
-    <table class="info">
-        <tr>
-            <td class="label">Student Name:</td>
-            <td class="value">{{ $student->full_name ?? 'N/A' }}</td>
-            <td class="label">&nbsp;</td>
-            <td class="value">&nbsp;</td>
-        </tr>
-        <tr>
-            <td class="label">Mother's Name:</td>
-            <td class="value">{{ $student->mother_name ?: '—' }}</td>
-            <td class="label">Father's Name:</td>
-            <td class="value">{{ $student->father_name ?: '—' }}</td>
-        </tr>
-        <tr>
-            <td class="label">Admission No:</td>
-            <td class="value">{{ $student->admission_no ?: '—' }}</td>
-            <td class="label">Class/Section:</td>
-            <td class="value">{{ $student->standard->name ?? '' }}@if (!empty($student->section->name)) / Section-{{ $student->section->name }}@endif</td>
-        </tr>
-        <tr>
-            <td class="label">Date of Birth:</td>
-            <td class="value">{{ $student->dob ? $student->dob->format('d/m/Y') : '—' }}</td>
-            <td class="label">Regd. No:</td>
-            <td class="value">{{ $regdNo ?: '—' }}</td>
-        </tr>
-    </table>
+    <div class="page">
 
-    {{-- ─── Scholastic marks ─────────────────────────────────
-         Row 1: Scholastic Area | Term-1 | Term-2 | Final Result | Total
-         Row 2: Subject Name    | <exam names…> Total | <exam names…> Total | Marks Obtained
-         Row 3: (blank)         | <max marks…> total  | <max marks…> total  | Practical | Theory
-    ──────────────────────────────────────────────────────── --}}
-    <table class="marks">
-        <thead>
+        {{-- ─── Masthead ─── --}}
+        <div class="header">
+            @if ($logoSrc)
+                <img class="logo" src="{{ $logoSrc }}" alt="School Logo">
+            @endif
+            <div class="school-name">{{ $organization->name ?? 'School Name' }}</div>
+            <div class="school-address">{{ $organization->address ?? '' }}</div>
+            @if ($contactLine !== '')
+                <div class="school-address">{{ $contactLine }}</div>
+            @endif
+            <div class="doc-title">Record of Academic Performnace</div>
+            <div class="doc-session">Session:{{ $reportCard->academic_year ?? 'N/A' }}</div>
+        </div>
+
+        {{-- ─── Student info ─── --}}
+        <table class="info">
             <tr>
-                <th class="subj-head" rowspan="3">Scholastic Area<br><span>Subject Name</span></th>
-                <th colspan="{{ $t1Cols }}">Term-1</th>
-                <th colspan="{{ $t2Cols }}">Term-2</th>
-                <th colspan="2" rowspan="2">Final Result<br>Marks Obtained</th>
-                <th rowspan="3">Total</th>
+                <td class="label">Student Name:</td>
+                <td class="value" colspan="3">{{ $student->full_name ?? '' }}</td>
             </tr>
             <tr>
-                @foreach ($t1Exams as $exam)
-                    <th>{{ $exam->exam_name }}</th>
-                @endforeach
-                <th>Total</th>
-                @foreach ($t2Exams as $exam)
-                    <th>{{ $exam->exam_name }}</th>
-                @endforeach
-                <th>Total</th>
+                <td class="label">Mother's Name:</td>
+                <td class="value">{{ $student->mother_name }}</td>
+                <td class="label2">Father's Name:</td>
+                <td class="value2">{{ $student->father_name }}</td>
             </tr>
             <tr>
-                @foreach ($t1Exams as $exam)
-                    <th>{{ $exam->total_marks ?? '—' }}</th>
-                @endforeach
-                <th>{{ $t1MaxTotal }}</th>
-                @foreach ($t2Exams as $exam)
-                    <th>{{ $exam->total_marks ?? '—' }}</th>
-                @endforeach
-                <th>{{ $t2MaxTotal }}</th>
-                <th>Practical</th>
-                <th>Theory</th>
+                <td class="label">Admission No:</td>
+                <td class="value">{{ $student->admission_no }}</td>
+                <td class="label2">Class/Section:</td>
+                <td class="value2">{{ $classSection }}</td>
             </tr>
-        </thead>
-        <tbody>
-            @forelse ($subjectRows as $row)
-                <tr>
-                    <td class="subj">{{ $row['subject']->name }}</td>
-                    @foreach ($row['cells_t1'] as $cell)
-                        <td>{{ $cell }}</td>
-                    @endforeach
-                    <td>{{ $num($row['t1_total']) }}</td>
-                    @foreach ($row['cells_t2'] as $cell)
-                        <td>{{ $cell }}</td>
-                    @endforeach
-                    <td>{{ $num($row['t2_total']) }}</td>
-                    <td>{{ $row['practical'] > 0 ? $num($row['practical']) : '-' }}</td>
-                    <td>{{ $row['theory'] > 0 ? $num($row['theory']) : '-' }}</td>
-                    <td>{{ $num($row['row_total']) }}</td>
-                </tr>
-            @empty
-                <tr><td class="subj" colspan="{{ $tableCols }}">No subjects found for this section.</td></tr>
-            @endforelse
-
-            <tr class="totrow">
-                <td class="subj">Total</td>
-                @if ($t1Exams->count())<td colspan="{{ $t1Exams->count() }}"></td>@endif
-                <td>{{ $num($t1ColumnTotal) }}</td>
-                @if ($t2Exams->count())<td colspan="{{ $t2Exams->count() }}"></td>@endif
-                <td>{{ $num($t2ColumnTotal) }}</td>
-                <td colspan="2"></td>
-                <td>{{ $num($grandObtained) }}</td>
-            </tr>
-
-            <tr class="pctrow">
-                <td class="subj">Percentage</td>
-                @if ($t1Exams->count())<td colspan="{{ $t1Exams->count() }}"></td>@endif
-                <td>{{ $t1OverallPct }}%</td>
-                @if ($t2Exams->count())<td colspan="{{ $t2Exams->count() }}"></td>@endif
-                <td>{{ $t2OverallPct }}%</td>
-                <td colspan="2"></td>
-                <td>{{ $overallPct }}%</td>
-            </tr>
-        </tbody>
-    </table>
-
-    {{-- ─── Co-scholastic areas, Term 1 beside Term 2 ─── --}}
-    <table class="co-wrap">
-        <tr>
-            <td class="left">
-                <table class="co">
-                    <tr><th colspan="2">Co-Scholastic Areas: Term 1 (A-E)</th></tr>
-                    @foreach ($coScholastic['term1'] ?? [] as $row)
-                        <tr>
-                            <td>{{ $row['subject'] }}</td>
-                            <td class="grade">{{ $row['grade'] }}</td>
-                        </tr>
-                    @endforeach
-                </table>
-            </td>
-            <td class="right">
-                <table class="co">
-                    <tr><th colspan="2">Co-Scholastic Areas: Term 2 (A-E)</th></tr>
-                    @foreach ($coScholastic['term2'] ?? [] as $row)
-                        <tr>
-                            <td>{{ $row['subject'] }}</td>
-                            <td class="grade">{{ $row['grade'] }}</td>
-                        </tr>
-                    @endforeach
-                </table>
-            </td>
-        </tr>
-    </table>
-
-    {{-- ─── Attendance + remark ─── --}}
-    <table class="bottom-info">
-        <tr>
-            <td class="label" style="width:14%;">Attendance</td>
-            <td style="width:24%;">Term 1: {{ $a1['present'] }}/{{ $a1['total'] }}</td>
-            <td style="width:24%;">Term 2: {{ $a2['present'] }}/{{ $a2['total'] }}</td>
-            <td>Overall Attendance: {{ $ao['present'] }}/{{ $ao['total'] }}</td>
-        </tr>
-        <tr>
-            <td class="label">Remark</td>
-            <td colspan="3">{{ $remark }}</td>
-        </tr>
-    </table>
-
-    {{-- ─── Issue date / result ─── --}}
-    <table class="issue-row">
-        <tr>
-            <td>Issue Date: {{ $reportCard->issued_at ? $reportCard->issued_at->format('d/m/Y') : now()->format('d/m/Y') }}</td>
-            <td class="result">RESULT: {{ $result }}</td>
-        </tr>
-    </table>
-
-    {{-- ─── Signatures + footnote ───────────────────────────────────────
-         Both sit at the foot of the sheet however tall the marks table is.
-         The browser gets there with `margin-top:auto` in a flex column;
-         dompdf, which has no flex, pins this block with position:fixed.
-    ──────────────────────────────────────────────────────────────────── --}}
-    <div class="page-foot">
-        <table class="sign-row">
             <tr>
-                <td><span>Class Teacher</span></td>
-                <td class="right"><span>Principal</span></td>
+                <td class="label">Date of Birth:</td>
+                <td class="value">{{ $student->dob ? $student->dob->format('d/m/Y') : '' }}</td>
+                <td class="label2">Regd. No:</td>
+                <td class="value2">{{ $regdNo }}</td>
             </tr>
         </table>
 
-        <div class="footer-note">This is a computer-generated report card and does not require a physical signature unless specified.</div>
+        {{-- ─── Scholastic marks ───────────────────────────────────
+             Row 1: Scholastic Area | Term- 1 | Term- 2 | Final Result | Total
+             Row 2: Subject Name    | exam names… Total | … | Marks Obtained | 250
+             Row 3:                 | max marks… total  | … | Practical | Theory
+        ──────────────────────────────────────────────────────── --}}
+        <table class="marks">
+            <thead>
+                <tr>
+                    <th class="subj">Scholastic Area</th>
+                    <th colspan="{{ $t1Cols }}">Term- 1</th>
+                    <th colspan="{{ $t2Cols }}">Term- 2</th>
+                    <th colspan="2">Final Result</th>
+                    <th>Total</th>
+                </tr>
+                <tr>
+                    <th class="subj" rowspan="2">Subject Name</th>
+                    @foreach ($t1Exams as $exam)
+                        <th class="tiny">{{ $exam->exam_name }}</th>
+                    @endforeach
+                    <th class="mid">Total</th>
+                    @foreach ($t2Exams as $exam)
+                        <th class="tiny">{{ $exam->exam_name }}</th>
+                    @endforeach
+                    <th class="mid">Total</th>
+                    <th class="mid" colspan="2">Marks Obtained</th>
+                    <th class="big" rowspan="2">{{ $grandMaxTotal }}</th>
+                </tr>
+                <tr>
+                    @foreach ($t1Exams as $exam)
+                        <th class="tiny">{{ $exam->total_marks }}</th>
+                    @endforeach
+                    <th class="mid">{{ $t1MaxTotal }}</th>
+                    @foreach ($t2Exams as $exam)
+                        <th class="tiny">{{ $exam->total_marks }}</th>
+                    @endforeach
+                    <th class="mid">{{ $t2MaxTotal }}</th>
+                    <th class="mid">Practical</th>
+                    <th class="mid">Theory</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse ($subjectRows as $row)
+                    <tr>
+                        <td class="subj">{{ $row['subject']->name }}</td>
+                        @foreach ($row['cells_t1'] as $cell)
+                            <td>{{ $cell }}</td>
+                        @endforeach
+                        <td>{{ $num($row['t1_total']) }}</td>
+                        @foreach ($row['cells_t2'] as $cell)
+                            <td>{{ $cell }}</td>
+                        @endforeach
+                        <td>{{ $num($row['t2_total']) }}</td>
+                        <td>{{ $row['practical'] > 0 ? $num($row['practical']) : '-' }}</td>
+                        <td>{{ $row['theory'] > 0 ? $num($row['theory']) : '-' }}</td>
+                        <td>{{ $num($row['row_total']) }}</td>
+                    </tr>
+                @empty
+                    <tr><td class="subj" colspan="{{ $tableCols }}">No subjects found for this section.</td></tr>
+                @endforelse
+
+                <tr>
+                    <td class="subj foot-label">Total</td>
+                    @if ($t1Exams->count())<td colspan="{{ $t1Exams->count() }}"></td>@endif
+                    <td>{{ $num($t1ColumnTotal) }}</td>
+                    @if ($t2Exams->count())<td colspan="{{ $t2Exams->count() }}"></td>@endif
+                    <td>{{ $num($t2ColumnTotal) }}</td>
+                    <td colspan="2"></td>
+                    <td>{{ $num($grandObtained) }}</td>
+                </tr>
+
+                <tr>
+                    <td class="subj foot-label">Percentage</td>
+                    @if ($t1Exams->count())<td colspan="{{ $t1Exams->count() }}"></td>@endif
+                    <td>{{ $t1OverallPct }}%</td>
+                    @if ($t2Exams->count())<td colspan="{{ $t2Exams->count() }}"></td>@endif
+                    <td>{{ $t2OverallPct }}%</td>
+                    <td colspan="2"></td>
+                    <td>{{ $overallPct }}%</td>
+                </tr>
+            </tbody>
+        </table>
+
+        {{-- ─── Co-scholastic areas, Term 1 beside Term 2 ─── --}}
+        <table class="co-wrap">
+            <tr>
+                <td class="left">
+                    <table class="co">
+                        <tr>
+                            <th>Co-Scholastic Areas: Term 1 (A-E)</th>
+                            <th class="grade-head">Grade</th>
+                        </tr>
+                        @foreach ($coScholastic['term1'] ?? [] as $row)
+                            <tr>
+                                <td>{{ $row['subject'] }}</td>
+                                <td class="grade">{{ $row['grade'] }}</td>
+                            </tr>
+                        @endforeach
+                    </table>
+                </td>
+                <td class="gap"></td>
+                <td class="right">
+                    <table class="co">
+                        <tr>
+                            <th>Co-Scholastic Areas: Term 2 (A-E)</th>
+                            <th class="grade-head">Grade</th>
+                        </tr>
+                        @foreach ($coScholastic['term2'] ?? [] as $row)
+                            <tr>
+                                <td>{{ $row['subject'] }}</td>
+                                <td class="grade">{{ $row['grade'] }}</td>
+                            </tr>
+                        @endforeach
+                    </table>
+                </td>
+            </tr>
+        </table>
+
+        {{-- ─── Attendance + remark ─── --}}
+        <table class="bottom-info">
+            <tr>
+                <td class="label">Attandance</td>
+                <td class="c2">Term 1: {{ $a1['present'] }}/{{ $a1['total'] }}</td>
+                <td class="c3">Term 2: {{ $a2['present'] }}/{{ $a2['total'] }}</td>
+                <td class="c4">Overall Attandance: {{ $ao['present'] }}/{{ $ao['total'] }}</td>
+            </tr>
+            <tr>
+                <td class="label">Remark</td>
+                <td colspan="3">{{ $remark }}</td>
+            </tr>
+        </table>
+
+        {{-- ─── Issue date / result (no borders) ─── --}}
+        <table class="issue-row">
+            <tr>
+                <td>Issue Date: {{ $reportCard->issued_at ? $reportCard->issued_at->format('d/m/Y') : now()->format('d/m/Y') }}</td>
+                <td class="result">RESULT: <span>{{ $result }}</span></td>
+            </tr>
+        </table>
+
+    </div>{{-- /page --}}
+
+    {{-- ─── Signatures: bold, no rule above them, near the bottom ─── --}}
+    <div class="page-foot">
+        <table class="sign-row">
+            <tr>
+                <td>Class Teacher</td>
+                <td class="right">Principle</td>
+            </tr>
+        </table>
     </div>
 </div>
