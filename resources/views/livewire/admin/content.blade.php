@@ -98,6 +98,10 @@
                                     class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg border border-emerald-200 transition-colors" title="Edit Content">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                 </button>
+                                <button wire:click="deleteContent('chapter', {{ $chapter->id }})"
+                                    class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors" title="Delete Content">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                </button>
                             @else
                                 <button wire:click="onAddContent('chapter', {{ $chapter->id }})"
                                     class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200 transition-colors" title="Add Content">
@@ -125,6 +129,10 @@
                                         <button wire:click="onEditContent('topic', {{ $topic->id }})"
                                             class="p-1 text-emerald-600 hover:bg-emerald-50 rounded-lg border border-emerald-200 transition-colors" title="Edit Content">
                                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                        </button>
+                                        <button wire:click="deleteContent('topic', {{ $topic->id }})"
+                                            class="p-1 text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors" title="Delete Content">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                         </button>
                                     @else
                                         <button wire:click="onAddContent('topic', {{ $topic->id }})"
@@ -270,9 +278,20 @@
     <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeViewModal"></div>
     <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col">
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-            <div>
+            <div class="min-w-0">
                 <h2 class="text-lg font-semibold text-gray-900">View Content</h2>
                 <p class="text-xs text-gray-500 mt-0.5 truncate">{{ $viewContentTitle }}</p>
+                @if (!empty($viewContentMeta))
+                    {{-- Where this sits: class, section, subject (and chapter, for a topic). --}}
+                    <div class="flex flex-wrap items-center gap-1.5 mt-2">
+                        @foreach ($viewContentMeta as $label => $value)
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-50 border border-gray-200 text-[11px]">
+                                <span class="text-gray-400">{{ $label }}</span>
+                                <span class="font-medium text-gray-700">{{ $value }}</span>
+                            </span>
+                        @endforeach
+                    </div>
+                @endif
             </div>
             <button wire:click="closeViewModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>

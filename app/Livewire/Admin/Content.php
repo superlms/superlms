@@ -49,6 +49,8 @@ class Content extends Component
     public $showViewModal     = false;
     public $viewContentData   = [];
     public $viewContentTitle  = '';
+    /** Where this content sits: class, section, subject (and chapter, for a topic). */
+    public array $viewContentMeta = [];
 
     // ─── Delete confirm overlay (replaces broken WireUI dialog) ──────────
     public bool   $showDeleteConfirm = false;
@@ -459,7 +461,7 @@ class Content extends Component
     public function onViewContent(string $type, int $id): void
     {
         if ($type === 'chapter') {
-            $ch = Chapter::find($id);
+            $ch = Chapter::with(['standard', 'section', 'subject'])->find($id);
             if (!$ch) return;
             $this->viewContentTitle = $ch->name;
             $this->viewContentData  = [
@@ -468,8 +470,10 @@ class Content extends Component
                 'image' => $ch->image_path,
                 'pdf'   => $ch->pdf_path,
             ];
+            $this->viewContentMeta = $this->placeOf($ch);
         } else {
-            $tp = Topic::find($id);
+            // A topic has no class of its own -- it inherits its chapter's.
+            $tp = Topic::with(['chapter.standard', 'chapter.section', 'chapter.subject'])->find($id);
             if (!$tp) return;
             $this->viewContentTitle = $tp->topic_name;
             $this->viewContentData  = [
@@ -478,6 +482,8 @@ class Content extends Component
                 'image' => $tp->image_path,
                 'pdf'   => $tp->pdf_path,
             ];
+            $this->viewContentMeta = $this->placeOf($tp->chapter)
+                + ['Chapter' => $tp->chapter?->name ?? '—'];
         }
         $this->showViewModal = true;
     }
@@ -487,6 +493,17 @@ class Content extends Component
         $this->showViewModal    = false;
         $this->viewContentData  = [];
         $this->viewContentTitle = '';
+        $this->viewContentMeta  = [];
+    }
+
+    /** Class / Section / Subject a chapter belongs to, ready to print as chips. */
+    private function placeOf($chapter): array
+    {
+        return [
+            'Class'   => $chapter?->standard?->name ?? '—',
+            'Section' => $chapter?->section?->name ?? '—',
+            'Subject' => $chapter?->subject?->name ?? '—',
+        ];
     }
 
     // ═══════════════════════════════════════════════════════════════════════
