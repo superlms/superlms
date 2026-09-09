@@ -24,7 +24,7 @@
 
         /* Frame inset 5.9mm at the sides, 9.8mm at the top (the topbar lives
            in that gap) and 6.4mm at the foot. */
-        .topbar     { position: fixed; top: 3.1mm; left: 6.4mm; right: 8.5mm; }
+        .topbar     { position: fixed; top: 3.1mm; left: 5.9mm; right: 5.9mm; }
         .frame      { position: fixed; top: 9.8mm; left: 5.9mm; right: 5.9mm; bottom: 6.4mm; }
         .page       { padding: 15.5mm 14.6mm 26mm; }
         .page-foot  { position: fixed; left: 12.5mm; right: 13.6mm; bottom: 14mm; }
@@ -47,7 +47,10 @@
         }
 
 /* ─── Sheet ──────────────────────────────────────────────────────────── */
-.topbar { width: 100%; border-collapse: collapse; }
+/* Spans the frame exactly (210 - 5.9 - 5.9), so the affiliation number sits
+   on its left corner and the website on its right. A plain width:100% here
+   would be 210mm starting at 5.9mm and push the website off the sheet. */
+.topbar { width: 198.2mm; border-collapse: collapse; }
 .topbar td { font-size: 11.8px; color: #000; padding: 0; vertical-align: top; }
 .topbar td.right { text-align: right; }
 
@@ -55,36 +58,37 @@
 
 /* ─── Masthead ───────────────────────────────────────────────────────── */
 .header { text-align: center; }
-.header img.logo { width: 145px; height: auto; }
-.school-name { font-size: 23px; color: #000; letter-spacing: 0.2px; }
+.header img.logo { width: 145px; height: auto; display: block; margin: 0 auto; }
+/* Sits right under the logo, the way the school's card does. */
+.school-name { font-size: 23px; color: #000; letter-spacing: 0.2px; margin-top: -4px; }
 .school-address { font-size: 11.8px; color: #000; line-height: 1.35; }
 .doc-title { font-size: 14.1px; color: #000; margin-top: 7px; }
 .doc-session { font-size: 14.1px; color: #000; margin-bottom: 8px; }
 
 /* ─── Student info ───────────────────────────────────────────────────── */
-table.info { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+table.info { width: 100%; border-collapse: collapse; margin-bottom: 9px; table-layout: fixed; }
 table.info td { border: 1px solid #aaaaaa; padding: 6px 9px; font-size: 12.2px; color: #000; }
 table.info td.label  { width: 25.1%; }
 table.info td.value  { width: 33.2%; }
 table.info td.label2 { width: 18.4%; }
-table.info td.value2 { width: 23.5%; }
+table.info td.value2 { width: 23.3%; }   /* 25.1+33.2+18.4+23.3 = 100, so these rows end where the tables below do */
 
 /* ─── Marks ──────────────────────────────────────────────────────────── */
-table.marks { width: 100%; border-collapse: collapse; margin-bottom: 9px; table-layout: fixed; }
+table.marks { width: 100%; border-collapse: collapse; margin-bottom: 10px; table-layout: fixed; }
 table.marks th, table.marks td {
     border: 1px solid #aaaaaa; text-align: center; color: #000;
     padding: 5px 1px; font-size: 10.9px; word-wrap: break-word;
 }
 table.marks th { font-size: 12.1px; padding: 6px 2px; }
-table.marks th.tiny { font-size: 6.5px; padding: 3px 1px; }
-table.marks th.mid  { font-size: 9px;   padding: 4px 1px; }
+table.marks th.tiny { font-size: 10.9px; padding: 4px 1px; }
+table.marks th.mid  { font-size: 10.9px; padding: 4px 1px; }
 table.marks th.big  { font-size: 12.1px; }
 table.marks .subj { width: 22.1%; text-align: left; padding-left: 9px; }
 table.marks td.subj { font-size: 11.8px; }
 table.marks td.foot-label { text-align: right; padding-right: 12px; }
 
 /* ─── Co-scholastic ──────────────────────────────────────────────────── */
-table.co-wrap { width: 100%; border-collapse: collapse; margin-bottom: 9px; table-layout: fixed; }
+table.co-wrap { width: 100%; border-collapse: collapse; margin-bottom: 10px; table-layout: fixed; }
 table.co-wrap > tbody > tr > td { padding: 0; vertical-align: top; }
 table.co-wrap > tbody > tr > td.left,
 table.co-wrap > tbody > tr > td.right { width: 49%; }
@@ -95,7 +99,7 @@ table.co th, table.co td { border: 1px solid #aaaaaa; padding: 6px 9px; font-siz
 table.co th.grade-head, table.co td.grade { width: 18.1%; text-align: center; }
 
 /* ─── Attendance / remark ────────────────────────────────────────────── */
-table.bottom-info { width: 100%; border-collapse: collapse; margin-bottom: 9px; table-layout: fixed; }
+table.bottom-info { width: 100%; border-collapse: collapse; margin-bottom: 10px; table-layout: fixed; }
 table.bottom-info td { border: 1px solid #aaaaaa; padding: 6px 9px; font-size: 11.7px; color: #000; }
 table.bottom-info td.label { width: 14.3%; }
 table.bottom-info td.c2 { width: 24.1%; }

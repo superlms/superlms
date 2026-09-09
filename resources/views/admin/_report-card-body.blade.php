@@ -9,10 +9,11 @@
       page          A4, 210 x 297mm
       frame         inset 5.9mm left/right, 9.8mm top, 6.4mm bottom;
                     2px solid #428eb8
-      topbar        ABOVE the frame - affiliation number left, website right
+      topbar        ABOVE the frame, 198.2mm wide so it spans it exactly -
+                    affiliation number on the left corner, website on the right
       content       8.7mm inside the frame, so 14.6mm from the paper edge
       marks table   subject column 22.1%, every other column 7.08%
-      info table    25.1% / 33.2% / 18.4% / 23.5%
+      info table    25.1% / 33.2% / 18.4% / 23.3% (sums to 100, like the rest)
       attendance    14.3% / 24.1% / 24.7% / 36.9%
       co-scholastic two tables of 49%, 1.9% apart, grade column 18.1%
       table borders 1px #aaaaaa - grey, not black
