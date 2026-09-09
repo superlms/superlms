@@ -428,7 +428,7 @@
     @if ($openForm)
         @teleport('body')
         <div class="fixed inset-0 z-[70] overflow-hidden">
-            <div class="absolute inset-0 bg-black/20 backdrop-blur-[1.5px]" wire:click="closeForm"></div>
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeForm"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div>
@@ -446,27 +446,27 @@
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Class <span class="text-red-500">*</span></label>
-                            <select wire:model.live="standard_id" class="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm">
+                            <select wire:model.live="standard_id" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                                 <option value="">Select class</option>
                                 @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
                             </select>
-                            @error('standard_id')<span class="text-xs text-red-600 mt-1 block">{{ $message }}</span>@enderror
+                            @error('standard_id')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Section <span class="text-red-500">*</span></label>
-                            <select wire:model.live="section_id" @disabled(!$standard_id) class="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm disabled:bg-gray-50">
+                            <select wire:model.live="section_id" @disabled(!$standard_id) class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50">
                                 <option value="">Select section</option>
                                 @foreach ($formSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
                             </select>
-                            @error('section_id')<span class="text-xs text-red-600 mt-1 block">{{ $message }}</span>@enderror
+                            @error('section_id')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Subject <span class="text-red-500">*</span></label>
-                            <select wire:model="subject_id" @disabled(!$standard_id) class="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm disabled:bg-gray-50">
+                            <select wire:model="subject_id" @disabled(!$standard_id) class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50">
                                 <option value="">Select subject</option>
                                 @foreach ($formSubjects as $sub)<option value="{{ $sub->id }}">{{ $sub->name }}</option>@endforeach
                             </select>
-                            @error('subject_id')<span class="text-xs text-red-600 mt-1 block">{{ $message }}</span>@enderror
+                            @error('subject_id')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                     </div>
 
@@ -474,27 +474,27 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Title <span class="text-red-500">*</span></label>
                         <input type="text" wire:model="title" placeholder="e.g. Chapter 4 — Practice Set"
-                            class="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm" />
-                        @error('title')<span class="text-xs text-red-600 mt-1 block">{{ $message }}</span>@enderror
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+                        @error('title')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
 
                     {{-- Start / End --}}
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Start date <span class="text-red-500">*</span></label>
-                            <input type="datetime-local" wire:model="start_date" class="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm" />
-                            @error('start_date')<span class="text-xs text-red-600 mt-1 block">{{ $message }}</span>@enderror
+                            <input type="datetime-local" wire:model="start_date" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+                            @error('start_date')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">End date <span class="text-red-500">*</span></label>
-                            <input type="datetime-local" wire:model="end_date" class="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm" />
-                            @error('end_date')<span class="text-xs text-red-600 mt-1 block">{{ $message }}</span>@enderror
+                            <input type="datetime-local" wire:model="end_date" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+                            @error('end_date')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Total marks</label>
                             <input type="number" min="0" wire:model="total_marks" placeholder="{{ $type === 'mcq' ? 'Auto from questions' : 'Optional' }}"
-                                class="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm" />
-                            @error('total_marks')<span class="text-xs text-red-600 mt-1 block">{{ $message }}</span>@enderror
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+                            @error('total_marks')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                     </div>
 
@@ -527,7 +527,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Instructions / question text</label>
                             <textarea wire:model="description" rows="5" placeholder="Type the assignment here…"
-                                class="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm"></textarea>
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
                         </div>
 
                         {{-- Attachment --}}
@@ -543,7 +543,7 @@
                                 class="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
                             <p class="text-[11px] text-gray-400 mt-1">PDF, Word, Excel, PowerPoint, text or image. Up to 5 MB.</p>
                             <div wire:loading wire:target="attachment" class="text-[11px] text-blue-600 mt-1">Uploading…</div>
-                            @error('attachment')<span class="text-xs text-red-600 mt-1 block">{{ $message }}</span>@enderror
+                            @error('attachment')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
 
                         {{-- What the student submits --}}
@@ -561,7 +561,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Instructions (optional)</label>
                             <textarea wire:model="description" rows="2" placeholder="Anything students should know before starting…"
-                                class="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm"></textarea>
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
                         </div>
 
                         {{-- MCQ builder --}}
@@ -621,12 +621,12 @@
                     </label>
                 </div>
 
-                <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-200 flex-shrink-0 bg-gray-50">
-                    <button wire:click="closeForm" class="px-4 py-2 text-sm font-semibold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50">Cancel</button>
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                    <button wire:click="closeForm" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
                     <button wire:click="save" wire:loading.attr="disabled" wire:target="save"
-                        class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50">
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
                         <span wire:loading.remove wire:target="save">{{ $editId ? 'Update Assignment' : 'Create Assignment' }}</span>
-                        <span wire:loading wire:target="save">Saving…</span>
+                        <span wire:loading wire:target="save">Saving...</span>
                     </button>
                 </div>
             </div>
@@ -640,7 +640,7 @@
     @if ($openView && $viewAssignment)
         @teleport('body')
         <div class="fixed inset-0 z-[70] overflow-hidden">
-            <div class="absolute inset-0 bg-black/20 backdrop-blur-[1.5px]" wire:click="closeView"></div>
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeView"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div>
@@ -657,7 +657,56 @@
                 </div>
 
                 <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                    {{-- Turned in, against the class it actually went to. --}}
+                    @php
+                        $vsTotal = $viewStats['total'] ?? 0;
+                        $vsDone  = $viewStats['attempted'] ?? 0;
+                        $vsPct   = $vsTotal > 0 ? (int) round($vsDone / $vsTotal * 100) : 0;
+                        $submissionModeLabels = ['text' => 'Text only', 'file' => 'File only', 'both' => 'Text or file'];
+                    @endphp
+                    <div class="border border-gray-200 rounded-lg overflow-hidden">
+                        <div class="grid grid-cols-3 divide-x divide-gray-200">
+                            <div class="px-4 py-3 text-center">
+                                <p class="text-xl font-bold text-emerald-600 tabular-nums">{{ $vsDone }}</p>
+                                <p class="text-[11px] text-gray-400 uppercase tracking-wide mt-0.5">Attempted</p>
+                            </div>
+                            <div class="px-4 py-3 text-center">
+                                <p class="text-xl font-bold text-amber-600 tabular-nums">{{ $viewStats['pending'] ?? 0 }}</p>
+                                <p class="text-[11px] text-gray-400 uppercase tracking-wide mt-0.5">Not yet</p>
+                            </div>
+                            <div class="px-4 py-3 text-center">
+                                <p class="text-xl font-bold text-gray-800 tabular-nums">{{ $vsTotal }}</p>
+                                <p class="text-[11px] text-gray-400 uppercase tracking-wide mt-0.5">In class</p>
+                            </div>
+                        </div>
+                        <div class="px-4 pb-3">
+                            <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                <div class="h-full bg-emerald-500 rounded-full" style="width: {{ $vsPct }}%"></div>
+                            </div>
+                            <p class="text-[11px] text-gray-400 mt-1.5 text-center">
+                                {{ $vsPct }}% turned in &middot; {{ $viewStats['marked'] ?? 0 }} marked
+                            </p>
+                        </div>
+                    </div>
+
+                    {{-- Everything the form was filled in with. --}}
                     <div class="grid grid-cols-2 gap-3 text-sm">
+                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                            <p class="text-[11px] text-gray-400 uppercase tracking-wide">Class</p>
+                            <p class="text-gray-800 font-medium">{{ $viewAssignment->standard->name ?? '—' }}</p>
+                        </div>
+                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                            <p class="text-[11px] text-gray-400 uppercase tracking-wide">Section</p>
+                            <p class="text-gray-800 font-medium">{{ $viewAssignment->section->name ?? '—' }}</p>
+                        </div>
+                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                            <p class="text-[11px] text-gray-400 uppercase tracking-wide">Subject</p>
+                            <p class="text-gray-800 font-medium">{{ $viewAssignment->subject->name ?? '—' }}</p>
+                        </div>
+                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                            <p class="text-[11px] text-gray-400 uppercase tracking-wide">Type</p>
+                            <p class="text-gray-800 font-medium">{{ $viewAssignment->isMcq() ? 'MCQ' : 'Written' }}</p>
+                        </div>
                         <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
                             <p class="text-[11px] text-gray-400 uppercase tracking-wide">Starts</p>
                             <p class="text-gray-800 font-medium">{{ $viewAssignment->start_date?->format('d M Y, h:i A') ?? '—' }}</p>
@@ -667,12 +716,26 @@
                             <p class="text-gray-800 font-medium">{{ $viewAssignment->end_date?->format('d M Y, h:i A') ?? '—' }}</p>
                         </div>
                         <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <p class="text-[11px] text-gray-400 uppercase tracking-wide">Type</p>
-                            <p class="text-gray-800 font-medium">{{ $viewAssignment->isMcq() ? 'MCQ' : 'Text / File' }}</p>
+                            <p class="text-[11px] text-gray-400 uppercase tracking-wide">Out of</p>
+                            <p class="text-gray-800 font-medium">{{ $viewAssignment->maxMarks() > 0 ? $viewAssignment->maxMarks() . ' marks' : 'Not set' }}</p>
                         </div>
                         <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <p class="text-[11px] text-gray-400 uppercase tracking-wide">Responses</p>
-                            <p class="text-gray-800 font-medium">{{ $viewAssignment->submissions_count }} of the class</p>
+                            <p class="text-[11px] text-gray-400 uppercase tracking-wide">Window</p>
+                            <p class="text-gray-800 font-medium capitalize">{{ $viewAssignment->windowStatus() }}</p>
+                        </div>
+                        @unless ($viewAssignment->isMcq())
+                            <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                <p class="text-[11px] text-gray-400 uppercase tracking-wide">Answer with</p>
+                                <p class="text-gray-800 font-medium">{{ $submissionModeLabels[$viewAssignment->submission_mode] ?? '—' }}</p>
+                            </div>
+                        @endunless
+                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                            <p class="text-[11px] text-gray-400 uppercase tracking-wide">Visibility</p>
+                            <p class="font-medium {{ $viewAssignment->is_active ? 'text-emerald-700' : 'text-gray-500' }}">{{ $viewAssignment->is_active ? 'Published' : 'Draft' }}</p>
+                        </div>
+                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200 col-span-2">
+                            <p class="text-[11px] text-gray-400 uppercase tracking-wide">Set by</p>
+                            <p class="text-gray-800 font-medium">{{ $viewAssignment->user->name ?? '—' }}</p>
                         </div>
                     </div>
 
@@ -725,7 +788,7 @@
     @if ($openResponse && $responseRow)
         @teleport('body')
         <div class="fixed inset-0 z-[70] overflow-hidden">
-            <div class="absolute inset-0 bg-black/20 backdrop-blur-[1.5px]" wire:click="closeResponse"></div>
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeResponse"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div>

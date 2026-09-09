@@ -84,6 +84,8 @@ class Assignments extends Component
     public bool $openView = false;
     public $viewAssignment = null;
     public array $viewQuestions = [];
+    /** Who the assignment went to and how many of them have turned it in. */
+    public array $viewStats = [];
 
     // ─── Delete confirm ──────────────────────────────────────────────────
     public bool $openDelete = false;
@@ -590,6 +592,24 @@ class Assignments extends Component
             ])->toArray(),
         ])->toArray();
 
+        // The class it went to, so "8 responses" can be read against a roster
+        // instead of hanging there on its own.
+        $total = StudentDetail::where('organization_id', $this->orgId())
+            ->where('standard_id', $assignment->standard_id)
+            ->when($assignment->section_id, fn($q) => $q->where('section_id', $assignment->section_id))
+            ->count();
+
+        $attempted = (int) $assignment->submissions_count;
+
+        $this->viewStats = [
+            'total'     => $total,
+            'attempted' => $attempted,
+            'pending'   => max(0, $total - $attempted),
+            'marked'    => AssignmentSubmission::where('assignment_id', $assignment->id)
+                ->whereIn('status', ['reviewed', 'approved'])
+                ->count(),
+        ];
+
         $this->openView = true;
     }
 
@@ -598,6 +618,7 @@ class Assignments extends Component
         $this->openView       = false;
         $this->viewAssignment = null;
         $this->viewQuestions  = [];
+        $this->viewStats      = [];
     }
 
     // ─── Delete ──────────────────────────────────────────────────────────
