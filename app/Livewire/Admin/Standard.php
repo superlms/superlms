@@ -11,6 +11,7 @@ use App\Models\Student\StudentDetail;
 use App\Models\Student\Subject;
 use App\Models\Teacher\TeacherAssignment;
 use App\Models\User;
+use App\Support\StudentNumbers;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -427,9 +428,21 @@ class Standard extends Component
         ];
 
         if ($this->editId) {
-            StudentStandard::find($this->editId)->update($data);
+            $standard = StudentStandard::find($this->editId);
+
+            // The code is minted once and never renumbered — the student roll
+            // number is built from it, so changing it would orphan existing
+            // rolls. Only fill it in when the class predates auto-coding.
+            if (blank($standard->code)) {
+                $data['code'] = StudentNumbers::nextStandardCode($orgId);
+            }
+
+            $standard->update($data);
             $this->notification()->success('Class updated successfully!');
         } else {
+            // "01", "02", "03" … in creation order, per school. Roll numbers
+            // are derived from the last digit of this code.
+            $data['code'] = StudentNumbers::nextStandardCode($orgId);
             StudentStandard::create($data);
             $this->notification()->success('Class created successfully!');
         }

@@ -14,6 +14,7 @@ use App\Models\Organization;
 use App\Models\User;
 use App\Exports\StudentsExport;
 use App\Support\PdfFonts;
+use App\Support\StudentNumbers;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Auth;
@@ -1055,68 +1056,26 @@ class Student extends Component
     }
 
     /**
-     * Admission number = YY + SCHOOL_CODE + lastDigit(class.code) + lastDigit(section.code) + 0000
-     *   YY = last 2 digits of academic session (Apr→Mar). Before April it rolls back a year.
-     *   SCHOOL_CODE = organization.school_code (e.g. "TDS")
-     *   class.code / section.code: the model's "code" column. Missing codes fall back to a
-     *     digit derived from the id so we never produce a malformed number.
-     *   serial = 4 digits, per organization, starting at 0001.
-     * Example: 26TDS010001
+     * Admission number = YY + SCHOOL_CODE + DOB_YY + 4-digit serial.
+     * Format lives in App\Support\StudentNumbers so the admin screen, the
+     * super-admin screen and the mobile API all mint identical numbers.
+     * Example: born 2015, admitted to TDS in 2026 → 26TDS150001
      */
     protected function generateAdmissionNumber(): string
     {
-        $sessionYear = (int) (now()->month >= 4 ? now()->year : now()->subYear()->year);
-        $yy          = substr((string) $sessionYear, -2);
-        // Null-safe: if the org relationship doesn't resolve (e.g. organization_id
-        // points at a deleted row), the bare `Auth::user()->organization->...`
-        // would throw "Attempt to read property on null" — TypeError — and the
-        // whole save would die silently because TypeError is NOT a \Exception.
-        $schoolCode  = (string) (Auth::user()->organization?->school_code ?? '');
-
-        $classRow   = Standard::find((int) $this->studentsClass);
-        $sectionRow = Section::find((int) $this->studentsSection);
-
-        $classDigit   = $this->lastDigit($classRow?->code   ?? $classRow?->id);
-        $sectionDigit = $this->lastDigit($sectionRow?->code ?? $sectionRow?->id);
-
-        $prefix = $yy . $schoolCode . $classDigit . $sectionDigit;
-
-        // Per-org serial: count rows whose admission_no starts with the same prefix.
-        $last = StudentDetail::where('organization_id', Auth::user()->organization_id)
-            ->where('admission_no', 'like', $prefix . '%')
-            ->orderByDesc('admission_no')
-            ->value('admission_no');
-
-        $serial = $last ? ((int) substr($last, -4)) + 1 : 1;
-
-        return $prefix . str_pad((string) $serial, 4, '0', STR_PAD_LEFT);
+        return StudentNumbers::admissionNumber(
+            Auth::user()->organization ?? Auth::user()->organization_id,
+            $this->dob,
+        );
     }
 
     /**
-     * Roll number = 3-digit serial scoped to class + section. First student = "001".
-     * Each class+section combination keeps its own sequence.
+     * Roll number = lastDigit(class.code) + 2-digit serial from 01 (e.g. 301).
+     * Scoped to the class, so every roll inside a class is unique.
      */
     protected function generateRollNumber(): string
     {
-        $last = StudentDetail::where('standard_id', (int) $this->studentsClass)
-            ->where('section_id',  (int) $this->studentsSection)
-            ->whereNotNull('roll_no')
-            ->orderByRaw('CAST(roll_no AS UNSIGNED) DESC')
-            ->value('roll_no');
-
-        $serial = $last ? ((int) preg_replace('/\D/', '', $last)) + 1 : 1;
-
-        return str_pad((string) $serial, 3, '0', STR_PAD_LEFT);
-    }
-
-    /** Pick the last numeric digit of a code-like value, fallback to "0". */
-    protected function lastDigit($value): string
-    {
-        $digits = preg_replace('/\D/', '', (string) $value);
-        if ($digits === '' || $digits === null) {
-            return '0';
-        }
-        return substr($digits, -1);
+        return StudentNumbers::rollNumber($this->studentsClass);
     }
 
     protected function resetForm(): void

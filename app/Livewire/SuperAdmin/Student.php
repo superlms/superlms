@@ -15,6 +15,7 @@ use App\Models\Student\StudentAttendance;
 use App\Models\Student\StudentDetail;
 use App\Models\User;
 use App\Services\ZeptoMailService;
+use App\Support\StudentNumbers;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -846,8 +847,8 @@ class Student extends Component
         // Board auto-derived from the class (fallback: org's education board), like admin.
         $standardBoard = $this->autoBoard($this->addStandardId, $this->addOrgId) ?: null;
 
-        $admissionNo = $this->generateAdmissionNo($org, $this->addStandardId, $this->addSectionId);
-        $rollNo      = $this->generateRollNo($this->addStandardId, $this->addSectionId);
+        $admissionNo = $this->generateAdmissionNo($org, $this->addDob);
+        $rollNo      = $this->generateRollNo($this->addStandardId);
 
         $detail = StudentDetail::create([
             'user_id'                => $user->id,
@@ -906,54 +907,17 @@ class Student extends Component
     }
 
     /**
-     * Admission number — same format as the admin module:
-     * YY + SCHOOL_CODE + lastDigit(class.code) + lastDigit(section.code) + 4-digit serial.
-     * YY is the academic session year (Apr→Mar).
+     * Admission number / roll number — one shared implementation with the
+     * admin screen and the mobile API (App\Support\StudentNumbers).
      */
-    private function generateAdmissionNo(Organization $org, string $standardId, string $sectionId): string
+    private function generateAdmissionNo(Organization $org, string $dob): string
     {
-        $sessionYear = (int) (now()->month >= 4 ? now()->year : now()->subYear()->year);
-        $yy          = substr((string) $sessionYear, -2);
-        $schoolCode  = (string) ($org->school_code ?? '');
-
-        $classRow   = Standard::find((int) $standardId);
-        $sectionRow = Section::find((int) $sectionId);
-
-        $classDigit   = $this->lastDigit($classRow?->code   ?? $classRow?->id);
-        $sectionDigit = $this->lastDigit($sectionRow?->code ?? $sectionRow?->id);
-
-        $prefix = $yy . $schoolCode . $classDigit . $sectionDigit;
-
-        $last = StudentDetail::where('organization_id', $org->id)
-            ->where('admission_no', 'like', $prefix . '%')
-            ->orderByDesc('admission_no')
-            ->value('admission_no');
-
-        $serial = $last ? ((int) substr($last, -4)) + 1 : 1;
-
-        return $prefix . str_pad((string) $serial, 4, '0', STR_PAD_LEFT);
+        return StudentNumbers::admissionNumber($org, $dob);
     }
 
-    /** Roll number — 3-digit serial scoped to class + section (admin format). */
-    private function generateRollNo(string $standardId, string $sectionId): string
+    private function generateRollNo(string $standardId): string
     {
-        $last = StudentDetail::where('standard_id', (int) $standardId)
-            ->where('section_id',  (int) $sectionId)
-            ->whereNotNull('roll_no')
-            ->orderByRaw('CAST(roll_no AS UNSIGNED) DESC')
-            ->value('roll_no');
-
-        $serial = $last ? ((int) preg_replace('/\D/', '', $last)) + 1 : 1;
-
-        return str_pad((string) $serial, 3, '0', STR_PAD_LEFT);
-    }
-
-    /** Pick the last numeric digit of a code-like value, fallback to "0". */
-    private function lastDigit($value): string
-    {
-        $digits = preg_replace('/\D/', '', (string) $value);
-
-        return ($digits === '' || $digits === null) ? '0' : substr($digits, -1);
+        return StudentNumbers::rollNumber($standardId);
     }
 
     // ─── Render ───────────────────────────────────────────────────────────────

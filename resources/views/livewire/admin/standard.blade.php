@@ -176,7 +176,11 @@
                                 wire:click="drillIntoClass({{ $std->id }})">
                                 <div class="col-span-1 text-sm text-gray-500">{{ $filteredStandards->firstItem() + $idx }}</div>
                                 <div class="col-span-3">
-                                    <p class="font-semibold text-gray-900 text-sm truncate">{{ $std->name }}</p>
+                                    <p class="font-semibold text-gray-900 text-sm truncate">{{ $std->name }}
+                                        @if ($std->code)
+                                            <span class="text-xs font-normal text-gray-400">({{ $std->code }})</span>
+                                        @endif
+                                    </p>
                                 </div>
                                 <div class="col-span-4 text-sm text-gray-600">
                                     @if (count($sectionShow))

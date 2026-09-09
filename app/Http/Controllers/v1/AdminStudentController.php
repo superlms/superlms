@@ -8,6 +8,7 @@ use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
 use App\Models\User;
+use App\Support\StudentNumbers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -275,8 +276,8 @@ class AdminStudentController extends ApiController
                 $student = new User();
                 $student->fill($userData)->save();
 
-                $admissionNo = $this->generateAdmissionNumber($orgId, $request->standard_id, $request->section_id);
-                $rollNo      = $this->generateRollNumber($request->standard_id, $request->section_id);
+                $admissionNo = $this->generateAdmissionNumber($orgId, $request->dob);
+                $rollNo      = $this->generateRollNumber($request->standard_id);
                 $board       = Standard::where('id', (int) $request->standard_id)->value('board');
 
                 $detail = StudentDetail::create($this->detailData($request, $student->id, $orgId, $admissionNo, $rollNo, $board));
@@ -435,40 +436,17 @@ class AdminStudentController extends ApiController
         catch (\Throwable $e) { logger()->warning('AdminStudent s3 delete failed: ' . $e->getMessage()); }
     }
 
-    private function generateAdmissionNumber(int $orgId, $classId, $sectionId): string
+    /**
+     * Admission number / roll number — same shared implementation the admin and
+     * super-admin screens use (App\Support\StudentNumbers).
+     */
+    private function generateAdmissionNumber(int $orgId, $dob): string
     {
-        $sessionYear = (int) (now()->month >= 4 ? now()->year : now()->subYear()->year);
-        $yy          = substr((string) $sessionYear, -2);
-        $schoolCode  = (string) (Organization::find($orgId)?->school_code ?? '');
-
-        $classRow   = Standard::find((int) $classId);
-        $sectionRow = Section::find((int) $sectionId);
-        $prefix = $yy . $schoolCode
-            . $this->lastDigit($classRow?->code ?? $classRow?->id)
-            . $this->lastDigit($sectionRow?->code ?? $sectionRow?->id);
-
-        $last = StudentDetail::where('organization_id', $orgId)
-            ->where('admission_no', 'like', $prefix . '%')
-            ->orderByDesc('admission_no')->value('admission_no');
-        $serial = $last ? ((int) substr($last, -4)) + 1 : 1;
-
-        return $prefix . str_pad((string) $serial, 4, '0', STR_PAD_LEFT);
+        return StudentNumbers::admissionNumber($orgId, $dob);
     }
 
-    private function generateRollNumber($classId, $sectionId): string
+    private function generateRollNumber($classId): string
     {
-        $last = StudentDetail::where('standard_id', (int) $classId)
-            ->where('section_id', (int) $sectionId)
-            ->whereNotNull('roll_no')
-            ->orderByRaw('CAST(roll_no AS UNSIGNED) DESC')->value('roll_no');
-        $serial = $last ? ((int) preg_replace('/\D/', '', $last)) + 1 : 1;
-
-        return str_pad((string) $serial, 3, '0', STR_PAD_LEFT);
-    }
-
-    private function lastDigit($value): string
-    {
-        $digits = preg_replace('/\D/', '', (string) $value);
-        return ($digits === '' || $digits === null) ? '0' : substr($digits, -1);
+        return StudentNumbers::rollNumber($classId);
     }
 }

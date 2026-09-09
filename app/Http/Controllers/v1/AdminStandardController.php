@@ -11,6 +11,7 @@ use App\Models\Student\Subject;
 use App\Models\Teacher\TeacherAssignment;
 use App\Models\Organization;
 use App\Models\User;
+use App\Support\StudentNumbers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -143,7 +144,7 @@ class AdminStandardController extends ApiController
         if ($err) return $err;
         if ($err = $this->validateWith($request, [
             'name'      => 'required|string|max:255',
-            'code'      => 'required|string|max:50',
+            'code'      => 'nullable|string|max:50',
             'order'     => 'nullable|integer',
             'is_active' => 'nullable|boolean',
         ])) return $err;
@@ -153,13 +154,20 @@ class AdminStandardController extends ApiController
         if (Standard::where('organization_id', $orgId)->where('name', $request->name)->exists()) {
             return $this->error('A class with this name already exists.', 422);
         }
-        if (Standard::where('organization_id', $orgId)->where('code', $request->code)->exists()) {
+        // Codes are auto-minted ("01", "02", "03" … per school) — the student
+        // roll number is built from the last digit — but an explicit code is
+        // still honoured for backwards compatibility.
+        $code = $request->filled('code')
+            ? (string) $request->code
+            : StudentNumbers::nextStandardCode($orgId);
+
+        if (Standard::where('organization_id', $orgId)->where('code', $code)->exists()) {
             return $this->error('A class with this code already exists.', 422);
         }
 
         $s = Standard::create([
             'name'            => $request->name,
-            'code'            => $request->code,
+            'code'            => $code,
             'board'           => $this->orgBoard($orgId),
             'order'           => $request->filled('order') ? (int) $request->order : 0,
             'is_active'       => $request->boolean('is_active', true),
