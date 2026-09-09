@@ -6,8 +6,15 @@
 {{-- Format chooser shown before an export. `excel`/`pdf`/`close` are the parent
      Livewire component's action names. The chosen action returns a file download
      AND flips the parent's showExportPicker flag off, so Livewire removes this
-     overlay when the response comes back. --}}
-<div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+     overlay when the response comes back.
+
+     Anything passed as the slot renders above the format buttons — that's where
+     a screen puts "what to export" controls (class / section pickers).
+
+     Teleported to <body>: inside #main-scroll a fixed overlay paints under the
+     navbar and sidebar and its buttons stop responding. --}}
+@teleport('body')
+<div class="fixed inset-0 z-[70] flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-black/30 backdrop-blur-[1.5px]" wire:click="{{ $close }}"></div>
     <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
         <div class="flex items-center justify-between mb-1">
@@ -17,6 +24,8 @@
             </button>
         </div>
         <p class="text-xs text-gray-500 mb-5">Choose a format to download.</p>
+
+        {{ $slot }}
 
         <div class="grid grid-cols-2 gap-3">
             {{-- Excel --}}
@@ -43,3 +52,4 @@
         </div>
     </div>
 </div>
+@endteleport

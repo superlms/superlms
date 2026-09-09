@@ -1,7 +1,49 @@
 <div class="min-h-screen bg-gray-50">
 
     @if ($showExportPicker)
-        <x-admin.export-picker excel="exportStudents" pdf="exportStudentsPdf" />
+        <x-admin.export-picker excel="exportStudents" pdf="exportStudentsPdf">
+            {{-- What to export: everyone, or one class (optionally one section). --}}
+            <div class="mb-5 space-y-3">
+                <div class="grid grid-cols-2 gap-2">
+                    <button type="button" wire:click="$set('exportScope', 'all')"
+                        class="px-3 py-2 rounded-lg border text-sm font-semibold transition-colors
+                               {{ $exportScope === 'all' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50' }}">
+                        All students
+                    </button>
+                    <button type="button" wire:click="$set('exportScope', 'class')"
+                        class="px-3 py-2 rounded-lg border text-sm font-semibold transition-colors
+                               {{ $exportScope === 'class' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50' }}">
+                        Class wise
+                    </button>
+                </div>
+
+                @if ($exportScope === 'class')
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Class <span class="text-red-500">*</span></label>
+                            <select wire:model.live="exportClass"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                <option value="">Select class</option>
+                                @foreach ($standards as $std)
+                                    <option value="{{ $std->id }}">{{ $std->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('exportClass')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">Section</label>
+                            <select wire:model.live="exportSection" @disabled(!$exportClass)
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-50 disabled:text-gray-400">
+                                <option value="">All sections</option>
+                                @foreach ($exportSections as $sec)
+                                    <option value="{{ $sec->id }}">{{ $sec->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                @endif
+            </div>
+        </x-admin.export-picker>
     @endif
 
     {{-- ══════════════════════════════════════════════════

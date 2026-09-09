@@ -34,8 +34,13 @@ class Student extends Component
     // ─── Edit state (holds user array during edit) ─────────────────────
     public $studentData = [];
 
-    // ─── Export format chooser (Excel / PDF) ───────────────────────────
-    public bool $showExportPicker = false;
+    // ─── Export chooser (what to export + which format) ─────────────────
+    public bool   $showExportPicker = false;
+    /** 'all' = every student, 'class' = one class (optionally one section). */
+    public string $exportScope      = 'all';
+    public string $exportClass      = '';
+    public string $exportSection    = '';
+    public        $exportSections   = [];
 
     // ─── Form Fields ─────────────────────────────────────────────────────
     public $studentForm = [];
@@ -50,7 +55,7 @@ class Student extends Component
     public $studentsBoard  = '';
     public $studentsClass  = '';
     public $studentsSection = '';
-    public $studentsActive  = 0;
+    public $studentsActive  = 1;   // new students start Active — uncheck to block login
     public $fatherName      = '';
     public $motherName      = '';
     public $religion        = '';
@@ -816,11 +821,73 @@ class Student extends Component
      * class-by-class (in class order, then section, then roll number). Missing
      * values render as a dash.
      */
-    public function openExportPicker(): void  { $this->showExportPicker = true; }
+    public function openExportPicker(): void
+    {
+        // Prefill from whatever the list is already filtered to — exporting the
+        // class you are looking at is the common case.
+        $this->exportScope    = $this->filterClass ? 'class' : 'all';
+        $this->exportClass    = (string) $this->filterClass;
+        $this->exportSection  = (string) $this->filterSection;
+        $this->exportSections = $this->exportClass
+            ? Section::where('standard_id', $this->exportClass)->get()
+            : [];
+
+        $this->showExportPicker = true;
+    }
+
     public function closeExportPicker(): void { $this->showExportPicker = false; }
 
-    public function exportStudents(): StreamedResponse
+    public function updatedExportScope(): void
     {
+        if ($this->exportScope === 'all') {
+            $this->exportClass    = '';
+            $this->exportSection  = '';
+            $this->exportSections = [];
+        }
+    }
+
+    public function updatedExportClass(): void
+    {
+        $this->exportSection  = '';
+        $this->exportSections = $this->exportClass
+            ? Section::where('standard_id', $this->exportClass)->get()
+            : [];
+    }
+
+    /**
+     * Class-wise export needs a class picked first. Returns false (and leaves
+     * the chooser open with an error) when it isn't.
+     */
+    private function exportSelectionReady(): bool
+    {
+        if ($this->exportScope === 'class' && !$this->exportClass) {
+            $this->addError('exportClass', 'Please choose a class to export.');
+            return false;
+        }
+
+        $this->resetErrorBag('exportClass');
+        return true;
+    }
+
+    /** Filename suffix describing what was exported: "all" or "class-5-A". */
+    private function exportScopeSlug(): string
+    {
+        if ($this->exportScope !== 'class' || !$this->exportClass) {
+            return 'all';
+        }
+
+        $class   = Standard::find((int) $this->exportClass)?->name ?? 'class';
+        $section = $this->exportSection ? Section::find((int) $this->exportSection)?->name : null;
+
+        return \Illuminate\Support\Str::slug(trim($class . ' ' . ($section ?? '')));
+    }
+
+    public function exportStudents(): ?StreamedResponse
+    {
+        if (!$this->exportSelectionReady()) {
+            return null;
+        }
+
         $this->showExportPicker = false;
 
         $org = Auth::user()->organization_id;
@@ -828,20 +895,25 @@ class Student extends Component
         [$headings, $rows] = $this->studentExportData($org);
 
         $stamp = now()->format('Y-m-d');
+        $scope = $this->exportScopeSlug();
 
         // Excel (.xlsx).
         $xlsx = Excel::raw(new StudentsExport($headings, $rows), \Maatwebsite\Excel\Excel::XLSX);
 
         return response()->streamDownload(function () use ($xlsx) {
             echo $xlsx;
-        }, "students_{$stamp}.xlsx", [
+        }, "students_{$scope}_{$stamp}.xlsx", [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
     }
 
     /** Export students as a nicely formatted PDF, grouped class-by-class. */
-    public function exportStudentsPdf(): StreamedResponse
+    public function exportStudentsPdf(): ?StreamedResponse
     {
+        if (!$this->exportSelectionReady()) {
+            return null;
+        }
+
         $this->showExportPicker = false;
 
         $org = Auth::user()->organization_id;
@@ -868,7 +940,8 @@ class Student extends Component
         ]);
 
         $stamp = now()->format('Y-m-d');
-        return response()->streamDownload(fn () => print($bytes), "students_{$stamp}.pdf", [
+        $scope = $this->exportScopeSlug();
+        return response()->streamDownload(fn () => print($bytes), "students_{$scope}_{$stamp}.pdf", [
             'Content-Type' => 'application/pdf',
         ]);
     }
@@ -922,6 +995,11 @@ class Student extends Component
         $students = StudentDetail::with(['user', 'standard', 'section', 'organization', 'transportations'])
             ->where('organization_id', $org)
             ->whereHas('user', fn($q) => $q->where('organization_id', $org))
+            // Class-wise export: one class, and one section within it when chosen.
+            ->when($this->exportScope === 'class' && $this->exportClass,
+                fn($q) => $q->where('standard_id', (int) $this->exportClass))
+            ->when($this->exportScope === 'class' && $this->exportSection,
+                fn($q) => $q->where('section_id', (int) $this->exportSection))
             ->orderBy('standard_id')
             ->orderBy('section_id')
             ->orderByRaw('CAST(roll_no AS UNSIGNED)')

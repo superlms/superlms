@@ -43,7 +43,7 @@ class Teacher extends Component
     public $teacherEmail     = '';
     public $teacherMobile    = '';
     public $teacherGender    = '';
-    public $teacherActive    = 0;
+    public $teacherActive    = 1;   // new teachers start Active — uncheck to block login
     public $employeeId       = '';
     public $dateOfJoining    = '';
     public $qualification    = '';
@@ -224,11 +224,11 @@ class Teacher extends Component
             'dob'              => 'required|date|before:today',
             'teacherGender'    => 'required|string|in:male,female,other',
             'employeeId'       => 'required|string|max:20',
-            'dateOfJoining'    => 'required|date|before_or_equal:today',
+            'dateOfJoining'    => 'nullable|date|before_or_equal:today',
             'qualification'    => 'required|string|max:50',
             'address'          => 'required|string|max:1000',
             'pincode'          => 'required|digits:6',
-            'emergencyContact' => 'required|digits:10',
+            'emergencyContact' => 'nullable|digits:10',
             'teacherImage'     => 'nullable|image|max:1024', // 1 MB
         ];
 
@@ -325,14 +325,14 @@ class Teacher extends Component
                     [
                         'organization_id'   => Auth::user()->organization_id,
                         'employee_id'       => $this->employeeId,
-                        'date_of_joining'   => $this->dateOfJoining,
+                        'date_of_joining'   => $this->dateOfJoining ?: null,
                         'qualification'     => $this->qualification,
                         'phone'             => $this->teacherMobile,
                         'address'           => $this->address,
                         'city'              => $this->selectedCity ?: null,
                         'state'             => $this->selectedState ?: null,
                         'pincode'           => $this->pincode,
-                        'emergency_contact' => $this->emergencyContact,
+                        'emergency_contact' => $this->emergencyContact ?: null,
                     ]
                 );
             }, 5);
@@ -746,7 +746,7 @@ class Teacher extends Component
     {
         $org = Auth::user()->organization_id;
 
-        $teachers = TeacherDetail::with('user')
+        $teachers = TeacherDetail::with(['user', 'assignedClasses'])
             ->where('organization_id', $org)
             ->when($this->search, fn($q) => $q->where(
                 fn($q) => $q

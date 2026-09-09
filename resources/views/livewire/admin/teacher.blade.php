@@ -143,7 +143,10 @@
                                 Email</th>
                             <th
                                 class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                Joining Date</th>
+                                Class Teacher</th>
+                            <th
+                                class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                Qualification</th>
                             <th
                                 class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                 Actions</th>
@@ -185,9 +188,22 @@
                                     <span class="text-sm text-gray-600 truncate block max-w-[200px]"
                                         title="{{ $teacher->user?->email ?? '' }}">{{ $teacher->user?->email ?? '—' }}</span>
                                 </td>
+                                {{-- Class this teacher is class-teacher of; section sits under it. --}}
                                 <td class="px-4 py-3 whitespace-nowrap">
-                                    <span
-                                        class="text-sm text-gray-700">{{ $teacher->date_of_joining ? \Carbon\Carbon::parse($teacher->date_of_joining)->format('d M Y') : '—' }}</span>
+                                    @forelse ($teacher->assignedClasses as $assigned)
+                                        <div class="{{ !$loop->first ? 'mt-1.5' : '' }}">
+                                            <p class="text-sm text-gray-800 leading-tight">{{ $assigned->standard?->name ?? '—' }}</p>
+                                            @if ($assigned->section?->name)
+                                                <p class="text-[11px] text-gray-400 leading-tight">{{ $assigned->section->name }}</p>
+                                            @endif
+                                        </div>
+                                    @empty
+                                        <span class="text-sm text-gray-400">—</span>
+                                    @endforelse
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span class="text-sm text-gray-700 truncate block max-w-[160px]"
+                                        title="{{ $teacher->qualification ?? '' }}">{{ $teacher->qualification ?: '—' }}</span>
                                 </td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center justify-center gap-1">
@@ -226,7 +242,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-6 py-16 text-center">
+                                <td colspan="7" class="px-6 py-16 text-center">
                                     <div
                                         class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                         <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor"
@@ -328,10 +344,21 @@
                                 <p class="text-gray-700 font-medium truncate">{{ $teacher->phone ?? '—' }}</p>
                             </div>
                             <div class="min-w-0">
-                                <p class="text-xs text-gray-400">Joining Date</p>
-                                <p class="text-gray-700 font-medium truncate">
-                                    {{ $teacher->date_of_joining ? \Carbon\Carbon::parse($teacher->date_of_joining)->format('d M Y') : '—' }}
-                                </p>
+                                <p class="text-xs text-gray-400">Class Teacher</p>
+                                @forelse ($teacher->assignedClasses as $assigned)
+                                    <p class="text-gray-700 font-medium truncate leading-tight">
+                                        {{ $assigned->standard?->name ?? '—' }}
+                                        @if ($assigned->section?->name)
+                                            <span class="text-[11px] font-normal text-gray-400">{{ $assigned->section->name }}</span>
+                                        @endif
+                                    </p>
+                                @empty
+                                    <p class="text-gray-700 font-medium">—</p>
+                                @endforelse
+                            </div>
+                            <div class="min-w-0">
+                                <p class="text-xs text-gray-400">Qualification</p>
+                                <p class="text-gray-700 font-medium truncate">{{ $teacher->qualification ?: '—' }}</p>
                             </div>
                         </div>
                     </div>
@@ -465,7 +492,7 @@
                             @error('dob')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Date of Joining <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Date of Joining</label>
                             <input wire:model.defer="dateOfJoining" type="date" min="1970-01-01" max="{{ now()->format('Y-m-d') }}" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
                             @error('dateOfJoining')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
@@ -485,7 +512,7 @@
                             @error('qualification')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Emergency Contact <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Emergency Contact</label>
                             <input wire:model.defer="emergencyContact" type="tel" maxlength="10" inputmode="numeric"
                                 oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">

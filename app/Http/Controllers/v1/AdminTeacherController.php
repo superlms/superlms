@@ -143,11 +143,11 @@ class AdminTeacherController extends ApiController
             'dob'              => 'required|date|before:today',
             'gender'           => 'required|string|in:male,female,other',
             'employee_id'      => 'required|string|max:50',
-            'date_of_joining'  => 'required|date|before_or_equal:today',
+            'date_of_joining'  => 'nullable|date|before_or_equal:today',
             'qualification'    => 'required|string|max:255',
             'address'          => 'required|string|max:1000',
             'pincode'          => 'required|digits:6',
-            'emergency_contact' => 'required|string|digits:10',
+            'emergency_contact' => 'nullable|string|digits:10',
             'state'            => 'nullable|string|max:100',
             'city'             => 'nullable|string|max:100',
             'is_active'        => 'nullable|boolean',
@@ -196,14 +196,14 @@ class AdminTeacherController extends ApiController
                 TeacherDetail::updateOrCreate(['user_id' => $teacher->id], [
                     'organization_id'   => $orgId,
                     'employee_id'       => $request->employee_id,
-                    'date_of_joining'   => $request->date_of_joining,
+                    'date_of_joining'   => $request->date_of_joining ?: null,
                     'qualification'     => $request->qualification,
                     'phone'             => $request->mobile,
                     'address'           => $request->address,
                     'city'              => $request->city,
                     'state'             => $request->state,
                     'pincode'           => $request->pincode,
-                    'emergency_contact' => $request->emergency_contact,
+                    'emergency_contact' => $request->emergency_contact ?: null,
                 ]);
             });
 
@@ -253,14 +253,14 @@ class AdminTeacherController extends ApiController
                 $teacher->save();
                 $detail->update([
                     'employee_id'       => $request->employee_id,
-                    'date_of_joining'   => $request->date_of_joining,
+                    'date_of_joining'   => $request->date_of_joining ?: null,
                     'qualification'     => $request->qualification,
                     'phone'             => $request->mobile,
                     'address'           => $request->address,
                     'city'              => $request->city,
                     'state'             => $request->state,
                     'pincode'           => $request->pincode,
-                    'emergency_contact' => $request->emergency_contact,
+                    'emergency_contact' => $request->emergency_contact ?: null,
                 ]);
             });
 
