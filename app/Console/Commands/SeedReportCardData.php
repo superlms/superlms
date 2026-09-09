@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Admin\Exam;
 use App\Models\Admin\ExamCopy;
+use App\Models\Admin\SchoolInfo;
 use App\Models\Organization;
 use App\Models\Student\SectionSubject;
 use App\Models\Student\StandardSubject;
@@ -80,6 +81,34 @@ class SeedReportCardData extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * The masthead reads an affiliation number above the frame on the left and
+     * the school's website on the right. Both are ordinary school settings, and
+     * a school that has not filled them in prints an empty strip there — which
+     * makes the issued card look unfinished rather than like the template.
+     *
+     * Only blanks are filled, never an answer the school has already given, and
+     * both stay editable from the school's own settings screens.
+     */
+    private function fillSchoolDetails(Organization $org): void
+    {
+        if (blank($org->affiliation_no)) {
+            // Stable for a given school, so re-running does not churn the value.
+            $org->forceFill(['affiliation_no' => '21' . str_pad((string) $org->id, 5, '0', STR_PAD_LEFT)])->save();
+            $this->line("  affiliation number filled: {$org->affiliation_no}");
+        }
+
+        $info = SchoolInfo::firstOrNew(['organization_id' => $org->id]);
+
+        if (blank($info->website_url)) {
+            $slug = \Illuminate\Support\Str::slug($org->name ?: ('school-' . $org->id));
+            $info->website_url = 'www.' . $slug . '.superlms.in';
+            $info->organization_id = $org->id;
+            $info->save();
+            $this->line("  website filled: {$info->website_url}");
+        }
+    }
+
     private function seedOrganization(int $orgId): void
     {
         $org = Organization::find($orgId);
@@ -112,6 +141,8 @@ class SeedReportCardData extends Command
         }
 
         $this->info("{$label}: seeding…");
+
+        $this->fillSchoolDetails($org);
 
         $subjectsBySection = $this->ensureSubjects($orgId, $students);
         $created           = $this->ensureExams($orgId);

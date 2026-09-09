@@ -60,7 +60,7 @@
 .header { text-align: center; }
 .header img.logo { width: 145px; height: auto; display: block; margin: 0 auto; }
 /* Sits right under the logo, the way the school's card does. */
-.school-name { font-size: 23px; color: #000; letter-spacing: 0.2px; margin-top: -4px; }
+.school-name { font-size: 23px; color: #000; letter-spacing: 0.2px; line-height: 1.1; margin-top: -7px; }
 .school-address { font-size: 11.8px; color: #000; line-height: 1.35; }
 .doc-title { font-size: 14.1px; color: #000; margin-top: 7px; }
 .doc-session { font-size: 14.1px; color: #000; margin-bottom: 8px; }

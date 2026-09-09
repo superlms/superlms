@@ -145,7 +145,11 @@
 
     // The card prints the full address on one line and "phone / website" on
     // the next, the way the school's own does.
-    $website = trim((string) ($organization->website ?? ''));
+    // The school's site lives on school_infos.website_url -- organizations has no
+    // website column at all, so reading it alone left the top-right corner blank.
+    $websiteRaw = $organization->website
+        ?? \App\Models\Admin\SchoolInfo::where('organization_id', $organization->id)->value('website_url');
+    $website = trim((string) ($websiteRaw ?? ''));
     if ($website !== '') {
         $bare = rtrim(preg_replace('#^https?://#i', '', $website), '/');
         if (!\Illuminate\Support\Str::startsWith(strtolower($bare), 'www.')) {
@@ -159,8 +163,11 @@
         $website ?: null,
     ]));
 
-    $classSection = trim('Class- ' . ($student->standard->name ?? ''))
-        . (!empty($student->section->name) ? '/  Section-' . $student->section->name : '');
+    // Just the values -- the cell is already labelled "Class/Section:", so
+    // repeating "Class-"/"Section-" inside it only wrapped the row onto three
+    // lines and made it taller than every other row in the table.
+    $classSection = trim(($student->standard->name ?? '')
+        . (!empty($student->section->name) ? ' / ' . $student->section->name : ''), ' /');
 
     $a1 = $attendance['term1']   ?? ['present' => 0, 'total' => 0];
     $a2 = $attendance['term2']   ?? ['present' => 0, 'total' => 0];
