@@ -16,6 +16,7 @@ use App\Models\Student\StudentDetail;
 use App\Models\User;
 use App\Services\ZeptoMailService;
 use App\Support\StudentNumbers;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -842,43 +843,52 @@ class Student extends Component
             $userData['image'] = Storage::disk('s3')->url($path);
         }
 
-        $user = User::create($userData);
-
         // Board auto-derived from the class (fallback: org's education board), like admin.
         $standardBoard = $this->autoBoard($this->addStandardId, $this->addOrgId) ?: null;
 
-        $admissionNo = $this->generateAdmissionNo($org, $this->addDob);
-        $rollNo      = $this->generateRollNo($this->addStandardId);
+        // Locked and atomic, like the admin screen: the lock stops two saves
+        // reading the same admission serial, the transaction stops a mid-flow
+        // failure leaving a User with no StudentDetail behind it.
+        [$user, $detail, $admissionNo] = StudentNumbers::withCreationLock($this->addOrgId, function () use ($userData, $org, $standardBoard) {
+            return DB::transaction(function () use ($userData, $org, $standardBoard) {
+                $user = User::create($userData);
 
-        $detail = StudentDetail::create([
-            'user_id'                => $user->id,
-            'organization_id'        => $this->addOrgId,
-            'standard_id'            => $this->addStandardId ?: null,
-            'section_id'             => $this->addSectionId ?: null,
-            'full_name'              => $this->addName,
-            'father_name'            => $this->addFatherName,
-            'mother_name'            => $this->addMotherName ?: null,
-            'email'                  => $this->addEmail,
-            'dob'                    => $this->addDob,
-            'gender'                 => $this->addGender,
-            'religion'               => $this->addReligion ?: null,
-            'phone'                  => $this->addMobile,
-            'local_address'          => $this->addLocalAddress ?: null,
-            'permanent_address'      => $this->addPermanentAddress ?: null,
-            'state'                  => $this->addState ?: null,
-            'city'                   => $this->addCity ?: null,
-            'pincode'                => $this->addPincode ?: null,
-            'aadhar_no'              => $this->addAadharNo ?: null,
-            'board'                  => $standardBoard,
-            'admission_no'           => $admissionNo,
-            'date_of_admission'      => $this->addDateOfAdmission ?: now()->toDateString(),
-            'roll_no'                => $rollNo,
-            'transportation_required'=> (bool) $this->addTransportation,
-            'appar_id'               => $this->addApparId ?: null,
-            'registration_number'    => $this->addRegNo ?: null,
-        ]);
+                $admissionNo = $this->generateAdmissionNo($org, $this->addDob);
+                $rollNo      = $this->generateRollNo($this->addStandardId);
 
-        $this->syncStudentRoute($detail, (bool) $this->addTransportation, $this->addRoute, $this->addOrgId);
+                $detail = StudentDetail::create([
+                    'user_id'                 => $user->id,
+                    'organization_id'         => $this->addOrgId,
+                    'standard_id'             => $this->addStandardId ?: null,
+                    'section_id'              => $this->addSectionId ?: null,
+                    'full_name'               => $this->addName,
+                    'father_name'             => $this->addFatherName,
+                    'mother_name'             => $this->addMotherName ?: null,
+                    'email'                   => $this->addEmail,
+                    'dob'                     => $this->addDob,
+                    'gender'                  => $this->addGender,
+                    'religion'                => $this->addReligion ?: null,
+                    'phone'                   => $this->addMobile,
+                    'local_address'           => $this->addLocalAddress ?: null,
+                    'permanent_address'       => $this->addPermanentAddress ?: null,
+                    'state'                   => $this->addState ?: null,
+                    'city'                    => $this->addCity ?: null,
+                    'pincode'                 => $this->addPincode ?: null,
+                    'aadhar_no'               => $this->addAadharNo ?: null,
+                    'board'                   => $standardBoard,
+                    'admission_no'            => $admissionNo,
+                    'date_of_admission'       => $this->addDateOfAdmission ?: now()->toDateString(),
+                    'roll_no'                 => $rollNo,
+                    'transportation_required' => (bool) $this->addTransportation,
+                    'appar_id'                => $this->addApparId ?: null,
+                    'registration_number'     => $this->addRegNo ?: null,
+                ]);
+
+                $this->syncStudentRoute($detail, (bool) $this->addTransportation, $this->addRoute, $this->addOrgId);
+
+                return [$user, $detail, $admissionNo];
+            });
+        });
 
         try {
             $templateKey = config('services.zeptomail.student_password_template_key');

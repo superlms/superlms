@@ -270,20 +270,24 @@ class AdminStudentController extends ApiController
                 $userData['image'] = Storage::disk('s3')->url($path);
             }
 
-            [$detail, $admissionNo, $student] = DB::transaction(function () use ($request, $userData, $orgId, $orphanUserId) {
-                if ($orphanUserId) User::where('id', $orphanUserId)->delete();
+            // Locked per school so two concurrent creates can't read the same
+            // admission serial; the lock is released once the transaction ends.
+            [$detail, $admissionNo, $student] = StudentNumbers::withCreationLock($orgId, function () use ($request, $userData, $orgId, $orphanUserId) {
+                return DB::transaction(function () use ($request, $userData, $orgId, $orphanUserId) {
+                    if ($orphanUserId) User::where('id', $orphanUserId)->delete();
 
-                $student = new User();
-                $student->fill($userData)->save();
+                    $student = new User();
+                    $student->fill($userData)->save();
 
-                $admissionNo = $this->generateAdmissionNumber($orgId, $request->dob);
-                $rollNo      = $this->generateRollNumber($request->standard_id);
-                $board       = Standard::where('id', (int) $request->standard_id)->value('board');
+                    $admissionNo = $this->generateAdmissionNumber($orgId, $request->dob);
+                    $rollNo      = $this->generateRollNumber($request->standard_id);
+                    $board       = Standard::where('id', (int) $request->standard_id)->value('board');
 
-                $detail = StudentDetail::create($this->detailData($request, $student->id, $orgId, $admissionNo, $rollNo, $board));
-                $this->syncTransport($detail, $request, $orgId);
+                    $detail = StudentDetail::create($this->detailData($request, $student->id, $orgId, $admissionNo, $rollNo, $board));
+                    $this->syncTransport($detail, $request, $orgId);
 
-                return [$detail, $admissionNo, $student];
+                    return [$detail, $admissionNo, $student];
+                });
             });
 
             $this->sendWelcomeEmail($student, $orgId, $plainPassword, $admissionNo);

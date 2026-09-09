@@ -503,8 +503,8 @@ class Student extends Component
             // lock so only one student-create runs at a time for a school; the
             // next one waits, then reads the freshly-committed max. The lock is
             // released in `finally` no matter what.
-            $createLock = $isNew ? "student_create_{$orgId}" : null;
-            $this->acquireCreationLock($createLock);
+            $createLock = $isNew ? $orgId : null;
+            StudentNumbers::acquireCreationLock($createLock);
             try {
             [$detail, $admissionNo] = DB::transaction(function () use ($student, $studentData, $isNew, $org, $orgId, $orphanUserIdToDelete) {
                 // Wipe any orphan User row holding the same email — cleans
@@ -571,7 +571,7 @@ class Student extends Component
                 return [$detail, $admissionNo];
             });
             } finally {
-                $this->releaseCreationLock($createLock);
+                StudentNumbers::releaseCreationLock($createLock);
             }
 
             $stepLog('db-saved');
@@ -1159,36 +1159,6 @@ class Student extends Component
         $headings = $rows ? array_keys($rows[0]) : ['S.No'];
 
         return [$headings, $rows, $recordsByClass];
-    }
-
-    /**
-     * Serialise concurrent student creation per-organisation using a MySQL
-     * application lock. Two admins on different devices hitting "Save" at the
-     * same instant would otherwise read the same admission_no/roll_no max and
-     * produce duplicates. GET_LOCK blocks the second caller until the first
-     * commits and releases — guaranteeing unique, gap-free serials.
-     *
-     * Degrades gracefully: any failure (non-MySQL driver, lock timeout) is
-     * logged and the save proceeds, so we never block a legitimate create.
-     */
-    protected function acquireCreationLock(?string $name): void
-    {
-        if (!$name) return;
-        try {
-            DB::selectOne('SELECT GET_LOCK(?, 15) AS got', [$name]);
-        } catch (\Throwable $e) {
-            logger()->warning('acquireCreationLock failed: ' . $e->getMessage());
-        }
-    }
-
-    protected function releaseCreationLock(?string $name): void
-    {
-        if (!$name) return;
-        try {
-            DB::selectOne('SELECT RELEASE_LOCK(?) AS released', [$name]);
-        } catch (\Throwable $e) {
-            logger()->warning('releaseCreationLock failed: ' . $e->getMessage());
-        }
     }
 
     /**
