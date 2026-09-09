@@ -89,7 +89,9 @@
                         </button>
                     @endif
 
-                    <span class="ml-auto text-xs text-gray-500">Total: <strong class="text-gray-700">{{ $reportCards->total() }}</strong> report cards</span>
+                    @if ($hasFilters)
+                        <span class="ml-auto text-xs text-gray-500">Total: <strong class="text-gray-700">{{ $reportCards->total() }}</strong> report cards</span>
+                    @endif
                 </div>
             </div>
         </div>
@@ -98,6 +100,18 @@
              BODY
         ══════════════════════════════════════════════════ --}}
         <div class="p-4 sm:p-6">
+            @if (!$hasFilters)
+                {{-- Home screen: nothing is listed until a filter narrows it down. --}}
+                <div class="bg-white rounded-xl border border-gray-200 px-6 py-16 text-center">
+                    <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
+                        </svg>
+                    </div>
+                    <p class="text-sm font-semibold text-gray-800">Choose a filter to see report cards</p>
+                    <p class="text-xs text-gray-400 mt-1">Search a name or admission number, or pick a class, section or status above.</p>
+                </div>
+            @else
             <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full">
@@ -189,6 +203,7 @@
                     </div>
                 @endif
             </div>
+            @endif
         </div>
 
     @else

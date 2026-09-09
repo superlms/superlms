@@ -345,10 +345,12 @@ class ReportCard extends Component
                 $description = $message
             );
 
-            // Refresh the student list
+            // Straight back to the screen you started from: the list home,
+            // with no filter carried over from before.
             $this->closeIssueForm();
-            $this->selectedStudents = [];
             unset($this->issueStudents);
+            $this->backToList();
+            $this->resetFilters();
 
         } catch (\Exception $e) {
             $this->notification()->error(
@@ -381,6 +383,18 @@ class ReportCard extends Component
                 $description = 'Failed to revoke report card: ' . $e->getMessage()
             );
         }
+    }
+
+    /**
+     * The list is a search result, not a dump of every card ever issued: it
+     * stays empty until at least one filter is set.
+     */
+    public function hasFilters(): bool
+    {
+        return filled($this->search)
+            || filled($this->filterStandard)
+            || filled($this->filterSection)
+            || filled($this->filterStatus);
     }
 
     /**
@@ -507,9 +521,7 @@ class ReportCard extends Component
 
     public function render()
     {
-        $reportCards = collect();
-
-        if ($this->viewMode === 'list') {
+        if ($this->viewMode === 'list' && $this->hasFilters()) {
             $query = ReportCardModel::with([
                 'studentDetail',
                 'studentDetail.standard',
@@ -537,12 +549,20 @@ class ReportCard extends Component
             }
 
             $reportCards = $query->latest('issued_at')->paginate($this->perPage);
+        } else {
+            // An empty page rather than a bare collection, so the view can call
+            // total()/firstItem()/links() on it either way.
+            $reportCards = new \Illuminate\Pagination\LengthAwarePaginator(
+                [], 0, $this->perPage, 1,
+                ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath()]
+            );
         }
 
         return view($this->viewName(), [
             'downloadRoute' => $this->downloadRouteName(),
             'printRoute'    => $this->printRouteName(),
             'reportCards' => $reportCards,
+            'hasFilters'  => $this->hasFilters(),
         ]);
     }
 }
