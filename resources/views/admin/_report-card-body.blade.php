@@ -328,13 +328,19 @@
         </tr>
     </table>
 
-    {{-- ─── Signatures ─── --}}
-    <table class="sign-row">
-        <tr>
-            <td><span>Class Teacher</span></td>
-            <td class="right"><span>Principal</span></td>
-        </tr>
-    </table>
+    {{-- ─── Signatures + footnote ───────────────────────────────────────
+         Both sit at the foot of the sheet however tall the marks table is.
+         The browser gets there with `margin-top:auto` in a flex column;
+         dompdf, which has no flex, pins this block with position:fixed.
+    ──────────────────────────────────────────────────────────────────── --}}
+    <div class="page-foot">
+        <table class="sign-row">
+            <tr>
+                <td><span>Class Teacher</span></td>
+                <td class="right"><span>Principal</span></td>
+            </tr>
+        </table>
 
-    <div class="footer-note">This is a computer-generated report card and does not require a physical signature unless specified.</div>
+        <div class="footer-note">This is a computer-generated report card and does not require a physical signature unless specified.</div>
+    </div>
 </div>
