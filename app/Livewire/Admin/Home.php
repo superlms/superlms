@@ -82,7 +82,7 @@ class Home extends Component
         'admin.content' => 'Learning Content',
         'admin.performance' => 'Performance Reports',
         'admin.analytics' => 'Analytics',
-        'admin.quiz' => 'Quizzes',
+        'admin.assignments' => 'Assignments',
         'admin.library' => 'Library',
         'admin.support' => 'Support',
         'admin.id-card' => 'ID Cards',

@@ -21,7 +21,7 @@ use App\Livewire\Admin\RulesAndRegulation;
 use App\Livewire\Admin\Content;
 use App\Livewire\Admin\Performance;
 use App\Livewire\Admin\Analytics;
-use App\Livewire\Admin\Quiz;
+use App\Livewire\Admin\Assignments;
 use App\Livewire\Admin\Support;
 use App\Livewire\Admin\IdCard;
 use App\Livewire\Admin\AdmitCard;
@@ -131,7 +131,10 @@ Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
         Route::get('/analytics', Analytics::class)->name('admin.analytics');
         Route::get('/users', Users::class)->name('admin.users');
         Route::get('/messages', Messenger::class)->name('admin.messages');
-        Route::get('/quiz', Quiz::class)->name('admin.quiz');
+        Route::get('/assignments', Assignments::class)->name('admin.assignments');
+        // Old "Quiz" screen — kept so saved links / bookmarks land on its replacement.
+        Route::get('/quiz', fn($organization) => redirect()->route('admin.assignments', ['organization' => $organization]))
+            ->name('admin.quiz');
         Route::get('/book', Book::class)->name('admin.book');
         Route::get('/support', Support::class)->name('admin.support');
         Route::get('/id-card', IdCard::class)->name('admin.id-card');

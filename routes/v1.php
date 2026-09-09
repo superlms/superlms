@@ -27,6 +27,7 @@ use App\Http\Controllers\v1\AdminExamController;
 use App\Http\Controllers\v1\AdminSyllabusController;
 use App\Http\Controllers\v1\AdminChapterContentController;
 use App\Http\Controllers\v1\AdminQuizController;
+use App\Http\Controllers\v1\AssignmentController;
 use App\Http\Controllers\v1\AdminBookController;
 use App\Http\Controllers\v1\AdminTimetableController;
 use App\Http\Controllers\v1\AdminArrangementController;
@@ -173,6 +174,13 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/student', [HomeWorkController::class, 'studentHomeWork']);
             // Student marks a homework done / not done (body: completed=true|false).
             Route::post('/complete/{homework_id}', [HomeWorkController::class, 'markComplete']);
+        });
+
+        // Assignments — student side of the admin "Assignments" screen.
+        Route::prefix('assignment')->group(function () {
+            Route::post('/student',     [AssignmentController::class, 'studentAssignments']);
+            Route::get('/{id}',         [AssignmentController::class, 'show'])->whereNumber('id');
+            Route::post('/submit/{id}', [AssignmentController::class, 'submit'])->whereNumber('id');
         });
 
         //Quiz Routes All

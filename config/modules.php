@@ -84,10 +84,11 @@ return [
         'default' => true,
         'links'   => ['admin.content'],
     ],
+    // Key stays 'quiz' so schools that already toggled this module keep their setting.
     'quiz' => [
-        'label'   => 'Quiz',
+        'label'   => 'Assignments',
         'default' => true,
-        'links'   => ['admin.quiz'],
+        'links'   => ['admin.assignments', 'admin.quiz'],
     ],
     'book' => [
         'label'   => 'Book / Library',

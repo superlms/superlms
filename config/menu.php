@@ -111,10 +111,10 @@ return [
             'prefix' => 'admin.content',
         ],
         [
-            'title' => 'Quiz',
-            'link' => 'admin.quiz',
-            'icon' => 'question-mark-circle',
-            'prefix' => 'admin.quiz',
+            'title' => 'Assignments',
+            'link' => 'admin.assignments',
+            'icon' => 'clipboard-document-list',
+            'prefix' => 'admin.assignments',
         ],
         [
             'title' => 'Book',
