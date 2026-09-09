@@ -422,12 +422,13 @@
 
     {{-- ══════════════════════════════════════════════════
          ADD / EDIT SLIDE-OVER
-         Teleported to <body>: inside #main-scroll a fixed overlay paints under
-         the navbar and sidebar and its buttons stop responding.
+
+         Overlays start below the navbar and stay inside #main-scroll, the way
+         the student, teacher and exam panels do. Teleporting one to <body>
+         lifts it out of that container and it covers the topbar instead.
     ══════════════════════════════════════════════════ --}}
     @if ($openForm)
-        @teleport('body')
-        <div class="fixed inset-0 z-[70] overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeForm"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -631,15 +632,13 @@
                 </div>
             </div>
         </div>
-        @endteleport
     @endif
 
     {{-- ══════════════════════════════════════════════════
          VIEW ASSIGNMENT
     ══════════════════════════════════════════════════ --}}
     @if ($openView && $viewAssignment)
-        @teleport('body')
-        <div class="fixed inset-0 z-[70] overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeView"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -761,15 +760,13 @@
                 </div>
             </div>
         </div>
-        @endteleport
     @endif
 
     {{-- ══════════════════════════════════════════════════
          VIEW ONE RESPONSE
     ══════════════════════════════════════════════════ --}}
     @if ($openResponse && $responseRow)
-        @teleport('body')
-        <div class="fixed inset-0 z-[70] overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeResponse"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -854,15 +851,13 @@
                 </div>
             </div>
         </div>
-        @endteleport
     @endif
 
     {{-- ══════════════════════════════════════════════════
          DELETE CONFIRM
     ══════════════════════════════════════════════════ --}}
     @if ($openDelete)
-        @teleport('body')
-        <div class="fixed inset-0 z-[80] flex items-center justify-center p-4">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/30 backdrop-blur-[1.5px]" wire:click="cancelDelete"></div>
             <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
                 <div class="w-12 h-12 mb-4 bg-red-50 rounded-full flex items-center justify-center">
@@ -877,6 +872,5 @@
                 </div>
             </div>
         </div>
-        @endteleport
     @endif
 </div>
