@@ -815,6 +815,16 @@ class Admissions extends Component
 
     // ─── Render ──────────────────────────────────────────────────────────────
 
+    /**
+     * The accounts panel runs this very component (see App\Livewire\Accounts\Admissions),
+     * so both panels work the same records with the same logic and the same
+     * screen. Only what genuinely differs per panel is overridden below.
+     */
+    protected function viewName(): string { return 'livewire.admin.admissions'; }
+
+    /** Admin reaches Admissions from "More"; accounts has it in its own sidebar. */
+    protected function showsBackToMore(): bool { return true; }
+
     public function render()
     {
         $orgId = $this->orgId();
@@ -877,7 +887,8 @@ class Admissions extends Component
             ];
         }
 
-        return view('livewire.admin.admissions', [
+        return view($this->viewName(), [
+            'showBackToMore' => $this->showsBackToMore(),
             'standards'    => $standards,
             'enquiries'    => $enquiries,
             'examPapers'   => $examPapers,

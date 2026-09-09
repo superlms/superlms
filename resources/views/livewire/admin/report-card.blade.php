@@ -139,14 +139,14 @@
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-center gap-1">
                                             @if ($card->status === 'issued')
-                                                <a href="{{ route('admin.report-card.download', ['organization' => auth()->user()->organization_id, 'id' => $card->id]) }}"
+                                                <a href="{{ route($downloadRoute, ['organization' => auth()->user()->organization_id, 'id' => $card->id]) }}"
                                                     target="_blank" title="Download PDF"
                                                     class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                                     </svg>
                                                 </a>
-                                                <a href="{{ route('admin.report-card.print', ['organization' => auth()->user()->organization_id, 'id' => $card->id]) }}"
+                                                <a href="{{ route($printRoute, ['organization' => auth()->user()->organization_id, 'id' => $card->id]) }}"
                                                     target="_blank" title="Print"
                                                     class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">

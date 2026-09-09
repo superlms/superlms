@@ -733,6 +733,13 @@ class Payroll extends Component
 
     // ─── Render ───────────────────────────────────────────────────────────────
 
+    /**
+     * The accounts panel runs this very component (see App\Livewire\Accounts\Payroll),
+     * so both panels work the same records with the same logic and the same
+     * screen. Only what genuinely differs per panel is overridden below.
+     */
+    protected function viewName(): string { return 'livewire.admin.payroll'; }
+
     public function render()
     {
         $orgId = $this->orgId();
@@ -862,7 +869,7 @@ class Payroll extends Component
                 return $c->filter(fn($p) => str_contains(mb_strtolower((string) $p->employee?->name), $t));
             })->values();
 
-        return view('livewire.admin.payroll', compact(
+        return view($this->viewName(), compact(
             'employeesList',
             'attEmployees',
             'markEmployees',

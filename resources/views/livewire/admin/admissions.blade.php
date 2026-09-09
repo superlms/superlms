@@ -7,7 +7,7 @@
         <div class="px-4 sm:px-6 py-3">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div class="flex items-center gap-2.5">
-                    <x-admin.back-to-more />
+                    @if ($showBackToMore ?? true)<x-admin.back-to-more />@endif
                     <div>
                         <h1 class="text-lg sm:text-xl font-bold text-gray-900">Admissions</h1>
                     </div>

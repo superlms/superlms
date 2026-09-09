@@ -569,9 +569,16 @@ class Transport extends Component
         $this->capacity = 0;
     }
 
+    /**
+     * The accounts panel runs this very component (see App\Livewire\Accounts\Transport),
+     * so both panels work the same records with the same logic and the same
+     * screen. Only what genuinely differs per panel is overridden below.
+     */
+    protected function viewName(): string { return 'livewire.admin.transport'; }
+
     public function render()
     {
-        return view('livewire.admin.transport', [
+        return view($this->viewName(), [
             'transportations' => $this->getTransportations(),
             'drivers'         => $this->getDrivers(),
             'routeOptions'    => $this->getRouteOptions(),

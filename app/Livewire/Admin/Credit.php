@@ -151,6 +151,13 @@ class Credit extends Component
     }
 
     // ── Render ────────────────────────────────────────────────────────────────
+    /**
+     * The accounts panel runs this very component (see App\Livewire\Accounts\Credit),
+     * so both panels work the same records with the same logic and the same
+     * screen. Only what genuinely differs per panel is overridden below.
+     */
+    protected function viewName(): string { return 'livewire.admin.credit'; }
+
     public function render()
     {
         $orgId = Auth::user()->organization_id;
@@ -173,7 +180,7 @@ class Credit extends Component
             'denied'     => CreditQuery::forOrg($orgId)->denied()->count(),
         ];
 
-        return view('livewire.admin.credit', compact(
+        return view($this->viewName(), compact(
             'queries', 'policies', 'selectedQuery', 'stats'
         ));
     }

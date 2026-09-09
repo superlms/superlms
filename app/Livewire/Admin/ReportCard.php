@@ -493,6 +493,18 @@ class ReportCard extends Component
         ];
     }
 
+    /**
+     * The accounts panel runs this very component (see App\Livewire\Accounts\ReportCard),
+     * so both panels work the same records with the same logic and the same
+     * screen. Only what genuinely differs per panel is overridden below.
+     */
+    protected function viewName(): string { return 'livewire.admin.report-card'; }
+
+    /** The card PDFs sit behind each panel's own guard. */
+    protected function downloadRouteName(): string { return 'admin.report-card.download'; }
+
+    protected function printRouteName(): string { return 'admin.report-card.print'; }
+
     public function render()
     {
         $reportCards = collect();
@@ -527,7 +539,9 @@ class ReportCard extends Component
             $reportCards = $query->latest('issued_at')->paginate($this->perPage);
         }
 
-        return view('livewire.admin.report-card', [
+        return view($this->viewName(), [
+            'downloadRoute' => $this->downloadRouteName(),
+            'printRoute'    => $this->printRouteName(),
             'reportCards' => $reportCards,
         ]);
     }
