@@ -8,6 +8,7 @@ use App\Models\Teacher\AssignTeacherStandard;
 use App\Models\Teacher\TeacherSubject;
 use App\Models\Teacher\TeacherAttendance;
 use App\Exports\TeachersExport;
+use App\Support\AcademicYear;
 use App\Support\PdfFonts;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
@@ -573,13 +574,18 @@ class Teacher extends Component
         ]);
     }
 
-    /** Export teachers as a nicely formatted PDF. */
+    /**
+     * Export teachers as a PDF of compact record cards - every field the Add
+     * Teacher form collects, plus bank details, class-teacher duty and the
+     * month-by-month attendance for the running session. Four to five teachers
+     * fit on an A4 landscape page.
+     */
     public function exportTeachersPdf(): StreamedResponse
     {
         $this->showExportPicker = false;
 
         $org = Auth::user()->organization_id;
-        [$headings, $rows] = $this->teacherExportData($org);
+        [$headings, $rows, $records] = $this->teacherExportData($org);
 
         $orgModel = Organization::find($org);
         $school = [
@@ -587,17 +593,12 @@ class Teacher extends Component
             'logo' => ($orgModel?->logo && \Illuminate\Support\Str::startsWith($orgModel->logo, ['http://', 'https://'])) ? $orgModel->logo : null,
         ];
 
-        $columns = [
-            'S.No', 'Employee ID', 'Full Name', 'Mobile', 'Gender', 'Qualification',
-            'Date of Joining', 'Attendance %', 'Subjects (with Class)', 'Status',
-        ];
-
-        $bytes = $this->renderExportPdf('pdf.tabular-export', [
-            'title'       => 'Teachers Report',
-            'school'      => $school,
-            'columns'     => $columns,
-            'rowsByGroup' => ['' => $rows],   // no grouping for teachers
-            'total'       => count($rows),
+        $bytes = $this->renderExportPdf('pdf.record-export', [
+            'title'          => 'Teachers Report',
+            'school'         => $school,
+            'perRow'         => 7,
+            'recordsByGroup' => ['' => $records],
+            'total'          => count($rows),
         ]);
 
         $stamp = now()->format('Y-m-d');
@@ -639,31 +640,89 @@ class Teacher extends Component
     }
 
     /**
-     * Build the export dataset: one associative row per teacher (keys double as
-     * the column headings). Attendance, assigned subjects and bank details are
-     * pulled per teacher; anything unavailable becomes "-".
+     * Build the export dataset. Returns [$headings, $flatRows, $records]:
+     *   - $flatRows - one associative row per teacher (keys are the column
+     *                 headings) for the spreadsheet. Carries every Add Teacher
+     *                 form field, bank details, the class they are class-teacher
+     *                 of, the subjects they teach, and attendance for each month
+     *                 of the running session.
+     *   - $records  - the same data reshaped into PDF record cards.
+     * Anything unavailable becomes "-".
      */
     private function teacherExportData(int $org): array
     {
-        $teachers = TeacherDetail::with('user')->where('organization_id', $org)->get();
+        $teachers = TeacherDetail::with(['user', 'assignedClasses'])
+            ->where('organization_id', $org)
+            ->orderBy('employee_id')
+            ->get();
+
+        $ids = $teachers->pluck('id')->all();
 
         // Teacher bank columns only exist if `lms:migrate` ever added them.
         $hasBank = Schema::hasColumn('teacher_details', 'bank_name');
         $dash    = fn ($v) => ($v === null || $v === '') ? '-' : $v;
 
-        $rows = [];
+        $months      = AcademicYear::months();
+        $sessionFrom = AcademicYear::start();
+        $sessionTo   = AcademicYear::end();
+        $session     = AcademicYear::label();
+
+        // Attendance month by month, in one aggregate rather than per teacher.
+        $monthly = TeacherAttendance::whereIn('teacher_detail_id', $ids)
+            ->whereBetween('attendance_date', [$sessionFrom, $sessionTo])
+            ->selectRaw("teacher_detail_id, DATE_FORMAT(attendance_date, '%Y-%m') as ym,
+                         COUNT(*) as total, SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) as present")
+            ->groupBy('teacher_detail_id', 'ym')
+            ->get()
+            ->groupBy('teacher_detail_id');
+
+        // Lifetime attendance totals.
+        $overall = TeacherAttendance::whereIn('teacher_detail_id', $ids)
+            ->selectRaw('teacher_detail_id, COUNT(*) as total, SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) as present')
+            ->groupBy('teacher_detail_id')
+            ->get()
+            ->keyBy('teacher_detail_id');
+
+        // Subjects taught, one query for everyone.
+        $subjectsByTeacher = TeacherSubject::with(['subject:id,name', 'standard:id,name', 'section:id,name'])
+            ->whereIn('teacher_detail_id', $ids)
+            ->get()
+            ->groupBy('teacher_detail_id');
+
+        $rows    = [];
+        $records = [];
+
         foreach ($teachers as $i => $t) {
             $u = $t->user;
 
-            // Overall attendance
-            $attTotal   = TeacherAttendance::where('teacher_detail_id', $t->id)->count();
-            $attPresent = TeacherAttendance::where('teacher_detail_id', $t->id)->where('status', true)->count();
-            $attPct     = $attTotal > 0 ? round($attPresent / $attTotal * 100, 1) . '%' : '-';
+            $att      = $overall->get($t->id);
+            $attTotal = (int) ($att->total ?? 0);
+            $attPres  = (int) ($att->present ?? 0);
+            $attStr   = $attTotal > 0 ? "{$attPres} / {$attTotal}" : '-';
+            $attPct   = $attTotal > 0 ? round($attPres / $attTotal * 100, 1) . '%' : '-';
 
-            // Subjects assigned, each with its class (and section)
-            $subjects = TeacherSubject::with(['subject:id,name', 'standard:id,name', 'section:id,name'])
-                ->where('teacher_detail_id', $t->id)
-                ->get()
+            // Month cells read "present/total"; a month with nothing marked is a dash.
+            $byMonth    = ($monthly->get($t->id) ?? collect())->keyBy('ym');
+            $monthCells = [];
+            foreach ($months as $m) {
+                $mRow = $byMonth->get($m['key']);
+                $monthCells[$m['label']] = $mRow
+                    ? ((int) $mRow->present) . '/' . ((int) $mRow->total)
+                    : '-';
+            }
+
+            // Class-teacher duty - "5 - A", several joined by a comma.
+            $classTeacherOf = $t->assignedClasses
+                ->map(function ($a) {
+                    $cls = $a->standard?->name;
+                    if (!$cls) return null;
+                    return $a->section?->name ? $cls . ' - ' . $a->section->name : $cls;
+                })
+                ->filter()
+                ->unique()
+                ->implode(', ');
+
+            $subjects = ($subjectsByTeacher->get($t->id) ?? collect())
                 ->map(function ($ts) {
                     $sub = $ts->subject?->name ?? 'Subject';
                     $cls = trim(($ts->standard?->name ?? '') . ($ts->section ? ' - ' . $ts->section->name : ''));
@@ -677,7 +736,10 @@ class Teacher extends Component
             $doj = $t->date_of_joining;
             if ($doj instanceof \Carbon\Carbon) $doj = $doj->format('d-m-Y');
 
-            $rows[] = [
+            $status = ($u?->is_active ? 'Active' : 'Inactive');
+
+            // Spreadsheet row: every value gets its own column.
+            $row = [
                 'S.No'                  => $i + 1,
                 'Employee ID'           => $dash($t->employee_id),
                 'Full Name'             => $dash($u?->name),
@@ -692,21 +754,63 @@ class Teacher extends Component
                 'City'                  => $dash($t->city),
                 'State'                 => $dash($t->state),
                 'Pincode'               => $dash($t->pincode),
-                'Status'                => ($u?->is_active ? 'Active' : 'Inactive'),
-                'Attendance'            => $attTotal > 0 ? "{$attPresent}/{$attTotal}" : '-',
-                'Attendance %'          => $attPct,
-                'Subjects (with Class)' => $subjects !== '' ? $subjects : '-',
+                'Class Teacher Of'      => $dash($classTeacherOf),
+                'Subjects (with Class)' => $dash($subjects),
+                'Status'                => $status,
                 'Bank Name'             => $dash($hasBank ? $t->bank_name : null),
                 'Bank Account No'       => $dash($hasBank ? $t->bank_account_no : null),
                 'Bank IFSC'             => $dash($hasBank ? $t->bank_ifsc : null),
                 'Bank Branch'           => $dash($hasBank ? $t->bank_branch : null),
                 'Account Holder'        => $dash($hasBank ? $t->bank_holder_name : null),
+                'Attendance (P/Total)'  => $attStr,
+                'Attendance %'          => $attPct,
+            ];
+            foreach ($monthCells as $label => $value) {
+                $row[$label . " {$session}"] = $value;
+            }
+
+            $rows[] = $row;
+
+            // PDF card: 21 fields in three rows of seven, months in a strip below.
+            $records[] = [
+                'no'    => $i + 1,
+                'title' => $u?->name ?: '-',
+                'badge' => trim(($t->employee_id ? $t->employee_id . ' - ' : '') . $status),
+                'fields' => [
+                    'Email'             => $dash($u?->email),
+                    'Mobile'            => $dash($u?->mobile_number),
+                    'Gender'            => $dash($u?->gender ? ucfirst($u->gender) : null),
+                    'Date of Birth'     => $dash($dob),
+                    'Date of Joining'   => $dash($doj),
+                    'Qualification'     => $dash($t->qualification),
+                    'Emergency Contact' => $dash($t->emergency_contact),
+
+                    'Class Teacher Of'  => $dash($classTeacherOf),
+                    'Subjects'          => $dash($subjects),
+                    'Address'           => $dash($t->address),
+                    'City'              => $dash($t->city),
+                    'State'             => $dash($t->state),
+                    'Pincode'           => $dash($t->pincode),
+                    'Attendance'        => $attTotal > 0 ? "{$attStr}  ({$attPct})" : '-',
+
+                    'Bank Name'         => $dash($hasBank ? $t->bank_name : null),
+                    'Bank Account No'   => $dash($hasBank ? $t->bank_account_no : null),
+                    'Bank IFSC'         => $dash($hasBank ? $t->bank_ifsc : null),
+                    'Bank Branch'       => $dash($hasBank ? $t->bank_branch : null),
+                    'Account Holder'    => $dash($hasBank ? $t->bank_holder_name : null),
+                    'Employee ID'       => $dash($t->employee_id),
+                    'Session'           => $session,
+                ],
+                'strip' => [
+                    'label' => "Attendance {$session}",
+                    'cells' => $monthCells,
+                ],
             ];
         }
 
         $headings = $rows ? array_keys($rows[0]) : ['S.No'];
 
-        return [$headings, $rows];
+        return [$headings, $rows, $records];
     }
 
     // ─── Reset ───────────────────────────────────────────────────────────

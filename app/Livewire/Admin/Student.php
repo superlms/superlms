@@ -907,7 +907,12 @@ class Student extends Component
         ]);
     }
 
-    /** Export students as a nicely formatted PDF, grouped class-by-class. */
+    /**
+     * Export students as a PDF of compact record cards, grouped class by class.
+     * Each card carries every Add Student form field plus overall attendance and
+     * the academic + transport fee position. Four to five students fit on an A4
+     * landscape page.
+     */
     public function exportStudentsPdf(): ?StreamedResponse
     {
         if (!$this->exportSelectionReady()) {
@@ -917,7 +922,7 @@ class Student extends Component
         $this->showExportPicker = false;
 
         $org = Auth::user()->organization_id;
-        [$headings, $rows, $rowsByClass] = $this->studentExportData($org);
+        [$headings, $rows, $recordsByClass] = $this->studentExportData($org);
 
         $orgModel = Organization::find($org);
         $school = [
@@ -925,18 +930,12 @@ class Student extends Component
             'logo' => ($orgModel?->logo && \Illuminate\Support\Str::startsWith($orgModel->logo, ['http://', 'https://'])) ? $orgModel->logo : null,
         ];
 
-        // Curated, printable subset of columns (grouped headers carry class/section).
-        $columns = [
-            'S.No', 'Admission No', 'Roll No', 'Full Name', 'Gender', 'Mobile',
-            'Father Name', 'Attendance (P/Total)', 'Academic Fee (Paid/Total)', 'Status',
-        ];
-
-        $bytes = $this->renderExportPdf('pdf.tabular-export', [
-            'title'       => 'Students Report',
-            'school'      => $school,
-            'columns'     => $columns,
-            'rowsByGroup' => $rowsByClass,
-            'total'       => count($rows),
+        $bytes = $this->renderExportPdf('pdf.record-export', [
+            'title'          => 'Students Report',
+            'school'         => $school,
+            'perRow'         => 7,
+            'recordsByGroup' => $recordsByClass,
+            'total'          => count($rows),
         ]);
 
         $stamp = now()->format('Y-m-d');
@@ -979,11 +978,13 @@ class Student extends Component
     }
 
     /**
-     * Build the export dataset. Returns [$headings, $flatRows, $rowsByClass]:
-     *   - $flatRows    — one associative row per student (keys are the column
-     *                    headings) for the spreadsheet, ordered class-by-class.
-     *   - $rowsByClass — the same rows grouped under their "Class - Section"
-     *                    label for the PDF, preserving class order.
+     * Build the export dataset. Returns [$headings, $flatRows, $recordsByClass]:
+     *   - $flatRows       — one associative row per student (keys are the column
+     *                       headings) for the spreadsheet, ordered class-by-class.
+     *                       Carries every Add Student form field plus attendance
+     *                       and the academic + transport fee position.
+     *   - $recordsByClass — the same data as PDF record cards, grouped under
+     *                       their "Class - Section" label in class order.
      * Attendance and fees are computed with the same logic the Fee module uses;
      * anything unavailable becomes "-".
      */
@@ -1026,8 +1027,8 @@ class Student extends Component
             ->get()
             ->groupBy('student_detail_id');
 
-        $rows        = [];
-        $rowsByClass = [];
+        $rows           = [];
+        $recordsByClass = [];
 
         foreach ($students as $i => $s) {
             // ── Attendance (present / total) ──
@@ -1055,6 +1056,12 @@ class Student extends Component
                 ? '₹' . $money($academicPaid) . ' / ₹' . $money($academicTotal) : '-';
             $transportStr = $s->transportation_required && ($transportTotal > 0 || $transportPaid > 0)
                 ? '₹' . $money($transportPaid) . ' / ₹' . $money($transportTotal) : '-';
+
+            $attPct       = $attTotal > 0 ? round($attPres / $attTotal * 100, 1) . '%' : '-';
+            $academicDue  = ($academicTotal > 0 || $academicPaid > 0)
+                ? '₹' . $money(max($academicTotal - $academicPaid, 0)) : '-';
+            $transportDue = $s->transportation_required && ($transportTotal > 0 || $transportPaid > 0)
+                ? '₹' . $money(max($transportTotal - $transportPaid, 0)) : '-';
 
             $route     = $s->transportations->first();
             $className = $s->standard->name ?? '-';
@@ -1089,18 +1096,69 @@ class Student extends Component
                 'Transportation Required' => $s->transportation_required ? 'Yes' : 'No',
                 'Transport Route'         => $dash($route->route_name ?? null),
                 'Attendance (P/Total)'    => $attStr,
+                'Attendance %'            => $attPct,
                 'Academic Fee (Paid/Total)'  => $academicStr,
+                'Academic Fee Pending'       => $academicDue,
                 'Transport Fee (Paid/Total)' => $transportStr,
+                'Transport Fee Pending'      => $transportDue,
                 'Status'                  => ($s->user->is_active ?? false) ? 'Active' : 'Inactive',
             ];
 
             $rows[] = $row;
-            $rowsByClass[$classLabel][] = $row;
+
+            // PDF card: 21 fields in three rows of seven, with attendance and
+            // both fee heads on a summary strip underneath.
+            $status = ($s->user->is_active ?? false) ? 'Active' : 'Inactive';
+            $recordsByClass[$classLabel][] = [
+                'no'    => $i + 1,
+                'title' => $s->full_name ?: ($s->user->name ?? '-'),
+                'badge' => trim(
+                    'Adm ' . ($s->admission_no ?: '-')
+                    . ' · Roll ' . ($s->roll_no ?: '-')
+                    . ' · ' . $status
+                ),
+                'fields' => [
+                    'Class'              => $dash($className),
+                    'Section'            => $dash($secName !== '' ? $secName : null),
+                    'Board'              => $dash($s->board ?? ($s->standard->board ?? null)),
+                    'Gender'             => $dash($s->gender ? ucfirst($s->gender) : null),
+                    'Date of Birth'      => $dash($s->dob?->format('d-m-Y')),
+                    'Date of Admission'  => $dash($s->date_of_admission?->format('d-m-Y')),
+                    'Religion'           => $dash($s->religion),
+
+                    'Father Name'        => $dash($s->father_name),
+                    'Mother Name'        => $dash($s->mother_name),
+                    'Email'              => $dash($s->user->email ?? null),
+                    'Mobile'             => $dash($s->phone),
+                    'Aadhar No'          => $dash($s->aadhar_no),
+                    'Apaar ID'           => $dash($s->appar_id),
+                    'Registration No'    => $dash($s->registration_number),
+
+                    'Local Address'      => $dash($s->local_address),
+                    'Permanent Address'  => $dash($s->permanent_address),
+                    'City'               => $dash($s->city),
+                    'State'              => $dash($s->state),
+                    'Pincode'            => $dash($s->pincode),
+                    'Transport'          => $s->transportation_required ? 'Yes' : 'No',
+                    'Transport Route'    => $dash($route->route_name ?? null),
+                ],
+                'strip' => [
+                    'label' => 'Attendance & Fees',
+                    'cells' => [
+                        'Attendance'    => $attStr,
+                        'Attendance %'  => $attPct,
+                        'Academic (Paid/Total)'  => $academicStr,
+                        'Academic Pending'       => $academicDue,
+                        'Transport (Paid/Total)' => $transportStr,
+                        'Transport Pending'      => $transportDue,
+                    ],
+                ],
+            ];
         }
 
         $headings = $rows ? array_keys($rows[0]) : ['S.No'];
 
-        return [$headings, $rows, $rowsByClass];
+        return [$headings, $rows, $recordsByClass];
     }
 
     /**
