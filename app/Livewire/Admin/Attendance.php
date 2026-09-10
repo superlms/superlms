@@ -102,6 +102,10 @@ class Attendance extends Component
     }
 
     // ── Status helpers ───────────────────────────────────────────────────────
+
+    /** The only statuses a row may carry; anything else is not written. */
+    private const STATUSES = ['present', 'absent', 'half_day', 'holiday'];
+
     private function toInt(string $label): int
     {
         return match ($label) {
@@ -253,12 +257,25 @@ class Attendance extends Component
         $orgId = Auth::user()->organization_id;
         $markedBy = Auth::id();
 
-        DB::transaction(function () use ($orgId, $markedBy) {
+        // The panel sets statuses in the browser now, so the rows arrive as
+        // client data: take only ids that really are this school's teachers,
+        // and only the four statuses the panel offers.
+        $valid = TeacherDetail::where('organization_id', $orgId)
+            ->whereIn('id', array_keys($this->teacherMark))
+            ->pluck('id')->flip();
+
+        DB::transaction(function () use ($orgId, $markedBy, $valid) {
             $clear = [];
 
             foreach ($this->teacherMark as $teacherId => $row) {
+                if (!$valid->has($teacherId)) {
+                    continue;
+                }
                 if (($row['status'] ?? '') === '') {
                     $clear[] = $teacherId;
+                    continue;
+                }
+                if (!in_array($row['status'], self::STATUSES, true)) {
                     continue;
                 }
                 TeacherAttendance::updateOrCreate(
@@ -431,12 +448,22 @@ class Attendance extends Component
         $markedBy = Auth::id();
         $notifyRows = [];
 
-        DB::transaction(function () use ($orgId, $markedBy, &$notifyRows) {
+        $valid = StudentDetail::where('organization_id', $orgId)
+            ->whereIn('id', array_keys($this->studentMark))
+            ->pluck('id')->flip();
+
+        DB::transaction(function () use ($orgId, $markedBy, $valid, &$notifyRows) {
             $clear = [];
 
             foreach ($this->studentMark as $studentId => $row) {
+                if (!$valid->has($studentId)) {
+                    continue;
+                }
                 if (($row['status'] ?? '') === '') {
                     $clear[] = $studentId;
+                    continue;
+                }
+                if (!in_array($row['status'], self::STATUSES, true)) {
                     continue;
                 }
                 $statusInt = $this->toInt($row['status']);

@@ -444,246 +444,264 @@
         @endif
     </div>
 
-    {{-- ══════════ MARK TEACHER ATTENDANCE SLIDE-IN ══════════ --}}
+    {{-- ══════════ MARK ATTENDANCE SLIDE-INS ══════════
+         Both panels follow the student add/edit panel: light scrim, plain
+         header, one quiet toolbar, a flat list of rows, and the actions in the
+         footer. Picking a status is handled by Alpine and only synced to the
+         component — no request per click, so a class of forty marks as fast as
+         you can tap and nothing is lost to a re-render mid-click. --}}
+    @php
+        $statusOpts = ['present' => 'Present', 'absent' => 'Absent', 'half_day' => 'Half', 'holiday' => 'Holiday'];
+        $statusSel  = [
+            'present'  => 'bg-emerald-50 text-emerald-700 font-medium',
+            'absent'   => 'bg-red-50 text-red-600 font-medium',
+            'half_day' => 'bg-amber-50 text-amber-700 font-medium',
+            'holiday'  => 'bg-indigo-50 text-indigo-700 font-medium',
+        ];
+    @endphp
+
+    {{-- ══════════ TEACHERS ══════════ --}}
     @if ($showTeacherMarkPanel)
     @teleport('body')
     <div class="fixed inset-0 z-[70] overflow-hidden">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-[2px]" wire:click="closeTeacherMark"></div>
-        <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
+        <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeTeacherMark"></div>
+        <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col"
+            wire:key="tmark-{{ $tMarkDate }}-{{ count($teacherMark) }}"
+            x-data="{
+                rows: @js(collect($teacherMark)->map(fn ($r) => (string) ($r['status'] ?? ''))->all()),
+                get total() { return Object.keys(this.rows).length },
+                get marked() { return Object.values(this.rows).filter(v => v !== '').length },
+                pick(id, v) {
+                    this.rows[id] = v;
+                    /* Local set: the change rides along with the next request
+                       (Save) instead of costing a round trip per click. */
+                    this.$wire.$set('teacherMark.' + id + '.status', v, false);
+                },
+                all(v) { Object.keys(this.rows).forEach(id => this.pick(id, v)) },
+            }">
 
-            {{-- Header: the day being marked, plus the one-click holiday --}}
-            <div class="flex items-start justify-between gap-3 px-6 py-4 border-b border-gray-200 flex-shrink-0">
+            {{-- Re-seeds the panel from the server after the date changes, whether
+                 the morph replaced the panel or updated it in place. --}}
+            <div class="hidden" wire:key="tmark-seed-{{ $tMarkDate }}"
+                x-init="rows = @js(collect($teacherMark)->map(fn ($r) => (string) ($r['status'] ?? ''))->all())"></div>
+
+            {{-- Header --}}
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                 <div class="min-w-0">
                     <h2 class="text-lg font-semibold text-gray-900">Mark Teacher Attendance</h2>
                     <p class="text-xs text-gray-500 mt-0.5">{{ \Carbon\Carbon::parse($tMarkDate)->format('l, d M Y') }}</p>
                 </div>
-                <div class="flex items-center gap-2 flex-shrink-0">
-                    <button wire:click="markTeacherDayHoliday" wire:loading.attr="disabled" wire:target="markTeacherDayHoliday"
-                        class="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm disabled:opacity-60">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                        {{ $tMarkDate === now()->toDateString() ? 'Mark today as holiday' : 'Mark this day as holiday' }}
-                    </button>
-                    <button wire:click="closeTeacherMark" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
+                <button wire:click="closeTeacherMark" type="button"
+                    class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            {{-- Toolbar --}}
+            <div class="px-6 py-3 border-b border-gray-100 flex flex-wrap items-center gap-2 flex-shrink-0">
+                <input type="date" wire:model.live="tMarkDate"
+                    class="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-xs">
+                    <button type="button" x-on:click="all('present')" class="px-2.5 py-1.5 text-gray-600 hover:bg-gray-50">All present</button>
+                    <button type="button" x-on:click="all('absent')" class="px-2.5 py-1.5 text-gray-600 hover:bg-gray-50 border-l border-gray-200">All absent</button>
+                    <button type="button" x-on:click="all('')" class="px-2.5 py-1.5 text-gray-500 hover:bg-gray-50 border-l border-gray-200">Clear</button>
                 </div>
+                <span class="ml-auto text-xs text-gray-400 tabular-nums" x-text="marked + ' of ' + total + ' marked'"></span>
             </div>
 
-            {{-- Date + bulk actions --}}
-            <div class="px-6 py-3 border-b border-gray-200 bg-gray-50 flex-shrink-0 flex flex-wrap items-center gap-2">
-                <label class="text-xs font-semibold text-gray-600">Date</label>
-                <input type="date" wire:model.live="tMarkDate" class="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white">
-                <span class="text-gray-300">|</span>
-                <button wire:click="markAllTeachers('present')" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100">All Present</button>
-                <button wire:click="markAllTeachers('absent')" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-red-200 text-red-700 bg-red-50 hover:bg-red-100">All Absent</button>
-                <button wire:click="markAllTeachers('')" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 text-gray-600 bg-white hover:bg-gray-100">Clear all</button>
-                <span class="ml-auto text-xs text-gray-500">{{ $this->teacherMarkedCount() }} of {{ count($teacherMark) }} marked</span>
-            </div>
-
-            {{-- Why this day looks the way it does --}}
+            {{-- One quiet line explaining the day --}}
             @if ($teacherMarkExisting)
-                <div class="px-6 py-2 bg-amber-50 border-b border-amber-100 text-xs text-amber-700 flex-shrink-0">
-                    Attendance for this date is already submitted — change what you need and save to update it.
-                </div>
+                <p class="px-6 py-2 text-xs text-amber-700 border-b border-gray-100 flex-shrink-0">Already submitted for this date — change what you need and save to update it.</p>
             @elseif (\Carbon\Carbon::parse($tMarkDate)->isSunday())
-                <div class="px-6 py-2 bg-indigo-50 border-b border-indigo-100 text-xs text-indigo-700 flex-shrink-0">
-                    Sunday is a standing holiday, so everyone starts on Holiday. Change any row if the school worked today.
-                </div>
+                <p class="px-6 py-2 text-xs text-gray-500 border-b border-gray-100 flex-shrink-0">Sunday is a standing holiday, so everyone starts on Holiday.</p>
             @else
-                <div class="px-6 py-2 bg-gray-50 border-b border-gray-100 text-xs text-gray-500 flex-shrink-0">
-                    Rows start unmarked and only the ones you set are saved — an unmarked day stays open, so you can finish it whenever.
-                </div>
+                <p class="px-6 py-2 text-xs text-gray-500 border-b border-gray-100 flex-shrink-0">Only the rows you set are saved — an unmarked day stays open.</p>
             @endif
 
             {{-- Rows --}}
-            <div class="flex-1 overflow-y-auto">
-                <table class="w-full text-sm">
-                    <thead class="bg-gray-50 text-gray-500 text-xs uppercase sticky top-0 z-10">
-                        <tr>
-                            <th class="px-4 py-3 text-left w-12">#</th>
-                            <th class="px-4 py-3 text-left">Teacher</th>
-                            <th class="px-4 py-3 text-center w-80">Status</th>
-                            <th class="px-4 py-3 text-left w-48">Remark</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        @forelse ($markTeachers as $i => $t)
-                            @php $cur = $teacherMark[$t->id]['status'] ?? ''; @endphp
-                            <tr wire:key="mark-t-{{ $t->id }}" class="{{ $cur === '' ? 'bg-gray-50/60' : '' }}">
-                                <td class="px-4 py-3 text-gray-400">{{ $i + 1 }}</td>
-                                <td class="px-4 py-3">
-                                    <div class="flex items-center gap-3">
-                                        @if ($t->user?->image)
-                                            <img src="{{ $t->user->image }}" class="w-9 h-9 rounded-full object-cover border border-gray-200">
-                                        @else
-                                            <div class="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-xs">{{ strtoupper(substr($t->user->name ?? 'T', 0, 1)) }}</div>
-                                        @endif
-                                        <div class="min-w-0">
-                                            <p class="font-medium text-gray-800 truncate">{{ $t->user->name ?? '—' }}</p>
-                                            <p class="text-xs text-gray-400 truncate">{{ $t->user->email ?? '' }}</p>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3">
-                                    <div class="flex items-center justify-center gap-1">
-                                        @foreach (['present' => ['Present', 'bg-emerald-600 border-emerald-600'], 'absent' => ['Absent', 'bg-red-600 border-red-600'], 'half_day' => ['Half Day', 'bg-amber-500 border-amber-500'], 'holiday' => ['Holiday', 'bg-indigo-600 border-indigo-600']] as $st => $meta)
-                                            <button wire:click="setTeacherStatus({{ $t->id }}, '{{ $st }}')"
-                                                class="px-2.5 py-1.5 text-xs font-semibold rounded-md border {{ $cur === $st ? $meta[1] . ' text-white' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}">{{ $meta[0] }}</button>
-                                        @endforeach
-                                        {{-- Leave a row blank and it saves nothing at all, so the
-                                             day stays open to be marked later. --}}
-                                        <button wire:click="setTeacherStatus({{ $t->id }}, '')" title="Leave unmarked"
-                                            class="w-7 h-7 flex items-center justify-center text-xs font-bold rounded-md border {{ $cur === '' ? 'bg-gray-200 text-gray-500 border-gray-300' : 'bg-white text-gray-300 border-gray-200 hover:text-gray-600' }}">&times;</button>
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3">
-                                    <input type="text" wire:model="teacherMark.{{ $t->id }}.remark" placeholder="Optional remark" class="w-full text-sm border border-gray-200 rounded-md px-3 py-1.5">
-                                </td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="4" class="px-4 py-10 text-center text-gray-400">No teachers found.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
+            <div class="flex-1 overflow-y-auto divide-y divide-gray-100">
+                @forelse ($markTeachers as $i => $t)
+                    <div wire:key="mark-t-{{ $t->id }}" class="flex flex-wrap items-center gap-x-3 gap-y-2 px-6 py-2.5"
+                        :class="rows[{{ $t->id }}] === '' ? 'bg-gray-50/60' : ''">
+                        <span class="w-4 text-[11px] text-gray-300 tabular-nums flex-shrink-0">{{ $i + 1 }}</span>
+                        @if ($t->user?->image)
+                            <img src="{{ $t->user->image }}" class="w-8 h-8 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                        @else
+                            <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-[11px] font-medium flex-shrink-0">{{ strtoupper(substr($t->user->name ?? 'T', 0, 1)) }}</div>
+                        @endif
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm text-gray-800 truncate">{{ $t->user->name ?? '—' }}</p>
+                            <p class="text-[11px] text-gray-400 truncate">{{ $t->user->email ?? '' }}</p>
+                        </div>
+                        <input type="text" wire:model="teacherMark.{{ $t->id }}.remark" placeholder="Remark"
+                            class="w-28 sm:w-36 text-xs border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-[11px] flex-shrink-0">
+                            @foreach ($statusOpts as $st => $label)
+                                <button type="button" x-on:click="pick({{ $t->id }}, '{{ $st }}')"
+                                    class="px-2.5 py-1.5 {{ $loop->first ? '' : 'border-l border-gray-200' }}"
+                                    :class="rows[{{ $t->id }}] === '{{ $st }}' ? '{{ $statusSel[$st] }}' : 'text-gray-500 hover:bg-gray-50'">{{ $label }}</button>
+                            @endforeach
+                            {{-- Leave a row blank and it saves nothing at all, so the
+                                 day stays open to be marked later. --}}
+                            <button type="button" x-on:click="pick({{ $t->id }}, '')" title="Leave unmarked"
+                                class="px-2 py-1.5 border-l border-gray-200"
+                                :class="rows[{{ $t->id }}] === '' ? 'bg-gray-100 text-gray-500' : 'text-gray-300 hover:text-gray-600 hover:bg-gray-50'">&times;</button>
+                        </div>
+                    </div>
+                @empty
+                    <p class="py-16 text-center text-sm text-gray-400">No teachers found.</p>
+                @endforelse
             </div>
 
             {{-- Footer --}}
-            <div class="px-6 py-3 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
-                <button wire:click="closeTeacherMark" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                <button wire:click="submitTeacherAttendance" wire:loading.attr="disabled" wire:target="submitTeacherAttendance"
-                    @disabled($this->teacherMarkedCount() === 0)
-                    class="inline-flex items-center gap-1.5 px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold rounded-lg disabled:opacity-50">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-                    <span wire:loading.remove wire:target="submitTeacherAttendance">{{ $teacherMarkExisting ? 'Update Attendance' : 'Save Attendance' }}</span>
-                    <span wire:loading wire:target="submitTeacherAttendance">Saving…</span>
+            <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between gap-2 flex-shrink-0">
+                <button type="button" wire:click="markTeacherDayHoliday" wire:loading.attr="disabled" wire:target="markTeacherDayHoliday"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md disabled:opacity-60">
+                    <span wire:loading.remove wire:target="markTeacherDayHoliday">{{ $tMarkDate === now()->toDateString() ? 'Mark today as holiday' : 'Mark this day as holiday' }}</span>
+                    <span wire:loading wire:target="markTeacherDayHoliday">Saving...</span>
                 </button>
+                <div class="flex items-center gap-2">
+                    <button type="button" wire:click="closeTeacherMark" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                    <button type="button" wire:click="submitTeacherAttendance" wire:loading.attr="disabled" wire:target="submitTeacherAttendance"
+                        :disabled="marked === 0"
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                        <span wire:loading.remove wire:target="submitTeacherAttendance">{{ $teacherMarkExisting ? 'Update Attendance' : 'Save Attendance' }}</span>
+                        <span wire:loading wire:target="submitTeacherAttendance">Saving...</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
     @endteleport
     @endif
 
-    {{-- ══════════ MARK STUDENT ATTENDANCE SLIDE-IN ══════════ --}}
+    {{-- ══════════ STUDENTS ══════════ --}}
     @if ($showStudentMarkPanel)
     @teleport('body')
     <div class="fixed inset-0 z-[70] overflow-hidden">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-[2px]" wire:click="closeStudentMark"></div>
-        <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
+        <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeStudentMark"></div>
+        <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col"
+            wire:key="smark-{{ $sMarkDate }}-{{ $sMarkStandard }}-{{ $sMarkSection }}-{{ count($studentMark) }}"
+            x-data="{
+                rows: @js(collect($studentMark)->map(fn ($r) => (string) ($r['status'] ?? ''))->all()),
+                get total() { return Object.keys(this.rows).length },
+                get marked() { return Object.values(this.rows).filter(v => v !== '').length },
+                pick(id, v) {
+                    this.rows[id] = v;
+                    this.$wire.$set('studentMark.' + id + '.status', v, false);
+                },
+                all(v) { Object.keys(this.rows).forEach(id => this.pick(id, v)) },
+            }">
 
-            <div class="flex items-start justify-between gap-3 px-6 py-4 border-b border-gray-200 flex-shrink-0">
+            {{-- Re-seeds the panel from the server after the class, section or
+                 date changes, whether the morph replaced it or not. --}}
+            <div class="hidden" wire:key="smark-seed-{{ $sMarkDate }}-{{ $sMarkStandard }}-{{ $sMarkSection }}"
+                x-init="rows = @js(collect($studentMark)->map(fn ($r) => (string) ($r['status'] ?? ''))->all())"></div>
+
+            {{-- Header --}}
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                 <div class="min-w-0">
                     <h2 class="text-lg font-semibold text-gray-900">Mark Student Attendance</h2>
                     <p class="text-xs text-gray-500 mt-0.5">{{ \Carbon\Carbon::parse($sMarkDate)->format('l, d M Y') }}</p>
                 </div>
-                <div class="flex items-center gap-2 flex-shrink-0">
-                    <button wire:click="markStudentDayHoliday" wire:loading.attr="disabled" wire:target="markStudentDayHoliday"
-                        @disabled(!$sMarkStandard || !$sMarkSection)
-                        class="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm disabled:opacity-50">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                        {{ $sMarkDate === now()->toDateString() ? 'Mark today as holiday' : 'Mark this day as holiday' }}
-                    </button>
-                    <button wire:click="closeStudentMark" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
+                <button wire:click="closeStudentMark" type="button"
+                    class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
             </div>
 
-            {{-- Class → section → date, all local to this flow --}}
-            <div class="px-6 py-3 border-b border-gray-200 bg-gray-50 flex-shrink-0 flex flex-wrap items-center gap-2">
-                <select wire:model.live="sMarkStandard" class="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white">
+            {{-- Toolbar: class → section → date, all local to this flow --}}
+            <div class="px-6 py-3 border-b border-gray-100 flex flex-wrap items-center gap-2 flex-shrink-0">
+                <select wire:model.live="sMarkStandard"
+                    class="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                     <option value="">Select class…</option>
                     @foreach ($standards as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
                 </select>
-                <select wire:model.live="sMarkSection" @disabled(!$sMarkStandard) class="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white disabled:opacity-50">
+                <select wire:model.live="sMarkSection" @disabled(!$sMarkStandard)
+                    class="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white disabled:opacity-50 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                     <option value="">Select section…</option>
                     @foreach ($sMarkSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
                 </select>
-                <input type="date" wire:model.live="sMarkDate" class="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white">
+                <input type="date" wire:model.live="sMarkDate"
+                    class="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                 @if ($sMarkStandard && $sMarkSection)
-                    <span class="text-gray-300">|</span>
-                    <button wire:click="markAllStudents('present')" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100">All Present</button>
-                    <button wire:click="markAllStudents('absent')" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-red-200 text-red-700 bg-red-50 hover:bg-red-100">All Absent</button>
-                    <button wire:click="markAllStudents('')" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 text-gray-600 bg-white hover:bg-gray-100">Clear all</button>
-                    <span class="ml-auto text-xs text-gray-500">{{ $this->studentMarkedCount() }} of {{ count($studentMark) }} marked</span>
+                    <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-xs">
+                        <button type="button" x-on:click="all('present')" class="px-2.5 py-1.5 text-gray-600 hover:bg-gray-50">All present</button>
+                        <button type="button" x-on:click="all('absent')" class="px-2.5 py-1.5 text-gray-600 hover:bg-gray-50 border-l border-gray-200">All absent</button>
+                        <button type="button" x-on:click="all('')" class="px-2.5 py-1.5 text-gray-500 hover:bg-gray-50 border-l border-gray-200">Clear</button>
+                    </div>
+                    <span class="ml-auto text-xs text-gray-400 tabular-nums" x-text="marked + ' of ' + total + ' marked'"></span>
                 @endif
             </div>
 
             @if ($studentMarkExisting)
-                <div class="px-6 py-2 bg-amber-50 border-b border-amber-100 text-xs text-amber-700 flex-shrink-0">
-                    Attendance for this date is already submitted — change what you need and save to update it.
-                </div>
+                <p class="px-6 py-2 text-xs text-amber-700 border-b border-gray-100 flex-shrink-0">Already submitted for this date — change what you need and save to update it.</p>
             @elseif (\Carbon\Carbon::parse($sMarkDate)->isSunday())
-                <div class="px-6 py-2 bg-indigo-50 border-b border-indigo-100 text-xs text-indigo-700 flex-shrink-0">
-                    Sunday is a standing holiday, so everyone starts on Holiday. Change any row if the school worked today.
-                </div>
+                <p class="px-6 py-2 text-xs text-gray-500 border-b border-gray-100 flex-shrink-0">Sunday is a standing holiday, so everyone starts on Holiday.</p>
             @else
-                <div class="px-6 py-2 bg-gray-50 border-b border-gray-100 text-xs text-gray-500 flex-shrink-0">
-                    Rows start unmarked and only the ones you set are saved — an unmarked day stays open, so you can finish it whenever.
-                </div>
+                <p class="px-6 py-2 text-xs text-gray-500 border-b border-gray-100 flex-shrink-0">Only the rows you set are saved — an unmarked day stays open.</p>
             @endif
 
-            <div class="flex-1 overflow-y-auto">
+            {{-- Rows --}}
+            <div class="flex-1 overflow-y-auto divide-y divide-gray-100">
                 @if ($sMarkStandard && $sMarkSection)
-                    <table class="w-full text-sm">
-                        <thead class="bg-gray-50 text-gray-500 text-xs uppercase sticky top-0 z-10">
-                            <tr>
-                                <th class="px-4 py-3 text-left w-12">#</th>
-                                <th class="px-4 py-3 text-left">Student</th>
-                                <th class="px-4 py-3 text-center w-80">Status</th>
-                                <th class="px-4 py-3 text-left w-48">Remark</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            @forelse ($markStudents as $i => $s)
-                                @php $cur = $studentMark[$s->id]['status'] ?? ''; @endphp
-                                <tr wire:key="mark-s-{{ $s->id }}" class="{{ $cur === '' ? 'bg-gray-50/60' : '' }}">
-                                    <td class="px-4 py-3 text-gray-400">{{ $i + 1 }}</td>
-                                    <td class="px-4 py-3">
-                                        <div class="flex items-center gap-3">
-                                            @if ($s->user?->image)
-                                                <img src="{{ $s->user->image }}" class="w-9 h-9 rounded-full object-cover border border-gray-200">
-                                            @else
-                                                <div class="w-9 h-9 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-xs">{{ strtoupper(substr($s->user->name ?? 'S', 0, 1)) }}</div>
-                                            @endif
-                                            <div class="min-w-0">
-                                                <p class="font-medium text-gray-800 truncate">{{ $s->user->name ?? $s->full_name }}</p>
-                                                <p class="text-xs text-gray-400 truncate">{{ $s->user->email ?? '' }}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-4 py-3">
-                                        <div class="flex items-center justify-center gap-1">
-                                            @foreach (['present' => ['Present', 'bg-emerald-600 border-emerald-600'], 'absent' => ['Absent', 'bg-red-600 border-red-600'], 'half_day' => ['Half Day', 'bg-amber-500 border-amber-500'], 'holiday' => ['Holiday', 'bg-indigo-600 border-indigo-600']] as $st => $meta)
-                                                <button wire:click="setStudentStatus({{ $s->id }}, '{{ $st }}')"
-                                                    class="px-2.5 py-1.5 text-xs font-semibold rounded-md border {{ $cur === $st ? $meta[1] . ' text-white' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}">{{ $meta[0] }}</button>
-                                            @endforeach
-                                            <button wire:click="setStudentStatus({{ $s->id }}, '')" title="Leave unmarked"
-                                                class="w-7 h-7 flex items-center justify-center text-xs font-bold rounded-md border {{ $cur === '' ? 'bg-gray-200 text-gray-500 border-gray-300' : 'bg-white text-gray-300 border-gray-200 hover:text-gray-600' }}">&times;</button>
-                                        </div>
-                                    </td>
-                                    <td class="px-4 py-3">
-                                        <input type="text" wire:model="studentMark.{{ $s->id }}.remark" placeholder="Optional remark" class="w-full text-sm border border-gray-200 rounded-md px-3 py-1.5">
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="4" class="px-4 py-10 text-center text-gray-400">No students in this class/section.</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+                    @forelse ($markStudents as $i => $s)
+                        <div wire:key="mark-s-{{ $s->id }}" class="flex flex-wrap items-center gap-x-3 gap-y-2 px-6 py-2.5"
+                            :class="rows[{{ $s->id }}] === '' ? 'bg-gray-50/60' : ''">
+                            <span class="w-4 text-[11px] text-gray-300 tabular-nums flex-shrink-0">{{ $i + 1 }}</span>
+                            @if ($s->user?->image)
+                                <img src="{{ $s->user->image }}" class="w-8 h-8 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                            @else
+                                <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-[11px] font-medium flex-shrink-0">{{ strtoupper(substr($s->user->name ?? $s->full_name ?? 'S', 0, 1)) }}</div>
+                            @endif
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm text-gray-800 truncate">{{ $s->user->name ?? $s->full_name }}</p>
+                                <p class="text-[11px] text-gray-400 truncate">{{ $s->user->email ?? '' }}</p>
+                            </div>
+                            <input type="text" wire:model="studentMark.{{ $s->id }}.remark" placeholder="Remark"
+                                class="w-28 sm:w-36 text-xs border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                            <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-[11px] flex-shrink-0">
+                                @foreach ($statusOpts as $st => $label)
+                                    <button type="button" x-on:click="pick({{ $s->id }}, '{{ $st }}')"
+                                        class="px-2.5 py-1.5 {{ $loop->first ? '' : 'border-l border-gray-200' }}"
+                                        :class="rows[{{ $s->id }}] === '{{ $st }}' ? '{{ $statusSel[$st] }}' : 'text-gray-500 hover:bg-gray-50'">{{ $label }}</button>
+                                @endforeach
+                                <button type="button" x-on:click="pick({{ $s->id }}, '')" title="Leave unmarked"
+                                    class="px-2 py-1.5 border-l border-gray-200"
+                                    :class="rows[{{ $s->id }}] === '' ? 'bg-gray-100 text-gray-500' : 'text-gray-300 hover:text-gray-600 hover:bg-gray-50'">&times;</button>
+                            </div>
+                        </div>
+                    @empty
+                        <p class="py-16 text-center text-sm text-gray-400">No students in this class/section.</p>
+                    @endforelse
                 @else
-                    <p class="py-16 text-center text-gray-400 text-sm">Select a class &amp; section to start marking.</p>
+                    <p class="py-16 text-center text-sm text-gray-400">Select a class &amp; section to start marking.</p>
                 @endif
             </div>
 
-            <div class="px-6 py-3 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
-                <button wire:click="closeStudentMark" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                <button wire:click="submitStudentAttendance" wire:loading.attr="disabled" wire:target="submitStudentAttendance"
-                    @disabled(!$sMarkStandard || !$sMarkSection || $this->studentMarkedCount() === 0)
-                    class="inline-flex items-center gap-1.5 px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold rounded-lg disabled:opacity-50">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-                    <span wire:loading.remove wire:target="submitStudentAttendance">{{ $studentMarkExisting ? 'Update Attendance' : 'Save Attendance' }}</span>
-                    <span wire:loading wire:target="submitStudentAttendance">Saving…</span>
+            {{-- Footer --}}
+            <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between gap-2 flex-shrink-0">
+                <button type="button" wire:click="markStudentDayHoliday" wire:loading.attr="disabled" wire:target="markStudentDayHoliday"
+                    @disabled(!$sMarkStandard || !$sMarkSection)
+                    class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md disabled:opacity-40">
+                    <span wire:loading.remove wire:target="markStudentDayHoliday">{{ $sMarkDate === now()->toDateString() ? 'Mark today as holiday' : 'Mark this day as holiday' }}</span>
+                    <span wire:loading wire:target="markStudentDayHoliday">Saving...</span>
                 </button>
+                <div class="flex items-center gap-2">
+                    <button type="button" wire:click="closeStudentMark" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                    {{-- Rows only exist once a class and section are picked, so the
+                         marked count covers that case too. --}}
+                    <button type="button" wire:click="submitStudentAttendance" wire:loading.attr="disabled" wire:target="submitStudentAttendance"
+                        :disabled="marked === 0"
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                        <span wire:loading.remove wire:target="submitStudentAttendance">{{ $studentMarkExisting ? 'Update Attendance' : 'Save Attendance' }}</span>
+                        <span wire:loading wire:target="submitStudentAttendance">Saving...</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
