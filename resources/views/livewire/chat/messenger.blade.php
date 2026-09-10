@@ -15,8 +15,30 @@
              try { document.execCommand('copy'); } catch (e) {}
              ta.remove(); done();
          },
+
+         /* The per-message menu lives in one fixed-position panel teleported to
+            <body>. Rendering it inside each bubble meant the scroll container
+            clipped it off for messages near the top or bottom of the thread. */
+         menu: { open: false, id: null, pinned: false, body: null, top: 0, left: 0 },
+         openMenu(el, data) {
+             const r = el.getBoundingClientRect();
+             const h = data.body ? 190 : 158;
+             const w = 176;
+
+             let top = r.bottom + 6;
+             if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 6);
+
+             let left = r.right - w;
+             if (left < 8) left = 8;
+             if (left + w > window.innerWidth - 8) left = window.innerWidth - w - 8;
+
+             this.menu = Object.assign({ open: true, top: top, left: left }, data);
+         },
+         run(fn) { this.menu.open = false; fn(); },
      }"
-     x-on:chat-copy.window="copy($event.detail.text)">
+     x-on:chat-copy.window="copy($event.detail.text)"
+     x-on:chat-menu-close.window="menu.open = false"
+     x-on:keydown.escape.window="menu.open = false">
     <div class="h-full flex">
 
         {{-- ══════════════════════════════════════════════════
@@ -283,31 +305,16 @@
                             <div class="flex-1 min-w-0 flex {{ $mine ? 'justify-end' : 'justify-start' }}">
                                 <div class="flex items-center gap-1 max-w-[85%] sm:max-w-[68%] {{ $mine ? 'flex-row' : 'flex-row-reverse' }}">
 
-                                    {{-- Per-message actions (hidden until hover, and never in select mode) --}}
+                                    {{-- Opens the shared menu below; the panel itself is
+                                         teleported so the thread can't clip it. --}}
                                     @if (!$msgSelectMode)
-                                        <div class="relative flex-shrink-0" x-data="{ open: false }" @click.outside="open = false">
-                                            <button @click="open = !open"
-                                                class="p-1 rounded-md text-gray-300 hover:text-gray-600 hover:bg-white transition-opacity
-                                                       opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
-                                                title="Message options">
-                                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>
-                                            </button>
-                                            <div x-show="open" x-cloak style="display:none" x-transition.opacity.duration.120ms
-                                                 class="absolute {{ $mine ? 'right-0' : 'left-0' }} bottom-full mb-1 w-40 bg-white rounded-xl shadow-lg ring-1 ring-gray-900/5 py-1 z-30">
-                                                <button wire:click="startMessageSelect({{ $m->id }})" @click="open = false"
-                                                    class="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">Select</button>
-                                                <button wire:click="togglePinMessage({{ $m->id }})" @click="open = false"
-                                                    class="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">{{ $m->pinned_at ? 'Unpin' : 'Pin' }}</button>
-                                                @if ($m->body)
-                                                    <button type="button" @click="open = false; copy(@js($m->body))"
-                                                        class="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">Copy</button>
-                                                @endif
-                                                <button wire:click="forwardMessage({{ $m->id }})" @click="open = false"
-                                                    class="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50">Forward</button>
-                                                <button wire:click="confirmDeleteMessage({{ $m->id }})" @click="open = false"
-                                                    class="w-full text-left px-3 py-1.5 text-sm text-rose-600 hover:bg-rose-50">Delete for me</button>
-                                            </div>
-                                        </div>
+                                        <button type="button" title="Message options"
+                                            @click.stop="openMenu($el, { id: {{ $m->id }}, pinned: {{ $m->pinned_at ? 'true' : 'false' }}, body: @js($m->body) })"
+                                            class="flex-shrink-0 p-1 rounded-md text-gray-300 hover:text-gray-600 hover:bg-white transition-opacity
+                                                   opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                                            :class="menu.open && menu.id === {{ $m->id }} ? 'opacity-100 sm:opacity-100 text-gray-600' : ''">
+                                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>
+                                        </button>
                                     @endif
 
                                     <div class="min-w-0 rounded-2xl px-3 py-2
@@ -416,6 +423,31 @@
             @endif
         </div>
     </div>
+
+    {{-- ══════════════════════════════════════════════════
+         Message actions — one panel for every bubble, teleported out of the
+         scrolling thread so it can never be clipped, and flipped above the
+         button when it would run off the bottom of the window.
+    ══════════════════════════════════════════════════ --}}
+    @teleport('body')
+    <div x-show="menu.open" x-cloak style="display:none"
+         x-transition.opacity.duration.100ms
+         @click.outside="menu.open = false"
+         :style="'top:' + menu.top + 'px; left:' + menu.left + 'px'"
+         class="fixed z-[80] w-44 bg-white rounded-xl shadow-xl ring-1 ring-gray-900/5 py-1">
+        <button type="button" @click="run(() => $wire.startMessageSelect(menu.id))"
+            class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Select</button>
+        <button type="button" @click="run(() => $wire.togglePinMessage(menu.id))"
+            class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            x-text="menu.pinned ? 'Unpin' : 'Pin'">Pin</button>
+        <button type="button" x-show="menu.body" @click="run(() => copy(menu.body))"
+            class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Copy</button>
+        <button type="button" @click="run(() => $wire.forwardMessage(menu.id))"
+            class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Forward</button>
+        <button type="button" @click="run(() => $wire.confirmDeleteMessage(menu.id))"
+            class="w-full text-left px-3 py-2 text-sm text-rose-600 hover:bg-rose-50">Delete for me</button>
+    </div>
+    @endteleport
 
     {{-- ══════════════════════════════════════════════════
          Delete chat (one-sided)
@@ -570,6 +602,12 @@
                 toBottom();
             }
         };
+
+        // The actions panel is positioned in viewport coordinates, so anything
+        // that moves the bubble under it has to dismiss it.
+        const closeMenu = () => window.dispatchEvent(new CustomEvent('chat-menu-close'));
+        document.addEventListener('scroll', closeMenu, true);
+        window.addEventListener('resize', closeMenu);
 
         seen = newest().id;
         cid  = scroller() ? scroller().dataset.cid : null;
