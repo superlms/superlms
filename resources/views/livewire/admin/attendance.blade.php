@@ -79,11 +79,15 @@
                                 class="px-3 py-1 text-xs font-semibold rounded transition-colors {{ $teacherView === $k ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50' }}">{{ $label }}</button>
                         @endforeach
                     </div>
+                    {{-- Every control carries a wire:key naming its view. Without
+                         one, Livewire's DOM morph reuses the control sitting in
+                         the same slot of the previous view — which is what made
+                         the By Teacher pickers bind to the wrong property. --}}
                     @if ($teacherView === 'by_date')
                         <span class="text-gray-300">→</span>
-                        <input type="date" wire:model.live="tDate" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <input type="date" wire:key="t-bydate-date" wire:model.live="tDate" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                         <span class="text-gray-300">→</span>
-                        <select wire:model.live="tByDateStatus" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <select wire:key="t-bydate-status" wire:model.live="tByDateStatus" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                             <option value="">All Status</option>
                             <option value="present">Present</option>
                             <option value="absent">Absent</option>
@@ -93,29 +97,33 @@
                         </select>
                     @elseif ($teacherView === 'by_month')
                         <span class="text-gray-300">→</span>
-                        <input type="month" wire:model.live="tMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <input type="month" wire:key="t-bymonth-month" wire:model.live="tMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                         <span class="text-gray-300">→</span>
-                        <select wire:model.live="tTeacherId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <select wire:key="t-bymonth-teacher" wire:model.live="tTeacherId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                             <option value="">Select teacher…</option>
                             @foreach ($teachers as $t)<option value="{{ $t->id }}">{{ $t->user->name ?? '—' }}</option>@endforeach
                         </select>
                     @elseif ($teacherView === 'by_teacher')
-                        {{-- Method 3 · teacher → a specific month OR the complete year --}}
+                        {{-- Method 3 · teacher → a specific month OR the whole school year --}}
                         <span class="text-gray-300">→</span>
-                        <select wire:model.live="tTeacherId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <select wire:key="t-byteacher-teacher" wire:model.live="tTeacherId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                             <option value="">Select teacher…</option>
                             @foreach ($teachers as $t)<option value="{{ $t->id }}">{{ $t->user->name ?? '—' }}</option>@endforeach
                         </select>
                         <span class="text-gray-300">→</span>
-                        <select wire:model.live="tRange" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <select wire:key="t-byteacher-range" wire:model.live="tRange" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                             <option value="monthly">By Month</option>
                             <option value="yearly">Complete Year</option>
                         </select>
                         <span class="text-gray-300">→</span>
                         @if ($tRange === 'yearly')
-                            <input type="number" min="2000" max="2100" wire:model.live="tYear" class="w-24 text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            {{-- The school year runs April → March, so the picker
+                                 takes its starting year: 2026 = Apr 26–Mar 27. --}}
+                            <select wire:key="t-byteacher-year" wire:model.live="tYear" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                                @foreach ($academicYears as $y)<option value="{{ $y }}">Apr {{ $y }} – Mar {{ $y + 1 }}</option>@endforeach
+                            </select>
                         @else
-                            <input type="month" wire:model.live="tMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            <input type="month" wire:key="t-byteacher-month" wire:model.live="tMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                         @endif
                     @endif
 
@@ -128,34 +136,36 @@
                         @endforeach
                     </div>
                     <span class="text-gray-300">→</span>
-                    <select wire:model.live="stStandard" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <select wire:key="s-standard" wire:model.live="stStandard" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                         <option value="">Select class…</option>
                         @foreach ($standards as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
                     </select>
                     <span class="text-gray-300">→</span>
-                    <select wire:model.live="stSection" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <select wire:key="s-section" wire:model.live="stSection" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                         <option value="">Select section…</option>
                         @foreach ($stSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
                     </select>
                     @if ($studentView === 'by_date')
                         <span class="text-gray-300">→</span>
-                        <input type="date" wire:model.live="stDate" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <input type="date" wire:key="s-bydate-date" wire:model.live="stDate" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     @else
                         <span class="text-gray-300">→</span>
-                        <select wire:model.live="stStudentId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <select wire:key="s-bystudent-student" wire:model.live="stStudentId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                             <option value="">Select student…</option>
                             @foreach ($stStudents as $s)<option value="{{ $s->id }}">{{ $s->user->name ?? $s->full_name }}</option>@endforeach
                         </select>
                         <span class="text-gray-300">→</span>
-                        <select wire:model.live="stRange" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <select wire:key="s-bystudent-range" wire:model.live="stRange" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                             <option value="monthly">By Month</option>
                             <option value="yearly">Complete Year</option>
                         </select>
                         <span class="text-gray-300">→</span>
                         @if ($stRange === 'yearly')
-                            <input type="number" min="2000" max="2100" wire:model.live="stYear" class="w-24 text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            <select wire:key="s-bystudent-year" wire:model.live="stYear" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                                @foreach ($academicYears as $y)<option value="{{ $y }}">Apr {{ $y }} – Mar {{ $y + 1 }}</option>@endforeach
+                            </select>
                         @else
-                            <input type="month" wire:model.live="stMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            <input type="month" wire:key="s-bystudent-month" wire:model.live="stMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                         @endif
                     @endif
 
@@ -207,6 +217,13 @@
             {{-- ─── BY DATE ─── --}}
             @if ($teacherView === 'by_date')
                 <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-5">
+                    {{-- The day's analytics ride in the card header, not below the table. --}}
+                    @if ($tByDateStats)
+                        @include('livewire.admin._partials.attendance-dayheader', [
+                            'stats' => $tByDateStats,
+                            'title' => 'Teacher Attendance · ' . \Carbon\Carbon::parse($tDate)->format('l, d M Y'),
+                        ])
+                    @endif
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm min-w-[560px]">
                             <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
@@ -246,9 +263,6 @@
                         </table>
                     </div>
                 </div>
-                @if ($tByDateStats)
-                    @include('livewire.admin._partials.attendance-daystats', ['stats' => $tByDateStats])
-                @endif
             @endif
 
             {{-- ─── BY MONTH (month + teacher → month card, payroll style) ─── --}}
@@ -266,6 +280,8 @@
                     <div class="bg-white rounded-xl border border-gray-200 py-12 text-center text-gray-400 text-sm">Select a teacher to view analytics.</div>
                 @elseif ($tCards)
                     @include('livewire.admin._partials.attendance-monthcards', ['cards' => $tCards, 'title' => $tCardsTitle, 'person' => $tCardsPerson])
+                @else
+                    <div class="bg-white rounded-xl border border-gray-200 py-12 text-center text-gray-400 text-sm">Pick a {{ $tRange === 'yearly' ? 'school year' : 'month' }} to view analytics.</div>
                 @endif
             @endif
         @endif
@@ -279,6 +295,12 @@
             @if ($studentView === 'by_date')
                 @if ($stStandard && $stSection)
                     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-5">
+                        @if ($sByDateStats)
+                            @include('livewire.admin._partials.attendance-dayheader', [
+                                'stats' => $sByDateStats,
+                                'title' => 'Student Attendance · ' . \Carbon\Carbon::parse($stDate)->format('l, d M Y'),
+                            ])
+                        @endif
                         <div class="overflow-x-auto">
                             <table class="w-full text-sm min-w-[560px]">
                                 <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
@@ -318,9 +340,6 @@
                             </table>
                         </div>
                     </div>
-                    @if ($sByDateStats)
-                        @include('livewire.admin._partials.attendance-daystats', ['stats' => $sByDateStats])
-                    @endif
                 @else
                     <div class="bg-white rounded-xl border border-gray-200 py-12 text-center text-gray-400 text-sm">Select class &amp; section to view attendance.</div>
                 @endif
@@ -332,6 +351,8 @@
                     <div class="bg-white rounded-xl border border-gray-200 py-12 text-center text-gray-400 text-sm">Select class, section &amp; student to view the attendance.</div>
                 @elseif ($sCards)
                     @include('livewire.admin._partials.attendance-monthcards', ['cards' => $sCards, 'title' => $sCardsTitle, 'person' => $sCardsPerson])
+                @else
+                    <div class="bg-white rounded-xl border border-gray-200 py-12 text-center text-gray-400 text-sm">Pick a {{ $stRange === 'yearly' ? 'school year' : 'month' }} to view the attendance.</div>
                 @endif
             @endif
         @endif
@@ -455,7 +476,8 @@
                 <span class="text-gray-300">|</span>
                 <button wire:click="markAllTeachers('present')" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100">All Present</button>
                 <button wire:click="markAllTeachers('absent')" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-red-200 text-red-700 bg-red-50 hover:bg-red-100">All Absent</button>
-                <span class="ml-auto text-xs text-gray-500">{{ count($teacherMark) }} teacher(s)</span>
+                <button wire:click="markAllTeachers('')" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 text-gray-600 bg-white hover:bg-gray-100">Clear all</button>
+                <span class="ml-auto text-xs text-gray-500">{{ $this->teacherMarkedCount() }} of {{ count($teacherMark) }} marked</span>
             </div>
 
             {{-- Why this day looks the way it does --}}
@@ -466,6 +488,10 @@
             @elseif (\Carbon\Carbon::parse($tMarkDate)->isSunday())
                 <div class="px-6 py-2 bg-indigo-50 border-b border-indigo-100 text-xs text-indigo-700 flex-shrink-0">
                     Sunday is a standing holiday, so everyone starts on Holiday. Change any row if the school worked today.
+                </div>
+            @else
+                <div class="px-6 py-2 bg-gray-50 border-b border-gray-100 text-xs text-gray-500 flex-shrink-0">
+                    Rows start unmarked and only the ones you set are saved — an unmarked day stays open, so you can finish it whenever.
                 </div>
             @endif
 
@@ -482,8 +508,8 @@
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         @forelse ($markTeachers as $i => $t)
-                            @php $cur = $teacherMark[$t->id]['status'] ?? 'present'; @endphp
-                            <tr wire:key="mark-t-{{ $t->id }}">
+                            @php $cur = $teacherMark[$t->id]['status'] ?? ''; @endphp
+                            <tr wire:key="mark-t-{{ $t->id }}" class="{{ $cur === '' ? 'bg-gray-50/60' : '' }}">
                                 <td class="px-4 py-3 text-gray-400">{{ $i + 1 }}</td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-3">
@@ -504,6 +530,10 @@
                                             <button wire:click="setTeacherStatus({{ $t->id }}, '{{ $st }}')"
                                                 class="px-2.5 py-1.5 text-xs font-semibold rounded-md border {{ $cur === $st ? $meta[1] . ' text-white' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}">{{ $meta[0] }}</button>
                                         @endforeach
+                                        {{-- Leave a row blank and it saves nothing at all, so the
+                                             day stays open to be marked later. --}}
+                                        <button wire:click="setTeacherStatus({{ $t->id }}, '')" title="Leave unmarked"
+                                            class="w-7 h-7 flex items-center justify-center text-xs font-bold rounded-md border {{ $cur === '' ? 'bg-gray-200 text-gray-500 border-gray-300' : 'bg-white text-gray-300 border-gray-200 hover:text-gray-600' }}">&times;</button>
                                     </div>
                                 </td>
                                 <td class="px-4 py-3">
@@ -521,7 +551,8 @@
             <div class="px-6 py-3 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
                 <button wire:click="closeTeacherMark" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
                 <button wire:click="submitTeacherAttendance" wire:loading.attr="disabled" wire:target="submitTeacherAttendance"
-                    class="inline-flex items-center gap-1.5 px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold rounded-lg disabled:opacity-60">
+                    @disabled($this->teacherMarkedCount() === 0)
+                    class="inline-flex items-center gap-1.5 px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold rounded-lg disabled:opacity-50">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
                     <span wire:loading.remove wire:target="submitTeacherAttendance">{{ $teacherMarkExisting ? 'Update Attendance' : 'Save Attendance' }}</span>
                     <span wire:loading wire:target="submitTeacherAttendance">Saving…</span>
@@ -572,6 +603,8 @@
                     <span class="text-gray-300">|</span>
                     <button wire:click="markAllStudents('present')" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100">All Present</button>
                     <button wire:click="markAllStudents('absent')" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-red-200 text-red-700 bg-red-50 hover:bg-red-100">All Absent</button>
+                    <button wire:click="markAllStudents('')" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 text-gray-600 bg-white hover:bg-gray-100">Clear all</button>
+                    <span class="ml-auto text-xs text-gray-500">{{ $this->studentMarkedCount() }} of {{ count($studentMark) }} marked</span>
                 @endif
             </div>
 
@@ -582,6 +615,10 @@
             @elseif (\Carbon\Carbon::parse($sMarkDate)->isSunday())
                 <div class="px-6 py-2 bg-indigo-50 border-b border-indigo-100 text-xs text-indigo-700 flex-shrink-0">
                     Sunday is a standing holiday, so everyone starts on Holiday. Change any row if the school worked today.
+                </div>
+            @else
+                <div class="px-6 py-2 bg-gray-50 border-b border-gray-100 text-xs text-gray-500 flex-shrink-0">
+                    Rows start unmarked and only the ones you set are saved — an unmarked day stays open, so you can finish it whenever.
                 </div>
             @endif
 
@@ -598,8 +635,8 @@
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @forelse ($markStudents as $i => $s)
-                                @php $cur = $studentMark[$s->id]['status'] ?? 'present'; @endphp
-                                <tr wire:key="mark-s-{{ $s->id }}">
+                                @php $cur = $studentMark[$s->id]['status'] ?? ''; @endphp
+                                <tr wire:key="mark-s-{{ $s->id }}" class="{{ $cur === '' ? 'bg-gray-50/60' : '' }}">
                                     <td class="px-4 py-3 text-gray-400">{{ $i + 1 }}</td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center gap-3">
@@ -620,6 +657,8 @@
                                                 <button wire:click="setStudentStatus({{ $s->id }}, '{{ $st }}')"
                                                     class="px-2.5 py-1.5 text-xs font-semibold rounded-md border {{ $cur === $st ? $meta[1] . ' text-white' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}">{{ $meta[0] }}</button>
                                             @endforeach
+                                            <button wire:click="setStudentStatus({{ $s->id }}, '')" title="Leave unmarked"
+                                                class="w-7 h-7 flex items-center justify-center text-xs font-bold rounded-md border {{ $cur === '' ? 'bg-gray-200 text-gray-500 border-gray-300' : 'bg-white text-gray-300 border-gray-200 hover:text-gray-600' }}">&times;</button>
                                         </div>
                                     </td>
                                     <td class="px-4 py-3">
@@ -639,7 +678,7 @@
             <div class="px-6 py-3 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
                 <button wire:click="closeStudentMark" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
                 <button wire:click="submitStudentAttendance" wire:loading.attr="disabled" wire:target="submitStudentAttendance"
-                    @disabled(!$sMarkStandard || !$sMarkSection)
+                    @disabled(!$sMarkStandard || !$sMarkSection || $this->studentMarkedCount() === 0)
                     class="inline-flex items-center gap-1.5 px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold rounded-lg disabled:opacity-50">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
                     <span wire:loading.remove wire:target="submitStudentAttendance">{{ $studentMarkExisting ? 'Update Attendance' : 'Save Attendance' }}</span>
