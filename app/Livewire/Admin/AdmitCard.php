@@ -400,6 +400,26 @@ class AdmitCard extends Component
         $this->dispatch('open-in-new-tab', url: $url);
     }
 
+    /**
+     * Print one card straight from the listing. Same sheet as a bulk run —
+     * a single card just takes the first cell of the page — and it is stamped
+     * as printed so the next bulk run leaves it out.
+     */
+    public function printOne(int $id): void
+    {
+        $card = ModelAdmitCard::where('organization_id', $this->orgId())->find($id);
+        if (! $card) {
+            $this->notification()->error('Not found', 'That admit card no longer exists.');
+            return;
+        }
+
+        $card->update(['printed_at' => now()]);
+        unset($this->printableCards);
+
+        $url = route('admin.admit-card.print-all', $this->orgSlug()) . '?' . http_build_query(['ids' => $id]);
+        $this->dispatch('open-in-new-tab', url: $url);
+    }
+
     /** Undo the printed stamp for one card, so it comes out on the next run. */
     public function markUnprinted(int $id): void
     {

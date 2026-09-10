@@ -12,6 +12,7 @@ use App\Models\Student\Subject;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\Teacher\TeacherSubject;
 use App\Services\Seating\SeatLocator;
+use App\Support\PdfFonts;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -202,11 +203,27 @@ class ExamController extends ApiController
 
         $this->attachSeating($admitCard);
 
-        $pdf = Pdf::loadView('admin.admit-card-pdf', [
+        $fontCache = PdfFonts::cacheDir();
+
+        $load = fn (string $fontCss) => Pdf::loadView('admin.admit-card-pdf', [
             'admitCard'    => $admitCard,
             'organization' => $admitCard->organization,
             'isPdf'        => true,
-        ])->setPaper('a4', 'portrait')->setOption('isRemoteEnabled', true);
+            'fontCss'      => $fontCss,
+        ])->setPaper('a4', 'portrait')
+            ->setOption('isRemoteEnabled', true)
+            ->setOption('isHtml5ParserEnabled', true)
+            ->setOption('isFontSubsettingEnabled', true)
+            ->setOption('fontDir', $fontCache)
+            ->setOption('fontCache', $fontCache)
+            ->setOption('defaultFont', 'DejaVu Sans');
+
+        try {
+            $pdf = $load(PdfFonts::faceCss());
+        } catch (\Throwable $e) {
+            logger()->warning('Admit card font embedding failed: ' . $e->getMessage());
+            $pdf = $load('');
+        }
 
         $name = str_replace(' ', '_', $admitCard->student_name ?: ($student->full_name ?? 'admit_card'));
 

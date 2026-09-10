@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Student\AdmitCard;
 use App\Services\Seating\SeatLocator;
+use App\Support\PdfFonts;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -32,11 +33,29 @@ class AdmitCardController extends Controller
         $admitCard = $this->getAdmitCard($id);
         $this->attachSeating(collect([$admitCard]));
 
-        $pdf = Pdf::loadView('admin.admit-card-pdf', [
+        $fontCache = PdfFonts::cacheDir();
+
+        // Poppins is embedded as base64 @font-face; if that ever fails the card
+        // still renders, just in dompdf's default face.
+        $load = fn (string $fontCss) => Pdf::loadView('admin.admit-card-pdf', [
             'admitCard'    => $admitCard,
             'organization' => $admitCard->organization,
             'isPdf'        => true,
-        ])->setPaper('a4', 'portrait')->setOption('isRemoteEnabled', true);
+            'fontCss'      => $fontCss,
+        ])->setPaper('a4', 'portrait')
+            ->setOption('isRemoteEnabled', true)
+            ->setOption('isHtml5ParserEnabled', true)
+            ->setOption('isFontSubsettingEnabled', true)
+            ->setOption('fontDir', $fontCache)
+            ->setOption('fontCache', $fontCache)
+            ->setOption('defaultFont', 'DejaVu Sans');
+
+        try {
+            $pdf = $load(PdfFonts::faceCss());
+        } catch (\Throwable $e) {
+            logger()->warning('Admit card font embedding failed: ' . $e->getMessage());
+            $pdf = $load('');
+        }
 
         $name = str_replace(' ', '_', $admitCard->student_name ?? 'admit_card');
 
