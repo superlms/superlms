@@ -9,6 +9,8 @@ use App\Models\Student\Standard;
 use App\Models\Student\Section;
 use App\Models\Student\StudentDetail;
 use App\Models\Student\Subject;
+use App\Models\Teacher\TeacherDetail;
+use App\Models\Teacher\TeacherSubject;
 use App\Models\User;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -816,11 +818,53 @@ class Homework extends Component
         return $rows;
     }
 
-    /** The Homework tab only lists rows once at least one filter is set. */
+    /**
+     * The Homework tab lists nothing until it knows *which day* and *whose*
+     * homework it is showing: date + class + section are the scope, and
+     * subject / teacher / search only narrow what that scope already holds.
+     */
     private function hasActiveFilter(): bool
     {
-        return $this->search !== '' || $this->filterTeacher !== '' || $this->filterDate !== ''
-            || $this->filterStandard !== '' || $this->filterSection !== '' || $this->filterSubject !== '';
+        return $this->filterDate !== '' && $this->filterStandard !== '' && $this->filterSection !== '';
+    }
+
+    /** Which of the three scope pickers are still empty — shown in the prompt. */
+    public function missingScopeLabels(): array
+    {
+        return array_values(array_filter([
+            $this->filterDate     === '' ? 'date'    : null,
+            $this->filterStandard === '' ? 'class'   : null,
+            $this->filterSection  === '' ? 'section' : null,
+        ]));
+    }
+
+    /**
+     * The subjects a teacher is assigned to teach in the filtered class and
+     * section. Rows in teacher_subjects predate its standard_id/section_id
+     * columns, so a NULL there means "unspecified" and matches any class.
+     *
+     * @return array<int,int>
+     */
+    private function subjectsAssignedTo($teacherUserId): array
+    {
+        $teacherDetailId = TeacherDetail::where('organization_id', Auth::user()->organization_id)
+            ->where('user_id', $teacherUserId)
+            ->value('id');
+
+        if (!$teacherDetailId) {
+            return [];
+        }
+
+        return TeacherSubject::where('teacher_detail_id', $teacherDetailId)
+            ->when($this->filterStandard, fn ($q) => $q->where(fn ($w) =>
+                $w->whereNull('standard_id')->orWhere('standard_id', $this->filterStandard)))
+            ->when($this->filterSection, fn ($q) => $q->where(fn ($w) =>
+                $w->whereNull('section_id')->orWhere('section_id', $this->filterSection)))
+            ->whereNotNull('subject_id')
+            ->pluck('subject_id')
+            ->unique()
+            ->values()
+            ->all();
     }
 
     public function onViewHomework($id)
@@ -913,8 +957,21 @@ class Homework extends Component
             });
         }
 
+        // Filtering by a teacher asks "what is this teacher's homework for this
+        // class and section" — which is the homework for the subjects they are
+        // assigned to teach, no matter whether the teacher or an admin entered
+        // it. Anything they entered themselves stays in too, so nothing they
+        // set can go missing.
         if ($this->filterTeacher) {
-            $query->where('user_id', $this->filterTeacher);
+            $subjectIds = $this->subjectsAssignedTo($this->filterTeacher);
+
+            $query->where(function ($q) use ($subjectIds) {
+                $q->where('user_id', $this->filterTeacher);
+
+                if ($subjectIds) {
+                    $q->orWhereIn('subject_id', $subjectIds);
+                }
+            });
         }
 
         // created_at is the assigned-on date for homework.

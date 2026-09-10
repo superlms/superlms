@@ -22,11 +22,11 @@ class AdmitCardController extends Controller
         $admitCard = $this->getAdmitCard($id);
         $this->attachSeating(collect([$admitCard]));
 
-        // One card, laid out on the same A4 portrait 2x2 sheet the print run
-        // uses — so it occupies a single quadrant, not the whole page.
-        return view('admin.admit-card-sheet', [
-            'admitCards'   => collect([$admitCard]),
-            'single'       => $admitCard,
+        // Viewing (and downloading) shows the card on a full A4 page; printing
+        // goes through the four-up sheet so a single card takes only its own
+        // quarter of the paper.
+        return view('admin.admit-card-page', [
+            'admitCard'    => $admitCard,
             'organization' => $admitCard->organization,
         ]);
     }
@@ -40,9 +40,8 @@ class AdmitCardController extends Controller
 
         // Poppins is embedded as base64 @font-face; if that ever fails the card
         // still renders, just in dompdf's default face.
-        $load = fn (string $fontCss) => Pdf::loadView('admin.admit-card-sheet', [
-            'admitCards'   => collect([$admitCard]),
-            'single'       => $admitCard,
+        $load = fn (string $fontCss) => Pdf::loadView('admin.admit-card-page', [
+            'admitCard'    => $admitCard,
             'organization' => $admitCard->organization,
             'isPdf'        => true,
             'fontCss'      => $fontCss,
@@ -89,7 +88,9 @@ class AdmitCardController extends Controller
 
         return view('admin.admit-card-sheet', [
             'admitCards'   => $admitCards,
-            'single'       => null,
+            // Printing a single card still uses the four-up sheet (it takes one
+            // quarter); the toolbar then offers its full-page view too.
+            'single'       => $admitCards->count() === 1 ? $admitCards->first() : null,
             'organization' => $organization,
         ]);
     }

@@ -1,8 +1,9 @@
-{{-- One admit card, sized for a quarter of an A4 portrait sheet (2×2 grid).
-     Same sections as the full-page card — masthead, identity + photo, paper
-     schedule, instructions, foot — just scaled to fit the quadrant. Shared by
-     the browser view, the downloaded PDF and the print sheet, so all three
-     look identical. Table-based (no flex/grid) because dompdf renders this. --}}
+{{-- The admit card itself — one markup, two stylesheets.
+     `admin.admit-card-page`  renders it on a full A4 page (view + download).
+     `admin.admit-card-sheet` renders it in a quadrant, four to an A4 (print).
+     Both keep the same sections: masthead, identity table, paper schedule,
+     instructions and the signature foot. Table-based (no flex/grid) because
+     dompdf renders this same markup for the PDF. --}}
 @php
     // Resolve an image path for dompdf. Absolute URLs are used as-is (remote
     // images are enabled on the PDF), otherwise prefer the local
@@ -34,16 +35,16 @@
     ])->filter()->implode('  ·  ');
 
     // The instruction list, already split into lines. Trimmed to four so a
-    // wordy school note can never push the foot off the quadrant.
+    // wordy school note can never push the foot off a quadrant.
     $notes = $admitCard->instructions
         ? collect(preg_split('/\r?\n|(?<=\.)(?=\s*\d+\.)/', $admitCard->instructions))
             ->map(fn ($l) => preg_replace('/^\d+\.\s*/', '', trim($l)))
             ->filter()
             ->values()
         : collect([
-            'Reach the examination hall 15 minutes before the scheduled time.',
+            'Reach the examination hall 15 minutes before the scheduled time. Entry is not permitted 15 minutes after the paper begins.',
             'Carry this admit card and your school identity card to every paper.',
-            'Follow the instructions printed on the answer book strictly.',
+            'Read the instructions printed on the answer book and follow them strictly.',
             'Hand the answer script to the invigilator before leaving the hall.',
         ]);
     $notes = $notes->take(4);
@@ -61,7 +62,6 @@
             <div class="address">{{ $contacts }}</div>
         @endif
     </div>
-    <div class="rule"></div>
 
     {{-- ── TITLE ── --}}
     <table class="titlebar">
@@ -71,32 +71,39 @@
         </tr>
     </table>
 
-    {{-- ── IDENTITY ── --}}
+    {{-- ── IDENTITY — a bordered grid, same shape as the report card ── --}}
     <table class="id-wrap">
         <tr>
             <td class="id-facts">
-                <table class="facts">
+                <table class="info">
+                    {{-- Explicit columns: the first row carries a colspan, and a
+                         fixed-layout table without a colgroup would take its
+                         widths from that row and hand column 1 half the table. --}}
+                    <colgroup>
+                        <col style="width:22%"><col style="width:28%">
+                        <col style="width:22%"><col style="width:28%">
+                    </colgroup>
                     <tr>
-                        <td class="k">Name</td>
-                        <td class="v" colspan="3">{{ $admitCard->student_name }}</td>
+                        <td class="label">Name</td>
+                        <td class="value" colspan="3">{{ $admitCard->student_name }}</td>
                     </tr>
                     <tr>
-                        <td class="k">Class</td>
-                        <td class="v">{{ $student?->standard?->name ?? '—' }}@if($student?->section?->name) · {{ $student->section->name }}@endif</td>
-                        <td class="k2">Roll No.</td>
-                        <td class="v">{{ $admitCard->roll_number ?: '—' }}</td>
+                        <td class="label">Class</td>
+                        <td class="value">{{ $student?->standard?->name ?? '—' }}@if($student?->section?->name) · {{ $student->section->name }}@endif</td>
+                        <td class="label">Roll No.</td>
+                        <td class="value">{{ $admitCard->roll_number ?: '—' }}</td>
                     </tr>
                     <tr>
-                        <td class="k">Adm. No.</td>
-                        <td class="v">{{ $student?->admission_no ?: '—' }}</td>
-                        <td class="k2">{{ $admitCard->exam_roll_number ? 'Exam Roll' : 'Card No.' }}</td>
-                        <td class="v">{{ $admitCard->exam_roll_number ?: $admitCard->admit_card_number }}</td>
+                        <td class="label">Adm. No.</td>
+                        <td class="value">{{ $student?->admission_no ?: '—' }}</td>
+                        <td class="label">{{ $admitCard->exam_roll_number ? 'Exam Roll' : 'Card No.' }}</td>
+                        <td class="value">{{ $admitCard->exam_roll_number ?: $admitCard->admit_card_number }}</td>
                     </tr>
                     <tr>
-                        <td class="k">Father</td>
-                        <td class="v">{{ $admitCard->father_name ?: '—' }}</td>
-                        <td class="k2">Mother</td>
-                        <td class="v">{{ $admitCard->mother_name ?: '—' }}</td>
+                        <td class="label">Father</td>
+                        <td class="value">{{ $admitCard->father_name ?: '—' }}</td>
+                        <td class="label">Mother</td>
+                        <td class="value">{{ $admitCard->mother_name ?: '—' }}</td>
                     </tr>
                 </table>
             </td>
@@ -118,11 +125,10 @@
             <table class="papers">
                 <thead>
                     <tr>
-                        <th style="width:30%;">Subject</th>
-                        <th style="width:19%;">Date</th>
-                        <th style="width:25%;">Time</th>
-                        <th style="width:15%;">Room</th>
-                        <th style="width:11%;" class="c">Seat</th>
+                        <th style="width:34%;">Subject</th>
+                        <th style="width:24%;">Date</th>
+                        <th style="width:26%;">Time</th>
+                        <th style="width:16%;" class="c">Seat (Room)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -136,13 +142,17 @@
                             );
                             $from = !empty($paper['exam_time']) ? \Carbon\Carbon::parse($paper['exam_time'])->format('g:i A') : '';
                             $to   = !empty($paper['exam_end_time']) ? \Carbon\Carbon::parse($paper['exam_end_time'])->format('g:i A') : '';
+
+                            // Seat and room read as one thing — "12 (A1)".
+                            $seatNo = $seat['seat'] ?? null;
+                            $room   = $seat['room'] ?? null;
+                            $where  = $seatNo && $room ? $seatNo . ' (' . $room . ')' : ($seatNo ?: ($room ?: '—'));
                         @endphp
                         <tr>
                             <td>{{ $paper['subject_name'] ?? '—' }}</td>
-                            <td class="{{ $date ? '' : 'off' }}">{{ $date ? $date->format('d M, D') : '—' }}</td>
-                            <td class="{{ $from ? '' : 'off' }}">{{ $from ? ($to ? $from . '–' . $to : $from) : '—' }}</td>
-                            <td class="{{ ($seat['room'] ?? null) ? '' : 'off' }}">{{ $seat['room'] ?? '—' }}</td>
-                            <td class="c seat">{{ $seat['seat'] ?? '—' }}</td>
+                            <td class="{{ $date ? '' : 'off' }}">{{ $date ? $date->format('d M Y, D') : '—' }}</td>
+                            <td class="{{ $from ? '' : 'off' }}">{{ $from ? ($to ? $from . ' – ' . $to : $from) : '—' }}</td>
+                            <td class="c seat {{ $where === '—' ? 'off' : '' }}">{{ $where }}</td>
                         </tr>
                     @endforeach
                 </tbody>

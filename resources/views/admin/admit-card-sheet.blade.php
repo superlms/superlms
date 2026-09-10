@@ -20,7 +20,9 @@
         * { box-sizing: border-box; }
         body, h1, p, ol, li, table, td, th, div { margin: 0; padding: 0; }
 
-        @page { size: A4 portrait; margin: 8mm; }
+        /* 6mm margins leave 285mm of paper for two 140mm rows — enough slack
+           that rounding can never push the fourth card onto a second sheet. */
+        @page { size: A4 portrait; margin: 6mm; }
 
         body {
             font-family: 'Poppins', 'Inter', 'DejaVu Sans', Arial, sans-serif;
@@ -42,22 +44,23 @@
         .sheet-wrap { page-break-after: always; }
         .sheet-wrap.last { page-break-after: auto; }
 
-        .card { padding: 5mm; height: 140mm; }
+        /* Clipped, so an unusually long card can never grow the row and spill
+           the sheet onto a second page. */
+        .card { padding: 3.5mm 4mm 4mm; height: 140mm; overflow: hidden; }
 
         .muted { color: #6b7280; }
-        .rule { border-top: 0.5pt solid #16181d; height: 0; }
 
         /* ── Masthead: logo, name, one line of contacts ── */
-        .masthead { text-align: center; padding-bottom: 2mm; }
-        .masthead .logo { height: 9mm; width: 9mm; margin-bottom: 1mm; }
+        .masthead { text-align: center; padding-bottom: 1.5mm; border-bottom: 0.5pt solid #16181d; }
+        .masthead .logo { height: 9mm; width: 9mm; margin-bottom: 0.8mm; }
         .masthead .school {
             font-family: 'Poppins SemiBold', 'Poppins', 'Inter', sans-serif; font-weight: 600;
             font-size: 10.2pt; letter-spacing: -0.01em; line-height: 1.2;
         }
-        .masthead .address { font-size: 5.1pt; color: #6b7280; margin-top: 0.8mm; line-height: 1.35; }
+        .masthead .address { font-size: 5.1pt; color: #6b7280; margin-top: 0.6mm; line-height: 1.35; }
 
         /* ── Title row: the tag on the left, the exam on the right ── */
-        .titlebar { width: 100%; border-collapse: collapse; margin: 2mm 0 2.5mm; }
+        .titlebar { width: 100%; border-collapse: collapse; margin: 2mm 0; }
         .titlebar td { vertical-align: baseline; }
         .titlebar .tag {
             font-family: 'Poppins SemiBold', 'Poppins', 'Inter', sans-serif; font-weight: 600;
@@ -65,39 +68,37 @@
         }
         .titlebar .exam { text-align: right; color: #6b7280; font-size: 6pt; }
 
-        /* ── Identity: facts on the left, photo on the right ── */
+        /* ── Identity: a bordered grid (same shape as the report card) on the
+              left, the candidate photo on the right ── */
         .id-wrap { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .id-wrap > tbody > tr > td { vertical-align: top; }
-        .id-wrap .id-photo { width: 19mm; padding-left: 3mm; }
-        .passport { width: 16mm; height: 20mm; border: 0.5pt solid #d9dce1; }
+        .id-wrap .id-photo { width: 17mm; padding-left: 2mm; }
+        .passport { width: 15mm; height: 19mm; border: 0.5pt solid #d9dce1; }
         .passport-ph {
-            width: 16mm; height: 20mm; border: 0.5pt dashed #d9dce1; color: #9aa0a6;
-            font-size: 4.6pt; text-align: center; padding-top: 7mm; line-height: 1.4;
+            width: 15mm; height: 19mm; border: 0.5pt dashed #d9dce1; color: #9aa0a6;
+            font-size: 4.6pt; text-align: center; padding-top: 6.5mm; line-height: 1.4;
         }
         .photo-cap {
-            width: 16mm; font-size: 4.4pt; color: #9aa0a6; margin-top: 0.8mm;
+            width: 15mm; font-size: 4.4pt; color: #9aa0a6; margin-top: 0.8mm;
             text-align: center; letter-spacing: 0.08em; text-transform: uppercase;
         }
 
-        .facts { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        /* Values wrap rather than clip — a long parent name or admission
-           number must stay readable, and the card has the vertical room. */
-        .facts td {
-            padding: 1mm 0; font-size: 6.6pt; vertical-align: top;
-            border-bottom: 0.4pt solid #f0f1f3; line-height: 1.25;
-            word-wrap: break-word;
+        .info { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .info td {
+            border: 0.5pt solid #aaaaaa; padding: 0.6mm 1mm; font-size: 6pt;
+            vertical-align: top; line-height: 1.2; word-wrap: break-word;
         }
-        .facts tr:last-child td { border-bottom: 0; }
-        .facts td.k  { color: #6b7280; width: 23%; }
-        .facts td.k2 { color: #6b7280; width: 20%; padding-left: 2mm; }
-        .facts td.v  { font-family: 'Poppins SemiBold', 'Poppins', 'Inter', sans-serif; font-weight: 600; }
+        .info td.label {
+            color: #3f4451;
+            font-family: 'Poppins SemiBold', 'Poppins', 'Inter', sans-serif; font-weight: 600;
+        }
 
         /* ── Section label ── */
         .sec-label {
             font-size: 5.3pt; letter-spacing: 0.14em; text-transform: uppercase; color: #6b7280;
             margin-bottom: 1mm;
         }
-        .block { margin-top: 3mm; }
+        .block { margin-top: 2mm; }
 
         /* ── Paper schedule ── */
         .papers { width: 100%; border-collapse: collapse; table-layout: fixed; }
@@ -130,16 +131,16 @@
         .card.dense .block     { margin-top: 2mm; }
 
         .card.tight .papers td { font-size: 4.9pt; padding: 0.4mm 1mm; }
-        .card.tight .facts td  { font-size: 6pt; padding: 0.7mm 0; }
+        .card.tight .info td   { font-size: 5.7pt; padding: 0.6mm 1.2mm; }
         .card.tight .notes li  { font-size: 4.2pt; }
         .card.tight .masthead  { padding-bottom: 1mm; }
 
         /* ── Instructions ── */
         .notes { padding-left: 9px; }
-        .notes li { font-size: 5.2pt; color: #6b7280; margin-bottom: 0.6mm; line-height: 1.35; }
+        .notes li { font-size: 5.2pt; color: #6b7280; margin-bottom: 0.4mm; line-height: 1.3; }
 
         /* ── Foot ── */
-        .foot { width: 100%; border-collapse: collapse; margin-top: 3mm; }
+        .foot { width: 100%; border-collapse: collapse; margin-top: 2mm; }
         .foot td { font-size: 5.3pt; color: #6b7280; vertical-align: bottom; line-height: 1.4; }
         .foot .sign { text-align: right; }
         .foot .sign .line { border-top: 0.5pt solid #16181d; width: 26mm; margin: 0 0 0.8mm auto; height: 0; }
@@ -151,7 +152,7 @@
         body { background: #f1f3f6; padding: 22px 16px 48px; }
         .sheet-wrap {
             width: 210mm; max-width: 100%; min-height: 297mm; margin: 0 auto 8mm;
-            background: #fff; padding: 8mm;
+            background: #fff; padding: 6mm;
             box-shadow: 0 1px 3px rgba(16,24,40,.08), 0 8px 28px rgba(16,24,40,.10);
         }
         .toolbar {
@@ -172,9 +173,6 @@
         .toolbar button:hover, .toolbar a:hover { background: #f7f8fa; }
         .toolbar .go { background: #16181d; border-color: #16181d; color: #fff; }
         .toolbar .go:hover { background: #2b2f38; }
-        .toolbar .del { color: #c0392b; }
-        .toolbar .del:hover { background: #fdf1f0; }
-        .toolbar form { margin: 0; display: inline-block; }
 
         .empty {
             width: 210mm; max-width: 100%; margin: 0 auto; background: #fff; padding: 48px;
@@ -206,19 +204,12 @@
     <div class="toolbar no-print">
         @if($single ?? null)
             <span class="who">{{ $single->student_name }}</span>
+            <a href="{{ route($isAccounts ? 'accounts.admit-card.view' : 'admin.admit-card.view', [$single->organization_id, $single->id]) }}">Full page</a>
             <a href="{{ route($isAccounts ? 'accounts.admit-card.download' : 'admin.admit-card.download', [$single->organization_id, $single->id]) }}">Download</a>
-            <button type="button" onclick="window.opener ? window.close() : history.back()">Back</button>
-            @unless($isAccounts)
-                <form method="POST" action="{{ route('admin.admit-card.destroy', [$single->organization_id, $single->id]) }}"
-                      onsubmit="return confirm('Delete this admit card? The student will move back to the not-issued list.');">
-                    @csrf
-                    <button type="submit" class="del">Delete</button>
-                </form>
-            @endunless
         @else
             <span class="count">{{ $cards->count() }} card(s) · 4 to an A4 portrait sheet · cut along the dotted lines</span>
-            <button type="button" onclick="window.opener ? window.close() : history.back()">Close</button>
         @endif
+        <button type="button" onclick="window.opener ? window.close() : history.back()">Close</button>
         <button type="button" class="go" onclick="window.print()">Print</button>
     </div>
 @endunless

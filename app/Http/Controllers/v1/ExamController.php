@@ -205,9 +205,8 @@ class ExamController extends ApiController
 
         $fontCache = PdfFonts::cacheDir();
 
-        $load = fn (string $fontCss) => Pdf::loadView('admin.admit-card-sheet', [
-            'admitCards'   => collect([$admitCard]),
-            'single'       => $admitCard,
+        $load = fn (string $fontCss) => Pdf::loadView('admin.admit-card-page', [
+            'admitCard'    => $admitCard,
             'organization' => $admitCard->organization,
             'isPdf'        => true,
             'fontCss'      => $fontCss,
