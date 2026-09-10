@@ -68,17 +68,16 @@
                 </div>
 
                 @if ($activeTab === 'homework')
-                    {{-- Teacher → Date → Class → Section → Subject. Moving the date
-                         leaves class / section / subject exactly as they are. --}}
+                    {{-- Date → Class → Section → Subject → Teacher.
+
+                         Class and section set the scope, and picking a section is
+                         already enough to list its homework. Subject and teacher
+                         are two ways of narrowing that same scope, so choosing a
+                         teacher takes the subject picker away and lists whatever
+                         that teacher set for the class and section. Moving the
+                         date leaves every other picker exactly as it is. --}}
                     <input wire:key="hw-search" wire:model.live.debounce.300ms="search" type="text" placeholder="Search title, description, teacher..."
                         class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 flex-shrink-0 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-
-                    <select wire:key="hw-teacher" wire:model.live="filterTeacher" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 flex-shrink-0 max-w-[11rem]">
-                        <option value="">All Teachers</option>
-                        @foreach ($teachers as $teacher)
-                            <option value="{{ $teacher->id }}">{{ $teacher->name }}</option>
-                        @endforeach
-                    </select>
 
                     <input type="date" wire:key="hw-date" wire:model.live="filterDate" title="Assigned on"
                         class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 flex-shrink-0">
@@ -102,11 +101,20 @@
                         @endforeach
                     </select>
 
-                    <select wire:key="hw-subject" wire:model.live="filterSubject" @disabled(!$filterStandard)
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 flex-shrink-0">
-                        <option value="">All Subjects</option>
-                        @foreach ($filterSubjects as $subject)
-                            <option value="{{ $subject->id }}">{{ $subject->name }}</option>
+                    @unless ($filterTeacher)
+                        <select wire:key="hw-subject" wire:model.live="filterSubject" @disabled(!$filterStandard)
+                            class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 flex-shrink-0">
+                            <option value="">All Subjects</option>
+                            @foreach ($filterSubjects as $subject)
+                                <option value="{{ $subject->id }}">{{ $subject->name }}</option>
+                            @endforeach
+                        </select>
+                    @endunless
+
+                    <select wire:key="hw-teacher" wire:model.live="filterTeacher" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 flex-shrink-0 max-w-[11rem]">
+                        <option value="">All Teachers</option>
+                        @foreach ($teachers as $teacher)
+                            <option value="{{ $teacher->id }}">{{ $teacher->name }}</option>
                         @endforeach
                     </select>
 
@@ -120,7 +128,11 @@
                 @else
                     {{-- Homework Status: date → class → section → student → subject.
                          Class and section set the scope; the rest narrow it. --}}
-                    <input type="date" wire:key="st-date" wire:model.live="hwStatusDate" title="Assigned on"
+                    {{-- Homework older than 30 days is purged nightly, so the
+                         picker stops there rather than offering empty days. --}}
+                    <input type="date" wire:key="st-date" wire:model.live="hwStatusDate"
+                        min="{{ $this->hwStatusMinDate() }}" max="{{ $this->hwStatusMaxDate() }}"
+                        title="Assigned on — last 30 days only"
                         class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 flex-shrink-0">
                     @if ($hwStatusDate)
                         <button wire:click="$set('hwStatusDate', '')" title="Recent days"
@@ -664,6 +676,35 @@
 
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
                     <button wire:click="closeViewModal" class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- ══════════════════════════ DELETE CONFIRM ══════════════════════════
+         Its own modal rather than WireUI's dialog: that one builds its button
+         colours at runtime and those classes are not in the compiled Tailwind
+         bundle, so it came out unstyled. The backdrop is inline for the same
+         reason. --}}
+    @if ($showDeleteModal)
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[10000] flex items-center justify-center px-4"
+            style="background:rgba(0,0,0,0.45);backdrop-filter:blur(4px);">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center" wire:click.stop>
+                <div class="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </div>
+                <h3 class="text-base font-bold text-gray-800 mb-1">Delete Homework?</h3>
+                <p class="text-sm text-gray-500 mb-5">This removes the homework and its attachment for good.</p>
+                <div class="flex justify-center gap-3">
+                    <button wire:click="cancelDelete"
+                        class="px-4 py-2 text-sm border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition">Cancel</button>
+                    <button wire:click="doDeleteHomework" wire:loading.attr="disabled" wire:target="doDeleteHomework"
+                        class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold shadow transition disabled:opacity-60">
+                        <span wire:loading.remove wire:target="doDeleteHomework">Delete</span>
+                        <span wire:loading wire:target="doDeleteHomework">Deleting…</span>
+                    </button>
                 </div>
             </div>
         </div>

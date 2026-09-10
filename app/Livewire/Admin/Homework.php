@@ -45,6 +45,9 @@ class Homework extends Component
     public $hwStatusSubjects  = [];
     // How many days back the status register covers when no single date is picked.
     public int $hwStatusDays = 14;
+    // Homework older than this is purged nightly (see routes/console.php), so
+    // the status date picker stops there — there is nothing behind it to show.
+    public const STATUS_DATE_WINDOW_DAYS = 30;
     
     // Form fields
     public $title = '';
@@ -72,6 +75,11 @@ class Homework extends Component
     // View modal data
     public $viewModalTitle = '';
     public $viewHomework = null;
+
+    // Delete confirm — a plain in-page modal rather than WireUI's dialog, whose
+    // runtime-built colour classes are not in the compiled Tailwind bundle.
+    public bool $showDeleteModal = false;
+    public $pendingDeleteId = null;
 
     // Teachers dropdown
     public $teachers = [];
@@ -218,9 +226,16 @@ class Homework extends Component
             $this->filterSubject = '';
         }
 
+        // Subject and teacher are two ways of narrowing the same class+section,
+        // so only one is ever on: picking a teacher drops the subject (and the
+        // picker itself), clearing the teacher hands the subject picker back.
+        if ($property === 'filterTeacher' && $value) {
+            $this->filterSubject = '';
+        }
+
         // NOTE: filterDate is deliberately absent from the cascades above. Moving
-        // through dates keeps whatever class / section / subject is selected, so
-        // those only change when they are changed on purpose.
+        // through dates keeps whatever teacher / class / section / subject is
+        // selected, so those only change when they are changed on purpose.
 
         // Handle subject selection type change in form
         if ($property === 'subject_selection') {
@@ -536,29 +551,28 @@ class Homework extends Component
 
     public function onDeleteHomework($id)
     {
-        $this->dialog()->confirm([
-            'title' => 'Are you Sure?',
-            'icon' => 'exclamation-circle',
-            'iconColor' => 'text-red-500',
-            'description' => 'Are you sure you want to delete this homework? The action cannot be undone.',
-            'accept' => [
-                'label' => 'Yes, delete it',
-                'method' => 'doDeleteHomework',
-                'params' => $id,
-                'color' => 'negative',
-                'size' => 'md',
-            ],
-            'reject' => [
-                'label' => 'No',
-                'size' => 'md',
-            ],
-        ]);
+        $this->pendingDeleteId = $id;
+        $this->showDeleteModal = true;
     }
 
-    public function doDeleteHomework($id)
+    public function cancelDelete(): void
     {
+        $this->showDeleteModal = false;
+        $this->pendingDeleteId = null;
+    }
+
+    public function doDeleteHomework()
+    {
+        $id = $this->pendingDeleteId;
+        $this->cancelDelete();
+
+        if (!$id) {
+            return;
+        }
+
         try {
-            $homework = ModalHomework::findOrFail($id);
+            $homework = ModalHomework::where('organization_id', Auth::user()->organization_id)
+                ->findOrFail($id);
 
             if ($homework->file) {
                 $filePath = parse_url($homework->file, PHP_URL_PATH);
@@ -589,6 +603,49 @@ class Homework extends Component
     public function switchTab(string $tab): void
     {
         $this->activeTab = in_array($tab, ['homework', 'status'], true) ? $tab : 'homework';
+    }
+
+    /** Oldest date the status register can be asked about (30 days back). */
+    public function hwStatusMinDate(): string
+    {
+        return Carbon::today()->subDays(self::STATUS_DATE_WINDOW_DAYS)->toDateString();
+    }
+
+    /** Nothing is assigned in the future, so today is as far forward as it goes. */
+    public function hwStatusMaxDate(): string
+    {
+        return Carbon::today()->toDateString();
+    }
+
+    /**
+     * The picker carries min/max, but a date can still be typed straight into
+     * it — anything outside the window snaps back to the nearest end.
+     */
+    public function updatedHwStatusDate($value): void
+    {
+        if (!$value) {
+            return;
+        }
+
+        try {
+            $picked = Carbon::parse($value)->startOfDay();
+        } catch (\Throwable $e) {
+            $this->hwStatusDate = '';
+            return;
+        }
+
+        $min = Carbon::parse($this->hwStatusMinDate());
+        $max = Carbon::parse($this->hwStatusMaxDate());
+
+        if ($picked->lt($min)) {
+            $this->hwStatusDate = $min->toDateString();
+            $this->notification()->info(
+                'Only the last ' . self::STATUS_DATE_WINDOW_DAYS . ' days',
+                'Homework older than that is removed automatically, so there is nothing to show behind ' . $min->format('d M Y') . '.'
+            );
+        } elseif ($picked->gt($max)) {
+            $this->hwStatusDate = $max->toDateString();
+        }
     }
 
     public function updatedHwStatusStandard($value): void
