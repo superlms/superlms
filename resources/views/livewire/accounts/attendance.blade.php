@@ -245,6 +245,7 @@
                             <input type="date" wire:model.live="tDate" class="text-sm border border-gray-300 rounded-md px-3 py-1.5">
                             <button wire:click="markAllTeachers('present')" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100">Mark all Present</button>
                             <button wire:click="markAllTeachers('holiday')" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100">Mark all as Holiday</button>
+                                <button wire:click="markAllTeachers('')" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 text-gray-600 bg-white hover:bg-gray-100">Clear all</button>
                         </div>
                         <button wire:click="submitTeacherAttendance" wire:loading.attr="disabled"
                             class="inline-flex items-center gap-1.5 px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold rounded-lg disabled:opacity-60">
@@ -281,7 +282,7 @@
                                             </div>
                                         </td>
                                         <td class="px-4 py-3">
-                                            @php $cur = $teacherMark[$t->id]['status'] ?? 'present'; @endphp
+                                            @php $cur = $teacherMark[$t->id]['status'] ?? ''; @endphp
                                             <div class="flex items-center justify-center gap-1">
                                                 <button wire:click="setTeacherStatus({{ $t->id }}, 'present')" class="px-2.5 py-1.5 text-xs font-semibold rounded-md border {{ $cur === 'present' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-gray-600 border-gray-200' }}">Present</button>
                                                 <button wire:click="setTeacherStatus({{ $t->id }}, 'absent')" class="px-2.5 py-1.5 text-xs font-semibold rounded-md border {{ $cur === 'absent' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-600 border-gray-200' }}">Absent</button>
@@ -289,6 +290,10 @@
                                                 @if ($cur === 'holiday')
                                                     <span class="px-2.5 py-1.5 text-xs font-semibold rounded-md bg-indigo-100 text-indigo-700">Holiday</span>
                                                 @endif
+                                                <button wire:click="setStudentStatus({{ $s->id }}, '')" title="Leave unmarked"
+                                                    class="w-7 h-7 flex items-center justify-center text-xs font-bold rounded-md border {{ $cur === '' ? 'bg-gray-200 text-gray-500 border-gray-300' : 'bg-white text-gray-300 border-gray-200 hover:text-gray-600' }}">&times;</button>
+                                                <button wire:click="setTeacherStatus({{ $t->id }}, '')" title="Leave unmarked"
+                                                    class="w-7 h-7 flex items-center justify-center text-xs font-bold rounded-md border {{ $cur === '' ? 'bg-gray-200 text-gray-500 border-gray-300' : 'bg-white text-gray-300 border-gray-200 hover:text-gray-600' }}">&times;</button>
                                             </div>
                                         </td>
                                         <td class="px-4 py-3">
@@ -386,6 +391,7 @@
                                 <span class="text-sm text-gray-600">{{ $markStudents->count() }} student(s)</span>
                                 <button wire:click="markAllStudents('present')" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100">Mark all Present</button>
                                 <button wire:click="markAllStudents('holiday')" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100">Mark all as Holiday</button>
+                                <button wire:click="markAllStudents('')" class="px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-200 text-gray-600 bg-white hover:bg-gray-100">Clear all</button>
                             </div>
                             <button wire:click="submitStudentAttendance" wire:loading.attr="disabled"
                                 class="inline-flex items-center gap-1.5 px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold rounded-lg disabled:opacity-60">
@@ -422,7 +428,7 @@
                                                 </div>
                                             </td>
                                             <td class="px-4 py-3">
-                                                @php $cur = $studentMark[$s->id]['status'] ?? 'present'; @endphp
+                                                @php $cur = $studentMark[$s->id]['status'] ?? ''; @endphp
                                                 <div class="flex items-center justify-center gap-1">
                                                     <button wire:click="setStudentStatus({{ $s->id }}, 'present')" class="px-2.5 py-1.5 text-xs font-semibold rounded-md border {{ $cur === 'present' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-gray-600 border-gray-200' }}">Present</button>
                                                     <button wire:click="setStudentStatus({{ $s->id }}, 'absent')" class="px-2.5 py-1.5 text-xs font-semibold rounded-md border {{ $cur === 'absent' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-600 border-gray-200' }}">Absent</button>

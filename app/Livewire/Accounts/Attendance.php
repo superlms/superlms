@@ -174,11 +174,29 @@ class Attendance extends Component
         $this->teacherMark = [];
         foreach ($teachers as $t) {
             $rec = $existing->get($t->id);
+            // A row left blank saves nothing at all, so a day nobody marked
+            // stays unmarked instead of quietly becoming present.
             $this->teacherMark[$t->id] = [
-                'status' => $rec ? $this->toLabel($rec->status) : 'present',
+                'status' => $rec ? $this->toLabel($rec->status) : $this->defaultStatusFor($this->tDate),
                 'remark' => $rec->remarks ?? '',
             ];
         }
+    }
+
+    /**
+     * What a row starts on in the mark flow. Sunday is the standing holiday;
+     * every other day starts BLANK, so an untouched row is never saved as
+     * present and the day stays open to be marked later.
+     */
+    private function defaultStatusFor($date): string
+    {
+        return (int) Carbon::parse($date)->dayOfWeek === Carbon::SUNDAY ? 'holiday' : '';
+    }
+
+    /** Rows carrying an actual status — blank ones are not written at all. */
+    private function markedCount(array $rows): int
+    {
+        return count(array_filter($rows, fn($r) => ($r['status'] ?? '') !== ''));
     }
 
     public function setTeacherStatus($teacherId, string $status): void
@@ -201,11 +219,23 @@ class Attendance extends Component
         $markedBy = Auth::id();
 
         DB::transaction(function () use ($orgId, $markedBy) {
+            $clear = [];
+
             foreach ($this->teacherMark as $teacherId => $row) {
+                if (($row['status'] ?? '') === '') {
+                    $clear[] = $teacherId;
+                    continue;
+                }
                 TeacherAttendance::updateOrCreate(
                     ['teacher_detail_id' => $teacherId, 'organization_id' => $orgId, 'attendance_date' => $this->tDate],
                     ['status' => $this->toInt($row['status']), 'remarks' => $row['remark'] ?? '', 'marked_by' => $markedBy]
                 );
+            }
+
+            if ($clear) {
+                TeacherAttendance::where('organization_id', $orgId)
+                    ->whereIn('teacher_detail_id', $clear)
+                    ->whereDate('attendance_date', $this->tDate)->delete();
             }
         });
 
@@ -257,7 +287,7 @@ class Attendance extends Component
         foreach ($students as $s) {
             $rec = $existing->get($s->id);
             $this->studentMark[$s->id] = [
-                'status'  => $rec ? $this->toLabel($rec->status) : 'present',
+                'status'  => $rec ? $this->toLabel($rec->status) : $this->defaultStatusFor($this->stDate),
                 'remark'  => $rec->remarks ?? '',
                 'user_id' => $s->user_id,
             ];
@@ -289,7 +319,13 @@ class Attendance extends Component
         $notifyRows = [];
 
         DB::transaction(function () use ($orgId, $markedBy, &$notifyRows) {
+            $clear = [];
+
             foreach ($this->studentMark as $studentId => $row) {
+                if (($row['status'] ?? '') === '') {
+                    $clear[] = $studentId;
+                    continue;
+                }
                 $statusInt = $this->toInt($row['status']);
                 StudentAttendance::updateOrCreate(
                     ['student_detail_id' => $studentId, 'organization_id' => $orgId, 'attendance_date' => $this->stDate],
@@ -298,6 +334,12 @@ class Attendance extends Component
                 if (!empty($row['user_id'])) {
                     $notifyRows[] = ['user_id' => $row['user_id'], 'status' => $statusInt];
                 }
+            }
+
+            if ($clear) {
+                StudentAttendance::where('organization_id', $orgId)
+                    ->whereIn('student_detail_id', $clear)
+                    ->whereDate('attendance_date', $this->stDate)->delete();
             }
         });
 
