@@ -696,7 +696,7 @@
 
     {{-- ══════════ ADD/EDIT EMPLOYEE SLIDE-IN PANEL ══════════ --}}
     @if ($showEmpModal)
-        <div class="fixed inset-0 z-[9999] overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeEmpModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -815,7 +815,7 @@
 
     {{-- ══════════ EMPLOYEE DETAIL SLIDE-IN PANEL ══════════ --}}
     @if ($showEmpDetailModal && $selectedEmployee)
-        <div class="fixed inset-0 z-[9999] overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeEmpDetailModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -874,7 +874,7 @@
     {{-- ══════════ PAY SALARY SLIDE-IN PANEL ══════════ --}}
     @if ($showPayModal)
         @php $payEmp = \App\Models\Admin\AdminEmployee::find($payEmployeeId); @endphp
-        <div class="fixed inset-0 z-[9999] overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closePayModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">

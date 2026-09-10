@@ -101,7 +101,7 @@
          SLIDE-IN PANEL — Add / Edit
     ══════════════════════════════════════════════════ --}}
     @if ($showPanel)
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closePanel"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
 
@@ -243,7 +243,7 @@
          SLIDE-IN PANEL — View
     ══════════════════════════════════════════════════ --}}
     @if ($showViewPanel)
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeViewPanel"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-md bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">

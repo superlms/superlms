@@ -874,7 +874,7 @@
 
     {{-- ══════════ DELETE CONFIRMS (standardized) ══════════ --}}
     @if ($pendingDeleteContactIndex !== null)
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="cancelRemoveContact"></div>
             <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
                 <div class="flex items-start gap-4">
@@ -897,7 +897,7 @@
     @endif
 
     @if ($pendingDeleteTeamIndex !== null)
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="cancelRemoveTeamMember"></div>
             <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
                 <div class="flex items-start gap-4">
@@ -926,7 +926,7 @@
     @endif
 
     @if ($pendingDeleteSocialIndex !== null)
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="cancelRemoveSocialMedia"></div>
             <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
                 <div class="flex items-start gap-4">
@@ -956,7 +956,7 @@
 
     {{-- ══════════ CONTACT SLIDE-IN PANEL ══════════ --}}
     @if ($showContactModal)
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeContactModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
 
@@ -1007,7 +1007,7 @@
 
     {{-- ══════════ TEAM SLIDE-IN PANEL ══════════ --}}
     @if ($showTeamModal)
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeTeamModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
 
@@ -1142,7 +1142,7 @@
             $knownPlatforms = ['facebook', 'twitter', 'x', 'instagram', 'linkedin', 'youtube', 'github', 'whatsapp', 'telegram', 'discord', 'tiktok', 'pinterest', 'snapchat', 'reddit'];
             $hasKnownIcon = in_array($currentPlatform, $knownPlatforms, true);
         @endphp
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeSocialModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
 
@@ -1236,7 +1236,7 @@
 
     {{-- ══════════ DOCUMENT SLIDE-IN PANEL ══════════ --}}
     @if ($showDocumentModal)
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeDocumentModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
 
@@ -1323,7 +1323,7 @@
 
     {{-- ══════════ DELETE DOCUMENT CONFIRM ══════════ --}}
     @if ($pendingDeleteDocumentIndex !== null)
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="cancelRemoveDocument"></div>
             <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
                 <div class="flex items-start gap-4">

@@ -144,7 +144,7 @@
          SLIDE-IN PANEL — Create / Edit (2 steps)
     ══════════════════════════════════════════════════ --}}
     @if ($showPanel)
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closePanel"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
 
@@ -320,7 +320,7 @@
          SLIDE-IN PANEL — View
     ══════════════════════════════════════════════════ --}}
     @if ($showViewPanel)
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeViewPanel"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-md bg-white shadow-2xl flex flex-col">
                 {{-- Panel Header --}}
@@ -376,7 +376,7 @@
          DELETE CONFIRM OVERLAY
     ══════════════════════════════════════════════════ --}}
     @if ($showDeleteConfirm)
-        <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[60] flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/30 backdrop-blur-[1.5px]" wire:click="cancelDelete"></div>
             <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
                 <div class="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center mx-auto mb-4">

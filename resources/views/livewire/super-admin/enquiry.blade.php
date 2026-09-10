@@ -263,7 +263,7 @@
          VIEW SLIDE-IN PANEL
     ══════════════════════════════════════════════════ --}}
     @if ($showDetailModal && $selectedEnquiry)
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeDetailModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
 
@@ -370,7 +370,7 @@
          REMARK SLIDE-IN PANEL
     ══════════════════════════════════════════════════ --}}
     @if ($showRemarkModal)
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeRemarkModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
 
@@ -410,7 +410,7 @@
          DELETE CONFIRM OVERLAY
     ══════════════════════════════════════════════════ --}}
     @if ($pendingDeleteId)
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="cancelDelete"></div>
             <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
                 <div class="flex items-start gap-4">

@@ -230,8 +230,7 @@
          The admin profile's flow, teleported to <body> so the panel paints over
          the navbar and sidebar rather than under them. --}}
     @if ($showPasswordPanel)
-        @teleport('body')
-        <div class="fixed inset-0 z-[70] overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closePasswordPanel"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
 
@@ -319,6 +318,5 @@
                 </div>
             </div>
         </div>
-        @endteleport
     @endif
 </div>

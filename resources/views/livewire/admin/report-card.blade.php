@@ -411,8 +411,7 @@
      one row per selected student, plus a shared issue date.
 ══════════════════════════════════════════════════ --}}
 @if ($showIssueForm)
-    @teleport('body')
-    <div class="fixed inset-0 z-[70] overflow-hidden">
+    <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
         <div class="absolute inset-0 bg-black/[0.08] backdrop-blur-[1.5px]" wire:click="closeIssueForm"></div>
         <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
 
@@ -508,6 +507,5 @@
             </div>
         </div>
     </div>
-    @endteleport
 @endif
 </div>

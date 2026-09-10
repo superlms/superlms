@@ -290,7 +290,7 @@
 
     {{-- ADD CREDIT / EXPENSE SLIDE-IN PANEL --}}
     @if ($showModal)
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -382,7 +382,7 @@
     @endif
 
     {{-- EXPORT STATEMENT DIALOG — pick the period before the PDF is built --}}
-    <div x-cloak x-show="showExport" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div x-cloak x-show="showExport" class="fixed inset-x-0 bottom-0 top-16 z-50 flex items-center justify-center p-4">
         <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" @click="showExport = false"></div>
         <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-md">
             <div class="px-6 py-4 border-b border-gray-200">
@@ -449,7 +449,7 @@
 
     {{-- VIEW TRANSACTION SLIDE-IN PANEL (client-side, works for every row).
          Same plain label/value layout as the Exams view panel. --}}
-    <div x-cloak x-show="showView" class="fixed inset-0 z-50 overflow-hidden">
+    <div x-cloak x-show="showView" class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
         <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" @click="showView = false"></div>
         <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col"
             x-transition:enter="transition ease-out duration-200"

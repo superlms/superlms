@@ -465,7 +465,7 @@
 
     {{-- ══════════ ADD STUDENT SLIDE-IN PANEL ══════════ --}}
     @if ($showAddPanel)
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             {{-- Backdrop --}}
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeAddPanel"></div>
 
@@ -809,7 +809,7 @@
 
     {{-- ══════════ VIEW SLIDE-IN PANEL ══════════ --}}
     @if ($showViewModal && !empty($viewData))
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeViewModal"></div>
             <div class="absolute top-0 right-0 bottom-0 z-10 w-full max-w-lg bg-white shadow-2xl flex flex-col overflow-hidden">
                 {{-- Header --}}
@@ -921,7 +921,7 @@
 
     {{-- ══════════ EDIT STUDENT SLIDE-IN PANEL ══════════ --}}
     @if ($showEditPanel)
-        <div class="fixed inset-0 z-[9999]">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeEditPanel"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-lg bg-white shadow-2xl flex flex-col z-10">
                 {{-- Header --}}
@@ -1176,7 +1176,7 @@
 
     {{-- ══════════ DELETE CONFIRMATION ══════════ --}}
     @if ($showDeleteConfirm)
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" wire:click="cancelDelete"></div>
             <div class="relative z-10 bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
                 <div class="flex flex-col items-center text-center gap-3">

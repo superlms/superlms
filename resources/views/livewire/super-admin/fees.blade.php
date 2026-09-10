@@ -733,7 +733,7 @@
 
     {{-- ══════════ ADD/UPDATE FEE SLIDE-IN PANEL ══════════ --}}
     @if ($showFeePanel)
-        <div class="fixed inset-0 z-[9999]">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeFeePanel"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-lg bg-white shadow-2xl flex flex-col z-10">
 
@@ -927,8 +927,7 @@
 
     {{-- ══════════ UPDATE FEE SLIDE-IN PANEL (header — choose org → update payments) ══════════ --}}
     @if ($showUpdatePanel)
-        @teleport('body')
-        <div class="fixed inset-0 z-[70] overflow-hidden" x-data @keydown.escape.window="$wire.closeUpdatePanel()">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden" x-data @keydown.escape.window="$wire.closeUpdatePanel()">
             <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closeUpdatePanel"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col">
 
@@ -1189,7 +1188,6 @@
 
             </div>
         </div>
-        @endteleport
     @endif
 
     {{-- ══════════ LEGACY PER-CLASS FEE EDIT MODAL ══════════ --}}
@@ -1203,8 +1201,7 @@
 
     {{-- ══════════ RECORD / EDIT PAYMENT MODAL ══════════ --}}
     @if ($showPayModal)
-        @teleport('body')
-        <div class="fixed inset-0 z-[80] overflow-hidden" x-data @keydown.escape.window="$wire.closePayModal()">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[60] overflow-hidden" x-data @keydown.escape.window="$wire.closePayModal()">
             <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closePayModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-md bg-white shadow-2xl flex flex-col">
 
@@ -1324,7 +1321,6 @@
                 </div>
             </div>
         </div>
-        @endteleport
     @endif
 
 </div>

@@ -422,7 +422,7 @@
          ADD / EDIT TEACHER SLIDE-IN PANEL (Exams style)
     ══════════════════════════════════════════════════ --}}
     @if ($open)
-        <div class="fixed inset-0 z-[9999] overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
 
@@ -580,7 +580,7 @@
          VIEW TEACHER SLIDE-IN PANEL
     ══════════════════════════════════════════════════ --}}
     @if ($showViewModal && !empty($viewData))
-        <div class="fixed inset-0 z-[9999] overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeViewModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
 
@@ -732,7 +732,7 @@
          DELETE CONFIRM OVERLAY (replaces broken WireUI dialog)
     ══════════════════════════════════════════════════ --}}
     @if ($showDeleteConfirm)
-        <div class="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="cancelDelete"></div>
             <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
                 <div class="flex items-start gap-4">

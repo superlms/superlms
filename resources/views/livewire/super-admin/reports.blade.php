@@ -244,8 +244,7 @@
 
     {{-- ══════════════ DAY + METRIC DETAIL DRAWER ══════════════ --}}
     @if ($detailOpen)
-        @teleport('body')
-        <div class="fixed inset-0 z-[70] overflow-hidden" x-data @keydown.escape.window="$wire.closeDetail()">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden" x-data @keydown.escape.window="$wire.closeDetail()">
             <div class="absolute inset-0 bg-black/30 backdrop-blur-[1.5px]" wire:click="closeDetail"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-lg bg-white shadow-2xl flex flex-col"
                 x-transition:enter="transition ease-out duration-300"
@@ -292,6 +291,5 @@
                 </div>
             </div>
         </div>
-        @endteleport
     @endif
 </div>

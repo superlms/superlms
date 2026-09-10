@@ -242,7 +242,7 @@
 
     {{-- ══════════════ ISSUE CERTIFICATE SLIDE-IN PANEL ══════════════ --}}
     @if ($certModal)
-    <div class="fixed inset-0 z-[9999] overflow-hidden">
+    <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
         <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeCertModal"></div>
         <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col" wire:click.stop>
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
@@ -353,7 +353,7 @@
 
     {{-- ══════════════ ISSUE TC SLIDE-IN PANEL ══════════════ --}}
     @if ($tcModal)
-    <div class="fixed inset-0 z-[9999] overflow-hidden">
+    <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
         <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeTcModal"></div>
         <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col" wire:click.stop>
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">

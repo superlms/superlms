@@ -178,7 +178,7 @@
     {{-- ══════════════ VIEW CARD MODAL ══════════════ --}}
     @if ($showViewModal && $viewCard)
         @php $c = app(\App\Services\IdCardService::class)->cardViewData($viewCard, $viewType); @endphp
-        <div class="fixed inset-0 z-[9999] overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closeViewModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col" wire:click.stop>
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
@@ -199,7 +199,7 @@
 
     {{-- ══════════════ GENERATE SLIDE-IN PANEL ══════════════ --}}
     @if ($showGenerateModal)
-        <div class="fixed inset-0 z-[9999] overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closeGenerate"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-md bg-white shadow-2xl flex flex-col" wire:click.stop>
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
@@ -272,7 +272,7 @@
 
     {{-- ══════════════ EDIT SLIDE-IN PANEL ══════════════ --}}
     @if ($showEditModal)
-        <div class="fixed inset-0 z-[9999] overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closeEditModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-md bg-white shadow-2xl flex flex-col" wire:click.stop>
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
@@ -304,7 +304,7 @@
 
     {{-- ══════════════ DELETE MODAL ══════════════ --}}
     @if ($showDeleteModal)
-        <div class="fixed inset-0 z-[10000] flex items-center justify-center px-4" style="background:rgba(0,0,0,0.45);backdrop-filter:blur(4px);">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[10000] flex items-center justify-center px-4" style="background:rgba(0,0,0,0.45);backdrop-filter:blur(4px);">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center" wire:click.stop>
                 <div class="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-red-100 mb-4">
                     <x-icon name="exclamation-triangle" class="h-7 w-7 text-red-500" />

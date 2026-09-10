@@ -209,7 +209,7 @@
          UPLOAD COPIES SLIDE-IN PANEL
     ══════════════════════════════════════════════════ --}}
     @if ($showUploadModal)
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeUploadModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-5xl bg-white shadow-2xl flex flex-col">
 
@@ -377,7 +377,7 @@
          EDIT SLIDE-IN PANEL
     ══════════════════════════════════════════════════ --}}
     @if ($showEditModal && !empty($editCopyMeta))
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeEditModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
 
@@ -445,7 +445,7 @@
          DELETE CONFIRM
     ══════════════════════════════════════════════════ --}}
     @if ($showDeleteConfirm)
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="cancelDelete"></div>
             <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
                 <div class="flex items-start gap-4">
@@ -470,7 +470,7 @@
          (sits above the panel, hence z-[60])
     ══════════════════════════════════════════════════ --}}
     @if ($showUploadDeleteConfirm)
-        <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[60] flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="cancelUploadDelete"></div>
             <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
                 <div class="flex items-start gap-4">

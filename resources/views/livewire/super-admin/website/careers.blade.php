@@ -315,8 +315,7 @@
          (see faqs.blade.php) — otherwise the panel's close button is dead under
          the navbar and outside clicks never reach the backdrop. --}}
     @if ($showJobPanel)
-        @teleport('body')
-        <div class="fixed inset-0 z-[70] overflow-hidden" x-data @keydown.escape.window="$wire.closeJobPanel()">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden" x-data @keydown.escape.window="$wire.closeJobPanel()">
             <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closeJobPanel"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-lg bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -371,13 +370,11 @@
                 </div>
             </div>
         </div>
-        @endteleport
     @endif
 
     {{-- ══════════════════ APPLICATION VIEW SLIDE-IN PANEL ══════════════════ --}}
     @if ($viewing)
-        @teleport('body')
-        <div class="fixed inset-0 z-[70] overflow-hidden" x-data @keydown.escape.window="$wire.closeApplication()">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden" x-data @keydown.escape.window="$wire.closeApplication()">
             <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closeApplication"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -451,12 +448,10 @@
                 </div>
             </div>
         </div>
-        @endteleport
     @endif
 
     {{-- ══════════════════ DELETE JOB CONFIRM ══════════════════ --}}
     @if ($pendingJobDelete !== null)
-        @teleport('body')
         <div class="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-[9999] px-4">
             <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
                 <div class="px-5 py-4 border-b border-gray-100 bg-red-50 flex items-center gap-3">
@@ -474,12 +469,10 @@
                 </div>
             </div>
         </div>
-        @endteleport
     @endif
 
     {{-- ══════════════════ DELETE APPLICATION CONFIRM ══════════════════ --}}
     @if ($pendingAppDelete !== null)
-        @teleport('body')
         <div class="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-[9999] px-4">
             <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
                 <div class="px-5 py-4 border-b border-gray-100 bg-red-50 flex items-center gap-3">
@@ -497,7 +490,6 @@
                 </div>
             </div>
         </div>
-        @endteleport
     @endif
 
     {{-- Open document in a new browser tab (second screen) --}}

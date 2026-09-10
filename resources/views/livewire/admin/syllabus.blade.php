@@ -210,7 +210,7 @@
 ═══════════════════════════════════════════════════ --}}
 @if ($openChapterModal)
 @php $chapterIsEdit = collect($chapterRows)->contains(fn($r) => !empty($r['id'])); @endphp
-<div class="fixed inset-0 z-50 overflow-hidden">
+<div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
     <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeChapterModal"></div>
     <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -318,7 +318,7 @@
 ═══════════════════════════════════════════════════ --}}
 @if ($openTopicModal)
 @php $topicIsEdit = collect($topicRows)->contains(fn($r) => !empty($r['id'])); @endphp
-<div class="fixed inset-0 z-50 overflow-hidden">
+<div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
     <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeTopicModal"></div>
     <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -432,7 +432,7 @@
      TOPIC VIEW
 ═══════════════════════════════════════════════════ --}}
 @if ($showTopicView)
-<div class="fixed inset-0 z-[60] overflow-hidden">
+<div class="fixed inset-x-0 bottom-0 top-16 z-[60] overflow-hidden">
     <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeTopicView"></div>
     {{-- Same plain label/value panel the Exams view uses --}}
     <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
@@ -486,7 +486,7 @@
      TOPIC EDIT
 ═══════════════════════════════════════════════════ --}}
 @if ($showTopicEdit)
-<div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+<div class="fixed inset-x-0 bottom-0 top-16 z-[60] flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="closeTopicEdit"></div>
     <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
         <div class="flex items-start justify-between mb-4">
@@ -511,7 +511,7 @@
      TOPIC DELETE CONFIRM
 ═══════════════════════════════════════════════════ --}}
 @if ($showTopicDelete)
-<div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+<div class="fixed inset-x-0 bottom-0 top-16 z-[60] flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="cancelTopicDelete"></div>
     <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
         <div class="flex items-start gap-4">

@@ -462,8 +462,7 @@
 
     {{-- ══════════ TEACHERS ══════════ --}}
     @if ($showTeacherMarkPanel)
-    @teleport('body')
-    <div class="fixed inset-0 z-[70] overflow-hidden">
+    <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
         <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeTeacherMark"></div>
         <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col"
             wire:key="tmark-{{ $tMarkDate }}-{{ count($teacherMark) }}"
@@ -574,13 +573,11 @@
             </div>
         </div>
     </div>
-    @endteleport
     @endif
 
     {{-- ══════════ STUDENTS ══════════ --}}
     @if ($showStudentMarkPanel)
-    @teleport('body')
-    <div class="fixed inset-0 z-[70] overflow-hidden">
+    <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
         <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeStudentMark"></div>
         <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col"
             wire:key="smark-{{ $sMarkDate }}-{{ $sMarkStandard }}-{{ $sMarkSection }}-{{ count($studentMark) }}"
@@ -705,12 +702,11 @@
             </div>
         </div>
     </div>
-    @endteleport
     @endif
 
     {{-- ══════════ ASSIGN CLASS TEACHER SLIDE-IN ══════════ --}}
     @if ($showAssignPanel)
-        <div class="fixed inset-0 z-[9999] overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
             <div class="absolute inset-0 bg-black/40 backdrop-blur-[2px]" wire:click="closeAssignPanel"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -788,7 +784,7 @@
 
     {{-- ══════════ DELETE ASSIGN CONFIRM ══════════ --}}
     @if ($pendingDeleteAssignId !== null)
-        <div class="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="cancelDeleteAssign"></div>
             <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
                 <div class="flex items-start gap-4">

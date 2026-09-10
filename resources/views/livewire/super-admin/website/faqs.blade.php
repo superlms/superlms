@@ -123,8 +123,7 @@
          At body level with z-[70] the backdrop covers the whole screen, so a
          click anywhere outside the panel closes it. --}}
     @if ($showPanel)
-        @teleport('body')
-        <div class="fixed inset-0 z-[70] overflow-hidden" x-data @keydown.escape.window="$wire.closePanel()">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden" x-data @keydown.escape.window="$wire.closePanel()">
             <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closePanel"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-lg bg-white shadow-2xl flex flex-col">
 
@@ -190,12 +189,10 @@
                 </div>
             </div>
         </div>
-        @endteleport
     @endif
 
     {{-- ══════════════════ DELETE CONFIRM ══════════════════ --}}
     @if ($pendingDelete !== null)
-        @teleport('body')
         <div class="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-[9999] px-4">
             <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
                 <div class="px-5 py-4 border-b border-gray-100 bg-red-50 flex items-center gap-3">
@@ -218,6 +215,5 @@
                 </div>
             </div>
         </div>
-        @endteleport
     @endif
 </div>

@@ -420,8 +420,7 @@
             $totalPenalty = ($q->penalties_per_day ?? 0) * $lateDays;
             $totalReceive = $q->amount + $totalPenalty;
         @endphp
-        @teleport('body')
-        <div class="fixed inset-0 z-[70] overflow-hidden" x-data @keydown.escape.window="$wire.closeViewModal()">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden" x-data @keydown.escape.window="$wire.closeViewModal()">
             <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closeViewModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col">
 
@@ -572,18 +571,13 @@
                 </div>
             </div>
         </div>
-        @endteleport
     @endif
 
     {{-- ══════════ STATUS / REMARK PANEL ══════════ --}}
     @if ($showStatusModal)
-        @teleport('body')
-        <div class="fixed inset-0 z-[75] flex items-start justify-end bg-black/30 backdrop-blur-sm"
-            wire:click.self="closeStatusModal">
-            <div class="relative w-full max-w-md h-screen bg-white shadow-2xl flex flex-col"
-                x-data x-transition:enter="transition ease-out duration-300"
-                x-transition:enter-start="translate-x-full opacity-0"
-                x-transition:enter-end="translate-x-0 opacity-100">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[55] overflow-hidden">
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeStatusModal"></div>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-md bg-white shadow-2xl flex flex-col">
 
                 {{-- Header --}}
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white flex-shrink-0">
@@ -684,18 +678,13 @@
 
             </div>
         </div>
-        @endteleport
     @endif
 
     {{-- ══════════ POLICY FORM PANEL ══════════ --}}
     @if ($showPolicyForm)
-        @teleport('body')
-        <div class="fixed inset-0 z-[75] flex items-start justify-end bg-black/30 backdrop-blur-sm"
-            wire:click.self="closePolicyForm">
-            <div class="relative w-full max-w-xl h-screen bg-white shadow-2xl flex flex-col"
-                x-data x-transition:enter="transition ease-out duration-300"
-                x-transition:enter-start="translate-x-full opacity-0"
-                x-transition:enter-end="translate-x-0 opacity-100">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[55] overflow-hidden">
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closePolicyForm"></div>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
 
                 {{-- Header --}}
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white flex-shrink-0">
@@ -830,13 +819,11 @@
 
             </div>
         </div>
-        @endteleport
     @endif
 
     {{-- ══════════ MARK AS COLLECTED CONFIRM ══════════ --}}
     @if ($showCollectModal)
-        @teleport('body')
-        <div class="fixed inset-0 z-[85] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[65] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
                 x-data x-transition:enter="transition ease-out duration-200"
                 x-transition:enter-start="opacity-0 scale-95"
@@ -867,13 +854,11 @@
                 </div>
             </div>
         </div>
-        @endteleport
     @endif
 
     {{-- ══════════ DELETE QUERY CONFIRM ══════════ --}}
     @if ($pendingDeleteQueryId)
-        @teleport('body')
-        <div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
                 <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -895,13 +880,11 @@
                 </div>
             </div>
         </div>
-        @endteleport
     @endif
 
     {{-- ══════════ DELETE POLICY CONFIRM ══════════ --}}
     @if ($pendingDeletePolicyId)
-        @teleport('body')
-        <div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
                 <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -923,7 +906,6 @@
                 </div>
             </div>
         </div>
-        @endteleport
     @endif
 
 </div>

@@ -1141,7 +1141,7 @@
 
     {{-- ══════════ ADD / EDIT SCHOOL SLIDE-IN PANEL ══════════ --}}
     @if ($showModal)
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeModal"></div>
             <div class="absolute top-0 right-0 bottom-0 z-10 w-full max-w-2xl bg-white shadow-2xl flex flex-col overflow-hidden">
 
@@ -1368,7 +1368,7 @@
 
     {{-- ══════════ BANK DETAILS SLIDE-IN PANEL ══════════ --}}
     @if ($showBankModal)
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeBankModal"></div>
             <div class="absolute top-0 right-0 bottom-0 z-10 w-full max-w-xl bg-white shadow-2xl flex flex-col overflow-hidden">
 
@@ -1448,7 +1448,7 @@
 
     {{-- ══════════ ONLINE PAYMENT MODAL ══════════ --}}
     @if ($showPaymentModal)
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closePaymentModal"></div>
             <div class="absolute top-0 right-0 bottom-0 z-10 w-full max-w-xl bg-white shadow-2xl flex flex-col overflow-hidden">
 
@@ -1547,7 +1547,7 @@
 
     {{-- ══════════ DELETE CONFIRMATION (OTP-verified) ══════════ --}}
     @if ($showDeleteConfirm)
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" wire:click="cancelDelete"></div>
             <div class="relative z-10 bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
 
