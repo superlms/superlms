@@ -362,9 +362,9 @@ class AdmitCard extends Component
     }
 
     /** Changing any of the panel's pickers rebuilds the list and the selection. */
-    public function updatedPrintExam(): void        { $this->syncPrintSelection(); }
-    public function updatedPrintStandard(): void    { $this->printSection = ''; $this->syncPrintSelection(); }
-    public function updatedPrintSection(): void     { $this->syncPrintSelection(); }
+    public function updatedPrintExam(): void     { $this->syncPrintSelection(); }
+    public function updatedPrintStandard(): void { $this->printSection = ''; $this->syncPrintSelection(); }
+    public function updatedPrintSection(): void  { $this->syncPrintSelection(); }
     public function updatedPrintIncludeDone(): void { $this->syncPrintSelection(); }
 
     /** Tick everything the current pickers offer. */
@@ -397,8 +397,8 @@ class AdmitCard extends Component
             return;
         }
 
-        // Stamp them as printed, so a later run only produces the cards issued
-        // since — the ones left behind, not the whole class again.
+        // Stamp them as printed, so the next run only produces the cards issued
+        // since — the 30 that were left behind, not all 50 again.
         ModelAdmitCard::where('organization_id', $this->orgId())
             ->whereIn('id', $ids)
             ->update(['printed_at' => now()]);
