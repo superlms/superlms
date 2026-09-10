@@ -20,10 +20,17 @@
         * { box-sizing: border-box; }
         body, h1, p, ol, li, table, td, th, div { margin: 0; padding: 0; }
 
-        /* A4 landscape is 297 × 210mm; 6mm margins leave 285 × 198mm of paper
-           for two 142.5mm columns and two 99mm rows, with enough slack that
-           rounding can never push the fourth card onto a second sheet. */
-        @page { size: A4 landscape; margin: 6mm; }
+        /* A4 landscape is 297 × 210mm; 5mm margins leave 287 × 200mm of paper.
+           Two 90mm rows are 180mm of that, and the 20mm left over is the point.
+           Sizing the rows to fill the box exactly is what put the bottom row on
+           a second sheet: the collapsed cut-line borders add their own fraction
+           of a millimetre, and a 99mm row rounds up to 375px at 96dpi, so
+           "exactly 198mm" measured 198.4mm and the row was pushed over.
+
+           The row height is fixed while the page box is not — a browser told to
+           use its own margins instead of these gives only 190mm — so the slack
+           is sized to survive that too: 180mm still leaves 10mm there. */
+        @page { size: A4 landscape; margin: 5mm; }
 
         body {
             font-family: 'Poppins', 'Inter', 'DejaVu Sans', Arial, sans-serif;
@@ -33,10 +40,10 @@
 
         /* ═══ The sheet: four quadrants of an A4 landscape page ═══
            A table, not grid/flex, because dompdf renders this same markup for
-           the download. Every card is one 99mm-tall cell, so a run of one card
+           the download. Every card is one 90mm-tall cell, so a run of one card
            occupies exactly one quadrant instead of stretching over the page. */
-        .sheet { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        .sheet .cell { width: 50%; height: 99mm; vertical-align: top; padding: 0; }
+        .sheet { width: 100%; border-collapse: collapse; table-layout: fixed; page-break-inside: avoid; }
+        .sheet .cell { width: 50%; height: 90mm; vertical-align: top; padding: 0; }
         .sheet tr { page-break-inside: avoid; }
         /* Cut lines only where a card actually has a neighbour, so a sheet of
            one or three cards prints clean. */
@@ -50,7 +57,7 @@
            its quadrant, so four always land on one sheet and a fifth can never
            be squeezed out onto the next. The type tiers below are sized so real
            subject counts fit well inside this without ever reaching the clip. */
-        .card { padding: 3mm 3.5mm; height: 99mm; overflow: hidden; page-break-inside: avoid; }
+        .card { padding: 2.5mm 3.5mm; height: 90mm; overflow: hidden; page-break-inside: avoid; }
 
         .muted { color: #6b7280; }
 
@@ -115,10 +122,10 @@
         }
 
         /* ═══ Holding the quadrant at any subject count ═══
-           A quadrant is 99mm; the fixed parts (masthead, identity, labels,
-           instructions, foot) take roughly 55mm of it, leaving about 38mm for
+           A quadrant is 90mm; the fixed parts (masthead, identity, labels,
+           instructions, foot) take roughly 52mm of it, leaving about 36mm for
            the schedule. Each tier shrinks the row until that many rows fit
-           inside those 38mm with room to spare, so eight subjects sit exactly
+           inside that with room to spare, so eight subjects sit exactly
            the way six do — the format does not change shape, only its scale.
 
              tier      papers   row      rows × height
@@ -164,7 +171,7 @@
         body { background: #f1f3f6; padding: 22px 16px 48px; }
         .sheet-wrap {
             width: 297mm; max-width: 100%; min-height: 210mm; margin: 0 auto 8mm;
-            background: #fff; padding: 6mm;
+            background: #fff; padding: 5mm;
             box-shadow: 0 1px 3px rgba(16,24,40,.08), 0 8px 28px rgba(16,24,40,.10);
         }
         .toolbar {
