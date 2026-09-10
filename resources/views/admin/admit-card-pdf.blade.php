@@ -181,30 +181,34 @@
         <table class="subject-table">
             <thead>
                 <tr>
-                    <th style="width:70px;">Subject Code</th>
+                    <th style="width:64px;">Subject Code</th>
                     <th>Course Name</th>
-                    <th style="width:90px;">Date</th>
-                    <th style="width:80px;">Day</th>
-                    <th style="width:100px;">Seating Plan</th>
-                    <th style="width:80px;">Status</th>
+                    <th style="width:76px;">Date</th>
+                    <th style="width:64px;">Day</th>
+                    <th style="width:104px;">Time</th>
+                    <th style="width:104px;">Seating Plan</th>
+                    <th style="width:72px;">Status</th>
                 </tr>
             </thead>
             <tbody>
+                @php $sessions = $admitCard->seating_sessions ?? []; @endphp
                 @foreach($admitCard->subjects as $i => $subject)
                 @php
                     $subjectModel = \App\Models\Student\Subject::find($subject['subject_id'] ?? null);
                     $code = $subjectModel?->code ?? str_pad($i + 1, 3, '0', STR_PAD_LEFT);
-                    $examDate = isset($subject['exam_date']) ? \Carbon\Carbon::parse($subject['exam_date']) : null;
-                    $seatingPlan = $admitCard->seating_label ?? '';
-                    if (!$seatingPlan) {
-                        if ($admitCard->room_number && $admitCard->seat_number) {
-                            $seatingPlan = 'R(' . $admitCard->room_number . ')/ S(' . $admitCard->seat_number . ')';
-                        } elseif ($admitCard->seat_number) {
-                            $seatingPlan = 'S(' . $admitCard->seat_number . ')';
-                        } elseif ($admitCard->room_number) {
-                            $seatingPlan = 'R(' . $admitCard->room_number . ')';
-                        }
-                    }
+                    $examDate = !empty($subject['exam_date']) ? \Carbon\Carbon::parse($subject['exam_date']) : null;
+
+                    // Seat comes from the seating plan for this paper's own session,
+                    // so a student can sit in a different room on a different date.
+                    $seat = \App\Services\Seating\SeatLocator::seatFor(
+                        $sessions, $subject['exam_date'] ?? null, $subject['shift'] ?? 1
+                    );
+                    $seatingPlan = $seat
+                        ? \App\Services\Seating\SeatLocator::label($seat['room'], $seat['seat'])
+                        : ($admitCard->seating_label ?: \App\Services\Seating\SeatLocator::label($admitCard->room_number, $admitCard->seat_number));
+
+                    $from = !empty($subject['exam_time']) ? \Carbon\Carbon::parse($subject['exam_time'])->format('g:i A') : '';
+                    $to   = !empty($subject['exam_end_time']) ? \Carbon\Carbon::parse($subject['exam_end_time'])->format('g:i A') : '';
                     $subjectStatus = $subject['status'] ?? 'eligible';
                 @endphp
                 <tr>
@@ -212,6 +216,7 @@
                     <td>{{ $subject['subject_name'] ?? '—' }}</td>
                     <td>{{ $examDate ? $examDate->format('d/m/Y') : '—' }}</td>
                     <td>{{ $examDate ? $examDate->format('l') : '—' }}</td>
+                    <td>{{ $from ? ($to ? $from . ' – ' . $to : $from) : '—' }}</td>
                     <td>{{ $seatingPlan ?: '—' }}</td>
                     <td>
                         @if($subjectStatus === 'not_eligible')

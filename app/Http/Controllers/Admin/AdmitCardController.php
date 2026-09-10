@@ -3,19 +3,24 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Admin\Seating\SeatAssignment;
-use App\Models\Admin\Seating\SeatingPlan;
 use App\Models\Student\AdmitCard;
+use App\Services\Seating\SeatLocator;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 
 class AdmitCardController extends Controller
 {
+    public function __construct(private SeatLocator $seats)
+    {
+    }
+
     public function view(Request $request, $organization, $id)
     {
         $admitCard = $this->getAdmitCard($id);
-        $admitCard->seating_label = $this->resolveSeating($admitCard);
+        $this->attachSeating(collect([$admitCard]));
+
         return view('admin.admit-card-pdf', [
             'admitCard'    => $admitCard,
             'organization' => $admitCard->organization,
@@ -25,7 +30,7 @@ class AdmitCardController extends Controller
     public function download(Request $request, $organization, $id)
     {
         $admitCard = $this->getAdmitCard($id);
-        $admitCard->seating_label = $this->resolveSeating($admitCard);
+        $this->attachSeating(collect([$admitCard]));
 
         $pdf = Pdf::loadView('admin.admit-card-pdf', [
             'admitCard'    => $admitCard,
@@ -55,7 +60,7 @@ class AdmitCardController extends Controller
             ->orderByRaw('CAST(roll_number AS UNSIGNED), roll_number')
             ->get();
 
-        $admitCards->each(fn($card) => $card->seating_label = $this->resolveSeating($card));
+        $this->attachSeating($admitCards);
 
         $organization = Auth::user()->organization;
 
@@ -90,44 +95,36 @@ class AdmitCardController extends Controller
     }
 
     /**
-     * Resolve "R(room)/ S(seat)" for the card's exam+student from the seating plan.
-     * Falls back to the card's own room/seat when no assignment exists.
+     * Hang the seating plan on every card: `seating_sessions` maps "date|shift"
+     * to the room/seat for that paper, so each subject row on the card can print
+     * its own seat. `seating_label` stays as the card-wide fallback.
+     *
+     * @param  Collection<int,AdmitCard>  $cards
      */
-    private function resolveSeating(AdmitCard $admitCard): ?string
+    private function attachSeating(Collection $cards): void
     {
-        $planIds = SeatingPlan::where('organization_id', $admitCard->organization_id)
-            ->where('exam_id', $admitCard->exam_id)
-            ->pluck('id');
+        foreach ($cards->groupBy('exam_id') as $examId => $group) {
+            $orgId = (int) $group->first()->organization_id;
 
-        if ($planIds->isNotEmpty()) {
-            $studentUserId = $admitCard->studentDetail?->user_id;
+            $studentIds = $group->flatMap(fn($c) => [
+                $c->studentDetail?->user_id,
+                $c->student_detail_id,
+            ])->filter()->unique()->all();
 
-            $assignment = SeatAssignment::with(['room', 'seat'])
-                ->whereIn('seating_plan_id', $planIds)
-                ->where(function ($q) use ($admitCard, $studentUserId) {
-                    $q->where('student_id', $admitCard->student_detail_id);
-                    if ($studentUserId) {
-                        $q->orWhere('student_id', $studentUserId);
-                    }
-                })
-                ->first();
+            $map = $this->seats->forExam($orgId, (int) $examId, $studentIds);
 
-            if ($assignment) {
-                $room = $assignment->room?->room_name;
-                $seat = $assignment->seat?->seat_number;
-                if ($room && $seat) return 'R(' . $room . ')/ S(' . $seat . ')';
-                if ($seat) return 'S(' . $seat . ')';
-                if ($room) return 'R(' . $room . ')';
+            foreach ($group as $card) {
+                $sessions = $map[(int) $card->studentDetail?->user_id]
+                    ?? $map[(int) $card->student_detail_id]
+                    ?? [];
+
+                $card->seating_sessions = $sessions;
+
+                $first = $sessions ? reset($sessions) : null;
+                $card->seating_label = $first
+                    ? SeatLocator::label($first['room'], $first['seat'])
+                    : SeatLocator::label($card->room_number, $card->seat_number);
             }
         }
-
-        // Fallback to manually set room/seat on the card
-        if ($admitCard->room_number && $admitCard->seat_number) {
-            return 'R(' . $admitCard->room_number . ')/ S(' . $admitCard->seat_number . ')';
-        }
-        if ($admitCard->seat_number) return 'S(' . $admitCard->seat_number . ')';
-        if ($admitCard->room_number) return 'R(' . $admitCard->room_number . ')';
-
-        return null;
     }
 }

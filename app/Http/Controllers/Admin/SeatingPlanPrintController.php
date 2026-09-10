@@ -38,7 +38,13 @@ class SeatingPlanPrintController extends Controller
             ->where('seating_plan_id', $plan->id)
             ->get();
 
-        return view('admin.seating-plan-print', compact('plan', 'assignments', 'rooms', 'invigilators'));
+        // Roll numbers for the chart — a seat is found by roll, not by name.
+        $students = StudentDetail::where('organization_id', $orgId)
+            ->whereIn('user_id', $assignments->pluck('student_id')->filter()->unique())
+            ->get(['user_id', 'full_name', 'roll_no', 'admission_no'])
+            ->keyBy('user_id');
+
+        return view('admin.seating-plan-print', compact('plan', 'assignments', 'rooms', 'invigilators', 'students'));
     }
 
     /**

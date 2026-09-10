@@ -76,9 +76,16 @@ class SeatingPlan extends Component
     // ─── Filters ────────────────────────────────────────────────────────────
     public string $planSearch = '';
 
-    // ─── Graphical seat finder (exam → session → class → section → student → room) ──
+    // ─── Graphical seat finder ──────────────────────────────────────────────
+    // Two ways in, chosen by $graphMode:
+    //   'room'    — exam → date → session → room: the room's seat chart, every
+    //               seat showing the roll number that sits there.
+    //   'student' — exam → class → section → student: every session of that exam
+    //               drawn one after another with the student's seat ringed.
+    public string $graphMode        = 'room';
     public string $filterExamId     = '';
-    public string $filterPlanId     = '';
+    public string $filterDate       = '';   // Y-m-d
+    public string $filterPlanId     = '';   // the session (date + shift) being drawn
     public string $filterStandardId = '';
     public string $filterSectionId  = '';
     public string $filterStudentId  = '';   // holds the student's user_id
@@ -93,16 +100,42 @@ class SeatingPlan extends Component
     //  GRAPHICAL SEAT FINDER
     // ═══════════════════════════════════════════════════════════════════════
 
-    /** Picking an exam auto-selects its first seating session and resets the rest. */
+    /** Switch between the room chart and the per-student walkthrough. */
+    public function setGraphMode(string $mode): void
+    {
+        $this->graphMode = in_array($mode, ['room', 'student'], true) ? $mode : 'room';
+
+        // Each mode keeps the exam and drops the other mode's narrowing.
+        if ($this->graphMode === 'room') {
+            $this->reset(['filterStandardId', 'filterSectionId', 'filterStudentId']);
+            $this->autoSelectFirstSession();
+        } else {
+            $this->reset(['filterDate', 'filterPlanId', 'filterRoomId']);
+        }
+    }
+
+    /** Picking an exam drops everything downstream and jumps to its first session. */
     public function updatedFilterExamId(): void
     {
-        $this->reset(['filterPlanId', 'filterRoomId']);
-        if ($this->filterExamId) {
-            $first = SeatingPlanModel::where('organization_id', Auth::user()->organization_id)
-                ->where('exam_id', (int) $this->filterExamId)
-                ->orderBy('exam_date')->orderBy('id')->first();
-            $this->filterPlanId = $first ? (string) $first->id : '';
+        $this->reset([
+            'filterDate', 'filterPlanId', 'filterRoomId',
+            'filterStandardId', 'filterSectionId', 'filterStudentId',
+        ]);
+
+        if ($this->graphMode === 'room') {
+            $this->autoSelectFirstSession();
         }
+    }
+
+    /** A date can carry more than one shift — land on the first one. */
+    public function updatedFilterDate(): void
+    {
+        $this->reset(['filterPlanId', 'filterRoomId']);
+
+        $first = $this->examPlans()->first(
+            fn ($p) => $p->exam_date?->toDateString() === $this->filterDate
+        );
+        $this->filterPlanId = $first ? (string) $first->id : '';
     }
 
     public function updatedFilterPlanId(): void
@@ -124,9 +157,53 @@ class SeatingPlan extends Component
     public function clearGraphFilters(): void
     {
         $this->reset([
-            'filterExamId', 'filterPlanId', 'filterStandardId',
+            'filterExamId', 'filterDate', 'filterPlanId', 'filterStandardId',
             'filterSectionId', 'filterStudentId', 'filterRoomId',
         ]);
+    }
+
+    /** Every generated session of the chosen exam, chronological. */
+    private function examPlans()
+    {
+        if (! $this->filterExamId) {
+            return collect();
+        }
+
+        return SeatingPlanModel::where('organization_id', Auth::user()->organization_id)
+            ->where('exam_id', (int) $this->filterExamId)
+            ->orderBy('exam_date')->orderBy('id')
+            ->get(['id', 'name', 'exam_date', 'session', 'notes']);
+    }
+
+    private function autoSelectFirstSession(): void
+    {
+        $first = $this->examPlans()->first();
+        $this->filterDate   = $first?->exam_date?->toDateString() ?? '';
+        $this->filterPlanId = $first ? (string) $first->id : '';
+    }
+
+    /**
+     * Roll number, name and class for every seated student in the given
+     * assignments — the seat chart prints roll numbers, not ids.
+     *
+     * @return array<int,array{roll:string,name:string,admission:?string}>
+     */
+    private function rollMapFor($assignments): array
+    {
+        $ids = collect($assignments)->pluck('student_id')->filter()->unique()->values();
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        return StudentDetail::where('organization_id', Auth::user()->organization_id)
+            ->whereIn('user_id', $ids)
+            ->get(['user_id', 'full_name', 'roll_no', 'admission_no'])
+            ->keyBy('user_id')
+            ->map(fn ($s) => [
+                'roll'      => (string) ($s->roll_no ?: '—'),
+                'name'      => (string) $s->full_name,
+                'admission' => $s->admission_no,
+            ])->all();
     }
 
     public function switchTab(string $tab): void
@@ -837,12 +914,12 @@ class SeatingPlan extends Component
         $datesheetStdIds = $this->showGeneratePanel ? $this->datesheetStandardIds() : [];
 
         // ── Graphical seat finder ──
-        $filterPlans = $this->filterExamId
-            ? SeatingPlanModel::where('organization_id', $orgId)
-                ->where('exam_id', (int) $this->filterExamId)
-                ->orderBy('exam_date')->orderBy('id')
-                ->get(['id', 'name', 'exam_date', 'session'])
-            : collect();
+        $examPlans   = $this->examPlans();
+        $graphDates  = $examPlans->pluck('exam_date')->filter()
+            ->map(fn($d) => $d->toDateString())->unique()->values();
+        $filterPlans = $this->filterDate
+            ? $examPlans->filter(fn($p) => $p->exam_date?->toDateString() === $this->filterDate)->values()
+            : $examPlans;
 
         $filterSections = $this->filterStandardId
             ? Section::where('standard_id', $this->filterStandardId)->where('is_active', true)
@@ -854,54 +931,95 @@ class SeatingPlan extends Component
                 ->where('standard_id', $this->filterStandardId)
                 ->when($this->filterSectionId, fn($q) => $q->where('section_id', $this->filterSectionId))
                 ->whereNotNull('user_id')
-                ->orderBy('roll_no')->get(['id', 'user_id', 'full_name', 'roll_no'])
+                ->orderByRaw('CAST(roll_no AS UNSIGNED), roll_no')
+                ->get(['id', 'user_id', 'full_name', 'roll_no'])
             : collect();
 
-        $graphPlan        = null;
-        $graphRooms       = collect();
-        $graphAssignments = collect();
+        // Each view is one room drawn for one session; both modes produce the
+        // same shape so the blade has a single grid renderer.
+        $graphViews       = collect();
         $graphRoomOptions = collect();
-        $graphMatchIds    = [];          // user_ids matching the class/section filter
         $graphFocusId     = $this->filterStudentId ? (int) $this->filterStudentId : null;
+        $graphStudent     = null;
 
-        if ($this->filterPlanId) {
-            $graphPlan = SeatingPlanModel::with('exam:id,exam_name')
-                ->where('organization_id', $orgId)->find($this->filterPlanId);
+        if ($this->graphMode === 'room' && $this->filterPlanId) {
+            $plan = $examPlans->firstWhere('id', (int) $this->filterPlanId);
 
-            if ($graphPlan) {
-                $graphAssignments = SeatAssignment::with(['seat', 'student:id,name'])
-                    ->where('seating_plan_id', $graphPlan->id)
+            if ($plan) {
+                // The room dropdown lists every room in the session, whatever is filtered.
+                $graphRoomOptions = SeatingRoom::whereIn(
+                    'id',
+                    SeatAssignment::where('seating_plan_id', $plan->id)->distinct()->pluck('room_id')
+                )->orderBy('room_name')->get(['id', 'room_name']);
+
+                $assignments = SeatAssignment::with('seat')
+                    ->where('seating_plan_id', $plan->id)
                     ->when($this->filterRoomId, fn($q) => $q->where('room_id', (int) $this->filterRoomId))
                     ->orderBy('room_id')->orderBy('id')->get();
 
-                $graphRooms = SeatingRoom::whereIn('id', $graphAssignments->pluck('room_id')->unique())
-                    ->orderBy('room_name')->get();
-
-                // All rooms in this plan (for the Room dropdown — unaffected by room filter).
-                $allRoomIds = SeatAssignment::where('seating_plan_id', $graphPlan->id)
-                    ->distinct()->pluck('room_id');
-                $graphRoomOptions = SeatingRoom::whereIn('id', $allRoomIds)
-                    ->orderBy('room_name')->get(['id', 'room_name']);
-
-                if ($this->filterStandardId || $this->filterSectionId) {
-                    $graphMatchIds = StudentDetail::where('organization_id', $orgId)
-                        ->when($this->filterStandardId, fn($q) => $q->where('standard_id', $this->filterStandardId))
-                        ->when($this->filterSectionId, fn($q) => $q->where('section_id', $this->filterSectionId))
-                        ->whereNotNull('user_id')
-                        ->pluck('user_id')->map(fn($v) => (int) $v)->all();
-                }
+                $graphViews = SeatingRoom::whereIn('id', $assignments->pluck('room_id')->unique())
+                    ->orderBy('room_name')->get()
+                    ->map(fn($room) => [
+                        'plan'        => $plan,
+                        'room'        => $room,
+                        'assignments' => $assignments->where('room_id', $room->id),
+                    ])->values();
             }
         }
 
-        $graphFiltersActive = $this->filterStandardId || $this->filterSectionId || $this->filterStudentId || $this->filterRoomId;
+        if ($this->graphMode === 'student' && $graphFocusId && $examPlans->isNotEmpty()) {
+            $graphStudent = StudentDetail::with(['standard:id,name', 'section:id,name'])
+                ->where('organization_id', $orgId)
+                ->where('user_id', $graphFocusId)->first();
+
+            // Only the rooms this student actually sits in, one per session.
+            $mine = SeatAssignment::with('seat')
+                ->whereIn('seating_plan_id', $examPlans->pluck('id'))
+                ->where('student_id', $graphFocusId)
+                ->get();
+
+            $roomLookup = SeatingRoom::whereIn('id', $mine->pluck('room_id')->unique())
+                ->get()->keyBy('id');
+
+            $roomMates = $mine->isEmpty() ? collect() : SeatAssignment::with('seat')
+                ->whereIn('seating_plan_id', $mine->pluck('seating_plan_id')->unique())
+                ->whereIn('room_id', $mine->pluck('room_id')->unique())
+                ->get();
+
+            $graphViews = $mine->map(function ($seat) use ($examPlans, $roomLookup, $roomMates) {
+                $room = $roomLookup->get($seat->room_id);
+                $plan = $examPlans->firstWhere('id', $seat->seating_plan_id);
+                if (! $room || ! $plan) {
+                    return null;
+                }
+
+                return [
+                    'plan'        => $plan,
+                    'room'        => $room,
+                    'assignments' => $roomMates->where('seating_plan_id', $seat->seating_plan_id)
+                        ->where('room_id', $seat->room_id),
+                    'my_seat'     => $seat->seat?->seat_number,
+                ];
+            })->filter()
+              ->sortBy(fn($v) => $v['plan']->exam_date?->toDateString() . '|' . $v['plan']->id)
+              ->values();
+        }
+
+        $graphRollMap = $this->rollMapFor($graphViews->flatMap(fn($v) => $v['assignments']));
+
+        $graphFiltersActive = $this->filterDate || $this->filterStandardId || $this->filterSectionId
+            || $this->filterStudentId || $this->filterRoomId;
+
+        // The plan viewer's own chart shows roll numbers too.
+        $planRollMap = $this->rollMapFor($planAssignments);
 
         return view('livewire.admin.seating-plan', compact(
             'rooms', 'invigilators', 'exams', 'standards', 'plans',
-            'viewingPlan', 'planRooms', 'planAssignments', 'planInvigilators',
+            'viewingPlan', 'planRooms', 'planAssignments', 'planInvigilators', 'planRollMap',
             'datesheets', 'dsSections', 'viewingDatesheet', 'datesheetStdIds',
-            'filterPlans', 'filterSections', 'filterStudents',
-            'graphPlan', 'graphRooms', 'graphAssignments', 'graphRoomOptions',
-            'graphMatchIds', 'graphFocusId', 'graphFiltersActive'
+            'filterPlans', 'filterSections', 'filterStudents', 'graphDates',
+            'graphViews', 'graphRoomOptions', 'graphRollMap',
+            'graphFocusId', 'graphStudent', 'graphFiltersActive'
         ));
     }
 }

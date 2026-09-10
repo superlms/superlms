@@ -115,6 +115,13 @@ Route::get('/subject-icon/{key}', [\App\Http\Controllers\SubjectIconController::
     ->where('key', '[a-z-]+')
     ->name('subject.icon');
 
+// Chat attachments — private files served to the conversation's participants
+// only (registered before website.php so the {organization} wildcard doesn't
+// swallow it).
+Route::get('/chat/attachment/{message}', [\App\Http\Controllers\Chat\AttachmentController::class, 'show'])
+    ->whereNumber('message')
+    ->name('chat.attachment');
+
 //SuperLMS Website (must be before admin — avoids {organization} wildcard swallowing /web/* routes)
 require __DIR__.'/website.php';
 

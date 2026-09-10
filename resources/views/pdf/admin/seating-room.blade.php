@@ -42,7 +42,7 @@
                         <td>
                             <div class="seatno">{{ $cell->seat->seat_number ?? ($r . '-' . $c) }}</div>
                             <div class="cls">{{ $sd ? (($sd->standard->name ?? '') . ($sd->section ? '-' . $sd->section->name : '')) : $cell->class_label }}</div>
-                            <div class="adm">Adm: {{ $sd->admission_no ?? '—' }}</div>
+                            <div class="adm">Roll: {{ $sd->roll_no ?? '—' }} · Adm: {{ $sd->admission_no ?? '—' }}</div>
                         </td>
                     @else
                         <td class="empty">

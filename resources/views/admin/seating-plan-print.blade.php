@@ -27,11 +27,12 @@
             border: 1px dashed #9ca3af; border-radius: 4px; padding: 4px; margin-bottom: 10px; }
         table.grid { border-collapse: collapse; width: 100%; }
         table.grid td {
-            border: 1px solid #d1d5db; width: 90px; height: 58px; vertical-align: middle;
+            border: 1px solid #d1d5db; width: 90px; height: 64px; vertical-align: middle;
             text-align: center; font-size: 10px; padding: 3px; line-height: 1.3;
         }
         td.seat .num { font-weight: 700; font-size: 11px; color: #111827; }
-        td.seat .name { display: block; color: #374151; }
+        td.seat .roll { display: block; font-weight: 700; font-size: 12px; color: #111827; }
+        td.seat .name { display: block; color: #374151; font-size: 9px; }
         td.seat .cls { display: block; color: #2563eb; font-weight: 600; font-size: 9px; }
         td.empty { background: #f9fafb; color: #9ca3af; }
         td.conflict { background: #fef2f2; }
@@ -89,9 +90,11 @@
                         @for ($c = 1; $c <= $room->columns; $c++)
                             @php $cell = $cells[$r][$c] ?? null; @endphp
                             @if ($cell && $cell->student_id)
+                                @php $sd = $students[$cell->student_id] ?? null; @endphp
                                 <td class="seat {{ $cell->has_conflict ? 'conflict' : '' }}">
                                     <span class="num">{{ $cell->seat->seat_number ?? '' }}</span>
-                                    <span class="name">{{ $cell->student->name ?? '' }}</span>
+                                    <span class="roll">Roll {{ $sd->roll_no ?? '—' }}</span>
+                                    <span class="name">{{ $sd->full_name ?? ($cell->student->name ?? '') }}</span>
                                     <span class="cls">{{ $cell->class_label }}</span>
                                 </td>
                             @else

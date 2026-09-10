@@ -4,8 +4,6 @@ namespace App\Http\Controllers\v1;
 
 use App\Models\Admin\Exam;
 use App\Models\Admin\ExamSyllabusChapter;
-use App\Models\Admin\Seating\SeatAssignment;
-use App\Models\Admin\Seating\SeatingPlan;
 use App\Models\Admin\TeacherTimeTable;
 use App\Models\Student\AdmitCard;
 use App\Models\Student\Chapter;
@@ -13,6 +11,7 @@ use App\Models\Student\StudentDetail;
 use App\Models\Student\Subject;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\Teacher\TeacherSubject;
+use App\Services\Seating\SeatLocator;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -147,7 +146,7 @@ class ExamController extends ApiController
             return $this->error('Admit card has not been issued for this exam yet.', 404);
         }
 
-        $admitCard->seating_label = $this->resolveSeating($admitCard);
+        $this->attachSeating($admitCard);
 
         return $this->success(
             $this->formatAdmitCard($admitCard, $exam, $student),
@@ -201,7 +200,7 @@ class ExamController extends ApiController
             return $this->error('Admit card has not been issued for this exam yet.', 404);
         }
 
-        $admitCard->seating_label = $this->resolveSeating($admitCard);
+        $this->attachSeating($admitCard);
 
         $pdf = Pdf::loadView('admin.admit-card-pdf', [
             'admitCard'    => $admitCard,
@@ -445,11 +444,15 @@ class ExamController extends ApiController
         $examTotal   = $exam->total_marks;
         $examPassing = $exam->passing_marks;
 
-        $subjects = collect($admitCard->subjects ?? [])->map(function ($subject) use ($examTotal, $examPassing) {
+        $sessions = $admitCard->seating_sessions ?? [];
+
+        $subjects = collect($admitCard->subjects ?? [])->map(function ($subject) use ($examTotal, $examPassing, $sessions) {
             $subjectId   = $subject['subject_id'] ?? null;
             $subjectCode = $subject['subject_code'] ?? (Subject::find($subjectId)?->code);
             $date = $subject['exam_date'] ?? null;
             $time = $subject['exam_time'] ?? null;
+
+            $seat = SeatLocator::seatFor($sessions, $date, $subject['shift'] ?? 1);
 
             $total   = $subject['total_marks']   ?? $subject['max_marks']  ?? $examTotal;
             $passing = $subject['passing_marks'] ?? $subject['pass_marks'] ?? $examPassing;
@@ -467,6 +470,11 @@ class ExamController extends ApiController
                 'total_marks'         => $total   !== null ? (float) $total   : null,
                 'passing_marks'       => $passing !== null ? (float) $passing : null,
                 'status'              => $subject['status'] ?? 'eligible',
+                // Seat for this paper's own session — a student can move rooms
+                // between dates, so it is resolved per subject, not per card.
+                'room_name'           => $seat['room'] ?? null,
+                'seat_number'         => $seat['seat'] ?? null,
+                'seating_label'       => $seat ? SeatLocator::label($seat['room'], $seat['seat']) : null,
             ];
         })->values();
 
@@ -535,43 +543,27 @@ class ExamController extends ApiController
     }
 
     /**
-     * Resolve "R(room)/ S(seat)" for the card's exam+student from the seating
-     * plan, falling back to the card's own room/seat. Mirrors the admin panel.
+     * Hang the seating plan on the card: `seating_sessions` maps "date|shift"
+     * to the room/seat for that paper, so the PDF prints the right seat against
+     * each subject. `seating_label` stays as the card-wide fallback.
      */
-    private function resolveSeating(AdmitCard $admitCard): ?string
+    private function attachSeating(AdmitCard $admitCard): void
     {
-        $planIds = SeatingPlan::where('organization_id', $admitCard->organization_id)
-            ->where('exam_id', $admitCard->exam_id)
-            ->pluck('id');
+        $sessions = app(SeatLocator::class)->forExam(
+            (int) $admitCard->organization_id,
+            (int) $admitCard->exam_id,
+            [$admitCard->studentDetail?->user_id, $admitCard->student_detail_id],
+        );
 
-        if ($planIds->isNotEmpty()) {
-            $studentUserId = $admitCard->studentDetail?->user_id;
+        $mine = $sessions[(int) $admitCard->studentDetail?->user_id]
+            ?? $sessions[(int) $admitCard->student_detail_id]
+            ?? [];
 
-            $assignment = SeatAssignment::with(['room', 'seat'])
-                ->whereIn('seating_plan_id', $planIds)
-                ->where(function ($q) use ($admitCard, $studentUserId) {
-                    $q->where('student_id', $admitCard->student_detail_id);
-                    if ($studentUserId) {
-                        $q->orWhere('student_id', $studentUserId);
-                    }
-                })
-                ->first();
+        $admitCard->seating_sessions = $mine;
 
-            if ($assignment) {
-                $room = $assignment->room?->room_name;
-                $seat = $assignment->seat?->seat_number;
-                if ($room && $seat) return 'R(' . $room . ')/ S(' . $seat . ')';
-                if ($seat) return 'S(' . $seat . ')';
-                if ($room) return 'R(' . $room . ')';
-            }
-        }
-
-        if ($admitCard->room_number && $admitCard->seat_number) {
-            return 'R(' . $admitCard->room_number . ')/ S(' . $admitCard->seat_number . ')';
-        }
-        if ($admitCard->seat_number) return 'S(' . $admitCard->seat_number . ')';
-        if ($admitCard->room_number) return 'R(' . $admitCard->room_number . ')';
-
-        return null;
+        $first = $mine ? reset($mine) : null;
+        $admitCard->seating_label = $first
+            ? SeatLocator::label($first['room'], $first['seat'])
+            : SeatLocator::label($admitCard->room_number, $admitCard->seat_number);
     }
 }
