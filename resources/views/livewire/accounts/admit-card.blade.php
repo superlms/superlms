@@ -327,7 +327,7 @@
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                 <div>
                     <h2 class="text-lg font-semibold text-gray-900">Print Admit Cards</h2>
-                    <p class="text-xs text-gray-500 mt-0.5">Pick the class and section, tick the students — 4 cards to a landscape A4 sheet.</p>
+                    <p class="text-xs text-gray-500 mt-0.5">Pick the class and section, tick the students — 4 cards to an A4 portrait sheet.</p>
                 </div>
                 <button wire:click="closePrintModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>

@@ -8,6 +8,21 @@
          Default is EXPANDED (the width every functionality screen is laid out for);
          collapse to the icon rail only when the user explicitly chose it. --}}
     <script>try{ if(localStorage.getItem('lmsSidebar')!=='closed'){ document.documentElement.classList.add('sidebar-expanded'); } }catch(e){}</script>
+    {{-- A page the browser brings back with the Back button (from its cache, or
+         a plain back/forward hit) still carries the Livewire snapshot it was
+         serialised with. The server has moved on, so the restored page looks
+         fine but every filter/typing update silently does nothing until the
+         user reloads by hand. Reload once when we arrive that way — screens
+         keep their filters in the URL, so the list comes back as it was. --}}
+    <script>
+        window.addEventListener('pageshow', function (e) {
+            var nav = (window.performance && performance.getEntriesByType)
+                ? performance.getEntriesByType('navigation')[0] : null;
+            if (e.persisted || (nav && nav.type === 'back_forward')) {
+                window.location.reload();
+            }
+        });
+    </script>
     <link rel="icon" type="image/png" href="{{ url('website-image/Group 11525.png') }}" />
     @include('partials.pwa-head')
     @wireUiScripts

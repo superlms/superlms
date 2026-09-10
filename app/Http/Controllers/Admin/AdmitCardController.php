@@ -22,8 +22,11 @@ class AdmitCardController extends Controller
         $admitCard = $this->getAdmitCard($id);
         $this->attachSeating(collect([$admitCard]));
 
-        return view('admin.admit-card-pdf', [
-            'admitCard'    => $admitCard,
+        // One card, laid out on the same A4 portrait 2x2 sheet the print run
+        // uses — so it occupies a single quadrant, not the whole page.
+        return view('admin.admit-card-sheet', [
+            'admitCards'   => collect([$admitCard]),
+            'single'       => $admitCard,
             'organization' => $admitCard->organization,
         ]);
     }
@@ -37,8 +40,9 @@ class AdmitCardController extends Controller
 
         // Poppins is embedded as base64 @font-face; if that ever fails the card
         // still renders, just in dompdf's default face.
-        $load = fn (string $fontCss) => Pdf::loadView('admin.admit-card-pdf', [
-            'admitCard'    => $admitCard,
+        $load = fn (string $fontCss) => Pdf::loadView('admin.admit-card-sheet', [
+            'admitCards'   => collect([$admitCard]),
+            'single'       => $admitCard,
             'organization' => $admitCard->organization,
             'isPdf'        => true,
             'fontCss'      => $fontCss,
@@ -83,7 +87,11 @@ class AdmitCardController extends Controller
 
         $organization = Auth::user()->organization;
 
-        return view('admin.admit-card-print-all', compact('admitCards', 'organization'));
+        return view('admin.admit-card-sheet', [
+            'admitCards'   => $admitCards,
+            'single'       => null,
+            'organization' => $organization,
+        ]);
     }
 
     /**

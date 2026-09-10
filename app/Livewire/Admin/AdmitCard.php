@@ -15,6 +15,7 @@ use App\Models\Student\StudentDetail;
 use App\Models\Student\Subject;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
@@ -34,11 +35,19 @@ class AdmitCard extends Component
     use WithPagination, WireUiActions;
 
     // ─── Filters ────────────────────────────────────────────────────────────────
+    // Kept in the URL: viewing a card navigates away, and the browser Back
+    // button has to land on the same filtered list — not a blank one.
+    #[Url(as: 'q', except: '')]
     public string $search         = '';
+    #[Url(as: 'exam', except: '')]
     public string $examFilter     = '';
+    #[Url(as: 'class', except: '')]
     public string $standardFilter = '';
+    #[Url(as: 'section', except: '')]
     public string $sectionFilter  = '';
+    #[Url(as: 'status', except: '')]
     public string $statusFilter   = ''; // '' | issued | not_issued
+    #[Url(as: 'per', except: 15)]
     public int    $perPage        = 15;
 
     // ─── Generate modal (criteria only) ──────────────────────────────────────────
