@@ -65,7 +65,7 @@
         @endphp
         @if ($showTeacherFilter || $showStudentFilter || $showCtFilter)
         <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
-            <div class="flex flex-wrap items-center gap-3">
+            <div class="flex flex-wrap items-center gap-2">
                 <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
                     <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
                     Filter by:
@@ -84,10 +84,8 @@
                          the same slot of the previous view — which is what made
                          the By Teacher pickers bind to the wrong property. --}}
                     @if ($teacherView === 'by_date')
-                        <span class="text-gray-300">→</span>
-                        <input type="date" wire:key="t-bydate-date" wire:model.live="tDate" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                        <span class="text-gray-300">→</span>
-                        <select wire:key="t-bydate-status" wire:model.live="tByDateStatus" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <input type="date" wire:key="t-bydate-date" wire:model.live="tDate" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
+                        <select wire:key="t-bydate-status" wire:model.live="tByDateStatus" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
                             <option value="">All Status</option>
                             <option value="present">Present</option>
                             <option value="absent">Absent</option>
@@ -96,34 +94,29 @@
                             <option value="not_marked">Not Marked</option>
                         </select>
                     @elseif ($teacherView === 'by_month')
-                        <span class="text-gray-300">→</span>
-                        <input type="month" wire:key="t-bymonth-month" wire:model.live="tMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                        <span class="text-gray-300">→</span>
-                        <select wire:key="t-bymonth-teacher" wire:model.live="tTeacherId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <input type="month" wire:key="t-bymonth-month" wire:model.live="tMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
+                        <select wire:key="t-bymonth-teacher" wire:model.live="tTeacherId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
                             <option value="">Select teacher…</option>
                             @foreach ($teachers as $t)<option value="{{ $t->id }}">{{ $t->user->name ?? '—' }}</option>@endforeach
                         </select>
                     @elseif ($teacherView === 'by_teacher')
                         {{-- Method 3 · teacher → a specific month OR the whole school year --}}
-                        <span class="text-gray-300">→</span>
-                        <select wire:key="t-byteacher-teacher" wire:model.live="tTeacherId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <select wire:key="t-byteacher-teacher" wire:model.live="tTeacherId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
                             <option value="">Select teacher…</option>
                             @foreach ($teachers as $t)<option value="{{ $t->id }}">{{ $t->user->name ?? '—' }}</option>@endforeach
                         </select>
-                        <span class="text-gray-300">→</span>
-                        <select wire:key="t-byteacher-range" wire:model.live="tRange" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <select wire:key="t-byteacher-range" wire:model.live="tRange" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
                             <option value="monthly">By Month</option>
                             <option value="yearly">Complete Year</option>
                         </select>
-                        <span class="text-gray-300">→</span>
                         @if ($tRange === 'yearly')
                             {{-- The school year runs April → March, so the picker
                                  takes its starting year: 2026 = Apr 26–Mar 27. --}}
-                            <select wire:key="t-byteacher-year" wire:model.live="tYear" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            <select wire:key="t-byteacher-year" wire:model.live="tYear" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
                                 @foreach ($academicYears as $y)<option value="{{ $y }}">Apr {{ $y }} – Mar {{ $y + 1 }}</option>@endforeach
                             </select>
                         @else
-                            <input type="month" wire:key="t-byteacher-month" wire:model.live="tMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            <input type="month" wire:key="t-byteacher-month" wire:model.live="tMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
                         @endif
                     @endif
 
@@ -135,37 +128,31 @@
                                 class="px-3 py-1 text-xs font-semibold rounded transition-colors {{ $studentView === $k ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50' }}">{{ $label }}</button>
                         @endforeach
                     </div>
-                    <span class="text-gray-300">→</span>
-                    <select wire:key="s-standard" wire:model.live="stStandard" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <select wire:key="s-standard" wire:model.live="stStandard" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
                         <option value="">Select class…</option>
                         @foreach ($standards as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
                     </select>
-                    <span class="text-gray-300">→</span>
-                    <select wire:key="s-section" wire:model.live="stSection" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <select wire:key="s-section" wire:model.live="stSection" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
                         <option value="">Select section…</option>
                         @foreach ($stSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
                     </select>
                     @if ($studentView === 'by_date')
-                        <span class="text-gray-300">→</span>
-                        <input type="date" wire:key="s-bydate-date" wire:model.live="stDate" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <input type="date" wire:key="s-bydate-date" wire:model.live="stDate" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
                     @else
-                        <span class="text-gray-300">→</span>
-                        <select wire:key="s-bystudent-student" wire:model.live="stStudentId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <select wire:key="s-bystudent-student" wire:model.live="stStudentId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
                             <option value="">Select student…</option>
                             @foreach ($stStudents as $s)<option value="{{ $s->id }}">{{ $s->user->name ?? $s->full_name }}</option>@endforeach
                         </select>
-                        <span class="text-gray-300">→</span>
-                        <select wire:key="s-bystudent-range" wire:model.live="stRange" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <select wire:key="s-bystudent-range" wire:model.live="stRange" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
                             <option value="monthly">By Month</option>
                             <option value="yearly">Complete Year</option>
                         </select>
-                        <span class="text-gray-300">→</span>
                         @if ($stRange === 'yearly')
-                            <select wire:key="s-bystudent-year" wire:model.live="stYear" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            <select wire:key="s-bystudent-year" wire:model.live="stYear" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
                                 @foreach ($academicYears as $y)<option value="{{ $y }}">Apr {{ $y }} – Mar {{ $y + 1 }}</option>@endforeach
                             </select>
                         @else
-                            <input type="month" wire:key="s-bystudent-month" wire:model.live="stMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            <input type="month" wire:key="s-bystudent-month" wire:model.live="stMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
                         @endif
                     @endif
 
@@ -178,19 +165,16 @@
                             class="px-3 py-1 text-xs font-semibold rounded transition-colors {{ $ctMode === 'by_teacher' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50' }}">By Teacher</button>
                     </div>
                     @if ($ctMode === 'by_class')
-                        <span class="text-gray-300">→</span>
-                        <select wire:model.live="ctFilterStandard" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <select wire:model.live="ctFilterStandard" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
                             <option value="">Select class…</option>
                             @foreach ($standards as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
                         </select>
-                        <span class="text-gray-300">→</span>
-                        <select wire:model.live="ctFilterSection" @disabled(!$ctFilterStandard) class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
+                        <select wire:model.live="ctFilterSection" @disabled(!$ctFilterStandard) class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 max-w-full sm:max-w-[13rem] truncate">
                             <option value="">All sections</option>
                             @foreach ($ctSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
                         </select>
                     @else
-                        <span class="text-gray-300">→</span>
-                        <select wire:model.live="ctFilterTeacher" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <select wire:model.live="ctFilterTeacher" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
                             <option value="">Select teacher…</option>
                             @foreach ($teachers as $t)<option value="{{ $t->id }}">{{ $t->user->name ?? '—' }}</option>@endforeach
                         </select>

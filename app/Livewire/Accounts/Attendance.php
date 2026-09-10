@@ -29,28 +29,40 @@ class Attendance extends Component
     // ── Tabs ─────────────────────────────────────────────────────────────────
     public string $mainTab = 'teacher';        // teacher | student | class_teachers
 
-    // ── Teacher (shared selectors across its views) ─────────────────────────
-    public string $teacherView = 'by_date';    // mark | by_date | by_month | by_teacher
-    public string $teacherReturnView = 'by_date'; // view to return to after Mark → Submit
-    public string $tDate  = '';                // mark + by_date
+    // ── Teacher (shared selectors across its record views) ──────────────────
+    public string $teacherView = 'by_date';    // by_date | by_month | by_teacher
+    public string $tDate  = '';                // by_date
     public $tTeacherId    = '';                // by_month + by_teacher
     public string $tMonth = '';                // by_month + by_teacher(monthly)
     public $tYear         = '';                // by_teacher(yearly)
     public string $tRange = 'monthly';         // by_teacher: monthly | yearly
     public string $tByDateStatus = '';         // by_date: '' | present | absent | half_day | holiday | not_marked
-    public array  $teacherMark = [];           // [teacher_detail_id => ['status','remark']]
 
-    // ── Student (shared selectors across its views) ─────────────────────────
-    public string $studentView = 'by_date';    // mark | by_date | by_student
-    public string $studentReturnView = 'by_date'; // view to return to after Mark → Save
+    // ── Teacher: mark slide-in panel ────────────────────────────────────────
+    // Its date lives here, NOT in $tDate, so the record filters can never leak
+    // into the marking flow — every open starts clean on today.
+    public bool   $showTeacherMarkPanel = false;
+    public string $tMarkDate = '';
+    public array  $teacherMark = [];           // [teacher_detail_id => ['status','remark']]
+    public bool   $teacherMarkExisting = false; // this date is already submitted → editing
+
+    // ── Student (shared selectors across its record views) ──────────────────
+    public string $studentView = 'by_date';    // by_date | by_student
     public $stStandard = '';
     public $stSection  = '';
     public $stStudentId = '';
-    public string $stDate  = '';               // mark + by_date
-    public string $stMonth = '';               // by_month + by_student(monthly)
+    public string $stDate  = '';               // by_date
+    public string $stMonth = '';               // by_student(monthly)
     public $stYear         = '';               // by_student(yearly)
     public string $stRange = 'monthly';        // by_student: monthly | yearly
+
+    // ── Student: mark slide-in panel (own class/section/date, see above) ────
+    public bool   $showStudentMarkPanel = false;
+    public $sMarkStandard = '';
+    public $sMarkSection  = '';
+    public string $sMarkDate = '';
     public array  $studentMark = [];
+    public bool   $studentMarkExisting = false;
 
     // ── Assign class teacher panel ───────────────────────────────────────────
     public bool $showAssignPanel = false;
@@ -70,19 +82,30 @@ class Attendance extends Component
     {
         $today = now()->toDateString();
         $month = now()->format('Y-m');
-        $year  = now()->format('Y');
+        // The school year runs April → March, so "2026" means Apr 2026–Mar 2027.
+        $year  = (string) self::academicYearOf(now());
 
-        $this->tDate   = $today;
-        $this->tMonth  = $month;
-        $this->tYear   = $year;
-        $this->stDate  = $today;
-        $this->stMonth = $month;
-        $this->stYear  = $year;
+        $this->tDate     = $today;
+        $this->tMarkDate = $today;
+        $this->tMonth    = $month;
+        $this->tYear     = $year;
+        $this->stDate    = $today;
+        $this->sMarkDate = $today;
+        $this->stMonth   = $month;
+        $this->stYear    = $year;
+    }
 
-        $this->loadTeacherMark();
+    /** Which April→March year a date falls in (Jan–Mar belong to the previous one). */
+    private static function academicYearOf(Carbon $d): int
+    {
+        return $d->month >= 4 ? (int) $d->year : (int) $d->year - 1;
     }
 
     // ── Status helpers ───────────────────────────────────────────────────────
+
+    /** The only statuses a row may carry; anything else is not written. */
+    private const STATUSES = ['present', 'absent', 'half_day', 'holiday'];
+
     private function toInt(string $label): int
     {
         return match ($label) {
@@ -105,6 +128,35 @@ class Attendance extends Component
         };
     }
 
+    /** Sundays are a standing holiday — nothing has to be marked for them. */
+    private function isSunday($date): bool
+    {
+        return (int) Carbon::parse($date)->dayOfWeek === Carbon::SUNDAY;
+    }
+
+    /**
+     * What a row starts on in the mark panel. Sunday is the standing holiday;
+     * every other day starts BLANK — an untouched row is never silently saved
+     * as present, so a day nobody marked simply stays unmarked and can still
+     * be filled in whenever.
+     */
+    private function defaultStatusFor($date): string
+    {
+        return $this->isSunday($date) ? 'holiday' : '';
+    }
+
+    /** Rows carrying an actual status — blank ones are not saved at all. */
+    private function markedCount(array $rows): int
+    {
+        return count(array_filter($rows, fn($r) => ($r['status'] ?? '') !== ''));
+    }
+
+    /** What an unmarked day *reads* as in the records: Sunday → holiday, else nothing. */
+    private function unmarkedStatusFor($date): string
+    {
+        return $this->isSunday($date) ? 'holiday' : 'not_marked';
+    }
+
     // ═══════════════════════════════ TAB SWITCHING ═══════════════════════════
     public function switchMainTab(string $tab): void
     {
@@ -114,53 +166,44 @@ class Attendance extends Component
     public function switchTeacherView(string $v): void
     {
         $this->teacherView = $v;
-        if ($v === 'mark') $this->loadTeacherMark();
-    }
-
-    /** Header "Mark Attendance" — remember the current record view, then enter mark mode. */
-    public function openTeacherMark(): void
-    {
-        if ($this->teacherView !== 'mark') {
-            $this->teacherReturnView = $this->teacherView;
-        }
-        $this->teacherView = 'mark';
-        $this->loadTeacherMark();
-    }
-
-    /** Header "Back to Records" — leave mark mode without saving. */
-    public function closeTeacherMark(): void
-    {
-        $this->teacherView = $this->teacherReturnView ?: 'by_date';
     }
 
     public function switchStudentView(string $v): void
     {
         $this->studentView = $v;
-        if ($v === 'mark') $this->loadStudentMark();
-    }
-
-    /** Header "Mark Attendance" — remember the current record view, then enter mark mode. */
-    public function openStudentMark(): void
-    {
-        if ($this->studentView !== 'mark') {
-            $this->studentReturnView = $this->studentView;
-        }
-        $this->studentView = 'mark';
-        $this->loadStudentMark();
-    }
-
-    /** Header "Back to Records" — leave mark mode without saving. */
-    public function closeStudentMark(): void
-    {
-        $this->studentView = $this->studentReturnView ?: 'by_date';
     }
 
     // ═══════════════════════════════ TEACHER: MARK ═══════════════════════════
-    public function updatedTDate(): void
+    /**
+     * Header "Mark Attendance" — always a fresh flow: the panel resets to today
+     * and re-reads from the database, so nothing from a previous marking run
+     * (or from the record filters) is carried in.
+     */
+    public function openTeacherMark(): void
     {
-        if ($this->teacherView === 'mark') $this->loadTeacherMark();
+        $this->teacherMark = [];
+        $this->tMarkDate = now()->toDateString();
+        $this->loadTeacherMark();
+        $this->showTeacherMarkPanel = true;
     }
 
+    public function closeTeacherMark(): void
+    {
+        $this->showTeacherMarkPanel = false;
+        $this->teacherMark = [];
+        $this->teacherMarkExisting = false;
+    }
+
+    public function updatedTMarkDate(): void
+    {
+        $this->loadTeacherMark();
+    }
+
+    /**
+     * Load the panel rows for $tMarkDate. A date that was already submitted
+     * comes back with its saved statuses so it can simply be edited and saved
+     * again; anything else starts on the day's default.
+     */
     public function loadTeacherMark(): void
     {
         $orgId = Auth::user()->organization_id;
@@ -168,35 +211,20 @@ class Attendance extends Component
             ->where('organization_id', $orgId)->get();
 
         $existing = TeacherAttendance::where('organization_id', $orgId)
-            ->whereDate('attendance_date', $this->tDate)
+            ->whereDate('attendance_date', $this->tMarkDate)
             ->get()->keyBy('teacher_detail_id');
+
+        $this->teacherMarkExisting = $existing->isNotEmpty();
+        $default = $this->defaultStatusFor($this->tMarkDate);
 
         $this->teacherMark = [];
         foreach ($teachers as $t) {
             $rec = $existing->get($t->id);
-            // A row left blank saves nothing at all, so a day nobody marked
-            // stays unmarked instead of quietly becoming present.
             $this->teacherMark[$t->id] = [
-                'status' => $rec ? $this->toLabel($rec->status) : $this->defaultStatusFor($this->tDate),
+                'status' => $rec ? $this->toLabel($rec->status) : $default,
                 'remark' => $rec->remarks ?? '',
             ];
         }
-    }
-
-    /**
-     * What a row starts on in the mark flow. Sunday is the standing holiday;
-     * every other day starts BLANK, so an untouched row is never saved as
-     * present and the day stays open to be marked later.
-     */
-    private function defaultStatusFor($date): string
-    {
-        return (int) Carbon::parse($date)->dayOfWeek === Carbon::SUNDAY ? 'holiday' : '';
-    }
-
-    /** Rows carrying an actual status — blank ones are not written at all. */
-    private function markedCount(array $rows): int
-    {
-        return count(array_filter($rows, fn($r) => ($r['status'] ?? '') !== ''));
     }
 
     public function setTeacherStatus($teacherId, string $status): void
@@ -213,21 +241,45 @@ class Attendance extends Component
         }
     }
 
-    public function submitTeacherAttendance(): void
+    /** How many rows in the panel actually carry a status. */
+    public function teacherMarkedCount(): int
+    {
+        return $this->markedCount($this->teacherMark);
+    }
+
+    /**
+     * Persist $teacherMark against $tMarkDate. A row left blank is written as
+     * nothing at all (and any earlier record for it is removed), so the day
+     * stays genuinely unmarked rather than defaulting to present.
+     */
+    private function persistTeacherMark(): void
     {
         $orgId = Auth::user()->organization_id;
         $markedBy = Auth::id();
 
-        DB::transaction(function () use ($orgId, $markedBy) {
+        // The panel sets statuses in the browser now, so the rows arrive as
+        // client data: take only ids that really are this school's teachers,
+        // and only the four statuses the panel offers.
+        $valid = TeacherDetail::where('organization_id', $orgId)
+            ->whereIn('id', array_keys($this->teacherMark))
+            ->pluck('id')->flip();
+
+        DB::transaction(function () use ($orgId, $markedBy, $valid) {
             $clear = [];
 
             foreach ($this->teacherMark as $teacherId => $row) {
+                if (!$valid->has($teacherId)) {
+                    continue;
+                }
                 if (($row['status'] ?? '') === '') {
                     $clear[] = $teacherId;
                     continue;
                 }
+                if (!in_array($row['status'], self::STATUSES, true)) {
+                    continue;
+                }
                 TeacherAttendance::updateOrCreate(
-                    ['teacher_detail_id' => $teacherId, 'organization_id' => $orgId, 'attendance_date' => $this->tDate],
+                    ['teacher_detail_id' => $teacherId, 'organization_id' => $orgId, 'attendance_date' => $this->tMarkDate],
                     ['status' => $this->toInt($row['status']), 'remarks' => $row['remark'] ?? '', 'marked_by' => $markedBy]
                 );
             }
@@ -235,16 +287,51 @@ class Attendance extends Component
             if ($clear) {
                 TeacherAttendance::where('organization_id', $orgId)
                     ->whereIn('teacher_detail_id', $clear)
-                    ->whereDate('attendance_date', $this->tDate)->delete();
+                    ->whereDate('attendance_date', $this->tMarkDate)->delete();
             }
         });
+    }
 
-        // Return to the record view we came from ("redirect to previous screen").
-        $this->teacherView = $this->teacherReturnView ?: 'by_date';
+    public function submitTeacherAttendance(): void
+    {
+        if ($this->teacherMarkedCount() === 0) {
+            $this->notification()->error('Nothing to save', 'Mark at least one teacher first.');
+            return;
+        }
+
+        $wasEdit = $this->teacherMarkExisting;
+        $date = $this->tMarkDate;
+
+        $this->persistTeacherMark();
+
+        // Show the day that was just marked, then close the panel.
+        $this->teacherView = 'by_date';
+        $this->tDate = $date;
+        $this->closeTeacherMark();
 
         $this->notification()->success(
-            'Attendance successful',
-            'Teacher attendance saved for ' . Carbon::parse($this->tDate)->format('d M Y') . '.'
+            $wasEdit ? 'Attendance updated' : 'Attendance successful',
+            'Teacher attendance ' . ($wasEdit ? 'updated' : 'saved') . ' for ' . Carbon::parse($date)->format('d M Y') . '.'
+        );
+    }
+
+    /** Panel header button — the whole day becomes a holiday, saved right away. */
+    public function markTeacherDayHoliday(): void
+    {
+        foreach ($this->teacherMark as $id => $row) {
+            $this->teacherMark[$id]['status'] = 'holiday';
+        }
+
+        $date = $this->tMarkDate;
+        $this->persistTeacherMark();
+
+        $this->teacherView = 'by_date';
+        $this->tDate = $date;
+        $this->closeTeacherMark();
+
+        $this->notification()->success(
+            'Holiday marked',
+            Carbon::parse($date)->format('d M Y') . ' is now a holiday for all teachers.'
         );
     }
 
@@ -253,41 +340,77 @@ class Attendance extends Component
     {
         $this->stSection = '';
         $this->stStudentId = '';
-        $this->studentMark = [];
     }
 
     public function updatedStSection(): void
     {
         $this->stStudentId = '';
-        if ($this->studentView === 'mark') $this->loadStudentMark();
     }
 
-    public function updatedStDate(): void
+    /** Header "Mark Attendance" — fresh flow on today, nothing carried over. */
+    public function openStudentMark(): void
     {
-        if ($this->studentView === 'mark') $this->loadStudentMark();
+        $this->studentMark = [];
+        $this->studentMarkExisting = false;
+        $this->sMarkStandard = '';
+        $this->sMarkSection = '';
+        $this->sMarkDate = now()->toDateString();
+        $this->showStudentMarkPanel = true;
     }
 
+    public function closeStudentMark(): void
+    {
+        $this->showStudentMarkPanel = false;
+        $this->studentMark = [];
+        $this->studentMarkExisting = false;
+    }
+
+    public function updatedSMarkStandard(): void
+    {
+        $this->sMarkSection = '';
+        $this->studentMark = [];
+        $this->studentMarkExisting = false;
+    }
+
+    public function updatedSMarkSection(): void
+    {
+        $this->loadStudentMark();
+    }
+
+    public function updatedSMarkDate(): void
+    {
+        $this->loadStudentMark();
+    }
+
+    /**
+     * Load the panel rows for the chosen class/section on $sMarkDate. An already
+     * submitted date comes back with its saved statuses so it can be edited.
+     */
     public function loadStudentMark(): void
     {
         $this->studentMark = [];
-        if (!$this->stStandard || !$this->stSection) return;
+        $this->studentMarkExisting = false;
+        if (!$this->sMarkStandard || !$this->sMarkSection) return;
 
         $orgId = Auth::user()->organization_id;
         $students = StudentDetail::with('user:id,name,email,image')
             ->where('organization_id', $orgId)
-            ->where('standard_id', $this->stStandard)
-            ->where('section_id', $this->stSection)
+            ->where('standard_id', $this->sMarkStandard)
+            ->where('section_id', $this->sMarkSection)
             ->whereNotNull('user_id')->get();
 
         $existing = StudentAttendance::where('organization_id', $orgId)
-            ->whereDate('attendance_date', $this->stDate)
+            ->whereDate('attendance_date', $this->sMarkDate)
             ->whereIn('student_detail_id', $students->pluck('id'))
             ->get()->keyBy('student_detail_id');
+
+        $this->studentMarkExisting = $existing->isNotEmpty();
+        $default = $this->defaultStatusFor($this->sMarkDate);
 
         foreach ($students as $s) {
             $rec = $existing->get($s->id);
             $this->studentMark[$s->id] = [
-                'status'  => $rec ? $this->toLabel($rec->status) : $this->defaultStatusFor($this->stDate),
+                'status'  => $rec ? $this->toLabel($rec->status) : $default,
                 'remark'  => $rec->remarks ?? '',
                 'user_id' => $s->user_id,
             ];
@@ -308,27 +431,44 @@ class Attendance extends Component
         }
     }
 
-    public function submitStudentAttendance(): void
+    /** How many rows in the panel actually carry a status. */
+    public function studentMarkedCount(): int
     {
-        if (!$this->stStandard || !$this->stSection) {
-            $this->notification()->error('Select class and section first.');
-            return;
-        }
+        return $this->markedCount($this->studentMark);
+    }
+
+    /**
+     * Persist $studentMark against $sMarkDate and push the students a notice.
+     * Blank rows are left unwritten (and any earlier record removed) so the day
+     * stays unmarked for them instead of defaulting to present.
+     */
+    private function persistStudentMark(): void
+    {
         $orgId = Auth::user()->organization_id;
         $markedBy = Auth::id();
         $notifyRows = [];
 
-        DB::transaction(function () use ($orgId, $markedBy, &$notifyRows) {
+        $valid = StudentDetail::where('organization_id', $orgId)
+            ->whereIn('id', array_keys($this->studentMark))
+            ->pluck('id')->flip();
+
+        DB::transaction(function () use ($orgId, $markedBy, $valid, &$notifyRows) {
             $clear = [];
 
             foreach ($this->studentMark as $studentId => $row) {
+                if (!$valid->has($studentId)) {
+                    continue;
+                }
                 if (($row['status'] ?? '') === '') {
                     $clear[] = $studentId;
                     continue;
                 }
+                if (!in_array($row['status'], self::STATUSES, true)) {
+                    continue;
+                }
                 $statusInt = $this->toInt($row['status']);
                 StudentAttendance::updateOrCreate(
-                    ['student_detail_id' => $studentId, 'organization_id' => $orgId, 'attendance_date' => $this->stDate],
+                    ['student_detail_id' => $studentId, 'organization_id' => $orgId, 'attendance_date' => $this->sMarkDate],
                     ['user_id' => $row['user_id'] ?? 0, 'status' => $statusInt, 'remarks' => $row['remark'] ?? '', 'marked_by' => $markedBy]
                 );
                 if (!empty($row['user_id'])) {
@@ -339,7 +479,7 @@ class Attendance extends Component
             if ($clear) {
                 StudentAttendance::where('organization_id', $orgId)
                     ->whereIn('student_detail_id', $clear)
-                    ->whereDate('attendance_date', $this->stDate)->delete();
+                    ->whereDate('attendance_date', $this->sMarkDate)->delete();
             }
         });
 
@@ -348,13 +488,60 @@ class Attendance extends Component
         } catch (\Throwable $e) {
             logger()->warning('attendanceMarked push failed: ' . $e->getMessage());
         }
+    }
 
-        // Return to the record view we came from ("redirect to previous screen").
-        $this->studentView = $this->studentReturnView ?: 'by_date';
+    /** After saving, point the record view at exactly what was just marked. */
+    private function showMarkedStudentDay(string $date): void
+    {
+        $this->studentView = 'by_date';
+        $this->stStandard  = $this->sMarkStandard;
+        $this->stSection   = $this->sMarkSection;
+        $this->stDate      = $date;
+        $this->closeStudentMark();
+    }
+
+    public function submitStudentAttendance(): void
+    {
+        if (!$this->sMarkStandard || !$this->sMarkSection) {
+            $this->notification()->error('Select class and section first.');
+            return;
+        }
+        if ($this->studentMarkedCount() === 0) {
+            $this->notification()->error('Nothing to save', 'Mark at least one student first.');
+            return;
+        }
+
+        $wasEdit = $this->studentMarkExisting;
+        $date = $this->sMarkDate;
+
+        $this->persistStudentMark();
+        $this->showMarkedStudentDay($date);
 
         $this->notification()->success(
-            'Attendance successful',
-            'Student attendance saved for ' . Carbon::parse($this->stDate)->format('d M Y') . '.'
+            $wasEdit ? 'Attendance updated' : 'Attendance successful',
+            'Student attendance ' . ($wasEdit ? 'updated' : 'saved') . ' for ' . Carbon::parse($date)->format('d M Y') . '.'
+        );
+    }
+
+    /** Panel header button — the whole day becomes a holiday for this section. */
+    public function markStudentDayHoliday(): void
+    {
+        if (!$this->sMarkStandard || !$this->sMarkSection) {
+            $this->notification()->error('Select class and section first.');
+            return;
+        }
+
+        foreach ($this->studentMark as $id => $row) {
+            $this->studentMark[$id]['status'] = 'holiday';
+        }
+
+        $date = $this->sMarkDate;
+        $this->persistStudentMark();
+        $this->showMarkedStudentDay($date);
+
+        $this->notification()->success(
+            'Holiday marked',
+            Carbon::parse($date)->format('d M Y') . ' is now a holiday for this class.'
         );
     }
 
@@ -461,83 +648,104 @@ class Attendance extends Component
 
     // ═══════════════════════════════ BUILDERS ════════════════════════════════
     /**
-     * Month calendar grid. $records = [Y-m-d => int status].
+     * Build one small calendar card per month between $start and $end — the
+     * same shape the payroll screen renders: a Sunday-first grid with a leading
+     * blank count, per-month counts and a present-%, plus the period totals.
+     *
+     * $records = [Y-m-d => int status]. A day with no record reads as a holiday
+     * when it is a Sunday (standing school holiday) and as "not marked"
+     * otherwise. Days beyond today are left out of the counts entirely.
      */
-    private function buildCalendar(string $monthStr, array $records): array
+    private function buildMonthCards(array $records, Carbon $start, Carbon $end): array
     {
-        $start = Carbon::createFromFormat('Y-m-d', $monthStr . '-01')->startOfMonth();
-        $daysInMonth = $start->copy()->endOfMonth()->day;
+        $today = Carbon::today();
+        if ($end->gt($today)) $end = $today->copy();
 
-        $weeks = [];
-        $week = array_fill(0, 7, null);
-        $col = (int) $start->dayOfWeek; // 0=Sun..6=Sat
+        $blank  = ['present' => 0, 'absent' => 0, 'half_day' => 0, 'holiday' => 0, 'not_marked' => 0, 'working' => 0];
+        $counts = $blank;
+        $months = [];
 
-        $c = ['present' => 0, 'absent' => 0, 'half_day' => 0, 'holiday' => 0];
-        for ($d = 1; $d <= $daysInMonth; $d++) {
-            $date = $start->copy()->day($d)->toDateString();
-            $cell = ['day' => $d, 'date' => $date, 'status' => 'off'];
-            if (array_key_exists($date, $records)) {
-                $lbl = $this->toLabel($records[$date]);
-                $cell['status'] = $lbl;
-                $c[$lbl] = ($c[$lbl] ?? 0) + 1;
-            }
-            $week[$col] = $cell;
-            $col++;
-            if ($col === 7) { $weeks[] = $week; $week = array_fill(0, 7, null); $col = 0; }
+        if ($start->gt($end)) {
+            return ['counts' => $counts + ['percent' => 0], 'months' => $months];
         }
-        if ($col !== 0) $weeks[] = $week;
 
-        $working = $c['present'] + $c['absent'] + $c['half_day'];
-        $percent = $working > 0 ? round(($c['present'] + 0.5 * $c['half_day']) / $working * 100, 1) : 0;
+        $cursor = $start->copy()->startOfMonth();
+        $last   = $end->copy()->startOfMonth();
 
-        return [
-            'weeks'  => $weeks,
-            'totals' => [
-                'total_days'   => $daysInMonth,
-                'working_days' => $working,
-                'present_days' => $c['present'],
-                'absent_days'  => $c['absent'],
-                'half_days'    => $c['half_day'],
-                'holidays'     => $c['holiday'],
-                'percent'      => $percent,
-            ],
-        ];
+        while ($cursor->lte($last)) {
+            $monthStart  = $cursor->copy()->startOfMonth();
+            $daysInMonth = (int) $monthStart->daysInMonth;
+
+            $mCounts = $blank;
+            $cells   = [];
+
+            for ($n = 1; $n <= $daysInMonth; $n++) {
+                $d  = $monthStart->copy()->day($n);
+                $ds = $d->toDateString();
+
+                if ($d->lt($start) || $d->gt($end)) {
+                    $cells[] = ['day' => $n, 'date' => $ds, 'status' => null, 'in_period' => false];
+                    continue;
+                }
+
+                $status = array_key_exists($ds, $records)
+                    ? $this->toLabel($records[$ds])
+                    : $this->unmarkedStatusFor($ds);
+
+                $counts[$status]  = ($counts[$status] ?? 0) + 1;
+                $mCounts[$status] = ($mCounts[$status] ?? 0) + 1;
+                if (in_array($status, ['present', 'absent', 'half_day'], true)) {
+                    $counts['working']++;
+                    $mCounts['working']++;
+                }
+
+                $cells[] = ['day' => $n, 'date' => $ds, 'status' => $status, 'in_period' => true];
+            }
+
+            $months[$monthStart->format('Y-m')] = [
+                'label'  => $monthStart->format('F Y'),
+                // Sunday-first grid: how many blank cells sit before the 1st.
+                'lead'   => (int) $monthStart->dayOfWeek,
+                'cells'  => $cells,
+                'counts' => $mCounts,
+                'pct'    => $mCounts['working'] > 0
+                    ? (int) round(($mCounts['present'] + 0.5 * $mCounts['half_day']) / $mCounts['working'] * 100)
+                    : 0,
+            ];
+
+            $cursor->addMonthNoOverflow();
+        }
+
+        $counts['percent'] = $counts['working'] > 0
+            ? round(($counts['present'] + 0.5 * $counts['half_day']) / $counts['working'] * 100, 1)
+            : 0;
+
+        return ['counts' => $counts, 'months' => $months];
     }
 
-    /**
-     * Yearly summary — 12 month cards + year totals. $records = [Y-m-d => int].
-     */
-    private function buildYearly(int $year, array $records): array
+    /** Month cards for a single Y-m month. */
+    private function monthCardsFor(string $model, string $fk, $personId, string $monthStr, int $orgId): array
     {
-        $months = [];
-        $yt = ['present' => 0, 'absent' => 0, 'half_day' => 0, 'holiday' => 0, 'working' => 0];
+        $start = Carbon::createFromFormat('Y-m-d', $monthStr . '-01')->startOfMonth();
+        $recs  = $this->personRangeRecords($model, $fk, $personId, $start, $start->copy()->endOfMonth(), $orgId);
 
-        for ($m = 1; $m <= 12; $m++) {
-            $c = ['present' => 0, 'absent' => 0, 'half_day' => 0, 'holiday' => 0];
-            foreach ($records as $date => $st) {
-                $dt = Carbon::parse($date);
-                if ((int) $dt->year === $year && (int) $dt->month === $m) {
-                    $lbl = $this->toLabel($st);
-                    $c[$lbl] = ($c[$lbl] ?? 0) + 1;
-                }
-            }
-            $working = $c['present'] + $c['absent'] + $c['half_day'];
-            $percent = $working > 0 ? round(($c['present'] + 0.5 * $c['half_day']) / $working * 100, 1) : 0;
-            $months[] = [
-                'label'    => Carbon::create($year, $m, 1)->format('M'),
-                'present'  => $c['present'],
-                'absent'   => $c['absent'],
-                'half_day' => $c['half_day'],
-                'holiday'  => $c['holiday'],
-                'working'  => $working,
-                'percent'  => $percent,
-            ];
-            foreach (['present', 'absent', 'half_day', 'holiday'] as $k) $yt[$k] += $c[$k];
-            $yt['working'] += $working;
-        }
-        $yt['percent'] = $yt['working'] > 0 ? round(($yt['present'] + 0.5 * $yt['half_day']) / $yt['working'] * 100, 1) : 0;
+        return $this->buildMonthCards($recs, $start, $start->copy()->endOfMonth());
+    }
 
-        return ['year' => $year, 'months' => $months, 'totals' => $yt];
+    /** Month cards for a whole school year — April of $year → March of $year+1. */
+    private function yearCardsFor(string $model, string $fk, $personId, int $year, int $orgId): array
+    {
+        $start = Carbon::create($year, 4, 1)->startOfDay();
+        $end   = Carbon::create($year + 1, 3, 31)->endOfDay();
+        $recs  = $this->personRangeRecords($model, $fk, $personId, $start, $end, $orgId);
+
+        return $this->buildMonthCards($recs, $start, $end);
+    }
+
+    /** "Apr 2026 – Mar 2027" for the year picker. */
+    private function academicYearLabel(int $year): string
+    {
+        return 'Apr ' . $year . ' – Mar ' . ($year + 1);
     }
 
     /** Count present/absent/half_day/holiday/not_marked across a list of label strings. */
@@ -560,6 +768,10 @@ class Attendance extends Component
         $teachers  = TeacherDetail::with('user:id,name,email,image')->where('organization_id', $orgId)->get()
             ->sortBy(fn($t) => $t->user->name ?? '')->values();
 
+        // School years to choose from, newest first — each runs April → March.
+        $thisAy = self::academicYearOf(now());
+        $academicYears = range($thisAy, $thisAy - 5);
+
         // ── Class Teachers tab: filtered assignment list ──
         // Mode-aware: "By Class" only filters on class/section, "By Teacher" only
         // on the teacher — so a filter from one method never leaks into the other.
@@ -571,8 +783,8 @@ class Attendance extends Component
             ->latest()->get();
         $ctSections = $this->ctFilterStandard ? Section::where('standard_id', $this->ctFilterStandard)->orderBy('id')->get(['id', 'name']) : collect();
 
-        // ── Teacher mark list ──
-        $markTeachers = $teachers;
+        // ── Teacher mark list (the slide-in panel) ──
+        $markTeachers = $this->showTeacherMarkPanel ? $teachers : collect();
 
         // ── Teacher: by date ──
         $tByDateRows = collect();
@@ -580,13 +792,14 @@ class Attendance extends Component
         if ($this->mainTab === 'teacher' && $this->teacherView === 'by_date') {
             $recs = TeacherAttendance::where('organization_id', $orgId)
                 ->whereDate('attendance_date', $this->tDate)->get()->keyBy('teacher_detail_id');
-            $tByDateRows = $teachers->map(function ($t) use ($recs) {
+            $unmarked = $this->unmarkedStatusFor($this->tDate);
+            $tByDateRows = $teachers->map(function ($t) use ($recs, $unmarked) {
                 $rec = $recs->get($t->id);
                 return [
                     'name'   => $t->user->name ?? '—',
                     'email'  => $t->user->email ?? '',
                     'image'  => $t->user->image ?? null,
-                    'status' => $rec ? $this->toLabel($rec->status) : 'not_marked',
+                    'status' => $rec ? $this->toLabel($rec->status) : $unmarked,
                     'remark' => $rec->remarks ?? '',
                 ];
             });
@@ -598,25 +811,22 @@ class Attendance extends Component
             }
         }
 
-        // ── Teacher: by month (calendar for a teacher) ──
-        $tMonthCalendar = null;
-        if ($this->mainTab === 'teacher' && $this->teacherView === 'by_month' && $this->tTeacherId && $this->tMonth) {
-            $recs = $this->personMonthRecords(TeacherAttendance::class, 'teacher_detail_id', $this->tTeacherId, $this->tMonth, $orgId);
-            $tMonthCalendar = $this->buildCalendar($this->tMonth, $recs);
-        }
+        // ── Teacher: month cards (by_month, and by_teacher monthly/yearly) ──
+        $tCards = null; $tCardsTitle = ''; $tCardsPerson = '';
+        if ($this->mainTab === 'teacher' && $this->tTeacherId) {
+            $tCardsPerson = $teachers->firstWhere('id', (int) $this->tTeacherId)?->user?->name ?? '';
 
-        // ── Teacher: by teacher (monthly calendar OR yearly cards) ──
-        $tTeacherCalendar = null; $tTeacherYearly = null;
-        if ($this->mainTab === 'teacher' && $this->teacherView === 'by_teacher' && $this->tTeacherId) {
-            if ($this->tRange === 'yearly' && $this->tYear) {
-                $recs = TeacherAttendance::where('organization_id', $orgId)
-                    ->where('teacher_detail_id', $this->tTeacherId)
-                    ->whereYear('attendance_date', (int) $this->tYear)
-                    ->get()->mapWithKeys(fn($r) => [Carbon::parse($r->attendance_date)->toDateString() => (int) $r->status])->toArray();
-                $tTeacherYearly = $this->buildYearly((int) $this->tYear, $recs);
-            } elseif ($this->tRange === 'monthly' && $this->tMonth) {
-                $recs = $this->personMonthRecords(TeacherAttendance::class, 'teacher_detail_id', $this->tTeacherId, $this->tMonth, $orgId);
-                $tTeacherCalendar = $this->buildCalendar($this->tMonth, $recs);
+            if ($this->teacherView === 'by_month' && $this->tMonth) {
+                $tCards = $this->monthCardsFor(TeacherAttendance::class, 'teacher_detail_id', $this->tTeacherId, $this->tMonth, $orgId);
+                $tCardsTitle = Carbon::createFromFormat('Y-m-d', $this->tMonth . '-01')->format('F Y');
+            } elseif ($this->teacherView === 'by_teacher') {
+                if ($this->tRange === 'yearly' && $this->tYear) {
+                    $tCards = $this->yearCardsFor(TeacherAttendance::class, 'teacher_detail_id', $this->tTeacherId, (int) $this->tYear, $orgId);
+                    $tCardsTitle = $this->academicYearLabel((int) $this->tYear);
+                } elseif ($this->tRange === 'monthly' && $this->tMonth) {
+                    $tCards = $this->monthCardsFor(TeacherAttendance::class, 'teacher_detail_id', $this->tTeacherId, $this->tMonth, $orgId);
+                    $tCardsTitle = Carbon::createFromFormat('Y-m-d', $this->tMonth . '-01')->format('F Y');
+                }
             }
         }
 
@@ -630,8 +840,17 @@ class Attendance extends Component
                 ->get()->sortBy(fn($s) => $s->user->name ?? '')->values();
         }
 
-        // ── Student: mark list ──
-        $markStudents = ($this->mainTab === 'student' && $this->studentView === 'mark') ? $stStudents : collect();
+        // ── Student mark panel: its own class → section → student list ──
+        $sMarkSections = $this->sMarkStandard
+            ? Section::where('standard_id', $this->sMarkStandard)->orderBy('id')->get(['id', 'name'])
+            : collect();
+        $markStudents = collect();
+        if ($this->showStudentMarkPanel && $this->sMarkStandard && $this->sMarkSection) {
+            $markStudents = StudentDetail::with('user:id,name,email,image')
+                ->where('organization_id', $orgId)->where('standard_id', $this->sMarkStandard)
+                ->where('section_id', $this->sMarkSection)->whereNotNull('user_id')
+                ->get()->sortBy(fn($s) => $s->user->name ?? '')->values();
+        }
 
         // ── Student: by date ──
         $sByDateRows = collect();
@@ -640,55 +859,46 @@ class Attendance extends Component
             $recs = StudentAttendance::where('organization_id', $orgId)
                 ->whereDate('attendance_date', $this->stDate)
                 ->whereIn('student_detail_id', $stStudents->pluck('id'))->get()->keyBy('student_detail_id');
-            $sByDateRows = $stStudents->map(function ($s) use ($recs) {
+            $unmarked = $this->unmarkedStatusFor($this->stDate);
+            $sByDateRows = $stStudents->map(function ($s) use ($recs, $unmarked) {
                 $rec = $recs->get($s->id);
                 return [
                     'name'   => $s->user->name ?? ($s->full_name ?? '—'),
                     'email'  => $s->user->email ?? '',
                     'image'  => $s->user->image ?? null,
-                    'status' => $rec ? $this->toLabel($rec->status) : 'not_marked',
+                    'status' => $rec ? $this->toLabel($rec->status) : $unmarked,
                     'remark' => $rec->remarks ?? '',
                 ];
             });
             $sByDateStats = $this->tallyLabels($sByDateRows->pluck('status'));
         }
 
-        // ── Student: by month (calendar) ──
-        $sMonthCalendar = null;
-        if ($this->mainTab === 'student' && $this->studentView === 'by_month' && $this->stStudentId && $this->stMonth) {
-            $recs = $this->personMonthRecords(StudentAttendance::class, 'student_detail_id', $this->stStudentId, $this->stMonth, $orgId);
-            $sMonthCalendar = $this->buildCalendar($this->stMonth, $recs);
-        }
-
-        // ── Student: by student (monthly calendar OR yearly cards) ──
-        $sStudentCalendar = null; $sStudentYearly = null;
+        // ── Student: month cards (by_student monthly / yearly) ──
+        $sCards = null; $sCardsTitle = ''; $sCardsPerson = '';
         if ($this->mainTab === 'student' && $this->studentView === 'by_student' && $this->stStudentId) {
+            $picked = $stStudents->firstWhere('id', (int) $this->stStudentId);
+            $sCardsPerson = $picked ? ($picked->user?->name ?? $picked->full_name ?? '') : '';
+
             if ($this->stRange === 'yearly' && $this->stYear) {
-                $recs = StudentAttendance::where('organization_id', $orgId)
-                    ->where('student_detail_id', $this->stStudentId)
-                    ->whereYear('attendance_date', (int) $this->stYear)
-                    ->get()->mapWithKeys(fn($r) => [Carbon::parse($r->attendance_date)->toDateString() => (int) $r->status])->toArray();
-                $sStudentYearly = $this->buildYearly((int) $this->stYear, $recs);
+                $sCards = $this->yearCardsFor(StudentAttendance::class, 'student_detail_id', $this->stStudentId, (int) $this->stYear, $orgId);
+                $sCardsTitle = $this->academicYearLabel((int) $this->stYear);
             } elseif ($this->stRange === 'monthly' && $this->stMonth) {
-                $recs = $this->personMonthRecords(StudentAttendance::class, 'student_detail_id', $this->stStudentId, $this->stMonth, $orgId);
-                $sStudentCalendar = $this->buildCalendar($this->stMonth, $recs);
+                $sCards = $this->monthCardsFor(StudentAttendance::class, 'student_detail_id', $this->stStudentId, $this->stMonth, $orgId);
+                $sCardsTitle = Carbon::createFromFormat('Y-m-d', $this->stMonth . '-01')->format('F Y');
             }
         }
 
         return view('livewire.accounts.attendance', compact(
-            'standards', 'teachers', 'assignments', 'ctSections', 'markTeachers',
-            'tByDateRows', 'tByDateStats', 'tMonthCalendar', 'tTeacherCalendar', 'tTeacherYearly',
-            'stSections', 'stStudents', 'markStudents',
-            'sByDateRows', 'sByDateStats', 'sMonthCalendar', 'sStudentCalendar', 'sStudentYearly'
+            'standards', 'teachers', 'assignments', 'ctSections', 'markTeachers', 'academicYears',
+            'tByDateRows', 'tByDateStats', 'tCards', 'tCardsTitle', 'tCardsPerson',
+            'stSections', 'stStudents', 'markStudents', 'sMarkSections',
+            'sByDateRows', 'sByDateStats', 'sCards', 'sCardsTitle', 'sCardsPerson'
         ));
     }
 
-    /** Fetch a person's records for a Y-m month keyed by date => int status. */
-    private function personMonthRecords(string $model, string $fk, $personId, string $monthStr, int $orgId): array
+    /** Fetch a person's records between two dates, keyed by date => int status. */
+    private function personRangeRecords(string $model, string $fk, $personId, Carbon $start, Carbon $end, int $orgId): array
     {
-        $start = Carbon::createFromFormat('Y-m-d', $monthStr . '-01')->startOfMonth();
-        $end = (clone $start)->endOfMonth();
-
         return $model::where('organization_id', $orgId)
             ->where($fk, $personId)
             ->whereBetween('attendance_date', [$start->toDateString(), $end->toDateString()])
