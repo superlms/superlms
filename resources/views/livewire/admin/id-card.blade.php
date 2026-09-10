@@ -190,23 +190,35 @@
         @endif
     </div>
 
-    {{-- ══════════════ VIEW CARD MODAL ══════════════ --}}
+    {{-- ══════════════ VIEW CARD SLIDE-IN ══════════════ --}}
     @if ($showViewModal && $viewCard)
         @php $c = app(\App\Services\IdCardService::class)->cardViewData($viewCard, $viewType); @endphp
         <div class="fixed inset-0 z-[9999] overflow-hidden">
-            <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closeViewModal"></div>
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeViewModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col" wire:click.stop>
-                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-                    <h3 class="text-base font-bold text-gray-800">{{ ucfirst($viewType) }} ID Card</h3>
-                    <button wire:click="closeViewModal" class="text-gray-400 hover:text-gray-600"><x-icon name="x-mark" class="h-5 w-5" /></button>
+
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900">{{ ucfirst($viewType) }} ID Card</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">Card as it prints</p>
+                    </div>
+                    <button wire:click="closeViewModal" type="button"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                        <x-icon name="x-mark" class="h-5 w-5" />
+                    </button>
                 </div>
-                <div class="flex-1 overflow-y-auto px-6 py-6 bg-gray-50">
-                    @include('admin.id-cards._card', ['c' => $c])
+
+                <div class="flex-1 overflow-y-auto bg-gray-50">
+                    <div class="px-6 py-6">
+                        @include('admin.id-cards._card', ['c' => $c])
+                    </div>
                 </div>
-                <div class="px-6 py-4 border-t border-gray-100 bg-white flex justify-end gap-2 flex-shrink-0">
+
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between gap-2 flex-shrink-0">
                     <a href="{{ route('admin.id-card.print', ['organization' => auth()->user()->organization_id, 'type' => $viewType, 'id' => $viewCard->id]) }}" target="_blank"
-                        class="px-5 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Download / Print</a>
-                    <button wire:click="closeViewModal" class="px-5 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors">Close</button>
+                        class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Download / Print</a>
+                    <button wire:click="closeViewModal" type="button"
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md">Close</button>
                 </div>
             </div>
         </div>
@@ -215,70 +227,75 @@
     {{-- ══════════════ GENERATE SLIDE-IN PANEL ══════════════ --}}
     @if ($showGenerateModal)
         <div class="fixed inset-0 z-[9999] overflow-hidden">
-            <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closeGenerate"></div>
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeGenerate"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-md bg-white shadow-2xl flex flex-col" wire:click.stop>
-                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-                    <h3 class="text-base font-bold text-gray-800">Generate ID Cards</h3>
-                    <button wire:click="closeGenerate" class="text-gray-400 hover:text-gray-600"><x-icon name="x-mark" class="h-5 w-5" /></button>
+
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900">Generate ID Cards</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">Issue a batch for everyone without an active card</p>
+                    </div>
+                    <button wire:click="closeGenerate" type="button"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                        <x-icon name="x-mark" class="h-5 w-5" />
+                    </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-                    {{-- Step 1: type --}}
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Type <span class="text-red-500">*</span></label>
-                        <div class="grid grid-cols-3 gap-2">
-                            @foreach (['student' => 'Students', 'teacher' => 'Teachers', 'employee' => 'Employees'] as $t => $label)
-                                <button type="button" wire:click="$set('genType', '{{ $t }}')"
-                                    class="px-2 py-2.5 text-sm font-semibold rounded-lg border transition {{ $genType === $t ? 'border-violet-500 bg-violet-50 text-violet-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50' }}">
-                                    {{ $label }}
-                                </button>
-                            @endforeach
-                        </div>
-                        @error('genType')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
-                    </div>
-
-                    {{-- Step 2 (student only): classes --}}
-                    @if ($genType === 'student')
+                <div class="flex-1 overflow-y-auto">
+                    <div class="px-6 py-6 space-y-5">
+                        {{-- Step 1: type --}}
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Classes <span class="text-gray-400 font-normal">(leave empty for all)</span></label>
-                            <div class="border border-gray-200 rounded-lg max-h-56 overflow-y-auto divide-y divide-gray-100">
-                                @forelse ($standards as $std)
-                                    <label class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-gray-50">
-                                        <input type="checkbox" wire:model="genStandardIds" value="{{ $std->id }}"
-                                            class="rounded border-gray-300 text-violet-600 focus:ring-violet-500">
-                                        <span class="text-sm text-gray-700">{{ $std->name }}</span>
-                                    </label>
-                                @empty
-                                    <p class="px-3 py-3 text-sm text-gray-400">No classes found.</p>
-                                @endforelse
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Type <span class="text-red-500">*</span></label>
+                            <div class="grid grid-cols-3 gap-2">
+                                @foreach (['student' => 'Students', 'teacher' => 'Teachers', 'employee' => 'Employees'] as $t => $label)
+                                    <button type="button" wire:click="$set('genType', '{{ $t }}')"
+                                        class="px-2 py-2.5 text-sm font-medium rounded-md border {{ $genType === $t ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50' }}">
+                                        {{ $label }}
+                                    </button>
+                                @endforeach
                             </div>
-                            <p class="mt-1.5 text-xs text-gray-500">Selected: {{ count(array_filter($genStandardIds)) ?: 'All classes' }}</p>
+                            @error('genType')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
-                    @else
-                        <div class="bg-violet-50 border border-violet-100 rounded-lg p-3 text-sm text-violet-700">
-                            Cards will be generated for <strong>all {{ $genType }}s</strong> who don't have an active card.
+
+                        {{-- Step 2 (student only): classes --}}
+                        @if ($genType === 'student')
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Classes <span class="text-gray-400 font-normal">(leave empty for all)</span></label>
+                                <div class="border border-gray-300 rounded-md max-h-56 overflow-y-auto divide-y divide-gray-100">
+                                    @forelse ($standards as $std)
+                                        <label class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-gray-50">
+                                            <input type="checkbox" wire:model="genStandardIds" value="{{ $std->id }}"
+                                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                            <span class="text-sm text-gray-700">{{ $std->name }}</span>
+                                        </label>
+                                    @empty
+                                        <p class="px-3 py-3 text-sm text-gray-400">No classes found.</p>
+                                    @endforelse
+                                </div>
+                                <p class="mt-1.5 text-xs text-gray-500">Selected: {{ count(array_filter($genStandardIds)) ?: 'All classes' }}</p>
+                            </div>
+                        @else
+                            <p class="text-xs text-gray-500">Cards will be generated for <strong class="text-gray-700 font-medium">all {{ $genType }}s</strong> who don't have an active card.</p>
+                        @endif
+
+                        {{-- Expiry --}}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Card Expiry Date <span class="text-red-500">*</span></label>
+                            <input type="date" wire:model="genExpiryDate" min="{{ now()->addDay()->format('Y-m-d') }}"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('genExpiryDate')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
-                    @endif
 
-                    {{-- Expiry --}}
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Card Expiry Date <span class="text-red-500">*</span></label>
-                        <input type="date" wire:model="genExpiryDate" min="{{ now()->addDay()->format('Y-m-d') }}"
-                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500">
-                        @error('genExpiryDate')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
-                    </div>
-
-                    <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2.5">
-                        <x-icon name="information-circle" class="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                        <p class="text-xs text-amber-700">After the first batch is issued, any newly-added {{ $genType }}s automatically get a card every midnight using this expiry date.</p>
+                        <p class="text-xs text-gray-500">After the first batch is issued, any newly-added {{ $genType }}s automatically get a card every midnight using this expiry date.</p>
                     </div>
                 </div>
 
-                <div class="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2 flex-shrink-0">
-                    <button wire:click="closeGenerate" class="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">Cancel</button>
-                    <button wire:click="generateCards" wire:loading.attr="disabled" class="px-5 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 font-semibold shadow-sm transition disabled:opacity-60">
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                    <button wire:click="closeGenerate" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                    <button wire:click="generateCards" type="button" wire:loading.attr="disabled" wire:target="generateCards"
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
                         <span wire:loading.remove wire:target="generateCards">Generate Cards</span>
-                        <span wire:loading wire:target="generateCards">Generating…</span>
+                        <span wire:loading wire:target="generateCards">Generating...</span>
                     </button>
                 </div>
             </div>
@@ -288,30 +305,47 @@
     {{-- ══════════════ EDIT SLIDE-IN PANEL ══════════════ --}}
     @if ($showEditModal)
         <div class="fixed inset-0 z-[9999] overflow-hidden">
-            <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closeEditModal"></div>
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeEditModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-md bg-white shadow-2xl flex flex-col" wire:click.stop>
-                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-                    <h3 class="text-base font-bold text-gray-800">Edit ID Card <span class="text-gray-400 font-normal">({{ ucfirst($cardType) }})</span></h3>
-                    <button wire:click="closeEditModal" class="text-gray-400 hover:text-gray-600"><x-icon name="x-mark" class="h-5 w-5" /></button>
-                </div>
-                <div class="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Expiry Date <span class="text-red-500">*</span></label>
-                        <input type="date" wire:model="editExpiryDate" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500">
-                        @error('editExpiryDate')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
+
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900">Edit ID Card</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">{{ ucfirst($cardType) }} card — expiry and status</p>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Status <span class="text-red-500">*</span></label>
-                        <select wire:model="editStatus" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-violet-500 focus:border-violet-500">
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                        </select>
-                        @error('editStatus')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
+                    <button wire:click="closeEditModal" type="button"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                        <x-icon name="x-mark" class="h-5 w-5" />
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto">
+                    <div class="px-6 py-6 space-y-5">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Expiry Date <span class="text-red-500">*</span></label>
+                            <input type="date" wire:model="editExpiryDate"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('editExpiryDate')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Status <span class="text-red-500">*</span></label>
+                            <select wire:model="editStatus"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                            </select>
+                            @error('editStatus')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
                     </div>
                 </div>
-                <div class="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2 flex-shrink-0">
-                    <button wire:click="closeEditModal" class="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">Cancel</button>
-                    <button wire:click="saveEdit" class="px-5 py-2 text-sm bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-semibold shadow-sm transition">Update</button>
+
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                    <button wire:click="closeEditModal" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                    <button wire:click="saveEdit" type="button" wire:loading.attr="disabled" wire:target="saveEdit"
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                        <span wire:loading.remove wire:target="saveEdit">Update</span>
+                        <span wire:loading wire:target="saveEdit">Saving...</span>
+                    </button>
                 </div>
             </div>
         </div>

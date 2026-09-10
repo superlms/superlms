@@ -163,7 +163,7 @@
     @if ($showPanel)
         @teleport('body')
         <div class="fixed inset-0 z-[70] overflow-hidden">
-            <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closePanel"></div>
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closePanel"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-lg bg-white shadow-2xl flex flex-col">
 
                 {{-- Panel Header --}}
@@ -179,46 +179,45 @@
                 </div>
 
                 {{-- Body --}}
-                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-5">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Title <span class="text-rose-500">*</span></label>
-                        <input type="text" wire:model="title" placeholder="e.g. Fee Structure 2026-27"
-                            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        @error('title') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
-                    </div>
+                <div class="flex-1 overflow-y-auto">
+                    <div class="px-6 py-6 space-y-5">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Title <span class="text-red-500">*</span></label>
+                            <input type="text" wire:model="title" placeholder="e.g. Fee Structure 2026-27"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('title')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Description <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
-                        <textarea wire:model="description" rows="3" placeholder="Short note about this document"
-                            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y"></textarea>
-                        @error('description') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
-                    </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Description <span class="text-gray-400 font-normal">(optional)</span></label>
+                            <textarea wire:model="description" rows="3" placeholder="Short note about this document"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-y"></textarea>
+                            @error('description')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">
-                            File @if (!$editId)<span class="text-rose-500">*</span>@endif
-                            <span class="text-gray-400 text-xs font-normal">(PDF, image or any file, max 5 MB)</span>
-                        </label>
-                        @if ($editId && $existingFileName)
-                            <div class="flex items-center gap-2 text-xs text-gray-500 mb-1.5">
-                                <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                <span>Current: <strong class="text-gray-700">{{ $existingFileName }}</strong> — upload a new file to replace it.</span>
-                            </div>
-                        @endif
-                        <input type="file" wire:model="file"
-                            class="w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                        <div wire:loading wire:target="file" class="text-[11px] text-gray-400 mt-1">Uploading…</div>
-                        @error('file') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                                File @if (!$editId)<span class="text-red-500">*</span>@endif
+                                <span class="text-gray-400 font-normal">(PDF, image or any file, max 5 MB)</span>
+                            </label>
+                            @if ($editId && $existingFileName)
+                                <p class="text-xs text-gray-500 mb-1.5">Current: <strong class="text-gray-700 font-medium">{{ $existingFileName }}</strong> — upload a new file to replace it.</p>
+                            @endif
+                            <input type="file" wire:model="file"
+                                class="w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                            <div wire:loading wire:target="file" class="text-xs text-blue-600 mt-1">Uploading...</div>
+                            @error('file')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
                     </div>
                 </div>
 
                 {{-- Footer --}}
-                <div class="px-6 py-3.5 border-t border-gray-100 flex items-center justify-between gap-3 flex-shrink-0">
-                    <button wire:click="closePanel" type="button" class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800">Cancel</button>
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                    <button wire:click="closePanel" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
                     <button wire:click="save" type="button" wire:loading.attr="disabled" wire:target="save,file"
-                        class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-medium px-5 py-2 rounded-lg">
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
                         <span wire:loading.remove wire:target="save">{{ $editId ? 'Update Document' : 'Save Document' }}</span>
-                        <span wire:loading wire:target="save">Saving…</span>
+                        <span wire:loading wire:target="save">Saving...</span>
                     </button>
                 </div>
             </div>

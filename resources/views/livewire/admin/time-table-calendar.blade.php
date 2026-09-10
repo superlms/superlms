@@ -321,13 +321,20 @@
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
 
                 {{-- ✅ Fixed header (always visible at top of panel) --}}
-                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0 bg-white">
-                    <div class="flex items-center gap-2.5 min-w-0">
-                        @if (isset($sliderData['mode']) && $sliderData['mode'] === 'view')
-                            <span class="block w-2 h-2 rounded-full flex-shrink-0"
-                                style="background-color: {{ $sliderData['event']['color'] ?? '#4363D8' }}"></span>
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            @if (isset($sliderData['mode']) && $sliderData['mode'] === 'view')
+                                <span class="block w-2 h-2 rounded-full flex-shrink-0"
+                                    style="background-color: {{ $sliderData['event']['color'] ?? '#4363D8' }}"></span>
+                            @endif
+                            <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $sliderTitle }}</h2>
+                        </div>
+                        @if (!empty($sliderData['date']))
+                            <p class="text-xs text-gray-500 mt-0.5">{{ \Carbon\Carbon::parse($sliderData['date'])->format('l, d M Y') }}</p>
+                        @elseif (!empty($sliderData['event']['date']))
+                            <p class="text-xs text-gray-500 mt-0.5">{{ \Carbon\Carbon::parse($sliderData['event']['date'])->format('l, d M Y') }}</p>
                         @endif
-                        <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $sliderTitle }}</h2>
                     </div>
                     <button wire:click="closeSlider"
                         class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0">
@@ -362,35 +369,33 @@
                             if (!empty($ev['teacher']))   $rows['Teacher']  = $ev['teacher'];
                         @endphp
 
-                        <div class="space-y-4">
-                            @foreach ($rows as $label => $value)
-                                <div class="grid grid-cols-3 gap-3 text-sm">
-                                    <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
-                                    <span class="col-span-2 text-gray-800 font-medium">{{ $value }}</span>
-                                </div>
-                            @endforeach
+                        <div class="space-y-5 text-sm text-gray-700">
+                            <div>
+                                <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Event</h4>
+                                <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    @foreach ($rows as $label => $value)
+                                        <div><dt class="text-xs text-gray-400">{{ $label }}</dt><dd class="font-medium">{{ $value }}</dd></div>
+                                    @endforeach
+                                </dl>
+                            </div>
 
                             @if (!empty($ev['description']))
-                                <div class="grid grid-cols-3 gap-3 text-sm">
-                                    <span class="text-xs text-gray-400 uppercase tracking-wider">Description</span>
-                                    <span class="col-span-2 text-gray-800 font-medium whitespace-pre-line leading-relaxed">
-                                        {{ $ev['description'] }}
-                                    </span>
+                                <div>
+                                    <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Description</h4>
+                                    <p class="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{{ $ev['description'] }}</p>
                                 </div>
                             @endif
 
                             @if (!empty($ev['attachment']))
-                                <div class="grid grid-cols-3 gap-3 text-sm">
-                                    <span class="text-xs text-gray-400 uppercase tracking-wider">Attachment</span>
-                                    <span class="col-span-2">
-                                        <a href="{{ $ev['attachment'] }}" target="_blank" rel="noopener"
-                                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-blue-200 bg-blue-50 text-xs font-medium text-blue-700 hover:bg-blue-100">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                                            </svg>
-                                            Open attachment
-                                        </a>
-                                    </span>
+                                <div>
+                                    <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Attachment</h4>
+                                    <a href="{{ $ev['attachment'] }}" target="_blank" rel="noopener"
+                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                        </svg>
+                                        Open attachment
+                                    </a>
                                 </div>
                             @endif
                         </div>
@@ -405,7 +410,7 @@
                 </div>
 
                 {{-- ✅ Fixed footer (always at bottom of panel) --}}
-                <div class="flex items-center justify-between px-6 py-3.5 border-t border-gray-200 flex-shrink-0 bg-white">
+                <div class="flex items-center justify-between px-6 py-3.5 border-t border-gray-200 flex-shrink-0">
                     @if (isset($sliderData['mode']) && $sliderData['mode'] === 'view')
                         <p class="text-xs text-gray-400">
                             #{{ $sliderData['event']['id'] }}

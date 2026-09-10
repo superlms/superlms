@@ -16,7 +16,7 @@
             <input wire:model.defer="title" type="text" maxlength="1000" placeholder="e.g. Annual Sports Day"
                 x-on:input="len = $event.target.value.length"
                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-            @error('title')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+            @error('title')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
         </div>
 
         {{-- Event Type --}}
@@ -68,7 +68,7 @@
                     </button>
                 @endforeach
             </div>
-            @error('color')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+            @error('color')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
         </div>
 
         {{-- Description --}}
@@ -80,7 +80,7 @@
             <textarea wire:model.defer="description" rows="3" maxlength="3000" placeholder="Optional notes..."
                 x-on:input="len = $event.target.value.length"
                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm resize-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
-            @error('description')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+            @error('description')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
         </div>
 
         {{-- Attachment (image or PDF, ≤ 1 MB) --}}
@@ -111,7 +111,7 @@
                     Selected: {{ $attachment->getClientOriginalName() }}
                 </p>
             @endif
-            @error('attachment')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+            @error('attachment')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
         </div>
 
         {{-- Date + All Day --}}
@@ -122,7 +122,7 @@
                 </label>
                 <input wire:model.defer="event_date" type="date"
                     class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                @error('event_date')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                @error('event_date')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
             </div>
             <label class="flex items-center gap-2 text-sm text-gray-700 px-3.5 py-2.5 border border-gray-200 rounded-md bg-gray-50 cursor-pointer">
                 <input type="checkbox" wire:model.live="is_all_day" class="rounded">
@@ -139,7 +139,7 @@
                     </label>
                     <input wire:model.defer="start_time" type="time"
                         class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                    @error('start_time')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                    @error('start_time')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1.5">
@@ -147,7 +147,7 @@
                     </label>
                     <input wire:model.defer="end_time" type="time"
                         class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                    @error('end_time')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                    @error('end_time')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
             </div>
         @endif

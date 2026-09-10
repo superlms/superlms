@@ -298,7 +298,7 @@
                         <span>Marked: <strong class="text-emerald-600">{{ $responseSummary['reviewed'] }}</strong></span>
                         @if ($selectedAssignment->isMcq())
                             <button wire:click="applyMcqScores"
-                                class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-purple-700 bg-purple-50 border border-purple-200 rounded-md hover:bg-purple-100">
+                                class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100">
                                 Auto-fill MCQ marks
                             </button>
                         @endif
@@ -451,7 +451,7 @@
                                 <option value="">Select class</option>
                                 @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
                             </select>
-                            @error('standard_id')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                            @error('standard_id')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Section <span class="text-red-500">*</span></label>
@@ -459,7 +459,7 @@
                                 <option value="">Select section</option>
                                 @foreach ($formSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
                             </select>
-                            @error('section_id')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                            @error('section_id')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Subject <span class="text-red-500">*</span></label>
@@ -467,7 +467,7 @@
                                 <option value="">Select subject</option>
                                 @foreach ($formSubjects as $sub)<option value="{{ $sub->id }}">{{ $sub->name }}</option>@endforeach
                             </select>
-                            @error('subject_id')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                            @error('subject_id')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                     </div>
 
@@ -476,7 +476,7 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Title <span class="text-red-500">*</span></label>
                         <input type="text" wire:model="title" placeholder="e.g. Chapter 4 — Practice Set"
                             class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
-                        @error('title')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        @error('title')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
 
                     {{-- Start / End --}}
@@ -484,18 +484,18 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Start date <span class="text-red-500">*</span></label>
                             <input type="datetime-local" wire:model="start_date" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
-                            @error('start_date')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                            @error('start_date')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">End date <span class="text-red-500">*</span></label>
                             <input type="datetime-local" wire:model="end_date" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
-                            @error('end_date')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                            @error('end_date')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Total marks</label>
                             <input type="number" min="0" wire:model="total_marks" placeholder="{{ $type === 'mcq' ? 'Auto from questions' : 'Optional' }}"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
-                            @error('total_marks')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                            @error('total_marks')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                     </div>
 
@@ -544,7 +544,7 @@
                                 class="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
                             <p class="text-[11px] text-gray-400 mt-1">PDF, Word, Excel, PowerPoint, text or image. Up to 5 MB.</p>
                             <div wire:loading wire:target="attachment" class="text-[11px] text-blue-600 mt-1">Uploading…</div>
-                            @error('attachment')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                            @error('attachment')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
 
                         {{-- What the student submits --}}
@@ -686,15 +686,15 @@
                     <div class="border border-gray-200 rounded-lg overflow-hidden">
                         <div class="grid grid-cols-3 divide-x divide-gray-200">
                             <div class="px-4 py-3 text-center">
-                                <p class="text-xl font-bold text-emerald-600 tabular-nums">{{ $vsDone }}</p>
+                                <p class="text-xl font-semibold text-gray-900 tabular-nums">{{ $vsDone }}</p>
                                 <p class="text-xs text-gray-400 uppercase tracking-wider mt-0.5">Attempted</p>
                             </div>
                             <div class="px-4 py-3 text-center">
-                                <p class="text-xl font-bold text-amber-600 tabular-nums">{{ $viewStats['pending'] ?? 0 }}</p>
+                                <p class="text-xl font-semibold text-gray-900 tabular-nums">{{ $viewStats['pending'] ?? 0 }}</p>
                                 <p class="text-xs text-gray-400 uppercase tracking-wider mt-0.5">Not yet</p>
                             </div>
                             <div class="px-4 py-3 text-center">
-                                <p class="text-xl font-bold text-gray-800 tabular-nums">{{ $vsTotal }}</p>
+                                <p class="text-xl font-semibold text-gray-900 tabular-nums">{{ $vsTotal }}</p>
                                 <p class="text-xs text-gray-400 uppercase tracking-wider mt-0.5">In class</p>
                             </div>
                         </div>
@@ -756,7 +756,7 @@
                 </div>
 
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
-                    <button wire:click="closeView" class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
+                    <button wire:click="closeView" type="button" class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md">Close</button>
                 </div>
             </div>
         </div>
@@ -848,6 +848,11 @@
                     @unless ($responseRow->file || $responseRow->answer_text || !empty($responseAnswers))
                         <p class="text-sm text-gray-400">This attempt has no content attached to it.</p>
                     @endunless
+                </div>
+
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                    <button wire:click="closeResponse" type="button"
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md">Close</button>
                 </div>
             </div>
         </div>

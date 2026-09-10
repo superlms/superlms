@@ -376,39 +376,39 @@
             </button>
         </div>
 
-        <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex-shrink-0">
+        <div class="px-6 py-4 border-b border-gray-100 flex-shrink-0">
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
-                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Exam <span class="text-red-500">*</span></label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Exam <span class="text-red-500">*</span></label>
                     <select wire:model.live="uploadExam"
-                        class="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
+                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">Select Exam</option>
                         @foreach ($exams as $e)<option value="{{ $e->id }}">{{ $e->exam_name }}</option>@endforeach
                     </select>
                     @error('uploadExam')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Class <span class="text-red-500">*</span></label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Class <span class="text-red-500">*</span></label>
                     <select wire:model.live="uploadStandard"
-                        class="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
+                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">Select Class</option>
                         @foreach ($standards as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
                     </select>
                     @error('uploadStandard')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Section <span class="text-red-500">*</span></label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Section <span class="text-red-500">*</span></label>
                     <select wire:model.live="uploadSection" @disabled(!$uploadStandard)
-                        class="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white disabled:opacity-50">
+                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50">
                         <option value="">Select Section</option>
                         @foreach ($sections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
                     </select>
                     @error('uploadSection')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Subject <span class="text-red-500">*</span></label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Subject <span class="text-red-500">*</span></label>
                     <select wire:model.live="uploadSubject" @disabled(!$uploadSection)
-                        class="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white disabled:opacity-50">
+                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50">
                         <option value="">Select Subject</option>
                         @foreach ($subjects as $sub)<option value="{{ $sub->id }}">{{ $sub->name }}</option>@endforeach
                     </select>
@@ -416,7 +416,7 @@
                 </div>
             </div>
             @if ($uploadExam)
-                <p class="mt-3 text-[11px] text-blue-700">Exam total marks: <strong>{{ $uploadTotalMarks }}</strong> — auto-applied to every student row below.</p>
+                <p class="mt-3 text-xs text-gray-500">Exam total marks: <strong class="text-gray-700 font-medium">{{ $uploadTotalMarks }}</strong> — auto-applied to every student row below.</p>
             @endif
         </div>
 
@@ -491,7 +491,7 @@
                                             <div class="flex items-center gap-2">
                                                 <input type="number"
                                                     wire:model="studentMarks.{{ $studentId }}.marks_obtained"
-                                                    class="w-24 px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+                                                    class="w-24 px-2.5 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                                                     min="0" max="{{ $uploadTotalMarks }}" step="0.01" placeholder="Obtained">
                                                 <button type="button" wire:click="toggleAbsent({{ $studentId }})"
                                                     class="text-[11px] font-medium text-red-500 hover:text-red-700 whitespace-nowrap">Absent</button>
@@ -501,8 +501,8 @@
                                     <td class="px-4 py-3">
                                         <input type="text"
                                             wire:model="studentMarks.{{ $studentId }}.remarks"
-                                            class="w-full px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
-                                            placeholder="Remark…">
+                                            class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                            placeholder="Remark">
                                     </td>
                                 </tr>
                             @endforeach
@@ -512,7 +512,7 @@
             @endif
         </div>
 
-        <div class="flex items-center justify-between gap-3 px-6 py-3.5 border-t border-gray-200 flex-shrink-0 bg-gray-50/50">
+        <div class="flex items-center justify-between gap-2 px-6 py-3.5 border-t border-gray-200 flex-shrink-0">
             <p class="text-xs text-gray-400">
                 @if (count($studentMarks) > 0)
                     {{ count($studentMarks) }} students · {{ collect($studentMarks)->where('saved', true)->count() }} saved
@@ -528,7 +528,7 @@
                 <button wire:click="uploadMarks" wire:loading.attr="disabled" wire:target="uploadMarks"
                     class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
                     <span wire:loading.remove wire:target="uploadMarks">Save All Marks</span>
-                    <span wire:loading wire:target="uploadMarks">Saving…</span>
+                    <span wire:loading wire:target="uploadMarks">Saving...</span>
                 </button>
             </div>
         </div>
@@ -558,45 +558,37 @@
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-            @foreach ([
-                ['Student',  $ec->studentDetail?->user?->name ?? 'N/A'],
-                ['Adm No',   $ec->studentDetail?->admission_no ?? '—'],
-                ['Class',    trim(($ec->standard?->name ?? '') . ' · ' . ($ec->section?->name ?? ''))],
-                ['Exam',     $ec->exam?->exam_name ?? '—'],
-                ['Subject',  $ec->subject?->name ?? '—'],
-            ] as [$label, $value])
-                <div class="grid grid-cols-3 gap-3 text-sm">
-                    <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
-                    <span class="col-span-2 text-gray-800 font-medium">{{ $value }}</span>
-                </div>
-            @endforeach
+        <div class="flex-1 overflow-y-auto px-6 py-6 space-y-5 text-sm text-gray-700">
             @if ($ec->is_absent)
-                <div class="mt-2 p-3 bg-red-50 rounded-md border border-red-100 text-center">
-                    <p class="text-sm font-bold text-red-700">Student was Absent for this exam</p>
+                <div class="p-3 bg-red-50 border border-red-200 rounded-md">
+                    <p class="text-sm font-medium text-red-800">Student was absent for this exam</p>
                 </div>
             @endif
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
-                <div class="p-3 bg-emerald-50 rounded-md border border-emerald-100 text-center">
-                    <p class="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 mb-1">Total</p>
-                    <p class="text-2xl font-bold text-emerald-700">{{ $ec->max_marks }}</p>
-                </div>
-                <div class="p-3 bg-blue-50 rounded-md border border-blue-100 text-center">
-                    <p class="text-[10px] font-semibold uppercase tracking-wider text-blue-600 mb-1">Obtained</p>
-                    <p class="text-2xl font-bold text-blue-700">{{ $ec->is_absent ? 'AB' : $ec->marks_obtained }}</p>
-                </div>
-                <div class="p-3 bg-purple-50 rounded-md border border-purple-100 text-center">
-                    <p class="text-[10px] font-semibold uppercase tracking-wider text-purple-600 mb-1">%</p>
-                    <p class="text-2xl font-bold text-purple-700">{{ $ec->percentage }}</p>
-                </div>
-                <div class="p-3 bg-orange-50 rounded-md border border-orange-100 text-center">
-                    <p class="text-[10px] font-semibold uppercase tracking-wider text-orange-600 mb-1">Grade</p>
-                    <p class="text-2xl font-bold text-orange-700">{{ $ec->grade_letter }}</p>
-                </div>
+
+            <div>
+                <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Record</h4>
+                <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div><dt class="text-xs text-gray-400">Student</dt><dd class="font-medium">{{ $ec->studentDetail?->user?->name ?? 'N/A' }}</dd></div>
+                    <div><dt class="text-xs text-gray-400">Admission No</dt><dd class="font-medium font-mono">{{ $ec->studentDetail?->admission_no ?? '—' }}</dd></div>
+                    <div><dt class="text-xs text-gray-400">Class</dt><dd class="font-medium">{{ trim(($ec->standard?->name ?? '') . ' · ' . ($ec->section?->name ?? '')) ?: '—' }}</dd></div>
+                    <div><dt class="text-xs text-gray-400">Exam</dt><dd class="font-medium">{{ $ec->exam?->exam_name ?? '—' }}</dd></div>
+                    <div><dt class="text-xs text-gray-400">Subject</dt><dd class="font-medium">{{ $ec->subject?->name ?? '—' }}</dd></div>
+                </dl>
             </div>
+
+            <div>
+                <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Result</h4>
+                <dl class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div><dt class="text-xs text-gray-400">Total</dt><dd class="text-lg font-semibold text-gray-900 tabular-nums">{{ $ec->max_marks }}</dd></div>
+                    <div><dt class="text-xs text-gray-400">Obtained</dt><dd class="text-lg font-semibold text-gray-900 tabular-nums">{{ $ec->is_absent ? 'AB' : $ec->marks_obtained }}</dd></div>
+                    <div><dt class="text-xs text-gray-400">Percentage</dt><dd class="text-lg font-semibold text-gray-900 tabular-nums">{{ $ec->percentage }}</dd></div>
+                    <div><dt class="text-xs text-gray-400">Grade</dt><dd class="text-lg font-semibold text-gray-900">{{ $ec->grade_letter }}</dd></div>
+                </dl>
+            </div>
+
             @if ($ec->remarks)
-                <div class="p-3 bg-gray-50 rounded-md border border-gray-200">
-                    <p class="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1">Remarks</p>
+                <div>
+                    <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Remarks</h4>
                     <p class="text-sm text-gray-700">{{ $ec->remarks }}</p>
                 </div>
             @endif
@@ -630,30 +622,33 @@
             </button>
         </div>
         <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-            <div class="bg-gray-50 border border-gray-200 rounded-md p-3 text-sm space-y-1">
-                <div><strong>{{ $editMarkData['student_name'] ?? '—' }}</strong> <span class="text-gray-500">· Adm {{ $editMarkData['admission_no'] ?? '—' }}</span></div>
-                <div class="text-xs text-gray-500">{{ $editMarkData['class_label'] ?? '' }}</div>
-                <div class="text-xs text-blue-700 mt-1">Exam: <strong>{{ $editMarkData['exam_name'] ?? '—' }}</strong></div>
+            <div class="pb-4 border-b border-gray-100">
+                <p class="text-sm font-medium text-gray-900">{{ $editMarkData['student_name'] ?? '—' }}</p>
+                <p class="text-xs text-gray-500 mt-0.5">
+                    Adm {{ $editMarkData['admission_no'] ?? '—' }}
+                    @if (!empty($editMarkData['class_label'])) · {{ $editMarkData['class_label'] }} @endif
+                    · {{ $editMarkData['exam_name'] ?? '—' }}
+                </p>
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1.5">Max Marks <span class="text-red-500">*</span></label>
                     <input type="number" wire:model="editMarkData.max_marks" min="1"
-                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500">
+                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                     @error('editMarkData.max_marks')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1.5">Marks Obtained <span class="text-red-500">*</span></label>
                     <input type="number" step="0.01" min="0" wire:model="editMarkData.marks_obtained"
-                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500">
+                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                     @error('editMarkData.marks_obtained')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Remarks</label>
                 <input type="text" wire:model="editMarkData.remarks"
-                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500"
-                    placeholder="Optional remark…">
+                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Optional remark">
             </div>
         </div>
         <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
@@ -661,7 +656,7 @@
             <button wire:click="saveEditMark" wire:loading.attr="disabled"
                 class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
                 <span wire:loading.remove wire:target="saveEditMark">Update Marks</span>
-                <span wire:loading wire:target="saveEditMark">Saving…</span>
+                <span wire:loading wire:target="saveEditMark">Saving...</span>
             </button>
         </div>
     </div>
@@ -691,7 +686,7 @@
             <button wire:click="confirmDelete" wire:loading.attr="disabled"
                 class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:opacity-60 flex items-center gap-1.5">
                 <span wire:loading.remove wire:target="confirmDelete">Delete</span>
-                <span wire:loading wire:target="confirmDelete">Deleting…</span>
+                <span wire:loading wire:target="confirmDelete">Deleting...</span>
             </button>
         </div>
     </div>

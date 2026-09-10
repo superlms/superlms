@@ -159,13 +159,13 @@
                             $filled = $roomAssignments->whereNotNull('student_id')->count();
                         @endphp
                         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-4">
-                            <div class="px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 flex flex-wrap items-center justify-between gap-2">
+                            <div class="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
                                 <div>
                                     <h4 class="text-base font-semibold text-gray-900">{{ $room->room_name }}</h4>
                                     <p class="text-xs text-gray-500">{{ $room->building }} · {{ $filled }}/{{ $room->capacity }} seats filled</p>
                                 </div>
                                 <a href="{{ route('admin.seating-plan.room-pdf', ['organization' => auth()->user()->organization_id, 'id' => $graphPlan->id, 'roomId' => $room->id]) }}" target="_blank"
-                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white border border-gray-200 rounded-md text-gray-700 hover:bg-gray-50">
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                                     Room PDF
                                 </a>
@@ -393,39 +393,33 @@
     ══════════════════════════════════════════════════ --}}
     @if ($viewingPlan)
         <div class="fixed inset-0 z-40 overflow-hidden">
-            <div class="absolute inset-0 bg-black/30 backdrop-blur-[1.5px]" wire:click="closePlanView"></div>
-            <div class="absolute top-0 right-0 bottom-0 w-full max-w-4xl bg-gray-50 shadow-2xl flex flex-col">
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closePlanView"></div>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-4xl bg-white shadow-2xl flex flex-col">
 
-                <button wire:click="closePlanView"
-                    class="absolute top-4 right-4 z-20 w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-
-                <div class="px-6 pt-6 pb-4 bg-white border-b border-gray-200 flex-shrink-0">
-                    <h2 class="text-lg font-bold text-gray-900">{{ $viewingPlan->name }}</h2>
-                    <p class="text-sm text-gray-500 mt-0.5">
-                        {{ $viewingPlan->exam->exam_name ?? '' }} · {{ $viewingPlan->exam_date?->format('d M Y') }}{{ $viewingPlan->session ? ' · ' . $viewingPlan->session : '' }}
-                    </p>
-                    @if ($viewingPlan->notes)
-                        <p class="text-xs text-gray-400 mt-0.5">{{ $viewingPlan->notes }}</p>
-                    @endif
-                    <div class="flex items-center gap-2 mt-3">
-                        <a href="{{ route('admin.seating-plan.print', ['organization' => auth()->user()->organization_id, 'id' => $viewingPlan->id]) }}" target="_blank"
-                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gray-900 text-white rounded-md hover:bg-gray-800">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-                            Print / PDF
-                        </a>
-                        @if ($viewingPlan->conflict_count > 0)
-                            <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-red-50 text-red-600 border border-red-100">{{ $viewingPlan->conflict_count }} conflicts</span>
-                        @else
-                            <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">No conflicts</span>
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $viewingPlan->name }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">
+                            {{ $viewingPlan->exam->exam_name ?? '' }} · {{ $viewingPlan->exam_date?->format('d M Y') }}{{ $viewingPlan->session ? ' · ' . $viewingPlan->session : '' }}
+                            @if ($viewingPlan->conflict_count > 0)
+                                · <span class="text-red-600 font-medium">{{ $viewingPlan->conflict_count }} conflicts</span>
+                            @else
+                                · <span class="text-emerald-600 font-medium">No conflicts</span>
+                            @endif
+                        </p>
+                        @if ($viewingPlan->notes)
+                            <p class="text-xs text-gray-400 mt-0.5">{{ $viewingPlan->notes }}</p>
                         @endif
                     </div>
+                    <button wire:click="closePlanView" type="button"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto p-6 space-y-6">
+                <div class="flex-1 overflow-y-auto bg-gray-50 p-6 space-y-6">
                     @foreach ($planRooms as $room)
                         @php
                             $roomAssignments = $planAssignments->where('room_id', $room->id);
@@ -474,6 +468,13 @@
                         </div>
                     @endforeach
                 </div>
+
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between gap-2 flex-shrink-0">
+                    <a href="{{ route('admin.seating-plan.print', ['organization' => auth()->user()->organization_id, 'id' => $viewingPlan->id]) }}" target="_blank"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Print / PDF</a>
+                    <button wire:click="closePlanView" type="button"
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md">Close</button>
+                </div>
             </div>
         </div>
     @endif
@@ -501,7 +502,7 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Room Name <span class="text-red-500">*</span></label>
                         <input type="text" wire:model="roomForm.room_name" placeholder="e.g. Hall A"
                             class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                        @error('roomForm.room_name')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                        @error('roomForm.room_name')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Building <span class="text-gray-400 font-normal">(optional)</span></label>
@@ -513,18 +514,16 @@
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Rows <span class="text-red-500">*</span></label>
                             <input type="number" min="1" max="50" wire:model.live="roomForm.rows"
                                 class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                            @error('roomForm.rows')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                            @error('roomForm.rows')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Columns <span class="text-red-500">*</span></label>
                             <input type="number" min="1" max="50" wire:model.live="roomForm.columns"
                                 class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                            @error('roomForm.columns')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                            @error('roomForm.columns')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                     </div>
-                    <div class="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-sm text-blue-700">
-                        Capacity: <strong>{{ (int) ($roomForm['rows'] ?? 0) * (int) ($roomForm['columns'] ?? 0) }} seats</strong>
-                    </div>
+                    <p class="text-xs text-gray-500">Capacity: <strong class="text-gray-700 font-medium">{{ (int) ($roomForm['rows'] ?? 0) * (int) ($roomForm['columns'] ?? 0) }} seats</strong></p>
                     <label class="flex items-center gap-2 text-sm text-gray-700">
                         <input type="checkbox" wire:model="roomForm.is_active" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                         Active (available for seating plans)
@@ -536,7 +535,11 @@
                 </div>
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
                     <button wire:click="closeRoomPanel" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                    <button wire:click="saveRoom" class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md">{{ $editRoomId ? 'Update' : 'Add Room' }}</button>
+                    <button wire:click="saveRoom" type="button" wire:loading.attr="disabled" wire:target="saveRoom"
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                        <span wire:loading.remove wire:target="saveRoom">{{ $editRoomId ? 'Update' : 'Add Room' }}</span>
+                        <span wire:loading wire:target="saveRoom">Saving...</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -563,23 +566,23 @@
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Exam <span class="text-red-500">*</span></label>
-                            <select wire:model="dsExamId" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:ring-1 focus:ring-blue-500">
+                            <select wire:model="dsExamId" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                                 <option value="">Select exam…</option>
                                 @foreach ($exams as $exam)<option value="{{ $exam->id }}">{{ $exam->exam_name }}</option>@endforeach
                             </select>
-                            @error('dsExamId')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                            @error('dsExamId')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Class <span class="text-red-500">*</span></label>
-                            <select wire:model.live="dsStandardId" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:ring-1 focus:ring-blue-500">
+                            <select wire:model.live="dsStandardId" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                                 <option value="">Select class…</option>
                                 @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
                             </select>
-                            @error('dsStandardId')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                            @error('dsStandardId')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Section</label>
-                            <select wire:model.live="dsSectionId" @disabled(!$dsStandardId) class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:ring-1 focus:ring-blue-500 disabled:opacity-50">
+                            <select wire:model.live="dsSectionId" @disabled(!$dsStandardId) class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50">
                                 <option value="">All sections</option>
                                 @foreach ($dsSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
                             </select>
@@ -587,9 +590,9 @@
                     </div>
 
                     @if (!$dsStandardId)
-                        <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500 text-center">Select a class to load its subjects.</div>
+                        <p class="py-10 text-center text-sm text-gray-400">Select a class to load its subjects.</p>
                     @elseif (empty($dsPapers))
-                        <div class="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700 text-center">No subjects mapped to this class/section.</div>
+                        <p class="py-10 text-center text-sm text-gray-400">No subjects mapped to this class/section.</p>
                     @else
                         <div class="border border-gray-200 rounded-lg overflow-hidden">
                             <table class="w-full text-sm">
@@ -606,11 +609,11 @@
                                     @foreach ($dsPapers as $subjectId => $p)
                                         <tr wire:key="dsp-{{ $subjectId }}">
                                             <td class="px-3 py-2 font-medium text-gray-800">{{ $p['name'] }}</td>
-                                            <td class="px-3 py-2"><input type="date" wire:model="dsPapers.{{ $subjectId }}.exam_date" class="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs"></td>
-                                            <td class="px-3 py-2"><input type="time" wire:model="dsPapers.{{ $subjectId }}.start_time" class="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs"></td>
-                                            <td class="px-3 py-2"><input type="time" wire:model="dsPapers.{{ $subjectId }}.end_time" class="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs"></td>
+                                            <td class="px-3 py-2"><input type="date" wire:model="dsPapers.{{ $subjectId }}.exam_date" class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></td>
+                                            <td class="px-3 py-2"><input type="time" wire:model="dsPapers.{{ $subjectId }}.start_time" class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></td>
+                                            <td class="px-3 py-2"><input type="time" wire:model="dsPapers.{{ $subjectId }}.end_time" class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></td>
                                             <td class="px-3 py-2">
-                                                <select wire:model="dsPapers.{{ $subjectId }}.shift" class="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs bg-white">
+                                                <select wire:model="dsPapers.{{ $subjectId }}.shift" class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-xs bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                                                     <option value="1">Shift 1</option>
                                                     <option value="2">Shift 2</option>
                                                 </select>
@@ -625,9 +628,10 @@
                 </div>
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
                     <button wire:click="closeDatesheetPanel" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                    <button wire:click="saveDatesheet" wire:loading.attr="disabled" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md disabled:opacity-60">
+                    <button wire:click="saveDatesheet" type="button" wire:loading.attr="disabled" wire:target="saveDatesheet"
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
                         <span wire:loading.remove wire:target="saveDatesheet">Save Datesheet</span>
-                        <span wire:loading wire:target="saveDatesheet">Saving…</span>
+                        <span wire:loading wire:target="saveDatesheet">Saving...</span>
                     </button>
                 </div>
             </div>
@@ -672,7 +676,7 @@
                                             @if ($p->end_time) – {{ \Carbon\Carbon::parse($p->end_time)->format('h:i A') }}@endif
                                         </td>
                                         <td class="px-3 py-2 text-center">
-                                            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">Shift {{ $p->shift }}</span>
+                                            <span class="text-xs text-gray-600">Shift {{ $p->shift }}</span>
                                         </td>
                                     </tr>
                                 @empty
@@ -681,6 +685,10 @@
                             </tbody>
                         </table>
                     </div>
+                </div>
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                    <button wire:click="closeDatesheetView" type="button"
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md">Close</button>
                 </div>
             </div>
         </div>
@@ -713,7 +721,7 @@
                                 <option value="{{ $exam->id }}">{{ $exam->exam_name }} ({{ $exam->academic_year }})</option>
                             @endforeach
                         </select>
-                        @error('generateForm.exam_id')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                        @error('generateForm.exam_id')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         @if ($generateForm['exam_id'])
                             <p class="text-xs mt-1.5 {{ count($datesheetStdIds) ? 'text-emerald-600' : 'text-amber-600' }}">
                                 @if (count($datesheetStdIds))
@@ -729,7 +737,7 @@
                         <input type="text" wire:model="generateForm.name" placeholder="e.g. Final Exam 2026"
                             class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                         <p class="text-xs text-gray-400 mt-1">The exam date is appended per plan, e.g. “{{ $generateForm['name'] ?: 'Final Exam' }} — 01 Jun 2026”.</p>
-                        @error('generateForm.name')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                        @error('generateForm.name')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                     <div>
                         <div class="flex items-center justify-between mb-1.5">
@@ -757,7 +765,7 @@
                             @endforelse
                         </div>
                         <p class="text-xs text-gray-400 mt-1">Only classes with a datesheet for this exam can be seated. Others are shown greyed for reference.</p>
-                        @error('generateForm.standard_ids')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                        @error('generateForm.standard_ids')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                     <div>
                         <div class="flex items-center justify-between mb-1.5">
@@ -782,15 +790,15 @@
                             @endforelse
                         </div>
                         <p class="text-xs text-gray-400 mt-1">If capacity is short on a date, an overflow “Exam Hall” is added automatically.</p>
-                        @error('generateForm.room_ids')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                        @error('generateForm.room_ids')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                 </div>
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
                     <button wire:click="closeGeneratePanel" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                    <button wire:click="generatePlan" wire:loading.attr="disabled"
-                        class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                    <button wire:click="generatePlan" type="button" wire:loading.attr="disabled" wire:target="generatePlan"
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
                         <span wire:loading.remove wire:target="generatePlan">Generate Plan</span>
-                        <span wire:loading wire:target="generatePlan">Generating…</span>
+                        <span wire:loading wire:target="generatePlan">Generating...</span>
                     </button>
                 </div>
             </div>
