@@ -35,44 +35,21 @@
             overflow: hidden;
         }
 
-        /* ─── Scroll-aware collapsing page header (admin) ───
-           On scroll-down the title/stats/tabs collapse away and only the
-           sticky filter bar stays pinned at the top, giving the content the
-           full screen. The header comes back only when you scroll all the way
-           to the top (not on an upward scroll mid-list). Driven by JS that
-           toggles `.lms-header-collapsed` on the page header. */
-        #main-scroll .lms-collapsible {
-            overflow: hidden;
-            max-height: 50rem;
-            opacity: 1;
-            transition: max-height .3s ease, opacity .2s ease, margin .3s ease, padding .3s ease;
-        }
-
-        #main-scroll .lms-header-collapsed {
-            padding-top: 0 !important;
-            padding-bottom: 0 !important;
-        }
-
-        #main-scroll .lms-header-collapsed .lms-collapsible {
-            max-height: 0 !important;
-            opacity: 0;
-            margin-top: 0 !important;
-            margin-bottom: 0 !important;
-            padding-top: 0 !important;
-            padding-bottom: 0 !important;
-            pointer-events: none;
-        }
-
-        #main-scroll .lms-header-collapsed .lms-filterbar {
-            margin-top: 0 !important;
-        }
-
-        /* When re-applying the collapse state right after a Livewire DOM morph
-           (the 5s auto-refresh), transitions are suspended for one frame so the
-           header snaps to its previous state instead of animating/blinking. */
-        #main-scroll .lms-header-noanim,
-        #main-scroll .lms-header-noanim .lms-collapsible {
-            transition: none !important;
+        /* ─── Page header: title/tabs slide away, filter bar stays pinned ───
+           Every admin/accounts page uses the same `sticky top-0` header: some
+           title/stats/tab rows, then a gray (`bg-gray-50`) filter bar. We pull
+           the header's sticky top UP by the height of the rows above the filter
+           bar (measured into `--lms-hdr-top`), so scrolling down slides those
+           rows out of the scrollport and parks the filter bar at the top, and
+           scrolling back to the very top brings them in again with the content.
+           It is plain CSS stickiness — nothing is toggled per scroll event, so a
+           fast flick or a Livewire re-render can never strand the header
+           half-drawn or leave it hidden at the top of the list.
+           The `:has()` rule keeps working even in the frame right after a
+           Livewire DOM morph wipes the JS-added class. */
+        #main-scroll div.lms-pagehead,
+        #main-scroll div.sticky.top-0:has(> div.bg-gray-50) {
+            top: var(--lms-hdr-top, 0px);
         }
 
         /* Sidebar logo, expanded state. The collapsed rail overrides it below. */
@@ -251,217 +228,88 @@
         })();
     </script>
 
-    {{-- ─── Scroll-aware collapsing page header (admin & accounts) ───
-         Hides the title/stats/tabs once you scroll down past them (keeping only
-         the sticky filter bar pinned), and restores them ONLY when scrolled back
-         to the very top. Works generically across every admin page that uses the
-         shared `sticky top-0` header + gray (`bg-gray-50`) filter bar pattern. --}}
+    {{-- ─── Page header offset ───
+         Measures the header rows above the filter bar into `--lms-hdr-top` so
+         the CSS above can slide them out of view on scroll. Re-measured when the
+         header changes size (tab switch, wrapping row) and after Livewire
+         re-renders; there is no per-scroll state to get wrong. --}}
     @if (Auth::user() && in_array(Auth::user()->role, ['admin', 'sub-admin', 'accounts', 'super-admin', 'sub-super-admin']))
         <script>
             (function () {
                 if (window.__lmsHdr) return;
                 window.__lmsHdr = 1;
 
-                // While a collapse/expand animates, the content height changes and
-                // the browser nudges scrollTop. We ignore scroll for a short window
-                // after each toggle so it can settle (prevents flicker). Hoisted to
-                // IIFE scope so the morph guard can also arm it.
-                var lockUntil = 0;
-                function now() {
-                    return (window.performance && performance.now) ? performance.now() : Date.now();
+                function getHeader() {
+                    var c = document.getElementById('main-scroll');
+                    return c ? c.querySelector('div.sticky.top-0') : null;
                 }
 
-                // Scroll events stop arriving the moment the scroll stops, so a
-                // decision skipped because the lock was still up (a Livewire
-                // commit landing mid-scroll, or the last event of a fast flick)
-                // used to be the LAST word — that is what left the header hidden
-                // at the very top until you scrolled down and up again. This runs
-                // the same decision once more after things go quiet.
-                var settleT = 0;
-                function scheduleSettle(delay) {
-                    clearTimeout(settleT);
-                    settleT = setTimeout(function () {
-                        var container = document.getElementById('main-scroll');
-                        var header = container && getHeader(container);
-                        if (header) { update(container, header); }
-                    }, delay || 180);
-                }
-
-                // The collapse/expand decision, shared by the scroll handler and
-                // the settle timer so neither path can strand the header.
-                function update(container, header) {
-                    var y = container.scrollTop;
-
-                    if (header.classList.contains('lms-header-collapsed')) {
-                        // Reappear ONLY when scrolled all the way back to the top.
-                        // Deliberately NOT gated on the settle lock: the header
-                        // grows downward, so expanding at the top cannot nudge the
-                        // scroll position, and skipping it here is what used to
-                        // leave the header missing.
-                        if (y <= 2) {
-                            header.classList.remove('lms-header-collapsed');
-                            lockUntil = now() + 400;
-                        }
-                        return;
+                // Height of the rows sitting ABOVE the gray filter bar — how far
+                // the header may slide up before the filter bar hits the top.
+                // Filter bar first (it IS the header) → pin it as is; no filter
+                // bar at all → let the whole header scroll away, as it used to.
+                function offsetFor(header) {
+                    var kids = header.children, filterIdx = -1;
+                    for (var i = kids.length - 1; i >= 0; i--) {
+                        if (kids[i].classList.contains('bg-gray-50')) { filterIdx = i; break; }
                     }
-
-                    // Ignore the reflow nudge while a toggle is animating.
-                    if (now() < lockUntil) return;
-
-                    // Position-based (not delta) so it also hides on a slow
-                    // scroll. Threshold clears the collapsible height so the
-                    // collapse doesn't bounce back to the top.
-                    var threshold = Math.max(60, collapsibleHeight(header) + 24);
-                    if (y > threshold) {
-                        header.classList.add('lms-header-collapsed');
-                        lockUntil = now() + 400;
-                    }
+                    if (filterIdx === 0) return 0;
+                    var end = filterIdx < 0 ? kids.length : filterIdx;
+                    var h = 0;
+                    for (var j = 0; j < end; j++) { h += kids[j].offsetHeight; }
+                    return h;
                 }
 
-                // The collapsible rows carry a max-height measured when they were
-                // last marked. If the header later grows — a value wraps onto a
-                // second line, a row appears — that pin would clip it, which is
-                // how a header ends up half drawn. Re-measure whenever the header
-                // changes size on its own (never mid-animation).
                 var ro = null, roTarget = null;
-                function observeHeader(header) {
+                function observe(header) {
                     if (typeof ResizeObserver === 'undefined' || roTarget === header) return;
-                    if (!ro) {
-                        ro = new ResizeObserver(function () {
-                            if (now() < lockUntil) return;
-                            var container = document.getElementById('main-scroll');
-                            var h = container && getHeader(container);
-                            if (!h || h.classList.contains('lms-header-collapsed')) return;
-                            h.removeAttribute('data-lms-sig');
-                            mark(h);
-                        });
-                    }
+                    if (!ro) { ro = new ResizeObserver(function () { apply(); }); }
                     ro.disconnect();
                     ro.observe(header);
                     roTarget = header;
                 }
 
-                function getHeader(container) {
-                    return container.querySelector('.sticky.top-0');
-                }
-
-                // Tag the rows above the filter bar as collapsible, and the
-                // filter bar itself so it can stay pinned. Recomputed only when
-                // the header's child structure changes (e.g. tab switches).
-                function mark(header) {
-                    observeHeader(header);
-                    var kids = Array.prototype.slice.call(header.children);
-                    var filterIdx = -1;
-                    for (var i = kids.length - 1; i >= 0; i--) {
-                        if (kids[i].classList.contains('bg-gray-50')) { filterIdx = i; break; }
-                    }
-                    var sig = kids.length + ':' + filterIdx;
-                    if (header.dataset.lmsSig === sig) return;
-                    header.dataset.lmsSig = sig;
-
-                    kids.forEach(function (k) { k.classList.remove('lms-collapsible', 'lms-filterbar'); k.style.maxHeight = ''; });
-
-                    // No filter bar (or it's the first child) → collapse the whole header.
-                    var collapseEnd = filterIdx <= 0 ? kids.length : filterIdx;
-                    for (var j = 0; j < collapseEnd; j++) {
-                        kids[j].classList.add('lms-collapsible');
-                        // Pin an accurate max-height so the collapse animates from the
-                        // element's REAL height instead of a fixed 50rem — otherwise most
-                        // of the transition is spent on invisible range and the filter bar
-                        // slides up with a lag.
-                        kids[j].style.maxHeight = (kids[j].scrollHeight + 16) + 'px';
-                    }
-                    if (filterIdx > 0) { kids[filterIdx].classList.add('lms-filterbar'); }
-                }
-
-                // Height of the parts that collapse away — the collapse trigger
-                // must sit ABOVE this, otherwise the scrollTop drop from
-                // collapsing lands us back at the top and re-shows the header.
-                function collapsibleHeight(header) {
-                    var h = 0, els = header.querySelectorAll('.lms-collapsible');
-                    for (var i = 0; i < els.length; i++) { h += els[i].offsetHeight; }
-                    return h;
-                }
-
-                // A Livewire DOM morph (e.g. the 5s auto-refresh) re-renders the
-                // header from server HTML, which does NOT carry the client-only
-                // collapse classes/inline max-heights — so the header pops back in
-                // and the filter/rows re-animate (a blink). We capture the collapsed
-                // state before the morph and re-apply it synchronously afterwards,
-                // in the same JS task (before paint) with transitions suspended, so
-                // the header snaps back to exactly where it was — no flash.
-                function reapplyHeaderState(wasCollapsed) {
+                function apply() {
                     var container = document.getElementById('main-scroll');
                     if (!container) return;
-                    var header = getHeader(container);
-                    if (!header) return;
-                    header.classList.add('lms-header-noanim');
-                    header.removeAttribute('data-lms-sig'); // force re-mark: morph reset children
-                    mark(header);                            // measured while expanded → correct max-heights
-                    if (wasCollapsed) {
-                        header.classList.add('lms-header-collapsed');
-                    } else {
-                        header.classList.remove('lms-header-collapsed');
-                    }
-                    void header.offsetHeight;                // flush styles before re-enabling transitions
-                    header.classList.remove('lms-header-noanim');
-                    lockUntil = now() + 400;                 // ignore the reflow nudge from scroll restore
-                    scheduleSettle(450);                     // ...then re-read the scroll position for real
+                    var header = getHeader();
+                    if (!header) { container.style.removeProperty('--lms-hdr-top'); return; }
+                    header.classList.add('lms-pagehead');
+                    observe(header);
+                    container.style.setProperty('--lms-hdr-top', '-' + offsetFor(header) + 'px');
                 }
 
+                // A Livewire morph re-renders the header from server HTML, which
+                // drops the JS-added class; re-add it (and re-measure) in the same
+                // task, before paint.
                 function registerMorphGuard() {
                     if (window.__lmsHdrHook) return;
                     if (!window.Livewire || typeof window.Livewire.hook !== 'function') return;
                     window.__lmsHdrHook = 1;
                     window.Livewire.hook('commit', function (payload) {
-                        var container = document.getElementById('main-scroll');
-                        var header = container && getHeader(container);
-                        var wasCollapsed = !!(header && header.classList.contains('lms-header-collapsed'));
                         if (typeof payload.succeed === 'function') {
-                            payload.succeed(function () { reapplyHeaderState(wasCollapsed); });
+                            payload.succeed(function () { apply(); });
                         }
                     });
                 }
 
-                function init() {
-                    registerMorphGuard();
+                var rzT;
+                window.addEventListener('resize', function () {
+                    clearTimeout(rzT);
+                    rzT = setTimeout(apply, 150);
+                });
 
-                    var container = document.getElementById('main-scroll');
-                    if (!container || container.dataset.lmsScroll === '1') return;
-                    container.dataset.lmsScroll = '1';
-
-                    container.addEventListener('scroll', function () {
-                        var header = getHeader(container);
-                        if (!header) return;
-                        mark(header);
-                        update(container, header);
-                        scheduleSettle(180);
-                    }, { passive: true });
-
-                    // Responsive rows change height across breakpoints — re-measure the
-                    // pinned max-heights on resize so the header never gets clipped.
-                    var rzT;
-                    window.addEventListener('resize', function () {
-                        clearTimeout(rzT);
-                        rzT = setTimeout(function () {
-                            var header = getHeader(container);
-                            if (header) { header.removeAttribute('data-lms-sig'); mark(header); }
-                        }, 150);
-                    });
+                // Late layout shifts (web fonts, a logo image) change the header
+                // height after the first measurement — re-measure once they land.
+                if (document.fonts && document.fonts.ready) {
+                    document.fonts.ready.then(function () { apply(); });
                 }
 
-                document.addEventListener('DOMContentLoaded', init);
-                document.addEventListener('livewire:init', registerMorphGuard);
-                document.addEventListener('livewire:navigated', function () {
-                    var c = document.getElementById('main-scroll');
-                    if (c) {
-                        var h = getHeader(c);
-                        if (h) { h.classList.remove('lms-header-collapsed'); h.removeAttribute('data-lms-sig'); }
-                    }
-                    init();
-                });
+                document.addEventListener('DOMContentLoaded', function () { apply(); setTimeout(apply, 300); });
+                document.addEventListener('livewire:init', function () { registerMorphGuard(); apply(); });
+                document.addEventListener('livewire:navigated', function () { roTarget = null; apply(); });
                 if (window.Livewire) registerMorphGuard();
-                if (document.readyState !== 'loading') init();
+                if (document.readyState !== 'loading') apply();
             })();
         </script>
     @endif
