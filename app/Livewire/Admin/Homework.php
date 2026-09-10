@@ -32,13 +32,18 @@ class Homework extends Component
     // Tabs: 'homework' (assignments) | 'status' (per-student completion tracker)
     public string $activeTab = 'homework';
 
-    // ── Homework Status tab filters ──
+    // ── Homework Status tab filters: date → class → section → student → subject.
+    //    Only class + section are required; a blank date means "the recent window",
+    //    a blank student means "everyone in the section", a blank subject "all".
+    public $hwStatusDate     = '';
     public $hwStatusStandard = '';
     public $hwStatusSection  = '';
     public $hwStatusStudent  = '';
+    public $hwStatusSubject  = '';
     public $hwStatusSections  = [];
     public $hwStatusStudents  = [];
-    // How many days back the status register covers (today → this many days ago).
+    public $hwStatusSubjects  = [];
+    // How many days back the status register covers when no single date is picked.
     public int $hwStatusDays = 14;
     
     // Form fields
@@ -80,6 +85,11 @@ class Homework extends Component
 
     #[Url]
     public $filterTeacher = '';
+
+    // The date a homework was assigned. Sits between teacher and class in the
+    // bar, and changing it deliberately leaves class/section/subject alone.
+    #[Url]
+    public $filterDate = '';
 
     #[Url]
     public $filterStandard = '';
@@ -142,10 +152,19 @@ class Homework extends Component
 
     private function loadFilterSubjects($standardId, $sectionId = null)
     {
+        $this->filterSubjects = $this->subjectsFor($standardId, $sectionId);
+    }
+
+    /**
+     * The subjects taught to a class (or to one of its sections), as a plain
+     * collection — every dropdown that needs them goes through here.
+     */
+    private function subjectsFor($standardId, $sectionId = null)
+    {
         $organizationId = Auth::user()->organization_id;
 
         if ($sectionId) {
-            $this->filterSubjects = Subject::join('section_subjects', 'subjects.id', '=', 'section_subjects.subject_id')
+            return Subject::join('section_subjects', 'subjects.id', '=', 'section_subjects.subject_id')
                 ->where('section_subjects.section_id', $sectionId)
                 ->where('section_subjects.standard_id', $standardId)
                 ->where('subjects.organization_id', $organizationId)
@@ -154,22 +173,22 @@ class Homework extends Component
                 ->distinct()
                 ->orderBy('subjects.name')
                 ->get();
-        } else {
-            $this->filterSubjects = Subject::join('standard_subjects', 'subjects.id', '=', 'standard_subjects.subject_id')
-                ->where('standard_subjects.standard_id', $standardId)
-                ->where('subjects.organization_id', $organizationId)
-                ->where('subjects.is_active', true)
-                ->select('subjects.*')
-                ->distinct()
-                ->orderBy('subjects.name')
-                ->get();
         }
+
+        return Subject::join('standard_subjects', 'subjects.id', '=', 'standard_subjects.subject_id')
+            ->where('standard_subjects.standard_id', $standardId)
+            ->where('subjects.organization_id', $organizationId)
+            ->where('subjects.is_active', true)
+            ->select('subjects.*')
+            ->distinct()
+            ->orderBy('subjects.name')
+            ->get();
     }
 
     public function updated($property, $value)
     {
         // Reset pagination when filters change
-        if (in_array($property, ['search', 'filterTeacher', 'filterStandard', 'filterSection', 'filterSubject', 'filterStatus'])) {
+        if (in_array($property, ['search', 'filterTeacher', 'filterDate', 'filterStandard', 'filterSection', 'filterSubject', 'filterStatus'])) {
             $this->resetPage();
         }
 
@@ -198,6 +217,10 @@ class Homework extends Component
             $this->loadFilterSubjects($this->filterStandard);
             $this->filterSubject = '';
         }
+
+        // NOTE: filterDate is deliberately absent from the cascades above. Moving
+        // through dates keeps whatever class / section / subject is selected, so
+        // those only change when they are changed on purpose.
 
         // Handle subject selection type change in form
         if ($property === 'subject_selection') {
@@ -555,7 +578,7 @@ class Homework extends Component
 
     public function clearFilters()
     {
-        $this->reset(['search', 'filterTeacher', 'filterStandard', 'filterSection', 'filterSubject']);
+        $this->reset(['search', 'filterTeacher', 'filterDate', 'filterStandard', 'filterSection', 'filterSubject']);
         $this->filterSections = [];
         $this->filterSubjects = [];
         $this->resetPage();
@@ -572,7 +595,9 @@ class Homework extends Component
     {
         $this->hwStatusSection = '';
         $this->hwStatusStudent = '';
+        $this->hwStatusSubject = '';
         $this->hwStatusStudents = [];
+        $this->hwStatusSubjects = [];
         $this->hwStatusSections = $value
             ? Section::where('standard_id', $value)->where('is_active', true)->orderBy('id')->get()
             : [];
@@ -581,6 +606,7 @@ class Homework extends Component
     public function updatedHwStatusSection($value): void
     {
         $this->hwStatusStudent = '';
+        $this->hwStatusSubject = '';
         $this->hwStatusStudents = ($value && $this->hwStatusStandard)
             ? StudentDetail::where('organization_id', Auth::user()->organization_id)
                 ->where('standard_id', $this->hwStatusStandard)
@@ -589,68 +615,144 @@ class Homework extends Component
                 ->orderBy('full_name')
                 ->get(['id', 'user_id', 'full_name', 'roll_no'])
             : [];
+
+        $this->hwStatusSubjects = ($value && $this->hwStatusStandard)
+            ? $this->subjectsFor($this->hwStatusStandard, $value)
+            : [];
     }
 
-    /** True once class, section and student are all chosen. */
+    public function clearStatusFilters(): void
+    {
+        $this->reset(['hwStatusDate', 'hwStatusStandard', 'hwStatusSection', 'hwStatusStudent', 'hwStatusSubject']);
+        $this->hwStatusSections = [];
+        $this->hwStatusStudents = [];
+        $this->hwStatusSubjects = [];
+    }
+
+    /** The register needs at least a class and a section to have any scope. */
     public function hwStatusReady(): bool
     {
-        return $this->hwStatusStandard && $this->hwStatusSection && $this->hwStatusStudent;
+        return (bool) ($this->hwStatusStandard && $this->hwStatusSection);
+    }
+
+    /** Homework in scope for the status filters: the section, narrowed by date and subject. */
+    private function statusHomeworks()
+    {
+        $q = ModalHomework::with('subject:id,name')
+            ->where('organization_id', Auth::user()->organization_id)
+            ->where('standard_id', $this->hwStatusStandard)
+            ->where('section_id', $this->hwStatusSection);
+
+        if ($this->hwStatusSubject) {
+            $q->where('subject_id', $this->hwStatusSubject);
+        }
+
+        // created_at is the assigned-on date. One date narrows to that day;
+        // otherwise the register covers the recent window.
+        if ($this->hwStatusDate) {
+            $q->whereDate('created_at', $this->hwStatusDate);
+        } else {
+            $q->whereDate('created_at', '>=', Carbon::today()->subDays($this->hwStatusDays)->toDateString());
+        }
+
+        return $q->orderBy('created_at')->get();
+    }
+
+    /** [userId => [homeWorkId => true]] for the students who marked these done. */
+    private function completionMap($homeworkIds): array
+    {
+        $map = [];
+        foreach (HomeWorkCompletion::whereIn('home_work_id', $homeworkIds)->get(['user_id', 'home_work_id']) as $c) {
+            $map[$c->user_id][$c->home_work_id] = true;
+        }
+        return $map;
     }
 
     /**
-     * Build the day-by-day register for the selected student: one row per day from
-     * today back `hwStatusDays` days. Each row lists the subjects that had homework
-     * that day, each flagged complete (the student marked it done in the app) or not.
+     * Build the status register. With a student picked it reads day by day (one
+     * row per day, chips for that day's subjects); with no student it reads
+     * student by student across whatever the date filter left in scope.
      *
-     * @return array<int, array{date:string,day:string,items:array}>
+     * @return array{mode:string, rows:array, scope:string}
      */
     private function buildStatusRows(): array
     {
         if (!$this->hwStatusReady()) {
-            return [];
+            return ['mode' => 'none', 'rows' => [], 'scope' => ''];
         }
 
-        $orgId   = Auth::user()->organization_id;
-        $student = StudentDetail::where('organization_id', $orgId)->find($this->hwStatusStudent);
+        $homeworks = $this->statusHomeworks();
+        $done      = $this->completionMap($homeworks->pluck('id'));
+
+        $scope = $this->hwStatusDate
+            ? Carbon::parse($this->hwStatusDate)->format('l, d M Y')
+            : 'Last ' . $this->hwStatusDays . ' days';
+        if ($this->hwStatusSubject) {
+            $subject = collect($this->hwStatusSubjects)->firstWhere('id', (int) $this->hwStatusSubject);
+            if ($subject) $scope .= ' · ' . $subject->name;
+        }
+
+        return $this->hwStatusStudent
+            ? ['mode' => 'by_day', 'rows' => $this->statusRowsByDay($homeworks, $done), 'scope' => $scope]
+            : ['mode' => 'by_student', 'rows' => $this->statusRowsByStudent($homeworks, $done), 'scope' => $scope];
+    }
+
+    /** One row per day for the selected student. */
+    private function statusRowsByDay($homeworks, array $done): array
+    {
+        $student = StudentDetail::where('organization_id', Auth::user()->organization_id)
+            ->find($this->hwStatusStudent);
         if (!$student) {
             return [];
         }
 
-        $startDate = Carbon::today()->subDays($this->hwStatusDays);
-
-        $homeworks = ModalHomework::with('subject:id,name')
-            ->where('organization_id', $orgId)
-            ->where('standard_id', $this->hwStatusStandard)
-            ->where('section_id', $this->hwStatusSection)
-            ->whereDate('created_at', '>=', $startDate->toDateString())
-            ->orderBy('created_at')
-            ->get();
-
-        // home_work_ids this student has marked done.
-        $completedSet = [];
-        if ($student->user_id) {
-            $completedSet = HomeWorkCompletion::where('user_id', $student->user_id)
-                ->whereIn('home_work_id', $homeworks->pluck('id'))
-                ->pluck('home_work_id')
-                ->flip()
-                ->toArray();
-        }
-
+        $mine   = $done[$student->user_id] ?? [];
         $byDate = $homeworks->groupBy(fn($h) => Carbon::parse($h->created_at)->toDateString());
 
+        // A single date shows just that day; otherwise walk the window back.
+        $dates = $this->hwStatusDate
+            ? [Carbon::parse($this->hwStatusDate)]
+            : collect(range(0, $this->hwStatusDays))->map(fn($i) => Carbon::today()->subDays($i))->all();
+
         $rows = [];
-        for ($i = 0; $i <= $this->hwStatusDays; $i++) {
-            $date = Carbon::today()->subDays($i);
-            $items = $byDate->get($date->toDateString(), collect())->map(fn($h) => [
+        foreach ($dates as $date) {
+            $rows[] = [
+                'date'  => $date->format('d M Y'),
+                'day'   => $date->format('l'),
+                'items' => $byDate->get($date->toDateString(), collect())->map(fn($h) => [
+                    'subject'  => $h->subject->name ?? 'General',
+                    'title'    => $h->title,
+                    'complete' => isset($mine[$h->id]),
+                ])->values()->all(),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /** One row per student in the section, across everything in scope. */
+    private function statusRowsByStudent($homeworks, array $done): array
+    {
+        $rows = [];
+
+        foreach ($this->hwStatusStudents as $student) {
+            $mine = $done[$student->user_id] ?? [];
+
+            $items = $homeworks->map(fn($h) => [
                 'subject'  => $h->subject->name ?? 'General',
                 'title'    => $h->title,
-                'complete' => isset($completedSet[$h->id]),
+                'date'     => Carbon::parse($h->created_at)->format('d M'),
+                'complete' => isset($mine[$h->id]),
             ])->values()->all();
 
+            $completed = count(array_filter($items, fn($i) => $i['complete']));
+
             $rows[] = [
-                'date' => $date->format('d M Y'),
-                'day'  => $date->format('l'),
-                'items' => $items,
+                'name'      => $student->full_name,
+                'roll_no'   => $student->roll_no,
+                'items'     => $items,
+                'completed' => $completed,
+                'total'     => count($items),
             ];
         }
 
@@ -660,8 +762,8 @@ class Homework extends Component
     /** The Homework tab only lists rows once at least one filter is set. */
     private function hasActiveFilter(): bool
     {
-        return $this->search !== '' || $this->filterTeacher !== '' || $this->filterStandard !== ''
-            || $this->filterSection !== '' || $this->filterSubject !== '';
+        return $this->search !== '' || $this->filterTeacher !== '' || $this->filterDate !== ''
+            || $this->filterStandard !== '' || $this->filterSection !== '' || $this->filterSubject !== '';
     }
 
     public function onViewHomework($id)
@@ -696,13 +798,16 @@ class Homework extends Component
         $isFiltered = $this->hasActiveFilter();
         $homeworks  = ($this->activeTab === 'homework' && $isFiltered) ? $this->getHomeworks() : null;
 
-        // Status tab: per-student day-by-day register.
-        $statusRows = $this->activeTab === 'status' ? $this->buildStatusRows() : [];
+        // Status tab: the register, shaped by whether a student is selected.
+        $status = $this->activeTab === 'status'
+            ? $this->buildStatusRows()
+            : ['mode' => 'none', 'rows' => [], 'scope' => ''];
+        $statusRows = $status['rows'];
 
         // Statistics
         $statistics = $this->getStatistics();
 
-        return view('livewire.admin.homework', compact('homeworks', 'statistics', 'isFiltered', 'statusRows'));
+        return view('livewire.admin.homework', compact('homeworks', 'statistics', 'isFiltered', 'status', 'statusRows'));
     }
 
     /**
@@ -753,6 +858,11 @@ class Homework extends Component
 
         if ($this->filterTeacher) {
             $query->where('user_id', $this->filterTeacher);
+        }
+
+        // created_at is the assigned-on date for homework.
+        if ($this->filterDate) {
+            $query->whereDate('created_at', $this->filterDate);
         }
 
         if ($this->filterStandard) {
