@@ -1,5 +1,13 @@
 <div class="{{ ($embedded ?? false) ? '' : 'min-h-screen bg-gray-50' }}">
 
+    {{-- The filter row scrolls sideways when it runs out of width instead of
+         wrapping onto a second line. Hiding the scrollbar keeps its height
+         identical whether or not anything is filtered. --}}
+    <style>
+        .lms-filter-row { scrollbar-width: none; -ms-overflow-style: none; }
+        .lms-filter-row::-webkit-scrollbar { display: none; }
+    </style>
+
     {{-- ══════════════════════════════════════════════════
          HEADER (full-width, sticky, stats + Add button + filter bar)
     ══════════════════════════════════════════════════ --}}
@@ -51,8 +59,8 @@
 
         {{-- Filter bar (tab-aware) --}}
         <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
-            <div class="flex flex-wrap items-center gap-3">
-                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+            <div class="lms-filter-row flex flex-nowrap items-center gap-2 overflow-x-auto">
+                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 flex-shrink-0">
                     <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                     </svg>
@@ -63,25 +71,23 @@
                     {{-- Teacher → Date → Class → Section → Subject. Moving the date
                          leaves class / section / subject exactly as they are. --}}
                     <input wire:key="hw-search" wire:model.live.debounce.300ms="search" type="text" placeholder="Search title, description, teacher..."
-                        class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                        class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 flex-shrink-0 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
 
-                    <select wire:key="hw-teacher" wire:model.live="filterTeacher" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <select wire:key="hw-teacher" wire:model.live="filterTeacher" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 flex-shrink-0 max-w-[11rem]">
                         <option value="">All Teachers</option>
                         @foreach ($teachers as $teacher)
                             <option value="{{ $teacher->id }}">{{ $teacher->name }}</option>
                         @endforeach
                     </select>
 
-                    <span class="text-gray-300">→</span>
                     <input type="date" wire:key="hw-date" wire:model.live="filterDate" title="Assigned on"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 flex-shrink-0">
                     @if ($filterDate)
                         <button wire:click="$set('filterDate', '')" title="Any date"
-                            class="-ml-1.5 w-6 h-6 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-200">&times;</button>
+                            class="-ml-1 w-6 h-6 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-200 flex-shrink-0">&times;</button>
                     @endif
 
-                    <span class="text-gray-300">→</span>
-                    <select wire:key="hw-standard" wire:model.live="filterStandard" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <select wire:key="hw-standard" wire:model.live="filterStandard" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 flex-shrink-0">
                         <option value="">All Standards</option>
                         @foreach ($standards as $standard)
                             <option value="{{ $standard->id }}">{{ $standard->name }}</option>
@@ -89,7 +95,7 @@
                     </select>
 
                     <select wire:key="hw-section" wire:model.live="filterSection" @disabled(!$filterStandard)
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 flex-shrink-0">
                         <option value="">All Sections</option>
                         @foreach ($filterSections as $section)
                             <option value="{{ $section->id }}">{{ $section->name }}</option>
@@ -97,7 +103,7 @@
                     </select>
 
                     <select wire:key="hw-subject" wire:model.live="filterSubject" @disabled(!$filterStandard)
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 flex-shrink-0">
                         <option value="">All Subjects</option>
                         @foreach ($filterSubjects as $subject)
                             <option value="{{ $subject->id }}">{{ $subject->name }}</option>
@@ -106,7 +112,7 @@
 
                     @if ($search || $filterTeacher || $filterDate || $filterStandard || $filterSection || $filterSubject)
                         <button wire:click="clearFilters"
-                            class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                            class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50 flex-shrink-0">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             Clear
                         </button>
@@ -115,37 +121,33 @@
                     {{-- Homework Status: date → class → section → student → subject.
                          Class and section set the scope; the rest narrow it. --}}
                     <input type="date" wire:key="st-date" wire:model.live="hwStatusDate" title="Assigned on"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 flex-shrink-0">
                     @if ($hwStatusDate)
                         <button wire:click="$set('hwStatusDate', '')" title="Recent days"
-                            class="-ml-1.5 w-6 h-6 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-200">&times;</button>
+                            class="-ml-1 w-6 h-6 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-200 flex-shrink-0">&times;</button>
                     @endif
-                    <span class="text-gray-300">→</span>
-                    <select wire:key="st-standard" wire:model.live="hwStatusStandard" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <select wire:key="st-standard" wire:model.live="hwStatusStandard" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 flex-shrink-0">
                         <option value="">Select class…</option>
                         @foreach ($standards as $standard)
                             <option value="{{ $standard->id }}">{{ $standard->name }}</option>
                         @endforeach
                     </select>
-                    <span class="text-gray-300">→</span>
                     <select wire:key="st-section" wire:model.live="hwStatusSection" @disabled(!$hwStatusStandard)
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 flex-shrink-0">
                         <option value="">Select section…</option>
                         @foreach ($hwStatusSections as $section)
                             <option value="{{ $section->id }}">{{ $section->name }}</option>
                         @endforeach
                     </select>
-                    <span class="text-gray-300">→</span>
                     <select wire:key="st-student" wire:model.live="hwStatusStudent" @disabled(!$hwStatusSection)
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 flex-shrink-0 max-w-[12rem]">
                         <option value="">All students</option>
                         @foreach ($hwStatusStudents as $st)
                             <option value="{{ $st->id }}">{{ $st->full_name }}{{ $st->roll_no ? ' · Roll ' . $st->roll_no : '' }}</option>
                         @endforeach
                     </select>
-                    <span class="text-gray-300">→</span>
                     <select wire:key="st-subject" wire:model.live="hwStatusSubject" @disabled(!$hwStatusSection)
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 flex-shrink-0">
                         <option value="">All subjects</option>
                         @foreach ($hwStatusSubjects as $subject)
                             <option value="{{ $subject->id }}">{{ $subject->name }}</option>
@@ -154,7 +156,7 @@
 
                     @if ($hwStatusDate || $hwStatusStandard || $hwStatusSection || $hwStatusStudent || $hwStatusSubject)
                         <button wire:click="clearStatusFilters"
-                            class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                            class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50 flex-shrink-0">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             Clear
                         </button>
@@ -186,7 +188,7 @@
                 <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Homework</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Teacher</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Set by</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Class</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Subject</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Assigned</th>
@@ -209,7 +211,17 @@
                                     <p class="text-xs text-gray-400 line-clamp-1 mt-0.5">{{ Str::limit($homework->description, 80) }}</p>
                                 @endif
                             </td>
-                            <td class="px-4 py-3 text-sm text-gray-700">{{ $homework->user->name ?? 'Unknown' }}</td>
+                            <td class="px-4 py-3">
+                                @php $setBy = $homework->user; @endphp
+                                @if (($setBy->role ?? '') === 'teacher')
+                                    <p class="text-sm text-gray-700">Teacher</p>
+                                    <p class="text-[11px] text-gray-400 truncate">{{ $setBy->name }}</p>
+                                @elseif ($setBy)
+                                    <p class="text-sm text-gray-700">Admin</p>
+                                @else
+                                    <p class="text-sm text-gray-400">—</p>
+                                @endif
+                            </td>
                             <td class="px-4 py-3 text-sm text-gray-700">
                                 {{ $homework->standard->name ?? 'Unknown' }}
                                 @if ($homework->section)
@@ -608,8 +620,16 @@
 
                     <div class="grid grid-cols-2 gap-4 text-sm">
                         <div>
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Teacher</p>
-                            <p class="text-gray-800 font-medium">{{ $viewHomework->user->name ?? 'Unknown' }}</p>
+                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Set by</p>
+                            <p class="text-gray-800 font-medium">
+                                @if (($viewHomework->user->role ?? '') === 'teacher')
+                                    Teacher <span class="text-gray-500 font-normal">· {{ $viewHomework->user->name }}</span>
+                                @elseif ($viewHomework->user)
+                                    Admin
+                                @else
+                                    —
+                                @endif
+                            </p>
                         </div>
                         <div>
                             <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Class</p>
