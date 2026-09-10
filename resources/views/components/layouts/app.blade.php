@@ -189,14 +189,40 @@
             // everywhere. Browsers block audio until the first user gesture; we
             // ignore the rejected promise silently in that case.
             var __notifUrl = '{{ asset('sounds/notification.mp3') }}';
+            var __notifAudio = null;
             window.lmsPlayNotifSound = function () {
                 try {
-                    var a = new Audio(__notifUrl);
+                    var a = __notifAudio || new Audio(__notifUrl);
+                    a.currentTime = 0;
                     a.volume = 0.6;
                     var p = a.play();
                     if (p && p.catch) p.catch(function () {});
                 } catch (e) {}
             };
+
+            // Autoplay policies only let a page make noise after the user has
+            // interacted with it, so prime one Audio element on the very first
+            // gesture — from then on incoming messages can chime on their own.
+            (function () {
+                function unlock() {
+                    document.removeEventListener('pointerdown', unlock);
+                    document.removeEventListener('keydown', unlock);
+                    try {
+                        var a = new Audio(__notifUrl);
+                        a.volume = 0;
+                        var p = a.play();
+                        if (p && p.then) {
+                            p.then(function () {
+                                a.pause();
+                                a.currentTime = 0;
+                                __notifAudio = a;
+                            }).catch(function () {});
+                        }
+                    } catch (e) {}
+                }
+                document.addEventListener('pointerdown', unlock, { once: true });
+                document.addEventListener('keydown', unlock, { once: true });
+            })();
             function toast(p) {
                 p = Array.isArray(p) ? p[0] : p;
                 if (!p || !p.message) return;
@@ -214,6 +240,9 @@
                     setTimeout(function () { el.remove(); }, 300);
                 }, 4500);
             }
+            // Also reachable from plain JS (e.g. the chat "Copied" confirmation).
+            window.lmsToast = toast;
+
             document.addEventListener('livewire:init', function () {
                 if (window.Livewire && typeof window.Livewire.on === 'function') {
                     window.Livewire.on('notify', toast);

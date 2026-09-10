@@ -31,7 +31,7 @@ class Conversation extends Model
             'chat_conversation_user',
             'conversation_id',
             'user_id'
-        )->withPivot('last_read_at')->withTimestamps();
+        )->withPivot('last_read_at', 'pinned_at', 'cleared_at')->withTimestamps();
     }
 
     public function messages(): HasMany

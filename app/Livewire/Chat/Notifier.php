@@ -69,6 +69,9 @@ class Notifier extends Component
                 ])->values()->all();
             }
 
+            // This session has the messages now — give their senders tick two.
+            Message::markDeliveredFor($meId);
+
             $this->unread = Message::unreadCountFor($meId);
 
             $this->dispatch('chat-sync', unread: $this->unread, toasts: $toasts);

@@ -47,7 +47,7 @@ class Message extends Model
     public function scopeVisibleTo(Builder $query, int $userId): Builder
     {
         return $query->whereNotExists(fn($q) => $q
-            ->select(DB::raw(1))
+            ->select(DB::raw('1'))
             ->from('chat_message_deletes')
             ->whereColumn('chat_message_deletes.message_id', 'chat_messages.id')
             ->where('chat_message_deletes.user_id', $userId));
