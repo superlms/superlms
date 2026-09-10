@@ -242,6 +242,76 @@
                     return (window.performance && performance.now) ? performance.now() : Date.now();
                 }
 
+                // Scroll events stop arriving the moment the scroll stops, so a
+                // decision skipped because the lock was still up (a Livewire
+                // commit landing mid-scroll, or the last event of a fast flick)
+                // used to be the LAST word — that is what left the header hidden
+                // at the very top until you scrolled down and up again. This runs
+                // the same decision once more after things go quiet.
+                var settleT = 0;
+                function scheduleSettle(delay) {
+                    clearTimeout(settleT);
+                    settleT = setTimeout(function () {
+                        var container = document.getElementById('main-scroll');
+                        var header = container && getHeader(container);
+                        if (header) { update(container, header); }
+                    }, delay || 180);
+                }
+
+                // The collapse/expand decision, shared by the scroll handler and
+                // the settle timer so neither path can strand the header.
+                function update(container, header) {
+                    var y = container.scrollTop;
+
+                    if (header.classList.contains('lms-header-collapsed')) {
+                        // Reappear ONLY when scrolled all the way back to the top.
+                        // Deliberately NOT gated on the settle lock: the header
+                        // grows downward, so expanding at the top cannot nudge the
+                        // scroll position, and skipping it here is what used to
+                        // leave the header missing.
+                        if (y <= 2) {
+                            header.classList.remove('lms-header-collapsed');
+                            lockUntil = now() + 400;
+                        }
+                        return;
+                    }
+
+                    // Ignore the reflow nudge while a toggle is animating.
+                    if (now() < lockUntil) return;
+
+                    // Position-based (not delta) so it also hides on a slow
+                    // scroll. Threshold clears the collapsible height so the
+                    // collapse doesn't bounce back to the top.
+                    var threshold = Math.max(60, collapsibleHeight(header) + 24);
+                    if (y > threshold) {
+                        header.classList.add('lms-header-collapsed');
+                        lockUntil = now() + 400;
+                    }
+                }
+
+                // The collapsible rows carry a max-height measured when they were
+                // last marked. If the header later grows — a value wraps onto a
+                // second line, a row appears — that pin would clip it, which is
+                // how a header ends up half drawn. Re-measure whenever the header
+                // changes size on its own (never mid-animation).
+                var ro = null, roTarget = null;
+                function observeHeader(header) {
+                    if (typeof ResizeObserver === 'undefined' || roTarget === header) return;
+                    if (!ro) {
+                        ro = new ResizeObserver(function () {
+                            if (now() < lockUntil) return;
+                            var container = document.getElementById('main-scroll');
+                            var h = container && getHeader(container);
+                            if (!h || h.classList.contains('lms-header-collapsed')) return;
+                            h.removeAttribute('data-lms-sig');
+                            mark(h);
+                        });
+                    }
+                    ro.disconnect();
+                    ro.observe(header);
+                    roTarget = header;
+                }
+
                 function getHeader(container) {
                     return container.querySelector('.sticky.top-0');
                 }
@@ -250,6 +320,7 @@
                 // filter bar itself so it can stay pinned. Recomputed only when
                 // the header's child structure changes (e.g. tab switches).
                 function mark(header) {
+                    observeHeader(header);
                     var kids = Array.prototype.slice.call(header.children);
                     var filterIdx = -1;
                     for (var i = kids.length - 1; i >= 0; i--) {
@@ -306,6 +377,7 @@
                     void header.offsetHeight;                // flush styles before re-enabling transitions
                     header.classList.remove('lms-header-noanim');
                     lockUntil = now() + 400;                 // ignore the reflow nudge from scroll restore
+                    scheduleSettle(450);                     // ...then re-read the scroll position for real
                 }
 
                 function registerMorphGuard() {
@@ -333,29 +405,8 @@
                         var header = getHeader(container);
                         if (!header) return;
                         mark(header);
-
-                        // Ignore the reflow nudge while a toggle is animating.
-                        if (now() < lockUntil) return;
-
-                        var y = container.scrollTop;
-                        var collapsed = header.classList.contains('lms-header-collapsed');
-
-                        if (collapsed) {
-                            // Reappear ONLY when scrolled all the way back to the top.
-                            if (y <= 1) {
-                                header.classList.remove('lms-header-collapsed');
-                                lockUntil = now() + 400;
-                            }
-                        } else {
-                            // Position-based (not delta) so it also hides on a slow
-                            // scroll. Threshold clears the collapsible height so the
-                            // collapse doesn't bounce back to the top.
-                            var threshold = Math.max(60, collapsibleHeight(header) + 24);
-                            if (y > threshold) {
-                                header.classList.add('lms-header-collapsed');
-                                lockUntil = now() + 400;
-                            }
-                        }
+                        update(container, header);
+                        scheduleSettle(180);
                     }, { passive: true });
 
                     // Responsive rows change height across breakpoints — re-measure the
