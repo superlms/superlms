@@ -70,12 +70,13 @@
                 @if ($activeTab === 'homework')
                     {{-- Date → Class → Section → Subject → Teacher.
 
-                         Class and section set the scope, and picking a section is
-                         already enough to list its homework. Subject and teacher
-                         are two ways of narrowing that same scope, so choosing a
-                         teacher takes the subject picker away and lists whatever
-                         that teacher set for the class and section. Moving the
-                         date leaves every other picker exactly as it is. --}}
+                         The first three are the scope: nothing is listed until a
+                         date, a class and a section are all chosen. Subject and
+                         teacher are two ways of narrowing that same scope, so
+                         choosing a teacher takes the subject picker away and
+                         lists the homework for the subjects that teacher teaches
+                         there. Moving the date leaves every other picker as it
+                         is and just re-reads that day. --}}
                     <input wire:key="hw-search" wire:model.live.debounce.300ms="search" type="text" placeholder="Search title, description, teacher..."
                         class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 flex-shrink-0 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
 
@@ -185,13 +186,17 @@
 
     @if ($activeTab === 'homework')
     @if (!$isFiltered)
-        {{-- Filter-first: nothing shown until a filter is applied --}}
+        {{-- Scope-first: a date, a class and a section before anything is listed. --}}
+        @php $missing = $this->missingScopeLabels(); @endphp
         <div class="bg-white rounded-xl border border-gray-200 p-12 text-center">
             <div class="w-12 h-12 mx-auto mb-3 bg-blue-50 rounded-full flex items-center justify-center">
                 <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
             </div>
-            <p class="text-sm font-semibold text-gray-800">Apply a filter to view homework</p>
-            <p class="text-xs text-gray-400 mt-1">Search, or pick a teacher / class / section / subject above to list homework.</p>
+            <p class="text-sm font-semibold text-gray-800">Pick a date, a class and a section</p>
+            <p class="text-xs text-gray-400 mt-1">
+                Still to choose: <strong class="text-gray-600">{{ implode(', ', $missing) }}</strong>.
+                Subject and teacher then narrow that day's list.
+            </p>
         </div>
     @else
     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -282,10 +287,12 @@
                                 </div>
                                 <p class="text-sm font-semibold text-gray-800">No homework found</p>
                                 <p class="text-xs text-gray-400 mt-1">
-                                    @if ($search || $filterTeacher || $filterStandard || $filterSection || $filterSubject)
-                                        Try adjusting your search or filters.
+                                    @if ($filterTeacher)
+                                        Nothing for this teacher's subjects on this day — try another date, or clear the teacher.
+                                    @elseif ($search || $filterSubject)
+                                        Try another subject or search term, or another date.
                                     @else
-                                        Create your first homework using the button above.
+                                        Nothing was set for this class and section on this day.
                                     @endif
                                 </p>
                             </td>
