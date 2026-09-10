@@ -18,8 +18,6 @@
 
     $org       = $admitCard->organization ?: $organization;
     $logoSrc   = $imgSrc($org->logo ?? null);
-    $photoPath = $admitCard->student_photo ?: ($admitCard->studentDetail?->image ?? null);
-    $photoSrc  = $imgSrc($photoPath);
     $student   = $admitCard->studentDetail;
 
     // Papers in the order the student sits them.
@@ -50,7 +48,18 @@
     $notes = $notes->take(4);
 @endphp
 
-<div class="card{{ $papers->count() > 7 ? ' dense' : '' }}{{ $papers->count() > 11 ? ' tight' : '' }}">
+@php
+    // Density tier for the 4-up sheet, from the number of papers. The full-page
+    // stylesheet ignores these — it has room for any count at one size.
+    $tier = match (true) {
+        $papers->count() > 13 => ' dense tight micro',
+        $papers->count() > 9  => ' dense tight',
+        $papers->count() > 6  => ' dense',
+        default               => '',
+    };
+@endphp
+
+<div class="card{{ $tier }}">
 
     {{-- ── MASTHEAD ── --}}
     <div class="masthead">
@@ -71,50 +80,38 @@
         </tr>
     </table>
 
-    {{-- ── IDENTITY — a bordered grid, same shape as the report card ── --}}
-    <table class="id-wrap">
+    {{-- ── IDENTITY — a bordered grid, same shape as the report card.
+           No candidate photo: the card carries the student's name, class, roll
+           and card number, which is what an invigilator checks against. --}}
+    <table class="info">
+        {{-- Explicit columns: the first row carries a colspan, and a
+             fixed-layout table without a colgroup would take its widths
+             from that row and hand column 1 half the table. --}}
+        <colgroup>
+            <col style="width:16%"><col style="width:34%">
+            <col style="width:16%"><col style="width:34%">
+        </colgroup>
         <tr>
-            <td class="id-facts">
-                <table class="info">
-                    {{-- Explicit columns: the first row carries a colspan, and a
-                         fixed-layout table without a colgroup would take its
-                         widths from that row and hand column 1 half the table. --}}
-                    <colgroup>
-                        <col style="width:22%"><col style="width:28%">
-                        <col style="width:22%"><col style="width:28%">
-                    </colgroup>
-                    <tr>
-                        <td class="label">Name</td>
-                        <td class="value" colspan="3">{{ $admitCard->student_name }}</td>
-                    </tr>
-                    <tr>
-                        <td class="label">Class</td>
-                        <td class="value">{{ $student?->standard?->name ?? '—' }}@if($student?->section?->name) · {{ $student->section->name }}@endif</td>
-                        <td class="label">Roll No.</td>
-                        <td class="value">{{ $admitCard->roll_number ?: '—' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="label">Adm. No.</td>
-                        <td class="value">{{ $student?->admission_no ?: '—' }}</td>
-                        <td class="label">{{ $admitCard->exam_roll_number ? 'Exam Roll' : 'Card No.' }}</td>
-                        <td class="value">{{ $admitCard->exam_roll_number ?: $admitCard->admit_card_number }}</td>
-                    </tr>
-                    <tr>
-                        <td class="label">Father</td>
-                        <td class="value">{{ $admitCard->father_name ?: '—' }}</td>
-                        <td class="label">Mother</td>
-                        <td class="value">{{ $admitCard->mother_name ?: '—' }}</td>
-                    </tr>
-                </table>
-            </td>
-            <td class="id-photo">
-                @if($photoSrc)
-                    <img src="{{ $photoSrc }}" class="passport" alt="Candidate photo">
-                @else
-                    <div class="passport-ph">Affix<br>photo</div>
-                @endif
-                <div class="photo-cap">Candidate</div>
-            </td>
+            <td class="label">Name</td>
+            <td class="value" colspan="3">{{ $admitCard->student_name }}</td>
+        </tr>
+        <tr>
+            <td class="label">Class</td>
+            <td class="value">{{ $student?->standard?->name ?? '—' }}@if($student?->section?->name) · {{ $student->section->name }}@endif</td>
+            <td class="label">Roll No.</td>
+            <td class="value">{{ $admitCard->roll_number ?: '—' }}</td>
+        </tr>
+        <tr>
+            <td class="label">Adm. No.</td>
+            <td class="value">{{ $student?->admission_no ?: '—' }}</td>
+            <td class="label">{{ $admitCard->exam_roll_number ? 'Exam Roll' : 'Card No.' }}</td>
+            <td class="value">{{ $admitCard->exam_roll_number ?: $admitCard->admit_card_number }}</td>
+        </tr>
+        <tr>
+            <td class="label">Father</td>
+            <td class="value">{{ $admitCard->father_name ?: '—' }}</td>
+            <td class="label">Mother</td>
+            <td class="value">{{ $admitCard->mother_name ?: '—' }}</td>
         </tr>
     </table>
 

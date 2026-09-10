@@ -20,22 +20,24 @@
         * { box-sizing: border-box; }
         body, h1, p, ol, li, table, td, th, div { margin: 0; padding: 0; }
 
-        /* 6mm margins leave 285mm of paper for two 140mm rows — enough slack
-           that rounding can never push the fourth card onto a second sheet. */
-        @page { size: A4 portrait; margin: 6mm; }
+        /* A4 landscape is 297 × 210mm; 6mm margins leave 285 × 198mm of paper
+           for two 142.5mm columns and two 99mm rows, with enough slack that
+           rounding can never push the fourth card onto a second sheet. */
+        @page { size: A4 landscape; margin: 6mm; }
 
         body {
             font-family: 'Poppins', 'Inter', 'DejaVu Sans', Arial, sans-serif;
-            font-size: 6.6pt; color: #16181d; background: #fff; line-height: 1.4;
+            font-size: 6pt; color: #16181d; background: #fff; line-height: 1.35;
             -webkit-font-smoothing: antialiased;
         }
 
-        /* ═══ The sheet: four quadrants of an A4 portrait page ═══
+        /* ═══ The sheet: four quadrants of an A4 landscape page ═══
            A table, not grid/flex, because dompdf renders this same markup for
-           the download. Every card is one 140mm-tall cell, so a run of one card
+           the download. Every card is one 99mm-tall cell, so a run of one card
            occupies exactly one quadrant instead of stretching over the page. */
         .sheet { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        .sheet .cell { width: 50%; height: 140mm; vertical-align: top; padding: 0; }
+        .sheet .cell { width: 50%; height: 99mm; vertical-align: top; padding: 0; }
+        .sheet tr { page-break-inside: avoid; }
         /* Cut lines only where a card actually has a neighbour, so a sheet of
            one or three cards prints clean. */
         .sheet .cell.br { border-right: 0.5pt dotted #b0b5bb; }
@@ -44,48 +46,37 @@
         .sheet-wrap { page-break-after: always; }
         .sheet-wrap.last { page-break-after: auto; }
 
-        /* Clipped, so an unusually long card can never grow the row and spill
-           the sheet onto a second page. */
-        .card { padding: 3.5mm 4mm 4mm; height: 140mm; overflow: hidden; }
+        /* Fixed height and clipped: whatever a card holds, it occupies exactly
+           its quadrant, so four always land on one sheet and a fifth can never
+           be squeezed out onto the next. The type tiers below are sized so real
+           subject counts fit well inside this without ever reaching the clip. */
+        .card { padding: 3mm 3.5mm; height: 99mm; overflow: hidden; page-break-inside: avoid; }
 
         .muted { color: #6b7280; }
 
         /* ── Masthead: logo, name, one line of contacts ── */
-        .masthead { text-align: center; padding-bottom: 1.5mm; border-bottom: 0.5pt solid #16181d; }
-        .masthead .logo { height: 9mm; width: 9mm; margin-bottom: 0.8mm; }
+        .masthead { text-align: center; padding-bottom: 1.2mm; border-bottom: 0.5pt solid #16181d; }
+        .masthead .logo { height: 7mm; width: 7mm; margin-bottom: 0.6mm; }
         .masthead .school {
             font-family: 'Poppins SemiBold', 'Poppins', 'Inter', sans-serif; font-weight: 600;
-            font-size: 10.2pt; letter-spacing: -0.01em; line-height: 1.2;
+            font-size: 9pt; letter-spacing: -0.01em; line-height: 1.2;
         }
-        .masthead .address { font-size: 5.1pt; color: #6b7280; margin-top: 0.6mm; line-height: 1.35; }
+        .masthead .address { font-size: 4.5pt; color: #6b7280; margin-top: 0.5mm; line-height: 1.3; }
 
         /* ── Title row: the tag on the left, the exam on the right ── */
-        .titlebar { width: 100%; border-collapse: collapse; margin: 2mm 0; }
+        .titlebar { width: 100%; border-collapse: collapse; margin: 1.4mm 0; }
         .titlebar td { vertical-align: baseline; }
         .titlebar .tag {
             font-family: 'Poppins SemiBold', 'Poppins', 'Inter', sans-serif; font-weight: 600;
-            font-size: 7.6pt; letter-spacing: 0.2em; text-transform: uppercase;
+            font-size: 6.6pt; letter-spacing: 0.18em; text-transform: uppercase;
         }
-        .titlebar .exam { text-align: right; color: #6b7280; font-size: 6pt; }
+        .titlebar .exam { text-align: right; color: #6b7280; font-size: 5.2pt; }
 
-        /* ── Identity: a bordered grid (same shape as the report card) on the
-              left, the candidate photo on the right ── */
-        .id-wrap { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        .id-wrap > tbody > tr > td { vertical-align: top; }
-        .id-wrap .id-photo { width: 17mm; padding-left: 2mm; }
-        .passport { width: 15mm; height: 19mm; border: 0.5pt solid #d9dce1; }
-        .passport-ph {
-            width: 15mm; height: 19mm; border: 0.5pt dashed #d9dce1; color: #9aa0a6;
-            font-size: 4.6pt; text-align: center; padding-top: 6.5mm; line-height: 1.4;
-        }
-        .photo-cap {
-            width: 15mm; font-size: 4.4pt; color: #9aa0a6; margin-top: 0.8mm;
-            text-align: center; letter-spacing: 0.08em; text-transform: uppercase;
-        }
+        /* ── Identity: a bordered grid, same shape as the report card ── */
 
         .info { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .info td {
-            border: 0.5pt solid #aaaaaa; padding: 0.6mm 1mm; font-size: 6pt;
+            border: 0.5pt solid #aaaaaa; padding: 0.5mm 0.9mm; font-size: 5.4pt;
             vertical-align: top; line-height: 1.2; word-wrap: break-word;
         }
         .info td.label {
@@ -95,19 +86,19 @@
 
         /* ── Section label ── */
         .sec-label {
-            font-size: 5.3pt; letter-spacing: 0.14em; text-transform: uppercase; color: #6b7280;
-            margin-bottom: 1mm;
+            font-size: 4.7pt; letter-spacing: 0.12em; text-transform: uppercase; color: #6b7280;
+            margin-bottom: 0.7mm;
         }
-        .block { margin-top: 2mm; }
+        .block { margin-top: 1.5mm; }
 
         /* ── Paper schedule ── */
         .papers { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .papers th {
-            font-size: 5.1pt; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280;
-            font-weight: normal; text-align: left; padding: 0 1mm 0.9mm; border-bottom: 0.5pt solid #16181d;
+            font-size: 4.6pt; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280;
+            font-weight: normal; text-align: left; padding: 0 0.9mm 0.7mm; border-bottom: 0.5pt solid #16181d;
         }
         .papers td {
-            font-size: 6.3pt; padding: 1mm; border-bottom: 0.4pt solid #f0f1f3; line-height: 1.2;
+            font-size: 5.6pt; padding: 0.7mm 0.9mm; border-bottom: 0.4pt solid #f0f1f3; line-height: 1.2;
             overflow: hidden; white-space: nowrap;
         }
         /* A long subject name wraps instead of being cut in half. */
@@ -119,31 +110,52 @@
         .papers .seat { font-family: 'Poppins SemiBold', 'Poppins', 'Inter', sans-serif; font-weight: 600; }
         .papers .off { color: #9aa0a6; }
         .no-papers {
-            font-size: 5.8pt; color: #9aa0a6; border: 0.5pt dashed #d9dce1;
-            padding: 3mm; text-align: center;
+            font-size: 5pt; color: #9aa0a6; border: 0.5pt dashed #d9dce1;
+            padding: 2.5mm; text-align: center;
         }
 
-        /* A long subject list tightens rather than running off the quadrant:
-           `dense` from 8 papers, `tight` from 12. */
-        .card.dense .papers th { font-size: 4.6pt; padding-bottom: 0.6mm; }
-        .card.dense .papers td { font-size: 5.4pt; padding: 0.6mm 1mm; }
-        .card.dense .notes li  { font-size: 4.6pt; margin-bottom: 0.4mm; }
-        .card.dense .block     { margin-top: 2mm; }
+        /* ═══ Holding the quadrant at any subject count ═══
+           A quadrant is 99mm; the fixed parts (masthead, identity, labels,
+           instructions, foot) take roughly 55mm of it, leaving about 38mm for
+           the schedule. Each tier shrinks the row until that many rows fit
+           inside those 38mm with room to spare, so eight subjects sit exactly
+           the way six do — the format does not change shape, only its scale.
 
-        .card.tight .papers td { font-size: 4.9pt; padding: 0.4mm 1mm; }
-        .card.tight .info td   { font-size: 5.7pt; padding: 0.6mm 1.2mm; }
-        .card.tight .notes li  { font-size: 4.2pt; }
-        .card.tight .masthead  { padding-bottom: 1mm; }
+             tier      papers   row      rows × height
+             ──────    ──────   ─────    ─────────────
+             (base)      ≤6     ~3.5mm    6 × 3.5 = 21mm
+             dense      7–9     ~3.1mm    9 × 3.1 = 28mm
+             tight     10–13    ~2.6mm   13 × 2.6 = 34mm
+             micro       14+    ~2.2mm   16 × 2.2 = 35mm                     */
+        .card.dense .papers th { font-size: 4.3pt; padding-bottom: 0.55mm; }
+        .card.dense .papers td { font-size: 5.1pt; padding: 0.5mm 0.9mm; }
+        .card.dense .notes li  { font-size: 4.2pt; margin-bottom: 0.3mm; }
+
+        .card.tight .papers td { font-size: 4.7pt; padding: 0.35mm 0.8mm; }
+        .card.tight .info td   { font-size: 5pt; padding: 0.4mm 0.8mm; }
+        .card.tight .notes li  { font-size: 3.9pt; margin-bottom: 0.2mm; }
+        .card.tight .masthead  { padding-bottom: 0.9mm; }
+        .card.tight .block     { margin-top: 1.2mm; }
+
+        .card.micro .papers th { font-size: 4pt; padding-bottom: 0.4mm; }
+        .card.micro .papers td { font-size: 4.3pt; padding: 0.25mm 0.7mm; }
+        .card.micro .masthead .logo { height: 5.5mm; width: 5.5mm; }
+        .card.micro .masthead .school { font-size: 8pt; }
+        .card.micro .titlebar  { margin: 1mm 0; }
+        .card.micro .info td   { font-size: 4.8pt; padding: 0.3mm 0.7mm; }
+        .card.micro .block     { margin-top: 0.9mm; }
+        .card.micro .foot      { margin-top: 1mm; }
+        .card.micro .notes li  { font-size: 3.5pt; margin-bottom: 0.15mm; line-height: 1.2; }
 
         /* ── Instructions ── */
-        .notes { padding-left: 9px; }
-        .notes li { font-size: 5.2pt; color: #6b7280; margin-bottom: 0.4mm; line-height: 1.3; }
+        .notes { padding-left: 8px; }
+        .notes li { font-size: 4.6pt; color: #6b7280; margin-bottom: 0.3mm; line-height: 1.3; }
 
         /* ── Foot ── */
-        .foot { width: 100%; border-collapse: collapse; margin-top: 2mm; }
-        .foot td { font-size: 5.3pt; color: #6b7280; vertical-align: bottom; line-height: 1.4; }
+        .foot { width: 100%; border-collapse: collapse; margin-top: 1.5mm; }
+        .foot td { font-size: 4.8pt; color: #6b7280; vertical-align: bottom; line-height: 1.35; }
         .foot .sign { text-align: right; }
-        .foot .sign .line { border-top: 0.5pt solid #16181d; width: 26mm; margin: 0 0 0.8mm auto; height: 0; }
+        .foot .sign .line { border-top: 0.5pt solid #16181d; width: 22mm; margin: 0 0 0.6mm auto; height: 0; }
 
         @unless($isPdf ?? false)
         /* ═══ Screen only — the same sheet on a plain ground, nothing else.
@@ -151,12 +163,12 @@
                out of the PDF by Blade rather than by a media query. ═══ */
         body { background: #f1f3f6; padding: 22px 16px 48px; }
         .sheet-wrap {
-            width: 210mm; max-width: 100%; min-height: 297mm; margin: 0 auto 8mm;
+            width: 297mm; max-width: 100%; min-height: 210mm; margin: 0 auto 8mm;
             background: #fff; padding: 6mm;
             box-shadow: 0 1px 3px rgba(16,24,40,.08), 0 8px 28px rgba(16,24,40,.10);
         }
         .toolbar {
-            position: sticky; top: 0; z-index: 10; width: 210mm; max-width: 100%;
+            position: sticky; top: 0; z-index: 10; width: 297mm; max-width: 100%;
             margin: 0 auto 14px; background: #fff; border: 1px solid #e4e6ea; border-radius: 10px;
             padding: 8px 10px 8px 14px; display: flex; align-items: center; gap: 8px;
         }
@@ -175,7 +187,7 @@
         .toolbar .go:hover { background: #2b2f38; }
 
         .empty {
-            width: 210mm; max-width: 100%; margin: 0 auto; background: #fff; padding: 48px;
+            width: 297mm; max-width: 100%; margin: 0 auto; background: #fff; padding: 48px;
             text-align: center; color: #6b7280; font-size: 14px;
         }
 
@@ -207,7 +219,7 @@
             <a href="{{ route($isAccounts ? 'accounts.admit-card.view' : 'admin.admit-card.view', [$single->organization_id, $single->id]) }}">Full page</a>
             <a href="{{ route($isAccounts ? 'accounts.admit-card.download' : 'admin.admit-card.download', [$single->organization_id, $single->id]) }}">Download</a>
         @else
-            <span class="count">{{ $cards->count() }} card(s) · 4 to an A4 portrait sheet · cut along the dotted lines</span>
+            <span class="count">{{ $cards->count() }} card(s) · 4 to an A4 landscape sheet · cut along the dotted lines</span>
         @endif
         <button type="button" onclick="window.opener ? window.close() : history.back()">Close</button>
         <button type="button" class="go" onclick="window.print()">Print</button>

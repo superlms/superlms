@@ -51,20 +51,7 @@
         }
         .titlebar .exam { text-align: right; color: #6b7280; font-size: 9pt; }
 
-        /* ── Identity: a bordered grid (same shape as the report card) on the
-              left, the candidate photo on the right ── */
-        .id-wrap { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        .id-wrap > tbody > tr > td { vertical-align: top; }
-        .id-wrap .id-photo { width: 34mm; padding-left: 8mm; }
-        .passport { width: 25mm; height: 32mm; border: 0.6pt solid #d9dce1; }
-        .passport-ph {
-            width: 25mm; height: 32mm; border: 0.6pt dashed #d9dce1; color: #9aa0a6;
-            font-size: 7pt; text-align: center; padding-top: 12mm; line-height: 1.5;
-        }
-        .photo-cap {
-            width: 25mm; font-size: 6.5pt; color: #9aa0a6; margin-top: 1.5mm;
-            text-align: center; letter-spacing: 0.08em; text-transform: uppercase;
-        }
+        /* ── Identity: a bordered grid, same shape as the report card ── */
 
         .info { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .info td {
