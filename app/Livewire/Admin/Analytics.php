@@ -14,9 +14,11 @@ use App\Models\Admin\Announcement;
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Admin\TeacherArrangement;
+use App\Models\Admin\TransportFeePayment;
 use App\Models\Teacher\TeacherAttendance;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\WebsiteContact;
+use Illuminate\Support\Facades\DB;
 
 class Analytics extends Component
 {
@@ -65,6 +67,9 @@ class Analytics extends Component
     public $classAttendanceRank  = [];   // per-class attendance % ranking (30 days)
     public $admissionsTrend      = [];   // new admissions per month (Apr–Mar)
     public $feeClassRate         = [];   // per-class collection % with defaulters
+    public $transportClassData   = [];   // transport fee: collected vs remaining per class
+    public $transportRouteData   = [];   // transport fee: collected vs remaining per route
+    public $transportFeeStats    = [];   // transport totals: expected / collected / remaining
     public $lowPerformers        = [];   // lowest-attendance students (needs attention)
     public $enquiryStats         = [];   // enquiry funnel counts
 
@@ -163,6 +168,7 @@ class Analytics extends Component
         $this->loadClassAttendanceRank();
         $this->loadAdmissionsTrend();
         $this->loadFeeClassRate();
+        $this->loadTransportFeeData();
         $this->loadLowPerformers();
         $this->loadEnquiryStats();
         $this->loadKpis();
@@ -434,6 +440,143 @@ class Analytics extends Component
 
         usort($rows, fn ($a, $b) => $b['pct'] <=> $a['pct']);
         $this->feeClassRate = $rows;
+    }
+
+    // ─── Transport fee: expected vs collected, by class and by route ────────────
+
+    /**
+     * Transport fee has no FeeStructure rows behind it — what a student owes is
+     * their route's monthly fee times the months they are billed for (June is
+     * off by default, and the pivot row can turn any month on or off). So the
+     * expected side is built student by student here, then folded up two ways:
+     * by class, to sit under the main fee chart, and by route.
+     */
+    protected function loadTransportFeeData(): void
+    {
+        $orgId = $this->orgId();
+
+        $riders = DB::table('transportation_students as ts')
+            ->join('transportations as t', 't.id', '=', 'ts.transportation_id')
+            ->join('student_details as sd', 'sd.id', '=', 'ts.student_detail_id')
+            ->where('ts.organization_id', $orgId)
+            ->get([
+                'ts.student_detail_id',
+                'ts.billable_months',
+                't.id as route_id',
+                't.route_name',
+                't.monthly_fee',
+                'sd.standard_id',
+            ]);
+
+        $paid = TransportFeePayment::where('organization_id', $orgId)
+            ->selectRaw('student_detail_id, SUM(amount) as paid')
+            ->groupBy('student_detail_id')
+            ->pluck('paid', 'student_detail_id');
+
+        // A student on two routes pays once; the first route seen owns their
+        // payments so the collected side is never counted twice.
+        $paidClaimed = [];
+
+        $byClass = [];   // standard_id => ['expected' => , 'collected' => ]
+        $byRoute = [];   // route_id    => ['name' =>, 'expected' =>, 'collected' => ]
+        $totalExpected = 0.0;
+
+        foreach ($riders as $r) {
+            $expected = (float) $r->monthly_fee * $this->billableMonthCount($r->billable_months);
+
+            $collected = 0.0;
+            if (!isset($paidClaimed[$r->student_detail_id])) {
+                $collected = (float) ($paid[$r->student_detail_id] ?? 0);
+                $paidClaimed[$r->student_detail_id] = true;
+            }
+
+            $std = (int) $r->standard_id;
+            $byClass[$std]['expected']  = ($byClass[$std]['expected']  ?? 0) + $expected;
+            $byClass[$std]['collected'] = ($byClass[$std]['collected'] ?? 0) + $collected;
+
+            $route = (int) $r->route_id;
+            $byRoute[$route]['name']      = $r->route_name ?: 'Route #' . $route;
+            $byRoute[$route]['expected']  = ($byRoute[$route]['expected']  ?? 0) + $expected;
+            $byRoute[$route]['collected'] = ($byRoute[$route]['collected'] ?? 0) + $collected;
+
+            $totalExpected += $expected;
+        }
+
+        // Classes follow the same order as the main fee chart, so the two read
+        // against each other; classes with no riders are left out.
+        $labels = $collectedSeries = $remainingSeries = [];
+        foreach ($this->standards as $std) {
+            if (!isset($byClass[$std->id])) {
+                continue;
+            }
+            $row = $byClass[$std->id];
+            $labels[]          = $std->name;
+            $collectedSeries[] = round($row['collected'], 2);
+            $remainingSeries[] = round(max(0, $row['expected'] - $row['collected']), 2);
+        }
+
+        $this->transportClassData = [
+            'labels'    => $labels,
+            'collected' => $collectedSeries,
+            'remaining' => $remainingSeries,
+        ];
+
+        // Routes, heaviest expected first, capped so the axis stays readable.
+        uasort($byRoute, fn ($a, $b) => $b['expected'] <=> $a['expected']);
+        $byRoute = array_slice($byRoute, 0, 12, true);
+
+        $rLabels = $rCollected = $rRemaining = [];
+        foreach ($byRoute as $row) {
+            $rLabels[]    = $row['name'];
+            $rCollected[] = round($row['collected'], 2);
+            $rRemaining[] = round(max(0, $row['expected'] - $row['collected']), 2);
+        }
+
+        $this->transportRouteData = [
+            'labels'    => $rLabels,
+            'collected' => $rCollected,
+            'remaining' => $rRemaining,
+        ];
+
+        $totalCollected = array_sum(array_map(
+            fn ($id) => (float) ($paid[$id] ?? 0),
+            array_keys($paidClaimed)
+        ));
+
+        $this->transportFeeStats = [
+            'expected'  => round($totalExpected, 2),
+            'collected' => round($totalCollected, 2),
+            'remaining' => round(max(0, $totalExpected - $totalCollected), 2),
+            'rate'      => $totalExpected > 0 ? round($totalCollected / $totalExpected * 100, 1) : 0,
+            'riders'    => count($paidClaimed),
+            'routes'    => count($byRoute),
+        ];
+    }
+
+    /**
+     * How many months a rider is billed for. Null or empty means the default —
+     * every month except June — matching HandlesTransportFees.
+     */
+    private function billableMonthCount($raw): int
+    {
+        $months = ['apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec', 'jan', 'feb', 'mar'];
+
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+        if (empty($raw) || !is_array($raw)) {
+            return 11;
+        }
+
+        $count = 0;
+        foreach ($months as $m) {
+            $on = array_key_exists($m, $raw) ? (bool) $raw[$m] : ($m !== 'jun');
+            if ($on) {
+                $count++;
+            }
+        }
+
+        return $count;
     }
 
     // ─── Lowest-attendance students (needs attention) ───────────────────────────

@@ -528,6 +528,118 @@
                     @endif
                 </div>
             </div>
+
+            {{-- ── Transport fee ───────────────────────────────────────────────
+                 Transport is billed off the route's monthly fee rather than a
+                 fee structure, so it gets its own pair: the same class-by-class
+                 read as above, and the same figures split by route. --}}
+            <div class="flex flex-wrap items-baseline justify-between gap-3 pt-2">
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-800">Transport Fee</h3>
+                    <p class="text-xs text-gray-400 mt-0.5">
+                        Expected ₹{{ number_format($transportFeeStats['expected'] ?? 0, 0) }} ·
+                        Collected ₹{{ number_format($transportFeeStats['collected'] ?? 0, 0) }} ·
+                        Remaining ₹{{ number_format($transportFeeStats['remaining'] ?? 0, 0) }}
+                    </p>
+                </div>
+                <div class="flex items-center gap-3 text-[11px] text-gray-400">
+                    <span class="font-semibold text-gray-700 tabular-nums">{{ $transportFeeStats['rate'] ?? 0 }}% recovered</span>
+                    <span>{{ $transportFeeStats['riders'] ?? 0 }} riders</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {{-- Transport fee by class --}}
+                <div class="bg-white rounded-xl border border-gray-200 p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-800">Transport Fee by Class</h3>
+                            <p class="text-xs text-gray-400 mt-0.5">Collected vs remaining</p>
+                        </div>
+                        <div class="flex items-center gap-3 text-[11px] text-gray-400">
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-sky-500 inline-block"></span> Collected</span>
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-orange-400 inline-block"></span> Remaining</span>
+                        </div>
+                    </div>
+                    @if (count($transportClassData['labels'] ?? []))
+                        <div class="h-64" wire:ignore wire:key="transport-class-chart">
+                            <canvas x-data="{
+                                init() {
+                                    new Chart(this.$el.getContext('2d'), {
+                                        type: 'bar',
+                                        data: {
+                                            labels: @js($transportClassData['labels'] ?? []),
+                                            datasets: [
+                                                { label: 'Collected', data: @js($transportClassData['collected'] ?? []), backgroundColor: 'rgba(14,165,233,0.75)', borderRadius: 3, borderSkipped: false },
+                                                { label: 'Remaining', data: @js($transportClassData['remaining'] ?? []), backgroundColor: 'rgba(251,146,60,0.7)', borderRadius: 3, borderSkipped: false }
+                                            ]
+                                        },
+                                        options: {
+                                            responsive: true, maintainAspectRatio: false,
+                                            plugins: {
+                                                legend: { display: false },
+                                                tooltip: { callbacks: { label: (c) => c.dataset.label + ': ₹' + Number(c.raw).toLocaleString('en-IN') } }
+                                            },
+                                            scales: {
+                                                x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0, autoSkipPadding: 6 } },
+                                                y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 }, callback: (v) => '₹' + Number(v).toLocaleString('en-IN') } }
+                                            }
+                                        }
+                                    });
+                                }
+                            }"></canvas>
+                        </div>
+                    @else
+                        <div class="text-center py-16 text-gray-400 text-sm">No transport riders assigned yet.</div>
+                    @endif
+                </div>
+
+                {{-- Transport fee by route --}}
+                <div class="bg-white rounded-xl border border-gray-200 p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-800">Transport Fee by Route</h3>
+                            <p class="text-xs text-gray-400 mt-0.5">Collected vs remaining</p>
+                        </div>
+                        <div class="flex items-center gap-3 text-[11px] text-gray-400">
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-sky-500 inline-block"></span> Collected</span>
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-orange-400 inline-block"></span> Remaining</span>
+                        </div>
+                    </div>
+                    @if (count($transportRouteData['labels'] ?? []))
+                        <div class="h-64" wire:ignore wire:key="transport-route-chart">
+                            <canvas x-data="{
+                                init() {
+                                    new Chart(this.$el.getContext('2d'), {
+                                        type: 'bar',
+                                        data: {
+                                            labels: @js($transportRouteData['labels'] ?? []),
+                                            datasets: [
+                                                { label: 'Collected', data: @js($transportRouteData['collected'] ?? []), backgroundColor: 'rgba(14,165,233,0.75)', borderRadius: 3, borderSkipped: false },
+                                                { label: 'Remaining', data: @js($transportRouteData['remaining'] ?? []), backgroundColor: 'rgba(251,146,60,0.7)', borderRadius: 3, borderSkipped: false }
+                                            ]
+                                        },
+                                        options: {
+                                            indexAxis: 'y',
+                                            responsive: true, maintainAspectRatio: false,
+                                            plugins: {
+                                                legend: { display: false },
+                                                tooltip: { callbacks: { label: (c) => c.dataset.label + ': ₹' + Number(c.raw).toLocaleString('en-IN') } }
+                                            },
+                                            scales: {
+                                                x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 9 }, callback: (v) => '₹' + Number(v).toLocaleString('en-IN') } },
+                                                y: { grid: { display: false }, ticks: { font: { size: 10 } } }
+                                            }
+                                        }
+                                    });
+                                }
+                            }"></canvas>
+                        </div>
+                    @else
+                        <div class="text-center py-16 text-gray-400 text-sm">No transport routes with riders yet.</div>
+                    @endif
+                </div>
+            </div>
         </section>
 
         {{-- ═══════════════════════ OPERATIONS ═══════════════════════ --}}

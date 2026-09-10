@@ -15,6 +15,13 @@
 
         // The day the trend dropdown is pointing at.
         $pick = $this->trendDay();
+
+        // Exam performance: one point per exam, average percentage across every
+        // paper marked for it.
+        $examLabels = array_column($examTrend, 'label');
+        $examAvg    = array_column($examTrend, 'avg');
+        $examPass   = array_column($examTrend, 'pass_pct');
+        $examLatest = $examTrend ? end($examTrend) : null;
     @endphp
 
     {{-- ══════════════════════════════ HEADER ══════════════════════════════ --}}
@@ -368,6 +375,102 @@
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+
+                    {{-- ── Exam performance trend ─────────────────────────────
+                         One point per exam, average percentage across every
+                         paper marked for it, so results read as a line rather
+                         than a pile of numbers. --}}
+                    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                        <div class="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <h3 class="text-sm font-semibold text-gray-800">Exam Performance Trend</h3>
+                                <p class="text-[11px] text-gray-400 mt-0.5">Average percentage @if (count($examTrend) > 0)· last {{ count($examTrend) }} exam{{ count($examTrend) === 1 ? '' : 's' }}@endif</p>
+                            </div>
+                            <a href="{{ route('admin.performance', ['organization' => $organization]) }}" class="text-xs font-medium text-blue-600 hover:text-blue-800">Open →</a>
+                        </div>
+
+                        @if (count($examTrend) > 0)
+                            <div class="px-5 pt-4">
+                                <div class="flex flex-wrap items-end gap-6">
+                                    <div>
+                                        <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Latest · {{ $examLatest['exam'] }}</p>
+                                        <p class="text-2xl font-semibold text-gray-900 mt-1 tabular-nums">{{ $examLatest['avg'] }}%</p>
+                                    </div>
+                                    <div class="pb-1">
+                                        @if ($examTrendDelta > 0)
+                                            <span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">▲ {{ $examTrendDelta }} pts vs previous</span>
+                                        @elseif ($examTrendDelta < 0)
+                                            <span class="inline-flex items-center gap-1 text-xs font-medium text-red-500">▼ {{ abs($examTrendDelta) }} pts vs previous</span>
+                                        @else
+                                            <span class="text-xs font-medium text-gray-400">No change vs previous</span>
+                                        @endif
+                                    </div>
+                                    <div class="pb-1 ml-auto flex items-center gap-3 text-[11px] text-gray-400">
+                                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-violet-500 inline-block"></span> Average %</span>
+                                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-400 inline-block"></span> Pass %</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="h-56 px-3 pt-3 pb-1" wire:ignore wire:key="home-exam-trend">
+                                <canvas x-data="{
+                                    init() {
+                                        const meta = @js($examTrend);
+                                        new Chart(this.$el.getContext('2d'), {
+                                            type: 'line',
+                                            data: {
+                                                labels: @js($examLabels),
+                                                datasets: [
+                                                    { label: 'Average %', data: @js($examAvg), borderColor: 'rgb(139,92,246)', backgroundColor: 'rgba(139,92,246,0.12)', fill: true, tension: 0.35, borderWidth: 2, pointRadius: 3, pointBackgroundColor: 'rgb(139,92,246)' },
+                                                    { label: 'Pass %', data: @js($examPass), borderColor: 'rgb(52,211,153)', borderDash: [4, 3], fill: false, tension: 0.35, borderWidth: 2, pointRadius: 2 }
+                                                ]
+                                            },
+                                            options: {
+                                                responsive: true, maintainAspectRatio: false,
+                                                plugins: {
+                                                    legend: { display: false },
+                                                    tooltip: {
+                                                        callbacks: {
+                                                            title: (items) => meta[items[0].dataIndex].exam,
+                                                            label: (c) => c.dataset.label + ': ' + c.raw + '%',
+                                                            afterBody: (items) => {
+                                                                const m = meta[items[0].dataIndex];
+                                                                return m.date + ' · ' + m.papers + ' papers · ' + m.students + ' students';
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                scales: {
+                                                    x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0, autoSkipPadding: 6 } },
+                                                    y: { beginAtZero: true, max: 100, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 }, stepSize: 20, callback: (v) => v + '%' } }
+                                                }
+                                            }
+                                        });
+                                    }
+                                }"></canvas>
+                            </div>
+
+                            <div class="px-5 py-3 border-t border-gray-100 grid grid-cols-3 gap-2 text-center">
+                                <div>
+                                    <p class="text-base font-semibold text-gray-800 tabular-nums">{{ $examTrendAvg }}%</p>
+                                    <p class="text-[10px] text-gray-400 uppercase">Overall avg</p>
+                                </div>
+                                <div>
+                                    <p class="text-base font-semibold text-emerald-600 tabular-nums">{{ $examLatest['pass_pct'] }}%</p>
+                                    <p class="text-[10px] text-gray-400 uppercase">Latest pass rate</p>
+                                </div>
+                                <div>
+                                    <p class="text-base font-semibold text-gray-800 tabular-nums">{{ $examLatest['students'] }}</p>
+                                    <p class="text-[10px] text-gray-400 uppercase">Students</p>
+                                </div>
+                            </div>
+                        @else
+                            <div class="px-5 py-10 text-center">
+                                <p class="text-sm text-gray-500">No exam marks recorded yet.</p>
+                                <p class="text-xs text-gray-400 mt-1">The trend appears once marks are uploaded against an exam.</p>
+                            </div>
+                        @endif
                     </div>
 
                     {{-- Recent searches --}}

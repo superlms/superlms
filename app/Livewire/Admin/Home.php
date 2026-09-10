@@ -5,6 +5,7 @@ namespace App\Livewire\Admin;
 use App\Models\Admin\AdminEnquiry;
 use App\Models\Admin\ContactAdminStudent;
 use App\Models\Admin\ContactAdminTeacher;
+use App\Models\Admin\ExamCopy;
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Calendar\TimeTable;
@@ -16,6 +17,7 @@ use App\Models\Student\Subject;
 use App\Models\Teacher\TeacherAttendance;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\User;
+use App\Services\GradingService;
 use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Support\Facades\Auth as FacadesAuth;
 use Illuminate\Support\Facades\DB;
@@ -76,6 +78,13 @@ class Home extends Component
     public $feeSeries = [];
     public $feeRangeTotal = 0;
 
+    // -- Exam performance ----------------------------------------------------
+    // Average percentage scored in each of the last few exams, oldest first, so
+    // the line reads left to right and says whether results are climbing.
+    public $examTrend = [];
+    public float $examTrendAvg = 0;
+    public float $examTrendDelta = 0;
+
     // Upcoming events
     public $upcomingEvents = [];
 
@@ -122,6 +131,7 @@ class Home extends Component
         $this->attTrendDate = now()->toDateString();
         $this->loadLast15DaysData();
         $this->loadFeeSeries();
+        $this->loadExamTrend();
         $this->loadUpcomingEvents();
         $this->teacherQueries = ContactAdminTeacher::forOrganization()->count();
         $this->studentQueries = ContactAdminStudent::forOrganization()->count();
@@ -432,6 +442,58 @@ class Home extends Component
             180 => 'Last 6 months',
             default => 'Last 7 days',
         };
+    }
+
+    /**
+     * The last eight exams that actually carry marks, oldest first: one point
+     * per exam holding the average percentage across every paper marked for it,
+     * plus the pass rate on the current grading scale. Absentees are left out
+     * so an empty answer sheet never drags the average down.
+     */
+    protected function loadExamTrend(): void
+    {
+        $orgId = FacadesAuth::user()->organization_id;
+        $pass  = app(GradingService::class)->passPercentage();
+
+        $rows = ExamCopy::query()
+            ->join('exams', 'exams.id', '=', 'exam_copies.exam_id')
+            ->where('exam_copies.organization_id', $orgId)
+            ->where('exam_copies.is_absent', false)
+            ->whereNotNull('exam_copies.percentage')
+            ->selectRaw(
+                'exams.id as exam_id, exams.exam_name, exams.start_date, exams.end_date,'
+                . ' AVG(exam_copies.percentage) as avg_pct,'
+                . ' SUM(CASE WHEN exam_copies.percentage >= ? THEN 1 ELSE 0 END) as passed,'
+                . ' COUNT(*) as papers,'
+                . ' COUNT(DISTINCT exam_copies.student_detail_id) as students',
+                [$pass]
+            )
+            ->groupBy('exams.id', 'exams.exam_name', 'exams.start_date', 'exams.end_date')
+            ->orderByRaw('COALESCE(exams.end_date, exams.start_date) DESC, exams.id DESC')
+            ->limit(8)
+            ->get();
+
+        $trend = $rows->reverse()->values()->map(function ($r) {
+            $when   = $r->end_date ?: $r->start_date;
+            $name   = $r->exam_name ?: 'Exam #' . $r->exam_id;
+            $papers = (int) $r->papers;
+
+            return [
+                'exam'     => $name,
+                'label'    => \Illuminate\Support\Str::limit($name, 16),
+                'date'     => $when ? \Carbon\Carbon::parse($when)->format('d M y') : '--',
+                'avg'      => round((float) $r->avg_pct, 1),
+                'pass_pct' => $papers > 0 ? round((int) $r->passed / $papers * 100, 1) : 0,
+                'papers'   => $papers,
+                'students' => (int) $r->students,
+            ];
+        })->toArray();
+
+        $this->examTrend = $trend;
+
+        $count = count($trend);
+        $this->examTrendAvg   = $count > 0 ? round(array_sum(array_column($trend, 'avg')) / $count, 1) : 0;
+        $this->examTrendDelta = $count >= 2 ? round($trend[$count - 1]['avg'] - $trend[$count - 2]['avg'], 1) : 0;
     }
 
     protected function loadUpcomingEvents()
