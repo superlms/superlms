@@ -4,6 +4,7 @@ namespace App\Livewire\Admin;
 
 use App\Models\Admin\HomeWork as ModalHomework;
 use App\Models\Admin\HomeWorkCompletion;
+use App\Models\Admin\TeacherTimeTable;
 use App\Models\Organization;
 use App\Models\Student\Standard;
 use App\Models\Student\Section;
@@ -839,9 +840,21 @@ class Homework extends Component
     }
 
     /**
-     * The subjects a teacher is assigned to teach in the filtered class and
-     * section. Rows in teacher_subjects predate its standard_id/section_id
-     * columns, so a NULL there means "unspecified" and matches any class.
+     * The subjects a teacher teaches in the filtered class and section.
+     *
+     * Two places say so and both count, because a school may have filled in
+     * only one of them:
+     *
+     *  - the timetable (`teacher_time_tables`) — what the Time Table screen
+     *    writes, and the one people actually look at. Its class/section columns
+     *    are NOT NULL default 0, so they are matched exactly.
+     *  - the teacher's subject assignment (`teacher_subjects`). Its
+     *    standard_id/section_id were added later, so rows that predate them
+     *    carry NULL, which reads as "unspecified" and matches any class.
+     *
+     * The timetable is deliberately not narrowed to the filtered date's weekday:
+     * teaching a subject at all is what makes the homework theirs, not whether
+     * they happen to have a period for it that day.
      *
      * @return array<int,int>
      */
@@ -855,13 +868,25 @@ class Homework extends Component
             return [];
         }
 
-        return TeacherSubject::where('teacher_detail_id', $teacherDetailId)
+        // The timetable screen itself never filters on is_active (the column is
+        // only added by `lms:migrate`, and defaults to false when it is), so
+        // neither does this.
+        $fromTimetable = TeacherTimeTable::where('organization_id', Auth::user()->organization_id)
+            ->where('teacher_detail_id', $teacherDetailId)
+            ->when($this->filterStandard, fn ($q) => $q->where('standard_id', $this->filterStandard))
+            ->when($this->filterSection, fn ($q) => $q->where('section_id', $this->filterSection))
+            ->pluck('subject_id');
+
+        $fromSubjects = TeacherSubject::where('teacher_detail_id', $teacherDetailId)
             ->when($this->filterStandard, fn ($q) => $q->where(fn ($w) =>
                 $w->whereNull('standard_id')->orWhere('standard_id', $this->filterStandard)))
             ->when($this->filterSection, fn ($q) => $q->where(fn ($w) =>
                 $w->whereNull('section_id')->orWhere('section_id', $this->filterSection)))
-            ->whereNotNull('subject_id')
-            ->pluck('subject_id')
+            ->pluck('subject_id');
+
+        return $fromTimetable->merge($fromSubjects)
+            ->map(fn ($id) => (int) $id)
+            ->filter()          // foreignIdFor(...)->default(0) writes 0, not null
             ->unique()
             ->values()
             ->all();
