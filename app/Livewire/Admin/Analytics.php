@@ -26,6 +26,17 @@ class Analytics extends Component
     public $performerClass   = '';
     public $performerSection = '';
 
+    // Teacher volume reads day by day now, not month by month: the window above
+    // sets the bars, and this picks one of those days to report on its own.
+    public $teacherAttDate = '';
+    public $teacherDailyAttendance = [];
+
+    // Admissions are counted per school year (April → March); this is its
+    // starting year, so 2026 means Apr 2026 – Mar 2027.
+    public $admissionYear = '';
+    public $admissionYears = [];
+    public $admissionsTotal = 0;
+
     // ─── Arrangement ─────────────────────────────────────────────────────────
     public $selectedTeachers  = [];
     public $availableTeachers = [];
@@ -33,9 +44,8 @@ class Analytics extends Component
     // ─── Data ─────────────────────────────────────────────────────────────────
     public $statsData                = [];
     public $studentMonthlyAttendance = [];
+    public $teacherMonthlyAttendance = [];   // feeds the monthly rate trend only
     public $studentPieData           = [];
-    public $teacherMonthlyAttendance = [];
-    public $teacherPieData           = [];
     public $attendanceMonths         = [];
     public $topStudents              = [];
     public $classDistribution        = [];
@@ -72,6 +82,14 @@ class Analytics extends Component
     {
         $this->standards = Standard::where('organization_id', $this->orgId())
             ->orderBy('id')->get();
+
+        $now = Carbon::now();
+        $thisAy = $now->month >= 4 ? (int) $now->year : (int) $now->year - 1;
+        $this->admissionYears = range($thisAy, $thisAy - 5);
+        $this->admissionYear  = (string) $thisAy;
+
+        $this->teacherAttDate = $now->toDateString();
+
         $this->loadAll();
     }
 
@@ -83,8 +101,18 @@ class Analytics extends Component
 
     public function updatedTeacherAttFilter(): void
     {
-        $this->loadTeacherAttendance();
-        $this->loadTeacherPie();
+        $this->loadTeacherDaily();
+
+        // Keep the picked day inside the window the bars now cover.
+        $dates = array_column($this->teacherDailyAttendance['days'] ?? [], 'date');
+        if ($dates && !in_array($this->teacherAttDate, $dates, true)) {
+            $this->teacherAttDate = end($dates);
+        }
+    }
+
+    public function updatedAdmissionYear(): void
+    {
+        $this->loadAdmissionsTrend();
     }
 
     public function updatedPerformerClass(): void
@@ -120,8 +148,7 @@ class Analytics extends Component
         $this->buildAttendanceMonths();
         $this->loadStudentAttendance();
         $this->loadStudentPie();
-        $this->loadTeacherAttendance();
-        $this->loadTeacherPie();
+        $this->loadTeacherDaily();
         $this->loadSections();
         $this->loadTopStudents();
         $this->loadAdminEnquiries();
@@ -131,6 +158,7 @@ class Analytics extends Component
         $this->loadFeeClassDataStatic();
 
         // Deeper, analytics-only widgets
+        $this->loadTeacherMonthly();
         $this->loadAttendanceTrendPct();
         $this->loadClassAttendanceRank();
         $this->loadAdmissionsTrend();
@@ -186,6 +214,39 @@ class Analytics extends Component
             'unpaid_students'  => $unpaidStudents,
             'new_admissions'   => (int) ($this->statsData['newAdmissions'] ?? 0),
         ];
+    }
+
+    /**
+     * Teacher present/absent per month across the school year. The volume chart
+     * reads by date now, but the rate trend above it is still monthly, so this
+     * fills that series in one grouped query.
+     */
+    protected function loadTeacherMonthly(): void
+    {
+        $now       = Carbon::now();
+        $yearStart = $now->month >= 4
+            ? Carbon::create($now->year, 4, 1)
+            : Carbon::create($now->year - 1, 4, 1);
+        $yearEnd   = $yearStart->copy()->addMonths(12)->subDay()->endOfDay();
+
+        $rows = TeacherAttendance::where('organization_id', $this->orgId())
+            ->whereBetween('attendance_date', [$yearStart, $yearEnd])
+            ->selectRaw("DATE_FORMAT(attendance_date, '%Y-%m') as ym, status, COUNT(*) as c")
+            ->groupBy('ym', 'status')->get();
+
+        $by = [];
+        foreach ($rows as $r) {
+            $by[(string) $r->ym][(int) $r->status] = (int) $r->c;
+        }
+
+        $present = $absent = [];
+        for ($i = 0; $i < 12; $i++) {
+            $ym = $yearStart->copy()->addMonths($i)->format('Y-m');
+            $present[] = $by[$ym][self::TCH_PRESENT] ?? 0;
+            $absent[]  = $by[$ym][self::TCH_ABSENT] ?? 0;
+        }
+
+        $this->teacherMonthlyAttendance = compact('present', 'absent');
     }
 
     // ─── Monthly attendance % trend (Apr–Mar) ───────────────────────────────────
@@ -247,22 +308,107 @@ class Analytics extends Component
 
     // ─── Admissions trend (new students per month, Apr–Mar) ─────────────────────
 
+    /**
+     * New admissions per month across the selected school year (April → March).
+     *
+     * Counts on the admission date the school actually recorded, falling back to
+     * when the record was created. Counting created_at alone read as empty for
+     * any school whose students were imported in one go — every admission
+     * landed in a single month and the other eleven showed nothing.
+     */
     protected function loadAdmissionsTrend(): void
     {
-        $orgId = $this->orgId();
-        $now   = Carbon::now();
-        $yearStart = $now->month >= 4 ? Carbon::create($now->year, 4, 1) : Carbon::create($now->year - 1, 4, 1);
+        $orgId     = $this->orgId();
+        $year      = (int) ($this->admissionYear ?: Carbon::now()->year);
+        $yearStart = Carbon::create($year, 4, 1)->startOfDay();
+        $yearEnd   = Carbon::create($year + 1, 3, 31)->endOfDay();
+
+        // One grouped query rather than twelve counts.
+        $rows = StudentDetail::where('organization_id', $orgId)
+            ->whereRaw('COALESCE(date_of_admission, created_at) BETWEEN ? AND ?', [$yearStart, $yearEnd])
+            ->selectRaw("DATE_FORMAT(COALESCE(date_of_admission, created_at), '%Y-%m') as ym, COUNT(*) as c")
+            ->groupBy('ym')->pluck('c', 'ym');
 
         $labels = $data = [];
         for ($i = 0; $i < 12; $i++) {
-            $mStart = $yearStart->copy()->addMonths($i)->startOfMonth();
-            $mEnd   = $yearStart->copy()->addMonths($i)->endOfMonth();
-            $labels[] = $mStart->format('M');
-            $data[]   = StudentDetail::where('organization_id', $orgId)
-                ->whereBetween('created_at', [$mStart, $mEnd])->count();
+            $month    = $yearStart->copy()->addMonths($i);
+            $labels[] = $month->format('M y');
+            $data[]   = (int) ($rows[$month->format('Y-m')] ?? 0);
         }
 
-        $this->admissionsTrend = ['labels' => $labels, 'data' => $data];
+        $this->admissionsTrend  = ['labels' => $labels, 'data' => $data];
+        $this->admissionsTotal  = array_sum($data);
+    }
+
+    // ─── Teacher attendance, day by day ─────────────────────────────────────────
+
+    /**
+     * Present/absent per day across the selected window, so the volume chart is
+     * read by date rather than by month.
+     */
+    protected function loadTeacherDaily(): void
+    {
+        $orgId = $this->orgId();
+        $days  = max(1, (int) $this->teacherAttFilter);
+        $from  = Carbon::today()->subDays($days - 1);
+
+        $rows = TeacherAttendance::where('organization_id', $orgId)
+            ->whereDate('attendance_date', '>=', $from->toDateString())
+            ->selectRaw('DATE(attendance_date) as d, status, COUNT(*) as c')
+            ->groupBy('d', 'status')->get();
+
+        $byDate = [];
+        foreach ($rows as $r) {
+            $byDate[(string) $r->d][(int) $r->status] = (int) $r->c;
+        }
+
+        $labels = $present = $absent = $buckets = [];
+        for ($i = $days - 1; $i >= 0; $i--) {
+            $day  = Carbon::today()->subDays($i);
+            $date = $day->toDateString();
+            $s    = $byDate[$date] ?? [];
+
+            $p = $s[self::TCH_PRESENT] ?? 0;
+            $a = $s[self::TCH_ABSENT] ?? 0;
+            $h = $s[2] ?? 0;   // half day
+            $o = $s[3] ?? 0;   // holiday
+
+            $labels[]  = $day->format('d M');
+            $present[] = $p;
+            $absent[]  = $a;
+
+            $marked = $p + $a + $h;
+            $buckets[] = [
+                'date'    => $date,
+                'label'   => $day->format('D, d M Y'),
+                'present' => $p,
+                'absent'  => $a,
+                'half'    => $h,
+                'holiday' => $o,
+                'marked'  => $marked,
+                'pct'     => $marked > 0 ? round(($p + 0.5 * $h) / $marked * 100, 1) : 0,
+            ];
+        }
+
+        $this->teacherDailyAttendance = [
+            'labels'  => $labels,
+            'present' => $present,
+            'absent'  => $absent,
+            'days'    => $buckets,
+        ];
+    }
+
+    /** The day the teacher-volume dropdown is pointing at. */
+    public function teacherDay(): array
+    {
+        $days = $this->teacherDailyAttendance['days'] ?? [];
+        foreach ($days as $d) {
+            if ($d['date'] === $this->teacherAttDate) {
+                return $d;
+            }
+        }
+
+        return $days ? end($days) : [];
     }
 
     // ─── Per-class collection rate (%) with defaulters ──────────────────────────
@@ -430,58 +576,6 @@ class Analytics extends Component
             ->count();
 
         $this->studentPieData = compact('present', 'absent');
-    }
-
-    // ─── Teacher Attendance Bar ───────────────────────────────────────────────
-
-    protected function loadTeacherAttendance(): void
-    {
-        $orgId     = $this->orgId();
-        $now       = Carbon::now();
-        $yearStart = $now->month >= 4
-            ? Carbon::create($now->year, 4, 1)
-            : Carbon::create($now->year - 1, 4, 1);
-
-        $present = [];
-        $absent  = [];
-
-        for ($i = 0; $i < 12; $i++) {
-            $mStart = $yearStart->copy()->addMonths($i)->startOfMonth();
-            $mEnd   = $yearStart->copy()->addMonths($i)->endOfMonth();
-
-            // Column: attendance_date  |  status boolean 1=present 0=absent
-            $present[] = TeacherAttendance::where('organization_id', $orgId)
-                ->whereBetween('attendance_date', [$mStart, $mEnd])
-                ->where('status', self::TCH_PRESENT)
-                ->count();
-
-            $absent[] = TeacherAttendance::where('organization_id', $orgId)
-                ->whereBetween('attendance_date', [$mStart, $mEnd])
-                ->where('status', self::TCH_ABSENT)
-                ->count();
-        }
-
-        $this->teacherMonthlyAttendance = compact('present', 'absent');
-    }
-
-    // ─── Teacher Pie ──────────────────────────────────────────────────────────
-
-    protected function loadTeacherPie(): void
-    {
-        $orgId = $this->orgId();
-        $from  = Carbon::now()->subDays((int) $this->teacherAttFilter - 1)->startOfDay();
-
-        $present = TeacherAttendance::where('organization_id', $orgId)
-            ->where('attendance_date', '>=', $from)
-            ->where('status', self::TCH_PRESENT)
-            ->count();
-
-        $absent = TeacherAttendance::where('organization_id', $orgId)
-            ->where('attendance_date', '>=', $from)
-            ->where('status', self::TCH_ABSENT)
-            ->count();
-
-        $this->teacherPieData = compact('present', 'absent');
     }
 
     // ─── Sections ─────────────────────────────────────────────────────────────

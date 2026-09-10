@@ -62,6 +62,20 @@ class Home extends Component
     // Last 7 days data
     public $last7DaysData = [];
 
+    // ── Attendance trend (student and teacher read separately) ───────────────
+    // The charts plot the last 15 days; the dropdown picks one of those days
+    // and the card underneath reports that day on its own.
+    public $last15DaysData = [];
+    public string $attTrendDate = '';
+
+    // ── Fee collection ───────────────────────────────────────────────────────
+    // 7 / 15 / 30 / 60 / 90 days, or 180 for the last six months. Short ranges
+    // bucket by day, longer ones by week and the six-month one by month, so the
+    // bars stay readable whatever is picked.
+    public string $feeRange = '7';
+    public $feeSeries = [];
+    public $feeRangeTotal = 0;
+
     // Upcoming events
     public $upcomingEvents = [];
 
@@ -105,6 +119,9 @@ class Home extends Component
         $this->loadStatistics();
         $this->organization = FacadesAuth::user()->organization_id;
         $this->loadLast7DaysData();
+        $this->attTrendDate = now()->toDateString();
+        $this->loadLast15DaysData();
+        $this->loadFeeSeries();
         $this->loadUpcomingEvents();
         $this->teacherQueries = ContactAdminTeacher::forOrganization()->count();
         $this->studentQueries = ContactAdminStudent::forOrganization()->count();
@@ -257,6 +274,164 @@ class Home extends Component
                 'fee_collected' => $feeCollected,
             ];
         }
+    }
+
+    /**
+     * Fifteen days of attendance, oldest first — one bucket per day carrying the
+     * student and teacher counts separately so each trend chart reads on its own.
+     */
+    protected function loadLast15DaysData(): void
+    {
+        $orgId = FacadesAuth::user()->organization_id;
+
+        $stu = StudentAttendance::where('organization_id', $orgId)
+            ->whereDate('attendance_date', '>=', now()->subDays(14)->toDateString())
+            ->selectRaw('DATE(attendance_date) as d, status, COUNT(*) as c')
+            ->groupBy('d', 'status')->get();
+
+        $tch = TeacherAttendance::where('organization_id', $orgId)
+            ->whereDate('attendance_date', '>=', now()->subDays(14)->toDateString())
+            ->selectRaw('DATE(attendance_date) as d, status, COUNT(*) as c')
+            ->groupBy('d', 'status')->get();
+
+        // [date => [status => count]] so each day is one array lookup, not a query.
+        $bucket = function ($rows) {
+            $out = [];
+            foreach ($rows as $r) {
+                $out[(string) $r->d][(int) $r->status] = (int) $r->c;
+            }
+            return $out;
+        };
+        $stuBy = $bucket($stu);
+        $tchBy = $bucket($tch);
+
+        $this->last15DaysData = [];
+        for ($i = 14; $i >= 0; $i--) {
+            $day  = now()->subDays($i);
+            $date = $day->toDateString();
+            $s    = $stuBy[$date] ?? [];
+            $t    = $tchBy[$date] ?? [];
+
+            $sPresent = $s[1] ?? 0;
+            $sAbsent  = $s[0] ?? 0;
+            $sHalf    = $s[2] ?? 0;
+            $tPresent = $t[1] ?? 0;
+            $tAbsent  = $t[0] ?? 0;
+            $tHalf    = $t[2] ?? 0;
+
+            $sMarked = $sPresent + $sAbsent + $sHalf;
+            $tMarked = $tPresent + $tAbsent + $tHalf;
+
+            $this->last15DaysData[] = [
+                'date'            => $date,
+                'label'           => $day->format('d M'),
+                'day'             => $day->format('D'),
+                'student_present' => $sPresent,
+                'student_absent'  => $sAbsent,
+                'student_half'    => $sHalf,
+                'student_total'   => $sMarked,
+                'student_pct'     => $sMarked > 0 ? round(($sPresent + 0.5 * $sHalf) / $sMarked * 100, 1) : 0,
+                'teacher_present' => $tPresent,
+                'teacher_absent'  => $tAbsent,
+                'teacher_half'    => $tHalf,
+                'teacher_total'   => $tMarked,
+                'teacher_pct'     => $tMarked > 0 ? round(($tPresent + 0.5 * $tHalf) / $tMarked * 100, 1) : 0,
+            ];
+        }
+    }
+
+    /** The row from the 15-day set that the trend dropdown is pointing at. */
+    public function trendDay(): array
+    {
+        foreach ($this->last15DaysData as $row) {
+            if ($row['date'] === $this->attTrendDate) {
+                return $row;
+            }
+        }
+
+        return end($this->last15DaysData) ?: [];
+    }
+
+    public function updatedFeeRange(): void
+    {
+        $this->loadFeeSeries();
+    }
+
+    /**
+     * Fee actually collected over the selected range, bucketed so the bar chart
+     * stays legible: by day up to 30, by week to 90, by month for six months.
+     */
+    protected function loadFeeSeries(): void
+    {
+        $orgId = FacadesAuth::user()->organization_id;
+        $days  = (int) $this->feeRange;
+        $start = now()->subDays($days - 1)->startOfDay();
+
+        $payments = FeePayment::where('organization_id', $orgId)
+            ->whereDate('payment_date', '>=', $start->toDateString())
+            ->selectRaw('DATE(payment_date) as d, SUM(amount) as total')
+            ->groupBy('d')->pluck('total', 'd');
+
+        $byDate = [];
+        foreach ($payments as $d => $total) {
+            $byDate[(string) $d] = (float) $total;
+        }
+
+        // Bucket width in days: 1 (daily), 7 (weekly) or a whole month.
+        $monthly = $days > 90;
+        $step    = $days <= 30 ? 1 : 7;
+
+        $labels = $values = [];
+
+        if ($monthly) {
+            $cursor = now()->subMonthsNoOverflow(5)->startOfMonth();
+            for ($i = 0; $i < 6; $i++) {
+                $mStart = $cursor->copy()->startOfMonth();
+                $mEnd   = $cursor->copy()->endOfMonth();
+                $labels[] = $mStart->format('M y');
+                $values[] = $this->sumBetween($byDate, $mStart, $mEnd);
+                $cursor->addMonthNoOverflow();
+            }
+        } else {
+            for ($offset = $days - 1; $offset >= 0; $offset -= $step) {
+                $bStart = now()->subDays($offset)->startOfDay();
+                $bEnd   = now()->subDays(max(0, $offset - $step + 1))->endOfDay();
+                if ($bEnd->gt(now())) $bEnd = now()->endOfDay();
+
+                $labels[] = $step === 1
+                    ? $bStart->format('d M')
+                    : $bStart->format('d M') . '–' . $bEnd->format('d M');
+                $values[] = $this->sumBetween($byDate, $bStart, $bEnd);
+            }
+        }
+
+        $this->feeSeries     = ['labels' => $labels, 'data' => $values];
+        $this->feeRangeTotal = array_sum($values);
+    }
+
+    /** Total from the date=>amount map that falls inside a window. */
+    private function sumBetween(array $byDate, $from, $to): float
+    {
+        $sum = 0.0;
+        foreach ($byDate as $date => $amount) {
+            if ($date >= $from->toDateString() && $date <= $to->toDateString()) {
+                $sum += $amount;
+            }
+        }
+        return $sum;
+    }
+
+    /** Human label for the active fee range, used in the card header. */
+    public function feeRangeLabel(): string
+    {
+        return match ((int) $this->feeRange) {
+            15  => 'Last 15 days',
+            30  => 'Last 30 days',
+            60  => 'Last 60 days',
+            90  => 'Last 90 days',
+            180 => 'Last 6 months',
+            default => 'Last 7 days',
+        };
     }
 
     protected function loadUpcomingEvents()
