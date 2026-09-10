@@ -183,7 +183,7 @@
         {{-- ══════════════════════════════════════════════════
              RIGHT — Conversation
         ══════════════════════════════════════════════════ --}}
-        <div class="flex-1 flex flex-col min-w-0 bg-gray-50/60 {{ $selectedUserId ? 'flex' : 'hidden sm:flex' }}">
+        <div class="relative flex-1 flex flex-col min-w-0 bg-gray-50/60 {{ $selectedUserId ? 'flex' : 'hidden sm:flex' }}">
             @if ($otherUser)
                 {{-- Header — swaps to a selection bar while messages are selected --}}
                 @if ($msgSelectMode)
@@ -268,7 +268,8 @@
                 @endif
 
                 {{-- Messages --}}
-                <div id="chatScroll" data-cid="{{ $conversationId }}" class="flex-1 overflow-y-auto px-3 sm:px-6 py-4 space-y-1">
+                <div id="chatScroll" data-cid="{{ $conversationId }}" data-preserve-scroll
+                     class="flex-1 overflow-y-auto px-3 sm:px-6 py-4 space-y-1">
                     @php $lastDay = null; @endphp
                     @forelse ($messages as $m)
                         @php
@@ -361,6 +362,15 @@
                         <div class="h-full flex items-center justify-center text-sm text-gray-400">No messages yet. Say hello 👋</div>
                     @endforelse
                 </div>
+
+                {{-- Messages that land while you are reading older ones announce
+                     themselves here instead of dragging the thread to the bottom. --}}
+                <button type="button" id="chatNewPill" style="display:none"
+                        onclick="window.lmsChatToBottom && window.lmsChatToBottom()"
+                        class="absolute left-1/2 -translate-x-1/2 bottom-24 z-20 items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-600 text-white text-xs font-semibold shadow-lg hover:bg-blue-700">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+                    New messages
+                </button>
 
                 {{-- Composer --}}
                 <div class="bg-white border-t border-gray-100 px-3 py-3 flex-shrink-0">
@@ -551,15 +561,48 @@
         @endteleport
     @endif
 
-    {{-- Keep the thread pinned to the newest message, and chime for messages
-         that land while this page is open (the toast poller stays quiet here). --}}
+    {{-- Thread scrolling. The one rule: only the reader decides where the
+         thread sits. We follow the newest message while the reader is already
+         at the bottom; the moment they scroll up to read older messages, every
+         poll/morph puts the view back exactly where they left it and new
+         messages announce themselves with a pill instead of yanking them down. --}}
     @script
     <script>
+        // One instance per tab. Re-mounting the component (wire:navigate back
+        // into chat) must not leave a second copy of this state behind — two
+        // copies disagreeing about `stick` is another way the thread jumps.
+        if (!window.__lmsChatSync) {
+        window.__lmsChatSync = 1;
+
+        const NEAR     = 120;                     // px from the bottom that still counts as "at the bottom"
         const scroller = () => document.getElementById('chatScroll');
+        const pill     = () => document.getElementById('chatNewPill');
+
+        let stick   = true;    // follow the newest message?
+        let pending = false;   // unseen messages while reading older ones
+        let keepTop = 0;       // the scroll position the reader chose
+        let seen    = 0;
+        let cid     = null;
+
+        const nearBottom = (el) => el.scrollHeight - el.scrollTop - el.clientHeight < NEAR;
+
+        // The pill lives inside the component, so a morph resets its inline
+        // style — repaint it from `pending` after every sync.
+        const paintPill = () => {
+            const el = pill();
+            if (el) el.style.display = pending ? 'inline-flex' : 'none';
+        };
+
         const toBottom = () => {
             const el = scroller();
-            if (el) el.scrollTop = el.scrollHeight;
+            if (!el) return;
+            el.scrollTop = el.scrollHeight;
+            keepTop = el.scrollTop;
+            stick   = true;
+            pending = false;
+            paintPill();
         };
+        window.lmsChatToBottom = toBottom;        // the pill taps this
 
         window.lmsChatScrollTo = (id) => {
             const el = document.getElementById('chat-msg-' + id);
@@ -569,7 +612,6 @@
             setTimeout(() => el.classList.remove('ring-2', 'ring-amber-300'), 1600);
         };
 
-        let seen = 0;
         const newest = () => {
             const nodes = document.querySelectorAll('#chatScroll [id^="chat-msg-"]');
             const last  = nodes[nodes.length - 1];
@@ -577,18 +619,40 @@
             return { id: parseInt(last.id.replace('chat-msg-', ''), 10), mine: last.dataset.mine === '1' };
         };
 
-        let cid = null;
+        // Only the reader's own scrolling moves `stick`. Measuring it after a
+        // morph is what used to drag the thread back down: re-rendering the
+        // thread nudges scrollTop by itself (content is clamped, nodes are
+        // replaced), the browser fires a scroll event for that nudge, and a
+        // nudge towards the bottom read as "they're at the bottom".
+        // So scroll events fired inside a re-render window are ignored —
+        // unless the reader really is working the wheel/finger right then.
+        let morphUntil = 0, userAt = 0;
+        const stamp = () => { userAt = Date.now(); };
+        ['wheel', 'touchstart', 'touchmove', 'keydown', 'mousedown'].forEach(
+            (ev) => document.addEventListener(ev, stamp, { capture: true, passive: true }));
+
+        // Delegated in the capture phase because the container element itself
+        // is re-rendered on every poll.
+        document.addEventListener('scroll', (e) => {
+            const el = e.target;
+            if (!el || el.id !== 'chatScroll') return;
+            if (Date.now() < morphUntil && Date.now() - userAt > 400) return;
+            keepTop = el.scrollTop;
+            stick   = nearBottom(el);
+            if (stick && pending) { pending = false; paintPill(); }
+        }, true);
 
         const sync = () => {
-            const el       = scroller();
-            const atBottom = !el || (el.scrollHeight - el.scrollTop - el.clientHeight < 120);
-            const tip      = newest();
-            const nowCid   = el ? el.dataset.cid : null;
+            const el = scroller();
+            if (!el) return;
+            const tip    = newest();
+            const nowCid = el.dataset.cid;
 
             // Switching threads re-baselines, so an older chat never chimes.
             if (nowCid !== cid) {
                 cid  = nowCid;
                 seen = tip.id;
+                pending = false;
                 toBottom();
                 return;
             }
@@ -597,11 +661,20 @@
                 // Chime only for messages that arrived — never for my own.
                 if (seen !== 0 && !tip.mine && window.lmsPlayNotifSound) window.lmsPlayNotifSound();
                 seen = tip.id;
-                toBottom();
-            } else if (atBottom) {
-                toBottom();
+                if (stick || tip.mine) { toBottom(); return; }   // my own send always follows
+                pending = true;                                  // theirs waits behind the pill
             }
+
+            if (stick) { toBottom(); return; }
+
+            // Reading older messages: undo whatever the morph did to the scroll.
+            if (Math.abs(el.scrollTop - keepTop) > 1) el.scrollTop = keepTop;
+            paintPill();
         };
+
+        // morph.updated fires per morphed element; one sync per commit is enough.
+        let syncT;
+        const scheduleSync = () => { clearTimeout(syncT); syncT = setTimeout(sync, 30); };
 
         // The actions panel is positioned in viewport coordinates, so anything
         // that moves the bubble under it has to dismiss it.
@@ -609,10 +682,35 @@
         document.addEventListener('scroll', closeMenu, true);
         window.addEventListener('resize', closeMenu);
 
-        seen = newest().id;
-        cid  = scroller() ? scroller().dataset.cid : null;
-        toBottom();
-        Livewire.hook('morph.updated', () => setTimeout(sync, 30));
+        // Landing on the thread (first paint or a wire:navigate remount) starts
+        // at the newest message.
+        const baseline = () => {
+            const el = scroller();
+            if (!el) return;
+            seen    = newest().id;
+            cid     = el.dataset.cid;
+            pending = false;
+            toBottom();
+        };
+        window.lmsChatBaseline = baseline;
+        document.addEventListener('livewire:navigated', baseline);
+        baseline();
+
+        Livewire.hook('morph.updated', scheduleSync);
+        Livewire.hook('commit', ({ succeed }) => {
+            // Read the thread's real position BEFORE the re-render lands — this,
+            // not a post-morph measurement, is what "where the reader was" means.
+            const el = scroller();
+            if (el) { keepTop = el.scrollTop; stick = nearBottom(el); }
+            morphUntil = Date.now() + 200;
+            if (typeof succeed === 'function') {
+                succeed(() => { morphUntil = Date.now() + 200; scheduleSync(); });
+            }
+        });
+
+        } else if (window.lmsChatBaseline) {
+            window.lmsChatBaseline();
+        }
     </script>
     @endscript
 </div>
