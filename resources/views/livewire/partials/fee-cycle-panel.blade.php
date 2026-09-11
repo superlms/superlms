@@ -93,6 +93,7 @@
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Installment</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Fee Type</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Due Date</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Period</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Fee %</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Penalty/Day</th>
@@ -111,6 +112,13 @@
                                 </td>
                                 <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-[11px] {{ $cy->fee_type === 'academic' ? 'bg-emerald-100 text-emerald-700' : 'bg-teal-100 text-teal-700' }} capitalize">{{ $cy->fee_type }}</span></td>
                                 <td class="px-4 py-3 text-gray-600">{{ optional($cy->due_date)->format('d M Y') ?? '—' }}</td>
+                                <td class="px-4 py-3 text-gray-500 whitespace-nowrap">
+                                    @if ($cy->start_date && $cy->end_date)
+                                        {{ $cy->start_date->format('d M Y') }} – {{ $cy->end_date->format('d M Y') }}
+                                    @else
+                                        —
+                                    @endif
+                                </td>
                                 <td class="px-4 py-3 text-right font-semibold text-gray-800">{{ $cy->is_token ? '—' : rtrim(rtrim(number_format($cy->fee_percent, 2), '0'), '.') . '%' }}</td>
                                 <td class="px-4 py-3 text-right text-gray-600">{{ $cy->is_token ? '₹' . number_format($cy->amount, 2) : '—' }}</td>
                                 <td class="px-4 py-3 text-right text-gray-600">₹{{ number_format($cy->penalty_per_day, 2) }}</td>
@@ -314,6 +322,19 @@
                             @error('cycleDueDate')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                     </div>
+                    {{-- The stretch of the year this installment covers — what the listing prints as its period --}}
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Start Date</label>
+                            <input type="date" wire:model="cycleStartDate" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                            @error('cycleStartDate')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">End Date</label>
+                            <input type="date" wire:model="cycleEndDate" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                            @error('cycleEndDate')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Fee % to Collect <span class="text-red-500">*</span></label>
@@ -351,10 +372,12 @@
                             </span>
                         </div>
                         <div class="border border-gray-200 rounded-lg overflow-x-auto">
-                            <table class="w-full min-w-[420px]">
+                            <table class="w-full min-w-[620px]">
                                 <thead class="bg-gray-50 border-b border-gray-200">
                                     <tr class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
                                         <th class="px-2 py-2 text-left w-20">No.</th>
+                                        <th class="px-2 py-2 text-left">Start Date</th>
+                                        <th class="px-2 py-2 text-left">End Date</th>
                                         <th class="px-2 py-2 text-left">Due Date</th>
                                         <th class="px-2 py-2 text-left">Fee %</th>
                                         <th class="px-2 py-2 text-left">Penalty/Day</th>
@@ -370,11 +393,17 @@
                                                 </select>
                                             </td>
                                             <td class="px-2 py-2">
+                                                <input type="date" wire:model="customRows.{{ $i }}.start_date" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-400">
+                                            </td>
+                                            <td class="px-2 py-2">
+                                                <input type="date" wire:model="customRows.{{ $i }}.end_date" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-400">
+                                            </td>
+                                            <td class="px-2 py-2">
                                                 <input type="date" wire:model="customRows.{{ $i }}.due_date" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-400">
                                             </td>
                                             <td class="px-2 py-2">
                                                 <input type="number" step="0.01" min="0" max="100" wire:model.live.debounce.600ms="customRows.{{ $i }}.fee_percent" placeholder="e.g. 25"
-                                                    class="w-full px-2 py-1.5 text-xs border rounded-md focus:ring-1 focus:ring-gray-400 {{ in_array($i, $customPctTouched, true) ? 'border-gray-400 text-gray-900 font-semibold' : 'border-gray-300 text-gray-500 bg-gray-50' }}">
+                                                    class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-400">
                                             </td>
                                             <td class="px-2 py-2">
                                                 <input type="number" step="0.01" min="0" wire:model="customRows.{{ $i }}.penalty_per_day" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-400">
@@ -389,7 +418,7 @@
                                 </tbody>
                             </table>
                         </div>
-                        <p class="mt-1.5 text-xs text-gray-400">Type a % into any row to fix it — the remaining rows split what is left of the 100% on their own.</p>
+                        <p class="mt-1.5 text-xs text-gray-400">Change one row's % and the difference is shared out equally across the others — they keep their own numbers, and the set stays at 100%.</p>
                         <button type="button" wire:click="addCustomRow"
                             class="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
@@ -442,10 +471,10 @@
 
 {{-- ══════════ EDIT THE WHOLE CYCLE — every installment at once ══════════
      Opened from a listing card's Edit button. Each row is labelled the way
-     the cycle was built (month name / quarter / installment no.) and only its
-     numbers are editable. Type a % into one row and the rows you haven't
-     touched re-split what is left of the 100% between them, so setting Q1 to
-     35% lands the other three quarters on 65/3 on their own.
+     the cycle was built (month name / quarter / installment no.), and its
+     dates and numbers are editable. Change one row's % and the difference is
+     shared out equally across the others — each keeps its own number, so
+     20/17/33/30 with the 17 raised to 20 becomes 19/20/32/29.
 ══════════════════════════════════════════════════════════════════════ --}}
 @if ($cycleEditOpen)
     @php
@@ -456,7 +485,7 @@
     @endphp
     <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
         <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeCycleEdit"></div>
-        <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+        <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
 
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                 <div class="min-w-0">
@@ -471,7 +500,7 @@
             <div class="flex-1 overflow-y-auto px-6 py-5 space-y-4">
                 <div class="flex items-center justify-between gap-3">
                     <p class="text-xs text-gray-500">
-                        Change any % — the rows you haven't typed into split whatever is left of the 100% between them.
+                        Change any % and the difference is shared out equally across the other rows — they keep their own numbers, and the cycle stays at 100%.
                     </p>
                     <button type="button" wire:click="resetEditPercents"
                         class="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
@@ -481,10 +510,12 @@
                 </div>
 
                 <div class="border border-gray-200 rounded-lg overflow-x-auto">
-                    <table class="w-full min-w-[520px]">
+                    <table class="w-full min-w-[860px]">
                         <thead class="bg-gray-50 border-b border-gray-200">
                             <tr class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
                                 <th class="px-3 py-2 text-left">{{ $editColHead }}</th>
+                                <th class="px-2 py-2 text-left w-36">Start Date</th>
+                                <th class="px-2 py-2 text-left w-36">End Date</th>
                                 <th class="px-2 py-2 text-left w-36">Due Date</th>
                                 <th class="px-2 py-2 text-left w-24">Fee %</th>
                                 <th class="px-2 py-2 text-left w-28">Penalty/Day</th>
@@ -495,14 +526,15 @@
                                 <tr wire:key="edit-cycle-row-{{ $row['id'] }}">
                                     <td class="px-3 py-2">
                                         <p class="text-xs font-semibold text-gray-800">{{ $row['label'] }}</p>
-                                        <p class="text-[11px] text-gray-400">
-                                            Installment #{{ $row['serial'] }}
-                                            @if (in_array($i, $editPctTouched, true))
-                                                · <span class="text-amber-600 font-medium">fixed</span>
-                                            @else
-                                                · auto
-                                            @endif
-                                        </p>
+                                        <p class="text-[11px] text-gray-400">Installment #{{ $row['serial'] }}</p>
+                                    </td>
+                                    <td class="px-2 py-2">
+                                        <input type="date" wire:model="editRows.{{ $i }}.start_date"
+                                            class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-400">
+                                    </td>
+                                    <td class="px-2 py-2">
+                                        <input type="date" wire:model="editRows.{{ $i }}.end_date"
+                                            class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-400">
                                     </td>
                                     <td class="px-2 py-2">
                                         <input type="date" wire:model="editRows.{{ $i }}.due_date"
@@ -510,7 +542,7 @@
                                     </td>
                                     <td class="px-2 py-2">
                                         <input type="number" step="0.01" min="0" max="100" wire:model.live.debounce.600ms="editRows.{{ $i }}.fee_percent"
-                                            class="w-full px-2 py-1.5 text-xs border rounded-md focus:ring-1 focus:ring-gray-400 {{ in_array($i, $editPctTouched, true) ? 'border-gray-400 text-gray-900 font-semibold' : 'border-gray-300 text-gray-500 bg-gray-50' }}">
+                                            class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-400">
                                     </td>
                                     <td class="px-2 py-2">
                                         <input type="number" step="0.01" min="0" wire:model="editRows.{{ $i }}.penalty_per_day"
@@ -532,7 +564,7 @@
                 </div>
 
                 @unless ($editBalanced)
-                    <p class="text-xs text-amber-600">Every row is fixed by hand and they don't add up to 100% — clear one, or press "Equal split".</p>
+                    <p class="text-xs text-amber-600">These don't add up to 100% — press "Equal split", or retype any one % to pull the rest back into line.</p>
                 @endunless
             </div>
 

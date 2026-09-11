@@ -30,6 +30,8 @@ trait HandlesFeeCycles
     public $cycleFeeType       = 'academic';
     public $cycleSerial        = 1;        // installment no. 1–12
     public $cycleDueDate       = '';
+    public $cycleStartDate     = '';   // the span this installment covers…
+    public $cycleEndDate       = '';   // …both ends, so the listing can show it
     public $cyclePenaltyPerDay = '0';
     public $cycleFeePercent    = '';
     public $cycleYear          = '2026-27';
@@ -41,10 +43,7 @@ trait HandlesFeeCycles
     public string $cycleMode   = '';
     public $cycleMonthlyDueDay = 10;    // day-of-month each monthly installment is due
     // Custom mode (add, not edit): any number of installments at once.
-    public array $customRows   = []; // [['serial'=>int,'due_date'=>string,'fee_percent'=>string,'penalty_per_day'=>string], ...]
-    // Rows whose fee % the user typed by hand. Everything else is shared out
-    // automatically so the set always adds up to 100% of the fee.
-    public array $customPctTouched = [];
+    public array $customRows   = []; // [['serial','start_date','end_date','due_date','fee_percent','penalty_per_day'], ...]
     // Editing one installment: what the OTHER installments become once this
     // one's % changes, so the year still totals 100%. [['id','serial','was','percent'], ...]
     public array $cycleSiblingPreview = [];
@@ -63,7 +62,6 @@ trait HandlesFeeCycles
     public string $editCycleYear    = '';
     public string $editCycleKind    = 'custom'; // monthly | quarterly | custom
     public array $editRows          = [];
-    public array $editPctTouched    = [];
 
     // A one-time up-front charge (e.g. admission/registration) with its own due
     // date, collected before the % installments split whatever is left of
@@ -110,6 +108,8 @@ trait HandlesFeeCycles
             $this->cycleFeeType       = $c->fee_type;
             $this->cycleSerial        = $c->payment_serial;
             $this->cycleDueDate       = optional($c->due_date)->toDateString();
+            $this->cycleStartDate     = optional($c->start_date)->toDateString() ?? '';
+            $this->cycleEndDate       = optional($c->end_date)->toDateString() ?? '';
             $this->cyclePenaltyPerDay = $c->penalty_per_day;
             $this->cycleFeePercent    = $c->fee_percent;
             $this->cycleYear          = $c->academic_year;
@@ -123,16 +123,19 @@ trait HandlesFeeCycles
     {
         $this->resetValidation();
         if (!$this->editCycleId && $this->cycleMode === 'custom' && empty($this->customRows)) {
-            $this->customRows        = [$this->blankCustomRow()];
-            $this->customPctTouched  = [];
-            $this->balanceCustomPercents();
+            $this->customRows = $this->fillBlankPercents([$this->blankCustomRow()]);
         }
     }
 
     public function addCustomRow(): void
     {
         $this->customRows[] = $this->blankCustomRow();
-        $this->balanceCustomPercents();
+
+        // The new row takes an even share and the others each give up a slice
+        // of it, so the set still totals 100%.
+        $new = array_key_last($this->customRows);
+        $this->customRows[$new]['fee_percent'] = $this->trimPercent(round(100 / count($this->customRows), 2));
+        $this->customRows = $this->shiftPercentRows($this->customRows, $new);
     }
 
     public function removeCustomRow(int $index): void
@@ -141,21 +144,14 @@ trait HandlesFeeCycles
         unset($this->customRows[$index]);
         $this->customRows = array_values($this->customRows);
 
-        // Rows shifted down by one — re-point the "typed by hand" markers.
-        $touched = [];
-        foreach ($this->customPctTouched as $i) {
-            if ($i === $index) continue;
-            $touched[] = $i > $index ? $i - 1 : $i;
-        }
-        $this->customPctTouched = $touched;
-
-        $this->balanceCustomPercents();
+        // The freed % goes back to the surviving rows, evenly.
+        $this->customRows = $this->rebalanceToHundred($this->customRows);
     }
 
     /**
-     * A fee % typed into one row pins that row; every row the user has not
-     * typed into then splits whatever is left of the 100% equally. Clearing a
-     * row's % un-pins it and hands it back to the automatic split.
+     * Editing one row's % moves only the difference: the other rows each give
+     * up (or take back) an equal slice of it and otherwise keep their own
+     * numbers. Clearing a row hands it back to the even share.
      */
     public function updatedCustomRows($value, $key): void
     {
@@ -165,62 +161,145 @@ trait HandlesFeeCycles
 
         $index = (int) explode('.', (string) $key)[0];
 
-        if (trim((string) $value) === '') {
-            $this->customPctTouched = array_values(array_diff($this->customPctTouched, [$index]));
-        } elseif (!in_array($index, $this->customPctTouched, true)) {
-            $this->customPctTouched[] = $index;
-        }
-
-        $this->balanceCustomPercents();
-    }
-
-    /** Share 100% minus the pinned rows equally across the rows still on auto. */
-    private function balanceCustomPercents(): void
-    {
-        $this->customRows = $this->balancePercentRows($this->customRows, $this->customPctTouched);
+        $this->customRows = trim((string) $value) === ''
+            ? $this->fillBlankPercents($this->customRows)
+            : $this->shiftPercentRows($this->customRows, $index);
     }
 
     /**
-     * The one rule behind every % field on this page: the rows the user typed
-     * into keep their numbers, and whatever is left of the 100% is shared out
-     * equally between the rows still on auto. Set one quarter to 35% and the
-     * other three land on 65/3 by themselves.
+     * The one rule behind every % field on this page. One row changed, so the
+     * other rows absorb the difference equally and keep everything else they
+     * had: 20 / 17 / 33 / 30 with the 17 raised to 20 becomes 19 / 20 / 32 / 29
+     * — three points taken, one point off each of the other three. Lower a row
+     * and the same slice goes back to them instead.
      *
      * @param  array  $rows     rows with a 'fee_percent' key
-     * @param  array  $pinned   indexes of the rows the user typed into
+     * @param  int    $changed  index of the row the user just typed into
      */
-    private function balancePercentRows(array $rows, array $pinned): array
+    private function shiftPercentRows(array $rows, int $changed): array
+    {
+        if (!array_key_exists($changed, $rows) || count($rows) < 2) {
+            return $rows;
+        }
+
+        $percent = max(0, min(100, (float) ($rows[$changed]['fee_percent'] ?? 0)));
+        $rows[$changed]['fee_percent'] = $this->trimPercent($percent);
+
+        $left   = round(100 - $percent, 2);
+        $others = array_values(array_diff(array_keys($rows), [$changed]));
+
+        $values = [];
+        foreach ($others as $i) {
+            $values[$i] = (float) ($rows[$i]['fee_percent'] ?? 0);
+        }
+
+        // The flat slice every other row gives up (or takes back).
+        $slice = ($left - array_sum($values)) / count($others);
+        foreach ($values as $i => $v) {
+            $values[$i] = round(max(0, $v + $slice), 2);
+        }
+
+        // A row that hit zero can give nothing more — spread what is still owed
+        // over the rows that can still move. A couple of passes always settles it.
+        for ($pass = 0; $pass < 5; $pass++) {
+            $owed = round($left - array_sum($values), 2);
+            if (abs($owed) < 0.01) {
+                break;
+            }
+            $movable = array_keys(array_filter($values, fn ($v) => $owed > 0 || $v > 0));
+            if (empty($movable)) {
+                break;
+            }
+            $step = $owed / count($movable);
+            foreach ($movable as $i) {
+                $values[$i] = round(max(0, $values[$i] + $step), 2);
+            }
+        }
+
+        // Rounding remainder rides on the last row so the set lands on 100.
+        $lastKey = (int) end($others);
+        $values[$lastKey] = round(max(0, $values[$lastKey] + ($left - array_sum($values))), 2);
+
+        foreach ($values as $i => $v) {
+            $rows[$i]['fee_percent'] = $this->trimPercent($v);
+        }
+
+        return $rows;
+    }
+
+    /** Every row an even share of the 100% — the "Equal split" button. */
+    private function equalSplitRows(array $rows): array
     {
         if (empty($rows)) {
             return $rows;
         }
 
-        $pinnedTotal = 0.0;
-        $auto        = [];
-        foreach (array_keys($rows) as $i) {
-            $isPinned = in_array($i, $pinned, true)
-                && trim((string) ($rows[$i]['fee_percent'] ?? '')) !== '';
-            if ($isPinned) {
-                $pinnedTotal += (float) $rows[$i]['fee_percent'];
+        $keys  = array_keys($rows);
+        $share = floor(100 / count($keys) * 100) / 100;
+        $last  = count($keys) - 1;
+
+        foreach ($keys as $n => $i) {
+            $rows[$i]['fee_percent'] = $this->trimPercent(
+                $n === $last ? round(100 - $share * $last, 2) : $share
+            );
+        }
+
+        return $rows;
+    }
+
+    /** Rows still blank share out whatever the filled ones have left over. */
+    private function fillBlankPercents(array $rows): array
+    {
+        $blank  = [];
+        $filled = 0.0;
+        foreach ($rows as $i => $r) {
+            if (trim((string) ($r['fee_percent'] ?? '')) === '') {
+                $blank[] = $i;
             } else {
-                $auto[] = $i;
+                $filled += (float) $r['fee_percent'];
             }
         }
 
-        // Every row pinned — the user owns all the numbers, leave them alone.
-        if (empty($auto)) {
+        if (empty($blank)) {
             return $rows;
         }
 
-        $left  = max(0, round(100 - $pinnedTotal, 2));
-        $share = floor($left / count($auto) * 100) / 100;   // 2dp, rounded down
-        $last  = count($auto) - 1;
+        $left  = max(0, round(100 - $filled, 2));
+        $share = floor($left / count($blank) * 100) / 100;
+        $last  = count($blank) - 1;
 
-        foreach ($auto as $n => $i) {
-            // The rounding remainder rides on the last automatic row so the set sums to 100.
-            $rows[$i]['fee_percent'] = (string) ($n === $last
-                ? round($left - $share * $last, 2)
-                : $share);
+        foreach ($blank as $n => $i) {
+            $rows[$i]['fee_percent'] = $this->trimPercent(
+                $n === $last ? round($left - $share * $last, 2) : $share
+            );
+        }
+
+        return $rows;
+    }
+
+    /** Nudge every row by the same amount until the set adds up to 100 again. */
+    private function rebalanceToHundred(array $rows): array
+    {
+        if (empty($rows)) {
+            return $rows;
+        }
+
+        $values = [];
+        foreach ($rows as $i => $r) {
+            $values[$i] = (float) ($r['fee_percent'] ?? 0);
+        }
+
+        $slice = (100 - array_sum($values)) / count($values);
+        foreach ($values as $i => $v) {
+            $values[$i] = round(max(0, $v + $slice), 2);
+        }
+
+        $keys    = array_keys($values);
+        $lastKey = (int) end($keys);
+        $values[$lastKey] = round(max(0, $values[$lastKey] + (100 - array_sum($values))), 2);
+
+        foreach ($values as $i => $v) {
+            $rows[$i]['fee_percent'] = $this->trimPercent($v);
         }
 
         return $rows;
@@ -236,6 +315,8 @@ trait HandlesFeeCycles
     {
         return [
             'serial'          => $this->nextCustomSerial(),
+            'start_date'      => '',
+            'end_date'        => '',
             'due_date'        => '',
             'fee_percent'     => '',
             'penalty_per_day' => '0',
@@ -335,14 +416,14 @@ trait HandlesFeeCycles
         $running = 0.0;
         $preview = [];
 
+        // The difference is shared out flat — every other installment gives up
+        // (or takes back) the same slice and keeps the rest of its own number.
+        $slice = ($left - $current) / $siblings->count();
+
         foreach ($siblings->values() as $n => $sibling) {
-            // Keep each sibling's share of the remainder — equal split if they
-            // are all at zero and there is no weighting to preserve.
-            $share = $current > 0
-                ? $left * ((float) $sibling->fee_percent / $current)
-                : $left / $siblings->count();
+            $share = round(max(0, (float) $sibling->fee_percent + $slice), 2);
             // Remainder rides on the last one so the year lands exactly on 100%.
-            $share = $n === $last ? round($left - $running, 2) : round($share, 2);
+            $share = $n === $last ? round($left - $running, 2) : $share;
             $running += $share;
 
             $preview[] = [
@@ -381,11 +462,12 @@ trait HandlesFeeCycles
         $this->editCycleFeeType = $feeType;
         $this->editCycleYear    = $year;
         $this->editCycleKind    = $this->detectCycleKind($rows);
-        $this->editPctTouched   = [];
         $this->editRows         = $rows->values()->map(fn (FeeCycle $c) => [
             'id'              => $c->id,
             'serial'          => (int) $c->payment_serial,
             'label'           => $this->cycleRowLabel($c, $this->editCycleKind),
+            'start_date'      => optional($c->start_date)->toDateString() ?? '',
+            'end_date'        => optional($c->end_date)->toDateString() ?? '',
             'due_date'        => optional($c->due_date)->toDateString(),
             'fee_percent'     => $this->trimPercent((float) $c->fee_percent),
             'penalty_per_day' => (string) $c->penalty_per_day,
@@ -399,7 +481,6 @@ trait HandlesFeeCycles
     {
         $this->cycleEditOpen    = false;
         $this->editRows         = [];
-        $this->editPctTouched   = [];
         $this->editCycleFeeType = '';
         $this->editCycleYear    = '';
         $this->editCycleKind    = 'custom';
@@ -407,9 +488,9 @@ trait HandlesFeeCycles
     }
 
     /**
-     * A % typed into one row pins that row; every row the user has not touched
-     * re-splits what is left of the 100% between them. Clearing a row's %
-     * hands it back to the automatic split.
+     * A % typed into one row moves only the difference: the other rows each
+     * give up (or take back) an equal slice of it and otherwise keep their own
+     * numbers, so the cycle still totals 100%.
      */
     public function updatedEditRows($value, $key): void
     {
@@ -419,20 +500,15 @@ trait HandlesFeeCycles
 
         $index = (int) explode('.', (string) $key)[0];
 
-        if (trim((string) $value) === '') {
-            $this->editPctTouched = array_values(array_diff($this->editPctTouched, [$index]));
-        } elseif (!in_array($index, $this->editPctTouched, true)) {
-            $this->editPctTouched[] = $index;
-        }
-
-        $this->editRows = $this->balancePercentRows($this->editRows, $this->editPctTouched);
+        $this->editRows = trim((string) $value) === ''
+            ? $this->fillBlankPercents($this->editRows)
+            : $this->shiftPercentRows($this->editRows, $index);
     }
 
-    /** Un-pin every row — an equal share each again. */
+    /** Wipe the hand-tuning — an equal share each again. */
     public function resetEditPercents(): void
     {
-        $this->editPctTouched = [];
-        $this->editRows       = $this->balancePercentRows($this->editRows, []);
+        $this->editRows = $this->equalSplitRows($this->editRows);
     }
 
     /** What the editor's rows currently add up to — shown live in its footer. */
@@ -456,6 +532,16 @@ trait HandlesFeeCycles
                 $this->notification()->error($r['label'] . ': fee % must be between 0 and 100.');
                 return;
             }
+            $start = trim((string) ($r['start_date'] ?? ''));
+            $end   = trim((string) ($r['end_date'] ?? ''));
+            if (($start === '') !== ($end === '')) {
+                $this->notification()->error($r['label'] . ': give both a start and an end date, or neither.');
+                return;
+            }
+            if ($start !== '' && strtotime($end) < strtotime($start)) {
+                $this->notification()->error($r['label'] . ': the end date cannot come before the start date.');
+                return;
+            }
         }
 
         // The automatic split always lands on 100% — this only catches a user
@@ -470,6 +556,8 @@ trait HandlesFeeCycles
 
         foreach ($this->editRows as $r) {
             FeeCycle::forOrg($this->orgId())->where('id', $r['id'])->update([
+                'start_date'      => ($r['start_date'] ?? '') ?: null,
+                'end_date'        => ($r['end_date'] ?? '') ?: null,
                 'due_date'        => $r['due_date'],
                 'fee_percent'     => $r['fee_percent'],
                 'penalty_per_day' => $r['penalty_per_day'] ?: 0,
@@ -497,12 +585,15 @@ trait HandlesFeeCycles
             $out = fopen('php://output', 'w');
             // Excel only reads the ₹ column right if the file says up front it is UTF-8.
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, ['Installment', 'Due Date', 'Fee %', 'Amount', 'Penalty / Day', 'Academic Year', 'Status']);
+            fputcsv($out, ['Installment', 'Due Date', 'Period', 'Fee %', 'Amount', 'Penalty / Day', 'Academic Year', 'Status']);
 
             foreach ($rows as $c) {
                 fputcsv($out, [
                     $c->is_token ? 'Token Fee' : $this->cycleRowLabel($c, $kind),
                     optional($c->due_date)->format('d M Y') ?? '',
+                    ($c->start_date && $c->end_date)
+                        ? $c->start_date->format('d M Y') . ' - ' . $c->end_date->format('d M Y')
+                        : '',
                     $c->is_token ? '' : $this->trimPercent((float) $c->fee_percent) . '%',
                     $c->is_token ? number_format((float) $c->amount, 2, '.', '') : '',
                     number_format((float) $c->penalty_per_day, 2, '.', ''),
@@ -535,10 +626,13 @@ trait HandlesFeeCycles
             return ($e->year - $s->year) * 12 + ($e->month - $s->month) + 1;
         };
 
-        if ($rows->every(fn ($c) => $span($c) === 1)) {
+        // Custom installments now carry spans of their own, so the shape only
+        // counts as monthly/quarterly when the whole year is there: twelve
+        // one-month rows, or four three-month ones.
+        if ($rows->count() === 12 && $rows->every(fn ($c) => $span($c) === 1)) {
             return 'monthly';
         }
-        if ($rows->every(fn ($c) => $span($c) === 3)) {
+        if ($rows->count() === 4 && $rows->every(fn ($c) => $span($c) === 3)) {
             return 'quarterly';
         }
 
@@ -679,7 +773,7 @@ trait HandlesFeeCycles
     {
         $this->reset([
             'editCycleId', 'editingToken', 'cycleSerial', 'cycleDueDate',
-            'cyclePenaltyPerDay', 'cycleFeePercent',
+            'cycleStartDate', 'cycleEndDate', 'cyclePenaltyPerDay', 'cycleFeePercent',
         ]);
         $this->cycleMode          = '';
         $this->cycleFeeType       = 'academic';
@@ -688,7 +782,6 @@ trait HandlesFeeCycles
         $this->cycleMonthlyDueDay = 10;
         $this->cycleYear          = $this->currentAcademicYear();
         $this->customRows         = [];
-        $this->customPctTouched   = [];
         $this->cycleSiblingPreview = [];
         $this->tokenFeeAmount     = '';
         $this->tokenDueDate       = '';
@@ -729,14 +822,17 @@ trait HandlesFeeCycles
         $this->validate([
             'cycleSerial'     => 'required|integer|min:1|max:12',
             'cycleDueDate'    => 'required|date',
+            'cycleStartDate'  => 'nullable|date',
+            'cycleEndDate'    => 'nullable|date|after_or_equal:cycleStartDate',
             'cycleFeePercent' => 'required|numeric|min:0|max:100',
-        ]);
+        ], [], ['cycleStartDate' => 'start date', 'cycleEndDate' => 'end date']);
 
         FeeCycle::forOrg($this->orgId())->where('id', $this->editCycleId)->update([
             'fee_type'        => $this->cycleFeeType,
             'payment_serial'  => $this->cycleSerial,
-            'start_date'      => null,
-            'end_date'        => null,
+            // The span stays put — it is what tells the listing "Q1" from "April".
+            'start_date'      => $this->cycleStartDate ?: null,
+            'end_date'        => $this->cycleEndDate ?: null,
             'due_date'        => $this->cycleDueDate,
             'penalty_per_day' => $this->cyclePenaltyPerDay ?: 0,
             'fee_percent'     => $this->cycleFeePercent,
@@ -784,6 +880,16 @@ trait HandlesFeeCycles
                 $this->notification()->error("Row {$n}: pick an installment number.");
                 return;
             }
+            // A custom installment says for itself which stretch of the year it
+            // covers — the listing prints that span, so both ends are required.
+            if (trim((string) ($r['start_date'] ?? '')) === '' || trim((string) ($r['end_date'] ?? '')) === '') {
+                $this->notification()->error("Row {$n}: pick both a start and an end date.");
+                return;
+            }
+            if (strtotime($r['end_date']) < strtotime($r['start_date'])) {
+                $this->notification()->error("Row {$n}: the end date cannot come before the start date.");
+                return;
+            }
         }
 
         foreach ($rows as $r) {
@@ -796,8 +902,8 @@ trait HandlesFeeCycles
                     'is_token'        => false,
                 ],
                 [
-                    'start_date'      => null,
-                    'end_date'        => null,
+                    'start_date'      => $r['start_date'],
+                    'end_date'        => $r['end_date'],
                     'due_date'        => $r['due_date'],
                     'penalty_per_day' => $r['penalty_per_day'] ?: 0,
                     'fee_percent'     => $r['fee_percent'],
