@@ -10,14 +10,21 @@ use Illuminate\Support\Collection;
  * SeatingPlannerService
  *
  * Hybrid seating algorithm:
- *   1. Group students by class label
- *   2. Distribute classes across rooms by proportional share (so a room
- *      contains a mix of classes rather than one whole class together)
- *   3. Within each room, fill seats row-wise using class round-robin so
- *      neighbours are different classes by default
+ *   1. Group students by class label into one continuous round-robin
+ *      sequence — the whole exam's seating order, e.g. 10-A, 10-B, 9-A,
+ *      10-A, 10-B, 9-A, … — so any two consecutive candidates are (so far
+ *      as the mix allows) from different classes.
+ *   2. Walk the rooms in order and fill each one from the front of that
+ *      same sequence. A room that runs out of desks simply hands the rest
+ *      of the sequence to the next room — nobody's seat depends on a
+ *      quota computed ahead of time, so nobody can be shorted by one.
+ *   3. Within a room, seats fill in boustrophedon order (left to right,
+ *      then right to left) so the round-robin alternates classes down the
+ *      room as well as across it, and a desk that seats more than one
+ *      candidate gets consecutive — and therefore different — classes.
  *   4. Post-pass: detect adjacency conflicts (L/R/F/B) and resolve by
- *      swapping with a compatible seat in the SAME room
- *   5. Whatever conflict remains is flagged on the assignment row
+ *      swapping with a compatible seat in the SAME room.
+ *   5. Whatever conflict remains is flagged on the assignment row.
  */
 class SeatingPlannerService
 {
@@ -25,7 +32,8 @@ class SeatingPlannerService
      * Plan rooms × students.
      *
      * @param array $students   [{ id, name, class_label }]  (class_label e.g. "10-A")
-     * @param Collection<SeatingRoom> $rooms  with seats relation eager-loaded
+     * @param Collection<SeatingRoom> $rooms  with seats relation eager-loaded, in the
+     *                                        order a room should fill before the next
      * @return array            ['assignments' => [...], 'totals' => [...]]
      */
     public function plan(array $students, Collection $rooms): array
@@ -37,66 +45,41 @@ class SeatingPlannerService
             ];
         }
 
-        // 1. Group students by class label
-        $byClass = collect($students)->groupBy('class_label');
+        // 1. Group students by class label into queues, and lay out one
+        //    round-robin sequence across every class for the whole exam —
+        //    not a slice per room, so a room's own capacity never has to be
+        //    guessed ahead of the actual seating pass.
+        $classQueues = collect($students)->groupBy('class_label')
+            ->map(fn ($g) => collect($g)->values())->toArray();
+        $sequence = $this->buildRoundRobin(array_map('count', $classQueues));
 
-        // 2. Compute per-room quota for each class proportional to room capacity / total capacity
         $totalCapacity = $rooms->sum('capacity');
-        $totalStudents = count($students);
-        if ($totalStudents > $totalCapacity) {
-            $totalStudents = $totalCapacity; // we can only seat capacity many
-        }
+        $totalStudents = min(count($students), $totalCapacity);
 
-        // queues per class — pop students from the front
-        $classQueues = $byClass->map(fn($g) => collect($g)->values())->toArray();
-        $classNames  = array_keys($classQueues);
-
-        // Per-room quota of each class
-        $roomQuotas = [];
-        foreach ($rooms as $room) {
-            $share = $room->capacity / max($totalCapacity, 1);
-            $roomQuotas[$room->id] = [];
-            foreach ($classNames as $cls) {
-                $roomQuotas[$room->id][$cls] = (int) floor(count($classQueues[$cls]) * $share);
-            }
-        }
-
-        // Distribute the remainders (rounding loss): assign extras to the largest rooms
-        foreach ($classNames as $cls) {
-            $assigned = array_sum(array_column($roomQuotas, $cls));
-            $remaining = count($classQueues[$cls]) - $assigned;
-            if ($remaining <= 0) continue;
-            $sortedRooms = $rooms->sortByDesc('capacity')->values();
-            $i = 0;
-            while ($remaining > 0 && $i < $sortedRooms->count() * 10) {
-                $r = $sortedRooms[$i % $sortedRooms->count()];
-                $roomQuotas[$r->id][$cls]++;
-                $remaining--;
-                $i++;
-            }
-        }
-
-        // 3. Fill each room row-wise with class round-robin
+        // 2-3. Fill rooms in order from the front of the shared sequence —
+        //    a room that fills up hands the rest straight to the next one.
         $assignments = [];
         $conflictCount = 0;
-        $unseated = $totalStudents;
+        $seqIdx = 0;
+        $seqTotal = count($sequence);
 
         foreach ($rooms as $room) {
+            if ($seqIdx >= $seqTotal) break; // everyone is already seated
+
             $seats = $room->seats->sortBy([['row_no', 'asc'], ['col_no', 'asc']])->values();
             $rows = (int) $room->rows;
             $cols = (int) $room->columns;
             $cap  = max(1, (int) ($room->seat_capacity ?? 1)); // candidates per desk
 
-            // Build round-robin sequence of class labels for this room
-            $sequence = $this->buildRoundRobin($roomQuotas[$room->id]);
-
             // 3D grid: $grid[$row][$col][$place]. A desk that seats two has two
             // places; a desk that seats one behaves exactly as it always did.
             $grid = array_fill(1, $rows, array_fill(1, $cols, array_fill(1, $cap, null)));
 
-            // A room with room to spare seats one candidate to a desk; once it
-            // has more candidates than desks it uses every place at them.
-            $spread = $cap > 1 && count($sequence) <= $seats->count();
+            // A room with room to spare seats one candidate to a desk; once
+            // what's left of the sequence outgrows the room's own desks it
+            // uses every place at them instead.
+            $remaining = $seqTotal - $seqIdx;
+            $spread = $cap > 1 && $remaining <= $seats->count();
             $places = $this->placeOrder($seats, $rows, $cols, $spread ? 1 : $cap);
 
             // The places run in boustrophedon order — left to right along one
@@ -104,18 +87,17 @@ class SeatingPlannerService
             // classes down the room as well as across it. Filling every row left
             // to right instead would sit a class directly behind itself whenever
             // the row holds an even number of places.
-            $seqIdx = 0;
             foreach ($places as [$seat, $pos]) {
-                if ($seqIdx >= count($sequence)) break; // no more students
-                $cls = $sequence[$seqIdx++];
-                if (empty($classQueues[$cls])) continue;
+                if ($seqIdx >= $seqTotal) break; // no more students anywhere
+                $cls = $sequence[$seqIdx];
+                if (empty($classQueues[$cls])) { $seqIdx++; continue; }
                 $student = array_shift($classQueues[$cls]);
                 $grid[$seat->row_no][$seat->col_no][$pos] = [
                     'seat_id'     => $seat->id,
                     'student_id'  => $student['id'],
                     'class_label' => $cls,
                 ];
-                $unseated--;
+                $seqIdx++;
             }
 
             // 4. Resolve adjacency conflicts by swap
@@ -141,13 +123,15 @@ class SeatingPlannerService
             }
         }
 
+        $unseated = array_sum(array_map('count', $classQueues));
+
         return [
             'assignments' => $assignments,
             'totals'      => [
                 'students'  => $totalStudents,
                 'seats'     => $totalCapacity,
                 'conflicts' => $conflictCount,
-                'unseated'  => max(0, $unseated),
+                'unseated'  => $unseated,
             ],
         ];
     }

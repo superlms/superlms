@@ -163,6 +163,7 @@
                     <th>Roll No.</th>
                     @if ($standard === null)
                         <th>Class</th>
+                        <th>Subject</th>
                     @endif
                     @if ($showRoom)
                         <th>Room</th>
@@ -179,6 +180,7 @@
                         <td>{{ $row['roll'] }}</td>
                         @if ($standard === null)
                             <td>{{ $row['class'] }}</td>
+                            <td>{{ $row['subject'] }}</td>
                         @endif
                         @if ($showRoom)
                             <td>{{ $row['room'] }}</td>

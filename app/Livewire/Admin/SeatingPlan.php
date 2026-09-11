@@ -192,6 +192,61 @@ class SeatingPlan extends Component
         return $titles;
     }
 
+    /**
+     * The clock time each session runs, keyed "Y-m-d|shift" — a room holds
+     * several classes at once and their papers aren't always timed identically,
+     * so this is the envelope: the earliest start and the latest end among
+     * every class's paper in that slot.
+     *
+     * @return array<string,array{start:?string,end:?string}>
+     */
+    private function paperTimes(): array
+    {
+        if (!$this->filterExamId) {
+            return [];
+        }
+
+        $papers = ExamDatesheetPaper::query()
+            ->join('exam_datesheets as d', 'd.id', '=', 'exam_datesheet_papers.exam_datesheet_id')
+            ->where('d.organization_id', Auth::user()->organization_id)
+            ->where('d.exam_id', (int) $this->filterExamId)
+            ->whereNotNull('exam_datesheet_papers.exam_date')
+            ->get([
+                'exam_datesheet_papers.exam_date', 'exam_datesheet_papers.start_time',
+                'exam_datesheet_papers.end_time', 'exam_datesheet_papers.shift',
+            ]);
+
+        $times = [];
+        foreach ($papers as $p) {
+            if (!$p->start_time && !$p->end_time) continue;
+            $key = $p->exam_date->toDateString() . '|' . (int) ($p->shift ?: 1);
+            $times[$key] ??= ['start' => null, 'end' => null];
+            if ($p->start_time && (!$times[$key]['start'] || $p->start_time < $times[$key]['start'])) {
+                $times[$key]['start'] = $p->start_time;
+            }
+            if ($p->end_time && (!$times[$key]['end'] || $p->end_time > $times[$key]['end'])) {
+                $times[$key]['end'] = $p->end_time;
+            }
+        }
+
+        return $times;
+    }
+
+    /** "10:00 AM – 1:00 PM", or whatever half of that is known. */
+    private function formatTimeRange(?array $range): string
+    {
+        if (!$range || (!$range['start'] && !$range['end'])) {
+            return '—';
+        }
+
+        $fmt = fn ($t) => $t ? \Carbon\Carbon::parse($t)->format('g:i A') : null;
+        $start = $fmt($range['start']);
+        $end   = $fmt($range['end']);
+
+        if ($start && $end) return $start . ' – ' . $end;
+        return $start ?: $end;
+    }
+
     /** Every generated session of the chosen exam, chronological. */
     private function examPlans()
     {
@@ -580,11 +635,14 @@ class SeatingPlan extends Component
             return;
         }
 
-        // 3. Rooms selected for seating (active only).
+        // 3. Rooms selected for seating (active only), in a fixed order — once
+        //    one fills up the planner hands the rest of its queue straight to
+        //    the next room in this same order.
         $baseRooms = SeatingRoom::with('seats')
             ->whereIn('id', $this->generateForm['room_ids'])
             ->where('organization_id', $orgId)
             ->where('is_active', true)
+            ->orderBy('room_name')
             ->get();
 
         if ($baseRooms->isEmpty()) {
@@ -1222,8 +1280,10 @@ class SeatingPlan extends Component
 
         if ($finderReady && $examPlans->isNotEmpty()) {
             // A class reads its own paper off its datesheet; a room holds
-            // several classes at once, so it takes the session's own subjects.
+            // several classes at once, so it takes the session's own subjects
+            // and the envelope of their times instead of one paper's own.
             $titles = $this->graphMode === 'class' ? $this->paperTitles() : [];
+            $times  = $this->graphMode === 'room' ? $this->paperTimes() : [];
 
             $query = SeatAssignment::whereIn('seating_plan_id', $examPlans->pluck('id'))
                 ->whereNotNull('student_id');
@@ -1237,7 +1297,7 @@ class SeatingPlan extends Component
                 ->pluck('room_name', 'id');
 
             $sessionRows = $seated->groupBy('seating_plan_id')
-                ->map(function ($group, $planId) use ($examPlans, $titles, $roomNames) {
+                ->map(function ($group, $planId) use ($examPlans, $titles, $times, $roomNames) {
                     $plan = $examPlans->firstWhere('id', (int) $planId);
                     if (!$plan) return null;
 
@@ -1250,6 +1310,7 @@ class SeatingPlan extends Component
                         'status'   => $plan->status,
                         'date'     => $plan->exam_date,
                         'session'  => $plan->session,
+                        'time'     => $this->formatTimeRange($times[$date . '|' . $shift] ?? null),
                         'subject'  => $titles[$date . '|' . $shift]
                             ?? ($plan->notes ? Str::after($plan->notes, 'Subjects: ') : 'Paper'),
                         'students' => $group->count(),

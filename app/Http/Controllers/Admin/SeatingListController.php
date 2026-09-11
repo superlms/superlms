@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Admin\ExamDatesheet;
 use App\Models\Admin\Seating\SeatAssignment;
 use App\Models\Admin\Seating\SeatingPlan;
 use App\Models\Admin\Seating\SeatingRoom;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
+use App\Services\Seating\SeatLocator;
 use App\Support\SeatLabel;
 use App\Support\PdfFonts;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -99,6 +101,11 @@ class SeatingListController extends Controller
         $rooms = SeatingRoom::whereIn('id', $assignments->pluck('room_id')->unique())
             ->get()->keyBy('id');
 
+        // A room can seat several classes at once, each on its own paper, so
+        // every candidate's own subject is looked up rather than assumed —
+        // the section's own datesheet first, then the class-wide one it inherits.
+        $subjectFor = $this->subjectResolver($orgId, $plan, $students->pluck('standard_id')->filter()->unique()->values());
+
         // Room by room, then down each room in seat order.
         $rows = $assignments->sortBy(fn ($a) => sprintf(
             '%s|%04d|%04d|%03d',
@@ -106,7 +113,7 @@ class SeatingListController extends Controller
             (int) ($a->seat?->row_no ?? 0),
             (int) ($a->seat?->col_no ?? 0),
             (int) ($a->seat_position ?? 1),
-        ))->values()->map(function ($a) use ($students, $rooms) {
+        ))->values()->map(function ($a) use ($students, $rooms, $subjectFor) {
             $s    = $students[$a->student_id] ?? null;
             $room = $rooms[$a->room_id] ?? null;
 
@@ -115,6 +122,7 @@ class SeatingListController extends Controller
                 'admission' => $s->admission_no ?: '—',
                 'roll'      => $s->roll_no ?: '—',
                 'class'     => $s ? (($s->standard->name ?? '') . ($s->section ? ' - ' . $s->section->name : '')) : ($a->class_label ?? '—'),
+                'subject'   => $s ? ($subjectFor((int) $s->standard_id, (int) $s->section_id) ?: '—') : '—',
                 'room'      => $room->room_name ?? '—',
                 'seat'      => SeatLabel::full($room->room_name ?? null, $a->seat?->row_no, $a->seat?->col_no, $a->seat_position),
             ];
@@ -143,5 +151,42 @@ class SeatingListController extends Controller
             'heading'      => $heading,
             'organization' => Auth::user()->organization,
         ];
+    }
+
+    /**
+     * A lookup for "what is this class's paper, right now" — the plan's own
+     * date and shift held fixed, standard/section varying per call. Built once
+     * for every standard in the room, since a class-wide sheet a section
+     * inherits from would otherwise be fetched over and over.
+     *
+     * @param  \Illuminate\Support\Collection<int,int>  $standardIds
+     */
+    private function subjectResolver(int $orgId, SeatingPlan $plan, $standardIds): \Closure
+    {
+        $dateStr = $plan->exam_date?->toDateString();
+        $shift   = SeatLocator::shiftOf($plan->session);
+
+        $sheets = $standardIds->isEmpty() ? collect() : ExamDatesheet::with('papers.subject:id,name')
+            ->where('organization_id', $orgId)
+            ->where('exam_id', $plan->exam_id)
+            ->whereIn('standard_id', $standardIds)
+            ->get();
+
+        return function (int $standardId, ?int $sectionId) use ($sheets, $dateStr, $shift): ?string {
+            // The section's own sheet first, then the class-wide one it inherits.
+            $candidates = $sheets->where('standard_id', $standardId)
+                ->filter(fn ($sheet) => !$sheet->section_id || $sheet->section_id === $sectionId)
+                ->sortByDesc(fn ($sheet) => $sheet->section_id ? 1 : 0);
+
+            foreach ($candidates as $sheet) {
+                foreach ($sheet->papers as $paper) {
+                    if (!$paper->exam_date || $paper->exam_date->toDateString() !== $dateStr) continue;
+                    if ((int) ($paper->shift ?: 1) !== $shift) continue;
+                    if ($paper->subject?->name) return $paper->subject->name;
+                }
+            }
+
+            return null;
+        };
     }
 }

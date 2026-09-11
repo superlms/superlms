@@ -186,15 +186,31 @@
                         <p class="text-xs text-gray-400 mt-1">No generated plan for this exam puts anyone {{ $graphMode === 'room' ? 'in that room' : 'on a seat' }}.</p>
                     </div>
                 @else
+                    @php
+                        // A room can hold several classes and subjects at once, so
+                        // its own row names the room instead of a paper that isn't
+                        // the whole story — the roster underneath carries each
+                        // candidate's own class, subject, date and time.
+                        $selectedRoom = $graphMode === 'room'
+                            ? $graphRoomOptions->firstWhere('id', (int) $filterRoomId)
+                            : null;
+                    @endphp
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm min-w-[780px]">
                             <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
                                 <tr>
                                     <th class="px-4 py-3 text-left w-12">#</th>
-                                    <th class="px-4 py-3 text-left">Subject</th>
-                                    <th class="px-4 py-3 text-left w-44">Date</th>
-                                    <th class="px-4 py-3 text-left w-28">Shift</th>
-                                    <th class="px-4 py-3 text-left">{{ $graphMode === 'room' ? 'Classes' : 'Room(s)' }}</th>
+                                    @if ($graphMode === 'room')
+                                        <th class="px-4 py-3 text-left">Room</th>
+                                        <th class="px-4 py-3 text-left w-40">Date</th>
+                                        <th class="px-4 py-3 text-left w-40">Time</th>
+                                        <th class="px-4 py-3 text-left w-24">Shift</th>
+                                    @else
+                                        <th class="px-4 py-3 text-left">Subject</th>
+                                        <th class="px-4 py-3 text-left w-44">Date</th>
+                                        <th class="px-4 py-3 text-left w-28">Shift</th>
+                                        <th class="px-4 py-3 text-left">Room(s)</th>
+                                    @endif
                                     <th class="px-4 py-3 text-center w-28">Candidates</th>
                                     <th class="px-4 py-3 text-center">Actions</th>
                                 </tr>
@@ -215,10 +231,17 @@
                                     @endphp
                                     <tr wire:key="sess-{{ $row['plan_id'] }}" class="hover:bg-gray-50/70">
                                         <td class="px-4 py-3 text-gray-400">{{ $i + 1 }}</td>
-                                        <td class="px-4 py-3 font-medium text-gray-800">{{ $row['subject'] }}</td>
-                                        <td class="px-4 py-3 text-gray-600">{{ $row['date']?->format('d M Y, D') ?? '—' }}</td>
-                                        <td class="px-4 py-3 text-gray-600">{{ $row['session'] ?: 'Shift 1' }}</td>
-                                        <td class="px-4 py-3 text-gray-600">{{ implode(', ', $graphMode === 'room' ? $row['classes'] : $row['rooms']) }}</td>
+                                        @if ($graphMode === 'room')
+                                            <td class="px-4 py-3 font-medium text-gray-800">{{ $selectedRoom->room_name ?? '—' }}{{ $selectedRoom?->building ? ' · ' . $selectedRoom->building : '' }}</td>
+                                            <td class="px-4 py-3 text-gray-600">{{ $row['date']?->format('d M Y, D') ?? '—' }}</td>
+                                            <td class="px-4 py-3 text-gray-600">{{ $row['time'] }}</td>
+                                            <td class="px-4 py-3 text-gray-600">{{ $row['session'] ?: 'Shift 1' }}</td>
+                                        @else
+                                            <td class="px-4 py-3 font-medium text-gray-800">{{ $row['subject'] }}</td>
+                                            <td class="px-4 py-3 text-gray-600">{{ $row['date']?->format('d M Y, D') ?? '—' }}</td>
+                                            <td class="px-4 py-3 text-gray-600">{{ $row['session'] ?: 'Shift 1' }}</td>
+                                            <td class="px-4 py-3 text-gray-600">{{ implode(', ', $row['rooms']) }}</td>
+                                        @endif
                                         <td class="px-4 py-3 text-center text-gray-600">{{ $row['students'] }}</td>
                                         <td class="px-4 py-3">
                                             {{-- View, download and print are one sheet: the same page,
