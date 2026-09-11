@@ -75,6 +75,10 @@
                                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                             @endif
                                         </button>
+                                        <button wire:click="confirmDeletePrompt({{ $user->id }})" title="Delete"
+                                            class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -276,6 +280,26 @@
                         <div class="flex justify-between"><dt class="text-gray-500">Employee ID</dt><dd class="text-gray-800 font-medium">{{ $viewData['employee_id'] ?: '—' }}</dd></div>
                         <div class="flex justify-between gap-6"><dt class="text-gray-500 flex-shrink-0">Address</dt><dd class="text-gray-800 font-medium text-right">{{ $viewData['address'] ?: '—' }}</dd></div>
                     </dl>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- ══════════════════════════════════════════════════
+         DELETE CONFIRM OVERLAY
+    ══════════════════════════════════════════════════ --}}
+    @if ($showDeleteConfirm)
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[60] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/30 backdrop-blur-[1.5px]" wire:click="cancelDelete"></div>
+            <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+                <div class="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-6 h-6 text-rose-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" /></svg>
+                </div>
+                <h3 class="text-lg font-bold text-gray-900">Delete User?</h3>
+                <p class="text-sm text-gray-500 mt-1">This will permanently remove this account user and revoke their access. This cannot be undone.</p>
+                <div class="flex items-center justify-center gap-3 mt-6">
+                    <button wire:click="cancelDelete" class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 border border-gray-200 rounded-lg">Cancel</button>
+                    <button wire:click="executeDelete" class="px-5 py-2 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-lg">Delete</button>
                 </div>
             </div>
         </div>

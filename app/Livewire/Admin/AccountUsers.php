@@ -40,6 +40,9 @@ class AccountUsers extends Component
     public $userImage = null;
     public ?string $existingImage = null;
 
+    public bool $showDeleteConfirm = false;
+    public ?int $deleteTargetId = null;
+
     protected function rules(): array
     {
         $emailRule = $this->isEditing
@@ -280,6 +283,39 @@ class AccountUsers extends Component
             'Status Updated',
             $newStatus ? 'User activated.' : 'User deactivated.'
         );
+    }
+
+    // ─── Delete ──────────────────────────────────────────────────────────
+    public function confirmDeletePrompt(int $id): void
+    {
+        $this->deleteTargetId    = $id;
+        $this->showDeleteConfirm = true;
+    }
+
+    public function cancelDelete(): void
+    {
+        $this->deleteTargetId    = null;
+        $this->showDeleteConfirm = false;
+    }
+
+    public function executeDelete(): void
+    {
+        $user = User::with('schoolUser')->where('role', 'accounts')
+            ->where('organization_id', $this->orgId())
+            ->find($this->deleteTargetId);
+
+        if ($user) {
+            if ($user->schoolUser && $user->schoolUser->image) {
+                Storage::disk('s3')->delete(parse_url($user->schoolUser->image, PHP_URL_PATH));
+            }
+            $user->schoolUser?->delete();
+            $user->delete();
+            $this->notification()->success('User Deleted', 'Account user removed successfully.');
+        }
+
+        $this->deleteTargetId    = null;
+        $this->showDeleteConfirm = false;
+        $this->resetPage();
     }
 
     /**
