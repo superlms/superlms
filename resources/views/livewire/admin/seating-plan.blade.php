@@ -435,29 +435,32 @@
                             <p class="text-xs text-gray-400 mt-0.5">{{ $viewingPlan->notes }}</p>
                         @endif
                     </div>
-                    <button wire:click="closePlanView" type="button"
-                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                        <button type="button" onclick="window.print()"
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 border border-gray-200 rounded-md hover:bg-gray-50">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a1 1 0 001-1v-4H8v4a1 1 0 001 1zM17 9V5a1 1 0 00-1-1H8a1 1 0 00-1 1v4h10z" /></svg>
+                            Print
+                        </button>
+                        <button wire:click="closePlanView" type="button"
+                            class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="flex-1 overflow-y-auto bg-gray-50 p-6 space-y-6">
                     @foreach ($planRooms as $room)
                         @php
-                            // Seat order, occupied desks only — the same roster the
-                            // PDF and print sheet read, so what you see here is what
-                            // you get on paper.
-                            $roomAssignments = $planAssignments->where('room_id', $room->id)
-                                ->whereNotNull('student_id')
-                                ->sortBy(fn ($a) => sprintf(
-                                    '%04d|%04d|%03d',
-                                    (int) ($a->seat?->row_no ?? 0),
-                                    (int) ($a->seat?->col_no ?? 0),
-                                    (int) ($a->seat_position ?? 1),
-                                ))->values();
-                            $filled = $roomAssignments->count();
+                            // Every place at every desk, so an empty one still draws —
+                            // the diagram is the room, not just who is sitting in it.
+                            $roomAssignments = $planAssignments->where('room_id', $room->id);
+                            $cells = [];
+                            foreach ($roomAssignments as $a) {
+                                if ($a->seat) $cells[$a->seat->row_no][$a->seat->col_no][] = $a;
+                            }
+                            $filled = $roomAssignments->whereNotNull('student_id')->count();
                         @endphp
                         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
                             <div class="px-5 py-3 border-b border-gray-100 bg-gray-50 flex flex-wrap items-center justify-between gap-2">
@@ -471,29 +474,42 @@
                                     Room PDF
                                 </a>
                             </div>
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-sm">
-                                    <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
-                                        <tr>
-                                            <th class="px-4 py-2 text-left w-12">#</th>
-                                            <th class="px-4 py-2 text-left">Seat</th>
-                                            <th class="px-4 py-2 text-left">Roll No.</th>
-                                            <th class="px-4 py-2 text-left">Class</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-gray-100">
-                                        @forelse ($roomAssignments as $i => $a)
-                                            <tr class="{{ $a->has_conflict ? 'bg-red-50' : '' }}">
-                                                <td class="px-4 py-2 text-gray-400">{{ $i + 1 }}</td>
-                                                <td class="px-4 py-2 font-semibold text-gray-800">{{ \App\Support\SeatLabel::full($room->room_name, $a->seat?->row_no, $a->seat?->col_no, $a->seat_position) }}</td>
-                                                <td class="px-4 py-2 text-gray-700">{{ $planRollMap[(int) $a->student_id]['roll'] ?? '—' }}</td>
-                                                <td class="px-4 py-2 text-gray-700 font-medium">{{ $a->class_label }}</td>
-                                            </tr>
-                                        @empty
-                                            <tr><td colspan="4" class="px-4 py-6 text-center text-gray-400">No candidates seated in this room.</td></tr>
-                                        @endforelse
-                                    </tbody>
-                                </table>
+                            <div class="p-4">
+                                <div class="mb-3 text-center">
+                                    <span class="inline-block px-8 py-1 rounded-md bg-gray-900 text-white text-[10px] tracking-widest uppercase">Board / Front</span>
+                                </div>
+                                <div class="overflow-x-auto">
+                                    <div class="inline-block min-w-full space-y-1.5">
+                                        @for ($r = 1; $r <= $room->rows; $r++)
+                                            <div class="flex items-stretch gap-1.5">
+                                                <div class="w-5 flex-shrink-0 flex items-center justify-center text-[9px] font-semibold text-gray-400">
+                                                    {{ chr(64 + $r) }}
+                                                </div>
+                                                <div class="flex-1 grid gap-1.5" style="grid-template-columns: repeat({{ $room->columns }}, minmax(0, 1fr));">
+                                                    @for ($c = 1; $c <= $room->columns; $c++)
+                                                        @php
+                                                            $places = collect($cells[$r][$c] ?? []);
+                                                            $taken  = $places->filter(fn ($a) => $a->student_id)->values();
+                                                            $clash  = $places->contains(fn ($a) => $a->has_conflict);
+                                                        @endphp
+                                                        <div class="rounded-md border text-center px-1 py-1.5 leading-tight
+                                                            {{ $taken->isEmpty() ? 'bg-gray-50 border-dashed border-gray-200 text-gray-300'
+                                                                : ($clash ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200') }}" style="min-height:3.25rem">
+                                                            <div class="flex items-center justify-center gap-0.5 flex-wrap">
+                                                                @forelse ($taken as $a)
+                                                                    <span class="font-bold text-xs text-gray-800 leading-none" title="{{ $a->class_label }}">{{ $planRollMap[(int) $a->student_id]['roll'] ?? '—' }}</span>
+                                                                @empty
+                                                                    <span class="text-[9px]">—</span>
+                                                                @endforelse
+                                                            </div>
+                                                            <div class="mt-1 text-[8px] font-medium text-gray-400">{{ \App\Support\SeatLabel::seat($r, $c) }}</div>
+                                                        </div>
+                                                    @endfor
+                                                </div>
+                                            </div>
+                                        @endfor
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     @endforeach
