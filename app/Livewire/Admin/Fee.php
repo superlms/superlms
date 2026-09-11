@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin;
 
 use App\Livewire\Concerns\HandlesFeeConcessions;
+use App\Livewire\Concerns\HandlesStudentFeeView;
 use App\Livewire\Concerns\HandlesFeeCycles;
 use App\Models\Admin\Fee\FeeConcession;
 use App\Models\Admin\Fee\FeePayment;
@@ -21,7 +22,7 @@ use WireUi\Traits\WireUiActions;
 
 class Fee extends Component
 {
-    use WireUiActions, WithPagination, HandlesFeeCycles, HandlesFeeConcessions;
+    use WireUiActions, WithPagination, HandlesFeeCycles, HandlesFeeConcessions, HandlesStudentFeeView;
 
     public string $activeTab = ''; // '' = card menu (landing); otherwise the open tab
 
@@ -546,44 +547,7 @@ class Fee extends Component
     {
         if (!$this->viewStudentId) return;
 
-        $student = StudentDetail::with(['standard', 'section', 'user'])->find($this->viewStudentId);
-        if (!$student) return;
-
-        $structures = FeeStructure::where('organization_id', $this->orgId())
-            ->where('standard_id', $student->standard_id)
-            ->where(function ($q) use ($student) {
-                $q->where('section_id', $student->section_id)->orWhereNull('section_id');
-            })
-            ->where('is_active', true)
-            ->get();
-
-        $payments = FeePayment::where('organization_id', $this->orgId())
-            ->where('student_detail_id', $this->viewStudentId)
-            ->orderByDesc('payment_date')
-            ->get();
-
-        $academicTotal    = $structures->where('fee_type', 'academic')->sum('amount');
-        $transportTotal   = $student->transportation_required
-            ? $structures->where('fee_type', 'transport')->sum('amount')
-            : 0;
-        $academicPaid     = $payments->where('fee_type', 'academic')->sum('amount');
-        $transportPaid    = $payments->where('fee_type', 'transport')->sum('amount');
-        $totalFee         = $academicTotal + $transportTotal;
-        $totalPaid        = $academicPaid + $transportPaid;
-
-        $this->studentFeeView = [
-            'student'          => $student,
-            'structures'       => $structures,
-            'payments'         => $payments,
-            'academicTotal'    => $academicTotal,
-            'transportTotal'   => $transportTotal,
-            'totalFee'         => $totalFee,
-            'academicPaid'     => $academicPaid,
-            'transportPaid'    => $transportPaid,
-            'totalPaid'        => $totalPaid,
-            'remaining'        => max(0, $totalFee - $totalPaid),
-            'hasTransport'     => (bool) $student->transportation_required,
-        ];
+        $this->studentFeeView = $this->buildStudentFeeView((int) $this->viewStudentId);
     }
 
     public function updatedViewClassStandardId(): void

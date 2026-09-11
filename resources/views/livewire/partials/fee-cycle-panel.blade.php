@@ -402,7 +402,9 @@
                                                 <input type="date" wire:model="customRows.{{ $i }}.due_date" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-400">
                                             </td>
                                             <td class="px-2 py-2">
-                                                <input type="number" step="0.01" min="0" max="100" wire:model.live.debounce.600ms="customRows.{{ $i }}.fee_percent" placeholder="e.g. 25"
+                                                <input type="number" step="0.01" min="0" max="100" placeholder="e.g. 25"
+                                                    wire:model="customRows.{{ $i }}.fee_percent"
+                                                    wire:change="rebalanceCustomRow({{ $i }})"
                                                     class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-400">
                                             </td>
                                             <td class="px-2 py-2">
@@ -541,7 +543,9 @@
                                             class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-400">
                                     </td>
                                     <td class="px-2 py-2">
-                                        <input type="number" step="0.01" min="0" max="100" wire:model.live.debounce.600ms="editRows.{{ $i }}.fee_percent"
+                                        <input type="number" step="0.01" min="0" max="100"
+                                            wire:model="editRows.{{ $i }}.fee_percent"
+                                            wire:change="rebalanceEditRow({{ $i }})"
                                             class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-400">
                                     </td>
                                     <td class="px-2 py-2">

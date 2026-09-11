@@ -167,6 +167,26 @@ trait HandlesFeeCycles
     }
 
     /**
+     * Called straight from the % input's own change event, so the re-balance
+     * never depends on the updated-hook firing for a nested array key. Running
+     * it twice is harmless — the second pass has nothing left to move.
+     */
+    public function rebalanceCustomRow(int $index): void
+    {
+        $this->customRows = trim((string) ($this->customRows[$index]['fee_percent'] ?? '')) === ''
+            ? $this->fillBlankPercents($this->customRows)
+            : $this->shiftPercentRows($this->customRows, $index);
+    }
+
+    /** The same, for the whole-cycle editor's rows. */
+    public function rebalanceEditRow(int $index): void
+    {
+        $this->editRows = trim((string) ($this->editRows[$index]['fee_percent'] ?? '')) === ''
+            ? $this->fillBlankPercents($this->editRows)
+            : $this->shiftPercentRows($this->editRows, $index);
+    }
+
+    /**
      * The one rule behind every % field on this page. One row changed, so the
      * other rows absorb the difference equally and keep everything else they
      * had: 20 / 17 / 33 / 30 with the 17 raised to 20 becomes 19 / 20 / 32 / 29
@@ -472,6 +492,11 @@ trait HandlesFeeCycles
             'fee_percent'     => $this->trimPercent((float) $c->fee_percent),
             'penalty_per_day' => (string) $c->penalty_per_day,
         ])->all();
+
+        // Nothing saved to go on — start everyone off on an even share.
+        if ($this->editPercentTotal <= 0) {
+            $this->editRows = $this->equalSplitRows($this->editRows);
+        }
 
         $this->resetValidation();
         $this->cycleEditOpen = true;

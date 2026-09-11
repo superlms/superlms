@@ -123,7 +123,13 @@
 
                 {{-- Student Fee Detail --}}
                 @if(!empty($studentFeeView))
-                    @include('livewire.accounts._partials.student-fee-view-card', ['data' => $studentFeeView])
+                    <div class="space-y-4">
+                        @include('livewire.partials.student-fee-view', [
+                            'sv'        => $studentFeeView,
+                            'feePrefix' => 'accounts',
+                            'feeOrg'    => auth()->user()->organization_id,
+                        ])
+                    </div>
                 @else
                     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-14 text-center">
                         <div class="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-4">
@@ -194,7 +200,13 @@
                             </svg>
                             Back to Class List
                         </button>
-                        @include('livewire.accounts._partials.student-fee-view-card', ['data' => $classStudentFeeView])
+                        <div class="space-y-4">
+                            @include('livewire.partials.student-fee-view', [
+                                'sv'        => $classStudentFeeView,
+                                'feePrefix' => 'accounts',
+                                'feeOrg'    => auth()->user()->organization_id,
+                            ])
+                        </div>
                     </div>
 
                 {{-- Class Fee List --}}

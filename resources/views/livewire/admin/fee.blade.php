@@ -612,118 +612,20 @@
     @if ($activeTab === 'view_fee')
         @if ($viewSubTab === 'by_student')
             @if (!empty($studentFeeView))
-                @php
-                    $sv = $studentFeeView;
-                    $stu = $sv['student'];
-                    $collectPct = $sv['totalFee'] > 0 ? min(100, round(($sv['totalPaid'] / $sv['totalFee']) * 100, 1)) : 0;
-                @endphp
-
-                {{-- Student header card --}}
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-5">
-                    <div class="flex flex-col sm:flex-row sm:items-center gap-4">
-                        <div class="w-14 h-14 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl font-bold flex-shrink-0">
-                            {{ strtoupper(mb_substr($stu->user->name ?? 'S', 0, 1)) }}
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <h3 class="text-lg font-bold text-gray-900">{{ $stu->user->name ?? 'Unknown' }}</h3>
-                            <p class="text-sm text-gray-500">
-                                {{ $stu->standard->name ?? '-' }}{{ $stu->section ? ' / ' . $stu->section->name : '' }}
-                                @if ($stu->admission_no) · Adm {{ $stu->admission_no }} @endif
-                            </p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-xs text-gray-400 uppercase tracking-wide">Collection</p>
-                            <p class="text-2xl font-bold {{ $collectPct >= 100 ? 'text-emerald-600' : 'text-blue-600' }}">{{ $collectPct }}%</p>
-                        </div>
-                    </div>
-                    <div class="mt-4">
-                        <div class="w-full bg-gray-100 rounded-full h-2.5">
-                            <div class="h-2.5 rounded-full {{ $collectPct >= 100 ? 'bg-emerald-500' : 'bg-blue-500' }}" style="width: {{ $collectPct }}%"></div>
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Clean stat cards --}}
-                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <div class="bg-white rounded-xl border border-gray-200 p-4">
-                        <p class="text-xs text-gray-400 uppercase tracking-wide">Total Fee</p>
-                        <p class="text-xl font-bold text-gray-900 mt-1">₹{{ number_format($sv['totalFee'], 0) }}</p>
-                    </div>
-                    <div class="bg-white rounded-xl border border-gray-200 p-4">
-                        <p class="text-xs text-gray-400 uppercase tracking-wide">Paid</p>
-                        <p class="text-xl font-bold text-emerald-600 mt-1">₹{{ number_format($sv['totalPaid'], 0) }}</p>
-                    </div>
-                    <div class="bg-white rounded-xl border border-gray-200 p-4">
-                        <p class="text-xs text-gray-400 uppercase tracking-wide">Remaining</p>
-                        <p class="text-xl font-bold text-red-500 mt-1">₹{{ number_format($sv['remaining'], 0) }}</p>
-                    </div>
-                    <div class="bg-white rounded-xl border border-gray-200 p-4">
-                        <p class="text-xs text-gray-400 uppercase tracking-wide">Academic Fee</p>
-                        <p class="text-xl font-bold text-indigo-600 mt-1">₹{{ number_format($sv['academicTotal'], 0) }}</p>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                        <h4 class="text-sm font-semibold text-gray-800 mb-3">Fee Structure</h4>
-                        <div class="space-y-2">
-                            @foreach ($sv['structures'] as $fs)
-                                @if ($fs->fee_type === 'transport' && !$sv['hasTransport']) @continue @endif
-                                <div class="flex justify-between items-center py-2 border-b border-gray-100 text-sm">
-                                    <div>
-                                        <span class="font-medium text-gray-800">{{ $fs->fee_name }}</span>
-                                        <span class="ml-2 px-2 py-0.5 rounded text-xs {{ $fs->fee_type === 'academic' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600' }}">
-                                            {{ ucfirst($fs->fee_type) }}
-                                        </span>
-                                    </div>
-                                    <span class="font-semibold">₹{{ number_format($fs->amount, 2) }}</span>
-                                </div>
-                            @endforeach
-                        </div>
-                        @if ($sv['hasTransport'])
-                            <div class="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                                <div class="flex justify-between text-sm">
-                                    <span class="text-green-700 font-medium">Transport Fee Total</span>
-                                    <span class="font-bold text-green-800">₹{{ number_format($sv['transportTotal'], 2) }}</span>
-                                </div>
-                                <div class="flex justify-between text-sm mt-1">
-                                    <span class="text-green-600">Transport Paid</span>
-                                    <span class="font-medium text-green-700">₹{{ number_format($sv['transportPaid'], 2) }}</span>
-                                </div>
-                            </div>
-                        @endif
-                    </div>
-
-                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                        <h4 class="text-sm font-semibold text-gray-800 mb-3">Payment History</h4>
-                        <div class="space-y-2 max-h-64 overflow-y-auto">
-                            @forelse ($sv['payments'] as $p)
-                                <div class="flex justify-between items-center py-2 border-b border-gray-100 text-sm">
-                                    <div>
-                                        <p class="font-medium text-gray-800">₹{{ number_format($p->amount, 2) }}
-                                            <span class="text-xs px-1.5 py-0.5 rounded {{ $p->fee_type === 'academic' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600' }}">
-                                                {{ ucfirst($p->fee_type) }}
-                                            </span>
-                                        </p>
-                                        <p class="text-xs text-gray-500">{{ $p->receipt_number }} &bull; {{ ucfirst(str_replace('_', ' ', $p->payment_mode)) }}</p>
-                                    </div>
-                                    <span class="text-xs text-gray-500">{{ \Carbon\Carbon::parse($p->payment_date)->format('d M Y') }}</span>
-                                </div>
-                            @empty
-                                <p class="text-center text-gray-400 text-sm py-4">No payments recorded.</p>
-                            @endforelse
-                        </div>
-                    </div>
+                <div class="space-y-4">
+                    @include('livewire.partials.student-fee-view', [
+                        'sv'        => $studentFeeView,
+                        'feePrefix' => 'admin',
+                        'feeOrg'    => auth()->user()->organization_id,
+                    ])
                 </div>
             @else
-                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    <div class="text-center py-16 px-4">
-                        <div class="w-12 h-12 mx-auto mb-3 bg-indigo-50 rounded-full flex items-center justify-center">
-                            <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                        </div>
-                        <p class="text-sm font-semibold text-gray-800">Select a student</p>
-                        <p class="text-xs text-gray-400 mt-1">Use the filters above (Class → Section → Student) to view the full fee ledger.</p>
+                <div class="bg-white rounded-2xl border border-dashed border-gray-200 px-4 py-16 text-center">
+                    <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                     </div>
+                    <p class="text-sm font-semibold text-gray-800">Select a student</p>
+                    <p class="text-xs text-gray-400 mt-1">Pick a class, section and student from the filter above to see the full ledger.</p>
                 </div>
             @endif
         @endif
