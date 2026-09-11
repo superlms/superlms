@@ -11,6 +11,7 @@
 
         html { background: #e9ecf1; }
         body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #111827; font-size: 9.5px; line-height: 1.45; }
+        * { box-sizing: border-box; }
 
         .sheet { width: 130mm; min-height: 192mm; margin: 12px auto; padding: 9mm; background: #fff; }
 
@@ -25,57 +26,70 @@
 
         /* Masthead — logo first, then name, then address, then contacts, all centred */
         .masthead { text-align: center; border-bottom: 1px solid #111827; padding-bottom: 7px; margin-top: 2px; }
-        .masthead .logo { height: 30px; width: auto; margin-bottom: 4px; }
-        .masthead .school { font-size: 13.5px; font-weight: bold; letter-spacing: .3px; text-transform: uppercase; }
+        .masthead .logo { height: 28px; width: auto; margin-bottom: 4px; }
+        .masthead .school { font-size: 13px; font-weight: bold; letter-spacing: .3px; text-transform: uppercase; }
         .masthead .addr { font-size: 7.5px; color: #6b7280; margin-top: 2px; }
         .masthead .contact { font-size: 7.5px; color: #6b7280; margin-top: 1px; }
 
         /* Section heads */
         .sec { font-size: 7.5px; letter-spacing: 1.2px; text-transform: uppercase; color: #9ca3af;
-               margin: 9px 0 3px; padding-bottom: 2px; border-bottom: 1px solid #e5e7eb; }
+               margin: 10px 0 3px; padding-bottom: 2px; border-bottom: 1px solid #e5e7eb; }
 
         /* Key/value pairs, two to a row */
         table.kv td { padding: 1.6px 0; vertical-align: top; font-size: 9px; }
         table.kv td.k { color: #9ca3af; width: 22mm; }
         table.kv td.v { font-weight: bold; padding-right: 6mm; }
 
-        /* This Payment — a minimalistic grid of cells rather than kv rows */
-        .payinfo { display: flex; flex-wrap: wrap; border: 1px solid #e5e7eb; border-radius: 3px;
-                   margin-top: 3px; overflow: hidden; }
-        .payinfo .cell { flex: 1 1 33.33%; box-sizing: border-box; padding: 5px 7px;
-                          border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; }
-        .payinfo .cell:nth-child(3n) { border-right: 0; }
-        .payinfo .lbl { font-size: 6.5px; letter-spacing: 1px; text-transform: uppercase; color: #9ca3af; }
-        .payinfo .val { font-size: 9.5px; font-weight: bold; margin-top: 1.5px; }
+        /* This Payment — a slim meta strip: date, time, status, mode, collected by */
+        .payinfo { display: flex; border: 1px solid #e5e7eb; border-radius: 3px; margin-top: 3px; overflow: hidden; }
+        .payinfo .cell { flex: 1 1 0; min-width: 0; padding: 5px 6px; border-right: 1px solid #e5e7eb; }
+        .payinfo .cell:last-child { border-right: 0; }
+        .payinfo .lbl { font-size: 6.3px; letter-spacing: .8px; text-transform: uppercase; color: #9ca3af; white-space: nowrap; }
+        .payinfo .val { font-size: 9px; font-weight: bold; margin-top: 1.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .payinfo .val.status-late { color: #b45309; }
         .payinfo .val.status-ontime { color: #0a8a4a; }
-        .remark-line { font-size: 8px; color: #6b7280; margin-top: 4px; }
+        .remark-line { font-size: 8px; color: #6b7280; margin-top: 5px; }
 
-        /* Data tables */
+        /* Particulars — sl. no / particulars / amount, then grand total */
+        table.part { margin-top: 6px; table-layout: fixed; }
+        table.part col.c-sl { width: 8%; }
+        table.part col.c-particulars { width: 62%; }
+        table.part col.c-amount { width: 30%; }
+        table.part th { font-size: 7px; letter-spacing: .4px; text-transform: uppercase; color: #9ca3af;
+                        font-weight: normal; text-align: left; padding: 3px 0; border-bottom: 1px solid #111827; }
+        table.part td { padding: 3.5px 0; font-size: 9.5px; border-bottom: 1px solid #f3f4f6; }
+        table.part td.sl { color: #9ca3af; }
+        table.part tr.grand td { border-top: 1px solid #111827; border-bottom: 0; font-weight: bold; font-size: 11px; padding-top: 5px; }
+        .words { font-size: 8px; color: #6b7280; margin-top: 4px; font-style: italic; }
+
+        /* Data tables — fixed layout so every row's columns line up exactly */
+        table.dt { table-layout: fixed; }
+        table.dt col.c-sl { width: 6%; }
+        table.dt col.c-inst { width: 30%; }
+        table.dt col.c-due { width: 16%; }
+        table.dt col.c-num { width: 12%; }
         table.dt th { font-size: 7px; letter-spacing: .4px; text-transform: uppercase; color: #9ca3af;
                       font-weight: normal; text-align: left; padding: 3px 0; border-bottom: 1px solid #e5e7eb; }
+        table.dt th.num { text-align: right; }
         table.dt td { padding: 3px 0; font-size: 8.5px; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
-        table.dt td.sl { color: #cbd0d8; font-size: 8px; width: 5mm; }
+        table.dt td.sl { color: #cbd0d8; font-size: 8px; white-space: nowrap; }
+        table.dt td.num { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         table.dt tr.sum td { border-top: 1px solid #111827; border-bottom: 0; font-weight: bold; padding-top: 4px; }
         .muted { color: #9ca3af; }
-        .period-range { display: block; font-size: 6.8px; color: #9ca3af; margin-top: 1px; }
+        .period-range { display: block; font-size: 6.8px; color: #9ca3af; margin-top: 1px; font-weight: normal; }
         .penalty-flag { color: #b45309; }
 
-        /* The amount this receipt is for — the minimalistic focal point */
-        .paid-for { border: 1px solid #111827; border-radius: 3px; padding: 7px 9px; margin-top: 4px; }
-        .paid-for .row { display: flex; align-items: baseline; justify-content: space-between; }
-        .paid-for .lbl { font-size: 7.5px; letter-spacing: 1.2px; text-transform: uppercase; color: #6b7280; }
-        .paid-for .amt { font-size: 18px; font-weight: bold; }
-        .paid-for .breakdown { margin-top: 5px; padding-top: 5px; border-top: 1px solid #e5e7eb;
-                                display: flex; flex-wrap: wrap; gap: 8px; font-size: 7.5px; color: #6b7280; }
-        .paid-for .breakdown b { color: #111827; }
-        .words { font-size: 7.5px; color: #6b7280; margin-top: 2px; }
-
         /* Penalties section — which installments carry an overdue penalty */
-        table.pen td, table.pen th { font-size: 8.5px; }
+        table.pen { table-layout: fixed; }
+        table.pen col.c-type { width: 16%; }
+        table.pen col.c-inst { width: 26%; }
+        table.pen col.c-due { width: 18%; }
+        table.pen col.c-num { width: 13.33%; }
         table.pen th { font-size: 7px; letter-spacing: .4px; text-transform: uppercase; color: #9ca3af;
                        font-weight: normal; text-align: left; padding: 3px 0; border-bottom: 1px solid #e5e7eb; }
-        table.pen td { padding: 3px 0; border-bottom: 1px solid #f3f4f6; }
+        table.pen th.num { text-align: right; }
+        table.pen td { padding: 3px 0; font-size: 8.5px; border-bottom: 1px solid #f3f4f6;
+                       overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         table.pen tr.sum td { border-top: 1px solid #111827; border-bottom: 0; font-weight: bold; padding-top: 4px; color: #b45309; }
         .no-penalty { font-size: 8.5px; color: #9ca3af; padding: 2px 0 4px; }
 
@@ -163,6 +177,7 @@
     {{-- ══════════ THIS PAYMENT ══════════ --}}
     @php
         $isLate = (float) $payment->penalty_amount > 0;
+        $base   = max(0, (float) $payment->amount - (float) $payment->penalty_amount + (float) $payment->waiver_amount);
     @endphp
     <div class="sec">This Payment</div>
     <div class="payinfo">
@@ -186,31 +201,49 @@
             <div class="lbl">Collected By</div>
             <div class="val">{{ $collectedBy }}</div>
         </div>
-        <div class="cell">
-            <div class="lbl">Fee Type</div>
-            <div class="val">{{ ucfirst($payment->fee_type) }}</div>
-        </div>
     </div>
     @if ($payment->remark)
         <div class="remark-line"><strong>Remark —</strong> {{ $payment->remark }}</div>
     @endif
 
-    <div class="paid-for">
-        <div class="row">
-            <span class="lbl">Amount Received</span>
-            <span class="amt">₹{{ number_format((float) $payment->amount, 2) }}</span>
-        </div>
-        @if ((float) $payment->penalty_amount > 0 || (float) $payment->waiver_amount > 0)
-            <div class="breakdown">
-                @if ((float) $payment->penalty_amount > 0)
-                    <span>Penalty included <b>₹{{ number_format((float) $payment->penalty_amount, 2) }}</b></span>
-                @endif
-                @if ((float) $payment->waiver_amount > 0)
-                    <span>Waiver applied <b>₹{{ number_format((float) $payment->waiver_amount, 2) }}</b></span>
-                @endif
-            </div>
-        @endif
-    </div>
+    <table class="part">
+        <colgroup>
+            <col class="c-sl"><col class="c-particulars"><col class="c-amount">
+        </colgroup>
+        <thead>
+            <tr>
+                <th>Sl.</th>
+                <th>Particulars</th>
+                <th class="num">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="sl">1</td>
+                <td>{{ ucfirst($payment->fee_type) }} Fee</td>
+                <td class="num">{{ number_format($base, 2) }}</td>
+            </tr>
+            @if ((float) $payment->penalty_amount > 0)
+                <tr>
+                    <td class="sl">2</td>
+                    <td class="penalty-flag">Penalty</td>
+                    <td class="num penalty-flag">{{ number_format((float) $payment->penalty_amount, 2) }}</td>
+                </tr>
+            @endif
+            @if ((float) $payment->waiver_amount > 0)
+                <tr>
+                    <td class="sl">{{ (float) $payment->penalty_amount > 0 ? 3 : 2 }}</td>
+                    <td>Less: Waiver</td>
+                    <td class="num">− {{ number_format((float) $payment->waiver_amount, 2) }}</td>
+                </tr>
+            @endif
+            <tr class="grand">
+                <td colspan="2">Grand Total</td>
+                <td class="num">₹{{ number_format((float) $payment->amount, 2) }}</td>
+            </tr>
+        </tbody>
+    </table>
+    <p class="words">Amount in Words: {{ \App\Support\NumberToWords::rupees((float) $payment->amount) }}</p>
 
     {{-- ══════════ FEE CYCLE ══════════ --}}
     @forelse ($cycles as $cycle)
@@ -218,28 +251,32 @@
             {{ ucfirst($cycle['fee_type']) }} Fee Cycle — {{ $cycle['label'] }} · {{ $cycle['year'] }}
         </div>
         <table class="dt">
+            <colgroup>
+                <col class="c-sl"><col class="c-inst"><col class="c-due">
+                <col class="c-num"><col class="c-num"><col class="c-num"><col class="c-num">
+            </colgroup>
             <thead>
                 <tr>
-                    <th style="width:5mm;">#</th>
+                    <th>#</th>
                     <th>Installment</th>
-                    <th style="width:26mm;">Period</th>
-                    <th class="num" style="width:15mm;">Amount</th>
-                    <th class="num" style="width:15mm;">Paid</th>
-                    <th class="num" style="width:15mm;">Balance</th>
-                    <th class="num" style="width:15mm;">Penalty</th>
+                    <th>Due Date</th>
+                    <th class="num">Amount</th>
+                    <th class="num">Paid</th>
+                    <th class="num">Balance</th>
+                    <th class="num">Penalty</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach ($cycle['installments'] as $i => $inst)
                     <tr>
                         <td class="sl">{{ $i + 1 }}</td>
-                        <td>{{ $inst['label'] }}</td>
-                        <td class="{{ $inst['overdue'] ? '' : 'muted' }}">
-                            {{ $inst['due_date'] ?? '—' }}
+                        <td>
+                            {{ $inst['label'] }}
                             @if ($inst['start_date'] && $inst['end_date'])
                                 <span class="period-range">{{ $inst['start_date'] }} – {{ $inst['end_date'] }}</span>
                             @endif
                         </td>
+                        <td class="{{ $inst['overdue'] ? '' : 'muted' }}">{{ $inst['due_date'] ?? '—' }}</td>
                         <td class="num">{{ number_format($inst['amount'], 2) }}</td>
                         <td class="num {{ $inst['paid'] > 0 ? '' : 'muted' }}">{{ number_format($inst['paid'], 2) }}</td>
                         <td class="num {{ $inst['balance'] > 0 ? '' : 'muted' }}">{{ number_format($inst['balance'], 2) }}</td>
@@ -275,14 +312,18 @@
         <p class="no-penalty">No penalties currently due — every installment is either paid or within its due date.</p>
     @else
         <table class="pen">
+            <colgroup>
+                <col class="c-type"><col class="c-inst"><col class="c-due">
+                <col class="c-num"><col class="c-num"><col class="c-num">
+            </colgroup>
             <thead>
                 <tr>
                     <th>Fee Cycle</th>
                     <th>Installment</th>
                     <th>Due Date</th>
-                    <th class="num" style="width:16mm;">Days Late</th>
-                    <th class="num" style="width:16mm;">Rate / Day</th>
-                    <th class="num" style="width:18mm;">Penalty</th>
+                    <th class="num">Days Late</th>
+                    <th class="num">Rate / Day</th>
+                    <th class="num">Penalty</th>
                 </tr>
             </thead>
             <tbody>
