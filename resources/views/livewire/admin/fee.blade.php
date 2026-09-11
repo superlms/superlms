@@ -640,8 +640,7 @@
                                     <th class="px-4 py-3 text-left text-xs text-gray-500 uppercase">#</th>
                                     <th class="px-4 py-3 text-left text-xs text-gray-500 uppercase">Name</th>
                                     <th class="px-4 py-3 text-left text-xs text-gray-500 uppercase">Adm No.</th>
-                                    <th class="px-4 py-3 text-left text-xs text-gray-500 uppercase">Class</th>
-                                    <th class="px-4 py-3 text-left text-xs text-gray-500 uppercase">Section</th>
+                                    <th class="px-4 py-3 text-left text-xs text-gray-500 uppercase">Class / Section</th>
                                     <th class="px-4 py-3 text-right text-xs text-gray-500 uppercase">Academic</th>
                                     <th class="px-4 py-3 text-right text-xs text-gray-500 uppercase">Transport</th>
                                     <th class="px-4 py-3 text-right text-xs text-gray-500 uppercase">Total Fee</th>
@@ -655,8 +654,9 @@
                                         <td class="px-4 py-3">{{ $i + 1 }}</td>
                                         <td class="px-4 py-3 font-medium text-gray-800">{{ $row['name'] }}</td>
                                         <td class="px-4 py-3 text-gray-600">{{ $row['admission_no'] ?? '-' }}</td>
-                                        <td class="px-4 py-3">{{ $row['class'] }}</td>
-                                        <td class="px-4 py-3">{{ $row['section'] }}</td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            {{ $row['class'] }}@if (!empty($row['section']) && $row['section'] !== '-')<span class="text-gray-400"> · {{ $row['section'] }}</span>@endif
+                                        </td>
                                         <td class="px-4 py-3 text-right">₹{{ number_format($row['academicFee'], 2) }}</td>
                                         <td class="px-4 py-3 text-right">₹{{ number_format($row['transportFee'], 2) }}</td>
                                         <td class="px-4 py-3 text-right font-semibold">₹{{ number_format($row['totalFee'], 2) }}</td>
