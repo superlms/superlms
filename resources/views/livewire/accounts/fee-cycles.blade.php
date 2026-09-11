@@ -1,32 +1,71 @@
 <div class="min-h-screen bg-gray-50">
     <style>[x-cloak]{display:none !important;}</style>
 
-    {{-- ══════════ STICKY HEADER — title + stats + Add ══════════ --}}
+    {{-- ══════════ STICKY HEADER — title + tabs + stats/Add ══════════ --}}
     <div class="bg-white border-b border-gray-200 sticky top-0 z-30 px-4 sm:px-6 py-3">
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <div>
+            <div class="flex items-center gap-3">
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Fee Cycle</h1>
+                <div class="inline-flex rounded-md border border-gray-200 bg-white p-0.5">
+                    @foreach (['cycle' => 'Fee Cycle', 'calculator' => 'Calculator'] as $tab => $label)
+                        <button wire:click="switchTab('{{ $tab }}')"
+                            class="px-3 py-1 text-xs font-semibold rounded transition-colors {{ $activeTab === $tab ? 'bg-emerald-600 text-white' : 'text-gray-600 hover:bg-gray-50' }}">{{ $label }}</button>
+                    @endforeach
+                </div>
             </div>
-            <div class="flex flex-wrap items-center gap-2">
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-xs font-medium text-gray-600">
-                    Total <strong class="text-gray-900">{{ $totalCycles }}</strong>
-                </span>
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-xs font-medium text-emerald-600">
-                    Academic <strong>{{ $academicCycles }}</strong>
-                </span>
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-teal-50 border border-teal-100 text-xs font-medium text-teal-600">
-                    Transport <strong>{{ $transportCycles }}</strong>
-                </span>
-                <button wire:click="openCycleModal()"
-                    class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm ml-1">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                    Add Fee Cycle
-                </button>
-            </div>
+            @if ($activeTab === 'cycle')
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-xs font-medium text-gray-600">
+                        Total <strong class="text-gray-900">{{ $totalCycles }}</strong>
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-xs font-medium text-emerald-600">
+                        Academic <strong>{{ $academicCycles }}</strong>
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-teal-50 border border-teal-100 text-xs font-medium text-teal-600">
+                        Transport <strong>{{ $transportCycles }}</strong>
+                    </span>
+                    <button wire:click="openCycleModal()"
+                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm ml-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                        Add Fee Cycle
+                    </button>
+                </div>
+            @endif
         </div>
+
+        {{-- Calculator's own filter band — right under the header, same idiom as the Students list --}}
+        @if ($activeTab === 'calculator')
+            <div class="border-t border-gray-200 bg-gray-50 -mx-4 sm:-mx-6 mt-3 px-4 sm:px-6 py-3">
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                        Filter by:
+                    </div>
+                    <select wire:model.live="calcStandardId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <option value="">Select class…</option>
+                        @foreach ($standards as $std)
+                            <option value="{{ $std->id }}">{{ $std->name }}</option>
+                        @endforeach
+                    </select>
+                    <select wire:model.live="calcSectionId" @disabled(!$calcStandardId) class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <option value="">All sections</option>
+                        @foreach ($calcSections as $sec)
+                            <option value="{{ $sec->id }}">{{ $sec->name }}</option>
+                        @endforeach
+                    </select>
+                    <select wire:model.live="calcSerial" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <option value="">All installments</option>
+                        @foreach ($cycles->where('fee_type', 'academic') as $cy)
+                            <option value="{{ $cy->payment_serial }}">Installment {{ $cy->payment_serial }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+        @endif
     </div>
 
     <div class="p-4 sm:p-6 space-y-5">
+        @if ($activeTab === 'cycle')
         <div>
             <h3 class="text-base font-semibold text-gray-800">Installments</h3>
             <p class="text-sm text-gray-500">Each installment collects a % of the fee. The rupee amount is computed per class from that class's own fee.</p>
@@ -80,47 +119,19 @@
                 </tbody>
             </table>
         </div>
+        @endif
 
-        {{-- ══════════ INSTALLMENT CALCULATOR (per class/section) ══════════ --}}
+        {{-- ══════════ CALCULATOR TAB (per class/section) ══════════ --}}
+        @if ($activeTab === 'calculator')
         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div class="px-4 sm:px-5 py-3.5 border-b border-gray-200 bg-gradient-to-r from-emerald-50 to-teal-50">
-                <h3 class="text-base font-semibold text-gray-800">Installment Calculator</h3>
-                <p class="text-xs text-gray-500 mt-0.5">Pick a class &amp; section to see each installment's amount from that class's total fee.</p>
-            </div>
-
-            {{-- Filters --}}
-            <div class="px-4 sm:px-5 py-3 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center gap-3">
-                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-                    Filter by:
-                </div>
-                <select wire:model.live="calcStandardId" class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
-                    <option value="">Select class…</option>
-                    @foreach ($standards as $std)
-                        <option value="{{ $std->id }}">{{ $std->name }}</option>
-                    @endforeach
-                </select>
-                <select wire:model.live="calcSectionId" @disabled(!$calcStandardId) class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:opacity-50">
-                    <option value="">All sections</option>
-                    @foreach ($calcSections as $sec)
-                        <option value="{{ $sec->id }}">{{ $sec->name }}</option>
-                    @endforeach
-                </select>
-                <select wire:model.live="calcSerial" class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
-                    <option value="">All installments</option>
-                    @foreach ($cycles->where('fee_type', 'academic') as $cy)
-                        <option value="{{ $cy->payment_serial }}">Installment {{ $cy->payment_serial }}</option>
-                    @endforeach
-                </select>
-            </div>
-
             @if (!$calcStandardId)
                 <div class="px-4 sm:px-5 py-10 text-center text-sm text-gray-400">Select a class to calculate installment amounts.</div>
             @elseif (empty($calcRows))
-                <div class="px-4 sm:px-5 py-10 text-center text-sm text-amber-600">No academic installments defined yet — add one above.</div>
+                <div class="px-4 sm:px-5 py-10 text-center text-sm text-amber-600">No academic installments defined yet — add one from the Fee Cycle tab.</div>
             @else
                 <div class="px-4 sm:px-5 py-3 flex flex-wrap items-center gap-x-6 gap-y-1 border-b border-gray-100">
-                    <span class="text-sm text-gray-500">Total class fee: <strong class="text-gray-900">₹{{ number_format($calcTotalFee, 2) }}</strong></span>
+                    <span class="text-sm text-gray-500">Fee per student: <strong class="text-gray-900">₹{{ number_format($calcTotalFee, 2) }}</strong></span>
+                    <span class="text-sm text-gray-500">Students in class: <strong class="text-gray-900">{{ $calcStudentCount }}</strong></span>
                     @if ($calcTotalFee <= 0)
                         <span class="text-xs text-amber-600">No academic fee structure found for this class — amounts show ₹0.</span>
                     @endif
@@ -133,7 +144,8 @@
                                 <th class="px-4 py-3 text-left">Due Date</th>
                                 <th class="px-4 py-3 text-right">Fee %</th>
                                 <th class="px-4 py-3 text-right">Amount</th>
-                                <th class="px-4 py-3 text-right">Collected so far</th>
+                                <th class="px-4 py-3 text-right">Total (class)</th>
+                                <th class="px-4 py-3 text-right">Total Collected</th>
                                 <th class="px-4 py-3 text-right">Remaining</th>
                             </tr>
                         </thead>
@@ -145,7 +157,8 @@
                                         <td class="px-4 py-3 text-gray-600">{{ $row['due_date'] ?? '—' }}</td>
                                         <td class="px-4 py-3 text-right text-gray-700">{{ rtrim(rtrim(number_format($row['percent'], 2), '0'), '.') }}%</td>
                                         <td class="px-4 py-3 text-right font-semibold text-emerald-700">₹{{ number_format($row['amount'], 2) }}</td>
-                                        <td class="px-4 py-3 text-right text-gray-600">₹{{ number_format($row['cumulative'], 2) }}</td>
+                                        <td class="px-4 py-3 text-right text-gray-800">₹{{ number_format($row['class_total'], 2) }}</td>
+                                        <td class="px-4 py-3 text-right text-gray-600">₹{{ number_format($row['collected'], 2) }}</td>
                                         <td class="px-4 py-3 text-right text-gray-600">₹{{ number_format($row['remaining'], 2) }}</td>
                                     </tr>
                                 @endif
@@ -155,6 +168,7 @@
                 </div>
             @endif
         </div>
+        @endif
     </div>
 
     {{-- Add / Edit installment slide-in --}}

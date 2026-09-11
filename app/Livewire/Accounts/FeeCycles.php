@@ -3,9 +3,11 @@
 namespace App\Livewire\Accounts;
 
 use App\Models\Admin\Fee\FeeCycle;
+use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
+use App\Models\Student\StudentDetail;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use WireUi\Traits\WireUiActions;
@@ -13,6 +15,8 @@ use WireUi\Traits\WireUiActions;
 class FeeCycles extends Component
 {
     use WireUiActions;
+
+    public string $activeTab = 'cycle'; // cycle | calculator
 
     // ─── Fee Cycle (installments) ───────────────────────────────────────────────
     // An installment is defined only by its % of the fee — the rupee amount is
@@ -43,6 +47,11 @@ class FeeCycles extends Component
     private function orgId(): int
     {
         return Auth::user()->organization_id;
+    }
+
+    public function switchTab(string $tab): void
+    {
+        $this->activeTab = in_array($tab, ['cycle', 'calculator'], true) ? $tab : 'cycle';
     }
 
     // ── Fee Cycle (installments) ────────────────────────────────────────────────
@@ -284,30 +293,49 @@ class FeeCycles extends Component
             ? Section::where('standard_id', $this->calcStandardId)->where('is_active', true)->orderBy('id')->get()
             : collect();
 
-        $calcTotalFee = 0.0;
-        $calcRows     = [];
+        $calcTotalFee     = 0.0;
+        $calcStudentCount = 0;
+        $calcRows         = [];
         if ($this->calcStandardId) {
             $calcTotalFee = (float) FeeStructure::where('organization_id', $orgId)
                 ->academic()->active()
                 ->forClass((int) $this->calcStandardId, $this->calcSectionId ? (int) $this->calcSectionId : null)
                 ->sum('amount');
 
+            $calcStudentIds = StudentDetail::where('organization_id', $orgId)
+                ->where('standard_id', $this->calcStandardId)
+                ->when($this->calcSectionId, fn ($q) => $q->where('section_id', $this->calcSectionId))
+                ->pluck('id');
+            $calcStudentCount = $calcStudentIds->count();
+
+            // Real money collected for this class/section, allocated across
+            // installments oldest-due-first — a payment carries no installment
+            // of its own to join against, so this is the closest true reading
+            // of "how much of installment N has actually come in".
+            $realCollected = (float) FeePayment::whereIn('student_detail_id', $calcStudentIds)
+                ->where('fee_type', 'academic')
+                ->sum('amount');
+
             $acadCycles = FeeCycle::forOrg($orgId)->active()
                 ->where('fee_type', 'academic')
                 ->orderBy('payment_serial')->get();
 
-            $cum = 0.0;
+            $allocated = 0.0;
             foreach ($acadCycles as $cy) {
-                $pct = (float) $cy->fee_percent;
-                $amt = round($calcTotalFee * $pct / 100, 2);
-                $cum += $amt;
+                $pct        = (float) $cy->fee_percent;
+                $perStudent = round($calcTotalFee * $pct / 100, 2);
+                $classTotal = round($perStudent * $calcStudentCount, 2);
+                $collected  = min($classTotal, max(0, $realCollected - $allocated));
+                $allocated += $collected;
+
                 $calcRows[] = [
-                    'serial'     => (int) $cy->payment_serial,
-                    'percent'    => $pct,
-                    'due_date'   => optional($cy->due_date)->format('d M Y'),
-                    'amount'     => $amt,
-                    'cumulative' => round($cum, 2),
-                    'remaining'  => round(max(0, $calcTotalFee - $cum), 2),
+                    'serial'      => (int) $cy->payment_serial,
+                    'percent'     => $pct,
+                    'due_date'    => optional($cy->due_date)->format('d M Y'),
+                    'amount'      => $perStudent,
+                    'class_total' => $classTotal,
+                    'collected'   => round($collected, 2),
+                    'remaining'   => round(max(0, $classTotal - $collected), 2),
                 ];
             }
         }
@@ -324,6 +352,7 @@ class FeeCycles extends Component
             'cycleExisting'   => $cycleExisting,
             'calcSections'    => $calcSections,
             'calcTotalFee'    => $calcTotalFee,
+            'calcStudentCount'=> $calcStudentCount,
             'calcRows'        => $calcRows,
             'totalCycles'     => $totalCycles,
             'academicCycles'  => $academicCycles,
