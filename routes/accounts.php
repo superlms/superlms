@@ -13,6 +13,7 @@ use App\Livewire\Accounts\FeeStructure;
 use App\Livewire\Accounts\Payments;
 use App\Livewire\Accounts\Penalties;
 use App\Livewire\Accounts\FeeCycles;
+use App\Livewire\Accounts\FeeConcessions;
 use App\Livewire\Accounts\Attendance;
 use App\Livewire\Accounts\Ledger;
 use App\Livewire\Accounts\Lists;
@@ -66,6 +67,7 @@ Route::prefix('accounts')->group(function () {
             Route::get('/payments', Payments::class)->name('accounts.payments');
             Route::get('/penalties', Penalties::class)->name('accounts.penalties');
             Route::get('/fee-cycles', FeeCycles::class)->name('accounts.fee-cycles');
+            Route::get('/fee-concessions', FeeConcessions::class)->name('accounts.fee-concessions');
             Route::get('/attendance', Attendance::class)->name('accounts.attendance');
             // Ledger and Lists are the admin screens re-served here; the PDFs reuse
             // the admin controllers, which read the signed-in guard's organization.
