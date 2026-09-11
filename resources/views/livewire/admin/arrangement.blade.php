@@ -98,98 +98,124 @@
                 </span>
             </div>
 
-            {{-- Slots --}}
-            <div class="divide-y divide-gray-100">
-                @forelse ($teacherSlots as $slot)
-                    @php
-                        $arrangement = $arrangementsForDate->get($slot->id);
-                        $available   = $slotAvailability[$slot->id] ?? collect();
-                    @endphp
-
-                    <div class="px-4 sm:px-6 py-3.5">
-                        <div class="flex items-center justify-between gap-3 flex-wrap mb-2">
-                            <div class="flex items-center gap-2 flex-wrap min-w-0">
-                                <span class="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full font-medium border border-blue-100 flex-shrink-0">
-                                    {{ $slot->standard?->name ?? '—' }}
-                                </span>
-                                @if ($slot->section)
-                                    <span class="text-xs px-2 py-0.5 bg-purple-50 text-purple-700 rounded-full font-medium border border-purple-100 flex-shrink-0">
-                                        {{ $slot->section->name }}
-                                    </span>
-                                @endif
-                                <span class="text-sm font-medium text-gray-800 truncate">{{ $slot->subject?->name ?? '—' }}</span>
-                            </div>
-                            <span class="text-xs text-gray-500 flex items-center gap-1 flex-shrink-0">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                {{ \Carbon\Carbon::parse($slot->start_time)->format('h:i A') }}
-                                –
-                                {{ \Carbon\Carbon::parse($slot->end_time)->format('h:i A') }}
-                            </span>
-                        </div>
-
-                        @if ($arrangement)
-                            {{-- Already arranged: show substitute + delete --}}
-                            <div class="flex items-center justify-between gap-3 bg-emerald-50/60 border border-emerald-100 rounded-lg px-3 py-2">
-                                <div class="flex items-center gap-2 min-w-0">
-                                    <span class="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-xs flex-shrink-0">
-                                        {{ strtoupper(substr($arrangement->substituteTeacher?->user?->name ?? 'S', 0, 1)) }}
-                                    </span>
-                                    <div class="min-w-0">
-                                        <p class="text-sm font-medium text-emerald-800 truncate">
-                                            <svg class="w-3.5 h-3.5 inline -mt-0.5 mr-0.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            {{-- Slots — one row per period, whether or not it's arranged yet --}}
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 text-gray-500 text-xs uppercase border-b border-gray-100">
+                        <tr>
+                            <th class="px-4 py-2.5 text-left w-10">#</th>
+                            <th class="px-4 py-2.5 text-left whitespace-nowrap">Time</th>
+                            <th class="px-4 py-2.5 text-left">Class · Subject</th>
+                            <th class="px-4 py-2.5 text-left">Scheduled Teacher</th>
+                            <th class="px-4 py-2.5 text-left min-w-[170px]">To</th>
+                            <th class="px-4 py-2.5 text-left min-w-[150px]">Remark</th>
+                            <th class="px-4 py-2.5 text-center w-24">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @forelse ($teacherSlots as $i => $slot)
+                            @php
+                                $arrangement = $arrangementsForDate->get($slot->id);
+                                $available   = $slotAvailability[$slot->id] ?? collect();
+                            @endphp
+                            <tr class="align-top {{ $arrangement ? 'bg-emerald-50/40' : '' }}">
+                                <td class="px-4 py-3 text-gray-400">{{ $i + 1 }}</td>
+                                <td class="px-4 py-3 text-gray-700 whitespace-nowrap">
+                                    {{ \Carbon\Carbon::parse($slot->start_time)->format('h:i A') }} – {{ \Carbon\Carbon::parse($slot->end_time)->format('h:i A') }}
+                                </td>
+                                <td class="px-4 py-3 text-gray-700">
+                                    <span class="font-medium text-gray-800">{{ $slot->standard?->name ?? '—' }}{{ $slot->section ? ' · ' . $slot->section->name : '' }}</span>
+                                    <span class="text-gray-400">·</span> {{ $slot->subject?->name ?? '—' }}
+                                </td>
+                                <td class="px-4 py-3 text-gray-700">{{ $teacher->user?->name ?? '—' }}</td>
+                                @if ($arrangement)
+                                    <td class="px-4 py-3">
+                                        <span class="inline-flex items-center gap-1.5 text-emerald-700 font-medium">
+                                            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                                             {{ $arrangement->substituteTeacher?->user?->name ?? '—' }}
-                                        </p>
-                                        @if ($arrangement->reason)
-                                            <p class="text-xs text-emerald-700/70 truncate">{{ $arrangement->reason }}</p>
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-gray-600">{{ $arrangement->reason ?: '—' }}</td>
+                                    <td class="px-4 py-3 text-center">
+                                        <button wire:click="deleteArrangement({{ $arrangement->id }})"
+                                            class="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Remove substitute">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                        </button>
+                                    </td>
+                                @else
+                                    <td class="px-4 py-3">
+                                        <select wire:model.live="slotSubstitutes.{{ $slot->id }}"
+                                            class="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:ring-1 focus:ring-blue-500">
+                                            <option value="">Select…</option>
+                                            @foreach ($available as $sub)
+                                                <option value="{{ $sub->id }}">{{ $sub->user?->name ?? '—' }}</option>
+                                            @endforeach
+                                        </select>
+                                        @if ($available->isEmpty())
+                                            <p class="text-[10px] text-amber-600 mt-1">None available.</p>
                                         @endif
-                                    </div>
-                                </div>
-                                <button wire:click="deleteArrangement({{ $arrangement->id }})"
-                                    class="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors flex-shrink-0"
-                                    title="Remove substitute">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                                </button>
-                            </div>
-                        @else
-                            {{-- Unarranged: dropdown + reason + assign --}}
-                            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 bg-gray-50 border border-gray-200 rounded-lg p-2.5">
-                                <div class="sm:col-span-5">
-                                    <select wire:model.live="slotSubstitutes.{{ $slot->id }}"
-                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:ring-1 focus:ring-blue-500">
-                                        <option value="">Select substitute</option>
-                                        @foreach ($available as $sub)
-                                            <option value="{{ $sub->id }}">{{ $sub->user?->name ?? '—' }}</option>
-                                        @endforeach
-                                    </select>
-                                    @if ($available->isEmpty())
-                                        <p class="text-xs text-amber-600 mt-1">No teacher available for this time.</p>
-                                    @endif
-                                </div>
-                                <div class="sm:col-span-5">
-                                    <input type="text" wire:model="slotReasons.{{ $slot->id }}"
-                                        placeholder="Reason (e.g. Sick leave)"
-                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:ring-1 focus:ring-blue-500">
-                                </div>
-                                <div class="sm:col-span-2">
-                                    <button wire:click="assignSlot({{ $slot->id }})" wire:loading.attr="disabled"
-                                        @disabled(empty($slotSubstitutes[$slot->id] ?? null))
-                                        class="w-full px-3 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5">
-                                        <span wire:loading.remove wire:target="assignSlot">Assign</span>
-                                        <span wire:loading wire:target="assignSlot">…</span>
-                                    </button>
-                                </div>
-                            </div>
-                        @endif
-                    </div>
-                @empty
-                    <div class="px-6 py-6 text-center text-sm text-gray-400">
-                        No classes scheduled for this teacher on
-                        {{ \Carbon\Carbon::parse($date)->format('l') }}.
-                    </div>
-                @endforelse
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <input type="text" wire:model="slotReasons.{{ $slot->id }}"
+                                            placeholder="Reason"
+                                            class="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:ring-1 focus:ring-blue-500">
+                                    </td>
+                                    <td class="px-4 py-3 text-center">
+                                        <button wire:click="assignSlot({{ $slot->id }})" wire:loading.attr="disabled"
+                                            @disabled(empty($slotSubstitutes[$slot->id] ?? null))
+                                            class="px-3 py-1.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-medium rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5">
+                                            <span wire:loading.remove wire:target="assignSlot">Assign</span>
+                                            <span wire:loading wire:target="assignSlot">…</span>
+                                        </button>
+                                    </td>
+                                @endif
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="7" class="px-6 py-6 text-center text-sm text-gray-400">
+                                    No classes scheduled for this teacher on
+                                    {{ \Carbon\Carbon::parse($date)->format('l') }}.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
             </div>
         </div>
     @endforeach
+@endif
+
+{{-- ══════════════════════════════════════════════════
+     TODAY'S TEACHING LOAD — every teacher, own periods + substitutions
+══════════════════════════════════════════════════ --}}
+@if ($teacherLoads->isNotEmpty())
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div class="px-4 sm:px-6 py-3.5 border-b border-gray-200 bg-gray-50">
+            <h3 class="text-base font-semibold text-gray-900">Today's Teaching Load</h3>
+            <p class="text-xs text-gray-500 mt-0.5">Every teacher's classes for {{ \Carbon\Carbon::parse($date)->format('D, d M Y') }} — their own periods plus anything they're covering.</p>
+        </div>
+        <div class="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            @foreach ($teacherLoads as $row)
+                <div class="border border-gray-200 rounded-lg p-3.5 {{ $row['is_absent'] ? 'bg-red-50/30' : 'bg-white' }}">
+                    <div class="flex items-center gap-2.5 mb-2">
+                        <span class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-bold text-xs flex-shrink-0">
+                            {{ strtoupper(substr($row['teacher']->user?->name ?? 'T', 0, 1)) }}
+                        </span>
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-gray-900 truncate">{{ $row['teacher']->user?->name ?? '—' }}</p>
+                            @if ($row['is_absent'])
+                                <p class="text-[10px] text-red-500 font-medium">Absent today</p>
+                            @endif
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between text-xs text-gray-500">
+                        <span>{{ $row['own'] }} own{{ $row['sub'] > 0 ? ' + ' . $row['sub'] . ' covering' : '' }}</span>
+                        <span class="text-sm font-bold text-gray-900">{{ $row['total'] }}</span>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </div>
 @endif
 
 </div>

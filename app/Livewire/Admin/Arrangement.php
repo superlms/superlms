@@ -332,11 +332,49 @@ class Arrangement extends Component
             }
         }
 
+        // 5. Every active teacher's effective load today — their own periods
+        //    (unless they're absent, so none of them are actually theirs to
+        //    teach) plus whatever they've picked up as a substitute.
+        $allTeachers = TeacherDetail::with('user')
+            ->where('organization_id', $org)
+            ->whereHas('user', fn($q) => $q->where('is_active', 1))
+            ->orderBy('id')
+            ->get();
+
+        $ownPeriodCounts = TeacherTimeTable::where('organization_id', $org)
+            ->where('day_of_week', $dayOfWeek)
+            ->selectRaw('teacher_detail_id, COUNT(*) as cnt')
+            ->groupBy('teacher_detail_id')
+            ->pluck('cnt', 'teacher_detail_id');
+
+        $subCounts = TeacherArrangement::where('organization_id', $org)
+            ->whereDate('date', $this->date)
+            ->selectRaw('substitute_teacher_id, COUNT(*) as cnt')
+            ->groupBy('substitute_teacher_id')
+            ->pluck('cnt', 'substitute_teacher_id');
+
+        $absentIdSet = array_flip($absentDetailIds);
+
+        $teacherLoads = $allTeachers->map(function ($t) use ($ownPeriodCounts, $subCounts, $absentIdSet) {
+            $isAbsent = isset($absentIdSet[$t->id]);
+            $own      = $isAbsent ? 0 : (int) ($ownPeriodCounts[$t->id] ?? 0);
+            $sub      = (int) ($subCounts[$t->id] ?? 0);
+
+            return [
+                'teacher'   => $t,
+                'is_absent' => $isAbsent,
+                'own'       => $own,
+                'sub'       => $sub,
+                'total'     => $own + $sub,
+            ];
+        })->sortByDesc('total')->values();
+
         return view('livewire.admin.arrangement', compact(
             'absentTeachers',
             'absentSlots',
             'arrangementsForDate',
             'slotAvailability',
+            'teacherLoads',
         ));
     }
 }
