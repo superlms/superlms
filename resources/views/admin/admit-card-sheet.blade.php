@@ -90,7 +90,7 @@
         /* ── Identity: a bordered grid, same shape as the report card ── */
         .info { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .info td {
-            border: 0.5pt solid #000; padding: 0.4mm 1mm; font-size: 5.9pt;
+            border: 0.5pt solid #000; padding: 0.4mm 1mm; font-size: 7.4pt;
             vertical-align: top; line-height: 1.2; word-wrap: break-word;
         }
         .info td.label {
@@ -111,11 +111,11 @@
         .sched { height: 48mm; overflow: hidden; }
         .papers { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .papers th {
-            font-size: 4.8pt; letter-spacing: 0.08em; text-transform: uppercase;
+            font-size: 6.3pt; letter-spacing: 0.08em; text-transform: uppercase;
             font-weight: normal; text-align: left; padding: 0 1mm 0.6mm; border-bottom: 0.5pt solid #000;
         }
         .papers td {
-            font-size: 5.9pt; padding: 0.4mm 1mm; border-bottom: 0.3pt solid #000; line-height: 1.15;
+            font-size: 8.15pt; padding: 0.4mm 1mm; border-bottom: 0.3pt solid #000; line-height: 1.15;
             overflow: hidden; white-space: nowrap;
         }
         /* A long subject name wraps instead of being cut in half. */
@@ -133,10 +133,10 @@
         /* Past ten papers the schedule alone tightens, so the card keeps its
            masthead, its identity grid and its foot at exactly the size every
            other card on the sheet prints them at. */
-        .card.many .papers td    { font-size: 5.4pt; padding: 0.3mm 1mm; }
-        .card.many-x .papers th  { font-size: 4.4pt; padding-bottom: 0.4mm; }
-        .card.many-x .papers td  { font-size: 4.5pt; padding: 0.15mm 0.8mm; }
-        .card.many-xx .papers td { font-size: 4pt; padding: 0.05mm 0.7mm; }
+        .card.many .papers td    { font-size: 7.4pt; padding: 0.3mm 1mm; }
+        .card.many-x .papers th  { font-size: 5.6pt; padding-bottom: 0.4mm; }
+        .card.many-x .papers td  { font-size: 6.2pt; padding: 0.15mm 0.8mm; }
+        .card.many-xx .papers td { font-size: 4.6pt; padding: 0.02mm 0.7mm; }
 
         /* ── Instructions: pinned above the foot, so they end on the same line
               in every card and the schedule window above never moves ── */

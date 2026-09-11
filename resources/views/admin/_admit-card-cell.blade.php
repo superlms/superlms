@@ -44,9 +44,9 @@
     // quadrant without making the card around it look like a different card.
     // The full-page stylesheet ignores these — it has room for any count.
     $tier = match (true) {
-        $papers->count() > 18 => ' many many-x many-xx',
-        $papers->count() > 14 => ' many many-x',
-        $papers->count() > 12 => ' many',
+        $papers->count() > 15 => ' many many-x many-xx',
+        $papers->count() > 12 => ' many many-x',
+        $papers->count() > 10 => ' many',
         default               => '',
     };
 @endphp
