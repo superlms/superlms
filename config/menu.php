@@ -414,6 +414,12 @@ return [
             'prefix' => 'accounts.payments',
         ],
         [
+            'title' => 'Fee Concession',
+            'link' => 'accounts.fee-concessions',
+            'icon' => 'ticket',
+            'prefix' => 'accounts.fee-concessions',
+        ],
+        [
             'title' => 'Penalties',
             'link' => 'accounts.penalties',
             'icon' => 'exclamation-triangle',

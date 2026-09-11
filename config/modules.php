@@ -32,6 +32,7 @@ return [
             'accounts.payments',
             'accounts.penalties',
             'accounts.fee-cycles',
+            'accounts.fee-concessions',
         ],
     ],
     'payroll' => [

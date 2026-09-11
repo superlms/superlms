@@ -2,50 +2,11 @@
      FEE CONCESSION — shared by Accounts\FeeConcessions and the
      "Concession" tab of Admin\Fee. Both hosts provide the same variables
      via App\Livewire\Concerns\HandlesFeeConcessions::feeConcessionViewData(),
-     plus $standards. Edit this one file and both pages update together.
+     plus $standards. The "Filter by:" band and the "Add Concession" button
+     are NOT here — they sit in each host's own sticky header (see
+     livewire.partials.fee-concession-header). Edit these files and both
+     pages update together.
 ══════════════════════════════════════════════════════════════════ --}}
-
-{{-- Filter band + Add button --}}
-<div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-4">
-    <div class="px-4 sm:px-6 py-3 bg-gray-50 flex flex-wrap items-center gap-3">
-        <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-            Filter by:
-        </div>
-        <select wire:model.live="filterConcStandardId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-            <option value="">All classes</option>
-            @foreach ($standards as $std)
-                <option value="{{ $std->id }}">{{ $std->name }}</option>
-            @endforeach
-        </select>
-        <select wire:model.live="filterConcSectionId" @disabled(!$filterConcStandardId) class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
-            <option value="">All sections</option>
-            @foreach ($filterConcSections as $sec)
-                <option value="{{ $sec->id }}">{{ $sec->name }}</option>
-            @endforeach
-        </select>
-        <select wire:model.live="filterConcStudentId" @disabled(!$filterConcStandardId) class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
-            <option value="">All students</option>
-            @foreach ($filterConcStudents as $stu)
-                <option value="{{ $stu->id }}">{{ $stu->full_name ?? ($stu->user->name ?? 'Unknown') }}</option>
-            @endforeach
-        </select>
-        <input type="date" wire:model.live="filterConcDate" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-
-        @if ($filterConcStandardId || $filterConcSectionId || $filterConcStudentId || $filterConcDate)
-            <button wire:click="clearConcFilters" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                Clear
-            </button>
-        @endif
-
-        <button wire:click="openConcessionModal()"
-            class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm ml-auto">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-            Add Concession
-        </button>
-    </div>
-</div>
 
 {{-- Listing table --}}
 <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">

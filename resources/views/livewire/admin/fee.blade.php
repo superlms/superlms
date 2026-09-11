@@ -81,6 +81,13 @@
                             <span class="hidden sm:inline">Update Fee</span>
                             <span class="sm:hidden">Update</span>
                         </button>
+                    @elseif ($activeTab === 'concession')
+                        <button wire:click="openConcessionModal()"
+                            class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                            <span class="hidden sm:inline">Add Concession</span>
+                            <span class="sm:hidden">Add</span>
+                        </button>
                     @elseif ($activeTab === 'account_users')
                         <button wire:click="acctAdd"
                             class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
@@ -140,6 +147,10 @@
 
         @if ($activeTab === 'cycle')
             @include('livewire.partials.fee-cycle-header')
+        @endif
+
+        @if ($activeTab === 'concession')
+            @include('livewire.partials.fee-concession-header')
         @endif
 
         @if ($activeTab === 'fee_submission')
