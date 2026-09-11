@@ -5,20 +5,10 @@
      instructions and the signature foot. Table-based (no flex/grid) because
      dompdf renders this same markup for the PDF. --}}
 @php
-    // Resolve an image path for dompdf. Absolute URLs are used as-is (remote
-    // images are enabled on the PDF), otherwise prefer the local
-    // storage-symlink file and fall back to the disk's public URL (S3).
-    $imgSrc = function ($path) {
-        if (!$path) return null;
-        if (\Illuminate\Support\Str::startsWith($path, ['http://', 'https://'])) return $path;
-        $local = public_path('storage/' . ltrim($path, '/'));
-        if (is_file($local)) return $local;
-        try { return \Illuminate\Support\Facades\Storage::url($path); } catch (\Throwable $e) { return $local; }
-    };
-
-    $org       = $admitCard->organization ?: $organization;
-    $logoSrc   = $imgSrc($org->logo ?? null);
-    $student   = $admitCard->studentDetail;
+    // No logo on the card: the masthead is the school's name over its contact
+    // line, both set flush left, and nothing else.
+    $org     = $admitCard->organization ?: $organization;
+    $student = $admitCard->studentDetail;
 
     // Papers in the order the student sits them.
     $papers = collect($admitCard->subjects ?? [])
@@ -32,40 +22,44 @@
         $org->email ?? null,
     ])->filter()->implode('  ·  ');
 
-    // The instruction list, already split into lines. Trimmed to four so a
-    // wordy school note can never push the foot off a quadrant.
-    $notes = $admitCard->instructions
-        ? collect(preg_split('/\r?\n|(?<=\.)(?=\s*\d+\.)/', $admitCard->instructions))
-            ->map(fn ($l) => preg_replace('/^\d+\.\s*/', '', trim($l)))
-            ->filter()
-            ->values()
-        : collect([
-            'Reach the examination hall 15 minutes before the scheduled time. Entry is not permitted 15 minutes after the paper begins.',
-            'Carry this admit card and your school identity card to every paper.',
-            'Read the instructions printed on the answer book and follow them strictly.',
-            'Hand the answer script to the invigilator before leaving the hall.',
-        ]);
-    $notes = $notes->take(4);
+    // One line of instructions, not a numbered list. A school note written as
+    // several lines is rolled into that same single sentence, and the whole
+    // thing is capped so a wordy note can never push the foot off a quadrant.
+    $note = collect(preg_split('/\r?\n|(?<=\.)(?=\s*\d+\.)/', (string) $admitCard->instructions))
+        ->map(fn ($l) => trim(preg_replace('/^\d+[.)]\s*/', '', trim($l)), " \t.;,"))
+        ->filter()
+        ->implode('; ');
+
+    $note = $note
+        ? $note . '.'
+        : 'Reach the examination hall 15 minutes before the paper begins, carry this admit card with your school identity card to every paper, follow the instructions printed on the answer book, and hand the answer script to the invigilator before leaving.';
+
+    $note = \Illuminate\Support\Str::limit($note, 320);
 @endphp
 
 @php
-    // Density tier for the 4-up sheet, from the number of papers. The full-page
-    // stylesheet ignores these — it has room for any count at one size.
+    // The 4-up sheet prints every card at one size: the masthead, the identity
+    // grid and the foot never change scale. Only a schedule longer than the
+    // window holds tightens its own rows, so a long datesheet still fits the
+    // quadrant without making the card around it look like a different card.
+    // The full-page stylesheet ignores these — it has room for any count.
     $tier = match (true) {
-        $papers->count() > 13 => ' dense tight micro',
-        $papers->count() > 9  => ' dense tight',
-        $papers->count() > 6  => ' dense',
+        $papers->count() > 18 => ' many many-x many-xx',
+        $papers->count() > 14 => ' many many-x',
+        $papers->count() > 12 => ' many',
         default               => '',
     };
 @endphp
 
 <div class="card{{ $tier }}">
 
-    {{-- ── MASTHEAD ── --}}
+  {{-- Everything that flows from the top of the card. On the 4-up sheet this
+       box carries the card's padding, because the card itself cannot (see the
+       .pad note in admit-card-sheet). --}}
+  <div class="pad">
+
+    {{-- ── MASTHEAD — name over contacts, flush left, no logo ── --}}
     <div class="masthead">
-        @if($logoSrc)
-            <img class="logo" src="{{ $logoSrc }}" alt="">
-        @endif
         <div class="school">{{ $org->name }}</div>
         @if($contacts)
             <div class="address">{{ $contacts }}</div>
@@ -118,6 +112,10 @@
     {{-- ── PAPER SCHEDULE ── --}}
     <div class="block">
         <div class="sec-label">Examination Schedule</div>
+        {{-- On the 4-up sheet this window has a fixed height, which is what
+             keeps every card on the page the same shape. On the full page it
+             is an ordinary div. --}}
+        <div class="sched">
         @if($papers->isNotEmpty())
             <table class="papers">
                 <thead>
@@ -147,9 +145,9 @@
                         @endphp
                         <tr>
                             <td>{{ $paper['subject_name'] ?? '—' }}</td>
-                            <td class="{{ $date ? '' : 'off' }}">{{ $date ? $date->format('d M Y, D') : '—' }}</td>
-                            <td class="{{ $from ? '' : 'off' }}">{{ $from ? ($to ? $from . ' – ' . $to : $from) : '—' }}</td>
-                            <td class="c seat {{ $where === '—' ? 'off' : '' }}">{{ $where }}</td>
+                            <td>{{ $date ? $date->format('d M Y, D') : '—' }}</td>
+                            <td>{{ $from ? ($to ? $from . ' – ' . $to : $from) : '—' }}</td>
+                            <td class="c seat">{{ $where }}</td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -157,19 +155,22 @@
         @else
             <div class="no-papers">The datesheet for this class has not been published yet.</div>
         @endif
+        </div>
     </div>
 
-    {{-- ── INSTRUCTIONS ── --}}
-    <div class="block">
+  </div>
+
+    {{-- ── INSTRUCTIONS — the whole note in one line, pinned to the bottom of
+           the quadrant on the sheet ── --}}
+    <div class="block instructions">
         <div class="sec-label">Instructions</div>
-        <ol class="notes">
-            @foreach($notes as $note)
-                <li>{{ $note }}</li>
-            @endforeach
-        </ol>
+        <div class="note">{{ $note }}</div>
     </div>
 
-    {{-- ── FOOT ── --}}
+    {{-- ── FOOT — the wrapper is what carries the pin on the 4-up sheet:
+           dompdf resolves `bottom` on a div but not on a table, and a pinned
+           table ends up hanging off the bottom of the card. ── --}}
+    <div class="foot-wrap">
     <table class="foot">
         <tr>
             <td>
@@ -182,5 +183,6 @@
             </td>
         </tr>
     </table>
+    </div>
 
 </div>

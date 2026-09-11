@@ -20,92 +20,102 @@
         * { box-sizing: border-box; }
         body, h1, p, ol, li, table, td, th, div { margin: 0; padding: 0; }
 
-        /* A4 landscape is 297 × 210mm; 5mm margins leave 287 × 200mm of paper.
-           Two 90mm rows are 180mm of that, and the 20mm left over is the point.
-           Sizing the rows to fill the box exactly is what put the bottom row on
-           a second sheet: the collapsed cut-line borders add their own fraction
-           of a millimetre, and a 99mm row rounds up to 375px at 96dpi, so
-           "exactly 198mm" measured 198.4mm and the row was pushed over.
+        /* ═══ The page, cut in four ═══
+           A4 landscape is 297 × 210mm and the sheet takes no page margin, so a
+           quadrant is a true half each way — 148.5mm wide, 105mm tall — and the
+           cut lines run down and across the middle of the paper.
 
-           The row height is fixed while the page box is not — a browser told to
-           use its own margins instead of these gives only 190mm — so the slack
-           is sized to survive that too: 180mm still leaves 10mm there. */
-        @page { size: A4 landscape; margin: 5mm; }
+           The rows ask for 104.7mm rather than a flat 105: collapsed cut-line
+           borders add their own fraction of a millimetre, and a height in mm
+           rounds up to a whole pixel at 96dpi, so a table asking for exactly
+           210mm measures over 210mm and drops the bottom row onto a second
+           sheet. 0.3mm of slack per row buys immunity and cannot be seen. */
+        @page { size: A4 landscape; margin: 0; }
 
         body {
             font-family: 'Poppins', 'Inter', 'DejaVu Sans', Arial, sans-serif;
-            font-size: 6pt; color: #16181d; background: #fff; line-height: 1.35;
+            font-size: 6.6pt; color: #000; background: #fff; line-height: 1.35;
             -webkit-font-smoothing: antialiased;
         }
 
-        /* ═══ The sheet: four quadrants of an A4 landscape page ═══
-           A table, not grid/flex, because dompdf renders this same markup for
-           the download. Every card is one 90mm-tall cell, so a run of one card
-           occupies exactly one quadrant instead of stretching over the page. */
+        /* A table, not grid/flex, because dompdf renders this same markup for
+           the download. Two rows of two, always — both columns exactly 50% of
+           the width and both rows exactly the same height, so the cut runs down
+           the middle and across the middle whether the sheet holds one card or
+           four, and an empty quadrant is simply an empty quadrant. */
         .sheet { width: 100%; border-collapse: collapse; table-layout: fixed; page-break-inside: avoid; }
-        .sheet .cell { width: 50%; height: 90mm; vertical-align: top; padding: 0; }
+        .sheet .cell { width: 50%; height: 104.7mm; vertical-align: top; padding: 0; }
         .sheet tr { page-break-inside: avoid; }
-        /* Cut lines only where a card actually has a neighbour, so a sheet of
-           one or three cards prints clean. */
-        .sheet .cell.br { border-right: 0.5pt dotted #b0b5bb; }
-        .sheet .cell.bb { border-bottom: 0.5pt dotted #b0b5bb; }
+        /* The cross: the right edge of column one, the bottom edge of row one.
+           Both lines run the full length of the page. */
+        .sheet .cell.br { border-right: 0.4pt dotted #000; }
+        .sheet .cell.bb { border-bottom: 0.4pt dotted #000; }
 
         .sheet-wrap { page-break-after: always; }
         .sheet-wrap.last { page-break-after: auto; }
 
-        /* Fixed height and clipped: whatever a card holds, it occupies exactly
-           its quadrant, so four always land on one sheet and a fifth can never
-           be squeezed out onto the next. The type tiers below are sized so real
-           subject counts fit well inside this without ever reaching the clip. */
-        .card { padding: 2.5mm 3.5mm; height: 90mm; overflow: hidden; page-break-inside: avoid; }
+        /* ═══ One frame, whatever the schedule holds ═══
+           The card fills its quadrant, and the parts that decide how it reads
+           are locked to the box rather than to the content: masthead and
+           identity run from the top, the instructions and the signature foot
+           are pinned to the bottom, and the schedule lives in a fixed window
+           between them. A two-subject card and a ten-subject card are then the
+           same card at the same size — only the number of rows differs. */
+        .card { position: relative; height: 104.7mm; overflow: hidden; page-break-inside: avoid; }
+        /* The padding lives on an inner box, never on the card itself: dompdf
+           ignores box-sizing, so padding on a height-fixed element is added to
+           that height — 104.7mm of card plus 13mm of padding is 117.7mm of row,
+           which is exactly what used to push the bottom pair onto a second
+           sheet. The card keeps its height; this box keeps the margins. */
+        .pad { padding: 3.6mm 4.2mm 21mm; }
 
-        .muted { color: #6b7280; }
-
-        /* ── Masthead: logo, name, one line of contacts ── */
-        .masthead { text-align: center; padding-bottom: 1.2mm; border-bottom: 0.5pt solid #16181d; }
-        .masthead .logo { height: 7mm; width: 7mm; margin-bottom: 0.6mm; }
+        /* ── Masthead: the school's name over one line of contacts, flush left
+              against the same edge the card's content starts from ── */
+        .masthead { text-align: left; padding-bottom: 1mm; border-bottom: 0.5pt solid #000; }
         .masthead .school {
             font-family: 'Poppins SemiBold', 'Poppins', 'Inter', sans-serif; font-weight: 600;
-            font-size: 9pt; letter-spacing: -0.01em; line-height: 1.2;
+            font-size: 8.8pt; letter-spacing: -0.01em; line-height: 1.15;
         }
-        .masthead .address { font-size: 4.5pt; color: #6b7280; margin-top: 0.5mm; line-height: 1.3; }
+        .masthead .address { font-size: 4.6pt; margin-top: 0.4mm; line-height: 1.25; }
 
         /* ── Title row: the tag on the left, the exam on the right ── */
-        .titlebar { width: 100%; border-collapse: collapse; margin: 1.4mm 0; }
+        .titlebar { width: 100%; border-collapse: collapse; margin: 1.1mm 0; }
         .titlebar td { vertical-align: baseline; }
         .titlebar .tag {
             font-family: 'Poppins SemiBold', 'Poppins', 'Inter', sans-serif; font-weight: 600;
-            font-size: 6.6pt; letter-spacing: 0.18em; text-transform: uppercase;
+            font-size: 6.8pt; letter-spacing: 0.18em; text-transform: uppercase;
         }
-        .titlebar .exam { text-align: right; color: #6b7280; font-size: 5.2pt; }
+        .titlebar .exam { text-align: right; font-size: 5.4pt; }
 
         /* ── Identity: a bordered grid, same shape as the report card ── */
-
         .info { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .info td {
-            border: 0.5pt solid #aaaaaa; padding: 0.5mm 0.9mm; font-size: 5.4pt;
+            border: 0.5pt solid #000; padding: 0.4mm 1mm; font-size: 5.9pt;
             vertical-align: top; line-height: 1.2; word-wrap: break-word;
         }
         .info td.label {
-            color: #3f4451;
             font-family: 'Poppins SemiBold', 'Poppins', 'Inter', sans-serif; font-weight: 600;
         }
 
         /* ── Section label ── */
         .sec-label {
-            font-size: 4.7pt; letter-spacing: 0.12em; text-transform: uppercase; color: #6b7280;
-            margin-bottom: 0.7mm;
+            font-size: 4.9pt; letter-spacing: 0.12em; text-transform: uppercase;
+            margin-bottom: 0.6mm;
         }
-        .block { margin-top: 1.5mm; }
+        .block { margin-top: 1.2mm; }
 
-        /* ── Paper schedule ── */
+        /* ── Paper schedule ──
+           The window takes the room the logo and the four-line instruction
+           list used to hold: it fits a dozen papers at this scale, and past
+           that the rows tighten, only the rows (see .card.many below). */
+        .sched { height: 48mm; overflow: hidden; }
         .papers { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .papers th {
-            font-size: 4.6pt; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280;
-            font-weight: normal; text-align: left; padding: 0 0.9mm 0.7mm; border-bottom: 0.5pt solid #16181d;
+            font-size: 4.8pt; letter-spacing: 0.08em; text-transform: uppercase;
+            font-weight: normal; text-align: left; padding: 0 1mm 0.6mm; border-bottom: 0.5pt solid #000;
         }
         .papers td {
-            font-size: 5.6pt; padding: 0.7mm 0.9mm; border-bottom: 0.4pt solid #f0f1f3; line-height: 1.2;
+            font-size: 5.9pt; padding: 0.4mm 1mm; border-bottom: 0.3pt solid #000; line-height: 1.15;
             overflow: hidden; white-space: nowrap;
         }
         /* A long subject name wraps instead of being cut in half. */
@@ -115,54 +125,42 @@
         .papers th:last-child, .papers td:last-child { padding-right: 0; }
         .papers th.c, .papers td.c { text-align: center; }
         .papers .seat { font-family: 'Poppins SemiBold', 'Poppins', 'Inter', sans-serif; font-weight: 600; }
-        .papers .off { color: #9aa0a6; }
         .no-papers {
-            font-size: 5pt; color: #9aa0a6; border: 0.5pt dashed #d9dce1;
-            padding: 2.5mm; text-align: center;
+            font-size: 5.6pt; border: 0.5pt dashed #000;
+            padding: 3mm; text-align: center;
         }
 
-        /* ═══ Holding the quadrant at any subject count ═══
-           A quadrant is 90mm; the fixed parts (masthead, identity, labels,
-           instructions, foot) take roughly 52mm of it, leaving about 36mm for
-           the schedule. Each tier shrinks the row until that many rows fit
-           inside that with room to spare, so eight subjects sit exactly
-           the way six do — the format does not change shape, only its scale.
+        /* Past ten papers the schedule alone tightens, so the card keeps its
+           masthead, its identity grid and its foot at exactly the size every
+           other card on the sheet prints them at. */
+        .card.many .papers td    { font-size: 5.4pt; padding: 0.3mm 1mm; }
+        .card.many-x .papers th  { font-size: 4.4pt; padding-bottom: 0.4mm; }
+        .card.many-x .papers td  { font-size: 4.5pt; padding: 0.15mm 0.8mm; }
+        .card.many-xx .papers td { font-size: 4pt; padding: 0.05mm 0.7mm; }
 
-             tier      papers   row      rows × height
-             ──────    ──────   ─────    ─────────────
-             (base)      ≤6     ~3.5mm    6 × 3.5 = 21mm
-             dense      7–9     ~3.1mm    9 × 3.1 = 28mm
-             tight     10–13    ~2.6mm   13 × 2.6 = 34mm
-             micro       14+    ~2.2mm   16 × 2.2 = 35mm                     */
-        .card.dense .papers th { font-size: 4.3pt; padding-bottom: 0.55mm; }
-        .card.dense .papers td { font-size: 5.1pt; padding: 0.5mm 0.9mm; }
-        .card.dense .notes li  { font-size: 4.2pt; margin-bottom: 0.3mm; }
+        /* ── Instructions: pinned above the foot, so they end on the same line
+              in every card and the schedule window above never moves ── */
+        .instructions { position: absolute; left: 4.2mm; right: 4.2mm; bottom: 9.4mm; }
+        .note { font-size: 4.7pt; line-height: 1.3; text-align: justify; }
 
-        .card.tight .papers td { font-size: 4.7pt; padding: 0.35mm 0.8mm; }
-        .card.tight .info td   { font-size: 5pt; padding: 0.4mm 0.8mm; }
-        .card.tight .notes li  { font-size: 3.9pt; margin-bottom: 0.2mm; }
-        .card.tight .masthead  { padding-bottom: 0.9mm; }
-        .card.tight .block     { margin-top: 1.2mm; }
-
-        .card.micro .papers th { font-size: 4pt; padding-bottom: 0.4mm; }
-        .card.micro .papers td { font-size: 4.3pt; padding: 0.25mm 0.7mm; }
-        .card.micro .masthead .logo { height: 5.5mm; width: 5.5mm; }
-        .card.micro .masthead .school { font-size: 8pt; }
-        .card.micro .titlebar  { margin: 1mm 0; }
-        .card.micro .info td   { font-size: 4.8pt; padding: 0.3mm 0.7mm; }
-        .card.micro .block     { margin-top: 0.9mm; }
-        .card.micro .foot      { margin-top: 1mm; }
-        .card.micro .notes li  { font-size: 3.5pt; margin-bottom: 0.15mm; line-height: 1.2; }
-
-        /* ── Instructions ── */
-        .notes { padding-left: 8px; }
-        .notes li { font-size: 4.6pt; color: #6b7280; margin-bottom: 0.3mm; line-height: 1.3; }
-
-        /* ── Foot ── */
-        .foot { width: 100%; border-collapse: collapse; margin-top: 1.5mm; }
-        .foot td { font-size: 4.8pt; color: #6b7280; vertical-align: bottom; line-height: 1.35; }
+        /* ── Foot: pinned into the card's bottom padding ── */
+        .foot-wrap { position: absolute; left: 4.2mm; right: 4.2mm; bottom: 3.2mm; }
+        .foot { width: 100%; border-collapse: collapse; }
+        .foot td { font-size: 5.1pt; vertical-align: bottom; line-height: 1.3; }
         .foot .sign { text-align: right; }
-        .foot .sign .line { border-top: 0.5pt solid #16181d; width: 22mm; margin: 0 0 0.6mm auto; height: 0; }
+        .foot .sign .line { border-top: 0.5pt solid #000; width: 26mm; margin: 0 0 0.8mm auto; height: 0; }
+
+        @if($isPdf ?? false)
+        /* ═══ dompdf only — leading ═══
+           dompdf builds every line box out of the font's own metrics, and
+           Poppins declares an em box of about 1.7 — so a line-height that
+           reads normally in a browser prints half again as tall here, which
+           is what used to spill the fourth card onto a second sheet. Dividing
+           the browser's leading by that 1.7 makes the PDF measure the same as
+           the print preview, line for line. */
+        body, .masthead .school, .masthead .address, .titlebar td, .info td,
+        .papers th, .papers td, .note, .foot td { line-height: 0.72; }
+        @endif
 
         @unless($isPdf ?? false)
         /* ═══ Screen only — the same sheet on a plain ground, nothing else.
@@ -170,8 +168,8 @@
                out of the PDF by Blade rather than by a media query. ═══ */
         body { background: #f1f3f6; padding: 22px 16px 48px; }
         .sheet-wrap {
-            width: 297mm; max-width: 100%; min-height: 210mm; margin: 0 auto 8mm;
-            background: #fff; padding: 5mm;
+            width: 297mm; max-width: 100%; height: 210mm; margin: 0 auto 8mm;
+            background: #fff; padding: 0; overflow: hidden;
             box-shadow: 0 1px 3px rgba(16,24,40,.08), 0 8px 28px rgba(16,24,40,.10);
         }
         .toolbar {
@@ -200,7 +198,7 @@
 
         @media print {
             body { background: #fff; padding: 0; }
-            .sheet-wrap { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
+            .sheet-wrap { width: auto; height: auto; margin: 0; padding: 0; box-shadow: none; }
             .no-print { display: none !important; }
             .card { break-inside: avoid; }
         }
@@ -234,19 +232,17 @@
 @endunless
 
 @forelse($sheets as $s => $sheet)
-    @php $items = $sheet->values(); $rows = (int) ceil($items->count() / 2); @endphp
+    @php $items = $sheet->values(); @endphp
+    {{-- Always two rows of two, however many cards the sheet holds: the page is
+         cut in exact halves both ways, so a sheet of one card is cut the same
+         as a sheet of four and the guillotine setting never changes. --}}
     <div class="sheet-wrap{{ $s === $sheets->count() - 1 ? ' last' : '' }}">
         <table class="sheet">
-            @for($r = 0; $r < $rows; $r++)
+            @for($r = 0; $r < 2; $r++)
                 <tr>
                     @for($c = 0; $c < 2; $c++)
-                        @php
-                            $i        = $r * 2 + $c;
-                            $card     = $items[$i] ?? null;
-                            $hasRight = $c === 0 && isset($items[$i + 1]);
-                            $hasBelow = isset($items[$i + 2]);
-                        @endphp
-                        <td class="cell{{ $hasRight ? ' br' : '' }}{{ $hasBelow ? ' bb' : '' }}">
+                        @php $card = $items[$r * 2 + $c] ?? null; @endphp
+                        <td class="cell{{ $c === 0 ? ' br' : '' }}{{ $r === 0 ? ' bb' : '' }}">
                             @if($card)
                                 @include('admin._admit-card-cell', ['admitCard' => $card, 'organization' => $organization])
                             @else

@@ -26,21 +26,21 @@
 
         body {
             font-family: 'Poppins', 'Inter', 'DejaVu Sans', Arial, sans-serif;
-            font-size: 9.5pt; color: #16181d; background: #fff; line-height: 1.5;
+            font-size: 9.5pt; color: #000; background: #fff; line-height: 1.5;
             -webkit-font-smoothing: antialiased;
         }
         /* dompdf collapses font-weight per family, so each weight is its own
            family name (see App\Support\PdfFonts). */
-        .muted { color: #6b7280; }
+        .muted { color: #000; }
 
-        /* ── Masthead: logo, name, one line of contacts ── */
-        .masthead { text-align: center; padding-bottom: 4mm; border-bottom: 0.6pt solid #16181d; }
-        .masthead .logo { height: 15mm; width: 15mm; margin-bottom: 2mm; }
+        /* ── Masthead: the school's name over one line of contacts, flush left
+              against the same edge the rest of the card starts from ── */
+        .masthead { text-align: left; padding-bottom: 4mm; border-bottom: 0.6pt solid #000; }
         .masthead .school {
             font-family: 'Poppins SemiBold', 'Poppins', 'Inter', sans-serif; font-weight: 600;
             font-size: 16pt; letter-spacing: -0.01em; line-height: 1.2;
         }
-        .masthead .address { font-size: 8pt; color: #6b7280; margin-top: 1.5mm; }
+        .masthead .address { font-size: 8pt; margin-top: 1.5mm; }
 
         /* ── Title row: the tag on the left, the exam on the right ── */
         .titlebar { width: 100%; border-collapse: collapse; margin: 4mm 0 4mm; }
@@ -49,23 +49,22 @@
             font-family: 'Poppins SemiBold', 'Poppins', 'Inter', sans-serif; font-weight: 600;
             font-size: 10.5pt; letter-spacing: 0.24em; text-transform: uppercase;
         }
-        .titlebar .exam { text-align: right; color: #6b7280; font-size: 9pt; }
+        .titlebar .exam { text-align: right; font-size: 9pt; }
 
         /* ── Identity: a bordered grid, same shape as the report card ── */
 
         .info { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .info td {
-            border: 0.6pt solid #aaaaaa; padding: 1.8mm 2.5mm; font-size: 9pt;
+            border: 0.6pt solid #000; padding: 1.8mm 2.5mm; font-size: 9pt;
             vertical-align: top; word-wrap: break-word;
         }
         .info td.label {
-            color: #3f4451;
             font-family: 'Poppins SemiBold', 'Poppins', 'Inter', sans-serif; font-weight: 600;
         }
 
         /* ── Section label ── */
         .sec-label {
-            font-size: 7.5pt; letter-spacing: 0.16em; text-transform: uppercase; color: #6b7280;
+            font-size: 7.5pt; letter-spacing: 0.16em; text-transform: uppercase;
             margin-bottom: 2mm;
         }
         .block { margin-top: 6mm; }
@@ -73,11 +72,11 @@
         /* ── Paper schedule ── */
         .papers { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .papers th {
-            font-size: 7pt; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280;
-            font-weight: normal; text-align: left; padding: 0 2mm 1.6mm; border-bottom: 0.6pt solid #16181d;
+            font-size: 7pt; letter-spacing: 0.08em; text-transform: uppercase;
+            font-weight: normal; text-align: left; padding: 0 2mm 1.6mm; border-bottom: 0.6pt solid #000;
         }
         .papers td {
-            font-size: 9pt; padding: 2mm; border-bottom: 0.6pt solid #f0f1f3;
+            font-size: 9pt; padding: 2mm; border-bottom: 0.4pt solid #000;
             white-space: nowrap; overflow: hidden;
         }
         .papers td:first-child { white-space: normal; word-wrap: break-word; }
@@ -86,18 +85,17 @@
         .papers th.c, .papers td.c { text-align: center; }
         .papers th:last-child, .papers td:last-child { padding-right: 0; }
         .papers .seat { font-family: 'Poppins SemiBold', 'Poppins', 'Inter', sans-serif; font-weight: 600; }
-        .papers .off { color: #9aa0a6; }
-        .no-papers { font-size: 9pt; color: #9aa0a6; }
+        /* Every mark on the card prints at full strength — no faded greys. */
+        .no-papers { font-size: 9pt; }
 
-        /* ── Instructions ── */
-        .notes { padding-left: 14px; }
-        .notes li { font-size: 8pt; color: #6b7280; margin-bottom: 1.2mm; line-height: 1.5; padding-left: 1mm; }
+        /* ── Instructions: one line, not a numbered list ── */
+        .note { font-size: 8.5pt; line-height: 1.55; text-align: justify; }
 
         /* ── Foot ── */
         .foot { width: 100%; border-collapse: collapse; margin-top: 10mm; }
-        .foot td { font-size: 8pt; color: #6b7280; vertical-align: bottom; }
+        .foot td { font-size: 8pt; vertical-align: bottom; }
         .foot .sign { text-align: right; }
-        .foot .sign .line { border-top: 0.6pt solid #16181d; width: 45mm; margin: 0 0 1.5mm auto; height: 0; }
+        .foot .sign .line { border-top: 0.6pt solid #000; width: 45mm; margin: 0 0 1.5mm auto; height: 0; }
 
         @unless($isPdf ?? false)
         /* ═══ Screen only — a plain sheet on a plain ground, nothing else.
