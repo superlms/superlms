@@ -9,60 +9,137 @@
 ══════════════════════════════════════════════════════════════════ --}}
 
 @if ($cycleTab === 'cycle')
-    {{-- Installments table --}}
-    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <table class="w-full text-sm">
-            <thead class="bg-gray-50 border-b border-gray-200">
-                <tr>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Installment</th>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Fee Type</th>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Due Date</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Fee %</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Penalty/Day</th>
-                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Year</th>
-                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-                @forelse ($cycles as $cy)
-                    <tr wire:key="cycle-{{ $cy->id }}" class="hover:bg-gray-50">
-                        <td class="px-4 py-3 font-semibold text-gray-800">
-                            {{ $cy->is_token ? 'Token' : '#' . $cy->payment_serial }}
-                            @if (!$cy->is_token && $this->cycleSpanLabel($cy))
-                                <span class="text-gray-400 font-normal">({{ $this->cycleSpanLabel($cy) }})</span>
-                            @endif
-                        </td>
-                        <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-[11px] {{ $cy->fee_type === 'academic' ? 'bg-emerald-100 text-emerald-700' : 'bg-teal-100 text-teal-700' }} capitalize">{{ $cy->fee_type }}</span></td>
-                        <td class="px-4 py-3 text-gray-600">{{ optional($cy->due_date)->format('d M Y') ?? '—' }}</td>
-                        <td class="px-4 py-3 text-right font-semibold text-gray-800">{{ $cy->is_token ? '—' : rtrim(rtrim(number_format($cy->fee_percent, 2), '0'), '.') . '%' }}</td>
-                        <td class="px-4 py-3 text-right text-gray-600">{{ $cy->is_token ? '₹' . number_format($cy->amount, 2) : '—' }}</td>
-                        <td class="px-4 py-3 text-right text-gray-600">₹{{ number_format($cy->penalty_per_day, 2) }}</td>
-                        <td class="px-4 py-3 text-center text-gray-500">{{ $cy->academic_year }}</td>
-                        <td class="px-4 py-3">
-                            {{-- View only — Edit and Delete live in the view card's own header. --}}
-                            <div class="flex items-center justify-center">
-                                <button wire:click="viewCycle({{ $cy->id }})" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-gray-200 text-xs font-medium text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200" title="View">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                                    View
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="8" class="px-4 py-16 text-center">
-                            <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
-                                <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                            </div>
-                            <p class="text-sm font-semibold text-gray-800">No installments yet</p>
-                            <p class="text-xs text-gray-400 mt-1">Click "Add Fee Cycle" to define the fee cycle.</p>
-                        </td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
+    {{-- ══════════ ONE CARD PER CYCLE — fee type + academic year ══════════
+         Each card carries its own header: what the cycle is, what it adds up
+         to, and Edit (the whole cycle at once) / Download / Print.
+    ══════════════════════════════════════════════════════════════════════ --}}
+    @forelse ($cycleGroups as $group)
+        @php
+            $kindLabel = ['monthly' => 'Monthly', 'quarterly' => 'Quarterly', 'custom' => 'Custom'][$group['kind']] ?? 'Custom';
+            $kindClass = ['monthly' => 'bg-indigo-100 text-indigo-700', 'quarterly' => 'bg-violet-100 text-violet-700', 'custom' => 'bg-gray-100 text-gray-600'][$group['kind']] ?? 'bg-gray-100 text-gray-600';
+            $balanced  = abs($group['percent'] - 100) < 0.01;
+            $groupName = ucfirst($group['fee_type']) . ' Fee Cycle — ' . $kindLabel . ' · ' . $group['year'];
+            $groupSub  = $group['count'] . ' installment' . ($group['count'] === 1 ? '' : 's')
+                . ' · totals ' . rtrim(rtrim(number_format($group['percent'], 2), '0'), '.') . '%'
+                . ($group['token'] ? ' · token fee ₹' . number_format($group['token']->amount, 2) : '');
+        @endphp
+        {{-- Print hands a bare copy of this card's table to a new window — the
+             page's own Tailwind classes mean nothing there, so it carries its
+             own stylesheet along. Alpine (not a <script> tag) so the button
+             still works after a Livewire tab morph re-inserts the card. --}}
+        <div wire:key="{{ $group['key'] }}"
+            x-data="{
+                printCycle() {
+                    const body = this.$refs.printable;
+                    const win = window.open('', '_blank', 'width=1000,height=700');
+                    if (! win) { alert('Allow pop-ups for this site to print the fee cycle.'); return; }
+                    const css = 'body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:24px}'
+                        + 'h1{font-size:15px;margin:0 0 3px}'
+                        + 'h2{font-size:11px;color:#555;font-weight:400;margin:0 0 14px}'
+                        + 'table{width:100%;border-collapse:collapse}'
+                        + 'th,td{border:1px solid #d5d5d5;padding:6px 8px;font-size:11px;text-align:left}'
+                        + 'th{background:#f3f4f6;text-transform:uppercase;font-size:10px}'
+                        + '.cycle-actions{display:none}';
+                    win.document.write('<html><head><title>' + body.dataset.title + '</title><style>' + css + '</style></head><body>'
+                        + '<h1>' + body.dataset.title + '</h1><h2>' + body.dataset.sub + '</h2>'
+                        + body.innerHTML + '</body></html>');
+                    win.document.close();
+                    win.focus();
+                    setTimeout(() => { win.print(); win.close(); }, 350);
+                }
+            }"
+            class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+
+            {{-- ── Listing header ── --}}
+            <div class="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-gray-200 bg-gray-50/70">
+                <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h3 class="text-sm font-bold text-gray-900 capitalize">{{ $group['fee_type'] }} Fee</h3>
+                        <span class="px-2 py-0.5 rounded text-[11px] font-semibold {{ $kindClass }}">{{ $kindLabel }}</span>
+                        <span class="text-xs text-gray-500">{{ $group['year'] }}</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-0.5">
+                        {{ $group['count'] }} installment{{ $group['count'] === 1 ? '' : 's' }} · totals
+                        <strong class="{{ $balanced ? 'text-emerald-600' : 'text-amber-600' }}">{{ rtrim(rtrim(number_format($group['percent'], 2), '0'), '.') }}%</strong>
+                        @if ($group['token'])
+                            · token fee <strong class="text-gray-700">₹{{ number_format($group['token']->amount, 2) }}</strong>
+                        @endif
+                    </p>
+                </div>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                    <button wire:click="openCycleEdit('{{ $group['fee_type'] }}', '{{ $group['year'] }}')"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-300 bg-white text-xs font-semibold text-gray-700 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300" title="Edit the whole cycle">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                        Edit
+                    </button>
+                    <button wire:click="downloadCycle('{{ $group['fee_type'] }}', '{{ $group['year'] }}')"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-300 bg-white text-xs font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300" title="Download as CSV">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-5l-4 4m0 0l-4-4m4 4V4" /></svg>
+                        Download
+                    </button>
+                    <button type="button" @click="printCycle()"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-300 bg-white text-xs font-semibold text-gray-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300" title="Print this cycle">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                        Print
+                    </button>
+                </div>
+            </div>
+
+            {{-- ── Installments table (also what the Print button hands the printer) ── --}}
+            <div class="overflow-x-auto" x-ref="printable" data-title="{{ $groupName }}" data-sub="{{ $groupSub }}">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Installment</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Fee Type</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Due Date</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Fee %</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Penalty/Day</th>
+                            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Year</th>
+                            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-24 cycle-actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @foreach ($group['rows'] as $cy)
+                            <tr wire:key="cycle-{{ $cy->id }}" class="hover:bg-gray-50">
+                                <td class="px-4 py-3 font-semibold text-gray-800">
+                                    {{ $this->cycleRowLabel($cy, $group['kind']) }}
+                                    @unless ($cy->is_token)
+                                        <span class="text-gray-400 font-normal text-xs">#{{ $cy->payment_serial }}</span>
+                                    @endunless
+                                </td>
+                                <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-[11px] {{ $cy->fee_type === 'academic' ? 'bg-emerald-100 text-emerald-700' : 'bg-teal-100 text-teal-700' }} capitalize">{{ $cy->fee_type }}</span></td>
+                                <td class="px-4 py-3 text-gray-600">{{ optional($cy->due_date)->format('d M Y') ?? '—' }}</td>
+                                <td class="px-4 py-3 text-right font-semibold text-gray-800">{{ $cy->is_token ? '—' : rtrim(rtrim(number_format($cy->fee_percent, 2), '0'), '.') . '%' }}</td>
+                                <td class="px-4 py-3 text-right text-gray-600">{{ $cy->is_token ? '₹' . number_format($cy->amount, 2) : '—' }}</td>
+                                <td class="px-4 py-3 text-right text-gray-600">₹{{ number_format($cy->penalty_per_day, 2) }}</td>
+                                <td class="px-4 py-3 text-center text-gray-500">{{ $cy->academic_year }}</td>
+                                <td class="px-4 py-3 cycle-actions">
+                                    {{-- View only — Edit and Delete for one row live in the view card's own header. --}}
+                                    <div class="flex items-center justify-center">
+                                        <button wire:click="viewCycle({{ $cy->id }})" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-gray-200 text-xs font-medium text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200" title="View">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                            View
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @empty
+        <div class="bg-white rounded-xl border border-gray-200 px-4 py-16 text-center">
+            <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
+                <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            </div>
+            <p class="text-sm font-semibold text-gray-800">No installments yet</p>
+            <p class="text-xs text-gray-400 mt-1">Click "Add Fee Cycle" to define the fee cycle.</p>
+        </div>
+    @endforelse
+
 @else
     {{-- ══════════ CALCULATOR TAB (per class/section) ══════════ --}}
     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -358,6 +435,114 @@
                         <span wire:loading wire:target="saveCycle">Saving…</span>
                     </button>
                 @endif
+            </div>
+        </div>
+    </div>
+@endif
+
+{{-- ══════════ EDIT THE WHOLE CYCLE — every installment at once ══════════
+     Opened from a listing card's Edit button. Each row is labelled the way
+     the cycle was built (month name / quarter / installment no.) and only its
+     numbers are editable. Type a % into one row and the rows you haven't
+     touched re-split what is left of the 100% between them, so setting Q1 to
+     35% lands the other three quarters on 65/3 on their own.
+══════════════════════════════════════════════════════════════════════ --}}
+@if ($cycleEditOpen)
+    @php
+        $editKindLabel = ['monthly' => 'Monthly', 'quarterly' => 'Quarterly', 'custom' => 'Custom'][$editCycleKind] ?? 'Custom';
+        $editTotal     = $this->editPercentTotal;
+        $editBalanced  = abs($editTotal - 100) < 0.01;
+        $editColHead   = $editCycleKind === 'monthly' ? 'Month' : ($editCycleKind === 'quarterly' ? 'Quarter' : 'Installment');
+    @endphp
+    <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
+        <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeCycleEdit"></div>
+        <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                <div class="min-w-0">
+                    <h2 class="text-lg font-semibold text-gray-900 truncate">Edit {{ $editKindLabel }} Fee Cycle</h2>
+                    <p class="text-xs text-gray-500 mt-0.5">{{ ucfirst($editCycleFeeType) }} fee · Academic year {{ $editCycleYear }}</p>
+                </div>
+                <button wire:click="closeCycleEdit" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+                <div class="flex items-center justify-between gap-3">
+                    <p class="text-xs text-gray-500">
+                        Change any % — the rows you haven't typed into split whatever is left of the 100% between them.
+                    </p>
+                    <button type="button" wire:click="resetEditPercents"
+                        class="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        Equal split
+                    </button>
+                </div>
+
+                <div class="border border-gray-200 rounded-lg overflow-x-auto">
+                    <table class="w-full min-w-[520px]">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                                <th class="px-3 py-2 text-left">{{ $editColHead }}</th>
+                                <th class="px-2 py-2 text-left w-36">Due Date</th>
+                                <th class="px-2 py-2 text-left w-24">Fee %</th>
+                                <th class="px-2 py-2 text-left w-28">Penalty/Day</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            @foreach ($editRows as $i => $row)
+                                <tr wire:key="edit-cycle-row-{{ $row['id'] }}">
+                                    <td class="px-3 py-2">
+                                        <p class="text-xs font-semibold text-gray-800">{{ $row['label'] }}</p>
+                                        <p class="text-[11px] text-gray-400">
+                                            Installment #{{ $row['serial'] }}
+                                            @if (in_array($i, $editPctTouched, true))
+                                                · <span class="text-amber-600 font-medium">fixed</span>
+                                            @else
+                                                · auto
+                                            @endif
+                                        </p>
+                                    </td>
+                                    <td class="px-2 py-2">
+                                        <input type="date" wire:model="editRows.{{ $i }}.due_date"
+                                            class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-400">
+                                    </td>
+                                    <td class="px-2 py-2">
+                                        <input type="number" step="0.01" min="0" max="100" wire:model.live.debounce.600ms="editRows.{{ $i }}.fee_percent"
+                                            class="w-full px-2 py-1.5 text-xs border rounded-md focus:ring-1 focus:ring-gray-400 {{ in_array($i, $editPctTouched, true) ? 'border-gray-400 text-gray-900 font-semibold' : 'border-gray-300 text-gray-500 bg-gray-50' }}">
+                                    </td>
+                                    <td class="px-2 py-2">
+                                        <input type="number" step="0.01" min="0" wire:model="editRows.{{ $i }}.penalty_per_day"
+                                            class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-400">
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="flex items-center justify-between rounded-lg border px-4 py-3 {{ $editBalanced ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100' }}">
+                    <span class="text-xs font-medium {{ $editBalanced ? 'text-emerald-700' : 'text-amber-700' }}">
+                        {{ count($editRows) }} installment{{ count($editRows) === 1 ? '' : 's' }} · total
+                    </span>
+                    <span class="text-sm font-bold {{ $editBalanced ? 'text-emerald-700' : 'text-amber-700' }}">
+                        {{ rtrim(rtrim(number_format($editTotal, 2), '0'), '.') }}%
+                    </span>
+                </div>
+
+                @unless ($editBalanced)
+                    <p class="text-xs text-amber-600">Every row is fixed by hand and they don't add up to 100% — clear one, or press "Equal split".</p>
+                @endunless
+            </div>
+
+            <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                <button wire:click="closeCycleEdit" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                <button wire:click="saveCycleEdit" wire:loading.attr="disabled"
+                    class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                    <span wire:loading.remove wire:target="saveCycleEdit">Save Cycle</span>
+                    <span wire:loading wire:target="saveCycleEdit">Saving…</span>
+                </button>
             </div>
         </div>
     </div>

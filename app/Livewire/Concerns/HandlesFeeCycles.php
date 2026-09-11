@@ -7,6 +7,7 @@ use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Student\Section;
 use App\Models\Student\StudentDetail;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * The Fee Cycle + Calculator feature — shared verbatim between Accounts\FeeCycles
@@ -50,6 +51,19 @@ trait HandlesFeeCycles
 
     // A read-only look at one installment or the token fee.
     public $viewingCycle = null;
+
+    // ─── Edit the whole cycle at once (the listing header's Edit button) ─────
+    // One panel listing every installment of a fee type + year, each row
+    // labelled the way the cycle was actually built — "April 2026" for a
+    // monthly cycle, "Q1 · Apr–Jun" for a quarterly one, plain numbers for a
+    // custom one — with its % editable. Typing a % pins that row; the rows
+    // still on auto re-split whatever is left of the 100% between them.
+    public bool $cycleEditOpen      = false;
+    public string $editCycleFeeType = '';
+    public string $editCycleYear    = '';
+    public string $editCycleKind    = 'custom'; // monthly | quarterly | custom
+    public array $editRows          = [];
+    public array $editPctTouched    = [];
 
     // A one-time up-front charge (e.g. admission/registration) with its own due
     // date, collected before the % installments split whatever is left of
@@ -163,17 +177,31 @@ trait HandlesFeeCycles
     /** Share 100% minus the pinned rows equally across the rows still on auto. */
     private function balanceCustomPercents(): void
     {
-        if (empty($this->customRows)) {
-            return;
+        $this->customRows = $this->balancePercentRows($this->customRows, $this->customPctTouched);
+    }
+
+    /**
+     * The one rule behind every % field on this page: the rows the user typed
+     * into keep their numbers, and whatever is left of the 100% is shared out
+     * equally between the rows still on auto. Set one quarter to 35% and the
+     * other three land on 65/3 by themselves.
+     *
+     * @param  array  $rows     rows with a 'fee_percent' key
+     * @param  array  $pinned   indexes of the rows the user typed into
+     */
+    private function balancePercentRows(array $rows, array $pinned): array
+    {
+        if (empty($rows)) {
+            return $rows;
         }
 
         $pinnedTotal = 0.0;
         $auto        = [];
-        foreach (array_keys($this->customRows) as $i) {
-            $pinned = in_array($i, $this->customPctTouched, true)
-                && trim((string) ($this->customRows[$i]['fee_percent'] ?? '')) !== '';
-            if ($pinned) {
-                $pinnedTotal += (float) $this->customRows[$i]['fee_percent'];
+        foreach (array_keys($rows) as $i) {
+            $isPinned = in_array($i, $pinned, true)
+                && trim((string) ($rows[$i]['fee_percent'] ?? '')) !== '';
+            if ($isPinned) {
+                $pinnedTotal += (float) $rows[$i]['fee_percent'];
             } else {
                 $auto[] = $i;
             }
@@ -181,7 +209,7 @@ trait HandlesFeeCycles
 
         // Every row pinned — the user owns all the numbers, leave them alone.
         if (empty($auto)) {
-            return;
+            return $rows;
         }
 
         $left  = max(0, round(100 - $pinnedTotal, 2));
@@ -190,10 +218,12 @@ trait HandlesFeeCycles
 
         foreach ($auto as $n => $i) {
             // The rounding remainder rides on the last automatic row so the set sums to 100.
-            $this->customRows[$i]['fee_percent'] = (string) ($n === $last
+            $rows[$i]['fee_percent'] = (string) ($n === $last
                 ? round($left - $share * $last, 2)
                 : $share);
         }
+
+        return $rows;
     }
 
     /** What the rows currently add up to — shown live under the form. */
@@ -324,6 +354,223 @@ trait HandlesFeeCycles
         }
 
         $this->cycleSiblingPreview = $preview;
+    }
+
+    // ── Edit the whole cycle (the listing header's Edit button) ─────────────
+
+    /**
+     * Open the bulk editor for one fee type + academic year. Every installment
+     * of that cycle comes in as its own row, labelled the way the cycle was
+     * built: month names for a monthly cycle, quarters for a quarterly one,
+     * plain installment numbers for a custom one.
+     */
+    public function openCycleEdit(string $feeType, string $year): void
+    {
+        $rows = FeeCycle::forOrg($this->orgId())
+            ->where('fee_type', $feeType)
+            ->where('academic_year', $year)
+            ->where('is_token', false)
+            ->orderBy('payment_serial')
+            ->get();
+
+        if ($rows->isEmpty()) {
+            $this->notification()->error('This cycle has no installments to edit yet.');
+            return;
+        }
+
+        $this->editCycleFeeType = $feeType;
+        $this->editCycleYear    = $year;
+        $this->editCycleKind    = $this->detectCycleKind($rows);
+        $this->editPctTouched   = [];
+        $this->editRows         = $rows->values()->map(fn (FeeCycle $c) => [
+            'id'              => $c->id,
+            'serial'          => (int) $c->payment_serial,
+            'label'           => $this->cycleRowLabel($c, $this->editCycleKind),
+            'due_date'        => optional($c->due_date)->toDateString(),
+            'fee_percent'     => $this->trimPercent((float) $c->fee_percent),
+            'penalty_per_day' => (string) $c->penalty_per_day,
+        ])->all();
+
+        $this->resetValidation();
+        $this->cycleEditOpen = true;
+    }
+
+    public function closeCycleEdit(): void
+    {
+        $this->cycleEditOpen    = false;
+        $this->editRows         = [];
+        $this->editPctTouched   = [];
+        $this->editCycleFeeType = '';
+        $this->editCycleYear    = '';
+        $this->editCycleKind    = 'custom';
+        $this->resetValidation();
+    }
+
+    /**
+     * A % typed into one row pins that row; every row the user has not touched
+     * re-splits what is left of the 100% between them. Clearing a row's %
+     * hands it back to the automatic split.
+     */
+    public function updatedEditRows($value, $key): void
+    {
+        if (!str_ends_with((string) $key, '.fee_percent')) {
+            return;
+        }
+
+        $index = (int) explode('.', (string) $key)[0];
+
+        if (trim((string) $value) === '') {
+            $this->editPctTouched = array_values(array_diff($this->editPctTouched, [$index]));
+        } elseif (!in_array($index, $this->editPctTouched, true)) {
+            $this->editPctTouched[] = $index;
+        }
+
+        $this->editRows = $this->balancePercentRows($this->editRows, $this->editPctTouched);
+    }
+
+    /** Un-pin every row — an equal share each again. */
+    public function resetEditPercents(): void
+    {
+        $this->editPctTouched = [];
+        $this->editRows       = $this->balancePercentRows($this->editRows, []);
+    }
+
+    /** What the editor's rows currently add up to — shown live in its footer. */
+    public function getEditPercentTotalProperty(): float
+    {
+        return round(collect($this->editRows)->sum(fn ($r) => (float) ($r['fee_percent'] ?? 0)), 2);
+    }
+
+    public function saveCycleEdit(): void
+    {
+        if (empty($this->editRows)) {
+            return;
+        }
+
+        foreach ($this->editRows as $r) {
+            if (trim((string) ($r['due_date'] ?? '')) === '') {
+                $this->notification()->error($r['label'] . ': pick a due date.');
+                return;
+            }
+            if (!is_numeric($r['fee_percent'] ?? null) || (float) $r['fee_percent'] < 0 || (float) $r['fee_percent'] > 100) {
+                $this->notification()->error($r['label'] . ': fee % must be between 0 and 100.');
+                return;
+            }
+        }
+
+        // The automatic split always lands on 100% — this only catches a user
+        // who pinned every row by hand to numbers that don't add up.
+        $total = $this->editPercentTotal;
+        if (abs($total - 100) > 0.01) {
+            $this->notification()->error(
+                'The installments must add up to 100% — they currently add up to ' . $this->trimPercent($total) . '%.'
+            );
+            return;
+        }
+
+        foreach ($this->editRows as $r) {
+            FeeCycle::forOrg($this->orgId())->where('id', $r['id'])->update([
+                'due_date'        => $r['due_date'],
+                'fee_percent'     => $r['fee_percent'],
+                'penalty_per_day' => $r['penalty_per_day'] ?: 0,
+            ]);
+        }
+
+        $this->notification()->success(count($this->editRows) . ' installments updated — the cycle still totals 100%.');
+        $this->closeCycleEdit();
+    }
+
+    /** The whole cycle as a CSV, straight to the browser. */
+    public function downloadCycle(string $feeType, string $year): StreamedResponse
+    {
+        $rows = FeeCycle::forOrg($this->orgId())
+            ->where('fee_type', $feeType)
+            ->where('academic_year', $year)
+            ->orderByDesc('is_token')
+            ->orderBy('payment_serial')
+            ->get();
+
+        $kind = $this->detectCycleKind($rows);
+        $file = 'fee-cycle-' . $feeType . '-' . preg_replace('/[^A-Za-z0-9\-]+/', '-', $year) . '.csv';
+
+        return response()->streamDownload(function () use ($rows, $kind) {
+            $out = fopen('php://output', 'w');
+            // Excel only reads the ₹ column right if the file says up front it is UTF-8.
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, ['Installment', 'Due Date', 'Fee %', 'Amount', 'Penalty / Day', 'Academic Year', 'Status']);
+
+            foreach ($rows as $c) {
+                fputcsv($out, [
+                    $c->is_token ? 'Token Fee' : $this->cycleRowLabel($c, $kind),
+                    optional($c->due_date)->format('d M Y') ?? '',
+                    $c->is_token ? '' : $this->trimPercent((float) $c->fee_percent) . '%',
+                    $c->is_token ? number_format((float) $c->amount, 2, '.', '') : '',
+                    number_format((float) $c->penalty_per_day, 2, '.', ''),
+                    $c->academic_year,
+                    $c->is_active ? 'Active' : 'Inactive',
+                ]);
+            }
+
+            fclose($out);
+        }, $file, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * How a saved cycle was built, read back off its rows: whole-month spans
+     * are a monthly cycle, three-month spans a quarterly one, anything else
+     * (including rows with no span at all) is custom.
+     */
+    public function detectCycleKind($installments): string
+    {
+        $rows = collect($installments)->filter(fn ($c) => !$c->is_token)->values();
+
+        if ($rows->isEmpty() || $rows->contains(fn ($c) => !$c->start_date || !$c->end_date)) {
+            return 'custom';
+        }
+
+        // Months a row covers, inclusive: Apr→Apr is 1, Apr→Jun is 3.
+        $span = function ($c): int {
+            $s = \Carbon\Carbon::parse($c->start_date);
+            $e = \Carbon\Carbon::parse($c->end_date);
+            return ($e->year - $s->year) * 12 + ($e->month - $s->month) + 1;
+        };
+
+        if ($rows->every(fn ($c) => $span($c) === 1)) {
+            return 'monthly';
+        }
+        if ($rows->every(fn ($c) => $span($c) === 3)) {
+            return 'quarterly';
+        }
+
+        return 'custom';
+    }
+
+    /** How one installment reads for its cycle kind — "April 2026", "Q1 · Apr–Jun", "Installment #3". */
+    public function cycleRowLabel(FeeCycle $cycle, string $kind): string
+    {
+        if ($cycle->is_token) {
+            return 'Token Fee';
+        }
+
+        $start = $cycle->start_date ? \Carbon\Carbon::parse($cycle->start_date) : null;
+        $end   = $cycle->end_date ? \Carbon\Carbon::parse($cycle->end_date) : null;
+
+        if ($kind === 'monthly' && $start) {
+            return $start->format('F Y');
+        }
+        if ($kind === 'quarterly' && $start && $end) {
+            $quarter = intdiv((($start->month - 4 + 12) % 12), 3) + 1;
+            return 'Q' . $quarter . ' · ' . $start->format('M') . '–' . $end->format('M');
+        }
+
+        return 'Installment #' . $cycle->payment_serial;
+    }
+
+    /** A % without its trailing zeros — "35", "21.67". */
+    private function trimPercent(float $value): string
+    {
+        $trimmed = rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.');
+        return $trimmed === '' ? '0' : $trimmed;
     }
 
     /**
@@ -694,6 +941,31 @@ trait HandlesFeeCycles
             ->orderBy('payment_serial')
             ->get();
 
+        // The listing is one card per fee type + academic year, each with its
+        // own header (what the cycle is, plus Edit / Download / Print).
+        $cycleGroups = $cycles
+            ->groupBy(fn ($c) => $c->fee_type . '|' . $c->academic_year)
+            ->map(function ($rows, $key) {
+                [$feeType, $year] = array_pad(explode('|', (string) $key, 2), 2, '');
+                $installments = $rows->where('is_token', false);
+                $kind         = $this->detectCycleKind($installments);
+
+                return [
+                    'key'      => 'cycle-group-' . preg_replace('/[^A-Za-z0-9]+/', '-', (string) $key),
+                    'fee_type' => $feeType,
+                    'year'     => $year,
+                    'kind'     => $kind,
+                    'count'    => $installments->count(),
+                    'percent'  => round((float) $installments->sum('fee_percent'), 2),
+                    'token'    => $rows->firstWhere('is_token', true),
+                    // Token first, then the installments in order.
+                    'rows'     => $rows
+                        ->sortBy(fn ($c) => ($c->is_token ? '0' : '1') . str_pad((string) $c->payment_serial, 2, '0', STR_PAD_LEFT))
+                        ->values(),
+                ];
+            })
+            ->values();
+
         // Existing installments of the fee type being added/edited — shown in
         // the form so the user can see previous installments' % and due dates.
         $cycleExisting = FeeCycle::forOrg($orgId)
@@ -787,6 +1059,7 @@ trait HandlesFeeCycles
 
         return [
             'cycles'           => $cycles,
+            'cycleGroups'      => $cycleGroups,
             'cycleExisting'    => $cycleExisting,
             'calcSections'     => $calcSections,
             'calcTotalFee'     => $calcTotalFee,
