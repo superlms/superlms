@@ -72,6 +72,7 @@ class Payroll extends Component
     // ─── Employee Detail Modal ────────────────────────────────────────────────
     public bool $showEmpDetailModal = false;
     public      $selectedEmployee   = null;
+    public array $employeeDetails   = [];
 
     // ─── Attendance ───────────────────────────────────────────────────────────
     // Three view modes, inferred from the filters that are set:
@@ -296,9 +297,43 @@ class Payroll extends Component
 
     public function viewEmployee($id): void
     {
-        $this->selectedEmployee   = AdminEmployee::with(['teacherDetail', 'driverDetail'])
+        $employee = AdminEmployee::with(['teacherDetail.user', 'driverDetail.user'])
             ->forOrganization($this->orgId())
             ->find($id);
+
+        if (!$employee) {
+            return;
+        }
+
+        $details = [
+            'Designation'  => $employee->designation ?? 'N/A',
+            'Type'         => ucfirst($employee->type),
+            'Mobile'       => $employee->mobile ?? 'N/A',
+            'Email'        => $employee->email ?? 'N/A',
+            'Salary'       => '₹' . number_format($employee->salary, 0),
+            'Joining Date' => $employee->joining_date?->format('d M Y') ?? 'N/A',
+        ];
+
+        if ($employee->address) {
+            $details['Address'] = $employee->address;
+        }
+
+        if ($employee->isTeacher() && $employee->teacher_detail_id) {
+            $details['Linked Teacher'] = $employee->teacherDetail?->user?->name ?? ('Teacher #' . $employee->teacher_detail_id);
+        } elseif ($employee->type === 'driver' && $employee->driver_detail_id) {
+            $details['Linked Driver'] = $employee->driverDetail?->user?->name ?? ('Driver #' . $employee->driver_detail_id);
+        }
+
+        if ($employee->bank_name) {
+            $details['Bank']    = $employee->bank_name;
+            $details['Holder']  = $employee->bank_holder_name ?? 'N/A';
+            $details['Account'] = $employee->bank_account_no ?? 'N/A';
+            $details['IFSC']    = $employee->bank_ifsc ?? 'N/A';
+            $details['Branch']  = $employee->bank_branch ?? 'N/A';
+        }
+
+        $this->selectedEmployee   = $employee;
+        $this->employeeDetails    = $details;
         $this->showEmpDetailModal = true;
     }
 
@@ -306,6 +341,7 @@ class Payroll extends Component
     {
         $this->showEmpDetailModal = false;
         $this->selectedEmployee   = null;
+        $this->employeeDetails    = [];
     }
 
     private function resetEmpForm(): void

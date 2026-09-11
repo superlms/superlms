@@ -43,6 +43,15 @@ class Transport extends Component
     public ?int $editDriverId    = null;
     public ?int $editTransportId = null;
 
+    // ─── View panels (read-only detail) ────────────────────
+    public bool $showDriverView = false;
+    public string $driverViewTitle = '';
+    public array $driverViewDetails = [];
+
+    public bool $showRouteView = false;
+    public string $routeViewTitle = '';
+    public array $routeViewDetails = [];
+
     // ─── Driver Form ───────────────────────────────────────
     public string $driver_name         = '';
     public string $driver_email        = '';
@@ -175,6 +184,29 @@ class Transport extends Component
         $this->driver_image_existing = $driver->image;
         $this->driver_routes       = $driver->transportations()->pluck('id')->map(fn($id) => (string) $id)->toArray();
         $this->driverModal         = true;
+    }
+
+    public function viewDriver(int $id): void
+    {
+        $driver = DriverDetail::with('user', 'transportations')->findOrFail($id);
+
+        $this->driverViewTitle   = $driver->user->name ?? 'Driver';
+        $this->driverViewDetails = [
+            'Phone'       => $driver->phone ?: 'N/A',
+            'License No.' => $driver->license_no ?: 'N/A',
+            'Vehicle No.' => $driver->vehicle_no ?: 'N/A',
+            'Experience'  => ($driver->experience_years ?: 0) . ' years',
+            'Address'     => $driver->address ?: 'N/A',
+            'Routes'      => $driver->transportations->pluck('route_name')->unique()->implode(', ') ?: 'N/A',
+            'Status'      => $driver->is_active ? 'Active' : 'Inactive',
+        ];
+        $this->showDriverView = true;
+    }
+
+    public function closeDriverView(): void
+    {
+        $this->showDriverView    = false;
+        $this->driverViewDetails = [];
     }
 
     public function saveDriver(): void
@@ -378,10 +410,43 @@ class Transport extends Component
     /** Every row of one route group, oldest first. */
     private function groupRows(string $group)
     {
-        return Transportation::where('organization_id', $this->organizationId)
+        return Transportation::with(['driver.user', 'students'])
+            ->where('organization_id', $this->organizationId)
             ->where('route_group', $group)
             ->orderBy('id')
             ->get();
+    }
+
+    public function viewRoute(string $group): void
+    {
+        $rows  = $this->groupRows($group);
+        $first = $rows->first();
+
+        if (!$first) {
+            $this->notification()->error('Error!', 'Route not found');
+            return;
+        }
+
+        $driverNames = $rows->map(fn ($r) => $r->driver?->user?->name)->filter()->unique()->values();
+
+        $this->routeViewTitle   = $first->route_name;
+        $this->routeViewDetails = [
+            'Vehicle Type(s)' => $rows->pluck('vehicle_type')->filter()->unique()->implode(', ') ?: 'N/A',
+            'Driver(s)'       => $driverNames->implode(', ') ?: 'N/A',
+            'Pickup Time'     => $first->pickup_time ?: 'N/A',
+            'Drop Time'       => $first->drop_time ?: 'N/A',
+            'Monthly Fee'     => '₹' . number_format((float) $first->monthly_fee, 0),
+            'Capacity'        => $first->capacity ?: 'N/A',
+            'Students'        => $rows->sum(fn ($r) => $r->students->count()),
+            'Status'          => $rows->contains(fn ($r) => (bool) $r->is_active) ? 'Active' : 'Inactive',
+        ];
+        $this->showRouteView = true;
+    }
+
+    public function closeRouteView(): void
+    {
+        $this->showRouteView    = false;
+        $this->routeViewDetails = [];
     }
 
     /**

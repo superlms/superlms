@@ -815,57 +815,30 @@
 
     {{-- ══════════ EMPLOYEE DETAIL SLIDE-IN PANEL ══════════ --}}
     @if ($showEmpDetailModal && $selectedEmployee)
-        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeEmpDetailModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                    <h2 class="text-lg font-semibold text-gray-900">Employee Details</h2>
-                    <button wire:click="closeEmpDetailModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $selectedEmployee->name }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">Employee Details</p>
+                    </div>
+                    <button wire:click="closeEmpDetailModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
 
                 <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-                    <div class="flex flex-col items-center text-center pb-4 border-b border-gray-100">
-                        @if ($selectedEmployee->photo)
-                            <img src="{{ $selectedEmployee->photo }}" class="w-20 h-20 rounded-full object-cover border-2 border-gray-200 shadow-sm mb-3">
-                        @else
-                            <div class="w-20 h-20 rounded-full bg-indigo-100 flex items-center justify-center mb-3 shadow-sm"><span class="text-2xl font-bold text-indigo-600">{{ strtoupper(substr($selectedEmployee->name, 0, 1)) }}</span></div>
-                        @endif
-                        <h3 class="text-lg font-bold text-gray-900">{{ $selectedEmployee->name }}</h3>
-                        <p class="text-sm text-gray-500">{{ $selectedEmployee->designation ?? '—' }}</p>
-                        <span class="mt-1 text-xs px-2.5 py-0.5 rounded-full font-medium capitalize border {{ $typeChip[$selectedEmployee->type] ?? 'bg-gray-50 text-gray-600 border-gray-200' }}">{{ $selectedEmployee->type }}</span>
-                        @if ($selectedEmployee->isTeacher() && $selectedEmployee->teacher_detail_id)
-                            <span class="mt-1 text-xs text-blue-500">Linked: {{ $selectedEmployee->teacherDetail?->user?->name ?? 'Teacher #' . $selectedEmployee->teacher_detail_id }}</span>
-                        @elseif ($selectedEmployee->type === 'driver' && $selectedEmployee->driver_detail_id)
-                            <span class="mt-1 text-xs text-amber-600">Linked: {{ $selectedEmployee->driverDetail?->user?->name ?? 'Driver #' . $selectedEmployee->driver_detail_id }}</span>
-                        @endif
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-3">
-                        @foreach (['Mobile' => $selectedEmployee->mobile, 'Email' => $selectedEmployee->email, 'Salary' => '₹' . number_format($selectedEmployee->salary, 0), 'Joining' => $selectedEmployee->joining_date?->format('d M Y')] as $label => $value)
-                            <div class="bg-gray-50 rounded-xl p-3"><p class="text-xs text-gray-400 mb-0.5">{{ $label }}</p><p class="text-sm font-semibold text-gray-800">{{ $value ?? '—' }}</p></div>
-                        @endforeach
-                    </div>
-
-                    @if ($selectedEmployee->address)
-                        <div class="bg-gray-50 rounded-xl p-3"><p class="text-xs text-gray-400 mb-0.5">Address</p><p class="text-sm font-semibold text-gray-800">{{ $selectedEmployee->address }}</p></div>
-                    @endif
-
-                    @if ($selectedEmployee->bank_name)
-                        <div class="bg-blue-50 rounded-xl border border-blue-100 p-4">
-                            <p class="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">Bank Details</p>
-                            <div class="grid grid-cols-2 gap-2">
-                                @foreach (['Bank' => $selectedEmployee->bank_name, 'Holder' => $selectedEmployee->bank_holder_name, 'Account' => $selectedEmployee->bank_account_no, 'IFSC' => $selectedEmployee->bank_ifsc, 'Branch' => $selectedEmployee->bank_branch] as $label => $value)
-                                    <div><p class="text-xs text-blue-400">{{ $label }}</p><p class="text-xs font-semibold text-gray-800 font-mono">{{ $value ?? '—' }}</p></div>
-                                @endforeach
-                            </div>
+                    @foreach ($employeeDetails as $label => $value)
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
+                            <span class="col-span-2 text-gray-800 font-medium">{{ $value }}</span>
                         </div>
-                    @endif
+                    @endforeach
                 </div>
 
-                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end flex-shrink-0">
-                    <button wire:click="closeEmpDetailModal" class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md">Close</button>
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                    <button wire:click="closeEmpDetailModal" class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
                 </div>
             </div>
         </div>

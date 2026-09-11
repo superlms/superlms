@@ -169,6 +169,9 @@
                             </td>
                             <td class="px-4 py-3">
                                 <div class="flex items-center justify-center gap-1">
+                                    <button wire:click="viewRoute('{{ $t->key }}')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md" title="View">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                    </button>
                                     <button wire:click="editTransport('{{ $t->key }}')" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md" title="Edit">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                     </button>
@@ -244,6 +247,9 @@
                             </td>
                             <td class="px-4 py-3">
                                 <div class="flex items-center justify-center gap-1">
+                                    <button wire:click="viewDriver({{ $d->id }})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md" title="View">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                    </button>
                                     <button wire:click="editDriver({{ $d->id }})" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md" title="Edit">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                     </button>
@@ -537,6 +543,68 @@
             <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
                 <button wire:click="closeTransportModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
                 <button wire:click="saveTransport" class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md">{{ $editTransportId ? 'Update' : 'Add Route' }}</button>
+            </div>
+        </div>
+    </div>
+@endif
+
+{{-- ══════════ ROUTE DETAIL SLIDE-IN PANEL ══════════ --}}
+@if ($showRouteView)
+    <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
+        <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeRouteView"></div>
+        <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                <div class="min-w-0">
+                    <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $routeViewTitle }}</h2>
+                    <p class="text-xs text-gray-500 mt-0.5">Route Details</p>
+                </div>
+                <button wire:click="closeRouteView" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                @foreach ($routeViewDetails as $label => $value)
+                    <div class="grid grid-cols-3 gap-3 text-sm">
+                        <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
+                        <span class="col-span-2 text-gray-800 font-medium">{{ $value }}</span>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                <button wire:click="closeRouteView" class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
+            </div>
+        </div>
+    </div>
+@endif
+
+{{-- ══════════ DRIVER DETAIL SLIDE-IN PANEL ══════════ --}}
+@if ($showDriverView)
+    <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
+        <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeDriverView"></div>
+        <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                <div class="min-w-0">
+                    <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $driverViewTitle }}</h2>
+                    <p class="text-xs text-gray-500 mt-0.5">Driver Details</p>
+                </div>
+                <button wire:click="closeDriverView" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                @foreach ($driverViewDetails as $label => $value)
+                    <div class="grid grid-cols-3 gap-3 text-sm">
+                        <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
+                        <span class="col-span-2 text-gray-800 font-medium">{{ $value }}</span>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                <button wire:click="closeDriverView" class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
             </div>
         </div>
     </div>
