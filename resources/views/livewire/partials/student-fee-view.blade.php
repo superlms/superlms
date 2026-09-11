@@ -219,6 +219,62 @@
     </div>
 @endforeach
 
+{{-- ══════════ 3b. PENALTIES — which fee cycle installments are late, and by how much ══════════ --}}
+@php
+    $penaltyRows = collect($sv['cycles'] ?? [])->flatMap(function ($cycle) {
+        return collect($cycle['installments'])
+            ->filter(fn ($inst) => $inst['penalty'] > 0)
+            ->map(fn ($inst) => $inst + ['fee_type' => $cycle['fee_type']]);
+    });
+@endphp
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2">
+        <h3 class="text-sm font-semibold text-gray-900">Penalties</h3>
+        @if ($penaltyRows->isNotEmpty())
+            <span class="text-[11px] text-gray-400 tabular-nums">
+                {{ $penaltyRows->count() }} installment{{ $penaltyRows->count() === 1 ? '' : 's' }} late ·
+                <strong class="text-amber-600">₹{{ number_format($penaltyRows->sum('penalty'), 2) }}</strong> due
+            </span>
+        @endif
+    </div>
+    @if ($penaltyRows->isEmpty())
+        <p class="px-4 py-6 text-center text-xs text-gray-400">No penalties currently due — every installment is either paid or within its due date.</p>
+    @else
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="border-b border-gray-100">
+                    <tr class="text-[11px] uppercase tracking-wider text-gray-400">
+                        <th class="px-4 py-2 text-left font-normal">Fee Cycle</th>
+                        <th class="px-4 py-2 text-left font-normal">Installment</th>
+                        <th class="px-4 py-2 text-left font-normal">Due Date</th>
+                        <th class="px-4 py-2 text-right font-normal">Days Late</th>
+                        <th class="px-4 py-2 text-right font-normal">Rate / Day</th>
+                        <th class="px-4 py-2 text-right font-normal">Penalty</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($penaltyRows as $n => $row)
+                        <tr wire:key="sv-penalty-{{ $row['fee_type'] }}-{{ $n }}" class="hover:bg-gray-50/70">
+                            <td class="px-4 py-2 text-gray-500 capitalize">{{ $row['fee_type'] }}</td>
+                            <td class="px-4 py-2 text-gray-700">{{ $row['label'] }}</td>
+                            <td class="px-4 py-2 text-rose-500 whitespace-nowrap">{{ $row['due_date'] ?? '—' }}</td>
+                            <td class="px-4 py-2 text-right text-gray-600 tabular-nums">{{ $row['days_late'] }}</td>
+                            <td class="px-4 py-2 text-right text-gray-500 tabular-nums">₹{{ number_format($row['penalty_per_day'], 2) }}</td>
+                            <td class="px-4 py-2 text-right font-semibold text-amber-600 tabular-nums">₹{{ number_format($row['penalty'], 2) }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+                <tfoot>
+                    <tr class="border-t border-gray-200">
+                        <td colspan="5" class="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Total penalty outstanding</td>
+                        <td class="px-4 py-2.5 text-right font-bold text-amber-600 tabular-nums">₹{{ number_format($penaltyRows->sum('penalty'), 2) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    @endif
+</div>
+
 {{-- ══════════ 4. PAYMENTS — full width, each with its slip ══════════ --}}
 <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
     <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2">

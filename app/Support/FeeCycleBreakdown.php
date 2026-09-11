@@ -69,38 +69,54 @@ class FeeCycleBreakdown
                         ? 'paid'
                         : ($covered > 0 ? 'partial' : 'pending'));
 
-                $due = $c->due_date;
+                $due     = $c->due_date;
+                $overdue = $due && $status !== 'paid' && $due->isPast();
+
+                // Penalty accrued so far on what is still outstanding — days
+                // past due times the installment's own per-day rate. Only the
+                // unpaid slice of the installment carries it, so a partial
+                // payment that already cleared it stops accruing more.
+                $daysLate     = $overdue ? $due->diffInDays(now()->startOfDay()) : 0;
+                $penaltyPerDay = (float) $c->penalty_per_day;
+                $penalty      = $overdue ? round($daysLate * $penaltyPerDay, 2) : 0.0;
+
                 $installments[] = [
-                    'serial'   => (int) $c->payment_serial,
-                    'label'    => $c->is_token
+                    'serial'          => (int) $c->payment_serial,
+                    'label'           => $c->is_token
                         ? 'Token Fee'
                         : ($due ? $due->format('M Y') : ('Installment ' . $c->payment_serial)),
-                    'due_date' => $due ? $due->format('d M Y') : null,
-                    'overdue'  => $due && $status !== 'paid' && $due->isPast(),
-                    'percent'  => (float) $c->fee_percent,
-                    'amount'   => $amount,
-                    'paid'     => $covered,
-                    'balance'  => round(max(0, $amount - $covered), 2),
-                    'status'   => $status,
+                    'due_date'        => $due ? $due->format('d M Y') : null,
+                    'start_date'      => $c->start_date ? $c->start_date->format('d M Y') : null,
+                    'end_date'        => $c->end_date ? $c->end_date->format('d M Y') : null,
+                    'overdue'         => $overdue,
+                    'percent'         => (float) $c->fee_percent,
+                    'amount'          => $amount,
+                    'paid'            => $covered,
+                    'balance'         => round(max(0, $amount - $covered), 2),
+                    'status'          => $status,
+                    'penalty_per_day' => $penaltyPerDay,
+                    'days_late'       => $daysLate,
+                    'penalty'         => $penalty,
                 ];
             }
 
             $count = $cycles->where('is_token', false)->count();
             $out[] = [
-                'fee_type'     => $type,
-                'label'        => match ($count) {
+                'fee_type'      => $type,
+                'label'         => match ($count) {
                     12      => 'Monthly',
                     4       => 'Quarterly',
                     2       => 'Half-Yearly',
                     1       => 'One-Time',
                     default => 'Custom',
                 },
-                'year'         => $year,
-                'total'        => $total,
-                'paid'         => (float) ($paid[$type] ?? 0),
-                'paid_count'   => collect($installments)->where('status', 'paid')->count(),
-                'count'        => $count,
-                'installments' => $installments,
+                'year'          => $year,
+                'total'         => $total,
+                'paid'          => (float) ($paid[$type] ?? 0),
+                'paid_count'    => collect($installments)->where('status', 'paid')->count(),
+                'count'         => $count,
+                'installments'  => $installments,
+                'penalty_total' => round(collect($installments)->sum('penalty'), 2),
             ];
         }
 
