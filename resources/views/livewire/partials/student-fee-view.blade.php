@@ -226,6 +226,9 @@
             ->filter(fn ($inst) => $inst['penalty'] > 0)
             ->map(fn ($inst) => $inst + ['fee_type' => $cycle['fee_type']]);
     });
+    $penaltyWaived = collect($sv['cycles'] ?? [])->sum('penalty_waived');
+    $penaltyPaid   = collect($sv['cycles'] ?? [])->sum('penalty_paid');
+    $penaltyNet    = collect($sv['cycles'] ?? [])->sum('penalty_net');
 @endphp
 <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
     <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2">
@@ -233,7 +236,7 @@
         @if ($penaltyRows->isNotEmpty())
             <span class="text-[11px] text-gray-400 tabular-nums">
                 {{ $penaltyRows->count() }} installment{{ $penaltyRows->count() === 1 ? '' : 's' }} late ·
-                <strong class="text-amber-600">₹{{ number_format($penaltyRows->sum('penalty'), 2) }}</strong> due
+                <strong class="text-amber-600">₹{{ number_format($penaltyNet, 2) }}</strong> still due
             </span>
         @endif
     </div>
@@ -249,7 +252,7 @@
                         <th class="px-4 py-2 text-left font-normal">Due Date</th>
                         <th class="px-4 py-2 text-right font-normal">Days Late</th>
                         <th class="px-4 py-2 text-right font-normal">Rate / Day</th>
-                        <th class="px-4 py-2 text-right font-normal">Penalty</th>
+                        <th class="px-4 py-2 text-right font-normal">Accrued</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -265,9 +268,18 @@
                     @endforeach
                 </tbody>
                 <tfoot>
+                    @if ($penaltyWaived > 0 || $penaltyPaid > 0)
+                        <tr class="border-t border-gray-100">
+                            <td colspan="5" class="px-4 py-2 text-[11px] text-gray-400">Accrued ₹{{ number_format($penaltyRows->sum('penalty'), 2) }}
+                                @if ($penaltyWaived > 0) · Waived <span class="text-emerald-600">− ₹{{ number_format($penaltyWaived, 2) }}</span>@endif
+                                @if ($penaltyPaid > 0) · Paid <span class="text-emerald-600">− ₹{{ number_format($penaltyPaid, 2) }}</span>@endif
+                            </td>
+                            <td></td>
+                        </tr>
+                    @endif
                     <tr class="border-t border-gray-200">
-                        <td colspan="5" class="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Total penalty outstanding</td>
-                        <td class="px-4 py-2.5 text-right font-bold text-amber-600 tabular-nums">₹{{ number_format($penaltyRows->sum('penalty'), 2) }}</td>
+                        <td colspan="5" class="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Total penalty still due</td>
+                        <td class="px-4 py-2.5 text-right font-bold text-amber-600 tabular-nums">₹{{ number_format($penaltyNet, 2) }}</td>
                     </tr>
                 </tfoot>
             </table>

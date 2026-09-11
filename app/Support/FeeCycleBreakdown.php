@@ -2,7 +2,9 @@
 
 namespace App\Support;
 
+use App\Models\Admin\Fee\FeeConcession;
 use App\Models\Admin\Fee\FeeCycle;
+use App\Models\Admin\Fee\FeePayment;
 
 /**
  * A student's fee split the way their school's fee cycle defines it, with what
@@ -16,13 +18,28 @@ class FeeCycleBreakdown
 {
     /**
      * @param  int    $orgId
+     * @param  int    $studentId  whose penalty waivers/payments net the accrued penalty down
      * @param  array  $paid    ['academic' => float, 'transport' => float]
      * @param  array  $totals  ['academic' => float, 'transport' => float] — net of concession
-     * @return array<int, array{fee_type:string,label:string,year:string,total:float,paid:float,paid_count:int,count:int,installments:array}>
+     * @return array<int, array{fee_type:string,label:string,year:string,total:float,paid:float,paid_count:int,count:int,installments:array,penalty_total:float,penalty_waived:float,penalty_paid:float,penalty_net:float}>
      */
-    public static function build(int $orgId, array $paid, array $totals): array
+    public static function build(int $orgId, int $studentId, array $paid, array $totals): array
     {
         $out = [];
+
+        // Penalty waivers (per side, via the Penalties tab's Waiver panel) and
+        // penalty payments (one pool — Fee Submission's "Penalties" type has no
+        // academic/transport split — applied academic-side first) net the raw
+        // accrued penalty down to what is actually still owed.
+        $penaltyConcessions = FeeConcession::where('organization_id', $orgId)
+            ->where('student_detail_id', $studentId)
+            ->where('is_penalty', true)
+            ->get();
+
+        $penaltyPaidPool = (float) FeePayment::where('organization_id', $orgId)
+            ->where('student_detail_id', $studentId)
+            ->where('fee_type', 'penalty')
+            ->sum('amount');
 
         foreach (['academic', 'transport'] as $type) {
             $total = (float) ($totals[$type] ?? 0);
@@ -108,23 +125,44 @@ class FeeCycleBreakdown
                 ];
             }
 
+            // Raw accrued penalty for this side, then waivers (this side only),
+            // then whatever is left of the shared penalty-payment pool.
+            $rawPenalty = round(collect($installments)->sum('penalty'), 2);
+
+            $waived = 0.0;
+            foreach ($penaltyConcessions->where('fee_type', $type) as $c) {
+                $off = $c->concession_type === 'percent'
+                    ? round($rawPenalty * ((float) $c->value) / 100, 2)
+                    : (float) $c->value;
+                $waived += min($off, max(0, $rawPenalty - $waived));
+            }
+            $waived = round($waived, 2);
+
+            $afterWaiver = max(0, $rawPenalty - $waived);
+            $paidOff     = round(min($penaltyPaidPool, $afterWaiver), 2);
+            $penaltyPaidPool = round($penaltyPaidPool - $paidOff, 2);
+            $penaltyNet  = round(max(0, $afterWaiver - $paidOff), 2);
+
             $count = $cycles->where('is_token', false)->count();
             $out[] = [
-                'fee_type'      => $type,
-                'label'         => match ($count) {
+                'fee_type'       => $type,
+                'label'          => match ($count) {
                     12      => 'Monthly',
                     4       => 'Quarterly',
                     2       => 'Half-Yearly',
                     1       => 'One-Time',
                     default => 'Custom',
                 },
-                'year'          => $year,
-                'total'         => $total,
-                'paid'          => (float) ($paid[$type] ?? 0),
-                'paid_count'    => collect($installments)->where('status', 'paid')->count(),
-                'count'         => $count,
-                'installments'  => $installments,
-                'penalty_total' => round(collect($installments)->sum('penalty'), 2),
+                'year'           => $year,
+                'total'          => $total,
+                'paid'           => (float) ($paid[$type] ?? 0),
+                'paid_count'     => collect($installments)->where('status', 'paid')->count(),
+                'count'          => $count,
+                'installments'   => $installments,
+                'penalty_total'  => $rawPenalty,
+                'penalty_waived' => $waived,
+                'penalty_paid'   => $paidOff,
+                'penalty_net'    => $penaltyNet,
             ];
         }
 

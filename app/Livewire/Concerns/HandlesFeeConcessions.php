@@ -229,8 +229,11 @@ trait HandlesFeeConcessions
                 ->orderBy('roll_no')->get()
             : collect();
 
+        // Penalty waivers (from the Penalties tab) are a different pool — kept
+        // out of this list, which is for base-fee concessions only.
         $concessions = FeeConcession::with(['studentDetail.user', 'standard', 'section'])
             ->where('organization_id', $orgId)
+            ->where('is_penalty', false)
             ->when($this->filterConcStandardId, fn ($q) => $q->where('standard_id', $this->filterConcStandardId))
             ->when($this->filterConcSectionId, fn ($q) => $q->where('section_id', $this->filterConcSectionId))
             ->when($this->filterConcStudentId, fn ($q) => $q->where('student_detail_id', $this->filterConcStudentId))

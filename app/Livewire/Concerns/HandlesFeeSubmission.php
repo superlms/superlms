@@ -112,9 +112,11 @@ trait HandlesFeeSubmission
             ->where('is_active', true)
             ->get()->toArray();
 
-        // Concessions for this student
+        // Concessions for this student — penalty waivers are a different pool
+        // (netted by FeeCycleBreakdown), kept out of the base-fee discount here.
         $this->studentConcessions = FeeConcession::where('organization_id', $orgId)
             ->where('student_detail_id', $this->selectedStudentId)
+            ->where('is_penalty', false)
             ->get()->toArray();
 
         // Net payable = total structure − concessions − amount already paid.
@@ -148,7 +150,11 @@ trait HandlesFeeSubmission
             ->orderByDesc('payment_date')
             ->get()->toArray();
 
-        $paid = collect($realTransactions)->sum(fn ($t) => (float) $t['amount']);
+        // Penalty payments settle accrued late fees, not the academic/transport
+        // structure itself — excluded here so they never shrink Net Payable.
+        $paid = collect($realTransactions)
+            ->where('fee_type', '!=', 'penalty')
+            ->sum(fn ($t) => (float) $t['amount']);
         $this->netPayable = max(0, round($totalStructure - $discount - $paid, 2));
 
         // Ledger = real payments + concessions shown as concession-type entries.
@@ -184,7 +190,7 @@ trait HandlesFeeSubmission
         $this->validate([
             'selectedStudentId' => 'required|exists:student_details,id',
             'submitAmount'      => 'required|numeric|min:1',
-            'submitFeeType'     => 'required|in:academic,transport',
+            'submitFeeType'     => 'required|in:academic,transport,penalty',
             'submitPaymentMode' => 'required|in:cash,online,cheque,bank_transfer',
             'submitDate'        => 'required|date',
             'submittedBy'       => 'required|string|max:255',

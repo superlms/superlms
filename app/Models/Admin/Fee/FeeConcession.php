@@ -18,13 +18,16 @@ class FeeConcession extends Model
         'concession_type', // 'amount' | 'percent'
         'value',
         'fee_type',        // 'academic' | 'transport' | 'all'
+        'is_penalty',      // true = this waives accrued penalty, not the base fee
         'reason',
         'academic_year',
         'created_by',
+        'collected_by',    // staff name, for penalty waivers made via the Penalties tab
     ];
 
     protected $casts = [
-        'value' => 'decimal:2',
+        'value'      => 'decimal:2',
+        'is_penalty' => 'boolean',
     ];
 
     public function organization()

@@ -43,8 +43,12 @@ class FeeReceiptController extends Controller
             ->where('is_active', true)
             ->get();
 
+        // Penalty waivers (is_penalty = true) are netted against accrued
+        // penalty by FeeCycleBreakdown on its own — kept out of the base-fee
+        // discount below so a penalty waiver never shrinks the fee itself.
         $concessions = FeeConcession::where('organization_id', $orgId)
             ->where('student_detail_id', $student->id)
+            ->where('is_penalty', false)
             ->get();
 
         $academicGross = (float) $structures->where('fee_type', 'academic')->sum('amount');
@@ -78,7 +82,7 @@ class FeeReceiptController extends Controller
             'org'         => $org,
             'student'     => $student,
             'route'       => $route,
-            'cycles'      => FeeCycleBreakdown::build($orgId, $paid, $totals),
+            'cycles'      => FeeCycleBreakdown::build($orgId, $student->id, $paid, $totals),
             'overall'     => $overall,
             'concessions' => $concessions,
             // fee_payments.submitted_by is the collector's name itself (see

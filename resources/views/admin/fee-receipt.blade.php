@@ -180,7 +180,7 @@
     @endif
 
     <div class="payamt">
-        <span class="chip">{{ ucfirst($payment->fee_type) }} Fee <b>₹{{ number_format($base, 2) }}</b></span>
+        <span class="chip">{{ $payment->fee_type === 'penalty' ? 'Penalty' : ucfirst($payment->fee_type) . ' Fee' }} <b>₹{{ number_format($base, 2) }}</b></span>
         @if ((float) $payment->penalty_amount > 0)
             <span class="chip plus">+ Penalty <b>₹{{ number_format((float) $payment->penalty_amount, 2) }}</b></span>
         @endif
@@ -232,7 +232,7 @@
                     <td class="num">{{ number_format($cycle['total'], 2) }}</td>
                     <td class="num">{{ number_format($cycle['paid'], 2) }}</td>
                     <td class="num">{{ number_format(max(0, $cycle['total'] - $cycle['paid']), 2) }}</td>
-                    <td class="num {{ $cycle['penalty_total'] > 0 ? 'penalty-flag' : '' }}">{{ number_format($cycle['penalty_total'], 2) }}</td>
+                    <td class="num {{ $cycle['penalty_net'] > 0 ? 'penalty-flag' : '' }}">{{ number_format($cycle['penalty_net'], 2) }}</td>
                 </tr>
             </tbody>
         </table>
@@ -242,7 +242,7 @@
     @endforelse
 
     {{-- ══════════ OVERALL ══════════ --}}
-    @php $totalPenalty = collect($cycles)->sum('penalty_total'); @endphp
+    @php $totalPenalty = collect($cycles)->sum('penalty_net'); @endphp
     <div class="sec">Overall</div>
     <table class="tot">
         <tr>
@@ -272,7 +272,7 @@
             <tr>
                 <td>Penalty <span class="muted">(overdue installments)</span></td>
                 <td class="num penalty-flag">{{ number_format($totalPenalty, 2) }}</td>
-                <td class="num muted">accrued to date</td>
+                <td class="num muted">still due</td>
             </tr>
         @endif
         <tr class="grand">

@@ -56,6 +56,7 @@
                         <select wire:model="submitFeeType" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                             <option value="academic">Academic</option>
                             <option value="transport">Transport</option>
+                            <option value="penalty">Penalties</option>
                         </select>
                     </div>
                     <div>

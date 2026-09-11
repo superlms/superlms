@@ -62,8 +62,12 @@ trait HandlesStudentFeeView
             ->orderByDesc('id')
             ->get();
 
+        // Penalty waivers (is_penalty = true) are a different pool entirely —
+        // FeeCycleBreakdown nets them against accrued penalty on its own, so
+        // they must stay out of the base-fee discount math below.
         $concessions = FeeConcession::where('organization_id', $orgId)
             ->where('student_detail_id', $studentId)
+            ->where('is_penalty', false)
             ->orderByDesc('created_at')
             ->get();
 
@@ -104,6 +108,7 @@ trait HandlesStudentFeeView
             // with this student's payments allocated oldest installment first.
             'cycles'       => FeeCycleBreakdown::build(
                 $orgId,
+                $studentId,
                 ['academic' => $academic['paid'], 'transport' => $transport['paid']],
                 ['academic' => $academic['net'],  'transport' => $transport['net']],
             ),

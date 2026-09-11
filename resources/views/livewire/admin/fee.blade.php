@@ -60,10 +60,15 @@
                         <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-1">
                             <span>Filtered Total: <strong class="text-emerald-600">₹{{ number_format($paymentFilteredTotal ?? 0, 0) }}</strong></span>
                         </div>
-                    @elseif ($activeTab === 'penalties' && $penaltyStudentId)
+                    @elseif ($activeTab === 'penalties' && $penaltySubTab === 'by_student' && $penaltyViewStudentId && !empty($penaltyStudentView))
+                        @php
+                            $penHdrCycles  = collect($penaltyStudentView['cycles'] ?? []);
+                            $penHdrAccrued = $penHdrCycles->sum('penalty_total');
+                            $penHdrNet     = $penHdrCycles->sum('penalty_net');
+                        @endphp
                         <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-1 divide-x divide-gray-200">
-                            <span class="pr-4">Penalty: <strong class="text-red-600">₹{{ number_format($penaltyGross, 0) }}</strong></span>
-                            <span class="pl-4">Net Due: <strong class="text-gray-800">₹{{ number_format($penaltyNet, 0) }}</strong></span>
+                            <span class="pr-4">Accrued: <strong class="text-red-600">₹{{ number_format($penHdrAccrued, 0) }}</strong></span>
+                            <span class="pl-4">Still Due: <strong class="text-gray-800">₹{{ number_format($penHdrNet, 0) }}</strong></span>
                         </div>
                     @elseif ($activeTab === 'account_users')
                         <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-1 divide-x divide-gray-200">
@@ -104,6 +109,12 @@
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
                             <span class="hidden sm:inline">Add User</span>
                             <span class="sm:hidden">New</span>
+                        </button>
+                    @elseif ($activeTab === 'penalties')
+                        <button wire:click="openPenaltyWaiver" @disabled(!$penaltyViewStudentId)
+                            class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                            <span>Waiver</span>
                         </button>
                     @endif
                 </div>
@@ -275,31 +286,7 @@
                 </div>
             </div>
         @elseif ($activeTab === 'penalties')
-            <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
-                <div class="flex flex-wrap items-center gap-3">
-                    <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-                        Filter by:
-                    </div>
-                    <select wire:model.live="penaltyFilterStandard" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                        <option value="">Select Class</option>
-                        @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
-                    </select>
-                    <span class="text-gray-300">→</span>
-                    <select wire:model.live="penaltyFilterSection" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                        <option value="">All Sections</option>
-                        @foreach ($sections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
-                    </select>
-                    <span class="text-gray-300">→</span>
-                    <select wire:model.live="penaltyStudentId" @disabled(!$penaltyFilterStandard)
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 min-w-[200px]">
-                        <option value="">Select Student</option>
-                        @foreach ($penaltyStudents as $stu)
-                            <option value="{{ $stu->id }}">{{ $stu->full_name ?? ($stu->user->name ?? 'Unknown') }}@if ($stu->father_name) — {{ $stu->father_name }}@endif</option>
-                        @endforeach
-                    </select>
-                </div>
-            </div>
+            @include('livewire.partials.penalties-header')
         @endif
     </div>
 
@@ -652,159 +639,7 @@
     {{-- TAB 6: PENALTIES (per-student)                                  --}}
     {{-- ════════════════════════════════════════════════════════════════ --}}
     @if ($activeTab === 'penalties')
-        {{-- Compact penalty-rate settings --}}
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-4">
-            <div class="flex flex-wrap items-end gap-4">
-                <div>
-                    <label class="block text-[11px] font-semibold text-gray-500 mb-1">Penalty per Day (₹)</label>
-                    <input type="number" wire:model="penaltyPerDay" step="0.01" min="0" placeholder="0"
-                        class="w-32 border border-gray-300 rounded-md px-3 py-2 text-sm">
-                    @error('penaltyPerDay') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-                </div>
-                <div>
-                    <label class="block text-[11px] font-semibold text-gray-500 mb-1">Cycle</label>
-                    <select wire:model="cycleType" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
-                        <option value="monthly">Monthly</option>
-                        <option value="quarterly">Quarterly</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-[11px] font-semibold text-gray-500 mb-1">Due Day of Month</label>
-                    <input type="number" wire:model="dueDayOfMonth" min="1" max="31" placeholder="10"
-                        class="w-28 border border-gray-300 rounded-md px-3 py-2 text-sm">
-                    @error('dueDayOfMonth') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-                </div>
-                <button wire:click="saveSettings"
-                    class="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-md text-sm font-semibold">
-                    Save
-                </button>
-                <p class="text-xs text-gray-400 flex-1 min-w-[200px]">Penalty = overdue days × per-day rate when no payment is made in the current cycle.</p>
-            </div>
-        </div>
-
-        @if ($penaltyStudentId && !empty($penaltyStudentInfo))
-            {{-- Penalty summary line --}}
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4 mb-4">
-                <h3 class="text-sm font-semibold text-gray-800 mb-1">{{ $penaltyStudentInfo['name'] }}
-                    <span class="text-gray-400 font-normal">· {{ $penaltyStudentInfo['class'] }} / {{ $penaltyStudentInfo['section'] }} · Adm {{ $penaltyStudentInfo['admission_no'] }}</span>
-                </h3>
-                <p class="text-sm text-gray-600">
-                    <span class="text-gray-500">Days Overdue:</span> <span class="font-semibold text-gray-800">{{ $penaltyDaysOverdue }}</span>
-                    <span class="text-gray-300 mx-2">|</span>
-                    <span class="text-gray-500">Penalty:</span> <span class="font-semibold text-red-600">₹{{ number_format($penaltyGross, 2) }}</span>
-                    <span class="text-gray-300 mx-2">|</span>
-                    <span class="text-gray-500">Waived:</span> <span class="font-semibold text-emerald-600">₹{{ number_format($penaltyWaivedTotal, 2) }}</span>
-                    <span class="text-gray-300 mx-2">|</span>
-                    <span class="text-gray-500">Net Penalty Due:</span> <span class="font-bold text-gray-900">₹{{ number_format($penaltyNet, 2) }}</span>
-                </p>
-            </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {{-- Fee structure --}}
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                    <h4 class="text-sm font-semibold text-gray-800 mb-3">Fee Structure</h4>
-                    @if (count($penaltyStructures))
-                        <div class="space-y-1 text-sm">
-                            @foreach ($penaltyStructures as $cs)
-                                <div class="flex justify-between items-center py-1 border-b border-gray-100">
-                                    <span class="text-gray-700">{{ $cs['fee_name'] }}</span>
-                                    <div class="flex items-center gap-2">
-                                        <span class="px-2 py-0.5 rounded text-[11px] {{ $cs['fee_type'] === 'academic' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600' }}">{{ ucfirst($cs['fee_type']) }}</span>
-                                        <span class="font-semibold text-gray-800">₹{{ number_format($cs['amount'], 2) }}</span>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    @else
-                        <p class="text-sm text-gray-400">No fee structure set for this class.</p>
-                    @endif
-                </div>
-
-                {{-- Waive penalty --}}
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                    <h4 class="text-sm font-semibold text-gray-800 mb-3">Waive / Concession on Penalty</h4>
-                    <div class="flex items-end gap-2 mb-4">
-                        <div class="flex-1">
-                            <label class="block text-[11px] font-semibold text-gray-500 mb-1">Waiver Amount (₹) <span class="text-red-500">*</span></label>
-                            <input type="number" step="0.01" min="0.01" wire:model="waiveValue" placeholder="e.g. {{ number_format($penaltyGross, 0) }}"
-                                class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-                            @error('waiveValue') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-                        </div>
-                        <div class="flex-1">
-                            <label class="block text-[11px] font-semibold text-gray-500 mb-1">Reason</label>
-                            <input type="text" wire:model="waiveReason" placeholder="Optional"
-                                class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
-                        </div>
-                        <button wire:click="waivePenalty"
-                            class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-sm font-semibold whitespace-nowrap">
-                            Waive
-                        </button>
-                    </div>
-
-                    @if (count($penaltyWaivers))
-                        <p class="text-[11px] font-semibold text-gray-500 uppercase mb-1">Applied Waivers</p>
-                        <div class="space-y-1">
-                            @foreach ($penaltyWaivers as $w)
-                                <div class="flex justify-between items-center text-sm py-1 border-b border-gray-100">
-                                    <span class="text-gray-600">{{ $w['reason'] ?: 'Penalty waiver' }}</span>
-                                    <div class="flex items-center gap-2">
-                                        <span class="font-semibold text-emerald-600">₹{{ number_format($w['value'], 2) }}</span>
-                                        <button wire:click="removeWaiver({{ $w['id'] }})" class="text-red-500 hover:text-red-700" title="Remove">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                                        </button>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    @else
-                        <p class="text-sm text-gray-400">No penalty waivers applied yet.</p>
-                    @endif
-                </div>
-            </div>
-
-            {{-- Payments --}}
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mt-4">
-                <h4 class="text-sm font-semibold text-gray-800 mb-3">Payment History</h4>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead class="bg-gray-50 border-b border-gray-200">
-                            <tr>
-                                <th class="px-3 py-2 text-left text-[11px] text-gray-500 uppercase">Receipt</th>
-                                <th class="px-3 py-2 text-right text-[11px] text-gray-500 uppercase">Amount</th>
-                                <th class="px-3 py-2 text-left text-[11px] text-gray-500 uppercase">Fee Type</th>
-                                <th class="px-3 py-2 text-left text-[11px] text-gray-500 uppercase">Mode</th>
-                                <th class="px-3 py-2 text-left text-[11px] text-gray-500 uppercase">Date</th>
-                                <th class="px-3 py-2 text-left text-[11px] text-gray-500 uppercase">By</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            @forelse ($penaltyPayments as $txn)
-                                <tr class="hover:bg-gray-50/50">
-                                    <td class="px-3 py-2 font-mono text-xs text-blue-700">{{ $txn['receipt_number'] }}</td>
-                                    <td class="px-3 py-2 text-right font-semibold">₹{{ number_format($txn['amount'], 2) }}</td>
-                                    <td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-[11px] {{ $txn['fee_type'] === 'academic' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600' }}">{{ ucfirst($txn['fee_type']) }}</span></td>
-                                    <td class="px-3 py-2 capitalize text-gray-600">{{ str_replace('_', ' ', $txn['payment_mode']) }}</td>
-                                    <td class="px-3 py-2 text-gray-600">{{ \Carbon\Carbon::parse($txn['payment_date'])->format('d M Y') }}</td>
-                                    <td class="px-3 py-2 text-xs text-gray-600">{{ $txn['submitted_by'] }}</td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="6" class="px-3 py-8 text-center text-gray-400 text-sm">No payments yet for this student.</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        @else
-            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div class="text-center py-16 px-4">
-                    <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
-                        <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                    </div>
-                    <p class="text-sm font-semibold text-gray-800">Select a student</p>
-                    <p class="text-xs text-gray-400 mt-1">Use the filters above (Class → Section → Student) to view their fee structure, penalties and payments.</p>
-                </div>
-            </div>
-        @endif
+        @include('livewire.partials.penalties-panel')
     @endif
 
     {{-- ════════════════════════════════════════════════════════════════ --}}
