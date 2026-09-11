@@ -460,7 +460,7 @@
                             $filled = $roomAssignments->count();
                         @endphp
                         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                            <div class="px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 flex flex-wrap items-center justify-between gap-2">
+                            <div class="px-5 py-3 border-b border-gray-100 bg-gray-50 flex flex-wrap items-center justify-between gap-2">
                                 <div>
                                     <h3 class="text-base font-semibold text-gray-900">{{ $room->room_name }}</h3>
                                     <p class="text-xs text-gray-500">{{ $room->building }} · {{ $filled }}/{{ $room->capacity }} seats filled</p>
@@ -487,7 +487,7 @@
                                                 <td class="px-4 py-2 text-gray-400">{{ $i + 1 }}</td>
                                                 <td class="px-4 py-2 font-semibold text-gray-800">{{ \App\Support\SeatLabel::full($room->room_name, $a->seat?->row_no, $a->seat?->col_no, $a->seat_position) }}</td>
                                                 <td class="px-4 py-2 text-gray-700">{{ $planRollMap[(int) $a->student_id]['roll'] ?? '—' }}</td>
-                                                <td class="px-4 py-2 text-blue-600 font-medium">{{ $a->class_label }}</td>
+                                                <td class="px-4 py-2 text-gray-700 font-medium">{{ $a->class_label }}</td>
                                             </tr>
                                         @empty
                                             <tr><td colspan="4" class="px-4 py-6 text-center text-gray-400">No candidates seated in this room.</td></tr>
