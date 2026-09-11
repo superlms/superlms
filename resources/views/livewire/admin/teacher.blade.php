@@ -580,137 +580,52 @@
          VIEW TEACHER SLIDE-IN PANEL
     ══════════════════════════════════════════════════ --}}
     @if ($showViewModal && !empty($viewData))
-        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeViewModal"></div>
-            <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
 
                 {{-- Fixed header --}}
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div class="min-w-0">
-                        <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $viewModalTitle ?: 'Teacher Details' }}</h2>
-                        <p class="text-xs text-gray-500 mt-0.5 truncate">{{ $viewData['user']->email ?? '' }}</p>
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $viewData['user']->name ?? ($viewModalTitle ?: 'Teacher Details') }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5 truncate">
+                            {{ $viewData['user']->email ?? '' }} · {{ ($viewData['user']->is_active ?? false) ? 'Active' : 'Inactive' }}
+                        </p>
                     </div>
-                    <button wire:click="closeViewModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0">
+                    <button wire:click="closeViewModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
 
-                {{-- Scrollable body --}}
-                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-5 text-left">
-
-                    {{-- Profile Header --}}
-                    <div class="flex items-center gap-4 pb-4 border-b border-gray-200">
-                        @if ($teacherImageUrl)
-                            <img src="{{ $teacherImageUrl }}"
-                                class="w-16 h-16 rounded-full object-cover border-2 border-gray-200">
-                        @else
-                            <div class="w-16 h-16 rounded-full bg-teal-100 flex items-center justify-center">
-                                <span class="text-xl font-bold text-teal-600">{{ strtoupper(substr($viewData['user']->name ?? 'T', 0, 1)) }}</span>
-                            </div>
-                        @endif
-                        <div class="min-w-0">
-                            <h3 class="text-lg font-bold text-gray-900 truncate">{{ $viewData['user']->name ?? '—' }}</h3>
-                            <p class="text-sm text-gray-500 font-mono">{{ $viewData['detail']->employee_id ?? '—' }}</p>
-                            @if ($viewData['user']->is_active ?? false)
-                                <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 mt-1 bg-green-50 text-green-700 rounded-full font-medium border border-green-100">
-                                    <span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Active
-                                </span>
-                            @else
-                                <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 mt-1 bg-red-50 text-red-600 rounded-full font-medium border border-red-100">
-                                    <span class="w-1.5 h-1.5 bg-red-500 rounded-full"></span> Inactive
-                                </span>
-                            @endif
+                {{-- Scrollable body — one plain label/value row list, same as Exam's view panel --}}
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                    @foreach ([
+                        'Employee ID'        => $viewData['detail']->employee_id ?? 'N/A',
+                        'Mobile'             => $viewData['user']->mobile_number ?? 'N/A',
+                        'Gender'             => $viewData['user']->gender ? ucfirst($viewData['user']->gender) : 'N/A',
+                        'Date of Birth'      => $viewData['user']->dob ?? 'N/A',
+                        'Emergency Contact'  => $viewData['detail']->emergency_contact ?? 'N/A',
+                        'Date of Joining'    => $viewData['detail']->date_of_joining ?? 'N/A',
+                        'Qualification'      => $viewData['detail']->qualification ?? 'N/A',
+                        'Address'            => $viewData['detail']->address ?? 'N/A',
+                        'City'               => $viewData['detail']->city ?? 'N/A',
+                        'State'              => $viewData['detail']->state ?? 'N/A',
+                        'Pincode'            => $viewData['detail']->pincode ?? 'N/A',
+                    ] as $label => $value)
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
+                            <span class="col-span-2 text-gray-800 font-medium">{{ $value }}</span>
                         </div>
-                    </div>
+                    @endforeach
 
-                    {{-- Personal --}}
-                    <div>
-                        <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Personal Information</h4>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                            <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 min-w-0">
-                                <p class="text-xs text-gray-400 mb-0.5">Email</p>
-                                <p class="text-sm font-medium text-gray-800 break-all">{{ $viewData['user']->email ?? '—' }}</p>
-                            </div>
-                            <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 min-w-0">
-                                <p class="text-xs text-gray-400 mb-0.5">Mobile</p>
-                                <p class="text-sm font-medium text-gray-800">{{ $viewData['user']->mobile_number ?? '—' }}</p>
-                            </div>
-                            <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 min-w-0">
-                                <p class="text-xs text-gray-400 mb-0.5">Gender</p>
-                                <p class="text-sm font-medium text-gray-800 capitalize">{{ $viewData['user']->gender ?? '—' }}</p>
-                            </div>
-                            <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 min-w-0">
-                                <p class="text-xs text-gray-400 mb-0.5">Date of Birth</p>
-                                <p class="text-sm font-medium text-gray-800">{{ $viewData['user']->dob ?? '—' }}</p>
-                            </div>
-                            <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 min-w-0">
-                                <p class="text-xs text-gray-400 mb-0.5">Emergency Contact</p>
-                                <p class="text-sm font-medium text-gray-800">{{ $viewData['detail']->emergency_contact ?? '—' }}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- Professional --}}
-                    <div>
-                        <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Professional Information</h4>
-                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                            <div class="bg-teal-50 p-3 rounded-lg border border-teal-100 min-w-0">
-                                <p class="text-xs text-teal-400 mb-0.5">Employee ID</p>
-                                <p class="text-sm font-bold text-teal-800 font-mono truncate">{{ $viewData['detail']->employee_id ?? '—' }}</p>
-                            </div>
-                            <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 min-w-0">
-                                <p class="text-xs text-gray-400 mb-0.5">Date of Joining</p>
-                                <p class="text-sm font-bold text-gray-800">{{ $viewData['detail']->date_of_joining ?? '—' }}</p>
-                            </div>
-                            <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 min-w-0">
-                                <p class="text-xs text-gray-400 mb-0.5">Qualification</p>
-                                <p class="text-sm font-bold text-gray-800 truncate" title="{{ $viewData['detail']->qualification ?? '' }}">{{ $viewData['detail']->qualification ?? '—' }}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- Assigned Classes --}}
                     @if (!empty($viewData['assignments']) && count($viewData['assignments']) > 0)
-                        <div>
-                            <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Assigned Classes</h4>
-                            <div class="flex flex-wrap gap-2">
-                                @foreach ($viewData['assignments'] as $asgn)
-                                    <span class="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg font-medium border border-blue-100">
-                                        {{ $asgn->standard?->name ?? '—' }}
-                                        @if ($asgn->section)
-                                            <span class="text-blue-400">•</span>
-                                            {{ $asgn->section->name }}
-                                        @endif
-                                    </span>
-                                @endforeach
-                            </div>
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">Assigned Classes</span>
+                            <span class="col-span-2 text-gray-800 font-medium">
+                                {{ collect($viewData['assignments'])->map(fn ($a) => trim(($a->standard?->name ?? '—') . ($a->section ? ' - ' . $a->section->name : '')))->implode(', ') }}
+                            </span>
                         </div>
                     @endif
-
-                    {{-- Address --}}
-                    <div>
-                        <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Address</h4>
-                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-100 space-y-3">
-                            <div>
-                                <p class="text-xs text-gray-400 mb-0.5">Address</p>
-                                <p class="text-sm text-gray-800">{{ $viewData['detail']->address ?? '—' }}</p>
-                            </div>
-                            <div class="grid grid-cols-3 gap-4 pt-2 border-t border-gray-200">
-                                <div class="min-w-0">
-                                    <p class="text-xs text-gray-400">City</p>
-                                    <p class="text-sm font-medium text-gray-700 truncate">{{ $viewData['detail']->city ?? '—' }}</p>
-                                </div>
-                                <div class="min-w-0">
-                                    <p class="text-xs text-gray-400">State</p>
-                                    <p class="text-sm font-medium text-gray-700 truncate">{{ $viewData['detail']->state ?? '—' }}</p>
-                                </div>
-                                <div class="min-w-0">
-                                    <p class="text-xs text-gray-400">Pincode</p>
-                                    <p class="text-sm font-medium text-gray-700">{{ $viewData['detail']->pincode ?? '—' }}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 {{-- Fixed footer --}}
@@ -718,10 +633,7 @@
                     <button wire:click="closeViewModal" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Close</button>
                     @if (!empty($viewData['detail']?->id))
                         <button wire:click="onEditTeacher({{ $viewData['detail']->id }})" type="button"
-                            class="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-md flex items-center gap-1.5">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                            Edit Teacher
-                        </button>
+                            class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md">Edit Teacher</button>
                     @endif
                 </div>
             </div>
