@@ -17,45 +17,6 @@
                         <span class="px-4">Timetable Created: <strong class="text-emerald-600">{{ $timetableCreated }}</strong></span>
                         <span class="pl-4">Remaining: <strong class="text-amber-600">{{ $remainingSections }}</strong></span>
                     </div>
-                    @php
-                        $ttPrintUrl = null;
-                        if ($viewMode === 'class' && $filterClass && $filterSection) {
-                            $ttPrintUrl = route('admin.timetable.print', array_filter([
-                                'organization' => auth()->user()->organization_id,
-                                'mode'         => 'class',
-                                'standard'     => $filterClass,
-                                'section'      => $filterSection,
-                                'days'         => implode(',', $filterDays),
-                            ]));
-                        } elseif ($viewMode === 'teacher' && $filterTeacher) {
-                            $ttPrintUrl = route('admin.timetable.print', array_filter([
-                                'organization' => auth()->user()->organization_id,
-                                'mode'         => 'teacher',
-                                'teacher'      => $filterTeacher,
-                                'days'         => implode(',', $filterDays),
-                            ]));
-                        }
-                    @endphp
-                    @if ($ttPrintUrl)
-                        <a href="{{ $ttPrintUrl }}" target="_blank"
-                            title="Print timetable (landscape PDF)"
-                            class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-lg transition-colors">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                            </svg>
-                            <span class="hidden sm:inline">Print</span>
-                        </a>
-                    @else
-                        <span title="{{ $viewMode === 'class' ? 'Select a class and section to print' : 'Select a teacher to print' }}"
-                            class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-gray-100 text-gray-400 text-sm font-semibold rounded-lg cursor-not-allowed">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                            </svg>
-                            <span class="hidden sm:inline">Print</span>
-                        </span>
-                    @endif
                     <button wire:click="onCreateTimetable"
                         class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -196,37 +157,43 @@
             ══════════════════════════════════════════════════ --}}
             @foreach ($sectionCards as $card)
                 <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    {{-- Card header: combined Class · Section + Edit + Download --}}
-                    <div class="flex items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50/40 to-transparent">
+                    {{-- Card header: combined Class · Section + action icons --}}
+                    <div class="flex items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-gray-200 bg-gray-50">
                         <div class="min-w-0">
                             <h3 class="text-base sm:text-lg font-bold text-gray-900 truncate">
                                 {{ $card['standard'] }} <span class="text-gray-400 font-normal mx-1">·</span> {{ $card['section'] }}
                             </h3>
                             <p class="text-xs text-gray-500 mt-0.5">{{ $card['subject_groups']->count() }} subject{{ $card['subject_groups']->count() === 1 ? '' : 's' }} scheduled</p>
                         </div>
-                        <div class="flex items-center gap-2 flex-shrink-0">
-                            <button wire:click="onEditSection({{ $card['standard_id'] }}, {{ $card['section_id'] }})"
-                                class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-md shadow-sm">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        @php
+                            $ttPdfUrl = $viewMode === 'teacher'
+                                ? route('admin.timetable.teacher.pdf', ['organization' => auth()->user()->organization_id, 'teacher' => $filterTeacher])
+                                : route('admin.timetable.pdf', ['organization' => auth()->user()->organization_id, 'standard' => $card['standard_id'], 'section' => $card['section_id']]);
+                            $ttCardPrintUrl = $viewMode === 'teacher'
+                                ? route('admin.timetable.print', array_filter(['organization' => auth()->user()->organization_id, 'mode' => 'teacher', 'teacher' => $filterTeacher, 'days' => implode(',', $filterDays)]))
+                                : route('admin.timetable.print', array_filter(['organization' => auth()->user()->organization_id, 'mode' => 'class', 'standard' => $card['standard_id'], 'section' => $card['section_id'], 'days' => implode(',', $filterDays)]));
+                        @endphp
+                        <div class="flex items-center gap-1.5 flex-shrink-0">
+                            <button wire:click="onEditSection({{ $card['standard_id'] }}, {{ $card['section_id'] }})" title="Edit"
+                                class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                 </svg>
-                                Edit
                             </button>
-                            @php
-                                $ttPdfUrl = $viewMode === 'teacher'
-                                    ? route('admin.timetable.teacher.pdf', ['organization' => auth()->user()->organization_id, 'teacher' => $filterTeacher])
-                                    : route('admin.timetable.pdf', ['organization' => auth()->user()->organization_id, 'standard' => $card['standard_id'], 'section' => $card['section_id']]);
-                            @endphp
-                            <a href="{{ $ttPdfUrl }}"
-                                target="_blank"
-                                class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <a href="{{ $ttPdfUrl }}" target="_blank" title="Download"
+                                class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4" />
                                 </svg>
-                                Download
                             </a>
-                            <button wire:click="onDeleteSection({{ $card['standard_id'] }}, {{ $card['section_id'] }})"
-                                class="p-1.5 text-red-600 hover:bg-red-50 rounded-md" title="Delete entire section timetable">
+                            <a href="{{ $ttCardPrintUrl }}" target="_blank" title="Print"
+                                class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-700">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                </svg>
+                            </a>
+                            <button wire:click="onDeleteSection({{ $card['standard_id'] }}, {{ $card['section_id'] }})" title="Delete entire section timetable"
+                                class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
@@ -240,12 +207,12 @@
                             <thead class="bg-gray-50 border-b border-gray-100">
                                 <tr>
                                     <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider w-10">#</th>
-                                    @if ($viewMode === 'teacher')
-                                        <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Class · Section</th>
-                                    @endif
                                     <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Time</th>
                                     <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Subject</th>
                                     <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Teacher(s)</th>
+                                    @if ($viewMode === 'teacher')
+                                        <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Class · Section</th>
+                                    @endif
                                     <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Days</th>
                                 </tr>
                             </thead>
@@ -253,13 +220,6 @@
                                 @foreach ($card['subject_groups'] as $i => $g)
                                     <tr class="hover:bg-gray-50/70 transition-colors align-top">
                                         <td class="px-3 py-2.5 text-sm text-gray-500">{{ $i + 1 }}</td>
-                                        @if ($viewMode === 'teacher')
-                                            <td class="px-3 py-2.5 text-sm text-gray-700 whitespace-nowrap">
-                                                <span class="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full font-medium border border-blue-100">
-                                                    {{ $card['standard'] }} · {{ $card['section'] }}
-                                                </span>
-                                            </td>
-                                        @endif
                                         <td class="px-3 py-2.5 text-sm text-gray-700 whitespace-nowrap">
                                             {{ \Carbon\Carbon::parse($g['start_time'])->format('h:i A') }} – {{ \Carbon\Carbon::parse($g['end_time'])->format('h:i A') }}
                                         </td>
@@ -278,6 +238,13 @@
                                                 @endforeach
                                             </div>
                                         </td>
+                                        @if ($viewMode === 'teacher')
+                                            <td class="px-3 py-2.5 text-sm text-gray-700 whitespace-nowrap">
+                                                <span class="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full font-medium border border-blue-100">
+                                                    {{ $card['standard'] }} · {{ $card['section'] }}
+                                                </span>
+                                            </td>
+                                        @endif
                                         <td class="px-3 py-2.5">
                                             <div class="flex flex-wrap gap-1">
                                                 @foreach ($g['days'] as $d)
@@ -299,8 +266,8 @@
          ADD / EDIT SLIDE-IN PANEL
     ══════════════════════════════════════════════════ --}}
     @if ($open)
-        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
-            <div class="absolute inset-0 bg-black/40 backdrop-blur-[2px]" wire:click="closePanel"></div>
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closePanel"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-5xl bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div>
@@ -488,7 +455,7 @@
 
                                 <div class="flex items-center justify-between gap-3 mt-3">
                                     <button type="button" wire:click="addRow"
-                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors">
+                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
                                         </svg>
