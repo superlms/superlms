@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Admin\Fee\FeeStructure;
+use App\Models\Admin\Transportation;
 use App\Models\Organization;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
@@ -13,6 +14,10 @@ use Illuminate\Support\Facades\Auth;
 
 class FeeStructurePdfController extends Controller
 {
+    /** Academic year, April → March. June is free on transport routes. */
+    private const MONTHS     = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+    private const FREE_MONTH = 'Jun';
+
     /**
      * Printable / downloadable academic fee structure, grouped by class +
      * section with per-group totals and a grand total. ?download=1 streams a
@@ -69,5 +74,42 @@ class FeeStructurePdfController extends Controller
 
         // Printable HTML (the view shows a Print button when not in PDF mode).
         return view('admin.fee-structure-pdf', $data + ['printable' => true]);
+    }
+
+    /**
+     * One transport route's month-by-month fee for the academic year.
+     * ?download=1 streams a PDF; otherwise a print-ready HTML page.
+     */
+    public function transport(Request $request, $organization)
+    {
+        $orgId = Auth::user()->organization_id;
+        $org   = Organization::find($orgId);
+
+        $route = Transportation::with('driver.user:id,name')
+            ->where('organization_id', $orgId)
+            ->findOrFail($request->route);
+
+        $monthly = (float) $route->monthly_fee;
+        $months  = [];
+        foreach (self::MONTHS as $month) {
+            $free     = $month === self::FREE_MONTH;
+            $months[] = ['month' => $month, 'free' => $free, 'amount' => $free ? 0.0 : $monthly];
+        }
+
+        $data = [
+            'org'         => $org,
+            'route'       => $route,
+            'months'      => $months,
+            'annualTotal' => array_sum(array_column($months, 'amount')),
+            'generatedAt' => now(),
+        ];
+
+        if ($request->boolean('download')) {
+            return Pdf::loadView('admin.transport-structure-pdf', $data)
+                ->setPaper('a4', 'portrait')
+                ->stream('transport-structure.pdf');
+        }
+
+        return view('admin.transport-structure-pdf', $data + ['printable' => true]);
     }
 }

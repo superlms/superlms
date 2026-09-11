@@ -62,6 +62,8 @@ Route::prefix('accounts')->group(function () {
             Route::get('/fee-structure', FeeStructure::class)->name('accounts.fee-structure');
             Route::get('/fee-structure/pdf', [\App\Http\Controllers\Admin\FeeStructurePdfController::class, 'show'])
                 ->name('accounts.fee-structure.pdf');
+            Route::get('/fee-structure/transport-pdf', [\App\Http\Controllers\Admin\FeeStructurePdfController::class, 'transport'])
+                ->name('accounts.fee-structure.transport-pdf');
             Route::get('/fee/receipt/{id}', [\App\Http\Controllers\Admin\FeeReceiptController::class, 'show'])
                 ->name('accounts.fee.receipt');
             Route::get('/payments', Payments::class)->name('accounts.payments');

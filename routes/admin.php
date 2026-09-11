@@ -120,6 +120,8 @@ Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
             ->name('admin.ledger.statement');
         Route::get('/fee-structure/pdf', [\App\Http\Controllers\Admin\FeeStructurePdfController::class, 'show'])
             ->name('admin.fee-structure.pdf');
+        Route::get('/fee-structure/transport-pdf', [\App\Http\Controllers\Admin\FeeStructurePdfController::class, 'transport'])
+            ->name('admin.fee-structure.transport-pdf');
         Route::get('/fee/receipt/{id}', [FeeReceiptController::class, 'show'])->name('admin.fee.receipt');
         Route::get('/homework', Homework::class)->name('admin.homework');
         Route::get('/attendance', Attendance::class)->name('admin.attendance');

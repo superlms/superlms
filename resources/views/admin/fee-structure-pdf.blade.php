@@ -4,67 +4,62 @@
     <meta charset="utf-8">
     <title>Fee Structure</title>
     <style>
-        @page { margin: 26px 30px; }
-        * { box-sizing: border-box; }
-        body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 11px; color: #1f2937; }
+        /* Minimal by design: thin rules, no fills, one accent line under the
+           masthead. Note for dompdf — no universal margin reset here, it would
+           wipe the @page margins and bleed the sheet to the paper edge. */
+        @page { margin: 30px 34px; }
 
-        .head { border-bottom: 2px solid #15355f; padding-bottom: 10px; margin-bottom: 14px; }
-        .head table { width: 100%; border-collapse: collapse; }
-        .head .logo { width: 60px; vertical-align: middle; }
-        .head .logo img { height: 56px; width: 56px; object-fit: contain; }
-        .head .mid { text-align: center; vertical-align: middle; }
-        .head .school { font-family: "Times New Roman", Times, serif; font-size: 20px; font-weight: bold; color: #15355f; text-transform: uppercase; }
-        .head .meta { font-size: 9px; color: #4b5563; margin-top: 3px; }
-        .doc-title { text-align: center; font-size: 13px; font-weight: bold; letter-spacing: 1px; margin: 4px 0 2px; }
-        .sub { text-align: center; font-size: 10px; color: #6b7280; margin-bottom: 14px; }
+        body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 11px; color: #111827; line-height: 1.45; }
 
-        .grp { margin-bottom: 14px; border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden; }
-        .grp-head { background: #15355f; color: #fff; padding: 7px 11px; font-size: 11px; font-weight: bold; }
-        .grp-head span { float: right; font-weight: normal; color: #e6cd7e; }
+        .head { border-bottom: 1px solid #111827; padding-bottom: 9px; margin-bottom: 4px; }
+        .head .school { font-size: 15px; font-weight: bold; letter-spacing: .4px; text-transform: uppercase; }
+        .head .meta { font-size: 8.5px; color: #6b7280; margin-top: 2px; }
+
+        .title { font-size: 10px; letter-spacing: 1.6px; text-transform: uppercase; color: #6b7280;
+                 margin: 14px 0 2px; }
+        .scope { font-size: 12px; font-weight: bold; }
+        .stamp { font-size: 8.5px; color: #9ca3af; margin-top: 1px; margin-bottom: 16px; }
+
+        .grp { margin-bottom: 18px; }
+        .grp-head { font-size: 11px; font-weight: bold; padding-bottom: 4px; border-bottom: 1px solid #111827; }
+        .grp-head span { float: right; font-weight: normal; color: #6b7280; }
+
         table.fs { width: 100%; border-collapse: collapse; }
-        table.fs th { background: #f3f4f6; color: #374151; font-size: 8.5px; text-transform: uppercase; letter-spacing: .4px;
-            text-align: left; padding: 6px 10px; border-bottom: 1px solid #e5e7eb; }
-        table.fs td { padding: 6px 10px; border-bottom: 1px solid #f0f1f4; font-size: 10.5px; }
+        table.fs th { font-size: 8px; letter-spacing: .7px; text-transform: uppercase; color: #9ca3af;
+                      text-align: left; padding: 6px 0 5px; border-bottom: 1px solid #e5e7eb; font-weight: normal; }
+        table.fs td { padding: 5px 0; border-bottom: 1px solid #f3f4f6; font-size: 10.5px; }
         table.fs td.num, table.fs th.num { text-align: right; }
-        .grp-total td { background: #f7f9fc; font-weight: bold; border-top: 1px solid #d8def0; }
+        table.fs td.sl { color: #9ca3af; font-size: 9px; }
+        tr.tot td { border-top: 1px solid #111827; border-bottom: 0; padding-top: 6px; font-weight: bold; }
 
-        .grand { margin-top: 8px; background: #15355f; color: #fff; padding: 9px 12px; border-radius: 6px;
-            font-size: 12px; font-weight: bold; }
+        .grand { margin-top: 6px; border-top: 2px solid #111827; padding-top: 7px; font-size: 12px; font-weight: bold; }
         .grand span { float: right; }
 
-        .foot { margin-top: 16px; font-size: 8.5px; color: #9ca3af; text-align: center; }
-        .toolbar { text-align: center; margin: 18px; }
-        .toolbar button { padding: 9px 22px; background: #15355f; color: #fff; border: 0; border-radius: 7px; cursor: pointer; font-size: 13px; }
-        @media print { .toolbar { display: none; } body { padding: 0; } }
+        .foot { margin-top: 22px; padding-top: 7px; border-top: 1px solid #e5e7eb;
+                font-size: 8px; color: #9ca3af; text-align: center; letter-spacing: .3px; }
+
+        .empty { text-align: center; color: #9ca3af; padding: 34px 0; font-size: 11px; }
+
+        .toolbar { text-align: center; margin: 20px 0 0; }
+        .toolbar button { padding: 8px 20px; background: #111827; color: #fff; border: 0; border-radius: 6px;
+                          cursor: pointer; font-size: 12px; letter-spacing: .3px; }
+        @media print { .toolbar { display: none; } }
     </style>
 </head>
 <body>
-    @php
-        $logo = $org->logo ?? null;
-        $mono = strtoupper(mb_substr($org->name ?? 'S', 0, 1));
-    @endphp
 
     <div class="head">
-        <table>
-            <tr>
-                <td class="logo">@if ($logo)<img src="{{ $logo }}" alt="logo">@endif</td>
-                <td class="mid">
-                    <div class="school">{{ $org->name ?? 'School' }}</div>
-                    <div class="meta">
-                        {{ $org->address ?? '' }}
-                        @if (!empty($org?->mobile_number)) · {{ $org->mobile_number }} @endif
-                        @if (!empty($org?->email)) · {{ $org->email }} @endif
-                    </div>
-                </td>
-                <td class="logo"></td>
-            </tr>
-        </table>
+        <div class="school">{{ $org->name ?? 'School' }}</div>
+        <div class="meta">
+            {{ $org->address ?? '' }}
+            @if (!empty($org?->mobile_number)) · {{ $org->mobile_number }} @endif
+            @if (!empty($org?->email)) · {{ $org->email }} @endif
+        </div>
     </div>
 
-    <div class="doc-title">ACADEMIC FEE STRUCTURE</div>
-    <div class="sub">
-        {{ $filterLabel ? $filterLabel : 'All Classes' }} · Generated {{ $generatedAt->format('d M Y, g:i A') }}
-    </div>
+    <div class="title">Academic Fee Structure</div>
+    <div class="scope">{{ $filterLabel ?: 'All Classes' }}</div>
+    <div class="stamp">Generated {{ $generatedAt->format('d M Y, g:i A') }}</div>
 
     @forelse ($groups as $g)
         <div class="grp">
@@ -75,42 +70,38 @@
             <table class="fs">
                 <thead>
                     <tr>
-                        <th style="width:42px;">Sl.</th>
-                        <th>Class</th>
-                        <th>Section</th>
+                        <th style="width:26px;">#</th>
                         <th>Fee Name</th>
-                        <th class="num" style="width:90px;">Amount</th>
+                        <th class="num" style="width:100px;">Amount</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach ($g['rows'] as $i => $r)
                         <tr>
-                            <td>{{ $i + 1 }}</td>
-                            <td>{{ $r->standard->name ?? '—' }}</td>
-                            <td>{{ $r->section->name ?? 'All Sections' }}</td>
+                            <td class="sl">{{ $i + 1 }}</td>
                             <td>{{ $r->fee_name }}</td>
-                            <td class="num">₹{{ number_format($r->amount, 2) }}</td>
+                            <td class="num">{{ number_format($r->amount, 2) }}</td>
                         </tr>
                     @endforeach
-                    <tr class="grp-total">
-                        <td colspan="4" class="num">Total</td>
-                        <td class="num">₹{{ number_format($g['total'], 2) }}</td>
+                    <tr class="tot">
+                        <td colspan="2">Total</td>
+                        <td class="num">{{ number_format($g['total'], 2) }}</td>
                     </tr>
                 </tbody>
             </table>
         </div>
     @empty
-        <p style="text-align:center; color:#9ca3af; padding:30px;">No academic fee structures found.</p>
+        <p class="empty">No academic fee structure found.</p>
     @endforelse
 
-    @if ($groups->isNotEmpty())
-        <div class="grand">Grand Total <span>₹{{ number_format($grandTotal, 2) }}</span></div>
+    @if ($groups->count() > 1)
+        <div class="grand">Grand Total <span>{{ number_format($grandTotal, 2) }}</span></div>
     @endif
 
-    <div class="foot">This is a system-generated fee structure from {{ $org->name ?? 'the school' }}.</div>
+    <div class="foot">All amounts in INR · System-generated by {{ $org->name ?? 'the school' }}</div>
 
     @if (!empty($printable))
-        <div class="toolbar"><button onclick="window.print()">🖨 Print / Save as PDF</button></div>
+        <div class="toolbar"><button onclick="window.print()">Print / Save as PDF</button></div>
     @endif
 </body>
 </html>
