@@ -133,7 +133,13 @@
             .page { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
             .no-print { display: none !important; }
         }
-        @media (max-width: 820px) {
+        /* Screen only, and the `screen and` is the whole point: Chrome sizes a
+           printed page's width media features from the page box, not from the
+           window — about 745px here — so a bare `max-width: 820px` matches on
+           paper and hands the body and the page their phone padding back after
+           the print block has zeroed it, which is enough to spill the foot of
+           the card onto a second sheet. Same trap as the four-up sheet. */
+        @media screen and (max-width: 820px) {
             body { padding: 12px 10px 32px; }
             .page { padding: 8mm 10mm 10mm; }
         }

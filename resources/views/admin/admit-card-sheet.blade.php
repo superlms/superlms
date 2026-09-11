@@ -202,7 +202,13 @@
             .no-print { display: none !important; }
             .card { break-inside: avoid; }
         }
-        @media (max-width: 820px) {
+        /* Screen only, and the `screen and` is the whole point: Chrome sizes a
+           printed page's width media features from the page box, not from the
+           window — about 745px here — so a bare `max-width: 820px` matches on
+           paper, hands the body its phone padding back after the print block
+           has zeroed it, and the 44px it adds pushes the second row of cards
+           onto a second sheet. This is what put four cards on two pages. */
+        @media screen and (max-width: 820px) {
             body { padding: 12px 10px 32px; }
         }
         @endunless
