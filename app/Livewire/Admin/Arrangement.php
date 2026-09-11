@@ -33,6 +33,9 @@ class Arrangement extends Component
     // ─── Lookup ──────────────────────────────────────────────────────────
     public $standards = [];
 
+    // ─── Slot currently being re-assigned (null = none) ──────────────────
+    public ?int $editingSlotId = null;
+
     // ─── Delete confirm overlay ──────────────────────────────────────────
     public bool   $showDeleteConfirm = false;
     public ?int   $deleteTargetId    = null;
@@ -66,6 +69,7 @@ class Arrangement extends Component
     {
         $this->slotSubstitutes = [];
         $this->slotReasons     = [];
+        $this->editingSlotId   = null;
         $this->loadStats();
     }
 
@@ -90,10 +94,6 @@ class Arrangement extends Component
 
         if (!$substituteId) {
             $this->notification()->error('Pick a substitute teacher first.');
-            return;
-        }
-        if ($reason === '') {
-            $this->notification()->error('Reason is required.');
             return;
         }
 
@@ -133,11 +133,85 @@ class Arrangement extends Component
             ]);
 
             unset($this->slotSubstitutes[$slotId], $this->slotReasons[$slotId]);
+            $this->editingSlotId = null;
             $this->notification()->success('Substitute assigned.');
             $this->loadStats();
         } catch (\Exception $e) {
             $this->notification()->error('Error: ' . $e->getMessage());
             logger()->error('Arrangement assign error: ' . $e->getMessage());
+        }
+    }
+
+    /** Put an arranged row back into edit mode, pre-filled with what it has. */
+    public function editArrangement(int $slotId): void
+    {
+        $arrangement = TeacherArrangement::where('organization_id', Auth::user()->organization_id)
+            ->whereDate('date', $this->date)
+            ->where('teacher_time_table_id', $slotId)
+            ->first();
+
+        if (!$arrangement) {
+            $this->notification()->error('This slot is not arranged yet.');
+            return;
+        }
+
+        $this->editingSlotId              = $slotId;
+        $this->slotSubstitutes[$slotId]   = $arrangement->substitute_teacher_id;
+        $this->slotReasons[$slotId]       = $arrangement->reason ?? '';
+    }
+
+    public function cancelEdit(): void
+    {
+        if ($this->editingSlotId !== null) {
+            unset($this->slotSubstitutes[$this->editingSlotId], $this->slotReasons[$this->editingSlotId]);
+        }
+        $this->editingSlotId = null;
+    }
+
+    /** Save a changed substitute / reason onto the existing arrangement. */
+    public function updateSlot(int $slotId): void
+    {
+        $org          = Auth::user()->organization_id;
+        $substituteId = $this->slotSubstitutes[$slotId] ?? null;
+        $reason       = trim($this->slotReasons[$slotId] ?? '');
+
+        if (!$substituteId) {
+            $this->notification()->error('Pick a substitute teacher first.');
+            return;
+        }
+
+        $arrangement = TeacherArrangement::where('organization_id', $org)
+            ->whereDate('date', $this->date)
+            ->where('teacher_time_table_id', $slotId)
+            ->first();
+        $slot = TeacherTimeTable::where('id', $slotId)->where('organization_id', $org)->first();
+
+        if (!$arrangement || !$slot) {
+            $this->notification()->error('Slot not found.');
+            return;
+        }
+
+        // Only re-check availability when the substitute actually changed —
+        // the teacher already on this slot is obviously "busy" with it.
+        if ((int) $arrangement->substitute_teacher_id !== (int) $substituteId
+            && !$this->isSubstituteAvailable((int) $substituteId, $slot, $org)) {
+            $this->notification()->error('This teacher is no longer available for this time.');
+            return;
+        }
+
+        try {
+            $arrangement->update([
+                'substitute_teacher_id' => $substituteId,
+                'reason'                => $reason,
+            ]);
+
+            unset($this->slotSubstitutes[$slotId], $this->slotReasons[$slotId]);
+            $this->editingSlotId = null;
+            $this->notification()->success('Arrangement updated.');
+            $this->loadStats();
+        } catch (\Exception $e) {
+            $this->notification()->error('Error: ' . $e->getMessage());
+            logger()->error('Arrangement update error: ' . $e->getMessage());
         }
     }
 
@@ -296,13 +370,15 @@ class Arrangement extends Component
         $slotAvailability = []; // [slot_id => Collection<TeacherDetail>]
         foreach ($absentSlots as $slots) {
             foreach ($slots as $slot) {
-                // Skip computation for already-arranged slots
-                if ($arrangementsForDate->has($slot->id)) {
+                // Arranged slots need no dropdown — unless this is the one
+                // being edited, which still has to offer a list to change to.
+                if ($arrangementsForDate->has($slot->id) && $this->editingSlotId !== (int) $slot->id) {
                     $slotAvailability[$slot->id] = collect();
                     continue;
                 }
 
-                $available = $activeTeachers->filter(function ($teacher) use ($slot, $candidateBusy, $candidateAlreadySub) {
+                $editingSlotId = $this->editingSlotId;
+                $available = $activeTeachers->filter(function ($teacher) use ($slot, $candidateBusy, $candidateAlreadySub, $editingSlotId) {
                     $tid = $teacher->id;
 
                     // Overlapping own-class slot?
@@ -311,8 +387,13 @@ class Arrangement extends Component
                     });
                     if ($hasBusy) return false;
 
-                    // Overlapping already-assigned substitute slot?
-                    $hasSub = $candidateAlreadySub->get($tid, collect())->first(function ($a) use ($slot) {
+                    // Overlapping already-assigned substitute slot? The
+                    // arrangement ON the slot being edited doesn't count, or the
+                    // teacher currently holding it would drop out of its own list.
+                    $hasSub = $candidateAlreadySub->get($tid, collect())->first(function ($a) use ($slot, $editingSlotId) {
+                        if ($editingSlotId !== null && (int) $a->teacher_time_table_id === $editingSlotId) {
+                            return false;
+                        }
                         return $a->timetable
                             && $a->timetable->start_time < $slot->end_time
                             && $a->timetable->end_time > $slot->start_time;
@@ -343,50 +424,12 @@ class Arrangement extends Component
             }
         }
 
-        // 5. Every active teacher's effective load today — their own periods
-        //    (unless they're absent, so none of them are actually theirs to
-        //    teach) plus whatever they've picked up as a substitute.
-        $allTeachers = TeacherDetail::with('user')
-            ->where('organization_id', $org)
-            ->whereHas('user', fn($q) => $q->where('is_active', 1))
-            ->orderBy('id')
-            ->get();
-
-        $ownPeriodCounts = TeacherTimeTable::where('organization_id', $org)
-            ->where('day_of_week', $dayOfWeek)
-            ->selectRaw('teacher_detail_id, COUNT(*) as cnt')
-            ->groupBy('teacher_detail_id')
-            ->pluck('cnt', 'teacher_detail_id');
-
-        $subCounts = TeacherArrangement::where('organization_id', $org)
-            ->whereDate('date', $this->date)
-            ->selectRaw('substitute_teacher_id, COUNT(*) as cnt')
-            ->groupBy('substitute_teacher_id')
-            ->pluck('cnt', 'substitute_teacher_id');
-
-        $absentIdSet = array_flip($absentDetailIds);
-
-        $teacherLoads = $allTeachers->map(function ($t) use ($ownPeriodCounts, $subCounts, $absentIdSet) {
-            $isAbsent = isset($absentIdSet[$t->id]);
-            $own      = $isAbsent ? 0 : (int) ($ownPeriodCounts[$t->id] ?? 0);
-            $sub      = (int) ($subCounts[$t->id] ?? 0);
-
-            return [
-                'teacher'   => $t,
-                'is_absent' => $isAbsent,
-                'own'       => $own,
-                'sub'       => $sub,
-                'total'     => $own + $sub,
-            ];
-        })->sortByDesc('total')->values();
-
         return view('livewire.admin.arrangement', compact(
             'absentTeachers',
             'absentSlots',
             'periodNumbers',
             'arrangementsForDate',
             'slotAvailability',
-            'teacherLoads',
         ));
     }
 }

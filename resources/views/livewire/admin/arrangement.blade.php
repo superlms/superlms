@@ -153,6 +153,7 @@
                             @php
                                 $arrangement = $arrangementsForDate->get($slot->id);
                                 $available   = $slotAvailability[$slot->id] ?? collect();
+                                $editing     = $editingSlotId === (int) $slot->id;
                             @endphp
                             <tr class="align-top {{ $arrangement ? 'bg-emerald-50/40' : '' }}">
                                 <td class="px-4 py-3">
@@ -167,7 +168,7 @@
                                     <span class="font-medium text-gray-800">{{ $slot->standard?->name ?? '—' }}{{ $slot->section ? ' · ' . $slot->section->name : '' }}</span>
                                     <span class="text-gray-400">·</span> {{ $slot->subject?->name ?? '—' }}
                                 </td>
-                                @if ($arrangement)
+                                @if ($arrangement && ! $editing)
                                     <td class="px-4 py-3">
                                         <span class="inline-flex items-center gap-2 text-emerald-700 font-medium">
                                             <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold flex-shrink-0">
@@ -177,11 +178,17 @@
                                         </span>
                                     </td>
                                     <td class="px-4 py-3 text-gray-600">{{ $arrangement->reason ?: '—' }}</td>
-                                    <td class="px-4 py-3 text-center">
-                                        <button wire:click="deleteArrangement({{ $arrangement->id }})"
-                                            class="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Remove substitute">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                                        </button>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <button wire:click="editArrangement({{ $slot->id }})"
+                                                class="px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-medium rounded-md transition-colors">
+                                                Edit
+                                            </button>
+                                            <button wire:click="deleteArrangement({{ $arrangement->id }})"
+                                                class="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Remove substitute">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </div>
                                     </td>
                                 @else
                                     <td class="px-4 py-3">
@@ -198,16 +205,29 @@
                                     </td>
                                     <td class="px-4 py-3">
                                         <input type="text" wire:model="slotReasons.{{ $slot->id }}"
-                                            placeholder="Reason"
+                                            placeholder="Reason (optional)"
                                             class="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:ring-1 focus:ring-blue-500">
                                     </td>
-                                    <td class="px-4 py-3 text-center">
-                                        <button wire:click="assignSlot({{ $slot->id }})" wire:loading.attr="disabled"
-                                            @disabled(empty($slotSubstitutes[$slot->id] ?? null))
-                                            class="px-3 py-1.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-medium rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5">
-                                            <span wire:loading.remove wire:target="assignSlot">Assign</span>
-                                            <span wire:loading wire:target="assignSlot">…</span>
-                                        </button>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center justify-center gap-1">
+                                            @if ($editing)
+                                                <button wire:click="updateSlot({{ $slot->id }})" wire:loading.attr="disabled" wire:target="updateSlot"
+                                                    @disabled(empty($slotSubstitutes[$slot->id] ?? null))
+                                                    class="px-3 py-1.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-medium rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
+                                                    <span wire:loading.remove wire:target="updateSlot">Save</span>
+                                                    <span wire:loading wire:target="updateSlot">…</span>
+                                                </button>
+                                                <button wire:click="cancelEdit"
+                                                    class="px-2.5 py-1.5 text-gray-500 hover:bg-gray-100 text-xs font-medium rounded-md">Cancel</button>
+                                            @else
+                                                <button wire:click="assignSlot({{ $slot->id }})" wire:loading.attr="disabled" wire:target="assignSlot"
+                                                    @disabled(empty($slotSubstitutes[$slot->id] ?? null))
+                                                    class="px-3 py-1.5 bg-gray-900 hover:bg-gray-800 text-white text-xs font-medium rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
+                                                    <span wire:loading.remove wire:target="assignSlot">Assign</span>
+                                                    <span wire:loading wire:target="assignSlot">…</span>
+                                                </button>
+                                            @endif
+                                        </div>
                                     </td>
                                 @endif
                             </tr>
@@ -224,39 +244,6 @@
             </div>
         </div>
     @endforeach
-@endif
-
-{{-- ══════════════════════════════════════════════════
-     TODAY'S TEACHING LOAD — every teacher, own periods + substitutions
-══════════════════════════════════════════════════ --}}
-@if ($teacherLoads->isNotEmpty())
-    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div class="px-4 sm:px-6 py-3.5 border-b border-gray-200 bg-gray-50">
-            <h3 class="text-base font-semibold text-gray-900">Today's Teaching Load</h3>
-            <p class="text-xs text-gray-500 mt-0.5">Every teacher's classes for {{ \Carbon\Carbon::parse($date)->format('D, d M Y') }} — their own periods plus anything they're covering.</p>
-        </div>
-        <div class="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-            @foreach ($teacherLoads as $row)
-                <div class="border border-gray-200 rounded-lg p-3.5 {{ $row['is_absent'] ? 'bg-red-50/30' : 'bg-white' }}">
-                    <div class="flex items-center gap-2.5 mb-2">
-                        <span class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-bold text-xs flex-shrink-0">
-                            {{ strtoupper(substr($row['teacher']->user?->name ?? 'T', 0, 1)) }}
-                        </span>
-                        <div class="min-w-0">
-                            <p class="text-sm font-semibold text-gray-900 truncate">{{ $row['teacher']->user?->name ?? '—' }}</p>
-                            @if ($row['is_absent'])
-                                <p class="text-[10px] text-red-500 font-medium">Absent today</p>
-                            @endif
-                        </div>
-                    </div>
-                    <div class="flex items-center justify-between text-xs text-gray-500">
-                        <span>{{ $row['own'] }} own{{ $row['sub'] > 0 ? ' + ' . $row['sub'] . ' covering' : '' }}</span>
-                        <span class="text-sm font-bold text-gray-900">{{ $row['total'] }}</span>
-                    </div>
-                </div>
-            @endforeach
-        </div>
-    </div>
 @endif
 
 </div>
