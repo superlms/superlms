@@ -9,6 +9,7 @@ use App\Models\Admin\Transportation;
 use App\Models\Admin\TransportFeePayment;
 use App\Models\Student\StudentDetail;
 use App\Models\User;
+use App\Support\FeeCycleBreakdown;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -99,6 +100,13 @@ trait HandlesStudentFeeView
             'hasTransport' => $hasTransport,
             'academic'     => $academic,
             'transport'    => $transport,
+            // How the school splits the year — the same rule the receipt prints,
+            // with this student's payments allocated oldest installment first.
+            'cycles'       => FeeCycleBreakdown::build(
+                $orgId,
+                ['academic' => $academic['paid'], 'transport' => $transport['paid']],
+                ['academic' => $academic['net'],  'transport' => $transport['net']],
+            ),
             'concessions'  => $concessions->map(fn (FeeConcession $c) => [
                 'reason' => $c->reason ?: 'Concession',
                 'scope'  => $c->fee_type === 'all' ? 'All fees' : ucfirst($c->fee_type),

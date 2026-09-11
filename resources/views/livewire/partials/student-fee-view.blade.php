@@ -2,7 +2,8 @@
      VIEW FEE — one student's ledger, read top to bottom:
        1. who they are, with the collection lines beside them
        2. what the fee is made of, academic and transport, net of concession
-       3. every payment, full width, each with its slip
+       3. the school's fee cycle, and which installments are cleared
+       4. every payment, full width, each with its slip
 
      Fed by App\Livewire\Concerns\HandlesStudentFeeView::buildStudentFeeView()
      as $sv, plus $feePrefix ('admin' | 'accounts') and $feeOrg for the
@@ -138,7 +139,87 @@
     @endforeach
 </div>
 
-{{-- ══════════ 3. PAYMENTS — full width, each with its slip ══════════ --}}
+{{-- ══════════ 3. FEE CYCLE — how the year is split, and where it stands ══════════ --}}
+@foreach ($sv['cycles'] ?? [] as $cycle)
+    @php
+        $cycleDue = max(0, $cycle['total'] - $cycle['paid']);
+        $statusDot = [
+            'paid'    => ['bg-emerald-500', 'Paid'],
+            'partial' => ['bg-amber-500',   'Partial'],
+            'pending' => ['bg-gray-200',    'Due'],
+            'na'      => ['bg-gray-200',    '—'],
+        ];
+    @endphp
+    <div wire:key="sv-cycle-{{ $cycle['fee_type'] }}" class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
+            <div class="min-w-0">
+                <h3 class="text-sm font-semibold text-gray-900">
+                    {{ ucfirst($cycle['fee_type']) }} Fee Cycle
+                    <span class="text-gray-400 font-normal">· {{ $cycle['label'] }}</span>
+                </h3>
+                <p class="text-[11px] text-gray-400 mt-0.5">
+                    {{ $cycle['year'] }} · {{ $cycle['paid_count'] }} of {{ count($cycle['installments']) }} cleared
+                </p>
+            </div>
+            <span class="text-[11px] text-gray-400 tabular-nums">
+                Paid <strong class="text-emerald-600">₹{{ number_format($cycle['paid'], 2) }}</strong>
+                · Due <strong class="{{ $cycleDue > 0 ? 'text-rose-500' : 'text-gray-400' }}">₹{{ number_format($cycleDue, 2) }}</strong>
+                · Total <strong class="text-gray-700">₹{{ number_format($cycle['total'], 2) }}</strong>
+            </span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="border-b border-gray-100">
+                    <tr class="text-[11px] uppercase tracking-wider text-gray-400">
+                        <th class="px-4 py-2 text-left font-normal w-10">#</th>
+                        <th class="px-4 py-2 text-left font-normal">Installment</th>
+                        <th class="px-4 py-2 text-left font-normal">Due Date</th>
+                        <th class="px-4 py-2 text-right font-normal">Amount</th>
+                        <th class="px-4 py-2 text-right font-normal">Paid</th>
+                        <th class="px-4 py-2 text-right font-normal">Balance</th>
+                        <th class="px-4 py-2 text-left font-normal w-24">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($cycle['installments'] as $n => $inst)
+                        @php [$dot, $word] = $statusDot[$inst['status']] ?? $statusDot['na']; @endphp
+                        <tr wire:key="sv-inst-{{ $cycle['fee_type'] }}-{{ $n }}" class="hover:bg-gray-50/70">
+                            <td class="px-4 py-2 text-[11px] text-gray-300 tabular-nums">{{ $n + 1 }}</td>
+                            <td class="px-4 py-2 text-gray-700">
+                                {{ $inst['label'] }}
+                                @if ($inst['percent'] > 0)
+                                    <span class="text-gray-300 text-xs">{{ rtrim(rtrim(number_format($inst['percent'], 2), '0'), '.') }}%</span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-2 whitespace-nowrap {{ $inst['overdue'] ? 'text-rose-500' : 'text-gray-500' }}">
+                                {{ $inst['due_date'] ?? '—' }}@if ($inst['overdue']) <span class="text-[10px] uppercase tracking-wide">overdue</span>@endif
+                            </td>
+                            <td class="px-4 py-2 text-right text-gray-800 tabular-nums">₹{{ number_format($inst['amount'], 2) }}</td>
+                            <td class="px-4 py-2 text-right tabular-nums {{ $inst['paid'] > 0 ? 'text-emerald-600' : 'text-gray-300' }}">₹{{ number_format($inst['paid'], 2) }}</td>
+                            <td class="px-4 py-2 text-right tabular-nums {{ $inst['balance'] > 0 ? 'text-rose-500' : 'text-gray-300' }}">₹{{ number_format($inst['balance'], 2) }}</td>
+                            <td class="px-4 py-2">
+                                <span class="inline-flex items-center gap-1.5 text-xs text-gray-500">
+                                    <span class="w-1.5 h-1.5 rounded-full {{ $dot }}"></span>{{ $word }}
+                                </span>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+                <tfoot>
+                    <tr class="border-t border-gray-200">
+                        <td colspan="3" class="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Total</td>
+                        <td class="px-4 py-2.5 text-right font-bold text-gray-900 tabular-nums">₹{{ number_format($cycle['total'], 2) }}</td>
+                        <td class="px-4 py-2.5 text-right font-bold text-emerald-600 tabular-nums">₹{{ number_format($cycle['paid'], 2) }}</td>
+                        <td class="px-4 py-2.5 text-right font-bold {{ $cycleDue > 0 ? 'text-rose-500' : 'text-gray-300' }} tabular-nums">₹{{ number_format($cycleDue, 2) }}</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+@endforeach
+
+{{-- ══════════ 4. PAYMENTS — full width, each with its slip ══════════ --}}
 <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
     <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2">
         <h3 class="text-sm font-semibold text-gray-900">Payments</h3>

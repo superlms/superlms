@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Accounts;
 
-use App\Models\Admin\Fee\FeeCycle;
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Student\Section;
@@ -11,7 +10,6 @@ use App\Models\Student\StudentDetail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Livewire\Concerns\HandlesStudentFeeView;
-use App\Support\FeeCycleBreakdown;
 use Livewire\Component;
 use WireUi\Traits\WireUiActions;
 
@@ -35,7 +33,6 @@ class FeeSubmission extends Component
     public $feeBreakdown = [];
 
     // Fee cycle installments (school-configured) with per-installment status
-    public $feeCycles = [];
 
     // Payment form
     public $submitAmount = '';
@@ -100,7 +97,6 @@ class FeeSubmission extends Component
         $this->studentTransactions = [];
         $this->studentInfo = [];
         $this->feeBreakdown = [];
-        $this->feeCycles = [];
         $this->analyticsData = [];
         $this->submissionLedger = [];
     }
@@ -171,26 +167,8 @@ class FeeSubmission extends Component
             'total_remaining' => max(0, $totalFee - $totalPaid),
         ];
 
-        // School-configured fee cycle (installments) with per-installment status
-        $this->feeCycles = $this->buildFeeCycles(
-            $orgId,
-            ['academic' => $academicPaid, 'transport' => $transportPaid],
-            ['academic' => $totalAcademicFee, 'transport' => $totalTransportFee],
-        );
-
         // Analytics data for charts
         $this->loadAnalytics();
-    }
-
-    /**
-     * Build the school's fee cycle for each fee type that has a total due.
-     * Each FeeCycle row is one installment defined by its % of the class fee; the
-     * paid amount is waterfall-allocated across installments in serial order so
-     * every installment shows a Paid / Partial / Pending status.
-     */
-    private function buildFeeCycles(int $orgId, array $paid, array $totals): array
-    {
-        return FeeCycleBreakdown::build($orgId, $paid, $totals);
     }
 
     private function loadAnalytics(): void
