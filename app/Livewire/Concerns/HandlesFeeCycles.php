@@ -38,6 +38,11 @@ trait HandlesFeeCycles
     // How the installments are generated when adding: '' (chooser) | monthly | quarterly | custom.
     public string $cycleMode   = '';
     public $cycleMonthlyDueDay = 10;    // day-of-month each monthly installment is due
+    // Custom mode (add, not edit): any number of installments at once.
+    public array $customRows   = []; // [['serial'=>int,'due_date'=>string,'fee_percent'=>string,'penalty_per_day'=>string], ...]
+
+    // A read-only look at one installment or the token fee.
+    public $viewingCycle = null;
 
     // A one-time up-front charge (e.g. admission/registration) with its own due
     // date, collected before the % installments split whatever is left of
@@ -86,11 +91,95 @@ trait HandlesFeeCycles
         $this->cycleModalOpen = true;
     }
 
-    /** Dropdown picks monthly | quarterly | custom — re-validate clean each time it changes. */
-    public function updatedCycleMode(): void { $this->resetValidation(); }
+    /** Dropdown picks monthly | quarterly | custom — re-validate clean, and seed one blank row for Custom. */
+    public function updatedCycleMode(): void
+    {
+        $this->resetValidation();
+        if (!$this->editCycleId && $this->cycleMode === 'custom' && empty($this->customRows)) {
+            $this->customRows = [$this->blankCustomRow()];
+        }
+    }
 
-    public function updatedCycleFeeType(): void { $this->loadTokenForCurrentCycle(); }
-    public function updatedCycleYear(): void    { $this->loadTokenForCurrentCycle(); }
+    public function addCustomRow(): void
+    {
+        $this->customRows[] = $this->blankCustomRow();
+    }
+
+    public function removeCustomRow(int $index): void
+    {
+        if (!isset($this->customRows[$index])) return;
+        unset($this->customRows[$index]);
+        $this->customRows = array_values($this->customRows);
+    }
+
+    private function blankCustomRow(): array
+    {
+        return [
+            'serial'          => $this->nextCustomSerial(),
+            'due_date'        => '',
+            'fee_percent'     => '',
+            'penalty_per_day' => '0',
+        ];
+    }
+
+    /** The lowest installment number (1–12) not already used, in the DB or in rows added so far this session. */
+    private function nextCustomSerial(): int
+    {
+        $used = FeeCycle::forOrg($this->orgId())
+            ->where('fee_type', $this->cycleFeeType)
+            ->where('academic_year', $this->cycleYear)
+            ->where('is_token', false)
+            ->pluck('payment_serial')
+            ->merge(collect($this->customRows)->pluck('serial'))
+            ->map(fn ($v) => (int) $v)
+            ->all();
+
+        for ($i = 1; $i <= 12; $i++) {
+            if (!in_array($i, $used, true)) return $i;
+        }
+        return 1;
+    }
+
+    /** View a single installment (or the token fee) read-only. */
+    public function viewCycle(int $id): void
+    {
+        $this->viewingCycle = FeeCycle::forOrg($this->orgId())->find($id);
+    }
+
+    public function closeCycleView(): void
+    {
+        $this->viewingCycle = null;
+    }
+
+    /**
+     * "#3 (Apr)" for a monthly installment, "Q1 (Apr-Jun)" for a quarterly one —
+     * both already carry a start/end date; a custom installment has neither, so
+     * it prints as just its own number.
+     */
+    public function cycleSpanLabel(FeeCycle $cycle): ?string
+    {
+        if ($cycle->is_token || !$cycle->start_date || !$cycle->end_date) {
+            return null;
+        }
+
+        $start = \Carbon\Carbon::parse($cycle->start_date);
+        $end   = \Carbon\Carbon::parse($cycle->end_date);
+
+        if ($start->isSameMonth($end)) {
+            return $start->format('M');
+        }
+
+        $quarter = intdiv((($start->month - 4 + 12) % 12), 3) + 1;
+        return "Q{$quarter} ({$start->format('M')}-{$end->format('M')})";
+    }
+
+    /** The academic year running now — April(this year) → March(next), e.g. "2026-27". */
+    private function currentAcademicYear(): string
+    {
+        $now       = now();
+        $startYear = $now->month >= 4 ? $now->year : $now->year - 1;
+        return $startYear . '-' . substr((string) ($startYear + 1), -2);
+    }
 
     /** Prefills the token-fee fields from whatever token row already exists for this fee type + year. */
     private function loadTokenForCurrentCycle(): void
@@ -153,7 +242,8 @@ trait HandlesFeeCycles
         $this->cycleSerial        = 1;
         $this->cyclePenaltyPerDay = '0';
         $this->cycleMonthlyDueDay = 10;
-        $this->cycleYear          = '2026-27';
+        $this->cycleYear          = $this->currentAcademicYear();
+        $this->customRows         = [];
         $this->tokenFeeAmount     = '';
         $this->tokenDueDate       = '';
         $this->tokenPenaltyPerDay = '0';
@@ -178,17 +268,20 @@ trait HandlesFeeCycles
             return;
         }
 
-        // Custom (single installment) — add or edit.
+        // Custom, adding fresh — any number of installments at once.
+        if (!$this->editCycleId) {
+            $this->saveCustomRows();
+            return;
+        }
+
+        // Custom, editing one existing installment.
         $this->validate([
-            'cycleFeeType'    => 'required|string|max:20',
             'cycleSerial'     => 'required|integer|min:1|max:12',
             'cycleDueDate'    => 'required|date',
             'cycleFeePercent' => 'required|numeric|min:0|max:100',
-            'cycleYear'       => 'required|string|max:20',
         ]);
 
-        $payload = [
-            'organization_id' => $this->orgId(),
+        FeeCycle::forOrg($this->orgId())->where('id', $this->editCycleId)->update([
             'fee_type'        => $this->cycleFeeType,
             'payment_serial'  => $this->cycleSerial,
             'start_date'      => null,
@@ -200,17 +293,60 @@ trait HandlesFeeCycles
             'amount'          => 0,
             'academic_year'   => $this->cycleYear,
             'is_active'       => true,
-        ];
+        ]);
+        $this->notification()->success('Installment updated!');
 
-        if ($this->editCycleId) {
-            FeeCycle::forOrg($this->orgId())->where('id', $this->editCycleId)->update($payload);
-            $this->notification()->success('Installment updated!');
-        } else {
-            FeeCycle::create($payload);
-            $this->notification()->success('Installment added!');
+        $this->upsertTokenFee();
+        $this->closeCycleModal();
+    }
+
+    /** Custom mode, add: save every filled row in $customRows as its own installment. */
+    private function saveCustomRows(): void
+    {
+        $rows = collect($this->customRows)
+            ->filter(fn ($r) => trim((string) ($r['due_date'] ?? '')) !== '' && trim((string) ($r['fee_percent'] ?? '')) !== '')
+            ->values();
+
+        if ($rows->isEmpty()) {
+            $this->notification()->error('Add at least one installment with a due date and fee %.');
+            return;
+        }
+
+        foreach ($rows as $i => $r) {
+            $n = $i + 1;
+            if (!is_numeric($r['fee_percent']) || $r['fee_percent'] < 0 || $r['fee_percent'] > 100) {
+                $this->notification()->error("Row {$n}: fee % must be between 0 and 100.");
+                return;
+            }
+            if (empty($r['serial']) || $r['serial'] < 1 || $r['serial'] > 12) {
+                $this->notification()->error("Row {$n}: pick an installment number.");
+                return;
+            }
+        }
+
+        foreach ($rows as $r) {
+            FeeCycle::updateOrCreate(
+                [
+                    'organization_id' => $this->orgId(),
+                    'fee_type'        => $this->cycleFeeType,
+                    'academic_year'   => $this->cycleYear,
+                    'payment_serial'  => (int) $r['serial'],
+                    'is_token'        => false,
+                ],
+                [
+                    'start_date'      => null,
+                    'end_date'        => null,
+                    'due_date'        => $r['due_date'],
+                    'penalty_per_day' => $r['penalty_per_day'] ?: 0,
+                    'fee_percent'     => $r['fee_percent'],
+                    'amount'          => 0,
+                    'is_active'       => true,
+                ]
+            );
         }
 
         $this->upsertTokenFee();
+        $this->notification()->success(count($rows) . ' installment(s) saved!');
         $this->closeCycleModal();
     }
 
@@ -389,9 +525,9 @@ trait HandlesFeeCycles
             $tokenAmount   = (float) ($tokenCycle->amount ?? 0);
             $remainingBase = max(0, $calcTotalFee - $tokenAmount);
 
-            // One combined, due-date-ordered list — the token due first, then
-            // each installment — so real payments allocate to whichever is
-            // actually due soonest, not just by installment number.
+            // The token fee always leads the list, ahead of every installment,
+            // whatever its own due date happens to be — it's the up-front
+            // charge, so it reads first and is the first thing paid down too.
             $defs = [];
             if ($tokenCycle) {
                 $defs[] = [
@@ -399,6 +535,7 @@ trait HandlesFeeCycles
                     'percent'     => null,
                     'due_date'    => $tokenCycle->due_date,
                     'per_student' => $tokenAmount,
+                    'span'        => null,
                 ];
             }
             foreach ($acadCycles->where('is_token', false)->sortBy('payment_serial') as $cy) {
@@ -408,9 +545,9 @@ trait HandlesFeeCycles
                     'percent'     => $pct,
                     'due_date'    => $cy->due_date,
                     'per_student' => round($remainingBase * $pct / 100, 2),
+                    'span'        => $this->cycleSpanLabel($cy),
                 ];
             }
-            usort($defs, fn ($a, $b) => strcmp((string) $a['due_date'], (string) $b['due_date']));
 
             $allocated = 0.0;
             foreach ($defs as $d) {
@@ -420,6 +557,7 @@ trait HandlesFeeCycles
 
                 $calcRows[] = [
                     'serial'      => $d['serial'],
+                    'span'        => $d['span'],
                     'percent'     => $d['percent'],
                     'due_date'    => optional($d['due_date'])->format('d M Y'),
                     'amount'      => $d['per_student'],
