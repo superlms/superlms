@@ -4,10 +4,14 @@ namespace App\Livewire\Accounts;
 
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\Fee\FeeStructure;
+use App\Models\Admin\TransportFeePayment;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -18,6 +22,7 @@ class Payments extends Component
     // Filters
     public $dateFrom = '';
     public $dateTo = '';
+    public $datePreset = '';
     public $paymentStandardId = '';
     public $paymentSectionId = '';
     public $paymentStudentSearch = '';
@@ -32,6 +37,9 @@ class Payments extends Component
         'feeTypeFilter' => ['except' => ''],
     ];
 
+    /** Academic-year month keys, April first — June is off by default. */
+    private const MONTH_KEYS = ['apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec', 'jan', 'feb', 'mar'];
+
     public function mount(): void
     {
         $this->dateFrom = now()->startOfMonth()->toDateString();
@@ -43,12 +51,106 @@ class Payments extends Component
         return Auth::user()->organization_id;
     }
 
+    /** How many of the year's months a transport pivot row is billed for. */
+    private function billableMonthsCount($raw): int
+    {
+        $months = is_string($raw) ? (json_decode($raw, true) ?: []) : (array) ($raw ?? []);
+
+        $count = 0;
+        foreach (self::MONTH_KEYS as $key) {
+            $on = array_key_exists($key, $months) ? (bool) $months[$key] : ($key !== 'jun');
+            if ($on) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /** Quick date-range presets for the filter bar. */
+    public function setDatePreset(string $preset): void
+    {
+        $this->datePreset = $preset;
+        $today = now();
+
+        switch ($preset) {
+            case 'today':
+                $this->dateFrom = $today->toDateString();
+                $this->dateTo = $today->toDateString();
+                break;
+            case 'yesterday':
+                $y = $today->copy()->subDay();
+                $this->dateFrom = $y->toDateString();
+                $this->dateTo = $y->toDateString();
+                break;
+            case '7':
+                $this->dateFrom = $today->copy()->subDays(6)->toDateString();
+                $this->dateTo = $today->toDateString();
+                break;
+            case '15':
+                $this->dateFrom = $today->copy()->subDays(14)->toDateString();
+                $this->dateTo = $today->toDateString();
+                break;
+            case '30':
+                $this->dateFrom = $today->copy()->subDays(29)->toDateString();
+                $this->dateTo = $today->toDateString();
+                break;
+            case 'last_month':
+                $lastMonth = $today->copy()->subMonthNoOverflow();
+                $this->dateFrom = $lastMonth->copy()->startOfMonth()->toDateString();
+                $this->dateTo = $lastMonth->copy()->endOfMonth()->toDateString();
+                break;
+        }
+
+        $this->resetPage();
+    }
+
+    /** Filters shared by the header analytics and the payments listing below. */
+    private function feePaymentQuery()
+    {
+        return FeePayment::where('organization_id', $this->orgId())
+            ->when($this->paymentStandardId, fn ($q) => $q->where('standard_id', $this->paymentStandardId))
+            ->when($this->paymentSectionId, fn ($q) => $q->where('section_id', $this->paymentSectionId))
+            ->when($this->paymentModeFilter, fn ($q) => $q->where('payment_mode', $this->paymentModeFilter))
+            ->when($this->dateFrom, fn ($q) => $q->whereDate('payment_date', '>=', $this->dateFrom))
+            ->when($this->dateTo, fn ($q) => $q->whereDate('payment_date', '<=', $this->dateTo))
+            ->when($this->paymentStudentSearch, fn ($q) => $q->whereHas('studentDetail', function ($sq) {
+                $sq->where('full_name', 'like', "%{$this->paymentStudentSearch}%")
+                    ->orWhere('admission_no', 'like', "%{$this->paymentStudentSearch}%")
+                    ->orWhereHas('user', fn ($uq) => $uq->where('name', 'like', "%{$this->paymentStudentSearch}%"));
+            }));
+    }
+
+    private function transportPaymentQuery()
+    {
+        return TransportFeePayment::where('organization_id', $this->orgId())
+            ->when($this->paymentStandardId, fn ($q) => $q->whereHas('studentDetail', fn ($sq) => $sq->where('standard_id', $this->paymentStandardId)))
+            ->when($this->paymentSectionId, fn ($q) => $q->whereHas('studentDetail', fn ($sq) => $sq->where('section_id', $this->paymentSectionId)))
+            ->when($this->paymentModeFilter, fn ($q) => $q->where('payment_mode', $this->paymentModeFilter))
+            ->when($this->dateFrom, fn ($q) => $q->whereDate('payment_date', '>=', $this->dateFrom))
+            ->when($this->dateTo, fn ($q) => $q->whereDate('payment_date', '<=', $this->dateTo))
+            ->when($this->paymentStudentSearch, fn ($q) => $q->whereHas('studentDetail', function ($sq) {
+                $sq->where('full_name', 'like', "%{$this->paymentStudentSearch}%")
+                    ->orWhere('admission_no', 'like', "%{$this->paymentStudentSearch}%")
+                    ->orWhereHas('user', fn ($uq) => $uq->where('name', 'like', "%{$this->paymentStudentSearch}%"));
+            }));
+    }
+
+    /**
+     * The analytics strip — total fee to collect and what has actually come
+     * in, split by academic and transport. Collected/remaining figures track
+     * every active filter (date range, mode, search) exactly like the
+     * listing below, so the header always matches what's on screen. Fee
+     * Type is deliberately excluded here since the strip already breaks
+     * academic and transport out side by side.
+     */
     private function getHeaderStats(): array
     {
         $orgId = $this->orgId();
 
-        // Total fee from fee structures (for filtered class/section or all)
-        $structureQuery = FeeStructure::where('organization_id', $orgId)->where('is_active', true);
+        // ── Scheduled academic fee: fee-structure amount × matching student count ──
+        $structureQuery = FeeStructure::where('organization_id', $orgId)
+            ->where('is_active', true)->where('fee_type', 'academic');
 
         if ($this->paymentStandardId) {
             $structureQuery->where('standard_id', $this->paymentStandardId);
@@ -61,24 +163,12 @@ class Payments extends Component
 
         $structures = $structureQuery->get();
 
-        $totalAcademicFee = $structures->where('fee_type', 'academic')->sum('amount');
-        $totalTransportFee = $structures->where('fee_type', 'transport')->sum('amount');
-
-        // If viewing all classes, multiply by student count per class
-        // For simplicity, compute total scheduled fee across all applicable students
         if (!$this->paymentStandardId) {
-            // Sum fee structures per standard * student count
-            $standardIds = $structures->pluck('standard_id')->unique();
-            $totalAcademicFee = 0;
-            $totalTransportFee = 0;
-
-            foreach ($standardIds as $stdId) {
+            $totalAcademicFee = 0.0;
+            foreach ($structures->pluck('standard_id')->unique() as $stdId) {
                 $studentCount = StudentDetail::where('organization_id', $orgId)
                     ->where('standard_id', $stdId)->count();
-
-                $stdStructures = $structures->where('standard_id', $stdId);
-                $totalAcademicFee += $stdStructures->where('fee_type', 'academic')->sum('amount') * $studentCount;
-                $totalTransportFee += $stdStructures->where('fee_type', 'transport')->sum('amount') * $studentCount;
+                $totalAcademicFee += $structures->where('standard_id', $stdId)->sum('amount') * $studentCount;
             }
         } else {
             $studentQuery = StudentDetail::where('organization_id', $orgId)
@@ -86,33 +176,44 @@ class Payments extends Component
             if ($this->paymentSectionId) {
                 $studentQuery->where('section_id', $this->paymentSectionId);
             }
-            $studentCount = $studentQuery->count();
-            $totalAcademicFee = $totalAcademicFee * $studentCount;
-            $totalTransportFee = $totalTransportFee * $studentCount;
+            $totalAcademicFee = $structures->sum('amount') * $studentQuery->count();
+        }
+
+        // ── Scheduled transport fee: route.monthly_fee × each student's billed months ──
+        $txRows = DB::table('transportation_students as ts')
+            ->join('transportations as t', 'ts.transportation_id', '=', 't.id')
+            ->join('student_details as sd', 'ts.student_detail_id', '=', 'sd.id')
+            ->where('ts.organization_id', $orgId)
+            ->when($this->paymentStandardId, fn ($q) => $q->where('sd.standard_id', $this->paymentStandardId))
+            ->when($this->paymentSectionId, fn ($q) => $q->where('sd.section_id', $this->paymentSectionId))
+            ->select('ts.billable_months', 't.monthly_fee')
+            ->get();
+
+        $totalTransportFee = 0.0;
+        foreach ($txRows as $row) {
+            $totalTransportFee += (float) $row->monthly_fee * $this->billableMonthsCount($row->billable_months);
         }
 
         $totalFee = $totalAcademicFee + $totalTransportFee;
 
-        // Collected amounts (based on filters)
-        $paymentBase = FeePayment::where('organization_id', $orgId);
-        if ($this->paymentStandardId) {
-            $paymentBase->where('standard_id', $this->paymentStandardId);
-        }
-        if ($this->paymentSectionId) {
-            $paymentBase->where('section_id', $this->paymentSectionId);
-        }
+        // ── Collected, filtered the same way as the listing ──
+        $feeBase = $this->feePaymentQuery();
+        $academicCollected = (clone $feeBase)->where('fee_type', 'academic')->sum('amount');
+        $transportFromFeeTable = (clone $feeBase)->where('fee_type', 'transport')->sum('amount');
+        $transportFromTxTable = $this->transportPaymentQuery()->sum('amount');
+        $transportCollected = (float) $transportFromFeeTable + (float) $transportFromTxTable;
 
-        $academicCollected = (clone $paymentBase)->where('fee_type', 'academic')->sum('amount');
-        $transportCollected = (clone $paymentBase)->where('fee_type', 'transport')->sum('amount');
         $totalCollected = $academicCollected + $transportCollected;
 
         return [
             'total_fee' => $totalFee,
             'total_academic_fee' => $totalAcademicFee,
             'total_transport_fee' => $totalTransportFee,
-            'academic_collected' => $academicCollected,
+            'academic_collected' => (float) $academicCollected,
             'transport_collected' => $transportCollected,
             'total_collected' => $totalCollected,
+            'academic_remaining' => max(0, $totalAcademicFee - $academicCollected),
+            'transport_remaining' => max(0, $totalTransportFee - $transportCollected),
             'remaining_fee' => max(0, $totalFee - $totalCollected),
         ];
     }
@@ -145,20 +246,95 @@ class Payments extends Component
 
     public function updatedDateFrom(): void
     {
+        $this->datePreset = '';
         $this->resetPage();
     }
 
     public function updatedDateTo(): void
     {
+        $this->datePreset = '';
         $this->resetPage();
     }
 
     public function resetFilters(): void
     {
-        $this->reset(['paymentStandardId', 'paymentSectionId', 'paymentStudentSearch', 'paymentModeFilter', 'feeTypeFilter']);
+        $this->reset(['paymentStandardId', 'paymentSectionId', 'paymentStudentSearch', 'paymentModeFilter', 'feeTypeFilter', 'datePreset']);
         $this->dateFrom = now()->startOfMonth()->toDateString();
         $this->dateTo = now()->toDateString();
         $this->resetPage();
+    }
+
+    /**
+     * Every fee payment, whichever table it actually lives in — regular
+     * FeePayment rows (academic, transport, penalty) and TransportFeePayment
+     * rows from the dedicated transport-collection flow — merged into one
+     * normalized, sorted, paginated list.
+     */
+    private function paymentsForListing(): LengthAwarePaginator
+    {
+        $includeTransportTable = in_array($this->feeTypeFilter, ['', 'transport'], true);
+
+        $feePayments = $this->feePaymentQuery()
+            ->when($this->feeTypeFilter, fn ($q) => $q->where('fee_type', $this->feeTypeFilter))
+            ->with(['studentDetail.user', 'standard', 'section'])
+            ->get();
+
+        $transportPayments = $includeTransportTable
+            ? $this->transportPaymentQuery()->with(['studentDetail.user', 'studentDetail.standard', 'studentDetail.section'])->get()
+            : collect();
+
+        $merged = collect();
+
+        foreach ($feePayments as $p) {
+            $merged->push((object) [
+                'id' => $p->id,
+                'student_name' => $p->studentDetail?->user?->name ?? $p->studentDetail?->full_name ?? '—',
+                'admission_no' => $p->studentDetail?->admission_no,
+                'standard_name' => $p->standard?->name,
+                'section_name' => $p->section?->name,
+                'fee_type' => $p->fee_type,
+                'payment_mode' => $p->payment_mode,
+                'amount' => (float) $p->amount,
+                'penalty_amount' => (float) ($p->penalty_amount ?? 0),
+                'waiver_amount' => (float) ($p->waiver_amount ?? 0),
+                'waiver_reason' => $p->waiver_reason,
+                'payment_date' => $p->payment_date,
+                'submitted_by' => $p->submitted_by,
+                'receipt_route' => 'accounts.fee.receipt',
+            ]);
+        }
+
+        foreach ($transportPayments as $p) {
+            $merged->push((object) [
+                'id' => $p->id,
+                'student_name' => $p->studentDetail?->user?->name ?? $p->studentDetail?->full_name ?? '—',
+                'admission_no' => $p->studentDetail?->admission_no,
+                'standard_name' => $p->studentDetail?->standard?->name,
+                'section_name' => $p->studentDetail?->section?->name,
+                'fee_type' => 'transport',
+                'payment_mode' => $p->payment_mode,
+                'amount' => (float) $p->amount,
+                'penalty_amount' => 0.0,
+                'waiver_amount' => 0.0,
+                'waiver_reason' => null,
+                'payment_date' => $p->payment_date,
+                'submitted_by' => $p->submitted_by,
+                'receipt_route' => 'accounts.transport.receipt',
+            ]);
+        }
+
+        $sorted = $merged->sortBy([
+            ['payment_date', 'desc'],
+            ['id', 'desc'],
+        ])->values();
+
+        $page = Paginator::resolveCurrentPage('page');
+        $items = $sorted->slice(($page - 1) * $this->perPage, $this->perPage)->values();
+
+        return new LengthAwarePaginator($items, $sorted->count(), $this->perPage, $page, [
+            'path' => Paginator::resolveCurrentPath(),
+            'pageName' => 'page',
+        ]);
     }
 
     public function render()
@@ -174,29 +350,11 @@ class Payments extends Component
                 ->where('organization_id', $orgId)->where('is_active', true)->get();
         }
 
-        $headerStats = $this->getHeaderStats();
-
-        $payments = FeePayment::with(['studentDetail.user', 'standard', 'section'])
-            ->where('organization_id', $orgId)
-            ->when($this->paymentStandardId, fn($q) => $q->where('standard_id', $this->paymentStandardId))
-            ->when($this->paymentSectionId, fn($q) => $q->where('section_id', $this->paymentSectionId))
-            ->when($this->paymentModeFilter, fn($q) => $q->where('payment_mode', $this->paymentModeFilter))
-            ->when($this->feeTypeFilter, fn($q) => $q->where('fee_type', $this->feeTypeFilter))
-            ->when($this->dateFrom, fn($q) => $q->whereDate('payment_date', '>=', $this->dateFrom))
-            ->when($this->dateTo, fn($q) => $q->whereDate('payment_date', '<=', $this->dateTo))
-            ->when($this->paymentStudentSearch, fn($q) => $q->whereHas('studentDetail', function ($sq) {
-                $sq->where('full_name', 'like', "%{$this->paymentStudentSearch}%")
-                    ->orWhere('admission_no', 'like', "%{$this->paymentStudentSearch}%")
-                    ->orWhereHas('user', fn($uq) => $uq->where('name', 'like', "%{$this->paymentStudentSearch}%"));
-            }))
-            ->orderByDesc('payment_date')
-            ->paginate($this->perPage);
-
         return view('livewire.accounts.payments', [
             'standards' => $standards,
             'sections' => $sections,
-            'payments' => $payments,
-            'headerStats' => $headerStats,
+            'payments' => $this->paymentsForListing(),
+            'headerStats' => $this->getHeaderStats(),
         ]);
     }
 }
