@@ -300,10 +300,37 @@
                 </div>
             @endif
 
-            <div class="flex flex-wrap items-center gap-3 mb-5">
-                <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">All plans</span>
-                <input wire:model.live.debounce.300ms="planSearch" type="text" placeholder="Search plans…"
-                    class="text-sm bg-white border border-gray-200 rounded-md px-3 py-2 text-gray-700 w-64 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+            <div class="bg-white rounded-xl border border-gray-200 mb-5 overflow-hidden">
+                <div class="px-4 sm:px-5 py-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                    <h3 class="text-sm font-semibold text-gray-800">All plans</h3>
+                    <span class="text-xs text-gray-400">{{ $plans->total() }} generated</span>
+                </div>
+                <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-5 py-3">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                            </svg>
+                            Filter by:
+                        </div>
+
+                        <input wire:model.live.debounce.300ms="planSearch" type="text" placeholder="Search plans by name…"
+                            class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-72
+                                   focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+
+                        @if ($planSearch)
+                            <button wire:click="$set('planSearch', '')"
+                                class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                Clear
+                            </button>
+                        @endif
+                    </div>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -429,43 +456,59 @@
             {{-- Filters: exam → class → section, then optionally one subject.
                  Nothing is shown until a section is chosen, because a datesheet
                  only means anything for a particular section. --}}
-            <div class="bg-white rounded-xl border border-gray-200 p-4 mb-4">
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    <div>
-                        <label class="block text-[11px] font-medium text-gray-500 mb-1">Exam</label>
-                        <select wire:model.live="dsFilterExamId" class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-2 text-gray-700 focus:ring-2 focus:ring-indigo-400">
-                            <option value="">Select exam…</option>
+            <div class="bg-white rounded-xl border border-gray-200 mb-4 overflow-hidden">
+                <div class="px-4 sm:px-5 py-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    <h3 class="text-sm font-semibold text-gray-800">Datesheet</h3>
+                    <span class="text-xs text-gray-400">{{ $datesheets->count() }} sheet(s) across the school</span>
+                </div>
+
+                <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-5 py-3">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                            </svg>
+                            Filter by:
+                        </div>
+
+                        <select wire:model.live="dsFilterExamId"
+                            class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            <option value="">Select Exam</option>
                             @foreach ($exams as $exam)<option value="{{ $exam->id }}">{{ $exam->exam_name }}</option>@endforeach
                         </select>
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-medium text-gray-500 mb-1">Class</label>
+
                         <select wire:model.live="dsFilterStandardId" @disabled(!$dsFilterExamId)
-                            class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-2 text-gray-700 focus:ring-2 focus:ring-indigo-400 disabled:opacity-50">
-                            <option value="">Select class…</option>
+                            class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <option value="">Select Class</option>
                             @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
                         </select>
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-medium text-gray-500 mb-1">Section</label>
+
                         <select wire:model.live="dsFilterSectionId" @disabled(!$dsFilterStandardId)
-                            class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-2 text-gray-700 focus:ring-2 focus:ring-indigo-400 disabled:opacity-50">
-                            <option value="">Select section…</option>
+                            class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <option value="">Select Section</option>
                             @foreach ($dsFilterSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
                         </select>
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-medium text-gray-500 mb-1">Subject</label>
+
                         <select wire:model.live="dsFilterSubjectId" @disabled($dsFilterSubjects->isEmpty())
-                            class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-2 text-gray-700 focus:ring-2 focus:ring-indigo-400 disabled:opacity-50">
-                            <option value="">All subjects</option>
+                            class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <option value="">All Subjects</option>
                             @foreach ($dsFilterSubjects as $sub)<option value="{{ $sub['id'] }}">{{ $sub['name'] }}</option>@endforeach
                         </select>
+
+                        @if ($dsFilterExamId || $dsFilterStandardId || $dsFilterSectionId || $dsFilterSubjectId)
+                            <button wire:click="clearDatesheetFilters"
+                                class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                Clear
+                            </button>
+                        @endif
                     </div>
+                    <p class="mt-2 text-[11px] text-gray-400">The sheet appears once a section is picked; a subject narrows it to that one paper.</p>
                 </div>
-                @if ($dsFilterExamId || $dsFilterStandardId || $dsFilterSectionId || $dsFilterSubjectId)
-                    <button wire:click="clearDatesheetFilters" class="mt-3 text-[11px] font-medium text-gray-500 hover:text-gray-700">Clear filters</button>
-                @endif
             </div>
 
             @if (!$dsFilterExamId || !$dsFilterStandardId || !$dsFilterSectionId)

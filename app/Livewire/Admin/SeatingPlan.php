@@ -272,6 +272,10 @@ class SeatingPlan extends Component
     public function openRoomPanel(?int $id = null): void
     {
         $this->resetErrorBag();
+        // Editing from the seat map closes the map: both are slide-ins at the
+        // same depth, and the form is rendered first, so the map would sit on
+        // top of the panel the click just opened.
+        $this->viewRoomId = null;
         $this->editRoomId = $id;
         if ($id) {
             $room = SeatingRoom::find($id);
@@ -367,7 +371,11 @@ class SeatingPlan extends Component
     }
 
     /** Open a room's seat map — every desk drawn, one icon per candidate. */
-    public function viewRoom(int $id): void { $this->viewRoomId = $id; }
+    public function viewRoom(int $id): void
+    {
+        $this->closeRoomPanel();   // only one slide-in at a time
+        $this->viewRoomId = $id;
+    }
     public function closeRoomView(): void { $this->viewRoomId = null; }
 
     public function confirmDeleteRoom(int $id): void { $this->pendingDeleteRoomId = $id; }
