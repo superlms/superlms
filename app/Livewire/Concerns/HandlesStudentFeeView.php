@@ -5,8 +5,11 @@ namespace App\Livewire\Concerns;
 use App\Models\Admin\Fee\FeeConcession;
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\Fee\FeeStructure;
+use App\Models\Admin\Transportation;
+use App\Models\Admin\TransportFeePayment;
 use App\Models\Student\StudentDetail;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 /**
  * One student's fee ledger, in the one shape the View Fee screen renders —
@@ -15,6 +18,13 @@ use App\Models\User;
  *
  * Fees are reported net of concession: each side (academic / transport) keeps
  * its gross, what the concession took off it, and what is actually payable.
+ *
+ * The two sides come from different places. Academic fee is the class's
+ * fee_structures rows and its payments are fee_payments. Transport fee is the
+ * student's ROUTE — its monthly fee times the months that student is billed
+ * for — and its payments are transport_fee_payments. Reading transport off a
+ * fee_structures row (there usually isn't one) is what used to leave students
+ * who ride a bus showing nothing at all here.
  *
  * The host must provide `orgId(): int`.
  */
@@ -56,19 +66,21 @@ trait HandlesStudentFeeView
             ->orderByDesc('created_at')
             ->get();
 
-        $hasTransport = (bool) $student->transportation_required;
-
         $academic  = $this->feeSideFor('academic', $structures, $payments, $concessions);
-        $transport = $hasTransport
-            ? $this->feeSideFor('transport', $structures, $payments, $concessions)
-            : $this->emptyFeeSide();
+        $transport = $this->transportSideFor($student, $concessions);
+
+        // A student rides the bus if they are actually on a route — the old
+        // `transportation_required` flag is not kept in step with assignments.
+        $hasTransport = $transport['route'] !== null;
 
         $gross      = $academic['gross'] + $transport['gross'];
         $concession = $academic['concession'] + $transport['concession'];
         $net        = $academic['net'] + $transport['net'];
         $paid       = $academic['paid'] + $transport['paid'];
 
-        $submitters = User::whereIn('id', $payments->pluck('submitted_by')->filter()->unique())
+        $submitters = User::whereIn('id', $payments->pluck('submitted_by')
+                ->merge(collect($transport['payments'])->pluck('submitted_by'))
+                ->filter()->unique())
             ->pluck('name', 'id')->toArray();
 
         return [
@@ -103,34 +115,153 @@ trait HandlesStudentFeeView
                 'paid'       => round($paid, 2),
                 'remaining'  => round(max(0, $net - $paid), 2),
                 'pct'        => $net > 0 ? min(100, round($paid / $net * 100, 1)) : ($paid > 0 ? 100 : 0),
+                // Penalties and waivers only exist on the academic side.
                 'penalties'  => round((float) $payments->sum('penalty_amount'), 2),
                 'waivers'    => round((float) $payments->sum('waiver_amount'), 2),
             ],
-            'payments' => $payments->map(fn (FeePayment $p) => [
-                'id'             => $p->id,
-                'receipt_number' => $p->receipt_number,
-                'amount'         => (float) $p->amount,
-                'penalty_amount' => (float) $p->penalty_amount,
-                'waiver_amount'  => (float) $p->waiver_amount,
-                'fee_type'       => $p->fee_type,
-                'payment_mode'   => $p->payment_mode,
-                'payment_date'   => optional($p->payment_date)->format('d M Y'),
-                'collected_by'   => $submitters[$p->submitted_by] ?? '—',
-                'remark'         => $p->remark,
-                'is_concession'  => $p->payment_mode === 'concession',
-            ])->all(),
+            'payments' => $this->mergedPayments($payments, $transport['payments'], $submitters),
         ];
     }
 
-    /** One side of the ledger — academic or transport — with its concession taken off. */
-    private function feeSideFor(string $type, $structures, $payments, $concessions): array
+    /**
+     * The transport side: the student's route, the months they are billed for,
+     * and what has come in against it. No route means no transport fee at all.
+     */
+    private function transportSideFor(StudentDetail $student, $concessions): array
     {
-        $rows  = $structures->where('fee_type', $type)->values();
-        $gross = (float) $rows->sum('amount');
+        $orgId = $this->orgId();
 
-        // 'all' concessions land on both sides; the rest only on their own.
-        $taken = 0.0;
+        $route = Transportation::with('driver.user:id,name')
+            ->where('organization_id', $orgId)
+            ->whereHas('students', fn ($q) => $q->where('student_details.id', $student->id))
+            ->orderByDesc('is_active')
+            ->first();
+
+        if (!$route) {
+            return $this->emptyFeeSide();
+        }
+
+        // Which months this student is billed for — the pivot row's own flags,
+        // falling back to the house default of every month but June.
+        $pivot = DB::table('transportation_students')
+            ->where('organization_id', $orgId)
+            ->where('transportation_id', $route->id)
+            ->where('student_detail_id', $student->id)
+            ->first();
+
+        $months  = $this->billableMonthFlags($pivot->billable_months ?? null);
+        $billed  = array_keys(array_filter($months));
+        $monthly = (float) $route->monthly_fee;
+        $gross   = round($monthly * count($billed), 2);
+
+        $payments = TransportFeePayment::where('organization_id', $orgId)
+            ->where('student_detail_id', $student->id)
+            ->orderByDesc('payment_date')->orderByDesc('id')
+            ->get();
+
+        [$taken, $applied] = $this->concessionOn('transport', $gross, $concessions);
+
+        $net  = round(max(0, $gross - $taken), 2);
+        $paid = round((float) $payments->sum('amount'), 2);
+
+        return [
+            // One row per billed month, so it reads like the academic heads do.
+            'rows' => array_map(fn ($key) => [
+                'fee_name' => $this->monthLabels()[$key] . ' — ' . $route->route_name,
+                'amount'   => $monthly,
+            ], $billed),
+            'gross'      => $gross,
+            'concession' => $taken,
+            'applied'    => $applied,
+            'net'        => $net,
+            'paid'       => $paid,
+            'remaining'  => round(max(0, $net - $paid), 2),
+            'pct'        => $net > 0 ? min(100, round($paid / $net * 100, 1)) : ($paid > 0 ? 100 : 0),
+            'route'      => [
+                'id'      => $route->id,
+                'name'    => $route->route_name,
+                'driver'  => $route->driver->user->name ?? '—',
+                'monthly' => $monthly,
+                'months'  => count($billed),
+            ],
+            'payments'   => $payments,
+        ];
+    }
+
+    /** Academic fee months, April first — the order transport is billed in. */
+    private function monthLabels(): array
+    {
+        return [
+            'apr' => 'April', 'may' => 'May', 'jun' => 'June', 'jul' => 'July',
+            'aug' => 'August', 'sep' => 'September', 'oct' => 'October',
+            'nov' => 'November', 'dec' => 'December', 'jan' => 'January',
+            'feb' => 'February', 'mar' => 'March',
+        ];
+    }
+
+    /** Stored billable_months (null, JSON or array) as flags, June off by default. */
+    private function billableMonthFlags($raw): array
+    {
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true) ?: [];
+        }
+        $raw = (array) $raw;
+
+        $flags = [];
+        foreach (array_keys($this->monthLabels()) as $key) {
+            $flags[$key] = array_key_exists($key, $raw) ? (bool) $raw[$key] : ($key !== 'jun');
+        }
+        return $flags;
+    }
+
+    /** Academic and transport receipts in one list, newest first. */
+    private function mergedPayments($academic, $transport, array $submitters): array
+    {
+        $rows = $academic->map(fn (FeePayment $p) => [
+            'id'             => $p->id,
+            'kind'           => 'academic',
+            'receipt_number' => $p->receipt_number,
+            'amount'         => (float) $p->amount,
+            'penalty_amount' => (float) $p->penalty_amount,
+            'waiver_amount'  => (float) $p->waiver_amount,
+            'fee_type'       => $p->fee_type,
+            'payment_mode'   => $p->payment_mode,
+            'payment_date'   => optional($p->payment_date)->format('d M Y'),
+            'sort'           => optional($p->payment_date)->timestamp ?? 0,
+            'collected_by'   => $submitters[$p->submitted_by] ?? '—',
+            'remark'         => $p->remark,
+            'is_concession'  => $p->payment_mode === 'concession',
+        ])->all();
+
+        foreach ($transport ?: [] as $p) {
+            $rows[] = [
+                'id'             => $p->id,
+                'kind'           => 'transport',
+                'receipt_number' => $p->receipt_number,
+                'amount'         => (float) $p->amount,
+                'penalty_amount' => 0.0,
+                'waiver_amount'  => 0.0,
+                'fee_type'       => 'transport',
+                'payment_mode'   => $p->payment_mode,
+                'payment_date'   => optional($p->payment_date)->format('d M Y'),
+                'sort'           => optional($p->payment_date)->timestamp ?? 0,
+                'collected_by'   => $submitters[$p->submitted_by] ?? '—',
+                'remark'         => $p->remark,
+                'is_concession'  => $p->payment_mode === 'concession',
+            ];
+        }
+
+        usort($rows, fn ($a, $b) => $b['sort'] <=> $a['sort']);
+
+        return $rows;
+    }
+
+    /** What a set of concessions takes off one side's gross. */
+    private function concessionOn(string $type, float $gross, $concessions): array
+    {
+        $taken   = 0.0;
         $applied = [];
+
         foreach ($concessions as $c) {
             if ($c->fee_type !== 'all' && $c->fee_type !== $type) {
                 continue;
@@ -152,6 +283,18 @@ trait HandlesStudentFeeView
             ];
         }
 
+        return [round($taken, 2), $applied];
+    }
+
+    /** One side of the ledger — academic or transport — with its concession taken off. */
+    private function feeSideFor(string $type, $structures, $payments, $concessions): array
+    {
+        $rows  = $structures->where('fee_type', $type)->values();
+        $gross = (float) $rows->sum('amount');
+
+        // 'all' concessions land on both sides; the rest only on their own.
+        [$taken, $applied] = $this->concessionOn($type, $gross, $concessions);
+
         $net  = round(max(0, $gross - $taken), 2);
         $paid = (float) $payments->where('fee_type', $type)->sum('amount');
 
@@ -167,6 +310,8 @@ trait HandlesStudentFeeView
             'paid'       => round($paid, 2),
             'remaining'  => round(max(0, $net - $paid), 2),
             'pct'        => $net > 0 ? min(100, round($paid / $net * 100, 1)) : ($paid > 0 ? 100 : 0),
+            'route'      => null,
+            'payments'   => [],
         ];
     }
 
@@ -175,6 +320,7 @@ trait HandlesStudentFeeView
         return [
             'rows' => [], 'gross' => 0.0, 'concession' => 0.0, 'applied' => [],
             'net' => 0.0, 'paid' => 0.0, 'remaining' => 0.0, 'pct' => 0,
+            'route' => null, 'payments' => [],
         ];
     }
 }

@@ -16,7 +16,11 @@
     if ($sv['hasTransport']) {
         $sides['Transport'] = $sv['transport'];
     }
-    $receipt = fn ($id) => route($feePrefix . '.fee.receipt', ['organization' => $feeOrg, 'id' => $id]);
+    // Transport receipts are printed by their own controller.
+    $receipt = fn (array $p) => route(
+        $feePrefix . ($p['kind'] === 'transport' ? '.transport.receipt' : '.fee.receipt'),
+        ['organization' => $feeOrg, 'id' => $p['id']]
+    );
 @endphp
 
 {{-- ══════════ 1. STUDENT + COLLECTION LINES ══════════ --}}
@@ -113,6 +117,14 @@
                     <span class="text-sm font-bold text-gray-900 tabular-nums">₹{{ number_format($side['net'], 2) }}</span>
                 </div>
 
+                {{-- The route this transport fee comes from, in the small print --}}
+                @if (!empty($side['route']))
+                    <p class="pt-1 text-[11px] leading-relaxed text-gray-400">
+                        {{ $side['route']['name'] }} · ₹{{ number_format($side['route']['monthly'], 2) }}/month ×
+                        {{ $side['route']['months'] }} months · Driver {{ $side['route']['driver'] }}
+                    </p>
+                @endif
+
                 {{-- The concession itself, in the small print --}}
                 @if (count($side['applied']))
                     <p class="pt-1 text-[11px] leading-relaxed text-gray-400">
@@ -152,7 +164,7 @@
             </thead>
             <tbody>
                 @forelse ($sv['payments'] as $n => $p)
-                    <tr wire:key="sv-pay-{{ $p['id'] }}" class="hover:bg-gray-50/70">
+                    <tr wire:key="sv-pay-{{ $p['kind'] }}-{{ $p['id'] }}" class="hover:bg-gray-50/70">
                         <td class="px-4 py-2.5 text-[11px] text-gray-300 tabular-nums">{{ $n + 1 }}</td>
                         <td class="px-4 py-2.5 font-mono text-xs text-gray-700">{{ $p['receipt_number'] }}</td>
                         <td class="px-4 py-2.5 text-gray-600 whitespace-nowrap">{{ $p['payment_date'] ?? '—' }}</td>
@@ -166,7 +178,7 @@
                         </td>
                         <td class="px-4 py-2.5 text-right font-semibold text-gray-900 tabular-nums">₹{{ number_format($p['amount'], 2) }}</td>
                         <td class="px-4 py-2.5 text-center">
-                            <a href="{{ $receipt($p['id']) }}" target="_blank" title="Open slip"
+                            <a href="{{ $receipt($p) }}" target="_blank" title="Open slip"
                                 class="inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-700">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/></svg>
                             </a>

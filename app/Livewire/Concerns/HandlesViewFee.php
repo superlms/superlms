@@ -4,9 +4,11 @@ namespace App\Livewire\Concerns;
 
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\Fee\FeeStructure;
+use App\Models\Admin\TransportFeePayment;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The View Fee screen — shared verbatim between Admin\Fee's "View Fee" tab and
@@ -124,12 +126,14 @@ trait HandlesViewFee
 
         $orgId = $this->orgId();
 
-        $students = StudentDetail::with(['user', 'standard', 'section'])
+        $students = StudentDetail::with(['user', 'standard', 'section', 'transportations'])
             ->where('organization_id', $orgId)
             ->where('standard_id', $this->viewClassStandardId)
             ->when($this->viewClassSectionId, fn ($q) => $q->where('section_id', $this->viewClassSectionId))
             ->orderBy('roll_no')
             ->get();
+
+        $studentIds = $students->pluck('id');
 
         $structures = FeeStructure::where('organization_id', $orgId)
             ->where('standard_id', $this->viewClassStandardId)
@@ -139,22 +143,46 @@ trait HandlesViewFee
         // One query for the whole class, then split per student — a payments
         // query per row turns a 60-student class into 60 round trips.
         $payments = FeePayment::where('organization_id', $orgId)
-            ->whereIn('student_detail_id', $students->pluck('id'))
+            ->whereIn('student_detail_id', $studentIds)
             ->get()
             ->groupBy('student_detail_id');
 
-        $this->classFeeList = $students->map(function (StudentDetail $student) use ($structures, $payments) {
+        // Transport is not a fee_structures row: it is the student's route's
+        // monthly fee times the months they are billed for, and it is paid into
+        // its own table. Both come in one query each, same as above.
+        $txMonths = DB::table('transportation_students')
+            ->where('organization_id', $orgId)
+            ->whereIn('student_detail_id', $studentIds)
+            ->get()
+            // A student can sit on more than one route, so key by the pair.
+            ->keyBy(fn ($r) => $r->student_detail_id . '-' . $r->transportation_id);
+
+        $txPaid = TransportFeePayment::where('organization_id', $orgId)
+            ->whereIn('student_detail_id', $studentIds)
+            ->selectRaw('student_detail_id, SUM(amount) as paid')
+            ->groupBy('student_detail_id')
+            ->pluck('paid', 'student_detail_id');
+
+        $this->classFeeList = $students->map(function (StudentDetail $student)
+            use ($structures, $payments, $txMonths, $txPaid) {
             $own = $structures->filter(
                 fn ($s) => is_null($s->section_id) || $s->section_id == $student->section_id
             );
 
-            $hasTransport  = (bool) $student->transportation_required;
-            $academicFee   = (float) $own->where('fee_type', 'academic')->sum('amount');
-            $transportFee  = $hasTransport ? (float) $own->where('fee_type', 'transport')->sum('amount') : 0.0;
+            $academicFee = (float) $own->where('fee_type', 'academic')->sum('amount');
+
+            $route        = $student->transportations->sortByDesc('is_active')->first();
+            $hasTransport = $route !== null;
+            $billed       = $hasTransport
+                ? count(array_filter($this->billableMonthFlags(
+                    $txMonths->get($student->id . '-' . $route->id)->billable_months ?? null
+                )))
+                : 0;
+            $transportFee = round((float) ($route->monthly_fee ?? 0) * $billed, 2);
 
             $paid               = $payments->get($student->id, collect());
             $academicCollected  = (float) $paid->where('fee_type', 'academic')->sum('amount');
-            $transportCollected = (float) $paid->where('fee_type', 'transport')->sum('amount');
+            $transportCollected = (float) ($txPaid[$student->id] ?? 0);
             $totalFee           = $academicFee + $transportFee;
             $totalCollected     = $academicCollected + $transportCollected;
 
