@@ -24,13 +24,13 @@
     </div>
 </div>
 
-{{-- Grey filter band — one line. The from/to inputs only appear for a
-     custom range, which is what keeps everything on that single line. --}}
+{{-- Grey filter band — one line: range dropdown, the start/end dates it
+     fills in (both editable), then class, section, mode and search. --}}
 <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-2.5">
     <div class="flex flex-wrap items-center gap-2">
         <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 shrink-0">
             <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-            <span class="hidden xl:inline">Filter by:</span>
+            <span class="hidden 2xl:inline">Filter by:</span>
         </div>
 
         <select wire:model.live="datePreset"
@@ -40,16 +40,13 @@
             @endforeach
         </select>
 
-        @if ($datePreset === '')
-            <input type="date" wire:model.live="dateFrom"
-                class="text-xs bg-white border border-gray-200 rounded-md px-2 py-1.5 text-gray-700">
-            <input type="date" wire:model.live="dateTo"
-                class="text-xs bg-white border border-gray-200 rounded-md px-2 py-1.5 text-gray-700">
-        @else
-            <span class="text-xs text-gray-400 whitespace-nowrap hidden md:inline">
-                {{ \Illuminate\Support\Carbon::parse($dateFrom)->format('d M') }} – {{ \Illuminate\Support\Carbon::parse($dateTo)->format('d M Y') }}
-            </span>
-        @endif
+        {{-- Always editable: a preset fills these in, typing in them switches
+             the dropdown to Custom Range. --}}
+        <input type="date" wire:model.live="dateFrom" title="Start date"
+            class="text-xs bg-white border border-gray-200 rounded-md px-2 py-1.5 text-gray-700">
+        <span class="text-xs text-gray-400">–</span>
+        <input type="date" wire:model.live="dateTo" title="End date"
+            class="text-xs bg-white border border-gray-200 rounded-md px-2 py-1.5 text-gray-700">
 
         <select wire:model.live="paymentStandardId"
             class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
@@ -78,7 +75,7 @@
         </select>
 
         <input wire:model.live.debounce.300ms="paymentStudentSearch" type="text" placeholder="Search student…"
-            class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-40 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-36 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
 
         @if ($paymentFiltersDirty)
             <button wire:click="resetPaymentFilters"
