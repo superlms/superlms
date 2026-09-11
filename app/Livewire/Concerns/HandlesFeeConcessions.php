@@ -5,6 +5,7 @@ namespace App\Livewire\Concerns;
 use App\Models\Admin\Fee\FeeConcession;
 use App\Models\Student\Section;
 use App\Models\Student\StudentDetail;
+use App\Support\AccountsNotifier;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -169,13 +170,27 @@ trait HandlesFeeConcessions
         ];
 
         if ($this->editConcessionId) {
+            // A query-builder update, so no model event fires — the accounts
+            // desk is told about it here instead.
             FeeConcession::where('organization_id', $this->orgId())
                 ->where('id', $this->editConcessionId)->update($payload);
+            $action = 'updated';
             $this->notification()->success('Concession updated successfully!');
         } else {
             FeeConcession::create($payload);
+            $action = 'granted';
             $this->notification()->success('Concession added successfully!');
         }
+
+        AccountsNotifier::concession(
+            $action,
+            $this->orgId(),
+            $this->concStudentId,
+            $this->concType,
+            $this->concValue,
+            $this->concFeeType,
+            (string) $this->concReason
+        );
 
         $this->closeConcessionModal();
     }

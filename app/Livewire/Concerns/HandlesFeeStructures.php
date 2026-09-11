@@ -6,6 +6,7 @@ use App\Models\Admin\Fee\FeeStructure as FeeStructureModel;
 use App\Models\Admin\Transportation;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
+use App\Support\AccountsNotifier;
 
 /**
  * The Fee Structure page — shared between Admin\FeeStructure and
@@ -216,6 +217,15 @@ trait HandlesFeeStructures
                     ->delete();
 
                 $this->writeFeeRows([$this->editGroupSectionId]);
+
+                AccountsNotifier::feeStructure(
+                    'updated',
+                    $this->orgId(),
+                    AccountsNotifier::classLabel($this->editGroupStandardId, $this->editGroupSectionId),
+                    count($this->feeRows),
+                    $this->feeRowsTotal
+                );
+
                 $this->notification()->success('Fee structure updated!');
                 $this->closeStructureModal();
                 return;
@@ -224,6 +234,18 @@ trait HandlesFeeStructures
             // Adding: one copy of every row per chosen section (none = All Sections).
             $sectionIds = !empty($this->structureSectionIds) ? $this->structureSectionIds : [null];
             $this->writeFeeRows($sectionIds);
+
+            // One line for the whole save, however many sections it wrote to —
+            // the accounts desk doesn't need a notification per fee head.
+            AccountsNotifier::feeStructure(
+                'added',
+                $this->orgId(),
+                count($sectionIds) > 1
+                    ? AccountsNotifier::classLabel($this->structureStandardId, null) . ' (' . count($sectionIds) . ' sections)'
+                    : AccountsNotifier::classLabel($this->structureStandardId, $sectionIds[0] ?? null),
+                count($this->feeRows),
+                $this->feeRowsTotal
+            );
 
             $this->notification()->success(
                 count($this->feeRows) . ' fee head(s) added for ' . count($sectionIds) . ' section(s).'
@@ -334,6 +356,11 @@ trait HandlesFeeStructures
     {
         if (!$this->pendingDeleteGroup) return;
 
+        // Read what is about to go, so the notification can say what it was.
+        $doomed       = $this->groupRows($this->pendingDeleteGroup['standard_id'], $this->pendingDeleteGroup['section_id']);
+        $deletedRows  = $doomed->count();
+        $deletedTotal = (float) $doomed->sum('amount');
+
         FeeStructureModel::where('organization_id', $this->orgId())
             ->where('fee_type', 'academic')
             ->where('standard_id', $this->pendingDeleteGroup['standard_id'])
@@ -341,6 +368,17 @@ trait HandlesFeeStructures
                 fn ($q) => $q->where('section_id', $this->pendingDeleteGroup['section_id']),
                 fn ($q) => $q->whereNull('section_id'))
             ->delete();
+
+        AccountsNotifier::feeStructure(
+            'deleted',
+            $this->orgId(),
+            AccountsNotifier::classLabel(
+                $this->pendingDeleteGroup['standard_id'],
+                $this->pendingDeleteGroup['section_id']
+            ),
+            $deletedRows,
+            $deletedTotal
+        );
 
         $this->pendingDeleteGroup = null;
         $this->closeViewGroup();

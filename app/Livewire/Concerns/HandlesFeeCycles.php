@@ -7,6 +7,7 @@ use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Student\Section;
 use App\Models\Student\StudentDetail;
+use App\Support\AccountsNotifier;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -589,6 +590,8 @@ trait HandlesFeeCycles
             ]);
         }
 
+        AccountsNotifier::feeCycle('re-balanced', $this->orgId(), $this->cycleSummary($this->editCycleFeeType, $this->editCycleYear));
+
         $this->notification()->success(count($this->editRows) . ' installments updated — the cycle still totals 100%.');
         $this->closeCycleEdit();
     }
@@ -683,6 +686,28 @@ trait HandlesFeeCycles
         }
 
         return 'Installment #' . $cycle->payment_serial;
+    }
+
+    /**
+     * What the cycle looks like right now, for the accounts desk's bell —
+     * "Quarterly · academic fee · 2026-27 · 4 installments · 100%".
+     */
+    private function cycleSummary(?string $feeType = null, ?string $year = null): string
+    {
+        $feeType = $feeType ?: ($this->cycleFeeType ?: 'academic');
+        $year    = $year ?: ($this->cycleYear ?: '');
+
+        $rows = FeeCycle::forOrg($this->orgId())
+            ->where('fee_type', $feeType)
+            ->where('academic_year', $year)
+            ->where('is_token', false)
+            ->get();
+
+        $kindLabel = ['monthly' => 'Monthly', 'quarterly' => 'Quarterly', 'custom' => 'Custom'][$this->detectCycleKind($rows)] ?? 'Custom';
+
+        return $kindLabel . ' · ' . $feeType . ' fee · ' . $year . ' · '
+            . $rows->count() . ' installment' . ($rows->count() === 1 ? '' : 's')
+            . ' · ' . $this->trimPercent(round((float) $rows->sum('fee_percent'), 2)) . '%';
     }
 
     /** A % without its trailing zeros — "35", "21.67". */
@@ -784,6 +809,7 @@ trait HandlesFeeCycles
             'penalty_per_day' => $this->tokenPenaltyPerDay ?: 0,
             'amount'          => $amount,
         ]);
+        AccountsNotifier::feeCycle('token fee updated', $this->orgId(), $this->cycleSummary());
         $this->notification()->success('Token fee updated!');
         $this->closeCycleModal();
     }
@@ -873,6 +899,8 @@ trait HandlesFeeCycles
                 ->update(['fee_percent' => $sibling['percent']]);
         }
 
+        AccountsNotifier::feeCycle('updated', $this->orgId(), $this->cycleSummary());
+
         $this->notification()->success(
             $this->cycleSiblingPreview
                 ? 'Installment updated — the other installments were re-balanced to 100%.'
@@ -939,6 +967,7 @@ trait HandlesFeeCycles
         }
 
         $this->upsertTokenFee();
+        AccountsNotifier::feeCycle('added', $this->orgId(), $this->cycleSummary());
         $this->notification()->success(count($rows) . ' installment(s) saved!');
         $this->closeCycleModal();
     }
@@ -985,6 +1014,7 @@ trait HandlesFeeCycles
         });
 
         $this->upsertTokenFee();
+        AccountsNotifier::feeCycle('created', $this->orgId(), $this->cycleSummary());
         $this->notification()->success('12 monthly installments created!');
         $this->closeCycleModal();
     }
@@ -1032,6 +1062,7 @@ trait HandlesFeeCycles
         });
 
         $this->upsertTokenFee();
+        AccountsNotifier::feeCycle('created', $this->orgId(), $this->cycleSummary());
         $this->notification()->success('4 quarterly installments created!');
         $this->closeCycleModal();
     }
@@ -1051,8 +1082,19 @@ trait HandlesFeeCycles
     public function cancelDeleteCycle(): void  { $this->pendingDeleteCycleId = null; }
     public function doDeleteCycle(): void
     {
+        $deleted = FeeCycle::forOrg($this->orgId())->find($this->pendingDeleteCycleId);
+
         FeeCycle::forOrg($this->orgId())->where('id', $this->pendingDeleteCycleId)->delete();
         $this->pendingDeleteCycleId = null;
+
+        if ($deleted) {
+            AccountsNotifier::feeCycle(
+                'installment removed',
+                $this->orgId(),
+                $this->cycleSummary($deleted->fee_type, $deleted->academic_year)
+            );
+        }
+
         $this->notification()->success('Installment deleted!');
     }
 

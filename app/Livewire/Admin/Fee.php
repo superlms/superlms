@@ -1029,6 +1029,16 @@ class Fee extends Component
             'created_by'        => Auth::id(),
         ]);
 
+        \App\Support\AccountsNotifier::concession(
+            'granted',
+            $this->orgId(),
+            $this->penaltyStudentId,
+            'amount',
+            $this->waiveValue,
+            'penalty',
+            $this->waiveReason ?: 'Penalty waiver'
+        );
+
         $this->waiveValue  = '';
         $this->waiveReason = '';
         $this->notification()->success('Penalty waiver applied!');

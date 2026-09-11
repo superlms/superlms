@@ -92,3 +92,49 @@ Implemented rules (dispatched via `App\Services\AppPushNotifier`, wired in
 
 On the EC2 Docker box files are bind-mounted at `/var/www/html`, so the relative
 path resolves to `/var/www/html/storage/app/firebase/service-account.json`.
+
+---
+
+# In-app notifications (the navbar bell)
+
+Separate from FCM push above: these are Laravel **database** notifications
+(`App\Notifications\ActivityNotification` → the `notifications` table) read by
+the navbar bell (`App\Livewire\Components\Notification`) on every panel.
+
+| Who writes them | Class | Recipients |
+| --- | --- | --- |
+| Every meaningful model create/update/delete, app-wide | `App\Support\ActivityNotifier` | the org's `admin` + `sub-admin` |
+| The money + messages an accountant has to know about | `App\Support\AccountsNotifier` | the org's `accounts` users |
+
+## Accounts desk rules ("konsa notification kab")
+
+The accounts panel carries the same fee screens the admin panel does, so these
+fire **whoever** made the change — an accountant saving a fee cycle and an admin
+saving the same fee cycle both reach the fee desk.
+
+| Event | type | Fired from |
+| --- | --- | --- |
+| Fee structure added / updated / deleted | `fee_structure` | `HandlesFeeStructures::saveStructure()` + `doDeleteGroup()` |
+| Fee cycle created / added / updated / re-balanced / installment removed / token fee updated | `fee_cycle` | every save path in `HandlesFeeCycles` |
+| Fee collected — counter, admin panel, or a student paying online | `fee_payment` | `FeePayment::created` + `TransportFeePayment::created` (`AppServiceProvider::bootAccountsNotifications()`) |
+| Concession granted / updated, and penalty waivers | `concession` | `HandlesFeeConcessions::saveConcession()`, `Admin\Fee::waivePenalty()` |
+| A message arrives from an admin, teacher or student | `message` | `Chat\Message::created` — sent to the conversation's other participants, whatever their role |
+
+Two deliberate choices:
+
+- **One notification per action, not per row.** Saving a fee structure writes a
+  row per fee head and generating a monthly cycle writes twelve. The bell gets
+  one readable line ("Fee cycle re-balanced — Quarterly · academic fee ·
+  2026-27 · 4 installments · 100%") instead of twelve.
+- **Most of these writes never fire a model event.** Editing a cycle or a
+  concession, or deleting a fee-structure group, all go through the query
+  builder, which Eloquent's global `updated`/`deleted` listeners never see —
+  that is why they announce themselves from their own save methods rather than
+  hanging off model events like the payment rules do.
+
+Chat is grouped like a phone: while a conversation's last bell entry is still
+unread, further messages in it don't add new ones.
+
+`AccountsNotifier` skips console runs with no logged-in user (seeders,
+migrations, artisan) — an online payment settling from a gateway callback has no
+actor either, but that runs over HTTP, so it still gets through.

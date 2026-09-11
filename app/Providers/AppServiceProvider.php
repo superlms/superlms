@@ -28,6 +28,9 @@ class AppServiceProvider extends ServiceProvider
         //  uses raw inserts that don't fire model events.)
         $this->bootAppPushNotifications();
 
+        // In-app notifications for the accounts desk (money + messages).
+        $this->bootAccountsNotifications();
+
         // Record last login timestamp on every successful authentication
         Event::listen(Login::class, function (Login $event) {
             $user = $event->user;
@@ -78,6 +81,29 @@ class AppServiceProvider extends ServiceProvider
                 ], 429);
             });
         });
+    }
+
+    /**
+     * Wire the events an accountant has to hear about to their in-app bell.
+     *
+     * Only the events that genuinely go through a model `create` live here —
+     * a payment row, a chat message. The fee structure / cycle / concession
+     * screens write in bulk through the query builder (no model events at
+     * all), so those announce themselves from their own save methods in
+     * App\Livewire\Concerns\HandlesFee*.
+     */
+    private function bootAccountsNotifications(): void
+    {
+        $accounts = \App\Support\AccountsNotifier::class;
+
+        // Fee collected — the counter, the admin panel and a student paying
+        // online all end up in one of these two tables.
+        \App\Models\Admin\Fee\FeePayment::created(fn ($payment) => $accounts::feePayment($payment));
+        \App\Models\Admin\TransportFeePayment::created(fn ($payment) => $accounts::feePayment($payment));
+
+        // A message from an admin, a teacher or a student lands in the bell as
+        // well as the live chat toast.
+        \App\Models\Chat\Message::created(fn ($message) => $accounts::chatMessage($message));
     }
 
     /**

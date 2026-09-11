@@ -11,6 +11,12 @@
             'credit'         => 'bg-emerald-100 text-emerald-600',
             'activity'       => 'bg-blue-100 text-blue-600',
             'promo'          => 'bg-violet-100 text-violet-600',
+            // ── Accounts desk (App\Support\AccountsNotifier) ──
+            'fee_structure'  => 'bg-teal-100 text-teal-600',
+            'fee_cycle'      => 'bg-violet-100 text-violet-600',
+            'fee_payment'    => 'bg-emerald-100 text-emerald-600',
+            'concession'     => 'bg-amber-100 text-amber-600',
+            'message'        => 'bg-sky-100 text-sky-600',
         ];
     @endphp
 
