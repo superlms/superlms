@@ -138,6 +138,10 @@
             </div>
         @endif
 
+        @if ($activeTab === 'cycle')
+            @include('livewire.partials.fee-cycle-header')
+        @endif
+
         @if ($activeTab === 'fee_submission')
             <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
                 <div class="flex flex-wrap items-center gap-3">

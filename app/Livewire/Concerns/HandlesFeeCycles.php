@@ -34,6 +34,7 @@ trait HandlesFeeCycles
     public $cycleYear          = '2026-27';
     public $editCycleId        = null;
     public bool $cycleModalOpen = false;
+    public bool $editingToken   = false; // the open modal is editing the token row, not an installment
     public ?int $pendingDeleteCycleId = null;
     // How the installments are generated when adding: '' (chooser) | monthly | quarterly | custom.
     public string $cycleMode   = '';
@@ -71,11 +72,17 @@ trait HandlesFeeCycles
         if ($id) {
             $c = FeeCycle::forOrg($this->orgId())->find($id);
             if (!$c) return;
-            // The token fee isn't an installment — it's edited by reopening
-            // this same panel and adjusting the Token Fee section, not through
-            // the per-row Edit button.
+            // The token fee has its own minimal edit form (amount/due date/penalty
+            // only) — it isn't a % installment, so none of the mode/serial fields apply.
             if ($c->is_token) {
-                $this->cycleModalOpen = false;
+                $this->editingToken       = true;
+                $this->editCycleId        = $c->id;
+                $this->cycleFeeType       = $c->fee_type;
+                $this->cycleYear          = $c->academic_year;
+                $this->tokenFeeAmount     = (string) $c->amount;
+                $this->tokenDueDate       = optional($c->due_date)->toDateString();
+                $this->tokenPenaltyPerDay = (string) $c->penalty_per_day;
+                $this->cycleModalOpen     = true;
                 return;
             }
             // Editing an existing installment is always a single-row (custom) edit.
@@ -225,6 +232,28 @@ trait HandlesFeeCycles
         );
     }
 
+    /** Update the token row being edited. The calculator recomputes off it automatically on next render. */
+    private function saveTokenEdit(): void
+    {
+        $amount = (float) ($this->tokenFeeAmount ?: 0);
+        if ($amount <= 0) {
+            $this->notification()->error('Enter a token fee amount.');
+            return;
+        }
+        if (!$this->tokenDueDate) {
+            $this->notification()->error('Set a due date for the token fee.');
+            return;
+        }
+
+        FeeCycle::forOrg($this->orgId())->where('id', $this->editCycleId)->update([
+            'due_date'        => $this->tokenDueDate,
+            'penalty_per_day' => $this->tokenPenaltyPerDay ?: 0,
+            'amount'          => $amount,
+        ]);
+        $this->notification()->success('Token fee updated!');
+        $this->closeCycleModal();
+    }
+
     public function closeCycleModal(): void
     {
         $this->cycleModalOpen = false;
@@ -234,7 +263,7 @@ trait HandlesFeeCycles
     private function resetCycleForm(): void
     {
         $this->reset([
-            'editCycleId', 'cycleSerial', 'cycleDueDate',
+            'editCycleId', 'editingToken', 'cycleSerial', 'cycleDueDate',
             'cyclePenaltyPerDay', 'cycleFeePercent',
         ]);
         $this->cycleMode          = '';
@@ -258,6 +287,11 @@ trait HandlesFeeCycles
 
     public function saveCycle(): void
     {
+        if ($this->editingToken) {
+            $this->saveTokenEdit();
+            return;
+        }
+
         // Monthly / Quarterly auto-split (add mode only) — generate the whole set.
         if (!$this->editCycleId && $this->cycleMode === 'monthly') {
             $this->generateMonthlyCycles();
