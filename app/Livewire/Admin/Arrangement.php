@@ -242,6 +242,17 @@ class Arrangement extends Component
             ->get()
             ->groupBy('teacher_detail_id');
 
+        // 2b. Period numbers for the day: the school's distinct start times in
+        //     order, so a slot shows the period it really is (P5), not just its
+        //     position in this teacher's own short list.
+        $periodNumbers = TeacherTimeTable::where('organization_id', $org)
+            ->where('day_of_week', $dayOfWeek)
+            ->distinct()
+            ->orderBy('start_time')
+            ->pluck('start_time')
+            ->values()
+            ->mapWithKeys(fn($time, $i) => [substr($time, 0, 5) => $i + 1]);
+
         // 3. Existing arrangements (keyed by teacher_time_table_id)
         $arrangementsForDate = TeacherArrangement::with(['substituteTeacher.user', 'timetable'])
             ->where('organization_id', $org)
@@ -372,6 +383,7 @@ class Arrangement extends Component
         return view('livewire.admin.arrangement', compact(
             'absentTeachers',
             'absentSlots',
+            'periodNumbers',
             'arrangementsForDate',
             'slotAvailability',
             'teacherLoads',
