@@ -56,10 +56,6 @@
                         <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-1">
                             <span>Net Payable: <strong class="text-blue-600">₹{{ number_format($netPayable, 0) }}</strong></span>
                         </div>
-                    @elseif ($activeTab === 'payments')
-                        <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-1">
-                            <span>Collected: <strong class="text-emerald-600">₹{{ number_format($headerStats['total_collected'] ?? 0, 0) }}</strong></span>
-                        </div>
                     @elseif ($activeTab === 'penalties' && $penaltySubTab === 'by_student' && $penaltyViewStudentId && !empty($penaltyStudentView))
                         @php
                             $penHdrCycles  = collect($penaltyStudentView['cycles'] ?? []);
@@ -109,14 +105,6 @@
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
                             <span class="hidden sm:inline">Add User</span>
                             <span class="sm:hidden">New</span>
-                        </button>
-                    @elseif ($activeTab === 'payments')
-                        <button wire:click="resetPaymentFilters"
-                            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 text-xs font-medium text-gray-600 bg-white hover:bg-gray-50 transition">
-                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-                            </svg>
-                            Reset Filters
                         </button>
                     @elseif ($activeTab === 'penalties')
                         <button wire:click="openPenaltyWaiver" @disabled(!$penaltyViewStudentId)
@@ -184,6 +172,8 @@
 
         @if ($activeTab === 'fee_submission')
             @include('livewire.partials.fee-submission-header')
+        @elseif ($activeTab === 'payments')
+            @include('livewire.partials.payments-header')
         @elseif ($activeTab === 'view_fee')
             @include('livewire.partials.view-fee-header')
         @elseif ($activeTab === 'analytics')
@@ -264,12 +254,9 @@
     {{-- TAB 5: PAYMENTS                                                 --}}
     {{-- ════════════════════════════════════════════════════════════════ --}}
     @if ($activeTab === 'payments')
-        {{-- Identical to the accounts Payments page — same three partials. --}}
-        <div class="space-y-4">
-            @include('livewire.partials.payments-filters')
-            @include('livewire.partials.payments-analytics')
-            @include('livewire.partials.payments-table')
-        </div>
+        {{-- Identical to the accounts Payments page — same partials. --}}
+        @include('livewire.partials.payments-analytics')
+        @include('livewire.partials.payments-table')
     @endif
 
     {{-- ════════════════════════════════════════════════════════════════ --}}

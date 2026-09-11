@@ -38,11 +38,6 @@ class Payments extends Component
         return 'accounts';
     }
 
-    public function resetFilters(): void
-    {
-        $this->resetPaymentFilters();
-    }
-
     public function render()
     {
         $standards = Standard::where('organization_id', $this->orgId())

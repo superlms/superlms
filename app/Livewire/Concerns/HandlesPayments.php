@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\DB;
  * The Payments screen — filters, the one-line analytics strip and the merged
  * payment listing — shared verbatim between Accounts\Payments (its own page)
  * and Admin\Fee (the "Payments" tab). Both render the same three partials
- * (`livewire.partials.payments-filters`, `-analytics`, `-table`), so the two
+ * (`livewire.partials.payments-header`, `-analytics`, `-table`), so the two
  * screens stay identical without hand-copying.
  *
  * The host component must provide `orgId(): int`, use `WithPagination`, and
@@ -66,6 +66,13 @@ trait HandlesPayments
         }
 
         return $count;
+    }
+
+    /** Fee-type tabs above the filter band: '' (all) | academic | transport | penalty. */
+    public function setFeeTypeFilter(string $type): void
+    {
+        $this->feeTypeFilter = in_array($type, ['academic', 'transport', 'penalty'], true) ? $type : '';
+        $this->resetPage();
     }
 
     /** Quick date-range presets for the filter bar. */
