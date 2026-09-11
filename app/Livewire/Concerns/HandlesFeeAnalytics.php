@@ -23,9 +23,14 @@ use Illuminate\Support\Facades\DB;
  *
  * Everything is loaded once per filter change into small, display-shaped
  * arrays; nothing here is computed per row in Blade.
+ *
+ * The host provides `orgId(): int` and `openStudentLedger(int $id)` — the
+ * admin tab switches to View Fee, the accounts dashboard redirects to it.
  */
 trait HandlesFeeAnalytics
 {
+    use CountsBillableMonths;
+
     // ─── Filters ──────────────────────────────────────────────────────────────
     public $analyticsStandardId = '';
     public $analyticsSectionId  = '';
@@ -61,15 +66,6 @@ trait HandlesFeeAnalytics
         $this->analyticsStandardId = '';
         $this->analyticsSectionId  = '';
         $this->loadAnalytics();
-    }
-
-    /** Jump from a row in the analytics tables straight into that student's ledger. */
-    public function openStudentLedger(int $studentId): void
-    {
-        $this->showTab('view_fee');
-        $this->viewSubTab    = 'by_student';
-        $this->viewStudentId = (string) $studentId;
-        $this->updatedViewStudentId();
     }
 
     // ─────────────────────────────────────────────────────────────────────────

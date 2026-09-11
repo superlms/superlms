@@ -239,6 +239,15 @@ class Fee extends Component
 
     // ─── Fee Submission — logic lives in HandlesFeeSubmission ──────────────────
 
+    /** Analytics rows link into the View Fee tab on this same screen. */
+    public function openStudentLedger(int $studentId): void
+    {
+        $this->showTab('view_fee');
+        $this->viewSubTab    = 'by_student';
+        $this->viewStudentId = (string) $studentId;
+        $this->updatedViewStudentId();
+    }
+
     // ─── Payments ── filters, the analytics strip and the merged listing all
     //     come from HandlesPayments (shared with the accounts Payments page);
     //     only the receipt route prefix differs.

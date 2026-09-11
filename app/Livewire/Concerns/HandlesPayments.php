@@ -24,6 +24,8 @@ use Illuminate\Support\Facades\DB;
  */
 trait HandlesPayments
 {
+    use CountsBillableMonths;
+
     // ─── Filters ──────────────────────────────────────────────────────────────
     public $dateFrom = '';
     public $dateTo = '';
@@ -35,9 +37,6 @@ trait HandlesPayments
     public $feeTypeFilter = '';
 
     public $paymentsPerPage = 15;
-
-    /** Academic-year month keys, April first — June is off by default. */
-    private const PAYMENT_MONTH_KEYS = ['apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec', 'jan', 'feb', 'mar'];
 
     /** The host component calls this from its own mount(). */
     public function initPaymentFilters(): void
@@ -65,22 +64,6 @@ trait HandlesPayments
     protected function paymentsRoutePrefix(): string
     {
         return 'accounts';
-    }
-
-    /** How many of the year's months a transport pivot row is billed for. */
-    private function billableMonthsCount($raw): int
-    {
-        $months = is_string($raw) ? (json_decode($raw, true) ?: []) : (array) ($raw ?? []);
-
-        $count = 0;
-        foreach (self::PAYMENT_MONTH_KEYS as $key) {
-            $on = array_key_exists($key, $months) ? (bool) $months[$key] : ($key !== 'jun');
-            if ($on) {
-                $count++;
-            }
-        }
-
-        return $count;
     }
 
     /** Fee-type tabs above the filter band: '' (all) | academic | transport | penalty. */

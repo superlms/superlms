@@ -2,186 +2,160 @@
 
 namespace App\Livewire\Accounts;
 
+use App\Livewire\Concerns\HandlesFeeAnalytics;
 use App\Models\Admin\AdmissionEnquiry;
 use App\Models\Admin\AdminEmployee;
 use App\Models\Admin\AdminSalaryPayment;
 use App\Models\Admin\Fee\FeePayment;
-use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Admin\TransportFeePayment;
+use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Component;
 
+/**
+ * The accounts dashboard.
+ *
+ * The fee half of it is the admin Fee > Analytics screen verbatim — same
+ * HandlesFeeAnalytics trait, same fee-analytics-panel partial — so the
+ * billable / collected / outstanding figures here are the ones the Fee and
+ * Payments screens show, not a second set computed another way. On top of
+ * that it adds the roll, payroll, admissions and transport counts that only
+ * matter to the accounts desk, plus the latest receipts.
+ */
 class Dashboard extends Component
 {
-    public array $stats = [];
-    public $recentPayments = [];
+    use HandlesFeeAnalytics;
 
-    // Chart datasets (built once on load)
-    public array $chartDaily   = ['labels' => [], 'amounts' => []]; // last 14 days
-    public array $chartMonthly = ['labels' => [], 'amounts' => []]; // last 6 months
-    public array $chartModes   = ['labels' => [], 'amounts' => []]; // payment-mode split
+    /** Roll, payroll, admissions — the non-fee half of the dashboard. */
+    public array $officeStats = [];
+
+    /** The latest receipts, whichever table they came from. */
+    public array $recentPayments = [];
 
     public function mount(): void
     {
-        // Defaults so the view always renders even if a query fails
-        $this->stats = [
-            'collected' => 0, 'pending' => 0, 'today' => 0, 'month' => 0,
-            'transport_collected' => 0, 'students' => 0, 'employees' => 0,
-            'salary_month' => 0, 'admissions' => 0, 'admissions_pending' => 0,
-            'collection_rate' => 0, 'txn_count' => 0, 'today_count' => 0,
-            'avg_txn' => 0,
+        // Defaults, so a failing query leaves a readable page rather than a 500.
+        $this->officeStats = [
+            'students' => 0, 'classes' => 0, 'riders' => 0, 'new_admissions' => 0,
+            'employees' => 0, 'salary_month' => 0, 'salary_pending' => 0,
+            'enquiries' => 0, 'enquiries_pending' => 0,
         ];
-        $this->recentPayments = [];
 
         try {
-            $this->loadDashboard();
+            $this->loadAnalytics();
+            $this->loadOfficeStats();
+            $this->loadRecentPayments();
         } catch (\Throwable $e) {
             logger()->error('Accounts dashboard load failed: ' . $e->getMessage());
         }
     }
 
-    private function loadDashboard(): void
+    private function orgId(): int
+    {
+        return (int) Auth::user()->organization_id;
+    }
+
+    /** Analytics rows link out to the accounts View Fee page. */
+    public function openStudentLedger(int $studentId)
+    {
+        return redirect()->route('accounts.view-fee', [
+            'organization'  => $this->orgId(),
+            'viewStudentId' => $studentId,
+        ]);
+    }
+
+    private function loadOfficeStats(): void
     {
         $orgId = $this->orgId();
 
-        // ── Fees ──────────────────────────────────────────────────────────────
-        $totalCollected = (float) FeePayment::where('organization_id', $orgId)->sum('amount');
-        $structureTotal = (float) FeeStructure::where('organization_id', $orgId)->where('is_active', true)->sum('amount');
-        $todayCollection = (float) FeePayment::where('organization_id', $orgId)->whereDate('payment_date', today())->sum('amount');
-        $todayCount      = (int) FeePayment::where('organization_id', $orgId)->whereDate('payment_date', today())->count();
-        $monthCollection = (float) FeePayment::where('organization_id', $orgId)
-            ->whereMonth('payment_date', now()->month)->whereYear('payment_date', now()->year)->sum('amount');
-        $txnCount = (int) FeePayment::where('organization_id', $orgId)->count();
-
-        // ── Transport fees ────────────────────────────────────────────────────
-        $transportCollected = 0;
-        if (Schema::hasTable('transport_fee_payments')) {
-            $transportCollected = (float) TransportFeePayment::where('organization_id', $orgId)->sum('amount');
-        }
-
-        // ── Payroll ───────────────────────────────────────────────────────────
-        $employees = AdminEmployee::where('organization_id', $orgId)->count();
-        $salaryThisMonth = (float) AdminSalaryPayment::where('organization_id', $orgId)
-            ->where('month', now()->format('Y-m'))->where('status', 'paid')->sum('amount');
-
-        // ── Admissions ────────────────────────────────────────────────────────
-        $admissionsTotal   = AdmissionEnquiry::where('organization_id', $orgId)->count();
-        $admissionsPending = AdmissionEnquiry::where('organization_id', $orgId)->where('status', '!=', 'updated')->count();
-
-        // ── Students ──────────────────────────────────────────────────────────
-        $totalStudents = StudentDetail::where('organization_id', $orgId)->count();
-
-        $collectionRate = $structureTotal > 0
-            ? min(100, round(($totalCollected / $structureTotal) * 100, 1))
-            : 0;
-
-        $this->stats = [
-            'collected'           => $totalCollected,
-            'pending'             => max(0, $structureTotal - $totalCollected),
-            'today'               => $todayCollection,
-            'today_count'         => $todayCount,
-            'month'               => $monthCollection,
-            'transport_collected' => $transportCollected,
-            'students'            => $totalStudents,
-            'employees'           => $employees,
-            'salary_month'        => $salaryThisMonth,
-            'admissions'          => $admissionsTotal,
-            'admissions_pending'  => $admissionsPending,
-            'collection_rate'     => $collectionRate,
-            'txn_count'           => $txnCount,
-            'avg_txn'             => $txnCount > 0 ? round($totalCollected / $txnCount) : 0,
-        ];
-
-        $this->buildCharts($orgId);
-
-        $this->recentPayments = FeePayment::with(['studentDetail:id,full_name,admission_no'])
+        $riders = DB::table('transportation_students')
             ->where('organization_id', $orgId)
-            ->latest('payment_date')->latest('id')
-            ->limit(8)
-            ->get()
-            ->map(fn($p) => [
-                'student'  => $p->studentDetail?->full_name ?? '—',
-                'admno'    => $p->studentDetail?->admission_no ?? '',
-                'amount'   => $p->amount,
-                'mode'     => $p->payment_mode,
-                'date'     => $p->payment_date ? \Carbon\Carbon::parse($p->payment_date)->format('d M Y') : '—',
-                'receipt'  => $p->receipt_number,
-            ])->toArray();
+            ->distinct()->count('student_detail_id');
+
+        $employees = AdminEmployee::where('organization_id', $orgId)->count();
+
+        $salaryMonth = (float) AdminSalaryPayment::where('organization_id', $orgId)
+            ->where('month', now()->format('Y-m'))->where('status', 'paid')->sum('amount');
+        $salaryPending = (float) AdminSalaryPayment::where('organization_id', $orgId)
+            ->where('month', now()->format('Y-m'))->where('status', '!=', 'paid')->sum('amount');
+
+        $this->officeStats = [
+            'students' => StudentDetail::where('organization_id', $orgId)->count(),
+            'classes'  => Standard::where('organization_id', $orgId)->where('is_active', true)->count(),
+            'riders'   => $riders,
+            'new_admissions' => StudentDetail::where('organization_id', $orgId)
+                ->whereDate('created_at', '>=', now()->startOfMonth())->count(),
+            'employees'      => $employees,
+            'salary_month'   => $salaryMonth,
+            'salary_pending' => $salaryPending,
+            'enquiries'         => AdmissionEnquiry::where('organization_id', $orgId)->count(),
+            'enquiries_pending' => AdmissionEnquiry::where('organization_id', $orgId)
+                ->where('status', '!=', 'updated')->count(),
+        ];
     }
 
     /**
-     * Build the three chart datasets with as few queries as possible:
-     * daily (14d) + monthly (6m) collection series, and a payment-mode split.
+     * The last eight receipts across both payment tables, so a transport
+     * collection shows up here the same as an academic one.
      */
-    private function buildCharts(int $orgId): void
+    private function loadRecentPayments(): void
     {
-        // ── Daily collections — last 14 days ──
-        $dailyRows = FeePayment::where('organization_id', $orgId)
-            ->whereDate('payment_date', '>=', today()->subDays(13))
-            ->selectRaw('DATE(payment_date) as d, SUM(amount) as total')
-            ->groupBy('d')->pluck('total', 'd');
+        $orgId = $this->orgId();
 
-        $dLabels = $dAmounts = [];
-        for ($i = 13; $i >= 0; $i--) {
-            $day = today()->subDays($i);
-            $dLabels[]  = $day->format('d M');
-            $dAmounts[] = (float) ($dailyRows[$day->toDateString()] ?? 0);
-        }
-        $this->chartDaily = ['labels' => $dLabels, 'amounts' => $dAmounts];
+        $fee = FeePayment::with('studentDetail:id,full_name,admission_no')
+            ->where('organization_id', $orgId)
+            ->latest('payment_date')->latest('id')->limit(8)->get()
+            ->map(fn ($p) => [
+                'student' => $p->studentDetail?->full_name ?? '—',
+                'admno'   => $p->studentDetail?->admission_no ?? '',
+                'amount'  => (float) $p->amount,
+                'mode'    => $p->payment_mode,
+                'type'    => $p->fee_type,
+                'date'    => $p->payment_date?->format('d M Y') ?? '—',
+                'sort'    => $p->payment_date?->timestamp ?? 0,
+                'receipt' => $p->receipt_number,
+                'route'   => 'accounts.fee.receipt',
+                'id'      => $p->id,
+            ]);
 
-        // ── Monthly collections — last 6 months ──
-        $monthlyRows = FeePayment::where('organization_id', $orgId)
-            ->where('payment_date', '>=', now()->subMonths(5)->startOfMonth())
-            ->selectRaw("DATE_FORMAT(payment_date, '%Y-%m') as m, SUM(amount) as total")
-            ->groupBy('m')->pluck('total', 'm');
+        $transport = Schema::hasTable('transport_fee_payments')
+            ? TransportFeePayment::with('studentDetail:id,full_name,admission_no')
+                ->where('organization_id', $orgId)
+                ->latest('payment_date')->latest('id')->limit(8)->get()
+                ->map(fn ($p) => [
+                    'student' => $p->studentDetail?->full_name ?? '—',
+                    'admno'   => $p->studentDetail?->admission_no ?? '',
+                    'amount'  => (float) $p->amount,
+                    'mode'    => $p->payment_mode,
+                    'type'    => 'transport',
+                    'date'    => $p->payment_date?->format('d M Y') ?? '—',
+                    'sort'    => $p->payment_date?->timestamp ?? 0,
+                    'receipt' => $p->receipt_number,
+                    'route'   => 'accounts.transport.receipt',
+                    'id'      => $p->id,
+                ])
+            : collect();
 
-        $mLabels = $mAmounts = [];
-        for ($i = 5; $i >= 0; $i--) {
-            $month = now()->subMonths($i);
-            $mLabels[]  = $month->format('M');
-            $mAmounts[] = (float) ($monthlyRows[$month->format('Y-m')] ?? 0);
-        }
-        $this->chartMonthly = ['labels' => $mLabels, 'amounts' => $mAmounts];
-
-        // ── Payment-mode split ──
-        $modeRows = FeePayment::where('organization_id', $orgId)
-            ->selectRaw('payment_mode, SUM(amount) as total')
-            ->groupBy('payment_mode')->pluck('total', 'payment_mode');
-
-        $modeMeta = [
-            'cash'          => 'Cash',
-            'online'        => 'Online',
-            'cheque'        => 'Cheque',
-            'bank_transfer' => 'Bank Transfer',
-        ];
-        $modeLabels = $modeAmounts = [];
-        foreach ($modeMeta as $key => $label) {
-            $val = (float) ($modeRows[$key] ?? 0);
-            if ($val > 0) {
-                $modeLabels[]  = $label;
-                $modeAmounts[] = $val;
-            }
-        }
-        $this->chartModes = ['labels' => $modeLabels, 'amounts' => $modeAmounts];
-    }
-
-    private function orgId(): int
-    {
-        return Auth::user()->organization_id;
+        $this->recentPayments = $fee->concat($transport)
+            ->sortByDesc('sort')->take(8)->values()->all();
     }
 
     public function render()
     {
-        return view('livewire.accounts.dashboard', [
-            'menu' => \App\Support\ModuleAccess::filterMenu(
+        return view('livewire.accounts.dashboard', array_merge($this->analyticsViewData(), [
+            'standards' => Standard::where('organization_id', $this->orgId())
+                ->where('is_active', true)->orderBy('id')->get(),
+            'orgId' => $this->orgId(),
+            'menu'  => \App\Support\ModuleAccess::filterMenu(
                 collect(config('menu.accounts', []))
-                    ->reject(fn($m) => ($m['link'] ?? '') === 'accounts.dashboard')
+                    ->reject(fn ($m) => ($m['link'] ?? '') === 'accounts.dashboard')
                     ->values()
                     ->all(),
                 Auth::user()?->organization
             ),
-        ]);
+        ]));
     }
 }

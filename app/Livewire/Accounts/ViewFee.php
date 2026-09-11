@@ -20,8 +20,21 @@ class ViewFee extends Component
     use WireUiActions, HandlesStudentFeeView, HandlesViewFee;
 
     protected $queryString = [
-        'viewSubTab' => ['except' => 'by_student'],
+        'viewSubTab'   => ['except' => 'by_student'],
+        'viewStudentId' => ['except' => ''],
     ];
+
+    /**
+     * Query-string props are hydrated before mount but fire no `updated`
+     * hook, so a deep link (?viewStudentId=…, e.g. from the dashboard's
+     * outstanding list) has to load the ledger itself.
+     */
+    public function mount(): void
+    {
+        if ($this->viewStudentId) {
+            $this->updatedViewStudentId();
+        }
+    }
 
     private function orgId(): int
     {
