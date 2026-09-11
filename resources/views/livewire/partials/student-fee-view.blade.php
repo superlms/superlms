@@ -143,6 +143,9 @@
 @foreach ($sv['cycles'] ?? [] as $cycle)
     @php
         $cycleDue = max(0, $cycle['total'] - $cycle['paid']);
+        // Penalty keys are newer than the ledger shape a live Livewire session
+        // may still be holding, so every read of them defaults to 0.
+        $cyclePenaltyNet = (float) ($cycle['penalty_net'] ?? 0);
         $statusDot = [
             'paid'    => ['bg-emerald-500', 'Paid'],
             'partial' => ['bg-amber-500',   'Partial'],
@@ -165,8 +168,8 @@
                 Paid <strong class="text-emerald-600">₹{{ number_format($cycle['paid'], 2) }}</strong>
                 · Due <strong class="{{ $cycleDue > 0 ? 'text-rose-500' : 'text-gray-400' }}">₹{{ number_format($cycleDue, 2) }}</strong>
                 · Total <strong class="text-gray-700">₹{{ number_format($cycle['total'], 2) }}</strong>
-                @if ($cycle['penalty_net'] > 0)
-                    · Penalty <strong class="text-amber-600">₹{{ number_format($cycle['penalty_net'], 2) }}</strong> due
+                @if ($cyclePenaltyNet > 0)
+                    · Penalty <strong class="text-amber-600">₹{{ number_format($cyclePenaltyNet, 2) }}</strong> due
                 @endif
             </span>
         </div>
@@ -206,8 +209,9 @@
                                     <span class="w-1.5 h-1.5 rounded-full {{ $dot }}"></span>{{ $word }}
                                 </span>
                             </td>
-                            <td class="px-4 py-2 text-right tabular-nums {{ $inst['penalty_net'] > 0 ? 'font-semibold text-amber-600' : 'text-gray-300' }}">
-                                {{ $inst['penalty_net'] > 0 ? '₹' . number_format($inst['penalty_net'], 2) : '—' }}
+                            @php $instPenaltyNet = (float) ($inst['penalty_net'] ?? 0); @endphp
+                            <td class="px-4 py-2 text-right tabular-nums {{ $instPenaltyNet > 0 ? 'font-semibold text-amber-600' : 'text-gray-300' }}">
+                                {{ $instPenaltyNet > 0 ? '₹' . number_format($instPenaltyNet, 2) : '—' }}
                             </td>
                         </tr>
                     @endforeach
@@ -219,7 +223,7 @@
                         <td class="px-4 py-2.5 text-right font-bold text-emerald-600 tabular-nums">₹{{ number_format($cycle['paid'], 2) }}</td>
                         <td class="px-4 py-2.5 text-right font-bold {{ $cycleDue > 0 ? 'text-rose-500' : 'text-gray-300' }} tabular-nums">₹{{ number_format($cycleDue, 2) }}</td>
                         <td></td>
-                        <td class="px-4 py-2.5 text-right font-bold {{ $cycle['penalty_net'] > 0 ? 'text-amber-600' : 'text-gray-300' }} tabular-nums">₹{{ number_format($cycle['penalty_net'], 2) }}</td>
+                        <td class="px-4 py-2.5 text-right font-bold {{ $cyclePenaltyNet > 0 ? 'text-amber-600' : 'text-gray-300' }} tabular-nums">₹{{ number_format($cyclePenaltyNet, 2) }}</td>
                     </tr>
                 </tfoot>
             </table>
@@ -230,8 +234,8 @@
 {{-- ══════════ 3b. PENALTIES — which fee cycle installments are late, and by how much ══════════ --}}
 @php
     $penaltyRows = collect($sv['cycles'] ?? [])->flatMap(function ($cycle) {
-        return collect($cycle['installments'])
-            ->filter(fn ($inst) => $inst['penalty'] > 0)
+        return collect($cycle['installments'] ?? [])
+            ->filter(fn ($inst) => ($inst['penalty'] ?? 0) > 0)
             ->map(fn ($inst) => $inst + ['fee_type' => $cycle['fee_type']]);
     });
     $penaltyWaived = collect($sv['cycles'] ?? [])->sum('penalty_waived');
@@ -269,9 +273,9 @@
                             <td class="px-4 py-2 text-gray-500 capitalize">{{ $row['fee_type'] }}</td>
                             <td class="px-4 py-2 text-gray-700">{{ $row['label'] }}</td>
                             <td class="px-4 py-2 text-rose-500 whitespace-nowrap">{{ $row['due_date'] ?? '—' }}</td>
-                            <td class="px-4 py-2 text-right text-gray-600 tabular-nums">{{ $row['days_late'] }}</td>
-                            <td class="px-4 py-2 text-right text-gray-500 tabular-nums">₹{{ number_format($row['penalty_per_day'], 2) }}</td>
-                            <td class="px-4 py-2 text-right font-semibold text-amber-600 tabular-nums">₹{{ number_format($row['penalty'], 2) }}</td>
+                            <td class="px-4 py-2 text-right text-gray-600 tabular-nums">{{ $row['days_late'] ?? 0 }}</td>
+                            <td class="px-4 py-2 text-right text-gray-500 tabular-nums">₹{{ number_format($row['penalty_per_day'] ?? 0, 2) }}</td>
+                            <td class="px-4 py-2 text-right font-semibold text-amber-600 tabular-nums">₹{{ number_format($row['penalty'] ?? 0, 2) }}</td>
                         </tr>
                     @endforeach
                 </tbody>

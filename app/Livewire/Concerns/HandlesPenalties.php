@@ -244,13 +244,15 @@ trait HandlesPenalties
             return [];
         }
 
-        return collect($cycle['installments'])
-            ->filter(fn ($i) => $i['penalty'] > 0)
+        // $penaltyStudentView is Livewire-persisted state, so it can still be
+        // holding a ledger built before these keys existed — read defensively.
+        return collect($cycle['installments'] ?? [])
+            ->filter(fn ($i) => ($i['penalty'] ?? 0) > 0 && !empty($i['cycle_id']))
             ->map(fn ($i) => [
                 'id'          => $i['cycle_id'],
-                'label'       => $i['label'],
-                'penalty'     => $i['penalty'],
-                'penalty_net' => $i['penalty_net'],
+                'label'       => $i['label'] ?? 'Installment',
+                'penalty'     => (float) ($i['penalty'] ?? 0),
+                'penalty_net' => (float) ($i['penalty_net'] ?? 0),
             ])
             ->values()->all();
     }

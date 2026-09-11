@@ -225,8 +225,9 @@
                         <td class="num">{{ number_format($inst['amount'], 2) }}</td>
                         <td class="num {{ $inst['paid'] > 0 ? '' : 'muted' }}">{{ number_format($inst['paid'], 2) }}</td>
                         <td class="num {{ $inst['balance'] > 0 ? '' : 'muted' }}">{{ number_format($inst['balance'], 2) }}</td>
-                        <td class="num {{ $inst['penalty_net'] > 0 ? 'penalty-flag' : 'muted' }}">
-                            {{ $inst['penalty_net'] > 0 ? number_format($inst['penalty_net'], 2) : '—' }}
+                        @php $instNet = (float) ($inst['penalty_net'] ?? 0); @endphp
+                        <td class="num {{ $instNet > 0 ? 'penalty-flag' : 'muted' }}">
+                            {{ $instNet > 0 ? number_format($instNet, 2) : '—' }}
                         </td>
                     </tr>
                 @endforeach
@@ -235,7 +236,7 @@
                     <td class="num">{{ number_format($cycle['total'], 2) }}</td>
                     <td class="num">{{ number_format($cycle['paid'], 2) }}</td>
                     <td class="num">{{ number_format(max(0, $cycle['total'] - $cycle['paid']), 2) }}</td>
-                    <td class="num {{ $cycle['penalty_net'] > 0 ? 'penalty-flag' : '' }}">{{ number_format($cycle['penalty_net'], 2) }}</td>
+                    <td class="num {{ ($cycle['penalty_net'] ?? 0) > 0 ? 'penalty-flag' : '' }}">{{ number_format($cycle['penalty_net'] ?? 0, 2) }}</td>
                 </tr>
             </tbody>
         </table>

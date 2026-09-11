@@ -21,7 +21,7 @@
         </div>
     @else
         @php
-            $pStu       = $penaltyStudentView['student'];
+            $pStu       = $penaltyStudentView['student'] ?? ['initial' => '—', 'name' => '—', 'class_section' => '—', 'admission_no' => '—'];
             $pCycles    = collect($penaltyStudentView['cycles'] ?? []);
             $pAcademic  = $pCycles->firstWhere('fee_type', 'academic');
             $pTransport = $pCycles->firstWhere('fee_type', 'transport');
@@ -71,11 +71,19 @@
                         {{ ucfirst($cycle['fee_type']) }} Fee Cycle
                         <span class="text-gray-400 font-normal">· {{ $cycle['label'] }} · {{ $cycle['year'] }}</span>
                     </h3>
+                    @php
+                        // These keys are newer than the shape a live Livewire
+                        // session may still hold, so each read defaults to 0.
+                        $cAccrued = (float) ($cycle['penalty_total'] ?? 0);
+                        $cWaived  = (float) ($cycle['penalty_waived'] ?? 0);
+                        $cPaid    = (float) ($cycle['penalty_paid'] ?? 0);
+                        $cNet     = (float) ($cycle['penalty_net'] ?? 0);
+                    @endphp
                     <span class="text-[11px] text-gray-400 tabular-nums">
-                        Penalty accrued <strong class="text-gray-600">₹{{ number_format($cycle['penalty_total'], 2) }}</strong>
-                        @if ($cycle['penalty_waived'] > 0) · Waived <strong class="text-emerald-600">− ₹{{ number_format($cycle['penalty_waived'], 2) }}</strong>@endif
-                        @if ($cycle['penalty_paid'] > 0) · Paid <strong class="text-emerald-600">− ₹{{ number_format($cycle['penalty_paid'], 2) }}</strong>@endif
-                        · Still Due <strong class="{{ $cycle['penalty_net'] > 0 ? 'text-amber-600' : 'text-gray-400' }}">₹{{ number_format($cycle['penalty_net'], 2) }}</strong>
+                        Penalty accrued <strong class="text-gray-600">₹{{ number_format($cAccrued, 2) }}</strong>
+                        @if ($cWaived > 0) · Waived <strong class="text-emerald-600">− ₹{{ number_format($cWaived, 2) }}</strong>@endif
+                        @if ($cPaid > 0) · Paid <strong class="text-emerald-600">− ₹{{ number_format($cPaid, 2) }}</strong>@endif
+                        · Still Due <strong class="{{ $cNet > 0 ? 'text-amber-600' : 'text-gray-400' }}">₹{{ number_format($cNet, 2) }}</strong>
                     </span>
                 </div>
                 <div class="overflow-x-auto">
@@ -105,8 +113,9 @@
                                             <span class="w-1.5 h-1.5 rounded-full {{ $pDot }}"></span>{{ $pWord }}
                                         </span>
                                     </td>
-                                    <td class="px-4 py-2 text-right tabular-nums {{ $inst['penalty_net'] > 0 ? 'font-semibold text-amber-600' : 'text-gray-300' }}">
-                                        {{ $inst['penalty_net'] > 0 ? '₹' . number_format($inst['penalty_net'], 2) : '—' }}
+                                    @php $iNet = (float) ($inst['penalty_net'] ?? 0); @endphp
+                                    <td class="px-4 py-2 text-right tabular-nums {{ $iNet > 0 ? 'font-semibold text-amber-600' : 'text-gray-300' }}">
+                                        {{ $iNet > 0 ? '₹' . number_format($iNet, 2) : '—' }}
                                     </td>
                                 </tr>
                             @endforeach
@@ -209,7 +218,7 @@
                     <select wire:model="waiverCycleId" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500">
                         <option value="">{{ count($waiverCycleOptions) ? 'Select installment…' : 'No penalty on this side' }}</option>
                         @foreach ($waiverCycleOptions as $opt)
-                            <option value="{{ $opt['id'] }}">{{ $opt['label'] }} — ₹{{ number_format($opt['penalty_net'], 2) }} due</option>
+                            <option value="{{ $opt['id'] }}">{{ $opt['label'] }} — ₹{{ number_format($opt['penalty_net'] ?? 0, 2) }} due</option>
                         @endforeach
                     </select>
                     @error('waiverCycleId')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
