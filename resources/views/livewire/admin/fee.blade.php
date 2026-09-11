@@ -58,7 +58,7 @@
                         </div>
                     @elseif ($activeTab === 'payments')
                         <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-1">
-                            <span>Filtered Total: <strong class="text-emerald-600">₹{{ number_format($paymentFilteredTotal ?? 0, 0) }}</strong></span>
+                            <span>Collected: <strong class="text-emerald-600">₹{{ number_format($headerStats['total_collected'] ?? 0, 0) }}</strong></span>
                         </div>
                     @elseif ($activeTab === 'penalties' && $penaltySubTab === 'by_student' && $penaltyViewStudentId && !empty($penaltyStudentView))
                         @php
@@ -109,6 +109,14 @@
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
                             <span class="hidden sm:inline">Add User</span>
                             <span class="sm:hidden">New</span>
+                        </button>
+                    @elseif ($activeTab === 'payments')
+                        <button wire:click="resetPaymentFilters"
+                            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 text-xs font-medium text-gray-600 bg-white hover:bg-gray-50 transition">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                            </svg>
+                            Reset Filters
                         </button>
                     @elseif ($activeTab === 'penalties')
                         <button wire:click="openPenaltyWaiver" @disabled(!$penaltyViewStudentId)
@@ -176,88 +184,6 @@
 
         @if ($activeTab === 'fee_submission')
             @include('livewire.partials.fee-submission-header')
-        @elseif ($activeTab === 'payments')
-            @php
-                $paymentActiveCount = count(array_filter([
-                    $paymentStandardId, $paymentSectionId, $paymentStudentId,
-                    $paymentModeFilter, $paymentDateFrom, $paymentDateTo,
-                ], fn ($v) => $v !== '' && $v !== null));
-            @endphp
-            <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3" x-data="{ open: false }">
-                {{-- Compact always-visible row --}}
-                <div class="flex flex-wrap items-center gap-3">
-                    <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-                        Filter by:
-                    </div>
-                    <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search student name…"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-48 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                    <button type="button" @click="open = !open"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-gray-200 rounded-md text-gray-700 hover:bg-gray-50"
-                        :class="open ? 'ring-2 ring-blue-500 border-blue-500' : ''">
-                        <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-                        Advanced filters
-                        @if ($paymentActiveCount)
-                            <span class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-blue-600 rounded-full">{{ $paymentActiveCount }}</span>
-                        @endif
-                        <svg class="w-3 h-3 text-gray-400 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                    </button>
-                    @if ($paymentStandardId || $paymentSectionId || $paymentStudentId || $paymentModeFilter || $paymentDateFrom || $paymentDateTo || $search)
-                        <button wire:click="clearPaymentFilters"
-                            class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                            Clear
-                        </button>
-                    @endif
-                    <span class="ml-auto hidden sm:inline-flex items-center gap-1.5 text-xs text-gray-500">
-                        Filtered total: <strong class="text-emerald-600">₹{{ number_format($paymentFilteredTotal ?? 0, 0) }}</strong>
-                    </span>
-                </div>
-
-                {{-- Collapsible advanced filter grid --}}
-                <div x-show="open" x-cloak x-transition.opacity
-                    class="mt-3 pt-3 border-t border-gray-200 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                    <div>
-                        <label class="block text-[11px] font-medium text-gray-500 mb-1">Class</label>
-                        <select wire:model.live="paymentStandardId" class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                            <option value="">All Classes</option>
-                            @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-medium text-gray-500 mb-1">Section</label>
-                        <select wire:model.live="paymentSectionId" class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                            <option value="">All Sections</option>
-                            @foreach ($sections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-medium text-gray-500 mb-1">Student</label>
-                        <select wire:model.live="paymentStudentId" class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                            <option value="">All Students</option>
-                            @foreach ($paymentStudents as $stu)<option value="{{ $stu->id }}">{{ $stu->full_name ?? ($stu->user->name ?? 'Unknown') }}</option>@endforeach
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-medium text-gray-500 mb-1">Payment Mode</label>
-                        <select wire:model.live="paymentModeFilter" class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                            <option value="">All Modes</option>
-                            <option value="cash">Cash</option>
-                            <option value="online">Online</option>
-                            <option value="cheque">Cheque</option>
-                            <option value="bank_transfer">Bank Transfer</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-medium text-gray-500 mb-1">From Date</label>
-                        <input type="date" wire:model.live="paymentDateFrom" class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" />
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-medium text-gray-500 mb-1">To Date</label>
-                        <input type="date" wire:model.live="paymentDateTo" class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" />
-                    </div>
-                </div>
-            </div>
         @elseif ($activeTab === 'view_fee')
             @include('livewire.partials.view-fee-header')
         @elseif ($activeTab === 'analytics')
@@ -555,83 +481,11 @@
     {{-- TAB 5: PAYMENTS                                                 --}}
     {{-- ════════════════════════════════════════════════════════════════ --}}
     @if ($activeTab === 'payments')
-        {{-- Summary (plain text, not chips) --}}
-        @if (!empty($paymentPeriodStats))
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4 mb-4">
-                <h3 class="text-sm font-semibold text-gray-800 mb-2">Collection Summary</h3>
-                <p class="text-sm text-gray-600 leading-relaxed">
-                    <span class="text-gray-500">Today:</span> <span class="font-semibold text-gray-800">₹{{ number_format($paymentPeriodStats['today'] ?? 0, 0) }}</span>
-                    <span class="text-gray-300 mx-2">|</span>
-                    <span class="text-gray-500">Yesterday:</span> <span class="font-semibold text-gray-800">₹{{ number_format($paymentPeriodStats['yesterday'] ?? 0, 0) }}</span>
-                    <span class="text-gray-300 mx-2">|</span>
-                    <span class="text-gray-500">This Week:</span> <span class="font-semibold text-gray-800">₹{{ number_format($paymentPeriodStats['this_week'] ?? 0, 0) }}</span>
-                    <span class="text-gray-300 mx-2">|</span>
-                    <span class="text-gray-500">This Month:</span> <span class="font-semibold text-gray-800">₹{{ number_format($paymentPeriodStats['this_month'] ?? 0, 0) }}</span>
-                    <span class="text-gray-300 mx-2">|</span>
-                    <span class="text-gray-500">Last Month:</span> <span class="font-semibold text-gray-800">₹{{ number_format($paymentPeriodStats['last_month'] ?? 0, 0) }}</span>
-                </p>
-                <p class="text-sm mt-2 pt-2 border-t border-gray-100">
-                    <span class="text-gray-500">Total for current filter:</span>
-                    <span class="font-bold text-blue-700">₹{{ number_format($paymentFilteredTotal ?? 0, 2) }}</span>
-                </p>
-            </div>
-        @endif
-
-        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead class="bg-gray-50 border-b border-gray-200">
-                        <tr>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">#</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Receipt</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Student</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Class/Sec</th>
-                            <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Fee Type</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Mode</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Submitted By</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        @forelse ($payments as $p)
-                            <tr class="hover:bg-gray-50 transition-colors">
-                                <td class="px-4 py-3 text-sm text-gray-500">{{ $loop->iteration }}</td>
-                                <td class="px-4 py-3 font-mono text-xs text-blue-700">{{ $p->receipt_number }}</td>
-                                <td class="px-4 py-3">
-                                    <p class="text-sm font-semibold text-gray-900">{{ $p->studentDetail->user->name ?? '-' }}</p>
-                                    <p class="text-xs text-gray-400">{{ $p->studentDetail->admission_no ?? '-' }}</p>
-                                </td>
-                                <td class="px-4 py-3 text-gray-600 text-xs">
-                                    {{ $p->standard->name ?? '-' }} {{ $p->section ? '/ ' . $p->section->name : '' }}
-                                </td>
-                                <td class="px-4 py-3 text-right text-sm font-semibold text-gray-800">₹{{ number_format($p->amount, 2) }}</td>
-                                <td class="px-4 py-3">
-                                    <span class="text-xs font-medium px-2 py-0.5 rounded {{ $p->fee_type === 'academic' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600' }}">
-                                        {{ ucfirst($p->fee_type) }}
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3 capitalize text-xs text-gray-600">{{ str_replace('_', ' ', $p->payment_mode) }}</td>
-                                <td class="px-4 py-3 text-xs text-gray-600">{{ $p->payment_date->format('d M Y') }}</td>
-                                <td class="px-4 py-3 text-xs text-gray-600">{{ $p->submitted_by }}</td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="9" class="px-4 py-16 text-center">
-                                    <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
-                                        <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" /></svg>
-                                    </div>
-                                    <p class="text-sm font-semibold text-gray-800">No payments found</p>
-                                    <p class="text-xs text-gray-400 mt-1">Adjust the filters above to see results.</p>
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-            @if ($payments->hasPages())
-                <div class="px-4 py-3 border-t border-gray-100">{{ $payments->links() }}</div>
-            @endif
+        {{-- Identical to the accounts Payments page — same three partials. --}}
+        <div class="space-y-4">
+            @include('livewire.partials.payments-filters')
+            @include('livewire.partials.payments-analytics')
+            @include('livewire.partials.payments-table')
         </div>
     @endif
 

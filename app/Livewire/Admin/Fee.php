@@ -4,6 +4,7 @@ namespace App\Livewire\Admin;
 
 use App\Livewire\Concerns\HandlesFeeConcessions;
 use App\Livewire\Concerns\HandlesFeeSubmission;
+use App\Livewire\Concerns\HandlesPayments;
 use App\Livewire\Concerns\HandlesPenalties;
 use App\Livewire\Concerns\HandlesStudentFeeView;
 use App\Livewire\Concerns\HandlesViewFee;
@@ -23,7 +24,7 @@ use WireUi\Traits\WireUiActions;
 
 class Fee extends Component
 {
-    use WireUiActions, WithPagination, HandlesFeeCycles, HandlesFeeConcessions, HandlesStudentFeeView, HandlesViewFee, HandlesFeeSubmission, HandlesPenalties;
+    use WireUiActions, WithPagination, HandlesFeeCycles, HandlesFeeConcessions, HandlesStudentFeeView, HandlesViewFee, HandlesFeeSubmission, HandlesPenalties, HandlesPayments;
 
     public string $activeTab = ''; // '' = card menu (landing); otherwise the open tab
 
@@ -59,16 +60,8 @@ class Fee extends Component
     public $analyticsPeriodStats   = [];   // today / week / month totals & counts
     public $analyticsRecentPayments = [];  // latest payments feed
 
-    // ─── Payments ─────────────────────────────────────────────────────────────
-    public $paymentModeFilter    = '';
-    public $paymentStandardId    = '';
-    public $paymentSectionId     = '';
-    public $paymentStudentId     = '';
-    public $paymentDateFrom      = '';
-    public $paymentDateTo        = '';
-    public $paymentStudents      = [];
-    public $paymentPeriodStats   = [];
-    public float $paymentFilteredTotal = 0.0;
+    // ─── Payments — state and logic live in HandlesPayments (shared with the
+    //     accounts Payments page, so both screens stay identical) ─────────────
 
     // ─── Penalties — state and logic live in HandlesPenalties ──────────────────
 
@@ -95,6 +88,7 @@ class Fee extends Component
         $this->standards  = Standard::where('organization_id', $this->orgId())
             ->where('is_active', true)->orderBy('id')->get();
         $this->submitDate = today()->toDateString();
+        $this->initPaymentFilters();
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -153,8 +147,6 @@ class Fee extends Component
 
         if ($tab === 'analytics') {
             $this->loadAnalytics();
-        } elseif ($tab === 'payments') {
-            $this->loadPaymentPeriodStats();
         }
     }
 
@@ -399,106 +391,13 @@ class Fee extends Component
             ])->toArray();
     }
 
-    // ─── Payments ─────────────────────────────────────────────────────────────
+    // ─── Payments ── filters, the analytics strip and the merged listing all
+    //     come from HandlesPayments (shared with the accounts Payments page);
+    //     only the receipt route prefix differs.
 
-    public function updatedPaymentStandardId(): void
+    protected function paymentsRoutePrefix(): string
     {
-        $this->paymentSectionId = '';
-        $this->paymentStudentId = '';
-        $this->sections = $this->paymentStandardId
-            ? Section::where('standard_id', $this->paymentStandardId)->where('is_active', true)->get()
-            : [];
-        $this->loadPaymentStudents();
-        $this->loadPaymentPeriodStats();
-        $this->resetPage();
-    }
-
-    public function updatedPaymentSectionId(): void
-    {
-        $this->paymentStudentId = '';
-        $this->loadPaymentStudents();
-        $this->loadPaymentPeriodStats();
-        $this->resetPage();
-    }
-
-    public function updatedPaymentStudentId(): void
-    {
-        $this->loadPaymentPeriodStats();
-        $this->resetPage();
-    }
-
-    public function updatedPaymentModeFilter(): void
-    {
-        $this->loadPaymentPeriodStats();
-        $this->resetPage();
-    }
-
-    public function updatedPaymentDateFrom(): void
-    {
-        $this->loadPaymentPeriodStats();
-        $this->resetPage();
-    }
-
-    public function updatedPaymentDateTo(): void
-    {
-        $this->loadPaymentPeriodStats();
-        $this->resetPage();
-    }
-
-    public function clearPaymentFilters(): void
-    {
-        $this->reset(['paymentStandardId', 'paymentSectionId', 'paymentStudentId', 'paymentModeFilter', 'paymentDateFrom', 'paymentDateTo', 'search']);
-        $this->paymentStudents = [];
-        $this->loadPaymentPeriodStats();
-        $this->resetPage();
-    }
-
-    private function loadPaymentStudents(): void
-    {
-        if (!$this->paymentStandardId) {
-            $this->paymentStudents = [];
-            return;
-        }
-        $this->paymentStudents = StudentDetail::with('user')
-            ->where('organization_id', $this->orgId())
-            ->where('standard_id', $this->paymentStandardId)
-            ->when($this->paymentSectionId, fn($q) => $q->where('section_id', $this->paymentSectionId))
-            ->orderBy('roll_no')->get();
-    }
-
-    public function loadPaymentPeriodStats(): void
-    {
-        $orgId = $this->orgId();
-        $base  = FeePayment::where('organization_id', $orgId)
-            ->when($this->paymentStandardId, fn($q) => $q->where('standard_id', $this->paymentStandardId))
-            ->when($this->paymentSectionId, fn($q) => $q->where('section_id', $this->paymentSectionId));
-
-        $today     = today();
-        $yesterday = today()->subDay();
-
-        $this->paymentPeriodStats = [
-            'today'      => (clone $base)->whereDate('payment_date', $today)->sum('amount'),
-            'yesterday'  => (clone $base)->whereDate('payment_date', $yesterday)->sum('amount'),
-            'this_week'  => (clone $base)->whereBetween('payment_date', [$today->copy()->startOfWeek(), $today->copy()->endOfWeek()])->sum('amount'),
-            'this_month' => (clone $base)->whereMonth('payment_date', $today->month)->whereYear('payment_date', $today->year)->sum('amount'),
-            'last_month' => (clone $base)->whereMonth('payment_date', $today->copy()->subMonth()->month)->whereYear('payment_date', $today->copy()->subMonth()->year)->sum('amount'),
-        ];
-
-        // Total matching the currently applied filters (student / date / mode / search).
-        $this->paymentFilteredTotal = (float) $this->getPaymentsQuery()->sum('amount');
-    }
-
-    private function getPaymentsQuery()
-    {
-        return FeePayment::with(['studentDetail.user', 'standard', 'section'])
-            ->where('organization_id', $this->orgId())
-            ->when($this->paymentStandardId, fn($q) => $q->where('standard_id', $this->paymentStandardId))
-            ->when($this->paymentSectionId, fn($q) => $q->where('section_id', $this->paymentSectionId))
-            ->when($this->paymentStudentId, fn($q) => $q->where('student_detail_id', $this->paymentStudentId))
-            ->when($this->paymentModeFilter, fn($q) => $q->where('payment_mode', $this->paymentModeFilter))
-            ->when($this->paymentDateFrom, fn($q) => $q->whereDate('payment_date', '>=', $this->paymentDateFrom))
-            ->when($this->paymentDateTo, fn($q) => $q->whereDate('payment_date', '<=', $this->paymentDateTo))
-            ->when($this->search, fn($q) => $q->whereHas('studentDetail.user', fn($q) => $q->where('name', 'like', "%{$this->search}%")));
+        return 'admin';
     }
 
     // ─── Penalties — logic lives in HandlesPenalties ────────────────────────────
@@ -529,9 +428,7 @@ class Fee extends Component
         }
 
         if ($this->activeTab === 'payments') {
-            $data['payments'] = $this->getPaymentsQuery()
-                ->orderByDesc('payment_date')
-                ->paginate($this->perPage);
+            $data = array_merge($data, $this->paymentsViewData());
         }
 
         if ($this->activeTab === 'fee_submission') {
