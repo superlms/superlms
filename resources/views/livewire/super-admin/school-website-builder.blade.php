@@ -60,23 +60,28 @@
         @if ($activeTab === 'pages')
             <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                 <h2 class="text-base font-semibold text-gray-900 mb-1">Website Pages</h2>
-                <p class="text-xs text-gray-400 mb-5">Choose which pages appear on the school's website. Home is always included.</p>
-                <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    @foreach ($allPages as $slug => $label)
-                        @php $on = in_array($slug, $pages) || $slug === 'home'; @endphp
-                        <button type="button" wire:click="togglePage('{{ $slug }}')"
-                            class="flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-medium transition
-                                {{ $on ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300' }}
-                                {{ $slug === 'home' ? 'opacity-70 cursor-not-allowed' : '' }}">
-                            <span>{{ $label }}</span>
-                            @if ($on)
-                                <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4"/></svg>
-                            @else
-                                <span class="w-5 h-5 rounded-full border border-gray-300"></span>
-                            @endif
-                        </button>
-                    @endforeach
-                </div>
+                <p class="text-xs text-gray-400 mb-5">Choose which pages appear on the school's website, grouped the way the site's menu shows them. Home is always included.</p>
+                @foreach ($pageGroups as $group => $items)
+                    <div class="mb-5 last:mb-0">
+                        <p class="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">{{ $group }}</p>
+                        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            @foreach ($items as $slug => $meta)
+                                @php $on = in_array($slug, $pages) || $slug === 'home'; @endphp
+                                <button type="button" wire:click="togglePage('{{ $slug }}')"
+                                    class="flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-medium transition
+                                        {{ $on ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300' }}
+                                        {{ $slug === 'home' ? 'opacity-70 cursor-not-allowed' : '' }}">
+                                    <span>{{ $meta[0] }}</span>
+                                    @if ($on)
+                                        <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4"/></svg>
+                                    @else
+                                        <span class="w-5 h-5 rounded-full border border-gray-300"></span>
+                                    @endif
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
+                @endforeach
             </div>
         @endif
 

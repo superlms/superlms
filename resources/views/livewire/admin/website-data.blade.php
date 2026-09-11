@@ -21,7 +21,7 @@
         </div>
         {{-- Tabs --}}
         <nav class="flex gap-1 mt-3 -mb-4 overflow-x-auto">
-            @foreach (['details' => 'Details', 'about' => 'About', 'leadership' => 'Leadership', 'facilities' => 'Facilities', 'admission' => 'Admissions', 'gallery' => 'Gallery'] as $tab => $label)
+            @foreach (['details' => 'Details', 'about' => 'About', 'leadership' => 'Leadership', 'facilities' => 'Facilities', 'admission' => 'Admissions', 'gallery' => 'Gallery', 'pages' => 'Pages', 'documents' => 'Documents', 'results' => 'Results'] as $tab => $label)
                 <button wire:click="switchTab('{{ $tab }}')"
                     class="py-2.5 px-4 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors
                         {{ $activeTab === $tab ? 'border-indigo-500 text-indigo-700' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
@@ -423,6 +423,122 @@
                     </div>
                 @empty
                     <p class="text-xs text-gray-400">No images added yet. Click "+ Add".</p>
+                @endforelse
+            </div>
+        @endif
+
+        {{-- ══════════ PAGES (generic content pages) ══════════ --}}
+        @if ($activeTab === 'pages')
+            <div class="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 text-xs text-indigo-700">
+                Every simple page on your site — History, Vision, the desks, Labs, Transport, Rules and so on.
+                Pick a page, write its text, and it goes live. Leave one blank and the site shows a
+                "being updated" note instead of an empty page.
+            </div>
+
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="flex flex-wrap gap-1 p-3 border-b border-gray-100 bg-gray-50">
+                    @foreach (\App\Livewire\Admin\WebsiteData::contentPageSlugs() as $slug)
+                        @php $filled = trim((string) ($pages[$slug]['body'] ?? '')) !== ''; @endphp
+                        <button wire:click="$set('pageSlug', '{{ $slug }}')"
+                            class="px-2.5 py-1.5 text-xs font-medium rounded-md border transition
+                                {{ $pageSlug === $slug ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-100' }}">
+                            {{ \App\Models\SchoolWebsite::allPages()[$slug] ?? $slug }}
+                            @if ($filled)<span class="{{ $pageSlug === $slug ? 'text-white' : 'text-emerald-600' }}">&check;</span>@endif
+                        </button>
+                    @endforeach
+                </div>
+
+                @if ($pageSlug)
+                    <div class="p-6 space-y-4" wire:key="page-{{ $pageSlug }}">
+                        <div>
+                            <label class="block text-[11px] text-gray-500 mb-1">Page Heading</label>
+                            <input wire:model="pages.{{ $pageSlug }}.heading" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-gray-500 mb-1">Body — leave a blank line between paragraphs</label>
+                            <textarea wire:model="pages.{{ $pageSlug }}.body" rows="14"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm leading-relaxed"
+                                placeholder="Write the page content here…"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-gray-500 mb-1">Image URL (optional — shown beside the text)</label>
+                            <input wire:model="pages.{{ $pageSlug }}.image" placeholder="https://..." class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        </div>
+                    </div>
+                @endif
+            </div>
+        @endif
+
+        {{-- ══════════ DOCUMENTS (mandatory disclosures etc.) ══════════ --}}
+        @if ($activeTab === 'documents')
+            <div class="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 text-xs text-indigo-700">
+                CBSE requires affiliated schools to publish these documents on their website.
+                The standard checklist is pre-filled — paste the URL of each uploaded PDF against its row.
+                Rows without a file still appear, marked "Not uploaded".
+            </div>
+
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="flex flex-wrap gap-1 p-3 border-b border-gray-100 bg-gray-50">
+                    @foreach (\App\Livewire\Admin\WebsiteData::documentPageSlugs() as $slug)
+                        <button wire:click="$set('docSlug', '{{ $slug }}')"
+                            class="px-2.5 py-1.5 text-xs font-medium rounded-md border transition
+                                {{ $docSlug === $slug ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-100' }}">
+                            {{ \App\Models\SchoolWebsite::allPages()[$slug] ?? $slug }}
+                        </button>
+                    @endforeach
+                </div>
+
+                <div class="p-6 space-y-3" wire:key="docs-{{ $docSlug }}">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-base font-semibold text-gray-900">
+                            {{ \App\Models\SchoolWebsite::allPages()[$docSlug] ?? $docSlug }}
+                            <span class="text-xs text-gray-400">({{ count($docs[$docSlug] ?? []) }})</span>
+                        </h2>
+                        <button wire:click="addDocRow('{{ $docSlug }}')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg">+ Add</button>
+                    </div>
+
+                    @forelse ($docs[$docSlug] ?? [] as $i => $row)
+                        <div class="border border-gray-200 rounded-xl p-3 grid sm:grid-cols-12 gap-2 items-end" wire:key="doc-{{ $docSlug }}-{{ $i }}">
+                            <div class="sm:col-span-5"><label class="block text-[11px] text-gray-500 mb-1">Document</label><input wire:model="docs.{{ $docSlug }}.{{ $i }}.title" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
+                            <div class="sm:col-span-4"><label class="block text-[11px] text-gray-500 mb-1">File URL</label><input wire:model="docs.{{ $docSlug }}.{{ $i }}.file" placeholder="https://..." class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
+                            <div class="sm:col-span-2"><label class="block text-[11px] text-gray-500 mb-1">Updated</label><input wire:model="docs.{{ $docSlug }}.{{ $i }}.date" placeholder="Apr 2026" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
+                            <div class="sm:col-span-1">
+                                <button wire:click="removeDocRow('{{ $docSlug }}', {{ $i }})" class="p-2 text-red-500 hover:bg-red-50 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                            </div>
+                        </div>
+                    @empty
+                        <p class="text-xs text-gray-400">No rows yet. Click "+ Add".</p>
+                    @endforelse
+                </div>
+            </div>
+        @endif
+
+        {{-- ══════════ RESULTS ══════════ --}}
+        @if ($activeTab === 'results')
+            <div class="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 text-xs text-indigo-700">
+                Board results, one row per session. The pass percentage is calculated for you.
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-base font-semibold text-gray-900">Board Results <span class="text-xs text-gray-400">({{ count($results) }})</span></h2>
+                    <button wire:click="addRow('results')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg">+ Add</button>
+                </div>
+                @forelse ($results as $i => $row)
+                    @php
+                        $ap = (int) ($row['appeared'] ?? 0);
+                        $ps = (int) ($row['passed'] ?? 0);
+                    @endphp
+                    <div class="border border-gray-200 rounded-xl p-3 grid sm:grid-cols-12 gap-2 items-end" wire:key="res-{{ $i }}">
+                        <div class="sm:col-span-3"><label class="block text-[11px] text-gray-500 mb-1">Year</label><input wire:model="results.{{ $i }}.year" placeholder="2026" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
+                        <div class="sm:col-span-3"><label class="block text-[11px] text-gray-500 mb-1">Appeared</label><input wire:model.live="results.{{ $i }}.appeared" type="number" min="0" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
+                        <div class="sm:col-span-3"><label class="block text-[11px] text-gray-500 mb-1">Passed</label><input wire:model.live="results.{{ $i }}.passed" type="number" min="0" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
+                        <div class="sm:col-span-2"><label class="block text-[11px] text-gray-500 mb-1">Pass %</label><p class="px-2 py-1.5 text-sm font-semibold text-indigo-700 tabular-nums">{{ $ap > 0 ? round($ps / $ap * 100, 1) : 0 }}%</p></div>
+                        <div class="sm:col-span-1">
+                            <button wire:click="removeRow('results', {{ $i }})" class="p-2 text-red-500 hover:bg-red-50 rounded-lg"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                        </div>
+                    </div>
+                @empty
+                    <p class="text-xs text-gray-400">No results added yet. Click "+ Add".</p>
                 @endforelse
             </div>
         @endif

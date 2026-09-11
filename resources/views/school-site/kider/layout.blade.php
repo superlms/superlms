@@ -67,7 +67,7 @@
 
         /* ══════════ NAVBAR ══════════ */
         .navbar {
-            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            position: fixed; top: 34px; left: 0; right: 0; z-index: 1000;
             padding: 0 6%; height: 74px;
             display: flex; align-items: center; justify-content: space-between;
             background: rgba(255,255,255,0.86); backdrop-filter: blur(20px);
@@ -105,9 +105,58 @@
         .hamburger span { display: block; width: 24px; height: 2px; background: var(--primary); border-radius: 2px; }
         .mobile-nav { display: none; position: fixed; inset: 0; background: var(--hero-grad); z-index: 1001; flex-direction: column; align-items: center; justify-content: center; gap: 22px; }
         .mobile-nav.open { display: flex; animation: fadeIn .3s ease; }
+        .mobile-nav-scroll { width: 100%; max-height: 68vh; overflow-y: auto; display: flex; flex-direction: column; align-items: center; }
         .mobile-nav-link { font-family: 'Baloo 2', cursive; font-size: 28px; font-weight: 700; color: var(--text2); }
         .mobile-nav-link:hover { color: var(--primary); }
         .mobile-nav-close { position: absolute; top: 24px; right: 24px; background: none; border: none; color: var(--text3); font-size: 28px; cursor: pointer; }
+
+        /* ══════════ TOP UTILITY BAR ══════════ */
+        .topbar {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1001; height: 34px;
+            display: flex; align-items: center; justify-content: space-between; gap: 16px;
+            padding: 0 6%; background: var(--primary-dark); color: rgba(255,255,255,.82); font-size: 12px;
+        }
+        .topbar-facts { display: flex; align-items: center; gap: 18px; min-width: 0; }
+        .topbar-facts span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .topbar-social { display: flex; align-items: center; gap: 12px; }
+        .topbar-social a { color: rgba(255,255,255,.82); display: inline-flex; }
+        .topbar-social a:hover { color: #fff; }
+        @media (max-width: 900px) { .topbar { display: none; } .navbar { top: 0; } }
+
+        /* ══════════ GROUPED NAV ══════════ */
+        .nav-group { position: relative; }
+        .nav-group > button {
+            display: inline-flex; align-items: center; gap: 5px; background: none; border: none; cursor: pointer;
+            font-family: 'Poppins', sans-serif; font-size: 14px; font-weight: 500; color: var(--text3);
+            padding: 9px 14px; border-radius: var(--radius-pill); transition: all .25s;
+        }
+        .nav-group > button:hover, .nav-group.is-active > button { color: var(--primary); background: var(--faint); }
+        .nav-group > button svg { transition: transform .25s; }
+        .nav-group:hover > button svg { transform: rotate(180deg); }
+        .nav-drop {
+            position: absolute; top: calc(100% + 10px); left: 0; min-width: 236px; padding: 8px;
+            background: #fff; border: 1px solid var(--border2); border-radius: var(--radius-sm);
+            box-shadow: var(--shadow2); opacity: 0; visibility: hidden; transform: translateY(-6px);
+            transition: opacity .2s, transform .2s, visibility .2s; list-style: none;
+        }
+        .nav-group:hover .nav-drop { opacity: 1; visibility: visible; transform: translateY(0); }
+        .nav-drop::before { content: ''; position: absolute; top: -10px; left: 0; right: 0; height: 10px; }
+        .nav-drop a { display: block; padding: 8px 12px; border-radius: 9px; font-size: 13.5px; color: var(--text2); font-weight: 500; }
+        .nav-drop a:hover, .nav-drop a.active { background: var(--faint); color: var(--primary); }
+
+        /* mobile accordion */
+        .mnav-group { width: min(420px, 86%); }
+        .mnav-group > button {
+            width: 100%; display: flex; align-items: center; justify-content: space-between;
+            background: none; border: none; cursor: pointer; padding: 12px 4px;
+            font-family: 'Baloo 2', cursive; font-size: 21px; font-weight: 700; color: var(--text2);
+            border-bottom: 1px solid var(--border2);
+        }
+        .mnav-group.open > button { color: var(--primary); }
+        .mnav-drop { display: none; padding: 6px 0 10px; }
+        .mnav-group.open .mnav-drop { display: block; }
+        .mnav-drop a { display: block; padding: 7px 4px; font-size: 14.5px; color: var(--text3); font-weight: 500; }
+        .mnav-drop a:hover, .mnav-drop a.active { color: var(--primary); }
 
         /* ══════════ SHARED TYPOGRAPHY / SECTIONS ══════════ */
         .section { padding: 84px 6%; position: relative; }
@@ -125,7 +174,7 @@
         .section-head .section-subtitle { margin: 0 auto; }
 
         /* ══════════ PAGE HEADER ══════════ */
-        .page-header { padding: 148px 6% 84px; background: var(--hero-grad); text-align: center; position: relative; overflow: hidden; }
+        .page-header { padding: 182px 6% 84px; background: var(--hero-grad); text-align: center; position: relative; overflow: hidden; }
         .page-header-content { position: relative; z-index: 2; }
         /* .grid-bg now paints soft confetti glows behind heroes & headers */
         .grid-bg { position: absolute; inset: 0; overflow: hidden; z-index: 0; }
@@ -136,7 +185,7 @@
         .breadcrumb-nav a { color: var(--primary); font-weight: 600; }
 
         /* ══════════ HERO (home) ══════════ */
-        .hero { padding: 140px 6% 96px; background: var(--hero-grad); position: relative; overflow: hidden; }
+        .hero { padding: 174px 6% 96px; background: var(--hero-grad); position: relative; overflow: hidden; }
         .hero-inner { max-width: 1220px; margin: 0 auto; display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 56px; align-items: center; position: relative; z-index: 2; }
         .hero-title { font-family: 'Baloo 2', cursive; font-size: clamp(2.6rem, 5.2vw, 4.2rem); font-weight: 800; line-height: 1.04; letter-spacing: -0.5px; color: var(--text); margin-bottom: 20px; }
         .hero-sub { font-size: 16.5px; color: var(--text2); line-height: 1.85; margin-bottom: 32px; max-width: 540px; }
@@ -265,6 +314,7 @@
             .cards-grid { grid-template-columns: 1fr; }
             .form-grid { grid-template-columns: 1fr; }
             .page-header, .hero { padding-left: 5%; padding-right: 5%; }
+            .hero { padding-top: 140px; } .page-header { padding-top: 148px; }
             .cta-card { padding: 48px 26px; }
         }
         @media (max-width: 480px) {
@@ -275,6 +325,22 @@
     </style>
 </head>
 <body>
+
+    {{-- ══════════ TOP UTILITY BAR ══════════ --}}
+    <div class="topbar">
+        <div class="topbar-facts">
+            @if(!empty($c['affiliation_no']))<span>CBSE Affiliation No.: {{ $c['affiliation_no'] }}</span>@endif
+            @if(!empty($c['school_code']))<span>School Code: {{ $c['school_code'] }}</span>@endif
+            @if(!empty($c['phone']))<span>&#9742; {{ $c['phone'] }}</span>@endif
+            @if(!empty($c['email']))<span>&#9993; {{ $c['email'] }}</span>@endif
+        </div>
+        <div class="topbar-social">
+            @if(!empty($c['facebook']))<a href="{{ $c['facebook'] }}" target="_blank" rel="noopener" title="Facebook"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 8H6v4h3v12h5V12h3.6l.4-4h-4V6.3c0-1 .2-1.3 1.1-1.3H18V0h-3.6C10.9 0 9 1.6 9 4.7V8z"/></svg></a>@endif
+            @if(!empty($c['instagram']))<a href="{{ $c['instagram'] }}" target="_blank" rel="noopener" title="Instagram"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 3.25.15 4.77 1.69 4.92 4.92.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.15 3.23-1.66 4.77-4.92 4.92-1.27.06-1.64.07-4.85.07s-3.58-.01-4.85-.07c-3.26-.15-4.77-1.7-4.92-4.92C2.17 15.58 2.16 15.2 2.16 12s.01-3.58.07-4.85C2.38 3.92 3.9 2.38 7.15 2.23 8.42 2.17 8.8 2.16 12 2.16zm0 3.68A6.16 6.16 0 1018.16 12 6.16 6.16 0 0012 5.84zm0 10.16A4 4 0 118 12a4 4 0 014 4zm6.41-11.85a1.44 1.44 0 11-1.44-1.44 1.44 1.44 0 011.44 1.44z"/></svg></a>@endif
+            @if(!empty($c['youtube']))<a href="{{ $c['youtube'] }}" target="_blank" rel="noopener" title="YouTube"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.19a3.02 3.02 0 00-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.5A3.02 3.02 0 00.5 6.19C0 8.07 0 12 0 12s0 3.93.5 5.81a3.02 3.02 0 002.12 2.14c1.88.5 9.38.5 9.38.5s7.5 0 9.38-.5a3.02 3.02 0 002.12-2.14C24 15.93 24 12 24 12s0-3.93-.5-5.81zM9.55 15.57V8.43L15.82 12z"/></svg></a>@endif
+            <a href="{{ $site->adminLoginUrl() }}" target="_blank" rel="noopener">Login</a>
+        </div>
+    </div>
 
     {{-- ══════════ NAVBAR ══════════ --}}
     <nav class="navbar" id="navbar">
@@ -290,8 +356,24 @@
         </a>
 
         <ul class="nav-links">
-            @foreach ($nav as $slug => $label)
-                <li><a href="{{ $slug === 'home' ? url('/') : url($slug) }}" class="{{ $current === $slug ? 'active' : '' }}">{{ $label }}</a></li>
+            @foreach ($nav as $group => $items)
+                @php $isActive = array_key_exists($current, $items); @endphp
+                @if (count($items) === 1)
+                    @php $slug = array_key_first($items); @endphp
+                    <li><a href="{{ $slug === 'home' ? url('/') : url($slug) }}" class="{{ $isActive ? 'active' : '' }}">{{ $items[$slug] }}</a></li>
+                @else
+                    <li class="nav-group {{ $isActive ? 'is-active' : '' }}">
+                        <button type="button">
+                            {{ $group }}
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                        <ul class="nav-drop">
+                            @foreach ($items as $slug => $label)
+                                <li><a href="{{ $slug === 'home' ? url('/') : url($slug) }}" class="{{ $current === $slug ? 'active' : '' }}">{{ $label }}</a></li>
+                            @endforeach
+                        </ul>
+                    </li>
+                @endif
             @endforeach
         </ul>
 
@@ -305,9 +387,26 @@
     {{-- Mobile Nav --}}
     <div class="mobile-nav" id="mobileNav">
         <button class="mobile-nav-close" id="mobileClose">✕</button>
-        @foreach ($nav as $slug => $label)
-            <a href="{{ $slug === 'home' ? url('/') : url($slug) }}" class="mobile-nav-link">{{ $label }}</a>
-        @endforeach
+        <div class="mobile-nav-scroll">
+            @foreach ($nav as $group => $items)
+                @if (count($items) === 1)
+                    @php $slug = array_key_first($items); @endphp
+                    <div class="mnav-group"><a href="{{ $slug === 'home' ? url('/') : url($slug) }}" class="mobile-nav-link" style="display:block;padding:12px 4px;border-bottom:1px solid var(--border2);font-size:21px;">{{ $items[$slug] }}</a></div>
+                @else
+                    <div class="mnav-group {{ array_key_exists($current, $items) ? 'open' : '' }}">
+                        <button type="button" onclick="this.parentElement.classList.toggle('open')">
+                            {{ $group }}
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                        <div class="mnav-drop">
+                            @foreach ($items as $slug => $label)
+                                <a href="{{ $slug === 'home' ? url('/') : url($slug) }}" class="{{ $current === $slug ? 'active' : '' }}">{{ $label }}</a>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+            @endforeach
+        </div>
         <a href="{{ $site->adminLoginUrl() }}" target="_blank" rel="noopener" class="btn btn-primary btn-lg">Login</a>
     </div>
 
@@ -343,8 +442,10 @@
                 <div>
                     <div class="footer-col-title">Quick Links</div>
                     <ul class="footer-links">
-                        @foreach ($nav as $slug => $label)
-                            <li><a href="{{ $slug === 'home' ? url('/') : url($slug) }}">{{ $label }}</a></li>
+                        @foreach ($nav as $items)
+                            @foreach ($items as $slug => $label)
+                                <li><a href="{{ $slug === 'home' ? url('/') : url($slug) }}">{{ $label }}</a></li>
+                            @endforeach
                         @endforeach
                         <li><a href="{{ $site->adminLoginUrl() }}" target="_blank" rel="noopener">Admin / Staff Login</a></li>
                     </ul>

@@ -32,6 +32,16 @@ class WebsiteData extends Component
     public array  $documentsRequired = [];   // [{text}]
     public array  $admissionRules    = [];   // [{text}]
     public array  $gallery           = [];   // [{image,caption}]
+
+    /** Generic content pages: slug => {heading, body, image}. */
+    public array  $pages   = [];
+    /** Document tables: slug => [{title,file,date}]. */
+    public array  $docs    = [];
+
+    /** Which content page / document table the editor is currently on. */
+    public string $pageSlug = '';
+    public string $docSlug  = 'disclosures';
+
     public string $activeTab         = 'details';
 
     /** Scalar content fields managed by the form. */
@@ -57,6 +67,7 @@ class WebsiteData extends Component
         'documentsRequired' => ['text' => ''],
         'admissionRules'    => ['text' => ''],
         'gallery'           => ['image' => '', 'caption' => ''],
+        'results'           => ['year' => '', 'appeared' => '', 'passed' => ''],
     ];
 
     /** Map builder state property => content JSON key (camel → snake). */
@@ -71,6 +82,7 @@ class WebsiteData extends Component
         'documentsRequired' => 'documents_required',
         'admissionRules'    => 'admission_rules',
         'gallery'           => 'gallery',
+        'results'           => 'results',
     ];
 
     public function mount(): void
@@ -90,6 +102,52 @@ class WebsiteData extends Component
         foreach ($this->listContentKey as $prop => $key) {
             $this->{$prop} = array_values($content[$key] ?? []);
         }
+
+        // Seed a row per content page so every page has a form to fill in,
+        // and per document table so the CBSE checklist is there to upload against.
+        $this->pages = $content['pages'] ?? [];
+        foreach (static::contentPageSlugs() as $slug) {
+            $this->pages[$slug] = [
+                'heading' => $this->pages[$slug]['heading'] ?? SchoolWebsite::allPages()[$slug] ?? '',
+                'body'    => $this->pages[$slug]['body'] ?? '',
+                'image'   => $this->pages[$slug]['image'] ?? '',
+            ];
+        }
+        $this->pageSlug = array_key_first($this->pages) ?: '';
+
+        $this->docs = $content['documents'] ?? [];
+        foreach (static::documentPageSlugs() as $slug) {
+            $rows = $this->docs[$slug] ?? [];
+            if (empty($rows) && $slug === 'disclosures') {
+                $rows = SchoolWebsite::defaultDisclosures();
+            }
+            $this->docs[$slug] = array_values($rows);
+        }
+    }
+
+    /** Page slugs the template renders through the generic content blade. */
+    public static function contentPageSlugs(): array
+    {
+        return static::slugsOfType('content');
+    }
+
+    /** Page slugs the template renders as a document table. */
+    public static function documentPageSlugs(): array
+    {
+        return static::slugsOfType('documents');
+    }
+
+    private static function slugsOfType(string $type): array
+    {
+        $out = [];
+        foreach (SchoolWebsite::pageGroups() as $pages) {
+            foreach ($pages as $slug => [$label, $t]) {
+                if ($t === $type) {
+                    $out[] = $slug;
+                }
+            }
+        }
+        return $out;
     }
 
     public function switchTab(string $tab): void
@@ -119,6 +177,21 @@ class WebsiteData extends Component
         $this->{$list} = array_values($rows);
     }
 
+    // ─── Document tables (one list per document page) ──────────────────
+
+    public function addDocRow(string $slug): void
+    {
+        $this->docs[$slug][] = ['title' => '', 'file' => '', 'date' => ''];
+    }
+
+    public function removeDocRow(string $slug, int $i): void
+    {
+        if (isset($this->docs[$slug][$i])) {
+            unset($this->docs[$slug][$i]);
+            $this->docs[$slug] = array_values($this->docs[$slug]);
+        }
+    }
+
     // ─── Save (content only — never touches pages/theme/domain/status) ──
 
     public function save(): void
@@ -136,6 +209,21 @@ class WebsiteData extends Component
         $content = $this->form;
         foreach ($this->listContentKey as $prop => $key) {
             $content[$key] = array_values($this->{$prop});
+        }
+
+        // Drop content pages left completely blank so the template keeps
+        // showing its "being updated" note rather than an empty heading.
+        $content['pages'] = array_filter(
+            $this->pages,
+            fn ($p) => trim((string) ($p['body'] ?? '')) !== '' || trim((string) ($p['image'] ?? '')) !== ''
+        );
+
+        $content['documents'] = [];
+        foreach ($this->docs as $slug => $rows) {
+            $rows = array_values(array_filter($rows, fn ($r) => trim((string) ($r['title'] ?? '')) !== ''));
+            if ($rows) {
+                $content['documents'][$slug] = $rows;
+            }
         }
 
         // updateOrCreate with only template + content leaves the super-admin's

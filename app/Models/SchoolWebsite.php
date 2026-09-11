@@ -36,21 +36,129 @@ class SchoolWebsite extends Model
 
     // ─── Catalogue: pages & themes ─────────────────────────────────────────
 
-    /** All template pages that can be toggled on/off ('home' is mandatory). */
-    public static function allPages(): array
+    /**
+     * The template's page catalogue, grouped the way the navigation shows it.
+     *
+     * Most entries are "content" pages — a heading, a body and an optional
+     * image, all edited from Website Data — so a school can publish the whole
+     * CBSE page set without a blade per page. Only the pages with real layout
+     * of their own ('view') or a table of their own ('documents', 'result')
+     * get bespoke handling.
+     *
+     * Shape: group label => [slug => [label, type]].
+     */
+    public static function pageGroups(): array
     {
         return [
-            'home'        => 'Home',
-            'about'       => 'About Us',
-            'leadership'  => 'Leadership',
-            'facilities'  => 'Facilities',
-            'classes'     => 'Classes',
-            'admission'   => 'Admissions',
-            'gallery'     => 'Gallery',
-            'team'        => 'Our Team',
-            'appointment' => 'Appointment',
-            'contact'     => 'Contact',
+            'Home' => [
+                'home' => ['Home', 'view'],
+            ],
+            'About Us' => [
+                'about'        => ['About School', 'view'],
+                'history'      => ['History', 'content'],
+                'vision'       => ['Vision', 'content'],
+                'mission'      => ['Mission', 'content'],
+                'campus-life'  => ['Campus & School Life', 'content'],
+            ],
+            'Management' => [
+                'leadership'         => ['Leadership', 'view'],
+                'chairman'           => ["Chairman's Desk", 'content'],
+                'founder'            => ["Founder's Desk", 'content'],
+                'managing-director'  => ['Managing Director', 'content'],
+                'director'           => ["Director's Desk", 'content'],
+                'manager-desk'       => ["Manager's Desk", 'content'],
+                'principal-desk'     => ["Principal's Desk", 'content'],
+                'team'               => ['Our Team', 'view'],
+            ],
+            'Facilities' => [
+                'facilities'  => ['Features & Facilities', 'view'],
+                'labs'        => ['Laboratories', 'content'],
+                'classrooms'  => ['Classrooms', 'content'],
+                'playground'  => ['Playground', 'content'],
+                'sports'      => ['Sports & Activities', 'content'],
+                'activities'  => ['Activities', 'content'],
+                'transport'   => ['Transport', 'content'],
+                'infrastructure' => ['Infrastructure Details', 'content'],
+            ],
+            'Gallery' => [
+                'gallery'  => ['Photo Gallery', 'view'],
+                'building' => ['Building Photos', 'content'],
+            ],
+            'Admission' => [
+                'admission'     => ['Admission', 'view'],
+                'classes'       => ['Classes', 'view'],
+                'fee-structure' => ['Fee Structure', 'documents'],
+                'rules'         => ['Rules & Regulations', 'content'],
+                'programs'      => ['Programs', 'content'],
+            ],
+            'Academics' => [
+                'curriculum'        => ['Curriculum', 'content'],
+                'academic-calendar' => ['Academic Calendar', 'documents'],
+                'result'            => ['Result', 'result'],
+            ],
+            'Disclosures' => [
+                'disclosures' => ['Mandatory Disclosures', 'documents'],
+            ],
+            'Contact' => [
+                'contact'     => ['Contact Us', 'view'],
+                'appointment' => ['Appointment', 'view'],
+                'career'      => ['Career', 'content'],
+            ],
         ];
+    }
+
+    /** Flat slug => label, for the builder's page toggles and the nav. */
+    public static function allPages(): array
+    {
+        $out = [];
+        foreach (static::pageGroups() as $pages) {
+            foreach ($pages as $slug => [$label, $type]) {
+                $out[$slug] = $label;
+            }
+        }
+        return $out;
+    }
+
+    /** How a page is rendered: 'view' | 'content' | 'documents' | 'result'. */
+    public static function pageType(string $slug): ?string
+    {
+        foreach (static::pageGroups() as $pages) {
+            if (isset($pages[$slug])) {
+                return $pages[$slug][1];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The CBSE disclosure rows every affiliated school has to publish. Used
+     * as the starting list when a school has not uploaded its own documents
+     * yet, so the page is never blank — each row simply reads "not uploaded".
+     */
+    public static function defaultDisclosures(): array
+    {
+        $titles = [
+            'Copy of Affiliation / Upgradation Letter',
+            'Copy of Societies / Trust / Company Registration',
+            'Copy of No Objection Certificate (NOC) issued by the State Govt.',
+            'Copy of Recognition Certificate under RTE Act, 2009',
+            'Copy of Valid Building Safety Certificate',
+            'Copy of Valid Fire Safety Certificate',
+            'Copy of the DEO Certificate submitted for Affiliation / Upgradation',
+            'Copy of Valid Water, Health and Sanitation Certificate',
+            'Copy of Self Certification / Declaration',
+            'Copy of Land Certificate',
+            'Annual Academic Calendar',
+            'List of School Management Committee (SMC)',
+            'List of Parents Teachers Association (PTA) Members',
+            'Last Three-Year Result of the Board Examination',
+            'Fee Structure of the School',
+            'Staff Statement (Teaching & Non-Teaching)',
+            'Transfer Certificate Sample',
+            'Transport Certificate',
+        ];
+
+        return array_map(fn ($t) => ['title' => $t, 'file' => '', 'date' => ''], $titles);
     }
 
     /** Built-in colour presets (primary / light tint / dark). */
@@ -167,7 +275,39 @@ class SchoolWebsite extends Model
             'documents_required'=> [],   // [{text}]
             'admission_rules'   => [],   // [{text}]
             'gallery'           => [],   // [{image, caption}]
+
+            // Generic content pages: slug => {heading, body, image}. Anything
+            // pageGroups() marks as 'content' reads its copy from here.
+            'pages'     => [],
+            // Document tables: slug => [{title, file, date}].
+            'documents' => [],
+            // Board results: [{year, appeared, passed}].
+            'results'   => [],
         ];
+    }
+
+    /** Heading / body / image for one generic content page. */
+    public function pageContent(string $slug): array
+    {
+        $row = $this->resolvedContent()['pages'][$slug] ?? [];
+
+        return [
+            'heading' => $row['heading'] ?? (static::allPages()[$slug] ?? 'Page'),
+            'body'    => $row['body'] ?? '',
+            'image'   => $row['image'] ?? '',
+        ];
+    }
+
+    /** The rows for a document page, falling back to the CBSE checklist. */
+    public function pageDocuments(string $slug): array
+    {
+        $rows = $this->resolvedContent()['documents'][$slug] ?? [];
+
+        if (empty($rows) && $slug === 'disclosures') {
+            return static::defaultDisclosures();
+        }
+
+        return $rows;
     }
 
     /** Stored overrides merged over the auto-fetched content. */
