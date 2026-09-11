@@ -55,11 +55,16 @@
             </div>
         </div>
 
-        {{-- Per fee-cycle breakdown --}}
+        {{-- Per fee-cycle breakdown — one minimalistic section per side --}}
+        @php
+            $penStatusDot = [
+                'paid'    => ['bg-emerald-500', 'Paid'],
+                'partial' => ['bg-amber-500',   'Partial'],
+                'pending' => ['bg-gray-200',    'Due'],
+                'na'      => ['bg-gray-200',    '—'],
+            ];
+        @endphp
         @forelse ($pCycles as $cycle)
-            @php
-                $overdueInstallments = collect($cycle['installments'])->filter(fn ($i) => $i['overdue']);
-            @endphp
             <div wire:key="pen-cycle-{{ $cycle['fee_type'] }}" class="bg-white rounded-xl border border-gray-200 overflow-hidden mt-4">
                 <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
                     <h3 class="text-sm font-semibold text-gray-900">
@@ -67,42 +72,47 @@
                         <span class="text-gray-400 font-normal">· {{ $cycle['label'] }} · {{ $cycle['year'] }}</span>
                     </h3>
                     <span class="text-[11px] text-gray-400 tabular-nums">
-                        Accrued <strong class="text-gray-600">₹{{ number_format($cycle['penalty_total'], 2) }}</strong>
+                        Penalty accrued <strong class="text-gray-600">₹{{ number_format($cycle['penalty_total'], 2) }}</strong>
                         @if ($cycle['penalty_waived'] > 0) · Waived <strong class="text-emerald-600">− ₹{{ number_format($cycle['penalty_waived'], 2) }}</strong>@endif
                         @if ($cycle['penalty_paid'] > 0) · Paid <strong class="text-emerald-600">− ₹{{ number_format($cycle['penalty_paid'], 2) }}</strong>@endif
                         · Still Due <strong class="{{ $cycle['penalty_net'] > 0 ? 'text-amber-600' : 'text-gray-400' }}">₹{{ number_format($cycle['penalty_net'], 2) }}</strong>
                     </span>
                 </div>
-                @if ($overdueInstallments->isEmpty())
-                    <p class="px-4 py-6 text-center text-xs text-gray-400">No overdue installments on this cycle.</p>
-                @else
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead class="border-b border-gray-100">
-                                <tr class="text-[11px] uppercase tracking-wider text-gray-400">
-                                    <th class="px-4 py-2 text-left font-normal">Installment</th>
-                                    <th class="px-4 py-2 text-left font-normal">Due Date</th>
-                                    <th class="px-4 py-2 text-right font-normal">Balance</th>
-                                    <th class="px-4 py-2 text-right font-normal">Days Late</th>
-                                    <th class="px-4 py-2 text-right font-normal">Rate / Day</th>
-                                    <th class="px-4 py-2 text-right font-normal">Accrued</th>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="border-b border-gray-100">
+                            <tr class="text-[11px] uppercase tracking-wider text-gray-400">
+                                <th class="px-4 py-2 text-left font-normal w-10">#</th>
+                                <th class="px-4 py-2 text-left font-normal">Installment</th>
+                                <th class="px-4 py-2 text-left font-normal">Due Date</th>
+                                <th class="px-4 py-2 text-right font-normal">Amount</th>
+                                <th class="px-4 py-2 text-right font-normal">Balance</th>
+                                <th class="px-4 py-2 text-left font-normal">Status</th>
+                                <th class="px-4 py-2 text-right font-normal">Penalty Due</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($cycle['installments'] as $n => $inst)
+                                @php [$pDot, $pWord] = $penStatusDot[$inst['status']] ?? $penStatusDot['na']; @endphp
+                                <tr wire:key="pen-inst-{{ $cycle['fee_type'] }}-{{ $n }}" class="hover:bg-gray-50/70">
+                                    <td class="px-4 py-2 text-[11px] text-gray-300 tabular-nums">{{ $n + 1 }}</td>
+                                    <td class="px-4 py-2 text-gray-700">{{ $inst['label'] }}</td>
+                                    <td class="px-4 py-2 whitespace-nowrap {{ $inst['overdue'] ? 'text-rose-500' : 'text-gray-500' }}">{{ $inst['due_date'] ?? '—' }}</td>
+                                    <td class="px-4 py-2 text-right text-gray-700 tabular-nums">₹{{ number_format($inst['amount'], 2) }}</td>
+                                    <td class="px-4 py-2 text-right tabular-nums {{ $inst['balance'] > 0 ? 'text-gray-600' : 'text-gray-300' }}">₹{{ number_format($inst['balance'], 2) }}</td>
+                                    <td class="px-4 py-2">
+                                        <span class="inline-flex items-center gap-1.5 text-xs text-gray-500">
+                                            <span class="w-1.5 h-1.5 rounded-full {{ $pDot }}"></span>{{ $pWord }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-2 text-right tabular-nums {{ $inst['penalty_net'] > 0 ? 'font-semibold text-amber-600' : 'text-gray-300' }}">
+                                        {{ $inst['penalty_net'] > 0 ? '₹' . number_format($inst['penalty_net'], 2) : '—' }}
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($overdueInstallments as $n => $inst)
-                                    <tr wire:key="pen-inst-{{ $cycle['fee_type'] }}-{{ $n }}" class="hover:bg-gray-50/70">
-                                        <td class="px-4 py-2 text-gray-700">{{ $inst['label'] }}</td>
-                                        <td class="px-4 py-2 text-rose-500 whitespace-nowrap">{{ $inst['due_date'] ?? '—' }}</td>
-                                        <td class="px-4 py-2 text-right text-gray-600 tabular-nums">₹{{ number_format($inst['balance'], 2) }}</td>
-                                        <td class="px-4 py-2 text-right text-gray-600 tabular-nums">{{ $inst['days_late'] }}</td>
-                                        <td class="px-4 py-2 text-right text-gray-500 tabular-nums">₹{{ number_format($inst['penalty_per_day'], 2) }}</td>
-                                        <td class="px-4 py-2 text-right font-semibold text-amber-600 tabular-nums">₹{{ number_format($inst['penalty'], 2) }}</td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                @endif
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
             </div>
         @empty
             <p class="mt-4 text-center text-xs text-gray-400">No fee cycle defined for this student's class.</p>
@@ -188,25 +198,35 @@
             </div>
             <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Amount <span class="text-red-500">*</span></label>
-                    <input type="number" step="0.01" min="0.01" wire:model="waiverAmount" placeholder="{{ $waiverMode === 'percent' ? 'e.g. 50' : 'e.g. 200' }}" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500">
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Type <span class="text-red-500">*</span></label>
+                    <select wire:model.live="waiverFeeType" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500">
+                        <option value="academic">Academic</option>
+                        <option value="transport">Transport</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Fee Cycle <span class="text-red-500">*</span></label>
+                    <select wire:model="waiverCycleId" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500">
+                        <option value="">{{ count($waiverCycleOptions) ? 'Select installment…' : 'No penalty on this side' }}</option>
+                        @foreach ($waiverCycleOptions as $opt)
+                            <option value="{{ $opt['id'] }}">{{ $opt['label'] }} — ₹{{ number_format($opt['penalty_net'], 2) }} due</option>
+                        @endforeach
+                    </select>
+                    @error('waiverCycleId')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Amount (₹) <span class="text-red-500">*</span></label>
+                    <input type="number" step="0.01" min="0.01" wire:model="waiverAmount" placeholder="e.g. 200" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500">
                     @error('waiverAmount')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Type</label>
-                        <select wire:model="waiverFeeType" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500">
-                            <option value="academic">Academic</option>
-                            <option value="transport">Transport</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Mode</label>
-                        <select wire:model="waiverMode" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500">
-                            <option value="amount">Fixed Amount (₹)</option>
-                            <option value="percent">Percentage (%)</option>
-                        </select>
-                    </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Mode</label>
+                    <select wire:model="waiverMode" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500">
+                        <option value="cash">Cash</option>
+                        <option value="online">Online</option>
+                        <option value="cheque">Cheque</option>
+                        <option value="bank_transfer">Bank Transfer</option>
+                    </select>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1.5">Collected By <span class="text-red-500">*</span></label>

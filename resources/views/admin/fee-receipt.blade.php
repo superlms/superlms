@@ -225,8 +225,8 @@
                         <td class="num">{{ number_format($inst['amount'], 2) }}</td>
                         <td class="num {{ $inst['paid'] > 0 ? '' : 'muted' }}">{{ number_format($inst['paid'], 2) }}</td>
                         <td class="num {{ $inst['balance'] > 0 ? '' : 'muted' }}">{{ number_format($inst['balance'], 2) }}</td>
-                        <td class="num {{ $inst['penalty'] > 0 ? 'penalty-flag' : 'muted' }}">
-                            {{ $inst['penalty'] > 0 ? number_format($inst['penalty'], 2) : '—' }}
+                        <td class="num {{ $inst['penalty_net'] > 0 ? 'penalty-flag' : 'muted' }}">
+                            {{ $inst['penalty_net'] > 0 ? number_format($inst['penalty_net'], 2) : '—' }}
                         </td>
                     </tr>
                 @endforeach

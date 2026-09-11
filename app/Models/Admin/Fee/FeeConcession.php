@@ -19,10 +19,12 @@ class FeeConcession extends Model
         'value',
         'fee_type',        // 'academic' | 'transport' | 'all'
         'is_penalty',      // true = this waives accrued penalty, not the base fee
+        'fee_cycle_id',    // penalty waivers only — the one installment this targets
         'reason',
         'academic_year',
         'created_by',
         'collected_by',    // staff name, for penalty waivers made via the Penalties tab
+        'payment_mode',    // penalty waivers only — cash | online | cheque | bank_transfer
     ];
 
     protected $casts = [

@@ -40,8 +40,9 @@ trait HandlesPenalties
     // ─── Waiver slide-in ─────────────────────────────────────────────────────
     public bool $showPenaltyWaiver = false;
     public $waiverAmount      = '';
-    public $waiverFeeType     = 'academic'; // academic | transport — which cycle's penalty
-    public $waiverMode        = 'amount';   // amount | percent
+    public $waiverFeeType     = 'academic'; // academic | transport — which side's cycle
+    public $waiverCycleId     = '';         // the one installment this waiver targets
+    public $waiverMode        = 'cash';     // cash | online | cheque | bank_transfer
     public $waiverCollectedBy = '';
 
     public function setPenaltySubTab(string $tab): void
@@ -159,7 +160,8 @@ trait HandlesPenalties
         }
         $this->waiverAmount      = '';
         $this->waiverFeeType     = 'academic';
-        $this->waiverMode        = 'amount';
+        $this->waiverCycleId     = '';
+        $this->waiverMode        = 'cash';
         $this->waiverCollectedBy = Auth::user()->name ?? '';
         $this->resetValidation();
         $this->showPenaltyWaiver = true;
@@ -170,13 +172,20 @@ trait HandlesPenalties
         $this->showPenaltyWaiver = false;
     }
 
+    /** Picking a side resets the installment picker — it lists that side's cycles only. */
+    public function updatedWaiverFeeType(): void
+    {
+        $this->waiverCycleId = '';
+    }
+
     public function savePenaltyWaiver(): void
     {
         $this->validate([
             'penaltyViewStudentId' => 'required|exists:student_details,id',
-            'waiverAmount'         => 'required|numeric|min:0.01' . ($this->waiverMode === 'percent' ? '|max:100' : ''),
+            'waiverAmount'         => 'required|numeric|min:0.01',
             'waiverFeeType'        => 'required|in:academic,transport',
-            'waiverMode'           => 'required|in:amount,percent',
+            'waiverCycleId'        => 'required|exists:fee_cycles,id',
+            'waiverMode'           => 'required|in:cash,online,cheque,bank_transfer',
             'waiverCollectedBy'    => 'required|string|max:255',
         ]);
 
@@ -187,21 +196,23 @@ trait HandlesPenalties
             'student_detail_id' => $this->penaltyViewStudentId,
             'standard_id'       => $student->standard_id,
             'section_id'        => $student->section_id,
-            'concession_type'   => $this->waiverMode,
+            'concession_type'   => 'amount',
             'value'             => $this->waiverAmount,
             'fee_type'          => $this->waiverFeeType,
+            'fee_cycle_id'      => $this->waiverCycleId,
             'is_penalty'        => true,
             'reason'            => 'Penalty waiver',
             'academic_year'     => $this->penaltyAcademicYear(),
             'created_by'        => Auth::id(),
             'collected_by'      => $this->waiverCollectedBy,
+            'payment_mode'      => $this->waiverMode,
         ]);
 
         AccountsNotifier::concession(
             'granted',
             $this->orgId(),
             $this->penaltyViewStudentId,
-            $this->waiverMode,
+            'amount',
             $this->waiverAmount,
             ucfirst($this->waiverFeeType) . ' penalty'
         );
@@ -214,6 +225,34 @@ trait HandlesPenalties
         if ($this->penaltySubTab === 'by_class' && $this->penaltyClassStandardId) {
             $this->loadPenaltyClassList();
         }
+    }
+
+    /**
+     * The chosen side's installments that currently carry a penalty — what
+     * the Waiver panel's Fee Cycle picker offers.
+     */
+    protected function waiverCycleOptions(): array
+    {
+        if (empty($this->penaltyStudentView)) {
+            return [];
+        }
+
+        $cycle = collect($this->penaltyStudentView['cycles'] ?? [])
+            ->firstWhere('fee_type', $this->waiverFeeType);
+
+        if (!$cycle) {
+            return [];
+        }
+
+        return collect($cycle['installments'])
+            ->filter(fn ($i) => $i['penalty'] > 0)
+            ->map(fn ($i) => [
+                'id'          => $i['cycle_id'],
+                'label'       => $i['label'],
+                'penalty'     => $i['penalty'],
+                'penalty_net' => $i['penalty_net'],
+            ])
+            ->values()->all();
     }
 
     /** The academic year running now — April(this year) → March(next), e.g. "2026-27". */
@@ -254,9 +293,10 @@ trait HandlesPenalties
             : collect();
 
         return [
-            'pStandards' => $pStandards,
-            'pSections'  => $pSections,
-            'pStudents'  => $pStudents,
+            'pStandards'         => $pStandards,
+            'pSections'          => $pSections,
+            'pStudents'          => $pStudents,
+            'waiverCycleOptions' => $this->waiverCycleOptions(),
         ];
     }
 }

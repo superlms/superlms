@@ -27,10 +27,11 @@ class FeeCycleBreakdown
     {
         $out = [];
 
-        // Penalty waivers (per side, via the Penalties tab's Waiver panel) and
-        // penalty payments (one pool — Fee Submission's "Penalties" type has no
-        // academic/transport split — applied academic-side first) net the raw
-        // accrued penalty down to what is actually still owed.
+        // Penalty waivers (each pinned to one installment, via the Penalties
+        // tab's Waiver panel) and penalty payments (one shared pool — Fee
+        // Submission's "Penalties" type has no installment picker, so it's
+        // applied oldest installment first, academic side before transport)
+        // net the raw accrued penalty down to what is actually still owed.
         $penaltyConcessions = FeeConcession::where('organization_id', $orgId)
             ->where('student_detail_id', $studentId)
             ->where('is_penalty', true)
@@ -103,9 +104,28 @@ class FeeCycleBreakdown
                 // payment that already cleared it stops accruing more.
                 $daysLate     = $overdue ? $due->diffInDays(now()->startOfDay()) : 0;
                 $penaltyPerDay = (float) $c->penalty_per_day;
-                $penalty      = $overdue ? round($daysLate * $penaltyPerDay, 2) : 0.0;
+                $rawPenalty   = $overdue ? round($daysLate * $penaltyPerDay, 2) : 0.0;
+
+                // Waivers pinned to this exact installment (the Waiver panel
+                // has you pick the fee cycle it targets), then whatever is
+                // left of the shared penalty-payment pool — oldest
+                // installment first, academic side before transport.
+                $waived = 0.0;
+                foreach ($penaltyConcessions->where('fee_cycle_id', $c->id) as $con) {
+                    $off = $con->concession_type === 'percent'
+                        ? round($rawPenalty * ((float) $con->value) / 100, 2)
+                        : (float) $con->value;
+                    $waived += min($off, max(0, $rawPenalty - $waived));
+                }
+                $waived = round($waived, 2);
+
+                $afterWaiver = max(0, $rawPenalty - $waived);
+                $paidOff     = round(min($penaltyPaidPool, $afterWaiver), 2);
+                $penaltyPaidPool = round($penaltyPaidPool - $paidOff, 2);
+                $penaltyNet  = round(max(0, $afterWaiver - $paidOff), 2);
 
                 $installments[] = [
+                    'cycle_id'        => $c->id,
                     'serial'          => (int) $c->payment_serial,
                     'label'           => $c->is_token
                         ? 'Token Fee'
@@ -121,27 +141,12 @@ class FeeCycleBreakdown
                     'status'          => $status,
                     'penalty_per_day' => $penaltyPerDay,
                     'days_late'       => $daysLate,
-                    'penalty'         => $penalty,
+                    'penalty'         => $rawPenalty,
+                    'penalty_waived'  => $waived,
+                    'penalty_paid'    => $paidOff,
+                    'penalty_net'     => $penaltyNet,
                 ];
             }
-
-            // Raw accrued penalty for this side, then waivers (this side only),
-            // then whatever is left of the shared penalty-payment pool.
-            $rawPenalty = round(collect($installments)->sum('penalty'), 2);
-
-            $waived = 0.0;
-            foreach ($penaltyConcessions->where('fee_type', $type) as $c) {
-                $off = $c->concession_type === 'percent'
-                    ? round($rawPenalty * ((float) $c->value) / 100, 2)
-                    : (float) $c->value;
-                $waived += min($off, max(0, $rawPenalty - $waived));
-            }
-            $waived = round($waived, 2);
-
-            $afterWaiver = max(0, $rawPenalty - $waived);
-            $paidOff     = round(min($penaltyPaidPool, $afterWaiver), 2);
-            $penaltyPaidPool = round($penaltyPaidPool - $paidOff, 2);
-            $penaltyNet  = round(max(0, $afterWaiver - $paidOff), 2);
 
             $count = $cycles->where('is_token', false)->count();
             $out[] = [
@@ -159,10 +164,10 @@ class FeeCycleBreakdown
                 'paid_count'     => collect($installments)->where('status', 'paid')->count(),
                 'count'          => $count,
                 'installments'   => $installments,
-                'penalty_total'  => $rawPenalty,
-                'penalty_waived' => $waived,
-                'penalty_paid'   => $paidOff,
-                'penalty_net'    => $penaltyNet,
+                'penalty_total'  => round(collect($installments)->sum('penalty'), 2),
+                'penalty_waived' => round(collect($installments)->sum('penalty_waived'), 2),
+                'penalty_paid'   => round(collect($installments)->sum('penalty_paid'), 2),
+                'penalty_net'    => round(collect($installments)->sum('penalty_net'), 2),
             ];
         }
 

@@ -165,6 +165,9 @@
                 Paid <strong class="text-emerald-600">₹{{ number_format($cycle['paid'], 2) }}</strong>
                 · Due <strong class="{{ $cycleDue > 0 ? 'text-rose-500' : 'text-gray-400' }}">₹{{ number_format($cycleDue, 2) }}</strong>
                 · Total <strong class="text-gray-700">₹{{ number_format($cycle['total'], 2) }}</strong>
+                @if ($cycle['penalty_net'] > 0)
+                    · Penalty <strong class="text-amber-600">₹{{ number_format($cycle['penalty_net'], 2) }}</strong> due
+                @endif
             </span>
         </div>
         <div class="overflow-x-auto">
@@ -178,6 +181,7 @@
                         <th class="px-4 py-2 text-right font-normal">Paid</th>
                         <th class="px-4 py-2 text-right font-normal">Balance</th>
                         <th class="px-4 py-2 text-left font-normal w-24">Status</th>
+                        <th class="px-4 py-2 text-right font-normal">Penalty</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -202,6 +206,9 @@
                                     <span class="w-1.5 h-1.5 rounded-full {{ $dot }}"></span>{{ $word }}
                                 </span>
                             </td>
+                            <td class="px-4 py-2 text-right tabular-nums {{ $inst['penalty_net'] > 0 ? 'font-semibold text-amber-600' : 'text-gray-300' }}">
+                                {{ $inst['penalty_net'] > 0 ? '₹' . number_format($inst['penalty_net'], 2) : '—' }}
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -212,6 +219,7 @@
                         <td class="px-4 py-2.5 text-right font-bold text-emerald-600 tabular-nums">₹{{ number_format($cycle['paid'], 2) }}</td>
                         <td class="px-4 py-2.5 text-right font-bold {{ $cycleDue > 0 ? 'text-rose-500' : 'text-gray-300' }} tabular-nums">₹{{ number_format($cycleDue, 2) }}</td>
                         <td></td>
+                        <td class="px-4 py-2.5 text-right font-bold {{ $cycle['penalty_net'] > 0 ? 'text-amber-600' : 'text-gray-300' }} tabular-nums">₹{{ number_format($cycle['penalty_net'], 2) }}</td>
                     </tr>
                 </tfoot>
             </table>
