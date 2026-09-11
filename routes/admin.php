@@ -182,6 +182,12 @@ Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
         // Seating Plan printable chart
         Route::get('/seating-plan/{id}/print', [\App\Http\Controllers\Admin\SeatingPlanPrintController::class, 'print'])
             ->name('admin.seating-plan.print');
+        // Who sits where for one session — the same landscape sheet printed or
+        // downloaded, narrowed by room or by class.
+        Route::get('/seating-plan/{id}/list', [\App\Http\Controllers\Admin\SeatingListController::class, 'print'])
+            ->name('admin.seating-plan.list');
+        Route::get('/seating-plan/{id}/list/pdf', [\App\Http\Controllers\Admin\SeatingListController::class, 'pdf'])
+            ->name('admin.seating-plan.list-pdf');
         // Per-room seating chart as a downloadable PDF
         Route::get('/seating-plan/{id}/room/{roomId}/pdf', [\App\Http\Controllers\Admin\SeatingPlanPrintController::class, 'roomPdf'])
             ->name('admin.seating-plan.room-pdf');

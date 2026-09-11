@@ -67,136 +67,180 @@
         @if ($activeTab === 'plans')
 
             {{-- ══════════════════════════════════════════════
-                 GRAPHICAL SEAT FINDER
-                 Two ways in — by room (exam → date → session → room) or by
-                 student (exam → class → section → student, every session drawn).
+                 SEAT FINDER
+                 By room or by class, both landing on the same list: the papers
+                 those candidates sit, each one drawable, downloadable and
+                 printable. The filter bar is the one the student list uses.
             ══════════════════════════════════════════════ --}}
             <div class="bg-white rounded-xl border border-gray-200 mb-5 overflow-hidden">
-                <div class="px-4 sm:px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-blue-50 flex flex-wrap items-center gap-x-3 gap-y-2">
-                    <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-                    <h3 class="text-sm font-semibold text-gray-800">Graphical Seat Finder</h3>
-                    <div class="ml-auto inline-flex rounded-lg border border-indigo-200 bg-white p-0.5">
+                <div class="px-4 sm:px-5 py-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
+                    <h3 class="text-sm font-semibold text-gray-800">Seat Finder</h3>
+                    <div class="ml-auto inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
                         <button wire:click="setGraphMode('room')"
                             class="px-3 py-1.5 text-xs font-semibold rounded-md transition-colors
-                                   {{ $graphMode === 'room' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:text-gray-900' }}">
+                                   {{ $graphMode === 'room' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:text-gray-900' }}">
                             By room
                         </button>
-                        <button wire:click="setGraphMode('student')"
+                        <button wire:click="setGraphMode('class')"
                             class="px-3 py-1.5 text-xs font-semibold rounded-md transition-colors
-                                   {{ $graphMode === 'student' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:text-gray-900' }}">
-                            By student
+                                   {{ $graphMode === 'class' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:text-gray-900' }}">
+                            By class
                         </button>
                     </div>
                 </div>
 
-                <div class="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                    <div>
-                        <label class="block text-[11px] font-medium text-gray-500 mb-1">Exam</label>
-                        <select wire:model.live="filterExamId" class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-2 text-gray-700 focus:ring-2 focus:ring-indigo-400">
-                            <option value="">Select exam</option>
+                {{-- Filter bar — the student list's, attached and grey --}}
+                <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-5 py-3">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                            </svg>
+                            Filter by:
+                        </div>
+
+                        <select wire:model.live="filterExamId"
+                            class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                            <option value="">Select Exam</option>
                             @foreach ($exams as $exam)<option value="{{ $exam->id }}">{{ $exam->exam_name }}</option>@endforeach
                         </select>
+
+                        <select wire:model.live="filterStandardId" @disabled(!$filterExamId)
+                            class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <option value="">Select Class</option>
+                            @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
+                        </select>
+
+                        <select wire:model.live="filterSectionId" @disabled(!$filterStandardId)
+                            class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <option value="">Select Section</option>
+                            @foreach ($filterSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
+                        </select>
+
+                        @if ($graphMode === 'room')
+                            <select wire:model.live="filterRoomId" @disabled(!$filterSectionId)
+                                class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <option value="">Select Room</option>
+                                @foreach ($graphRoomOptions as $gr)
+                                    <option value="{{ $gr->id }}">{{ $gr->room_name }}{{ $gr->building ? ' · ' . $gr->building : '' }}</option>
+                                @endforeach
+                            </select>
+                        @endif
+
+                        @if ($graphFiltersActive)
+                            <button wire:click="clearGraphFilters"
+                                class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                Clear
+                            </button>
+                        @endif
                     </div>
-
-                    @if ($graphMode === 'room')
-                        <div>
-                            <label class="block text-[11px] font-medium text-gray-500 mb-1">Date</label>
-                            <select wire:model.live="filterDate" @disabled(!$filterExamId) class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-2 text-gray-700 focus:ring-2 focus:ring-indigo-400 disabled:opacity-50">
-                                <option value="">Select date</option>
-                                @foreach ($graphDates as $d)
-                                    <option value="{{ $d }}">{{ \Carbon\Carbon::parse($d)->format('d M Y, D') }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-[11px] font-medium text-gray-500 mb-1">Session</label>
-                            <select wire:model.live="filterPlanId" @disabled(!$filterExamId) class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-2 text-gray-700 focus:ring-2 focus:ring-indigo-400 disabled:opacity-50">
-                                <option value="">Select session</option>
-                                @foreach ($filterPlans as $fp)
-                                    <option value="{{ $fp->id }}">{{ $fp->exam_date?->format('d M') }}{{ $fp->session ? ' · ' . $fp->session : '' }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-[11px] font-medium text-gray-500 mb-1">Room</label>
-                            <select wire:model.live="filterRoomId" @disabled(!$filterPlanId) class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-2 text-gray-700 focus:ring-2 focus:ring-indigo-400 disabled:opacity-50">
-                                <option value="">All rooms</option>
-                                @foreach ($graphRoomOptions as $gr)<option value="{{ $gr->id }}">{{ $gr->room_name }}</option>@endforeach
-                            </select>
-                        </div>
-                    @else
-                        <div>
-                            <label class="block text-[11px] font-medium text-gray-500 mb-1">Class</label>
-                            <select wire:model.live="filterStandardId" @disabled(!$filterExamId) class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-2 text-gray-700 focus:ring-2 focus:ring-indigo-400 disabled:opacity-50">
-                                <option value="">Select class</option>
-                                @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-[11px] font-medium text-gray-500 mb-1">Section</label>
-                            <select wire:model.live="filterSectionId" @disabled(!$filterStandardId) class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-2 text-gray-700 focus:ring-2 focus:ring-indigo-400 disabled:opacity-50">
-                                <option value="">All sections</option>
-                                @foreach ($filterSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-[11px] font-medium text-gray-500 mb-1">Student</label>
-                            <select wire:model.live="filterStudentId" @disabled(!$filterStandardId) class="w-full text-xs bg-white border border-gray-200 rounded-md px-2.5 py-2 text-gray-700 focus:ring-2 focus:ring-indigo-400 disabled:opacity-50">
-                                <option value="">Select student</option>
-                                @foreach ($filterStudents as $stu)<option value="{{ $stu->user_id }}">{{ $stu->roll_no ? $stu->roll_no . ' · ' : '' }}{{ $stu->full_name }}</option>@endforeach
-                            </select>
-                        </div>
-                    @endif
-                </div>
-
-                <div class="px-4 pb-3 -mt-1 flex flex-wrap items-center gap-3">
-                    <span class="text-[11px] text-gray-400">
+                    <p class="mt-2 text-[11px] text-gray-400">
                         {{ $graphMode === 'room'
-                            ? 'Pick the exam, the date and the room to see that room’s chart — every seat carries the roll number sitting in it.'
-                            : 'Pick the exam and the student to walk through every seating plan that student appears in.' }}
-                    </span>
-                    @if ($filterExamId || $graphFiltersActive)
-                        <button wire:click="clearGraphFilters" class="ml-auto inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-800">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                            Clear filters
-                        </button>
-                    @endif
+                            ? 'Pick the exam, class, section and room to list the papers written in that room.'
+                            : 'Pick the exam, class and section to list the papers that class sits and where.' }}
+                    </p>
                 </div>
+
+                {{-- The papers themselves --}}
+                @php
+                    $finderReady = $filterExamId && $filterStandardId && $filterSectionId
+                        && ($graphMode === 'class' || $filterRoomId);
+                @endphp
+
+                @if (!$finderReady)
+                    <div class="px-5 py-10 text-center border-t border-gray-100">
+                        <p class="text-sm font-semibold text-gray-700">
+                            {{ $graphMode === 'room' ? 'Choose an exam, class, section and room' : 'Choose an exam, class and section' }}
+                        </p>
+                        <p class="text-xs text-gray-400 mt-1">The papers appear here once the last one is picked.</p>
+                    </div>
+                @elseif ($sessionRows->isEmpty())
+                    <div class="px-5 py-10 text-center border-t border-gray-100">
+                        <p class="text-sm font-semibold text-gray-700">Nothing seated yet</p>
+                        <p class="text-xs text-gray-400 mt-1">No generated plan puts these candidates {{ $graphMode === 'room' ? 'in that room' : 'anywhere' }} for this exam.</p>
+                    </div>
+                @else
+                    <div class="border-t border-gray-100 overflow-x-auto">
+                        <table class="w-full text-sm min-w-[780px]">
+                            <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+                                <tr>
+                                    <th class="px-4 py-3 text-left w-12">#</th>
+                                    <th class="px-4 py-3 text-left">Subject</th>
+                                    <th class="px-4 py-3 text-left w-44">Date</th>
+                                    <th class="px-4 py-3 text-left w-28">Shift</th>
+                                    <th class="px-4 py-3 text-left">{{ $graphMode === 'room' ? 'Room' : 'Room(s)' }}</th>
+                                    <th class="px-4 py-3 text-center w-28">Candidates</th>
+                                    <th class="px-4 py-3 text-center w-56">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach ($sessionRows as $i => $row)
+                                    @php
+                                        // Both the download and the print sheet take the same
+                                        // narrowing the finder is showing.
+                                        $listArgs = array_filter([
+                                            'organization' => auth()->user()->organization_id,
+                                            'id'           => $row['plan_id'],
+                                            'room'         => $graphMode === 'room' ? (int) $filterRoomId : null,
+                                            'standard'     => (int) $filterStandardId,
+                                            'section'      => (int) $filterSectionId,
+                                            'subject'      => $row['subject'],
+                                        ]);
+                                        $isOpen = $chartPlanId === $row['plan_id']
+                                            && ($chartRoomId ?? null) === ($graphMode === 'room' ? (int) $filterRoomId : null);
+                                    @endphp
+                                    <tr wire:key="sess-{{ $row['plan_id'] }}" class="{{ $isOpen ? 'bg-blue-50/50' : 'hover:bg-gray-50/70' }}">
+                                        <td class="px-4 py-3 text-gray-400">{{ $i + 1 }}</td>
+                                        <td class="px-4 py-3 font-medium text-gray-800">{{ $row['subject'] }}</td>
+                                        <td class="px-4 py-3 text-gray-600">{{ $row['date']?->format('d M Y, D') ?? '—' }}</td>
+                                        <td class="px-4 py-3 text-gray-600">{{ $row['session'] ?: 'Shift 1' }}</td>
+                                        <td class="px-4 py-3 text-gray-600">{{ implode(', ', $row['rooms']) }}</td>
+                                        <td class="px-4 py-3 text-center text-gray-600">{{ $row['students'] }}</td>
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center justify-center gap-1.5">
+                                                <button wire:click="openSeatChart({{ $row['plan_id'] }}{{ $graphMode === 'room' ? ', ' . (int) $filterRoomId : '' }})"
+                                                    class="text-xs font-medium px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-blue-50 hover:text-blue-600">View</button>
+                                                <a href="{{ route('admin.seating-plan.list-pdf', $listArgs) }}" target="_blank"
+                                                    class="text-xs font-medium px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-emerald-50 hover:text-emerald-600">Download</a>
+                                                <a href="{{ route('admin.seating-plan.list', $listArgs + ['print' => 1]) }}" target="_blank"
+                                                    class="text-xs font-medium px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50">Print</a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
             </div>
 
-            {{-- ── Who we are following, when the finder is in student mode ── --}}
-            @if ($graphMode === 'student' && $graphStudent)
-                <div class="bg-white rounded-xl border border-gray-200 mb-4 px-5 py-4 flex flex-wrap items-center gap-x-6 gap-y-2">
-                    <div>
-                        <p class="text-base font-semibold text-gray-900">{{ $graphStudent->full_name }}</p>
-                        <p class="text-xs text-gray-500">
-                            Roll {{ $graphStudent->roll_no ?: '—' }} ·
-                            {{ $graphStudent->standard->name ?? '—' }}{{ $graphStudent->section ? ' - ' . $graphStudent->section->name : '' }}
-                            @if ($graphStudent->admission_no) · Adm. {{ $graphStudent->admission_no }} @endif
-                        </p>
-                    </div>
-                    <div class="ml-auto text-xs text-gray-500">
-                        <strong class="text-gray-900">{{ $graphViews->count() }}</strong> seating plan(s) for this exam
-                    </div>
-                </div>
-            @endif
-
-            {{-- ── The charts ── --}}
+            {{-- ── The diagram: the room drawn seat by seat, roll numbers on it ── --}}
             @if ($graphViews->isNotEmpty())
                 <div class="mb-5">
-                    <div class="flex flex-wrap items-center justify-end gap-3 mb-3 text-[11px] text-gray-500">
-                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-emerald-100 border border-emerald-200 inline-block"></span> Seated</span>
-                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-red-50 border border-red-200 inline-block"></span> Conflict</span>
-                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm ring-2 ring-blue-500 inline-block"></span> This student</span>
-                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-gray-50 border border-dashed border-gray-300 inline-block"></span> Empty</span>
+                    <div class="flex flex-wrap items-center gap-3 mb-3">
+                        <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Seating diagram</span>
+                        <div class="ml-auto flex flex-wrap items-center gap-3 text-[11px] text-gray-500">
+                            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-emerald-100 border border-emerald-200 inline-block"></span> Seated</span>
+                            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-red-50 border border-red-200 inline-block"></span> Conflict</span>
+                            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-gray-50 border border-dashed border-gray-300 inline-block"></span> Empty</span>
+                            <button wire:click="closeSeatChart" class="inline-flex items-center gap-1 font-medium text-gray-500 hover:text-gray-700">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                Close
+                            </button>
+                        </div>
                     </div>
 
                     @foreach ($graphViews as $view)
                         @php
                             $plan = $view['plan'];
                             $room = $view['room'];
-                            // A desk holds one row per place at it, so the cell
-                            // is a list — with one seat per desk it is a list of one.
+                            // A desk holds one row per place at it — with one seat
+                            // per desk, a list of one.
                             $cells = [];
                             foreach ($view['assignments'] as $a) {
                                 if ($a->seat) $cells[$a->seat->row_no][$a->seat->col_no][] = $a;
@@ -207,22 +251,18 @@
                         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-4">
                             <div class="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
                                 <div class="min-w-0">
-                                    <h4 class="text-base font-semibold text-gray-900">
-                                        {{ $room->room_name }}
-                                        @if (!empty($view['my_seat']))
-                                            <span class="ml-2 align-middle text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-0.5">Seat {{ $view['my_seat'] }}</span>
-                                        @endif
-                                    </h4>
+                                    <h4 class="text-base font-semibold text-gray-900">{{ $room->room_name }}</h4>
                                     <p class="text-xs text-gray-500">
                                         {{ $plan->exam_date?->format('d M Y, D') }}{{ $plan->session ? ' · ' . $plan->session : '' }}
                                         @if ($subjectNote) · {{ $subjectNote }} @endif
+                                        · {{ $room->rows }} × {{ $room->columns }} desks @if(($room->seat_capacity ?? 1) > 1)× {{ $room->seat_capacity }} per desk @endif
                                         · {{ $filled }}/{{ $room->capacity }} seats filled
                                     </p>
                                 </div>
                                 <a href="{{ route('admin.seating-plan.room-pdf', ['organization' => auth()->user()->organization_id, 'id' => $plan->id, 'roomId' => $room->id]) }}" target="_blank"
                                     class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                    Room PDF
+                                    Room chart PDF
                                 </a>
                             </div>
                             <div class="p-4 overflow-x-auto">
@@ -232,16 +272,14 @@
                                         <div class="flex gap-1.5 justify-center mb-1.5">
                                             @for ($c = 1; $c <= $room->columns; $c++)
                                                 @php
-                                                    $places  = collect($cells[$r][$c] ?? []);
-                                                    $taken   = $places->filter(fn ($a) => $a->student_id)->values();
-                                                    $seatNo  = $places->first()?->seat?->seat_number ?? '';
-                                                    $clash   = $places->contains(fn ($a) => $a->has_conflict);
-                                                    $isFocus = $graphFocusId && $taken->contains(fn ($a) => (int) $a->student_id === $graphFocusId);
+                                                    $places = collect($cells[$r][$c] ?? []);
+                                                    $taken  = $places->filter(fn ($a) => $a->student_id)->values();
+                                                    $seatNo = $places->first()?->seat?->seat_number ?? '';
+                                                    $clash  = $places->contains(fn ($a) => $a->has_conflict);
                                                 @endphp
                                                 <div class="w-16 rounded-md border text-[10px] flex flex-col items-center justify-center text-center px-1 py-1 leading-tight
                                                     {{ $taken->isEmpty() ? 'bg-gray-50 border-dashed border-gray-200 text-gray-300'
-                                                        : ($clash ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200') }}
-                                                    {{ $isFocus ? 'ring-2 ring-blue-500 ring-offset-1' : '' }}" style="min-height:3.5rem">
+                                                        : ($clash ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200') }}" style="min-height:3.5rem">
                                                     <span class="text-[9px] text-gray-400">{{ $seatNo }}</span>
                                                     @forelse ($taken as $a)
                                                         @php $who = $graphRollMap[(int) $a->student_id] ?? null; @endphp
@@ -259,16 +297,6 @@
                             </div>
                         </div>
                     @endforeach
-                </div>
-            @elseif ($graphMode === 'student' && $filterStudentId)
-                <div class="mb-5 text-center py-10 bg-white rounded-xl border border-gray-200">
-                    <p class="text-sm font-semibold text-gray-700">No seat found for this student</p>
-                    <p class="text-xs text-gray-400 mt-1">This exam has no generated seating plan covering their class yet.</p>
-                </div>
-            @elseif ($graphMode === 'room' && $filterExamId && !$filterPlanId)
-                <div class="mb-5 text-center py-10 bg-white rounded-xl border border-gray-200">
-                    <p class="text-sm font-semibold text-gray-700">No seating session found</p>
-                    <p class="text-xs text-gray-400 mt-1">This exam has no generated seating plan yet. Generate one first.</p>
                 </div>
             @endif
 
