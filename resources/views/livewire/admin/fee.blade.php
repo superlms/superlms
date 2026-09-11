@@ -276,53 +276,7 @@
                 </div>
             </div>
         @elseif ($activeTab === 'view_fee')
-            <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
-                <div class="flex flex-wrap items-center gap-3">
-                    <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-                        Filter by:
-                    </div>
-                    {{-- Sub-tab pills --}}
-                    <div class="inline-flex items-center bg-white border border-gray-200 rounded-lg p-0.5">
-                        @foreach (['by_student' => 'By Student', 'by_class' => 'By Class'] as $k => $lbl)
-                            <button wire:click="setViewSubTab('{{ $k }}')"
-                                class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors {{ $viewSubTab === $k ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 hover:text-gray-800' }}">
-                                {{ $lbl }}
-                            </button>
-                        @endforeach
-                    </div>
-                    <span class="w-px h-5 bg-gray-200"></span>
-
-                    @if ($viewSubTab === 'by_student')
-                        <select wire:model.live="viewStudentStandardId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                            <option value="">Select Class</option>
-                            @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
-                        </select>
-                        <select wire:model.live="viewStudentSectionId" @disabled(!$viewStudentStandardId) class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
-                            <option value="">All Sections</option>
-                            @foreach ($sections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
-                        </select>
-                        <select wire:model.live="viewStudentId" @disabled(!$viewStudentStandardId) class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[200px] disabled:opacity-50">
-                            <option value="">Select Student</option>
-                            @foreach ($students as $stu)<option value="{{ $stu->id }}">{{ $stu->user->name ?? 'Unknown' }}</option>@endforeach
-                        </select>
-                    @else
-                        <select wire:model.live="viewClassStandardId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                            <option value="">Select Class</option>
-                            @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
-                        </select>
-                        <select wire:model.live="viewClassSectionId" @disabled(!$viewClassStandardId) class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
-                            <option value="">All Sections</option>
-                            @foreach ($sections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
-                        </select>
-                        <button wire:click="loadClassFeeView" @disabled(!$viewClassStandardId)
-                            class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md disabled:opacity-50">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7" /></svg>
-                            Load Students
-                        </button>
-                    @endif
-                </div>
-            </div>
+            @include('livewire.partials.view-fee-header')
         @elseif ($activeTab === 'analytics')
             <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
                 <div class="flex flex-wrap items-center gap-3">
@@ -610,81 +564,12 @@
     {{-- TAB 3: VIEW FEE                                                 --}}
     {{-- ════════════════════════════════════════════════════════════════ --}}
     @if ($activeTab === 'view_fee')
-        @if ($viewSubTab === 'by_student')
-            @if (!empty($studentFeeView))
-                <div class="space-y-4">
-                    @include('livewire.partials.student-fee-view', [
-                        'sv'        => $studentFeeView,
-                        'feePrefix' => 'admin',
-                        'feeOrg'    => auth()->user()->organization_id,
-                    ])
-                </div>
-            @else
-                <div class="bg-white rounded-2xl border border-dashed border-gray-200 px-4 py-16 text-center">
-                    <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
-                        <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                    </div>
-                    <p class="text-sm font-semibold text-gray-800">Select a student</p>
-                    <p class="text-xs text-gray-400 mt-1">Pick a class, section and student from the filter above to see the full ledger.</p>
-                </div>
-            @endif
-        @endif
-
-        @if ($viewSubTab === 'by_class')
-            @if (!empty($classFeeList))
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead class="bg-gray-50 border-b border-gray-200">
-                                <tr>
-                                    <th class="px-4 py-3 text-left text-xs text-gray-500 uppercase">#</th>
-                                    <th class="px-4 py-3 text-left text-xs text-gray-500 uppercase">Name</th>
-                                    <th class="px-4 py-3 text-left text-xs text-gray-500 uppercase">Adm No.</th>
-                                    <th class="px-4 py-3 text-left text-xs text-gray-500 uppercase">Class / Section</th>
-                                    <th class="px-4 py-3 text-right text-xs text-gray-500 uppercase">Academic</th>
-                                    <th class="px-4 py-3 text-right text-xs text-gray-500 uppercase">Transport</th>
-                                    <th class="px-4 py-3 text-right text-xs text-gray-500 uppercase">Total Fee</th>
-                                    <th class="px-4 py-3 text-right text-xs text-gray-500 uppercase">Collected</th>
-                                    <th class="px-4 py-3 text-center text-xs text-gray-500 uppercase">View</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100">
-                                @foreach ($classFeeList as $i => $row)
-                                    <tr class="hover:bg-gray-50/50 transition-colors">
-                                        <td class="px-4 py-3">{{ $i + 1 }}</td>
-                                        <td class="px-4 py-3 font-medium text-gray-800">{{ $row['name'] }}</td>
-                                        <td class="px-4 py-3 text-gray-600">{{ $row['admission_no'] ?? '-' }}</td>
-                                        <td class="px-4 py-3 whitespace-nowrap">
-                                            {{ $row['class'] }}@if (!empty($row['section']) && $row['section'] !== '-')<span class="text-gray-400"> · {{ $row['section'] }}</span>@endif
-                                        </td>
-                                        <td class="px-4 py-3 text-right">₹{{ number_format($row['academicFee'], 2) }}</td>
-                                        <td class="px-4 py-3 text-right">₹{{ number_format($row['transportFee'], 2) }}</td>
-                                        <td class="px-4 py-3 text-right font-semibold">₹{{ number_format($row['totalFee'], 2) }}</td>
-                                        <td class="px-4 py-3 text-right text-emerald-700 font-semibold">₹{{ number_format($row['collected'], 2) }}</td>
-                                        <td class="px-4 py-3 text-center">
-                                            <button wire:click="$set('viewSubTab', 'by_student'); $set('viewStudentId', '{{ $row['id'] }}')"
-                                                class="text-xs px-3 py-1 border border-blue-300 text-blue-600 rounded hover:bg-blue-50 transition-all">
-                                                View
-                                            </button>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            @else
-                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    <div class="text-center py-16 px-4">
-                        <div class="w-12 h-12 mx-auto mb-3 bg-indigo-50 rounded-full flex items-center justify-center">
-                            <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                        </div>
-                        <p class="text-sm font-semibold text-gray-800">Pick a class</p>
-                        <p class="text-xs text-gray-400 mt-1">Choose a class (and optional section) above, then press <strong>Load Students</strong> to see class-wide fee collection.</p>
-                    </div>
-                </div>
-            @endif
-        @endif
+        <div class="space-y-4">
+            @include('livewire.partials.view-fee-panel', [
+                'feePrefix' => 'admin',
+                'feeOrg'    => auth()->user()->organization_id,
+            ])
+        </div>
     @endif
 
     {{-- ════════════════════════════════════════════════════════════════ --}}

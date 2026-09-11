@@ -4,6 +4,7 @@ namespace App\Livewire\Admin;
 
 use App\Livewire\Concerns\HandlesFeeConcessions;
 use App\Livewire\Concerns\HandlesStudentFeeView;
+use App\Livewire\Concerns\HandlesViewFee;
 use App\Livewire\Concerns\HandlesFeeCycles;
 use App\Models\Admin\Fee\FeeConcession;
 use App\Models\Admin\Fee\FeePayment;
@@ -22,7 +23,7 @@ use WireUi\Traits\WireUiActions;
 
 class Fee extends Component
 {
-    use WireUiActions, WithPagination, HandlesFeeCycles, HandlesFeeConcessions, HandlesStudentFeeView;
+    use WireUiActions, WithPagination, HandlesFeeCycles, HandlesFeeConcessions, HandlesStudentFeeView, HandlesViewFee;
 
     public string $activeTab = ''; // '' = card menu (landing); otherwise the open tab
 
@@ -66,15 +67,7 @@ class Fee extends Component
     // ─── Concession (per-student fee discount) + view — see HandlesFeeConcessions
 
     // ─── View Fee ─────────────────────────────────────────────────────────────
-    public string $viewSubTab          = 'by_student';
-    public $viewStudentStandardId      = '';
-    public $viewStudentSectionId       = '';
-    public $viewStudentId              = '';
-    public $studentFeeView             = [];
-
-    public $viewClassStandardId        = '';
-    public $viewClassSectionId         = '';
-    public $classFeeList               = [];
+    // State and logic live in HandlesViewFee.
 
     // ─── Analytics ────────────────────────────────────────────────────────────
     public $analyticsStandardId  = '';
@@ -494,112 +487,6 @@ class Fee extends Component
         } catch (\Exception $e) {
             $this->notification()->error('Error submitting fee', $e->getMessage());
         }
-    }
-
-    // ─── View Fee ─────────────────────────────────────────────────────────────
-
-    public function setViewSubTab(string $tab): void
-    {
-        $this->viewSubTab = $tab;
-    }
-
-    public function updatedViewStudentStandardId(): void
-    {
-        $this->viewStudentSectionId = '';
-        $this->viewStudentId        = '';
-        $this->studentFeeView       = [];
-        $this->sections = $this->viewStudentStandardId
-            ? Section::where('standard_id', $this->viewStudentStandardId)->where('is_active', true)->get()
-            : [];
-        // Load the class's students right away so the Student picker is usable
-        // even before a section is chosen (section is optional).
-        $this->students = $this->viewStudentStandardId
-            ? StudentDetail::with('user')
-                ->where('organization_id', $this->orgId())
-                ->where('standard_id', $this->viewStudentStandardId)
-                ->get()
-            : [];
-    }
-
-    public function updatedViewStudentSectionId(): void
-    {
-        $this->viewStudentId  = '';
-        $this->studentFeeView = [];
-        if ($this->viewStudentStandardId) {
-            $this->students = StudentDetail::with('user')
-                ->where('organization_id', $this->orgId())
-                ->where('standard_id', $this->viewStudentStandardId)
-                ->when($this->viewStudentSectionId, fn($q) => $q->where('section_id', $this->viewStudentSectionId))
-                ->get();
-        }
-    }
-
-    public function updatedViewStudentId(): void
-    {
-        // Auto-load the ledger the moment a student is picked.
-        $this->studentFeeView = [];
-        if ($this->viewStudentId) {
-            $this->loadStudentFeeView();
-        }
-    }
-
-    public function loadStudentFeeView(): void
-    {
-        if (!$this->viewStudentId) return;
-
-        $this->studentFeeView = $this->buildStudentFeeView((int) $this->viewStudentId);
-    }
-
-    public function updatedViewClassStandardId(): void
-    {
-        $this->viewClassSectionId = '';
-        $this->classFeeList       = [];
-        $this->sections = $this->viewClassStandardId
-            ? Section::where('standard_id', $this->viewClassStandardId)->where('is_active', true)->get()
-            : [];
-    }
-
-    public function loadClassFeeView(): void
-    {
-        if (!$this->viewClassStandardId) return;
-
-        $students = StudentDetail::with(['user', 'standard', 'section'])
-            ->where('organization_id', $this->orgId())
-            ->where('standard_id', $this->viewClassStandardId)
-            ->when($this->viewClassSectionId, fn($q) => $q->where('section_id', $this->viewClassSectionId))
-            ->get();
-
-        $structures = FeeStructure::where('organization_id', $this->orgId())
-            ->where('standard_id', $this->viewClassStandardId)
-            ->where('is_active', true)
-            ->get();
-
-        $this->classFeeList = $students->map(function ($student) use ($structures) {
-            $studentStructures = $structures->filter(function ($s) use ($student) {
-                return is_null($s->section_id) || $s->section_id == $student->section_id;
-            });
-
-            $academicFee   = $studentStructures->where('fee_type', 'academic')->sum('amount');
-            $transportFee  = $student->transportation_required
-                ? $studentStructures->where('fee_type', 'transport')->sum('amount')
-                : 0;
-
-            $collected = FeePayment::where('organization_id', $this->orgId())
-                ->where('student_detail_id', $student->id)
-                ->sum('amount');
-
-            return [
-                'id'           => $student->id,
-                'name'         => $student->user->name ?? '-',
-                'admission_no' => $student->admission_no,
-                'class'        => $student->standard->name ?? '-',
-                'section'      => $student->section->name ?? '-',
-                'academicFee'  => $academicFee,
-                'transportFee' => $transportFee,
-                'totalFee'     => $academicFee + $transportFee,
-                'collected'    => $collected,
-            ];
-        })->values()->toArray();
     }
 
     // ─── Analytics ────────────────────────────────────────────────────────────
@@ -1083,6 +970,10 @@ class Fee extends Component
             $data['payments'] = $this->getPaymentsQuery()
                 ->orderByDesc('payment_date')
                 ->paginate($this->perPage);
+        }
+
+        if ($this->activeTab === 'view_fee') {
+            $data = array_merge($data, $this->viewFeeViewData());
         }
 
         if ($this->activeTab === 'cycle') {
