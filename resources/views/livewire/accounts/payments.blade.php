@@ -8,9 +8,8 @@
         @include('livewire.partials.payments-header')
     </div>
 
-    {{-- Body — the same two partials the admin Fee > Payments tab uses --}}
+    {{-- Body — the same listing the admin Fee > Payments tab shows --}}
     <div class="p-4 sm:p-6 space-y-5">
-        @include('livewire.partials.payments-analytics')
         @include('livewire.partials.payments-table')
     </div>
 </div>

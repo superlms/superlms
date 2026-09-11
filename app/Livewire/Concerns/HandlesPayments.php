@@ -27,7 +27,7 @@ trait HandlesPayments
     // ─── Filters ──────────────────────────────────────────────────────────────
     public $dateFrom = '';
     public $dateTo = '';
-    public $datePreset = '';
+    public $datePreset = 'this_month';
     public $paymentStandardId = '';
     public $paymentSectionId = '';
     public $paymentStudentSearch = '';
@@ -42,8 +42,23 @@ trait HandlesPayments
     /** The host component calls this from its own mount(). */
     public function initPaymentFilters(): void
     {
-        $this->dateFrom = now()->startOfMonth()->toDateString();
-        $this->dateTo = now()->toDateString();
+        $this->datePreset = 'this_month';
+        $this->applyDatePreset();
+    }
+
+    /** The range dropdown's options, in order. '' is the manual from/to pair. */
+    private function datePresetOptions(): array
+    {
+        return [
+            'today'      => 'Today',
+            'yesterday'  => 'Yesterday',
+            '7'          => 'Last 7 Days',
+            '15'         => 'Last 15 Days',
+            '30'         => 'Last 30 Days',
+            'this_month' => 'This Month',
+            'last_month' => 'Last Month',
+            ''           => 'Custom Range',
+        ];
     }
 
     /** 'admin' or 'accounts' — which route group the receipt links belong to. */
@@ -75,13 +90,19 @@ trait HandlesPayments
         $this->resetPage();
     }
 
-    /** Quick date-range presets for the filter bar. */
-    public function setDatePreset(string $preset): void
+    /** The range dropdown moved the date span; recompute from/to. */
+    public function updatedDatePreset(): void
     {
-        $this->datePreset = $preset;
+        $this->applyDatePreset();
+        $this->resetPage();
+    }
+
+    /** Turn the chosen preset into a concrete from/to pair. */
+    private function applyDatePreset(): void
+    {
         $today = now();
 
-        switch ($preset) {
+        switch ($this->datePreset) {
             case 'today':
                 $this->dateFrom = $today->toDateString();
                 $this->dateTo = $today->toDateString();
@@ -103,14 +124,16 @@ trait HandlesPayments
                 $this->dateFrom = $today->copy()->subDays(29)->toDateString();
                 $this->dateTo = $today->toDateString();
                 break;
+            case 'this_month':
+                $this->dateFrom = $today->copy()->startOfMonth()->toDateString();
+                $this->dateTo = $today->toDateString();
+                break;
             case 'last_month':
                 $lastMonth = $today->copy()->subMonthNoOverflow();
                 $this->dateFrom = $lastMonth->copy()->startOfMonth()->toDateString();
                 $this->dateTo = $lastMonth->copy()->endOfMonth()->toDateString();
                 break;
         }
-
-        $this->resetPage();
     }
 
     /** Filters shared by the header analytics and the payments listing below. */
@@ -361,6 +384,7 @@ trait HandlesPayments
                     ->where('is_active', true)->get()
                 : collect(),
             'paymentsOrgId' => $orgId,
+            'datePresets' => $this->datePresetOptions(),
         ];
     }
 }

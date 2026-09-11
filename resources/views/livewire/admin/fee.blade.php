@@ -240,8 +240,7 @@
     {{-- TAB 5: PAYMENTS                                                 --}}
     {{-- ════════════════════════════════════════════════════════════════ --}}
     @if ($activeTab === 'payments')
-        {{-- Identical to the accounts Payments page — same partials. --}}
-        @include('livewire.partials.payments-analytics')
+        {{-- Identical to the accounts Payments page — same partial. --}}
         @include('livewire.partials.payments-table')
     @endif
 
