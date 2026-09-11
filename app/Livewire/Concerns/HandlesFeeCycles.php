@@ -41,6 +41,12 @@ trait HandlesFeeCycles
     public $cycleMonthlyDueDay = 10;    // day-of-month each monthly installment is due
     // Custom mode (add, not edit): any number of installments at once.
     public array $customRows   = []; // [['serial'=>int,'due_date'=>string,'fee_percent'=>string,'penalty_per_day'=>string], ...]
+    // Rows whose fee % the user typed by hand. Everything else is shared out
+    // automatically so the set always adds up to 100% of the fee.
+    public array $customPctTouched = [];
+    // Editing one installment: what the OTHER installments become once this
+    // one's % changes, so the year still totals 100%. [['id','serial','was','percent'], ...]
+    public array $cycleSiblingPreview = [];
 
     // A read-only look at one installment or the token fee.
     public $viewingCycle = null;
@@ -103,13 +109,16 @@ trait HandlesFeeCycles
     {
         $this->resetValidation();
         if (!$this->editCycleId && $this->cycleMode === 'custom' && empty($this->customRows)) {
-            $this->customRows = [$this->blankCustomRow()];
+            $this->customRows        = [$this->blankCustomRow()];
+            $this->customPctTouched  = [];
+            $this->balanceCustomPercents();
         }
     }
 
     public function addCustomRow(): void
     {
         $this->customRows[] = $this->blankCustomRow();
+        $this->balanceCustomPercents();
     }
 
     public function removeCustomRow(int $index): void
@@ -117,6 +126,80 @@ trait HandlesFeeCycles
         if (!isset($this->customRows[$index])) return;
         unset($this->customRows[$index]);
         $this->customRows = array_values($this->customRows);
+
+        // Rows shifted down by one — re-point the "typed by hand" markers.
+        $touched = [];
+        foreach ($this->customPctTouched as $i) {
+            if ($i === $index) continue;
+            $touched[] = $i > $index ? $i - 1 : $i;
+        }
+        $this->customPctTouched = $touched;
+
+        $this->balanceCustomPercents();
+    }
+
+    /**
+     * A fee % typed into one row pins that row; every row the user has not
+     * typed into then splits whatever is left of the 100% equally. Clearing a
+     * row's % un-pins it and hands it back to the automatic split.
+     */
+    public function updatedCustomRows($value, $key): void
+    {
+        if (!str_ends_with((string) $key, '.fee_percent')) {
+            return;
+        }
+
+        $index = (int) explode('.', (string) $key)[0];
+
+        if (trim((string) $value) === '') {
+            $this->customPctTouched = array_values(array_diff($this->customPctTouched, [$index]));
+        } elseif (!in_array($index, $this->customPctTouched, true)) {
+            $this->customPctTouched[] = $index;
+        }
+
+        $this->balanceCustomPercents();
+    }
+
+    /** Share 100% minus the pinned rows equally across the rows still on auto. */
+    private function balanceCustomPercents(): void
+    {
+        if (empty($this->customRows)) {
+            return;
+        }
+
+        $pinnedTotal = 0.0;
+        $auto        = [];
+        foreach (array_keys($this->customRows) as $i) {
+            $pinned = in_array($i, $this->customPctTouched, true)
+                && trim((string) ($this->customRows[$i]['fee_percent'] ?? '')) !== '';
+            if ($pinned) {
+                $pinnedTotal += (float) $this->customRows[$i]['fee_percent'];
+            } else {
+                $auto[] = $i;
+            }
+        }
+
+        // Every row pinned — the user owns all the numbers, leave them alone.
+        if (empty($auto)) {
+            return;
+        }
+
+        $left  = max(0, round(100 - $pinnedTotal, 2));
+        $share = floor($left / count($auto) * 100) / 100;   // 2dp, rounded down
+        $last  = count($auto) - 1;
+
+        foreach ($auto as $n => $i) {
+            // The rounding remainder rides on the last automatic row so the set sums to 100.
+            $this->customRows[$i]['fee_percent'] = (string) ($n === $last
+                ? round($left - $share * $last, 2)
+                : $share);
+        }
+    }
+
+    /** What the rows currently add up to — shown live under the form. */
+    public function getCustomPercentTotalProperty(): float
+    {
+        return round(collect($this->customRows)->sum(fn ($r) => (float) ($r['fee_percent'] ?? 0)), 2);
     }
 
     private function blankCustomRow(): array
@@ -156,6 +239,91 @@ trait HandlesFeeCycles
     public function closeCycleView(): void
     {
         $this->viewingCycle = null;
+    }
+
+    /** Edit button in the view card's header — swap the read-only card for the edit form. */
+    public function editViewingCycle(): void
+    {
+        $id = $this->viewingCycle?->id;
+        $this->closeCycleView();
+        if ($id) {
+            $this->openCycleModal($id);
+        }
+    }
+
+    /** Delete button in the view card's header — close the card, ask to confirm. */
+    public function deleteViewingCycle(): void
+    {
+        $id = $this->viewingCycle?->id;
+        $this->closeCycleView();
+        if ($id) {
+            $this->deleteCycle($id);
+        }
+    }
+
+    /**
+     * Changing one installment's % re-splits what is left of the 100% across
+     * the other installments of the same fee type + year, keeping their
+     * relative weights. The result is previewed in the form and only written
+     * when the installment is actually saved.
+     */
+    public function updatedCycleFeePercent(): void
+    {
+        $this->buildCycleSiblingPreview();
+    }
+
+    private function buildCycleSiblingPreview(): void
+    {
+        $this->cycleSiblingPreview = [];
+
+        if (!$this->editCycleId || $this->editingToken) {
+            return;
+        }
+        if (!is_numeric($this->cycleFeePercent)) {
+            return;
+        }
+        $percent = (float) $this->cycleFeePercent;
+        if ($percent < 0 || $percent > 100) {
+            return;
+        }
+
+        $siblings = FeeCycle::forOrg($this->orgId())
+            ->where('fee_type', $this->cycleFeeType)
+            ->where('academic_year', $this->cycleYear)
+            ->where('is_token', false)
+            ->where('id', '!=', $this->editCycleId)
+            ->orderBy('payment_serial')
+            ->get();
+
+        if ($siblings->isEmpty()) {
+            return;
+        }
+
+        $left    = max(0, round(100 - $percent, 2));
+        $current = (float) $siblings->sum('fee_percent');
+        $last    = $siblings->count() - 1;
+        $running = 0.0;
+        $preview = [];
+
+        foreach ($siblings->values() as $n => $sibling) {
+            // Keep each sibling's share of the remainder — equal split if they
+            // are all at zero and there is no weighting to preserve.
+            $share = $current > 0
+                ? $left * ((float) $sibling->fee_percent / $current)
+                : $left / $siblings->count();
+            // Remainder rides on the last one so the year lands exactly on 100%.
+            $share = $n === $last ? round($left - $running, 2) : round($share, 2);
+            $running += $share;
+
+            $preview[] = [
+                'id'      => $sibling->id,
+                'serial'  => $sibling->payment_serial,
+                'was'     => (float) $sibling->fee_percent,
+                'percent' => max(0, $share),
+            ];
+        }
+
+        $this->cycleSiblingPreview = $preview;
     }
 
     /**
@@ -273,6 +441,8 @@ trait HandlesFeeCycles
         $this->cycleMonthlyDueDay = 10;
         $this->cycleYear          = $this->currentAcademicYear();
         $this->customRows         = [];
+        $this->customPctTouched   = [];
+        $this->cycleSiblingPreview = [];
         $this->tokenFeeAmount     = '';
         $this->tokenDueDate       = '';
         $this->tokenPenaltyPerDay = '0';
@@ -328,7 +498,18 @@ trait HandlesFeeCycles
             'academic_year'   => $this->cycleYear,
             'is_active'       => true,
         ]);
-        $this->notification()->success('Installment updated!');
+        // Re-split what is left of the 100% across the other installments.
+        foreach ($this->cycleSiblingPreview as $sibling) {
+            FeeCycle::forOrg($this->orgId())
+                ->where('id', $sibling['id'])
+                ->update(['fee_percent' => $sibling['percent']]);
+        }
+
+        $this->notification()->success(
+            $this->cycleSiblingPreview
+                ? 'Installment updated — the other installments were re-balanced to 100%.'
+                : 'Installment updated!'
+        );
 
         $this->upsertTokenFee();
         $this->closeCycleModal();

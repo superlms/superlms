@@ -21,7 +21,7 @@
                     <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Penalty/Day</th>
                     <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Year</th>
-                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">Actions</th>
+                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -40,15 +40,11 @@
                         <td class="px-4 py-3 text-right text-gray-600">₹{{ number_format($cy->penalty_per_day, 2) }}</td>
                         <td class="px-4 py-3 text-center text-gray-500">{{ $cy->academic_year }}</td>
                         <td class="px-4 py-3">
-                            <div class="flex items-center justify-center gap-1.5">
-                                <button wire:click="viewCycle({{ $cy->id }})" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600" title="View">
+                            {{-- View only — Edit and Delete live in the view card's own header. --}}
+                            <div class="flex items-center justify-center">
+                                <button wire:click="viewCycle({{ $cy->id }})" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-gray-200 text-xs font-medium text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200" title="View">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                                </button>
-                                <button wire:click="openCycleModal({{ $cy->id }})" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-amber-50 hover:text-amber-600" title="Edit">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                </button>
-                                <button wire:click="deleteCycle({{ $cy->id }})" class="p-1.5 rounded-md border border-red-200 text-red-500 hover:bg-red-50" title="Delete">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    View
                                 </button>
                             </div>
                         </td>
@@ -244,7 +240,7 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Fee % to Collect <span class="text-red-500">*</span></label>
-                            <input type="number" step="0.01" min="0" max="100" wire:model="cycleFeePercent" placeholder="e.g. 25" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                            <input type="number" step="0.01" min="0" max="100" wire:model.live.debounce.600ms="cycleFeePercent" placeholder="e.g. 25" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                             @error('cycleFeePercent')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
@@ -252,12 +248,30 @@
                             <input type="number" step="0.01" min="0" wire:model="cyclePenaltyPerDay" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                         </div>
                     </div>
+                    {{-- Changing this one's % re-splits the rest so the year still totals 100% --}}
+                    @if (count($cycleSiblingPreview))
+                        <div class="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3">
+                            <p class="text-xs font-semibold text-blue-800">The other installments will be re-balanced</p>
+                            <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                                @foreach ($cycleSiblingPreview as $sibling)
+                                    <span class="text-xs text-blue-700">
+                                        #{{ $sibling['serial'] }}:
+                                        <span class="text-blue-400 line-through">{{ rtrim(rtrim(number_format($sibling['was'], 2), '0'), '.') }}%</span>
+                                        <strong>{{ rtrim(rtrim(number_format($sibling['percent'], 2), '0'), '.') }}%</strong>
+                                    </span>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
                 @else
                     {{-- Adding fresh — any number of installments at once --}}
                     <div>
                         <div class="flex items-center justify-between mb-2">
                             <label class="block text-sm font-medium text-gray-700">Installments</label>
-                            <span class="text-xs text-gray-500">{{ count($customRows) }} row{{ count($customRows) === 1 ? '' : 's' }}</span>
+                            @php $pctTotal = $this->customPercentTotal; @endphp
+                            <span class="text-xs {{ abs($pctTotal - 100) < 0.01 ? 'text-emerald-600' : 'text-amber-600' }}">
+                                {{ count($customRows) }} row{{ count($customRows) === 1 ? '' : 's' }} · {{ rtrim(rtrim(number_format($pctTotal, 2), '0'), '.') }}%
+                            </span>
                         </div>
                         <div class="border border-gray-200 rounded-lg overflow-x-auto">
                             <table class="w-full min-w-[420px]">
@@ -282,7 +296,8 @@
                                                 <input type="date" wire:model="customRows.{{ $i }}.due_date" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-400">
                                             </td>
                                             <td class="px-2 py-2">
-                                                <input type="number" step="0.01" min="0" max="100" wire:model="customRows.{{ $i }}.fee_percent" placeholder="e.g. 25" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-400">
+                                                <input type="number" step="0.01" min="0" max="100" wire:model.live.debounce.600ms="customRows.{{ $i }}.fee_percent" placeholder="e.g. 25"
+                                                    class="w-full px-2 py-1.5 text-xs border rounded-md focus:ring-1 focus:ring-gray-400 {{ in_array($i, $customPctTouched, true) ? 'border-gray-400 text-gray-900 font-semibold' : 'border-gray-300 text-gray-500 bg-gray-50' }}">
                                             </td>
                                             <td class="px-2 py-2">
                                                 <input type="number" step="0.01" min="0" wire:model="customRows.{{ $i }}.penalty_per_day" class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-400">
@@ -297,6 +312,7 @@
                                 </tbody>
                             </table>
                         </div>
+                        <p class="mt-1.5 text-xs text-gray-400">Type a % into any row to fix it — the remaining rows split what is left of the 100% on their own.</p>
                         <button type="button" wire:click="addCustomRow"
                             class="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
@@ -359,9 +375,19 @@
                     </h2>
                     <p class="text-xs text-gray-500 mt-0.5">{{ ucfirst($viewingCycle->fee_type) }} · {{ $viewingCycle->academic_year }}</p>
                 </div>
-                <button wire:click="closeCycleView" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
+                {{-- Edit / Delete for this row live here, not in the listing --}}
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                    <button wire:click="editViewingCycle" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200" title="Edit">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                    </button>
+                    <button wire:click="deleteViewingCycle" class="p-1.5 rounded-md border border-red-200 text-red-500 hover:bg-red-50" title="Delete">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                    <span class="w-px h-5 bg-gray-200 mx-0.5"></span>
+                    <button wire:click="closeCycleView" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100" title="Close">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
             </div>
             <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
                 @foreach ([

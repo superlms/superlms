@@ -2,6 +2,8 @@
      FEE CYCLE — tabs + filter row, meant to be @included directly inside
      the host's own sticky header (Accounts\FeeCycles's whole header, or
      Admin\Fee's shared header under the 'cycle' tab) — attendance-style.
+     The counts + "Add Fee Cycle" button sit in the host's header row
+     instead — see fee-cycle-actions.blade.php.
      Shared by both hosts via App\Livewire\Concerns\HandlesFeeCycles, so
      editing this one file keeps both pages in sync.
 ══════════════════════════════════════════════════════════════════ --}}
@@ -14,24 +16,7 @@
     </div>
 </div>
 
-@if ($cycleTab === 'cycle')
-    <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3 flex flex-wrap items-center gap-2">
-        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-xs font-medium text-gray-600">
-            Total <strong class="text-gray-900">{{ $totalCycles }}</strong>
-        </span>
-        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-xs font-medium text-gray-600">
-            Academic <strong class="text-gray-900">{{ $academicCycles }}</strong>
-        </span>
-        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-xs font-medium text-gray-600">
-            Transport <strong class="text-gray-900">{{ $transportCycles }}</strong>
-        </span>
-        <button wire:click="openCycleModal()"
-            class="inline-flex items-center gap-1.5 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold rounded-lg shadow-sm ml-auto">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-            Add Fee Cycle
-        </button>
-    </div>
-@else
+@if ($cycleTab === 'calculator')
     {{-- Calculator's own filter band — class, section, installment --}}
     <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3 flex flex-wrap items-center gap-3">
         <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">

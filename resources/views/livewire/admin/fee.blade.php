@@ -81,6 +81,8 @@
                             <span class="hidden sm:inline">Update Fee</span>
                             <span class="sm:hidden">Update</span>
                         </button>
+                    @elseif ($activeTab === 'cycle')
+                        @include('livewire.partials.fee-cycle-actions')
                     @elseif ($activeTab === 'concession')
                         <button wire:click="openConcessionModal()"
                             class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
