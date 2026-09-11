@@ -171,7 +171,10 @@ trait HandlesFeeSubmission
             return;
         }
         $this->submitAmount      = '';
-        $this->submitFeeType     = 'academic';
+        // Default to whichever type actually has something due, so the form
+        // doesn't open on a disabled option.
+        $caps = $this->feeTypeCaps();
+        $this->submitFeeType     = $caps['academic'] > 0 ? 'academic' : ($caps['transport'] > 0 ? 'transport' : ($caps['penalty'] > 0 ? 'penalty' : 'academic'));
         $this->submitPaymentMode = 'cash';
         $this->submitDate        = today()->toDateString();
         $this->submitRemark      = '';
@@ -195,6 +198,27 @@ trait HandlesFeeSubmission
             'submitDate'        => 'required|date',
             'submittedBy'       => 'required|string|max:255',
         ]);
+
+        // Can't collect more than what's actually due — the remaining
+        // academic/transport balance for the year, or the total penalty
+        // currently accrued (net of any waiver/payment already applied).
+        $cap = $this->submitFeeTypeCap();
+        if ($cap <= 0) {
+            $this->notification()->error(
+                $this->submitFeeType === 'penalty' ? 'No penalty due' : 'Nothing due',
+                $this->submitFeeType === 'penalty'
+                    ? 'This student has no penalty currently due — there is nothing to submit.'
+                    : ucfirst($this->submitFeeType) . ' fee for this student is already fully paid for the year.'
+            );
+            return;
+        }
+        if ((float) $this->submitAmount > $cap + 0.01) {
+            $this->notification()->error(
+                'Amount too high',
+                'Only up to ₹' . number_format($cap, 2) . ' can be submitted — that is what is currently due for ' . $this->submitFeeType . '.'
+            );
+            return;
+        }
 
         try {
             $student = StudentDetail::find($this->selectedStudentId);
@@ -222,6 +246,29 @@ trait HandlesFeeSubmission
         } catch (\Exception $e) {
             $this->notification()->error('Error submitting fee', $e->getMessage());
         }
+    }
+
+    /** How much can currently be submitted for the selected fee type. */
+    private function submitFeeTypeCap(): float
+    {
+        return $this->feeTypeCaps()[$this->submitFeeType] ?? 0.0;
+    }
+
+    /**
+     * Per fee type, how much can currently be submitted — the remaining
+     * academic/transport balance for the year, or the total penalty still
+     * due (net of any waiver/payment). Both read straight off
+     * $submissionLedger so they match what's on screen, and the Collect Fee
+     * panel uses this to grey out Penalties when nothing is due and to hint
+     * the cap under the Amount field.
+     */
+    protected function feeTypeCaps(): array
+    {
+        return [
+            'academic'  => round((float) ($this->submissionLedger['academic']['remaining'] ?? 0), 2),
+            'transport' => round((float) ($this->submissionLedger['transport']['remaining'] ?? 0), 2),
+            'penalty'   => round(collect($this->submissionLedger['cycles'] ?? [])->sum('penalty_net'), 2),
+        ];
     }
 
     /**
@@ -262,9 +309,10 @@ trait HandlesFeeSubmission
             : collect();
 
         return [
-            'fsStandards' => $fsStandards,
-            'fsSections'  => $fsSections,
-            'fsStudents'  => $fsStudents,
+            'fsStandards'  => $fsStandards,
+            'fsSections'   => $fsSections,
+            'fsStudents'   => $fsStudents,
+            'feeTypeCaps'  => $this->feeTypeCaps(),
         ];
     }
 }
