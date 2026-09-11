@@ -69,7 +69,15 @@ class FeeCycleBreakdown
                         ? 'paid'
                         : ($covered > 0 ? 'partial' : 'pending'));
 
-                $due     = $c->due_date;
+                $due = $c->due_date;
+
+                // "Apr–Jun (26)" — the installment's own billing period, short
+                // month names with the start year's last two digits, rather
+                // than just the month its due date happens to fall in.
+                $periodLabel = ($c->start_date && $c->end_date)
+                    ? $c->start_date->format('M') . '–' . $c->end_date->format('M') . ' (' . $c->start_date->format('y') . ')'
+                    : null;
+
                 $overdue = $due && $status !== 'paid' && $due->isPast();
 
                 // Penalty accrued so far on what is still outstanding — days
@@ -84,7 +92,7 @@ class FeeCycleBreakdown
                     'serial'          => (int) $c->payment_serial,
                     'label'           => $c->is_token
                         ? 'Token Fee'
-                        : ($due ? $due->format('M Y') : ('Installment ' . $c->payment_serial)),
+                        : ($periodLabel ?? ($due ? $due->format('M Y') : ('Installment ' . $c->payment_serial))),
                     'due_date'        => $due ? $due->format('d M Y') : null,
                     'start_date'      => $c->start_date ? $c->start_date->format('d M Y') : null,
                     'end_date'        => $c->end_date ? $c->end_date->format('d M Y') : null,

@@ -8,7 +8,6 @@ use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Admin\Transportation;
 use App\Models\Admin\TransportFeePayment;
-use App\Models\User;
 use App\Support\FeeCycleBreakdown;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -82,7 +81,11 @@ class FeeReceiptController extends Controller
             'cycles'      => FeeCycleBreakdown::build($orgId, $paid, $totals),
             'overall'     => $overall,
             'concessions' => $concessions,
-            'collectedBy' => User::find($payment->submitted_by)->name ?? '—',
+            // fee_payments.submitted_by is the collector's name itself (see
+            // Admin\Fee and Accounts\FeeSubmission), not a user id — it was
+            // never a valid User::find() lookup, which is why this always
+            // rendered as a dash.
+            'collectedBy' => $payment->submitted_by ?: '—',
         ]);
     }
 

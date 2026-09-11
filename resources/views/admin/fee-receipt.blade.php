@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fee Receipt — {{ $payment->receipt_number }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         /* A5 portrait, the size a receipt actually is. Minimal by design:
            thin rules, no fills, no colour beyond the ink. */
@@ -19,15 +20,10 @@
         .num { text-align: right; }
         table { width: 100%; border-collapse: collapse; }
 
-        /* Doc tag — receipt kind, number, date — a thin line above the masthead */
-        .doctag { text-align: right; font-size: 7.5px; color: #6b7280; letter-spacing: .3px; }
-        .doctag .kind { text-transform: uppercase; letter-spacing: 1.4px; }
-        .doctag .no { font-weight: bold; color: #111827; margin: 0 3px; }
-
         /* Masthead — logo first, then name, then address, then contacts, all centred */
-        .masthead { text-align: center; border-bottom: 1px solid #111827; padding-bottom: 7px; margin-top: 2px; }
-        .masthead .logo { height: 28px; width: auto; margin-bottom: 4px; }
-        .masthead .school { font-size: 13px; font-weight: bold; letter-spacing: .3px; text-transform: uppercase; }
+        .masthead { text-align: center; border-bottom: 1px solid #111827; padding-bottom: 7px; }
+        .masthead .logo { height: 34px; width: auto; margin-bottom: 4px; }
+        .masthead .school { font-family: 'Poppins', Arial, sans-serif; font-weight: 600; font-size: 14px; letter-spacing: .3px; text-transform: uppercase; }
         .masthead .addr { font-size: 7.5px; color: #6b7280; margin-top: 2px; }
         .masthead .contact { font-size: 7.5px; color: #6b7280; margin-top: 1px; }
 
@@ -35,31 +31,29 @@
         .sec { font-size: 7.5px; letter-spacing: 1.2px; text-transform: uppercase; color: #9ca3af;
                margin: 10px 0 3px; padding-bottom: 2px; border-bottom: 1px solid #e5e7eb; }
 
-        /* Key/value pairs, two to a row */
+        /* Key/value pairs, two to a row — full-strength labels, semibold data */
         table.kv td { padding: 1.6px 0; vertical-align: top; font-size: 9px; }
-        table.kv td.k { color: #9ca3af; width: 22mm; }
-        table.kv td.v { font-weight: bold; padding-right: 6mm; }
+        table.kv td.k { color: #4b5563; width: 22mm; }
+        table.kv td.v { font-weight: 600; color: #111827; padding-right: 6mm; }
 
         /* This Payment — a slim meta strip: date, time, status, mode, collected by */
         .payinfo { display: flex; border: 1px solid #e5e7eb; border-radius: 3px; margin-top: 3px; overflow: hidden; }
         .payinfo .cell { flex: 1 1 0; min-width: 0; padding: 5px 6px; border-right: 1px solid #e5e7eb; }
         .payinfo .cell:last-child { border-right: 0; }
         .payinfo .lbl { font-size: 6.3px; letter-spacing: .8px; text-transform: uppercase; color: #9ca3af; white-space: nowrap; }
-        .payinfo .val { font-size: 9px; font-weight: bold; margin-top: 1.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .payinfo .val { font-size: 9px; font-weight: 600; margin-top: 1.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .payinfo .val.status-late { color: #b45309; }
         .payinfo .val.status-ontime { color: #0a8a4a; }
         .remark-line { font-size: 8px; color: #6b7280; margin-top: 5px; }
 
-        /* Particulars — sl. no / particulars / amount, then grand total */
-        table.part { margin-top: 6px; table-layout: fixed; }
-        table.part col.c-sl { width: 8%; }
-        table.part col.c-particulars { width: 62%; }
-        table.part col.c-amount { width: 30%; }
-        table.part th { font-size: 7px; letter-spacing: .4px; text-transform: uppercase; color: #9ca3af;
-                        font-weight: normal; text-align: left; padding: 3px 0; border-bottom: 1px solid #111827; }
-        table.part td { padding: 3.5px 0; font-size: 9.5px; border-bottom: 1px solid #f3f4f6; }
-        table.part td.sl { color: #9ca3af; }
-        table.part tr.grand td { border-top: 1px solid #111827; border-bottom: 0; font-weight: bold; font-size: 11px; padding-top: 5px; }
+        /* Amount for this payment — one minimalistic row, no table */
+        .payamt { display: flex; align-items: baseline; flex-wrap: wrap; gap: 7px;
+                  border: 1px solid #111827; border-radius: 3px; padding: 7px 9px; margin-top: 5px; }
+        .payamt .chip { font-size: 8px; color: #6b7280; white-space: nowrap; }
+        .payamt .chip b { color: #111827; font-weight: 600; }
+        .payamt .chip.plus b, .payamt .chip.plus { color: #b45309; }
+        .payamt .eq { color: #9ca3af; font-size: 11px; }
+        .payamt .grand { margin-left: auto; font-size: 17px; font-weight: bold; white-space: nowrap; }
         .words { font-size: 8px; color: #6b7280; margin-top: 4px; font-style: italic; }
 
         /* Data tables — fixed layout so every row's columns line up exactly */
@@ -71,27 +65,12 @@
         table.dt th { font-size: 7px; letter-spacing: .4px; text-transform: uppercase; color: #9ca3af;
                       font-weight: normal; text-align: left; padding: 3px 0; border-bottom: 1px solid #e5e7eb; }
         table.dt th.num { text-align: right; }
-        table.dt td { padding: 3px 0; font-size: 8.5px; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
-        table.dt td.sl { color: #cbd0d8; font-size: 8px; white-space: nowrap; }
-        table.dt td.num { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        table.dt td { padding: 3px 0; font-size: 8.5px; border-bottom: 1px solid #f3f4f6; vertical-align: top;
+                      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        table.dt td.sl { color: #cbd0d8; font-size: 8px; }
         table.dt tr.sum td { border-top: 1px solid #111827; border-bottom: 0; font-weight: bold; padding-top: 4px; }
         .muted { color: #9ca3af; }
-        .period-range { display: block; font-size: 6.8px; color: #9ca3af; margin-top: 1px; font-weight: normal; }
         .penalty-flag { color: #b45309; }
-
-        /* Penalties section — which installments carry an overdue penalty */
-        table.pen { table-layout: fixed; }
-        table.pen col.c-type { width: 16%; }
-        table.pen col.c-inst { width: 26%; }
-        table.pen col.c-due { width: 18%; }
-        table.pen col.c-num { width: 13.33%; }
-        table.pen th { font-size: 7px; letter-spacing: .4px; text-transform: uppercase; color: #9ca3af;
-                       font-weight: normal; text-align: left; padding: 3px 0; border-bottom: 1px solid #e5e7eb; }
-        table.pen th.num { text-align: right; }
-        table.pen td { padding: 3px 0; font-size: 8.5px; border-bottom: 1px solid #f3f4f6;
-                       overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        table.pen tr.sum td { border-top: 1px solid #111827; border-bottom: 0; font-weight: bold; padding-top: 4px; color: #b45309; }
-        .no-penalty { font-size: 8.5px; color: #9ca3af; padding: 2px 0 4px; }
 
         /* Overall standing */
         table.tot td { padding: 2.6px 0; font-size: 9px; }
@@ -103,6 +82,7 @@
         .foot .sign { text-align: center; }
         .foot .sign .line { width: 34mm; border-top: 1px solid #111827; margin-bottom: 3px; }
         .foot .sign .role { font-size: 8px; }
+        .foot-num { text-align: center; font-size: 7px; letter-spacing: .4px; color: #9ca3af; margin-top: 10px; }
 
         .toolbar { text-align: center; margin: 14px 0 24px; }
         .toolbar button { padding: 7px 18px; background: #111827; color: #fff; border: 0; border-radius: 5px;
@@ -117,13 +97,6 @@
 </head>
 <body>
 <div class="sheet">
-
-    {{-- ══════════ DOC TAG ══════════ --}}
-    <div class="doctag">
-        <span class="kind">Fee Receipt</span>
-        <span class="no">{{ $payment->receipt_number }}</span>
-        · {{ optional($payment->payment_date)->format('d M Y') }}
-    </div>
 
     {{-- ══════════ MASTHEAD — logo, then name, then address, then contacts ══════════ --}}
     <div class="masthead">
@@ -168,7 +141,7 @@
             <td class="v" colspan="3">
                 {{ optional($payment->created_at)->format('d M Y') ?? '—' }}
                 @if ($payment->created_at)
-                    <span class="muted" style="font-weight:normal;">· {{ $payment->created_at->format('h:i A') }}</span>
+                    <span style="font-weight:normal; color:#6b7280;">· {{ $payment->created_at->format('h:i A') }}</span>
                 @endif
             </td>
         </tr>
@@ -206,43 +179,17 @@
         <div class="remark-line"><strong>Remark —</strong> {{ $payment->remark }}</div>
     @endif
 
-    <table class="part">
-        <colgroup>
-            <col class="c-sl"><col class="c-particulars"><col class="c-amount">
-        </colgroup>
-        <thead>
-            <tr>
-                <th>Sl.</th>
-                <th>Particulars</th>
-                <th class="num">Amount</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td class="sl">1</td>
-                <td>{{ ucfirst($payment->fee_type) }} Fee</td>
-                <td class="num">{{ number_format($base, 2) }}</td>
-            </tr>
-            @if ((float) $payment->penalty_amount > 0)
-                <tr>
-                    <td class="sl">2</td>
-                    <td class="penalty-flag">Penalty</td>
-                    <td class="num penalty-flag">{{ number_format((float) $payment->penalty_amount, 2) }}</td>
-                </tr>
-            @endif
-            @if ((float) $payment->waiver_amount > 0)
-                <tr>
-                    <td class="sl">{{ (float) $payment->penalty_amount > 0 ? 3 : 2 }}</td>
-                    <td>Less: Waiver</td>
-                    <td class="num">− {{ number_format((float) $payment->waiver_amount, 2) }}</td>
-                </tr>
-            @endif
-            <tr class="grand">
-                <td colspan="2">Grand Total</td>
-                <td class="num">₹{{ number_format((float) $payment->amount, 2) }}</td>
-            </tr>
-        </tbody>
-    </table>
+    <div class="payamt">
+        <span class="chip">{{ ucfirst($payment->fee_type) }} Fee <b>₹{{ number_format($base, 2) }}</b></span>
+        @if ((float) $payment->penalty_amount > 0)
+            <span class="chip plus">+ Penalty <b>₹{{ number_format((float) $payment->penalty_amount, 2) }}</b></span>
+        @endif
+        @if ((float) $payment->waiver_amount > 0)
+            <span class="chip">− Waiver <b>₹{{ number_format((float) $payment->waiver_amount, 2) }}</b></span>
+        @endif
+        <span class="eq">=</span>
+        <span class="grand">₹{{ number_format((float) $payment->amount, 2) }}</span>
+    </div>
     <p class="words">Amount in Words: {{ \App\Support\NumberToWords::rupees((float) $payment->amount) }}</p>
 
     {{-- ══════════ FEE CYCLE ══════════ --}}
@@ -270,12 +217,7 @@
                 @foreach ($cycle['installments'] as $i => $inst)
                     <tr>
                         <td class="sl">{{ $i + 1 }}</td>
-                        <td>
-                            {{ $inst['label'] }}
-                            @if ($inst['start_date'] && $inst['end_date'])
-                                <span class="period-range">{{ $inst['start_date'] }} – {{ $inst['end_date'] }}</span>
-                            @endif
-                        </td>
+                        <td>{{ $inst['label'] }}</td>
                         <td class="{{ $inst['overdue'] ? '' : 'muted' }}">{{ $inst['due_date'] ?? '—' }}</td>
                         <td class="num">{{ number_format($inst['amount'], 2) }}</td>
                         <td class="num {{ $inst['paid'] > 0 ? '' : 'muted' }}">{{ number_format($inst['paid'], 2) }}</td>
@@ -299,53 +241,8 @@
         <p class="muted" style="font-size:8.5px;">No fee cycle defined for this year — the fee is collected in full.</p>
     @endforelse
 
-    {{-- ══════════ PENALTIES — which installments are late, and by how much ══════════ --}}
-    @php
-        $penaltyRows = collect($cycles)->flatMap(function ($cycle) {
-            return collect($cycle['installments'])
-                ->filter(fn ($inst) => $inst['penalty'] > 0)
-                ->map(fn ($inst) => $inst + ['fee_type' => $cycle['fee_type']]);
-        });
-    @endphp
-    <div class="sec">Penalties</div>
-    @if ($penaltyRows->isEmpty())
-        <p class="no-penalty">No penalties currently due — every installment is either paid or within its due date.</p>
-    @else
-        <table class="pen">
-            <colgroup>
-                <col class="c-type"><col class="c-inst"><col class="c-due">
-                <col class="c-num"><col class="c-num"><col class="c-num">
-            </colgroup>
-            <thead>
-                <tr>
-                    <th>Fee Cycle</th>
-                    <th>Installment</th>
-                    <th>Due Date</th>
-                    <th class="num">Days Late</th>
-                    <th class="num">Rate / Day</th>
-                    <th class="num">Penalty</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach ($penaltyRows as $row)
-                    <tr>
-                        <td class="muted">{{ ucfirst($row['fee_type']) }}</td>
-                        <td>{{ $row['label'] }}</td>
-                        <td>{{ $row['due_date'] ?? '—' }}</td>
-                        <td class="num">{{ $row['days_late'] }}</td>
-                        <td class="num">{{ number_format($row['penalty_per_day'], 2) }}</td>
-                        <td class="num penalty-flag">{{ number_format($row['penalty'], 2) }}</td>
-                    </tr>
-                @endforeach
-                <tr class="sum">
-                    <td colspan="5">Total penalty outstanding</td>
-                    <td class="num">{{ number_format($penaltyRows->sum('penalty'), 2) }}</td>
-                </tr>
-            </tbody>
-        </table>
-    @endif
-
     {{-- ══════════ OVERALL ══════════ --}}
+    @php $totalPenalty = collect($cycles)->sum('penalty_total'); @endphp
     <div class="sec">Overall</div>
     <table class="tot">
         <tr>
@@ -371,6 +268,13 @@
                 </td>
             </tr>
         @endif
+        @if ($totalPenalty > 0)
+            <tr>
+                <td>Penalty <span class="muted">(overdue installments)</span></td>
+                <td class="num penalty-flag">{{ number_format($totalPenalty, 2) }}</td>
+                <td class="num muted">accrued to date</td>
+            </tr>
+        @endif
         <tr class="grand">
             <td>Total payable</td>
             <td class="num">{{ number_format($overall['total'], 2) }}</td>
@@ -389,6 +293,7 @@
             <div class="role">Authorised Signatory</div>
         </div>
     </div>
+    <div class="foot-num">Receipt No. {{ $payment->receipt_number }}</div>
 </div>
 
 <div class="toolbar"><button onclick="window.print()">Print / Save as PDF</button></div>
