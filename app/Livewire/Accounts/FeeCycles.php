@@ -34,6 +34,13 @@ class FeeCycles extends Component
     public string $cycleMode = '';
     public $cycleMonthlyDueDay = 10;    // day-of-month each monthly installment is due
 
+    // A one-time up-front charge (e.g. admission/registration) with its own due
+    // date, collected before the % installments split up whatever is left of
+    // the fee. Optional — leave the amount blank to skip it.
+    public $tokenFeeAmount     = '';
+    public $tokenDueDate       = '';
+    public $tokenPenaltyPerDay = '0';
+
     // Installment calculator (per-class breakdown)
     public $calcStandardId = '';
     public $calcSectionId  = '';
@@ -64,6 +71,13 @@ class FeeCycles extends Component
         if ($id) {
             $c = FeeCycle::forOrg($this->orgId())->find($id);
             if (!$c) return;
+            // The token fee isn't an installment — it's edited by reopening
+            // this same panel and adjusting the Token Fee section, not through
+            // the per-row Edit button.
+            if ($c->is_token) {
+                $this->cycleModalOpen = false;
+                return;
+            }
             // Editing an existing installment is always a single-row (custom) edit.
             $this->cycleMode          = 'custom';
             $this->cycleFeeType       = $c->fee_type;
@@ -73,14 +87,58 @@ class FeeCycles extends Component
             $this->cycleFeePercent    = $c->fee_percent;
             $this->cycleYear          = $c->academic_year;
         }
+        $this->loadTokenForCurrentCycle();
         $this->cycleModalOpen = true;
     }
 
-    /** Pick how the cycle is built (monthly | quarterly | custom) from the chooser. */
-    public function setCycleMode(string $mode): void
+    /** Dropdown picks monthly | quarterly | custom — re-validate clean each time it changes. */
+    public function updatedCycleMode(): void { $this->resetValidation(); }
+
+    public function updatedCycleFeeType(): void { $this->loadTokenForCurrentCycle(); }
+    public function updatedCycleYear(): void    { $this->loadTokenForCurrentCycle(); }
+
+    /** Prefills the token-fee fields from whatever token row already exists for this fee type + year. */
+    private function loadTokenForCurrentCycle(): void
     {
-        $this->cycleMode = in_array($mode, ['monthly', 'quarterly', 'custom'], true) ? $mode : '';
-        $this->resetValidation();
+        $token = FeeCycle::forOrg($this->orgId())
+            ->where('fee_type', $this->cycleFeeType ?: 'academic')
+            ->where('academic_year', $this->cycleYear ?: '')
+            ->where('is_token', true)
+            ->first();
+
+        $this->tokenFeeAmount     = $token ? (string) $token->amount : '';
+        $this->tokenDueDate       = $token ? optional($token->due_date)->toDateString() : '';
+        $this->tokenPenaltyPerDay = $token ? (string) $token->penalty_per_day : '0';
+    }
+
+    /** Create/update the one-time token fee for the current fee type + year. No-op if no amount was set. */
+    private function upsertTokenFee(): void
+    {
+        $amount = (float) ($this->tokenFeeAmount ?: 0);
+        if ($amount <= 0) {
+            return;
+        }
+        if (!$this->tokenDueDate) {
+            $this->notification()->error('Set a due date for the token fee, or leave its amount blank.');
+            return;
+        }
+
+        FeeCycle::updateOrCreate(
+            [
+                'organization_id' => $this->orgId(),
+                'fee_type'        => $this->cycleFeeType,
+                'academic_year'   => $this->cycleYear,
+                'is_token'        => true,
+            ],
+            [
+                'payment_serial'  => 0,
+                'due_date'        => $this->tokenDueDate,
+                'penalty_per_day' => $this->tokenPenaltyPerDay ?: 0,
+                'fee_percent'     => 0,
+                'amount'          => $amount,
+                'is_active'       => true,
+            ]
+        );
     }
 
     public function closeCycleModal(): void
@@ -101,6 +159,9 @@ class FeeCycles extends Component
         $this->cyclePenaltyPerDay = '0';
         $this->cycleMonthlyDueDay = 10;
         $this->cycleYear          = '2026-27';
+        $this->tokenFeeAmount     = '';
+        $this->tokenDueDate       = '';
+        $this->tokenPenaltyPerDay = '0';
         $this->resetValidation();
     }
 
@@ -154,6 +215,7 @@ class FeeCycles extends Component
             $this->notification()->success('Installment added!');
         }
 
+        $this->upsertTokenFee();
         $this->closeCycleModal();
     }
 
@@ -198,6 +260,7 @@ class FeeCycles extends Component
             }
         });
 
+        $this->upsertTokenFee();
         $this->notification()->success('12 monthly installments created!');
         $this->closeCycleModal();
     }
@@ -244,6 +307,7 @@ class FeeCycles extends Component
             }
         });
 
+        $this->upsertTokenFee();
         $this->notification()->success('4 quarterly installments created!');
         $this->closeCycleModal();
     }
@@ -277,6 +341,7 @@ class FeeCycles extends Component
 
         $cycles = FeeCycle::forOrg($orgId)
             ->orderBy('fee_type')
+            ->orderByDesc('is_token')
             ->orderBy('payment_serial')
             ->get();
 
@@ -318,21 +383,48 @@ class FeeCycles extends Component
 
             $acadCycles = FeeCycle::forOrg($orgId)->active()
                 ->where('fee_type', 'academic')
-                ->orderBy('payment_serial')->get();
+                ->get();
+
+            // The token fee (if any) comes off the top; the % installments
+            // then split whatever of the class fee is left over.
+            $tokenCycle    = $acadCycles->firstWhere('is_token', true);
+            $tokenAmount   = (float) ($tokenCycle->amount ?? 0);
+            $remainingBase = max(0, $calcTotalFee - $tokenAmount);
+
+            // One combined, due-date-ordered list — the token due first, then
+            // each installment — so real payments allocate to whichever is
+            // actually due soonest, not just by installment number.
+            $defs = [];
+            if ($tokenCycle) {
+                $defs[] = [
+                    'serial'      => 'Token',
+                    'percent'     => null,
+                    'due_date'    => $tokenCycle->due_date,
+                    'per_student' => $tokenAmount,
+                ];
+            }
+            foreach ($acadCycles->where('is_token', false)->sortBy('payment_serial') as $cy) {
+                $pct = (float) $cy->fee_percent;
+                $defs[] = [
+                    'serial'      => '#' . $cy->payment_serial,
+                    'percent'     => $pct,
+                    'due_date'    => $cy->due_date,
+                    'per_student' => round($remainingBase * $pct / 100, 2),
+                ];
+            }
+            usort($defs, fn ($a, $b) => strcmp((string) $a['due_date'], (string) $b['due_date']));
 
             $allocated = 0.0;
-            foreach ($acadCycles as $cy) {
-                $pct        = (float) $cy->fee_percent;
-                $perStudent = round($calcTotalFee * $pct / 100, 2);
-                $classTotal = round($perStudent * $calcStudentCount, 2);
+            foreach ($defs as $d) {
+                $classTotal = round($d['per_student'] * $calcStudentCount, 2);
                 $collected  = min($classTotal, max(0, $realCollected - $allocated));
                 $allocated += $collected;
 
                 $calcRows[] = [
-                    'serial'      => (int) $cy->payment_serial,
-                    'percent'     => $pct,
-                    'due_date'    => optional($cy->due_date)->format('d M Y'),
-                    'amount'      => $perStudent,
+                    'serial'      => $d['serial'],
+                    'percent'     => $d['percent'],
+                    'due_date'    => optional($d['due_date'])->format('d M Y'),
+                    'amount'      => $d['per_student'],
                     'class_total' => $classTotal,
                     'collected'   => round($collected, 2),
                     'remaining'   => round(max(0, $classTotal - $collected), 2),

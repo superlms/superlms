@@ -18,6 +18,7 @@ class FeeCycle extends Model
         'penalty_per_day',
         'fee_percent',
         'amount',
+        'is_token',
         'academic_year',
         'is_active',
     ];
@@ -29,6 +30,7 @@ class FeeCycle extends Model
         'penalty_per_day' => 'decimal:2',
         'fee_percent'     => 'decimal:2',
         'amount'          => 'decimal:2',
+        'is_token'        => 'boolean',
         'is_active'       => 'boolean',
     ];
 

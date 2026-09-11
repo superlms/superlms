@@ -1,17 +1,11 @@
 <div class="min-h-screen bg-gray-50">
     <style>[x-cloak]{display:none !important;}</style>
 
-    {{-- ══════════ STICKY HEADER — title + tabs + stats/Add ══════════ --}}
-    <div class="bg-white border-b border-gray-200 sticky top-0 z-30 px-4 sm:px-6 py-3">
-        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <div class="flex items-center gap-3">
+    {{-- ══════════ STICKY HEADER — title + main tabs (Attendance-style) ══════════ --}}
+    <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
+        <div class="px-4 sm:px-6 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div>
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Fee Cycle</h1>
-                <div class="inline-flex rounded-md border border-gray-200 bg-white p-0.5">
-                    @foreach (['cycle' => 'Fee Cycle', 'calculator' => 'Calculator'] as $tab => $label)
-                        <button wire:click="switchTab('{{ $tab }}')"
-                            class="px-3 py-1 text-xs font-semibold rounded transition-colors {{ $activeTab === $tab ? 'bg-emerald-600 text-white' : 'text-gray-600 hover:bg-gray-50' }}">{{ $label }}</button>
-                    @endforeach
-                </div>
             </div>
             @if ($activeTab === 'cycle')
                 <div class="flex flex-wrap items-center gap-2">
@@ -33,9 +27,19 @@
             @endif
         </div>
 
+        {{-- Tabs --}}
+        <div class="border-t border-gray-200 px-4 sm:px-6">
+            <div class="flex gap-1">
+                @foreach (['cycle' => 'Fee Cycle', 'calculator' => 'Calculator'] as $tab => $label)
+                    <button wire:click="switchTab('{{ $tab }}')"
+                        class="px-4 py-3 text-sm font-medium border-b-2 transition-colors {{ $activeTab === $tab ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">{{ $label }}</button>
+                @endforeach
+            </div>
+        </div>
+
         {{-- Calculator's own filter band — right under the header, same idiom as the Students list --}}
         @if ($activeTab === 'calculator')
-            <div class="border-t border-gray-200 bg-gray-50 -mx-4 sm:-mx-6 mt-3 px-4 sm:px-6 py-3">
+            <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
                 <div class="flex flex-wrap items-center gap-3">
                     <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
                         <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
@@ -55,7 +59,7 @@
                     </select>
                     <select wire:model.live="calcSerial" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                         <option value="">All installments</option>
-                        @foreach ($cycles->where('fee_type', 'academic') as $cy)
+                        @foreach ($cycles->where('fee_type', 'academic')->where('is_token', false) as $cy)
                             <option value="{{ $cy->payment_serial }}">Installment {{ $cy->payment_serial }}</option>
                         @endforeach
                     </select>
@@ -80,6 +84,7 @@
                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Fee Type</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Due Date</th>
                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Fee %</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Penalty/Day</th>
                         <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Year</th>
                         <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-28">Actions</th>
@@ -88,17 +93,22 @@
                 <tbody class="divide-y divide-gray-100">
                     @forelse ($cycles as $cy)
                         <tr wire:key="cycle-{{ $cy->id }}" class="hover:bg-gray-50">
-                            <td class="px-4 py-3 font-semibold text-gray-800">#{{ $cy->payment_serial }}</td>
+                            <td class="px-4 py-3 font-semibold text-gray-800">
+                                {{ $cy->is_token ? 'Token' : '#' . $cy->payment_serial }}
+                            </td>
                             <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-[11px] {{ $cy->fee_type === 'academic' ? 'bg-emerald-100 text-emerald-700' : 'bg-teal-100 text-teal-700' }} capitalize">{{ $cy->fee_type }}</span></td>
                             <td class="px-4 py-3 text-gray-600">{{ optional($cy->due_date)->format('d M Y') ?? '—' }}</td>
-                            <td class="px-4 py-3 text-right font-semibold text-gray-800">{{ rtrim(rtrim(number_format($cy->fee_percent, 2), '0'), '.') }}%</td>
+                            <td class="px-4 py-3 text-right font-semibold text-gray-800">{{ $cy->is_token ? '—' : rtrim(rtrim(number_format($cy->fee_percent, 2), '0'), '.') . '%' }}</td>
+                            <td class="px-4 py-3 text-right text-gray-600">{{ $cy->is_token ? '₹' . number_format($cy->amount, 2) : '—' }}</td>
                             <td class="px-4 py-3 text-right text-gray-600">₹{{ number_format($cy->penalty_per_day, 2) }}</td>
                             <td class="px-4 py-3 text-center text-gray-500">{{ $cy->academic_year }}</td>
                             <td class="px-4 py-3">
                                 <div class="flex items-center justify-center gap-1.5">
-                                    <button wire:click="openCycleModal({{ $cy->id }})" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-amber-50 hover:text-amber-600" title="Edit">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                    </button>
+                                    @unless ($cy->is_token)
+                                        <button wire:click="openCycleModal({{ $cy->id }})" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-amber-50 hover:text-amber-600" title="Edit">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                        </button>
+                                    @endunless
                                     <button wire:click="deleteCycle({{ $cy->id }})" class="p-1.5 rounded-md border border-red-200 text-red-500 hover:bg-red-50" title="Delete">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                     </button>
@@ -107,7 +117,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-4 py-16 text-center">
+                            <td colspan="8" class="px-4 py-16 text-center">
                                 <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
                                     <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                                 </div>
@@ -151,11 +161,11 @@
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @foreach ($calcRows as $row)
-                                @if ($calcSerial === '' || (int) $calcSerial === $row['serial'])
+                                @if ($calcSerial === '' || '#' . $calcSerial === $row['serial'])
                                     <tr class="hover:bg-gray-50/70">
-                                        <td class="px-4 py-3 font-semibold text-gray-800">#{{ $row['serial'] }}</td>
+                                        <td class="px-4 py-3 font-semibold text-gray-800">{{ $row['serial'] }}</td>
                                         <td class="px-4 py-3 text-gray-600">{{ $row['due_date'] ?? '—' }}</td>
-                                        <td class="px-4 py-3 text-right text-gray-700">{{ rtrim(rtrim(number_format($row['percent'], 2), '0'), '.') }}%</td>
+                                        <td class="px-4 py-3 text-right text-gray-700">{{ $row['percent'] === null ? '—' : rtrim(rtrim(number_format($row['percent'], 2), '0'), '.') . '%' }}</td>
                                         <td class="px-4 py-3 text-right font-semibold text-emerald-700">₹{{ number_format($row['amount'], 2) }}</td>
                                         <td class="px-4 py-3 text-right text-gray-800">₹{{ number_format($row['class_total'], 2) }}</td>
                                         <td class="px-4 py-3 text-right text-gray-600">₹{{ number_format($row['collected'], 2) }}</td>
@@ -184,22 +194,15 @@
                                 : ($cycleMode === 'quarterly' ? 'Quarterly Fee Cycle' : 'Custom Installment')));
                 @endphp
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                    <div class="flex items-center gap-2 min-w-0">
-                        @if (!$editCycleId && $cycleMode !== '')
-                            <button wire:click="setCycleMode('')" title="Back" class="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                            </button>
-                        @endif
-                        <div class="min-w-0">
-                            <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $cycleTitle }}</h2>
-                            <p class="text-xs text-gray-500 mt-0.5">
-                                @if (!$editCycleId && $cycleMode === '')
-                                    Choose how you want to build the fee cycle
-                                @else
-                                    The rupee amount is computed per class from its own fee
-                                @endif
-                            </p>
-                        </div>
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $cycleTitle }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">
+                            @if (!$editCycleId && $cycleMode === '')
+                                Choose how you want to build the fee cycle
+                            @else
+                                The rupee amount is computed per class from its own fee
+                            @endif
+                        </p>
                     </div>
                     <button wire:click="closeCycleModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -207,33 +210,23 @@
                 </div>
                 <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
 
-                    {{-- ── STEP 1: how to add (add mode only) ── --}}
-                    @if (!$editCycleId && $cycleMode === '')
-                        @php
-                            $cycleModes = [
-                                ['monthly',   'Monthly',   'Split the full fee into 12 equal installments, one due each month.', 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'],
-                                ['quarterly', 'Quarterly', 'Split the full fee into 4 equal parts (Apr–Jun, Jul–Sep, Oct–Dec, Jan–Mar).', 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'],
-                                ['custom',    'Custom',    'Add a single installment yourself with its own % and due date.', 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z'],
-                            ];
-                        @endphp
-                        <div class="space-y-3">
-                            @foreach ($cycleModes as [$mode, $label, $desc, $icon])
-                                <button wire:click="setCycleMode('{{ $mode }}')" type="button"
-                                    class="w-full text-left flex items-start gap-3 p-4 rounded-xl border border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/40 transition-colors">
-                                    <div class="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                                        <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $icon }}" /></svg>
-                                    </div>
-                                    <div class="min-w-0">
-                                        <h3 class="text-sm font-semibold text-gray-900">{{ $label }}</h3>
-                                        <p class="text-xs text-gray-500 mt-0.5 leading-snug">{{ $desc }}</p>
-                                    </div>
-                                </button>
-                            @endforeach
+                    {{-- ── Cycle type selector (add mode only — editing is always a single custom row) ── --}}
+                    @if (!$editCycleId)
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Cycle Type <span class="text-red-500">*</span></label>
+                            <select wire:model.live="cycleMode" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+                                <option value="">Select…</option>
+                                <option value="monthly">Monthly — split into 12 equal installments</option>
+                                <option value="quarterly">Quarterly — split into 4 equal installments</option>
+                                <option value="custom">Custom — add one installment yourself</option>
+                            </select>
                         </div>
-                    @else
+                    @endif
+
+                    @if ($editCycleId || $cycleMode !== '')
 
                     {{-- Previously-added installments (for the chosen fee type & year) --}}
-                    @php $prevInstallments = $cycleExisting->where('id', '!=', $editCycleId); @endphp
+                    @php $prevInstallments = $cycleExisting->where('id', '!=', $editCycleId)->where('is_token', false); @endphp
                     @if ($prevInstallments->isNotEmpty())
                         <div class="bg-emerald-50 border border-emerald-100 rounded-lg px-4 py-3">
                             <p class="text-xs font-semibold text-emerald-700 mb-2">Installments already added ({{ ucfirst($cycleFeeType) }} · {{ $cycleYear }})</p>
@@ -328,6 +321,31 @@
                             </div>
                         </div>
                     @endif
+
+                    {{-- ── TOKEN FEE — a one-time up-front charge, optional in every mode ── --}}
+                    <div class="border border-gray-200 rounded-lg p-4 space-y-3">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-700">Token Fee <span class="text-xs font-normal text-gray-400">(optional, one-time)</span></p>
+                            <p class="text-xs text-gray-500 mt-0.5">Collected once, up front — the installments above then split whatever is left of the fee.</p>
+                        </div>
+                        <div class="grid grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1.5">Amount (₹)</label>
+                                <input type="number" step="0.01" min="0" wire:model="tokenFeeAmount" placeholder="e.g. 500"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1.5">Due Date</label>
+                                <input type="date" wire:model="tokenDueDate"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1.5">Penalty / Day (₹)</label>
+                                <input type="number" step="0.01" min="0" wire:model="tokenPenaltyPerDay"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+                            </div>
+                        </div>
+                    </div>
 
                     @endif
                 </div>

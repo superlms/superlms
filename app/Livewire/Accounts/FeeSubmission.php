@@ -206,11 +206,16 @@ class FeeSubmission extends Component
                 continue;
             }
 
+            // The token fee (if any) is a fixed up-front charge, not a % of the
+            // fee — it comes off the top before the % installments split the rest.
+            $tokenAmt      = (float) optional($cycles->firstWhere('is_token', true))->amount;
+            $remainingBase = max(0, $total - $tokenAmt);
+
             $remaining    = (float) ($paid[$type] ?? 0);
             $installments = [];
 
             foreach ($cycles as $c) {
-                $amount  = round(((float) $c->fee_percent / 100) * $total, 2);
+                $amount  = $c->is_token ? (float) $c->amount : round(((float) $c->fee_percent / 100) * $remainingBase, 2);
                 $covered = min($remaining, $amount);
                 $remaining = max(0, $remaining - $covered);
 
@@ -223,7 +228,7 @@ class FeeSubmission extends Component
                 $due = $c->due_date;
                 $installments[] = [
                     'serial'   => (int) $c->payment_serial,
-                    'label'    => $due ? $due->format('M Y') : ('Installment ' . $c->payment_serial),
+                    'label'    => $c->is_token ? 'Token Fee' : ($due ? $due->format('M Y') : ('Installment ' . $c->payment_serial)),
                     'due_date' => $due ? $due->format('d M Y') : null,
                     'overdue'  => $due && $status !== 'paid' && $due->isPast(),
                     'percent'  => (float) $c->fee_percent,
@@ -233,7 +238,7 @@ class FeeSubmission extends Component
                 ];
             }
 
-            $count = count($installments);
+            $count = $cycles->where('is_token', false)->count();
             $out[] = [
                 'fee_type'     => $type,
                 'label'        => match ($count) {

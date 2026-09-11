@@ -565,7 +565,10 @@ class FeeController extends ApiController
 
         if ($cycles->isEmpty()) return [];
 
-        $base      = max(0, $totals['academic_due'] - $totals['concession']);
+        // The token fee (if any) is a fixed up-front charge, not a % of the
+        // fee — it comes off the top before the % installments split what's left.
+        $tokenAmt  = (float) optional($cycles->firstWhere('is_token', true))->amount;
+        $base      = max(0, $totals['academic_due'] - $totals['concession'] - $tokenAmt);
         $remaining = $totals['academic_paid'];
         $today     = Carbon::today();
         $schedule  = [];
@@ -608,7 +611,7 @@ class FeeController extends ApiController
 
             $schedule[] = [
                 'serial'       => (int) $cycle->payment_serial,
-                'label'        => $this->ordinal((int) $cycle->payment_serial) . ' Installment',
+                'label'        => $cycle->is_token ? 'Token Fee' : $this->ordinal((int) $cycle->payment_serial) . ' Installment',
                 'due_date'     => $dueDate?->format('Y-m-d'),
                 'amount'       => $instAmt,
                 'paid'         => round($paidPortion, 2),
