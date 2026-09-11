@@ -59,10 +59,18 @@ class SeatingPlanPrintController extends Controller
         $plan = SeatingPlan::with('exam')->where('organization_id', $orgId)->findOrFail($id);
         $room = SeatingRoom::where('organization_id', $orgId)->findOrFail($roomId);
 
+        // Seat order, occupied desks only — one row per candidate.
         $assignments = SeatAssignment::with('seat')
             ->where('seating_plan_id', $plan->id)
             ->where('room_id', $room->id)
-            ->get();
+            ->whereNotNull('student_id')
+            ->get()
+            ->sortBy(fn ($a) => sprintf(
+                '%04d|%04d|%03d',
+                (int) ($a->seat?->row_no ?? 0),
+                (int) ($a->seat?->col_no ?? 0),
+                (int) ($a->seat_position ?? 1),
+            ))->values();
 
         // user_id → StudentDetail (admission no + class/section)
         $students = StudentDetail::with(['standard:id,name', 'section:id,name'])
@@ -70,13 +78,7 @@ class SeatingPlanPrintController extends Controller
             ->whereIn('user_id', $assignments->pluck('student_id')->filter()->unique())
             ->get()->keyBy('user_id');
 
-        // One entry per place at a desk, so a two-seater prints both names.
-        $cells = [];
-        foreach ($assignments as $a) {
-            if ($a->seat) $cells[$a->seat->row_no][$a->seat->col_no][] = $a;
-        }
-
-        $pdf = Pdf::loadView('pdf.admin.seating-room', compact('plan', 'room', 'cells', 'students'))
+        $pdf = Pdf::loadView('pdf.admin.seating-room', compact('plan', 'room', 'assignments', 'students'))
             ->setPaper('a4', 'landscape')
             ->setOption('dpi', 130)
             ->setOption('defaultFont', 'DejaVu Sans');

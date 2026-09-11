@@ -9,6 +9,7 @@ use App\Models\Admin\Seating\SeatingRoom;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
+use App\Support\SeatLabel;
 use App\Support\PdfFonts;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -108,7 +109,6 @@ class SeatingListController extends Controller
         ))->values()->map(function ($a) use ($students, $rooms) {
             $s    = $students[$a->student_id] ?? null;
             $room = $rooms[$a->room_id] ?? null;
-            $cap  = max(1, (int) ($room->seat_capacity ?? 1));
 
             return [
                 'name'      => $s->full_name ?? '—',
@@ -116,8 +116,7 @@ class SeatingListController extends Controller
                 'roll'      => $s->roll_no ?: '—',
                 'class'     => $s ? (($s->standard->name ?? '') . ($s->section ? ' - ' . $s->section->name : '')) : ($a->class_label ?? '—'),
                 'room'      => $room->room_name ?? '—',
-                // A shared desk needs to say which place at it.
-                'seat'      => ($a->seat->seat_number ?? '—') . ($cap > 1 ? ' · ' . $a->seat_position : ''),
+                'seat'      => SeatLabel::full($room->room_name ?? null, $a->seat?->row_no, $a->seat?->col_no, $a->seat_position),
             ];
         });
 

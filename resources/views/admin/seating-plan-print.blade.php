@@ -23,19 +23,17 @@
         .head .meta { font-size: 12px; color: #6b7280; margin-top: 4px; line-height: 1.5; }
         .head .right { text-align: right; font-size: 12px; }
         .head .right strong { display: block; font-size: 13px; color: #111827; }
-        .board { text-align: center; font-size: 11px; letter-spacing: 1px; color: #6b7280;
-            border: 1px dashed #9ca3af; border-radius: 4px; padding: 4px; margin-bottom: 10px; }
-        table.grid { border-collapse: collapse; width: 100%; }
-        table.grid td {
-            border: 1px solid #d1d5db; width: 90px; height: 64px; vertical-align: middle;
-            text-align: center; font-size: 10px; padding: 3px; line-height: 1.3;
+        table.list { border-collapse: collapse; width: 100%; }
+        table.list th {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; text-align: left;
+            font-weight: 700; padding: 6px 8px; border-bottom: 1px solid #111827; border-top: 1px solid #111827;
+            color: #374151;
         }
-        td.seat .num { font-weight: 700; font-size: 11px; color: #111827; }
-        td.seat .roll { display: block; font-weight: 700; font-size: 12px; color: #111827; }
-        td.seat .name { display: block; color: #374151; font-size: 9px; }
-        td.seat .cls { display: block; color: #2563eb; font-weight: 600; font-size: 9px; }
-        td.empty { background: #f9fafb; color: #9ca3af; }
-        td.conflict { background: #fef2f2; }
+        table.list td { font-size: 11px; padding: 5px 8px; border-bottom: 0.5px solid #e5e7eb; }
+        table.list tr:last-child td { border-bottom: 1px solid #111827; }
+        table.list .no { width: 40px; color: #6b7280; }
+        table.list .seat { font-weight: 700; color: #111827; }
+        table.list tr.conflict td { background: #fef2f2; }
         .summary { display: flex; gap: 18px; margin-top: 10px; font-size: 12px; color: #374151; }
         .summary span strong { color: #111827; }
         .footer { margin-top: 12px; border-top: 1px solid #e5e7eb; padding-top: 8px;
@@ -56,14 +54,16 @@
 
     @foreach ($rooms as $room)
         @php
-            $roomAssignments = $assignments->where('room_id', $room->id);
-            // A desk seats as many as the room says, so a cell is a list of
-            // the places at it — with one seat per desk, a list of one.
-            $cells = [];
-            foreach ($roomAssignments as $a) {
-                if ($a->seat) $cells[$a->seat->row_no][$a->seat->col_no][] = $a;
-            }
-            $filled = $roomAssignments->whereNotNull('student_id')->count();
+            // Seat order, occupied desks only — one row per candidate.
+            $roomAssignments = $assignments->where('room_id', $room->id)
+                ->whereNotNull('student_id')
+                ->sortBy(fn ($a) => sprintf(
+                    '%04d|%04d|%03d',
+                    (int) ($a->seat?->row_no ?? 0),
+                    (int) ($a->seat?->col_no ?? 0),
+                    (int) ($a->seat_position ?? 1),
+                ))->values();
+            $filled = $roomAssignments->count();
             $empty  = $room->capacity - $filled;
             $roomInvs = $invigilators->where('room_id', $room->id)
                 ->map(fn($i) => $i->invigilator->name ?? null)->filter()->values();
@@ -84,36 +84,30 @@
                 </div>
             </div>
 
-            <div class="board">⬆ FRONT — BOARD / INVIGILATOR</div>
-
-            <table class="grid">
-                @for ($r = 1; $r <= $room->rows; $r++)
+            <table class="list">
+                <thead>
                     <tr>
-                        @for ($c = 1; $c <= $room->columns; $c++)
-                            @php
-                                $places = collect($cells[$r][$c] ?? []);
-                                $taken  = $places->filter(fn ($a) => $a->student_id)->values();
-                                $seatNo = $places->first()?->seat?->seat_number ?? '';
-                                $clash  = $places->contains(fn ($a) => $a->has_conflict);
-                            @endphp
-                            @if ($taken->isNotEmpty())
-                                <td class="seat {{ $clash ? 'conflict' : '' }}">
-                                    <span class="num">{{ $seatNo }}</span>
-                                    @foreach ($taken as $a)
-                                        @php $sd = $students[$a->student_id] ?? null; @endphp
-                                        <span class="roll">Roll {{ $sd->roll_no ?? '—' }}</span>
-                                        <span class="name">{{ $sd->full_name ?? ($a->student->name ?? '') }}</span>
-                                        <span class="cls">{{ $a->class_label }}</span>
-                                    @endforeach
-                                </td>
-                            @else
-                                <td class="empty">
-                                    {{ $seatNo }}<br>—
-                                </td>
-                            @endif
-                        @endfor
+                        <th class="no">S. No.</th>
+                        <th>Seat</th>
+                        <th>Roll No.</th>
+                        <th>Name</th>
+                        <th>Class</th>
                     </tr>
-                @endfor
+                </thead>
+                <tbody>
+                    @forelse ($roomAssignments as $i => $a)
+                        @php $sd = $students[$a->student_id] ?? null; @endphp
+                        <tr class="{{ $a->has_conflict ? 'conflict' : '' }}">
+                            <td class="no">{{ $i + 1 }}</td>
+                            <td class="seat">{{ \App\Support\SeatLabel::full($room->room_name, $a->seat?->row_no, $a->seat?->col_no, $a->seat_position) }}</td>
+                            <td>{{ $sd->roll_no ?? '—' }}</td>
+                            <td>{{ $sd->full_name ?? ($a->student->name ?? '—') }}</td>
+                            <td>{{ $a->class_label }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:16px;">No candidates seated in this room.</td></tr>
+                    @endforelse
+                </tbody>
             </table>
 
             <div class="summary">

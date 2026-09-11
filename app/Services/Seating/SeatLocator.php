@@ -4,6 +4,7 @@ namespace App\Services\Seating;
 
 use App\Models\Admin\Seating\SeatAssignment;
 use App\Models\Admin\Seating\SeatingPlan;
+use App\Support\SeatLabel;
 
 /**
  * Where a student sits, session by session.
@@ -38,7 +39,7 @@ class SeatLocator
             return [];
         }
 
-        $assignments = SeatAssignment::with(['room:id,room_name', 'seat:id,seat_number'])
+        $assignments = SeatAssignment::with(['room:id,room_name', 'seat:id,seat_number,row_no,col_no'])
             ->whereIn('seating_plan_id', $plans->pluck('id'))
             ->whereIn('student_id', $studentIds)
             ->get();
@@ -55,6 +56,15 @@ class SeatLocator
             $map[(int) $a->student_id][$date . '|' . $shift] = [
                 'room'    => $a->room?->room_name,
                 'seat'    => $a->seat?->seat_number,
+                // What the card actually prints — "1- A1 (1)". Built from the
+                // row and column rather than the stored seat number, so rooms
+                // saved before seats were lettered this way still read right.
+                'label'   => SeatLabel::full(
+                    $a->room?->room_name,
+                    $a->seat?->row_no,
+                    $a->seat?->col_no,
+                    $a->seat_position,
+                ),
                 'date'    => $date,
                 'shift'   => $shift,
                 'plan_id' => (int) $a->seating_plan_id,

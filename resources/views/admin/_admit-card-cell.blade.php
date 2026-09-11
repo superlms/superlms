@@ -123,7 +123,7 @@
                         <th style="width:34%;">Subject</th>
                         <th style="width:24%;">Date</th>
                         <th style="width:26%;">Time</th>
-                        <th style="width:16%;" class="c">Seat (Room)</th>
+                        <th style="width:16%;" class="c">Room / Seat</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -138,10 +138,8 @@
                             $from = !empty($paper['exam_time']) ? \Carbon\Carbon::parse($paper['exam_time'])->format('g:i A') : '';
                             $to   = !empty($paper['exam_end_time']) ? \Carbon\Carbon::parse($paper['exam_end_time'])->format('g:i A') : '';
 
-                            // Seat and room read as one thing — "12 (A1)".
-                            $seatNo = $seat['seat'] ?? null;
-                            $room   = $seat['room'] ?? null;
-                            $where  = $seatNo && $room ? $seatNo . ' (' . $room . ')' : ($seatNo ?: ($room ?: '—'));
+                            // Room, desk and place read as one thing — "1- A1 (1)".
+                            $where = $seat['label'] ?? ($seat['room'] ?? '—');
                         @endphp
                         <tr>
                             <td>{{ $paper['subject_name'] ?? '—' }}</td>

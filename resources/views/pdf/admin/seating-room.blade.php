@@ -8,14 +8,16 @@
     .head { text-align: center; margin-bottom: 8px; }
     .head h1 { font-size: 16px; margin: 0; }
     .head p { font-size: 11px; color: #4b5563; margin: 2px 0 0; }
-    .board { text-align: center; font-size: 10px; color: #6b7280; letter-spacing: 2px; margin: 6px 0; text-transform: uppercase; }
-    table.grid { width: 100%; border-collapse: collapse; }
-    table.grid td { border: 1px solid #d1d5db; width: {{ $room->columns > 0 ? floor(100 / $room->columns) : 20 }}%; height: 56px; vertical-align: top; padding: 3px 4px; }
-    .seatno { font-size: 9px; font-weight: bold; color: #374151; }
-    .cls { font-size: 10px; font-weight: bold; color: #1d4ed8; }
-    .adm { font-size: 10px; color: #111827; }
-    .empty td, .empty { color: #9ca3af; }
-    .empty-cell { color: #d1d5db; font-size: 9px; }
+    table.list { width: 100%; border-collapse: collapse; }
+    table.list th {
+        font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; text-align: left;
+        font-weight: bold; padding: 6px 8px; border-bottom: 1px solid #111827; border-top: 1px solid #111827;
+        color: #374151;
+    }
+    table.list td { font-size: 11px; padding: 5px 8px; border-bottom: 0.5px solid #e5e7eb; }
+    table.list tr:last-child td { border-bottom: 1px solid #111827; }
+    table.list .no { width: 40px; color: #6b7280; }
+    table.list .seat { font-weight: bold; color: #111827; }
     .foot { margin-top: 10px; font-size: 10px; color: #6b7280; }
 </style>
 </head>
@@ -30,35 +32,30 @@
         </p>
     </div>
 
-    <div class="board">⬆ Front (Board)</div>
-
-    <table class="grid">
-        @for ($r = 1; $r <= $room->rows; $r++)
+    <table class="list">
+        <thead>
             <tr>
-                @for ($c = 1; $c <= $room->columns; $c++)
-                    @php
-                        $places = collect($cells[$r][$c] ?? []);
-                        $taken  = $places->filter(fn ($a) => $a->student_id)->values();
-                        $seatNo = $places->first()?->seat?->seat_number ?? ($r . '-' . $c);
-                    @endphp
-                    @if ($taken->isNotEmpty())
-                        <td>
-                            <div class="seatno">{{ $seatNo }}</div>
-                            @foreach ($taken as $a)
-                                @php $sd = $students[$a->student_id] ?? null; @endphp
-                                <div class="cls">{{ $sd ? (($sd->standard->name ?? '') . ($sd->section ? '-' . $sd->section->name : '')) : $a->class_label }}</div>
-                                <div class="adm">Roll: {{ $sd->roll_no ?? '—' }} · Adm: {{ $sd->admission_no ?? '—' }}</div>
-                            @endforeach
-                        </td>
-                    @else
-                        <td class="empty">
-                            <div class="seatno">{{ $seatNo }}</div>
-                            <div class="empty-cell">— empty —</div>
-                        </td>
-                    @endif
-                @endfor
+                <th class="no">S. No.</th>
+                <th>Seat</th>
+                <th>Roll No.</th>
+                <th>Admission No.</th>
+                <th>Class</th>
             </tr>
-        @endfor
+        </thead>
+        <tbody>
+            @forelse ($assignments as $i => $a)
+                @php $sd = $students[$a->student_id] ?? null; @endphp
+                <tr>
+                    <td class="no">{{ $i + 1 }}</td>
+                    <td class="seat">{{ \App\Support\SeatLabel::full($room->room_name, $a->seat?->row_no, $a->seat?->col_no, $a->seat_position) }}</td>
+                    <td>{{ $sd->roll_no ?? '—' }}</td>
+                    <td>{{ $sd->admission_no ?? '—' }}</td>
+                    <td>{{ $sd ? (($sd->standard->name ?? '') . ($sd->section ? '-' . $sd->section->name : '')) : ($a->class_label ?? '—') }}</td>
+                </tr>
+            @empty
+                <tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:16px;">No candidates seated in this room.</td></tr>
+            @endforelse
+        </tbody>
     </table>
 
     <div class="foot">Generated {{ now()->format('d M Y, h:i A') }}</div>
