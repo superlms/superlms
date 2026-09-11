@@ -61,9 +61,9 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Fee Type</label>
                         <select wire:model.live="submitFeeType" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                            <option value="academic" @disabled($capMap['academic'] <= 0)>Academic@if ($capMap['academic'] <= 0) (fully paid)@endif</option>
-                            <option value="transport" @disabled($capMap['transport'] <= 0)>Transport@if ($capMap['transport'] <= 0) (fully paid)@endif</option>
-                            <option value="penalty" @disabled($capMap['penalty'] <= 0)>Penalties@if ($capMap['penalty'] <= 0) (none due)@endif</option>
+                            <option value="academic" @disabled($capMap['academic'] <= 0)>Academic{{ $capMap['academic'] <= 0 ? ' (fully paid)' : '' }}</option>
+                            <option value="transport" @disabled($capMap['transport'] <= 0)>Transport{{ $capMap['transport'] <= 0 ? ' (fully paid)' : '' }}</option>
+                            <option value="penalty" @disabled($capMap['penalty'] <= 0)>Penalties{{ $capMap['penalty'] <= 0 ? ' (none due)' : '' }}</option>
                         </select>
                     </div>
                     <div>

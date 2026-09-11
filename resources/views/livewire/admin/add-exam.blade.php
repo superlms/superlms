@@ -1014,7 +1014,7 @@
                             <span class="min-w-0">
                                 <span class="block text-sm font-medium text-gray-700">Click to choose a PDF</span>
                                 <span class="block text-xs text-gray-400">
-                                    PDF only, up to 1 MB@if ($paperIsEdit) - leave empty to keep the current file@endif
+                                    PDF only, up to 1 MB{{ $paperIsEdit ? ' - leave empty to keep the current file' : '' }}
                                 </span>
                             </span>
                         </label>

@@ -854,7 +854,7 @@
                             <span class="min-w-0">
                                 <span class="block text-sm font-medium text-gray-700">Click to choose a photo</span>
                                 <span class="block text-xs text-gray-400">
-                                    JPG or PNG, up to 2 MB@if ($editMemberIndex !== null) · leave empty to keep the current one@endif
+                                    JPG or PNG, up to 2 MB{{ $editMemberIndex !== null ? ' · leave empty to keep the current one' : '' }}
                                 </span>
                             </span>
                         </label>
