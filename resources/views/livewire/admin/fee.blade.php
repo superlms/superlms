@@ -363,135 +363,14 @@
             </div>
         @endif
 
-        @if ($selectedStudentId && !empty($selectedStudentInfo))
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                {{-- Student details --}}
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                    <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                        <span class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold">{{ strtoupper(mb_substr($selectedStudentInfo['name'], 0, 1)) }}</span>
-                        Student Details
-                    </h3>
-                    <dl class="text-sm divide-y divide-gray-100">
-                        <div class="flex justify-between py-1.5"><dt class="text-gray-500">Name</dt><dd class="font-medium text-gray-800">{{ $selectedStudentInfo['name'] }}</dd></div>
-                        <div class="flex justify-between py-1.5"><dt class="text-gray-500">Father</dt><dd class="font-medium text-gray-800">{{ $selectedStudentInfo['father_name'] }}</dd></div>
-                        <div class="flex justify-between py-1.5"><dt class="text-gray-500">Admission No.</dt><dd class="font-medium text-gray-800">{{ $selectedStudentInfo['admission_no'] }}</dd></div>
-                        <div class="flex justify-between py-1.5"><dt class="text-gray-500">Roll No.</dt><dd class="font-medium text-gray-800">{{ $selectedStudentInfo['roll_no'] }}</dd></div>
-                        <div class="flex justify-between py-1.5"><dt class="text-gray-500">Class / Section</dt><dd class="font-medium text-gray-800">{{ $selectedStudentInfo['class'] }} / {{ $selectedStudentInfo['section'] }}</dd></div>
-                        <div class="flex justify-between py-1.5"><dt class="text-gray-500">Phone</dt><dd class="font-medium text-gray-800">{{ $selectedStudentInfo['phone'] }}</dd></div>
-                    </dl>
-                </div>
-
-                {{-- Fee structure + concession --}}
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                    <h3 class="text-sm font-semibold text-gray-800 mb-3">Fee Structure</h3>
-                    @if (count($classStructures))
-                        <div class="space-y-1 text-sm">
-                            @foreach ($classStructures as $cs)
-                                <div class="flex justify-between items-center py-1 border-b border-gray-100">
-                                    <span class="text-gray-700">{{ $cs['fee_name'] }}</span>
-                                    <div class="flex items-center gap-2">
-                                        <span class="px-2 py-0.5 rounded text-[11px] {{ $cs['fee_type'] === 'academic' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600' }}">{{ ucfirst($cs['fee_type']) }}</span>
-                                        <span class="font-semibold text-gray-800">₹{{ number_format($cs['amount'], 2) }}</span>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    @else
-                        <p class="text-sm text-gray-400">No fee structure set for this class.</p>
-                    @endif
-
-                    @if (count($studentConcessions))
-                        <div class="mt-3 pt-3 border-t border-dashed border-gray-200">
-                            <p class="text-[11px] font-semibold text-emerald-600 uppercase mb-1">Concessions</p>
-                            @foreach ($studentConcessions as $c)
-                                <div class="flex justify-between text-sm py-0.5">
-                                    <span class="text-gray-600">{{ $c['reason'] ?: ucfirst($c['fee_type']) . ' concession' }}</span>
-                                    <span class="font-semibold text-emerald-600">{{ $c['concession_type'] === 'percent' ? $c['value'] . '%' : '₹' . number_format($c['value'], 0) }}</span>
-                                </div>
-                            @endforeach
-                        </div>
-                    @endif
-
-                    <div class="mt-3 pt-3 border-t border-gray-200 flex justify-between items-center">
-                        <span class="text-sm font-semibold text-gray-700">Net Payable</span>
-                        <span class="text-lg font-bold text-blue-700">₹{{ number_format($netPayable, 2) }}</span>
-                    </div>
-                </div>
-
-                {{-- Quick action --}}
-                <div class="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-sm p-5 flex flex-col justify-center text-white">
-                    <p class="text-sm text-white/80">Record a new payment for</p>
-                    <p class="text-lg font-bold">{{ $selectedStudentInfo['name'] }}</p>
-                    <button wire:click="openSubmitPanel"
-                        class="mt-4 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-white text-blue-700 text-sm font-semibold rounded-lg hover:bg-blue-50">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-                        Update / Collect Fee
-                    </button>
-                </div>
+        @if ($selectedStudentId && !empty($submissionLedger))
+            <div class="space-y-4">
+                @include('livewire.partials.student-fee-view', [
+                    'sv'        => $submissionLedger,
+                    'feePrefix' => 'admin',
+                    'feeOrg'    => auth()->user()->organization_id,
+                ])
             </div>
-        @endif
-
-        {{-- Payments (admin / accounts / app) --}}
-        @if ($selectedStudentId && !empty($selectedStudentInfo))
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-            <h3 class="text-base font-semibold text-gray-800 mb-4">Payment History</h3>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead class="bg-gray-50 border-b border-gray-200">
-                        <tr>
-                            <th class="px-3 py-2 text-left text-[11px] text-gray-500 uppercase">#</th>
-                            <th class="px-3 py-2 text-left text-[11px] text-gray-500 uppercase">Receipt</th>
-                            <th class="px-3 py-2 text-right text-[11px] text-gray-500 uppercase">Amount</th>
-                            <th class="px-3 py-2 text-left text-[11px] text-gray-500 uppercase">Fee Type</th>
-                            <th class="px-3 py-2 text-left text-[11px] text-gray-500 uppercase">Mode</th>
-                            <th class="px-3 py-2 text-left text-[11px] text-gray-500 uppercase">Source</th>
-                            <th class="px-3 py-2 text-left text-[11px] text-gray-500 uppercase">Date</th>
-                            <th class="px-3 py-2 text-left text-[11px] text-gray-500 uppercase">By</th>
-                            <th class="px-3 py-2 text-center text-[11px] text-gray-500 uppercase">Receipt</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        @forelse ($studentTransactions as $i => $txn)
-                            @php
-                                $by = strtolower((string) ($txn['submitted_by'] ?? ''));
-                                $isApp = $txn['payment_mode'] === 'online' && (str_contains($by, 'self') || str_contains($by, 'app') || str_contains($by, 'student') || $by === '');
-                            @endphp
-                            <tr class="hover:bg-gray-50/50">
-                                <td class="px-3 py-2 text-gray-500">{{ $i + 1 }}</td>
-                                <td class="px-3 py-2 font-mono text-xs text-blue-700">{{ $txn['receipt_number'] }}</td>
-                                <td class="px-3 py-2 text-right font-semibold">₹{{ number_format($txn['amount'], 2) }}</td>
-                                <td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-[11px] {{ $txn['fee_type'] === 'academic' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600' }}">{{ ucfirst($txn['fee_type']) }}</span></td>
-                                <td class="px-3 py-2 capitalize {{ !empty($txn['is_concession']) ? 'text-amber-600 font-medium' : 'text-gray-600' }}">{{ str_replace('_', ' ', $txn['payment_mode']) }}</td>
-                                <td class="px-3 py-2">
-                                    @if (!empty($txn['is_concession']))
-                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-600">Concession</span>
-                                    @else
-                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $isApp ? 'bg-purple-50 text-purple-600' : 'bg-gray-100 text-gray-600' }}">
-                                            {{ $isApp ? 'Mobile App' : 'Counter' }}
-                                        </span>
-                                    @endif
-                                </td>
-                                <td class="px-3 py-2 text-gray-600">{{ \Carbon\Carbon::parse($txn['payment_date'])->format('d M Y') }}</td>
-                                <td class="px-3 py-2 text-xs text-gray-600">{{ $txn['submitted_by'] }}</td>
-                                <td class="px-3 py-2 text-center">
-                                    @if (!empty($txn['is_concession']))
-                                        <span class="text-xs text-gray-400">—</span>
-                                    @else
-                                        <a href="{{ route('admin.fee.receipt', ['organization' => auth()->user()->organization_id, 'id' => $txn['id']]) }}" target="_blank"
-                                            class="text-xs px-2.5 py-1 border border-gray-300 rounded hover:bg-gray-100 text-gray-600 inline-flex items-center gap-1">
-                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2z"/></svg>
-                                            Receipt
-                                        </a>
-                                    @endif
-                                </td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="9" class="px-3 py-8 text-center text-gray-400 text-sm">No payments yet for this student.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-        </div>
         @endif
 
         {{-- ── Update / Collect Fee slide-in panel ── --}}

@@ -63,6 +63,8 @@ class Fee extends Component
     public array $selectedStudentInfo = [];
     public $studentConcessions = [];
     public float $netPayable    = 0.0;
+    /** The selected student's ledger, rendered by livewire.partials.student-fee-view. */
+    public array $submissionLedger = [];
 
     // ─── Concession (per-student fee discount) + view — see HandlesFeeConcessions
 
@@ -361,6 +363,7 @@ class Fee extends Component
             $this->selectedStudentInfo = [];
             $this->studentConcessions  = [];
             $this->netPayable          = 0.0;
+            $this->submissionLedger    = [];
             return;
         }
 
@@ -427,6 +430,9 @@ class Fee extends Component
 
         // Ledger = real payments + concessions shown as concession-type entries.
         $this->studentTransactions = array_merge($realTransactions, $concessionRows);
+
+        // The summary on screen is the same ledger View Fee renders.
+        $this->submissionLedger = $this->buildStudentFeeView((int) $this->selectedStudentId);
     }
 
     public function openSubmitPanel(): void

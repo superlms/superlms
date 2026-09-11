@@ -7,17 +7,6 @@
             <div>
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Fee Submission</h1>
             </div>
-            @if(!empty($studentInfo) && count($studentTransactions) > 0)
-                <button wire:click="toggleTransactionHistory"
-                    class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-medium border border-emerald-200 hover:bg-emerald-100 transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    Transaction History
-                    <span class="bg-emerald-600 text-white text-xs rounded-full px-1.5 py-0.5 leading-none">{{ count($studentTransactions) }}</span>
-                </button>
-            @endif
         </div>
     </div>
 
@@ -78,159 +67,15 @@
         {{-- ---------------------------------------------------------- --}}
         @if(!empty($studentInfo))
 
-            {{-- Student Profile Card --}}
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <div class="flex items-start gap-5">
-                    {{-- Avatar --}}
-                    <div class="flex-shrink-0">
-                        <div class="w-16 h-16 rounded-2xl bg-emerald-100 flex items-center justify-center">
-                            <span class="text-2xl font-bold text-emerald-700 leading-none">
-                                {{ mb_strtoupper(mb_substr($studentInfo['name'], 0, 1)) }}{{ mb_strtoupper(mb_substr(strstr($studentInfo['name'], ' ') ?: '', 1, 1)) }}
-                            </span>
-                        </div>
-                    </div>
-                    {{-- Info --}}
-                    <div class="flex-1 min-w-0">
-                        <h2 class="text-base font-bold text-gray-800">{{ $studentInfo['name'] }}</h2>
-                        <p class="text-sm text-emerald-600 font-medium mt-0.5">{{ $studentInfo['class'] }} — {{ $studentInfo['section'] }}</p>
-                        <div class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-2 text-sm">
-                            <div>
-                                <p class="text-[11px] text-gray-400 uppercase tracking-wide">Admission No</p>
-                                <p class="font-semibold text-gray-700">{{ $studentInfo['admission_no'] }}</p>
-                            </div>
-                            <div>
-                                <p class="text-[11px] text-gray-400 uppercase tracking-wide">Roll No</p>
-                                <p class="font-semibold text-gray-700">{{ $studentInfo['roll_no'] }}</p>
-                            </div>
-                            <div>
-                                <p class="text-[11px] text-gray-400 uppercase tracking-wide">Father's Name</p>
-                                <p class="font-semibold text-gray-700">{{ $studentInfo['father_name'] }}</p>
-                            </div>
-                            <div>
-                                <p class="text-[11px] text-gray-400 uppercase tracking-wide">Phone</p>
-                                <p class="font-semibold text-gray-700">{{ $studentInfo['phone'] ?? '—' }}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Fee Analytics Strip --}}
-            @if(!empty($feeBreakdown))
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <div class="bg-emerald-50 rounded-2xl p-4 border border-emerald-100">
-                        <p class="text-[11px] font-semibold text-emerald-600 uppercase tracking-wide">Total Fee</p>
-                        <p class="text-xl font-bold text-emerald-800 mt-1">₹{{ number_format($feeBreakdown['total_fee'], 2) }}</p>
-                        <p class="text-[11px] text-emerald-500 mt-1">
-                            Acad: ₹{{ number_format($feeBreakdown['total_academic_fee'], 2) }}
-                            &nbsp;·&nbsp;
-                            Trans: ₹{{ number_format($feeBreakdown['total_transport_fee'], 2) }}
-                        </p>
-                    </div>
-                    <div class="bg-green-50 rounded-2xl p-4 border border-green-100">
-                        <p class="text-[11px] font-semibold text-green-600 uppercase tracking-wide">Total Paid</p>
-                        <p class="text-xl font-bold text-green-800 mt-1">₹{{ number_format($feeBreakdown['total_paid'], 2) }}</p>
-                        <p class="text-[11px] text-green-500 mt-1">
-                            Acad: ₹{{ number_format($feeBreakdown['academic_paid'], 2) }}
-                            &nbsp;·&nbsp;
-                            Trans: ₹{{ number_format($feeBreakdown['transport_paid'], 2) }}
-                        </p>
-                    </div>
-                    <div class="bg-red-50 rounded-2xl p-4 border border-red-100">
-                        <p class="text-[11px] font-semibold text-red-500 uppercase tracking-wide">Remaining</p>
-                        <p class="text-xl font-bold {{ $feeBreakdown['total_remaining'] > 0 ? 'text-red-700' : 'text-emerald-700' }} mt-1">
-                            ₹{{ number_format($feeBreakdown['total_remaining'], 2) }}
-                        </p>
-                        <p class="text-[11px] text-red-400 mt-1">
-                            Acad: ₹{{ number_format($feeBreakdown['academic_remaining'], 2) }}
-                            &nbsp;·&nbsp;
-                            Trans: ₹{{ number_format($feeBreakdown['transport_remaining'], 2) }}
-                        </p>
-                    </div>
-                    <div class="bg-amber-50 rounded-2xl p-4 border border-amber-100">
-                        <p class="text-[11px] font-semibold text-amber-600 uppercase tracking-wide">Penalties &amp; Waivers</p>
-                        <p class="text-xl font-bold text-amber-800 mt-1">₹{{ number_format($feeBreakdown['total_penalty'], 2) }}</p>
-                        <p class="text-[11px] text-amber-500 mt-1">
-                            Waiver: ₹{{ number_format($feeBreakdown['total_waiver'], 2) }}
-                        </p>
-                    </div>
-                </div>
-
-                {{-- Fee Breakdown Table --}}
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                    <div class="px-5 py-3.5 border-b border-gray-50">
-                        <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest">Fee Breakdown</p>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead>
-                                <tr class="bg-gray-50">
-                                    <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Fee Type</th>
-                                    <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Total Fee</th>
-                                    <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Paid</th>
-                                    <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Remaining</th>
-                                    <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-50">
-                                @php
-                                    $academicStatus = $feeBreakdown['academic_remaining'] <= 0 ? 'paid' : ($feeBreakdown['academic_paid'] > 0 ? 'partial' : 'unpaid');
-                                    $transportStatus = $feeBreakdown['total_transport_fee'] <= 0 ? 'na' : ($feeBreakdown['transport_remaining'] <= 0 ? 'paid' : ($feeBreakdown['transport_paid'] > 0 ? 'partial' : 'unpaid'));
-                                    $statusConfig = [
-                                        'paid'    => ['bg-emerald-100 text-emerald-700', 'Paid'],
-                                        'partial' => ['bg-amber-100 text-amber-700', 'Partial'],
-                                        'unpaid'  => ['bg-red-100 text-red-600', 'Unpaid'],
-                                        'na'      => ['bg-gray-100 text-gray-400', 'N/A'],
-                                    ];
-                                @endphp
-                                <tr class="hover:bg-emerald-50/40 transition">
-                                    <td class="px-5 py-3.5">
-                                        <span class="inline-flex items-center gap-2">
-                                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                            <span class="font-semibold text-gray-700">Academic</span>
-                                        </span>
-                                    </td>
-                                    <td class="px-5 py-3.5 text-right font-medium text-gray-800">₹{{ number_format($feeBreakdown['total_academic_fee'], 2) }}</td>
-                                    <td class="px-5 py-3.5 text-right font-semibold text-emerald-600">₹{{ number_format($feeBreakdown['academic_paid'], 2) }}</td>
-                                    <td class="px-5 py-3.5 text-right font-semibold {{ $feeBreakdown['academic_remaining'] > 0 ? 'text-red-500' : 'text-emerald-600' }}">
-                                        ₹{{ number_format($feeBreakdown['academic_remaining'], 2) }}
-                                    </td>
-                                    <td class="px-5 py-3.5 text-center">
-                                        <span class="px-2.5 py-1 rounded-full text-xs font-semibold {{ $statusConfig[$academicStatus][0] }}">
-                                            {{ $statusConfig[$academicStatus][1] }}
-                                        </span>
-                                    </td>
-                                </tr>
-                                <tr class="hover:bg-blue-50/30 transition">
-                                    <td class="px-5 py-3.5">
-                                        <span class="inline-flex items-center gap-2">
-                                            <span class="w-2 h-2 rounded-full bg-blue-400"></span>
-                                            <span class="font-semibold text-gray-700">Transport</span>
-                                        </span>
-                                    </td>
-                                    <td class="px-5 py-3.5 text-right font-medium text-gray-800">₹{{ number_format($feeBreakdown['total_transport_fee'], 2) }}</td>
-                                    <td class="px-5 py-3.5 text-right font-semibold text-blue-600">₹{{ number_format($feeBreakdown['transport_paid'], 2) }}</td>
-                                    <td class="px-5 py-3.5 text-right font-semibold {{ $feeBreakdown['transport_remaining'] > 0 ? 'text-red-500' : 'text-emerald-600' }}">
-                                        ₹{{ number_format($feeBreakdown['transport_remaining'], 2) }}
-                                    </td>
-                                    <td class="px-5 py-3.5 text-center">
-                                        <span class="px-2.5 py-1 rounded-full text-xs font-semibold {{ $statusConfig[$transportStatus][0] }}">
-                                            {{ $statusConfig[$transportStatus][1] }}
-                                        </span>
-                                    </td>
-                                </tr>
-                                <tr class="bg-gray-50 font-bold">
-                                    <td class="px-5 py-3 text-gray-700">Total</td>
-                                    <td class="px-5 py-3 text-right text-gray-800">₹{{ number_format($feeBreakdown['total_fee'], 2) }}</td>
-                                    <td class="px-5 py-3 text-right text-emerald-700">₹{{ number_format($feeBreakdown['total_paid'], 2) }}</td>
-                                    <td class="px-5 py-3 text-right {{ $feeBreakdown['total_remaining'] > 0 ? 'text-red-600' : 'text-emerald-700' }}">
-                                        ₹{{ number_format($feeBreakdown['total_remaining'], 2) }}
-                                    </td>
-                                    <td></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+            {{-- The student, their fee net of concession, and every payment —
+                 the same ledger View Fee and the admin tab render. --}}
+            @if (!empty($submissionLedger))
+                <div class="space-y-4">
+                    @include('livewire.partials.student-fee-view', [
+                        'sv'        => $submissionLedger,
+                        'feePrefix' => 'accounts',
+                        'feeOrg'    => auth()->user()->organization_id,
+                    ])
                 </div>
             @endif
 
@@ -486,95 +331,6 @@
                     </button>
                     <p class="text-[11px] text-gray-400 text-center -mt-1">Receipt number will be generated automatically</p>
                 </div>
-            </div>
-
-            {{-- ---------------------------------------------------------- --}}
-            {{--  PAYMENT HISTORY (COLLAPSIBLE)                              --}}
-            {{-- ---------------------------------------------------------- --}}
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <button wire:click="toggleTransactionHistory"
-                    class="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50/60 transition text-left">
-                    <span class="flex items-center gap-2">
-                        <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0119 9.414V19a2 2 0 01-2 2z"/>
-                        </svg>
-                        <span class="text-sm font-semibold text-gray-700">Payment History</span>
-                        @if(count($studentTransactions) > 0)
-                            <span class="bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-0.5 rounded-full">
-                                {{ count($studentTransactions) }}
-                            </span>
-                        @endif
-                    </span>
-                    <svg class="w-4 h-4 text-gray-400 transition-transform {{ $showTransactionHistory ? 'rotate-180' : '' }}"
-                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                    </svg>
-                </button>
-
-                @if($showTransactionHistory)
-                    <div class="border-t border-gray-50">
-                        @if(count($studentTransactions) > 0)
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-sm">
-                                    <thead class="bg-emerald-50">
-                                        <tr>
-                                            <th class="px-4 py-3 text-left text-xs font-semibold text-emerald-700 uppercase tracking-wide">Date</th>
-                                            <th class="px-4 py-3 text-left text-xs font-semibold text-emerald-700 uppercase tracking-wide">Fee Type</th>
-                                            <th class="px-4 py-3 text-left text-xs font-semibold text-emerald-700 uppercase tracking-wide">Mode</th>
-                                            <th class="px-4 py-3 text-right text-xs font-semibold text-emerald-700 uppercase tracking-wide">Amount</th>
-                                            <th class="px-4 py-3 text-right text-xs font-semibold text-emerald-700 uppercase tracking-wide">Penalty</th>
-                                            <th class="px-4 py-3 text-right text-xs font-semibold text-emerald-700 uppercase tracking-wide">Waiver</th>
-                                            <th class="px-4 py-3 text-left text-xs font-semibold text-emerald-700 uppercase tracking-wide">Remark</th>
-                                            <th class="px-4 py-3 text-left text-xs font-semibold text-emerald-700 uppercase tracking-wide">Collected By</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-gray-50">
-                                        @foreach($studentTransactions as $tx)
-                                            <tr class="hover:bg-emerald-50/40 transition">
-                                                <td class="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">
-                                                    {{ \Carbon\Carbon::parse($tx['payment_date'])->format('d M Y') }}
-                                                </td>
-                                                <td class="px-4 py-3">
-                                                    <span class="px-2 py-0.5 rounded-full text-xs font-medium
-                                                        {{ $tx['fee_type'] === 'academic' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700' }}">
-                                                        {{ ucfirst($tx['fee_type']) }}
-                                                    </span>
-                                                </td>
-                                                <td class="px-4 py-3 text-xs text-gray-600 capitalize">
-                                                    {{ ucfirst(str_replace('_', ' ', $tx['payment_mode'])) }}
-                                                </td>
-                                                <td class="px-4 py-3 text-right font-semibold text-gray-800 text-xs">
-                                                    ₹{{ number_format($tx['amount'], 2) }}
-                                                </td>
-                                                <td class="px-4 py-3 text-right text-xs {{ ($tx['penalty_amount'] ?? 0) > 0 ? 'text-red-500 font-medium' : 'text-gray-300' }}">
-                                                    {{ ($tx['penalty_amount'] ?? 0) > 0 ? '₹' . number_format($tx['penalty_amount'], 2) : '—' }}
-                                                </td>
-                                                <td class="px-4 py-3 text-right text-xs {{ ($tx['waiver_amount'] ?? 0) > 0 ? 'text-amber-600 font-medium' : 'text-gray-300' }}">
-                                                    {{ ($tx['waiver_amount'] ?? 0) > 0 ? '₹' . number_format($tx['waiver_amount'], 2) : '—' }}
-                                                </td>
-                                                <td class="px-4 py-3 text-xs text-gray-500 max-w-[140px] truncate">
-                                                    {{ $tx['remark'] ?? '—' }}
-                                                </td>
-                                                <td class="px-4 py-3 text-xs text-gray-500">
-                                                    {{ $tx['submitted_by'] ?? '—' }}
-                                                </td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
-                            </div>
-                        @else
-                            <div class="text-center py-10">
-                                <svg class="w-10 h-10 mx-auto text-gray-200 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0119 9.414V19a2 2 0 01-2 2z"/>
-                                </svg>
-                                <p class="text-sm text-gray-400">No payment history yet.</p>
-                            </div>
-                        @endif
-                    </div>
-                @endif
             </div>
 
         @else

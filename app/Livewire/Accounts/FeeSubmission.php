@@ -10,11 +10,15 @@ use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Livewire\Concerns\HandlesStudentFeeView;
+use App\Support\FeeCycleBreakdown;
 use Livewire\Component;
 use WireUi\Traits\WireUiActions;
 
 class FeeSubmission extends Component
 {
+    use HandlesStudentFeeView;
+
     use WireUiActions;
 
     // Student selection
@@ -26,6 +30,8 @@ class FeeSubmission extends Component
     public $classStructures = [];
     public $studentTransactions = [];
     public $studentInfo = [];
+    /** The selected student's ledger, rendered by livewire.partials.student-fee-view. */
+    public array $submissionLedger = [];
     public $feeBreakdown = [];
 
     // Fee cycle installments (school-configured) with per-installment status
@@ -96,6 +102,7 @@ class FeeSubmission extends Component
         $this->feeBreakdown = [];
         $this->feeCycles = [];
         $this->analyticsData = [];
+        $this->submissionLedger = [];
     }
 
     private function loadStudentData(): void
@@ -104,6 +111,9 @@ class FeeSubmission extends Component
         if (!$student) return;
 
         $orgId = $this->orgId();
+
+        // The summary on screen is the same ledger View Fee renders.
+        $this->submissionLedger = $this->buildStudentFeeView((int) $this->selectedStudentId);
 
         // Student info
         $this->studentInfo = [
@@ -180,84 +190,7 @@ class FeeSubmission extends Component
      */
     private function buildFeeCycles(int $orgId, array $paid, array $totals): array
     {
-        $out = [];
-
-        foreach (['academic', 'transport'] as $type) {
-            $total = (float) ($totals[$type] ?? 0);
-            if ($total <= 0) {
-                continue;
-            }
-
-            $cycles = FeeCycle::where('organization_id', $orgId)
-                ->where('fee_type', $type)
-                ->where('is_active', true)
-                ->get();
-
-            if ($cycles->isEmpty()) {
-                continue;
-            }
-
-            // Use the latest academic year that actually has installments.
-            $year   = $cycles->max('academic_year');
-            $cycles = $cycles->where('academic_year', $year)
-                ->sortBy('payment_serial')
-                ->values();
-            if ($cycles->isEmpty()) {
-                continue;
-            }
-
-            // The token fee (if any) is a fixed up-front charge, not a % of the
-            // fee — it comes off the top before the % installments split the rest.
-            $tokenAmt      = (float) optional($cycles->firstWhere('is_token', true))->amount;
-            $remainingBase = max(0, $total - $tokenAmt);
-
-            $remaining    = (float) ($paid[$type] ?? 0);
-            $installments = [];
-
-            foreach ($cycles as $c) {
-                $amount  = $c->is_token ? (float) $c->amount : round(((float) $c->fee_percent / 100) * $remainingBase, 2);
-                $covered = min($remaining, $amount);
-                $remaining = max(0, $remaining - $covered);
-
-                $status = $amount <= 0
-                    ? 'na'
-                    : ($covered >= $amount - 0.01
-                        ? 'paid'
-                        : ($covered > 0 ? 'partial' : 'pending'));
-
-                $due = $c->due_date;
-                $installments[] = [
-                    'serial'   => (int) $c->payment_serial,
-                    'label'    => $c->is_token ? 'Token Fee' : ($due ? $due->format('M Y') : ('Installment ' . $c->payment_serial)),
-                    'due_date' => $due ? $due->format('d M Y') : null,
-                    'overdue'  => $due && $status !== 'paid' && $due->isPast(),
-                    'percent'  => (float) $c->fee_percent,
-                    'amount'   => $amount,
-                    'paid'     => $covered,
-                    'status'   => $status,
-                ];
-            }
-
-            $count = $cycles->where('is_token', false)->count();
-            $out[] = [
-                'fee_type'     => $type,
-                'label'        => match ($count) {
-                    12      => 'Monthly',
-                    4       => 'Quarterly',
-                    2       => 'Half-Yearly',
-                    1       => 'One-Time',
-                    default => 'Custom',
-                },
-                'year'         => $year,
-                'total'        => $total,
-                'paid'         => (float) ($paid[$type] ?? 0),
-                'paid_count'   => collect($installments)->where('status', 'paid')->count(),
-                'count'        => $count,
-                'installments' => $installments,
-            ];
-        }
-
-        return $out;
+        return FeeCycleBreakdown::build($orgId, $paid, $totals);
     }
 
     private function loadAnalytics(): void
