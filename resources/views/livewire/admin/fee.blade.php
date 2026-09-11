@@ -56,16 +56,6 @@
                         <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-1">
                             <span>Net Payable: <strong class="text-blue-600">₹{{ number_format($netPayable, 0) }}</strong></span>
                         </div>
-                    @elseif ($activeTab === 'penalties' && $penaltySubTab === 'by_student' && $penaltyViewStudentId && !empty($penaltyStudentView))
-                        @php
-                            $penHdrCycles  = collect($penaltyStudentView['cycles'] ?? []);
-                            $penHdrAccrued = $penHdrCycles->sum('penalty_total');
-                            $penHdrNet     = $penHdrCycles->sum('penalty_net');
-                        @endphp
-                        <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-1 divide-x divide-gray-200">
-                            <span class="pr-4">Accrued: <strong class="text-red-600">₹{{ number_format($penHdrAccrued, 0) }}</strong></span>
-                            <span class="pl-4">Still Due: <strong class="text-gray-800">₹{{ number_format($penHdrNet, 0) }}</strong></span>
-                        </div>
                     @elseif ($activeTab === 'account_users')
                         <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-1 divide-x divide-gray-200">
                             <span class="pr-4">Total: <strong class="text-gray-800">{{ $acctTotal ?? 0 }}</strong></span>
@@ -107,11 +97,7 @@
                             <span class="sm:hidden">New</span>
                         </button>
                     @elseif ($activeTab === 'penalties')
-                        <button wire:click="openPenaltyWaiver" @disabled(!$penaltyViewStudentId)
-                            class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
-                            <span>Waiver</span>
-                        </button>
+                        @include('livewire.partials.penalties-actions')
                     @endif
                 </div>
             </div>
