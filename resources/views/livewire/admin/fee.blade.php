@@ -164,35 +164,7 @@
         @endif
 
         @if ($activeTab === 'fee_submission')
-            <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
-                <div class="flex flex-wrap items-center gap-3">
-                    <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-                        Filter by:
-                    </div>
-                    <select wire:model.live="submissionStandardId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                        <option value="">Select Class</option>
-                        @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
-                    </select>
-                    <select wire:model.live="submissionSectionId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                        <option value="">All Sections</option>
-                        @foreach ($sections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
-                    </select>
-                    <select wire:model.live="selectedStudentId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[200px]">
-                        <option value="">Select Student</option>
-                        @foreach ($students as $stu)
-                            <option value="{{ $stu->id }}">{{ $stu->full_name ?? ($stu->user->name ?? 'Unknown') }}@if ($stu->father_name) — {{ $stu->father_name }}@endif</option>
-                        @endforeach
-                    </select>
-                    <input type="text" wire:model="submissionSearch" wire:keydown.enter="searchSubmissionStudents" placeholder="Search student / father name…"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                    <button wire:click="searchSubmissionStudents"
-                        class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                        Search
-                    </button>
-                </div>
-            </div>
+            @include('livewire.partials.fee-submission-header')
         @elseif ($activeTab === 'payments')
             @php
                 $paymentActiveCount = count(array_filter([
@@ -351,92 +323,10 @@
     {{-- TAB 2: FEE SUBMISSION                                           --}}
     {{-- ════════════════════════════════════════════════════════════════ --}}
     @if ($activeTab === 'fee_submission')
-        @if (!$selectedStudentId || empty($selectedStudentInfo))
-            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div class="text-center py-16 px-4">
-                    <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
-                        <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                    </div>
-                    <p class="text-sm font-semibold text-gray-800">Select a student</p>
-                    <p class="text-xs text-gray-400 mt-1">Use the filters above (Class → Section → Student) or search by name to view fee details.</p>
-                </div>
-            </div>
-        @endif
-
-        @if ($selectedStudentId && !empty($submissionLedger))
-            <div class="space-y-4">
-                @include('livewire.partials.student-fee-view', [
-                    'sv'        => $submissionLedger,
-                    'feePrefix' => 'admin',
-                    'feeOrg'    => auth()->user()->organization_id,
-                ])
-            </div>
-        @endif
-
-        {{-- ── Update / Collect Fee slide-in panel ── --}}
-        @if ($showSubmitPanel)
-            <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
-                <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeSubmitPanel"></div>
-                <div class="absolute top-0 right-0 bottom-0 w-full max-w-md bg-white shadow-2xl flex flex-col">
-                    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                        <div>
-                            <h2 class="text-lg font-semibold text-gray-900">Collect Fee</h2>
-                            <p class="text-xs text-gray-500 mt-0.5">{{ $selectedStudentInfo['name'] ?? '' }} · Net ₹{{ number_format($netPayable, 0) }}</p>
-                        </div>
-                        <button wire:click="closeSubmitPanel" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                        </button>
-                    </div>
-                    <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Amount (₹) <span class="text-red-500">*</span></label>
-                            <input type="number" step="0.01" min="1" wire:model="submitAmount" placeholder="Enter amount" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                            @error('submitAmount')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Fee Type</label>
-                                <select wire:model="submitFeeType" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="academic">Academic</option>
-                                    <option value="transport">Transport</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Payment Mode</label>
-                                <select wire:model="submitPaymentMode" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="cash">Cash</option>
-                                    <option value="online">Online</option>
-                                    <option value="cheque">Cheque</option>
-                                    <option value="bank_transfer">Bank Transfer</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Date <span class="text-red-500">*</span></label>
-                            <input type="date" wire:model="submitDate" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                            @error('submitDate')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Collected By <span class="text-red-500">*</span></label>
-                            <input type="text" wire:model="submittedBy" placeholder="Staff name" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                            @error('submittedBy')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Remark</label>
-                            <input type="text" wire:model="submitRemark" placeholder="Optional" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                        </div>
-                    </div>
-                    <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
-                        <button wire:click="closeSubmitPanel" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                        <button wire:click="submitFeePayment" wire:loading.attr="disabled" wire:target="submitFeePayment"
-                            class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
-                            <span wire:loading.remove wire:target="submitFeePayment">Submit Payment</span>
-                            <span wire:loading wire:target="submitFeePayment">Saving…</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        @endif
+        @include('livewire.partials.fee-submission-panel', [
+            'feePrefix' => 'admin',
+            'feeOrg'    => auth()->user()->organization_id,
+        ])
     @endif
 
     {{-- ════════════════════════════════════════════════════════════════ --}}

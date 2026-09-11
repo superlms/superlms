@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin;
 
 use App\Livewire\Concerns\HandlesFeeConcessions;
+use App\Livewire\Concerns\HandlesFeeSubmission;
 use App\Livewire\Concerns\HandlesStudentFeeView;
 use App\Livewire\Concerns\HandlesViewFee;
 use App\Livewire\Concerns\HandlesFeeCycles;
@@ -23,7 +24,7 @@ use WireUi\Traits\WireUiActions;
 
 class Fee extends Component
 {
-    use WireUiActions, WithPagination, HandlesFeeCycles, HandlesFeeConcessions, HandlesStudentFeeView, HandlesViewFee;
+    use WireUiActions, WithPagination, HandlesFeeCycles, HandlesFeeConcessions, HandlesStudentFeeView, HandlesViewFee, HandlesFeeSubmission;
 
     public string $activeTab = ''; // '' = card menu (landing); otherwise the open tab
 
@@ -42,29 +43,7 @@ class Fee extends Component
     public $filterStructureSection   = '';
     public $filterStructureYear      = '';
 
-    // ─── Fee Submission ────────────────────────────────────────────────────────
-    public $submissionStandardId = '';
-    public $submissionSectionId  = '';
-    public $selectedStudentId    = '';
-    public $classStructures      = [];
-    public $studentTransactions  = [];
-
-    // Payment form
-    public $submitAmount      = '';
-    public $submitFeeType     = 'academic';
-    public $submitPaymentMode = 'cash';
-    public $submitDate        = '';
-    public $submitRemark      = '';
-    public $submittedBy       = '';
-
-    // Submission search + slide-in update panel
-    public $submissionSearch  = '';
-    public bool $showSubmitPanel = false;
-    public array $selectedStudentInfo = [];
-    public $studentConcessions = [];
-    public float $netPayable    = 0.0;
-    /** The selected student's ledger, rendered by livewire.partials.student-fee-view. */
-    public array $submissionLedger = [];
+    // ─── Fee Submission — state and logic live in HandlesFeeSubmission ─────────
 
     // ─── Concession (per-student fee discount) + view — see HandlesFeeConcessions
 
@@ -295,205 +274,7 @@ class Fee extends Component
         $this->resetPage();
     }
 
-    // ─── Fee Submission ────────────────────────────────────────────────────────
-
-    public function updatedSubmissionStandardId(): void
-    {
-        $this->submissionSectionId = '';
-        $this->selectedStudentId   = '';
-        $this->classStructures     = [];
-        $this->studentTransactions = [];
-        $this->students            = [];
-
-        if ($this->submissionStandardId) {
-            $this->sections = Section::where('standard_id', $this->submissionStandardId)
-                ->where('is_active', true)->get();
-            $this->loadSubmissionStudents();
-        }
-    }
-
-    public function updatedSubmissionSectionId(): void
-    {
-        $this->selectedStudentId   = '';
-        $this->classStructures     = [];
-        $this->studentTransactions = [];
-        $this->loadSubmissionStudents();
-    }
-
-    private function loadSubmissionStudents(): void
-    {
-        // Need either a class or a search term to list students.
-        if (!$this->submissionStandardId && !trim((string) $this->submissionSearch)) {
-            $this->students = [];
-            return;
-        }
-
-        $term = trim((string) $this->submissionSearch);
-
-        $this->students = StudentDetail::with(['user', 'standard', 'section'])
-            ->where('organization_id', $this->orgId())
-            ->when($this->submissionStandardId, fn($q) => $q->where('standard_id', $this->submissionStandardId))
-            ->when($this->submissionSectionId, fn($q) => $q->where('section_id', $this->submissionSectionId))
-            ->when($term !== '', function ($q) use ($term) {
-                $q->where(function ($w) use ($term) {
-                    $w->where('full_name', 'like', "%{$term}%")
-                      ->orWhere('father_name', 'like', "%{$term}%")
-                      ->orWhereHas('user', fn($u) => $u->where('name', 'like', "%{$term}%"));
-                });
-            })
-            ->orderBy('roll_no')
-            ->limit(200)
-            ->get();
-    }
-
-    /** Search button — list students by student/father name (class optional). */
-    public function searchSubmissionStudents(): void
-    {
-        $this->selectedStudentId   = '';
-        $this->classStructures     = [];
-        $this->studentTransactions = [];
-        $this->loadSubmissionStudents();
-    }
-
-    public function updatedSelectedStudentId(): void
-    {
-        if (!$this->selectedStudentId) {
-            $this->classStructures     = [];
-            $this->studentTransactions = [];
-            $this->selectedStudentInfo = [];
-            $this->studentConcessions  = [];
-            $this->netPayable          = 0.0;
-            $this->submissionLedger    = [];
-            return;
-        }
-
-        $student = StudentDetail::with(['user', 'standard', 'section'])->find($this->selectedStudentId);
-        if (!$student) return;
-
-        $this->selectedStudentInfo = [
-            'name'         => $student->full_name ?? ($student->user->name ?? '—'),
-            'father_name'  => $student->father_name ?? '—',
-            'admission_no' => $student->admission_no ?? '—',
-            'roll_no'      => $student->roll_no ?? '—',
-            'class'        => $student->standard->name ?? '—',
-            'section'      => $student->section->name ?? '—',
-            'phone'        => $student->phone ?? '—',
-        ];
-
-        // Load fee structures for this student's class
-        $this->classStructures = FeeStructure::where('organization_id', $this->orgId())
-            ->where('standard_id', $student->standard_id)
-            ->where(function ($q) use ($student) {
-                $q->where('section_id', $student->section_id)->orWhereNull('section_id');
-            })
-            ->where('is_active', true)
-            ->get()->toArray();
-
-        // Concessions for this student
-        $this->studentConcessions = FeeConcession::where('organization_id', $this->orgId())
-            ->where('student_detail_id', $this->selectedStudentId)
-            ->get()->toArray();
-
-        // Net payable = total structure − concessions − amount already paid.
-        // Each concession is also surfaced as a "concession" entry in the ledger
-        // below (as a payment of type concession), but it reduces the fee via
-        // this discount — NOT via the paid sum — so there's no double counting.
-        $totalStructure = collect($this->classStructures)->sum(fn ($s) => (float) $s['amount']);
-        $discount = 0.0;
-        $concessionRows = [];
-        foreach ($this->studentConcessions as $c) {
-            $amt = $c['concession_type'] === 'percent'
-                ? round($totalStructure * ((float) $c['value']) / 100, 2)
-                : min((float) $c['value'], $totalStructure);
-            $discount += $amt;
-            $concessionRows[] = [
-                'id'             => null,
-                'receipt_number' => 'CONCESSION',
-                'amount'         => $amt,
-                'fee_type'       => $c['fee_type'] === 'all' ? 'academic' : $c['fee_type'],
-                'payment_mode'   => 'concession',
-                'submitted_by'   => !empty($c['reason']) ? $c['reason'] : 'Concession',
-                'payment_date'   => $c['created_at'] ?? now()->toDateString(),
-                'is_concession'  => true,
-            ];
-        }
-
-        // Load real payment history for this student (admin/accounts + app payments)
-        $realTransactions = FeePayment::with(['standard', 'section'])
-            ->where('organization_id', $this->orgId())
-            ->where('student_detail_id', $this->selectedStudentId)
-            ->orderByDesc('payment_date')
-            ->get()->toArray();
-
-        $paid = collect($realTransactions)->sum(fn ($t) => (float) $t['amount']);
-        $this->netPayable = max(0, round($totalStructure - $discount - $paid, 2));
-
-        // Ledger = real payments + concessions shown as concession-type entries.
-        $this->studentTransactions = array_merge($realTransactions, $concessionRows);
-
-        // The summary on screen is the same ledger View Fee renders.
-        $this->submissionLedger = $this->buildStudentFeeView((int) $this->selectedStudentId);
-    }
-
-    public function openSubmitPanel(): void
-    {
-        if (!$this->selectedStudentId) {
-            $this->notification()->error('Select a student first.');
-            return;
-        }
-        $this->submitAmount      = '';
-        $this->submitFeeType     = 'academic';
-        $this->submitPaymentMode = 'cash';
-        $this->submitDate        = today()->toDateString();
-        $this->submitRemark      = '';
-        $this->submittedBy       = Auth::user()->name ?? '';
-        $this->resetValidation();
-        $this->showSubmitPanel   = true;
-    }
-
-    public function closeSubmitPanel(): void
-    {
-        $this->showSubmitPanel = false;
-    }
-
-    public function submitFeePayment(): void
-    {
-        $this->validate([
-            'selectedStudentId' => 'required|exists:student_details,id',
-            'submitAmount'      => 'required|numeric|min:1',
-            'submitFeeType'     => 'required|in:academic,transport',
-            'submitPaymentMode' => 'required|in:cash,online,cheque,bank_transfer',
-            'submitDate'        => 'required|date',
-            'submittedBy'       => 'required|string|max:255',
-        ]);
-
-        try {
-            $student = StudentDetail::find($this->selectedStudentId);
-
-            FeePayment::create([
-                'organization_id'   => $this->orgId(),
-                'student_detail_id' => $this->selectedStudentId,
-                'standard_id'       => $student->standard_id,
-                'section_id'        => $student->section_id,
-                'fee_type'          => $this->submitFeeType,
-                'amount'            => $this->submitAmount,
-                'payment_mode'      => $this->submitPaymentMode,
-                'payment_date'      => $this->submitDate,
-                'remark'            => $this->submitRemark,
-                'submitted_by'      => $this->submittedBy,
-            ]);
-
-            $this->notification()->success('Fee submitted successfully!');
-            $this->reset(['submitAmount', 'submitFeeType', 'submitPaymentMode', 'submitRemark', 'submittedBy']);
-            $this->submitDate = today()->toDateString();
-            $this->showSubmitPanel = false;
-
-            // Refresh transactions + net payable
-            $this->updatedSelectedStudentId();
-        } catch (\Exception $e) {
-            $this->notification()->error('Error submitting fee', $e->getMessage());
-        }
-    }
+    // ─── Fee Submission — logic lives in HandlesFeeSubmission ──────────────────
 
     // ─── Analytics ────────────────────────────────────────────────────────────
 
@@ -976,6 +757,10 @@ class Fee extends Component
             $data['payments'] = $this->getPaymentsQuery()
                 ->orderByDesc('payment_date')
                 ->paginate($this->perPage);
+        }
+
+        if ($this->activeTab === 'fee_submission') {
+            $data = array_merge($data, $this->feeSubmissionViewData());
         }
 
         if ($this->activeTab === 'view_fee') {
