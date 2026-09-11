@@ -82,9 +82,6 @@ class SeatingPlan extends Component
     // ─── Plan viewer ────────────────────────────────────────────────────────
     public ?int $viewingPlanId = null;
 
-    // ─── Filters ────────────────────────────────────────────────────────────
-    public string $planSearch = '';
-
     // ─── Seat finder ────────────────────────────────────────────────────────
     // Two ways in, chosen by $graphMode. Both end at the same place: the list of
     // papers the chosen candidates sit, each row opening the room diagram or
@@ -233,7 +230,8 @@ class SeatingPlan extends Component
         return SeatingPlanModel::where('organization_id', Auth::user()->organization_id)
             ->where('exam_id', (int) $this->filterExamId)
             ->orderBy('exam_date')->orderBy('id')
-            ->get(['id', 'name', 'exam_date', 'session', 'notes']);
+            // The diagram's header shows the session's own state and totals.
+            ->get(['id', 'name', 'exam_date', 'session', 'notes', 'status', 'total_students', 'total_seats', 'conflict_count']);
     }
 
     /**
@@ -806,6 +804,7 @@ class SeatingPlan extends Component
                 ->delete();
             $this->notification()->success('Plan deleted.');
             if ($this->viewingPlanId === $this->pendingDeletePlanId) $this->viewingPlanId = null;
+            if ($this->chartPlanId === $this->pendingDeletePlanId) $this->closeSeatChart();
         }
         $this->pendingDeletePlanId = null;
     }
@@ -1157,11 +1156,9 @@ class SeatingPlan extends Component
         $exams = Exam::where('organization_id', $orgId)->orderBy('start_date', 'desc')->get(['id', 'exam_name', 'academic_year', 'exam_type', 'start_date']);
         $standards = Standard::where('organization_id', $orgId)->where('is_active', true)->orderBy('id')->get(['id', 'name']);
 
-        $plans = SeatingPlanModel::with('exam:id,exam_name,exam_type')
-            ->where('organization_id', $orgId)
-            ->when($this->planSearch, fn($q) => $q->where('name', 'like', '%' . $this->planSearch . '%'))
-            ->orderBy('created_at', 'desc')
-            ->paginate(12);
+        // The plans are not listed any more — the finder is how you reach one —
+        // so all the header needs is how many there are.
+        $planCount = SeatingPlanModel::where('organization_id', $orgId)->count();
 
         $viewingPlan = null;
         $planRooms = collect();
@@ -1329,7 +1326,7 @@ class SeatingPlan extends Component
         $planRollMap = $this->rollMapFor($planAssignments);
 
         return view('livewire.admin.seating-plan', compact(
-            'rooms', 'invigilators', 'exams', 'standards', 'plans', 'viewingRoom',
+            'rooms', 'invigilators', 'exams', 'standards', 'planCount', 'viewingRoom',
             'viewingPlan', 'planRooms', 'planAssignments', 'planInvigilators', 'planRollMap',
             'datesheets', 'dsSections', 'viewingDatesheet', 'datesheetStdIds',
             'dsFilterSections', 'dsFilterSubjects', 'filteredDatesheet', 'filteredPapers',
