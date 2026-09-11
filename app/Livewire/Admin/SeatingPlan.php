@@ -35,14 +35,21 @@ class SeatingPlan extends Component
     public $dsStandardId = '';
     public $dsSectionId = '';
     public array $dsPapers = [];   // [subject_id => ['name','exam_date','start_time','end_time','shift']]
+
+    // ─── Datesheet filters — the tab shows nothing until a section is picked ──
+    public string $dsFilterExamId     = '';
+    public string $dsFilterStandardId = '';
+    public string $dsFilterSectionId  = '';
+    public string $dsFilterSubjectId  = '';
     public ?int $viewingDatesheetId = null;
     public ?int $pendingDeleteDatesheetId = null;
 
     // ─── Room form ──────────────────────────────────────────────────────────
     public bool $showRoomPanel = false;
     public ?int $editRoomId = null;
+    public ?int $viewRoomId = null;          // room whose seat map is open
     public array $roomForm = [
-        'room_name' => '', 'building' => '', 'rows' => 5, 'columns' => 6,
+        'room_name' => '', 'building' => '', 'rows' => 5, 'columns' => 6, 'seat_capacity' => 1,
         'is_active' => true, 'notes' => '',
     ];
 
@@ -223,17 +230,18 @@ class SeatingPlan extends Component
             $room = SeatingRoom::find($id);
             if ($room) {
                 $this->roomForm = [
-                    'room_name' => $room->room_name,
-                    'building'  => $room->building,
-                    'rows'      => $room->rows,
-                    'columns'   => $room->columns,
-                    'is_active' => $room->is_active,
-                    'notes'     => $room->notes,
+                    'room_name'     => $room->room_name,
+                    'building'      => $room->building,
+                    'rows'          => $room->rows,
+                    'columns'       => $room->columns,
+                    'seat_capacity' => max(1, (int) ($room->seat_capacity ?? 1)),
+                    'is_active'     => $room->is_active,
+                    'notes'         => $room->notes,
                 ];
             }
         } else {
             $this->roomForm = [
-                'room_name' => '', 'building' => '', 'rows' => 5, 'columns' => 6,
+                'room_name' => '', 'building' => '', 'rows' => 5, 'columns' => 6, 'seat_capacity' => 1,
                 'is_active' => true, 'notes' => '',
             ];
         }
@@ -251,13 +259,17 @@ class SeatingPlan extends Component
         $this->validate([
             'roomForm.room_name' => 'required|string|max:100',
             'roomForm.building'  => 'nullable|string|max:100',
-            'roomForm.rows'      => 'required|integer|min:1|max:50',
-            'roomForm.columns'   => 'required|integer|min:1|max:50',
+            'roomForm.rows'          => 'required|integer|min:1|max:50',
+            'roomForm.columns'       => 'required|integer|min:1|max:50',
+            'roomForm.seat_capacity' => 'required|integer|min:1|max:10',
         ]);
 
         $rows = (int) $this->roomForm['rows'];
         $cols = (int) $this->roomForm['columns'];
-        $capacity = $rows * $cols;
+        $perSeat = max(1, (int) $this->roomForm['seat_capacity']);
+        // A seat is a desk, and a desk can take more than one candidate — so
+        // the room holds rows × columns × seats-per-desk.
+        $capacity = $rows * $cols * $perSeat;
 
         $data = [
             'organization_id' => Auth::user()->organization_id,
@@ -265,6 +277,7 @@ class SeatingPlan extends Component
             'building'        => $this->roomForm['building'],
             'rows'            => $rows,
             'columns'         => $cols,
+            'seat_capacity'   => $perSeat,
             'capacity'        => $capacity,
             'is_active'       => (bool) $this->roomForm['is_active'],
             'notes'           => $this->roomForm['notes'],
@@ -306,6 +319,10 @@ class SeatingPlan extends Component
         SeatingSeat::insert($rows);
     }
 
+    /** Open a room's seat map — every desk drawn, one icon per candidate. */
+    public function viewRoom(int $id): void { $this->viewRoomId = $id; }
+    public function closeRoomView(): void { $this->viewRoomId = null; }
+
     public function confirmDeleteRoom(int $id): void { $this->pendingDeleteRoomId = $id; }
     public function cancelDeleteRoom(): void { $this->pendingDeleteRoomId = null; }
     public function executeDeleteRoom(): void
@@ -314,6 +331,7 @@ class SeatingPlan extends Component
             SeatingRoom::where('id', $this->pendingDeleteRoomId)
                 ->where('organization_id', Auth::user()->organization_id)
                 ->delete();
+            if ($this->viewRoomId === $this->pendingDeleteRoomId) $this->viewRoomId = null;
             $this->notification()->success('Room removed.');
         }
         $this->pendingDeleteRoomId = null;
@@ -626,6 +644,7 @@ class SeatingPlan extends Component
                     $rows[] = [
                         'seating_plan_id' => $plan->id,
                         'seat_id'         => $a['seat_id'],
+                        'seat_position'   => $a['seat_position'] ?? 1,
                         'room_id'         => $a['room_id'],
                         'student_id'      => $a['student_id'],
                         'class_label'     => $a['class_label'],
@@ -696,9 +715,10 @@ class SeatingPlan extends Component
             'room_name'       => $hallName,
         ]);
         $hall->building  = 'Overflow';
-        $hall->rows      = $rowsNeeded;
-        $hall->columns   = $cols;
-        $hall->capacity  = $rowsNeeded * $cols;
+        $hall->rows          = $rowsNeeded;
+        $hall->columns       = $cols;
+        $hall->seat_capacity = 1;
+        $hall->capacity      = $rowsNeeded * $cols;
         $hall->is_active = true;
         $hall->save();
         $this->regenerateSeats($hall);
@@ -743,10 +763,15 @@ class SeatingPlan extends Component
     {
         $this->resetErrorBag();
         $this->editDatesheetId = null;
-        $this->dsExamId = '';
-        $this->dsStandardId = '';
-        $this->dsSectionId = '';
-        $this->dsPapers = [];
+        // Start from whatever the filters point at, so "create" from the empty
+        // state lands on the class the user was already looking for.
+        $this->dsExamId     = $this->dsFilterExamId;
+        $this->dsStandardId = $this->dsFilterStandardId;
+        $this->dsSectionId  = $this->dsFilterSectionId;
+        $this->dsPapers     = [];
+        if ($this->dsStandardId) {
+            $this->loadDsSubjects();
+        }
         $this->showDatesheetPanel = true;
     }
 
@@ -754,6 +779,43 @@ class SeatingPlan extends Component
     {
         $this->showDatesheetPanel = false;
         $this->editDatesheetId = null;
+    }
+
+    public function updatedDsFilterExamId(): void
+    {
+        $this->dsFilterSubjectId = '';
+    }
+
+    public function updatedDsFilterStandardId(): void
+    {
+        $this->dsFilterSectionId = '';
+        $this->dsFilterSubjectId = '';
+    }
+
+    public function updatedDsFilterSectionId(): void
+    {
+        $this->dsFilterSubjectId = '';
+    }
+
+    public function clearDatesheetFilters(): void
+    {
+        $this->reset(['dsFilterExamId', 'dsFilterStandardId', 'dsFilterSectionId', 'dsFilterSubjectId']);
+    }
+
+    /** The datesheet the filters point at: the section's own, else the class-wide one. */
+    private function filteredDatesheet(): ?ExamDatesheet
+    {
+        if (!$this->dsFilterExamId || !$this->dsFilterStandardId || !$this->dsFilterSectionId) {
+            return null;
+        }
+
+        return ExamDatesheet::with(['exam:id,exam_name,academic_year', 'standard:id,name', 'section:id,name', 'papers.subject:id,name'])
+            ->where('organization_id', Auth::user()->organization_id)
+            ->where('exam_id', $this->dsFilterExamId)
+            ->where('standard_id', $this->dsFilterStandardId)
+            ->where(fn ($q) => $q->where('section_id', $this->dsFilterSectionId)->orWhereNull('section_id'))
+            ->orderByRaw('section_id IS NULL')  // the section's own sheet wins
+            ->first();
     }
 
     public function updatedDsStandardId(): void
@@ -795,6 +857,148 @@ class SeatingPlan extends Component
         }
     }
 
+    /** Load an existing datesheet into the create panel for editing. */
+    public function openDatesheetEdit(int $id): void
+    {
+        $ds = ExamDatesheet::with('papers.subject:id,name')
+            ->where('organization_id', Auth::user()->organization_id)
+            ->find($id);
+
+        if (!$ds) {
+            $this->notification()->error('That datesheet is gone.');
+            return;
+        }
+
+        $this->resetErrorBag();
+        $this->editDatesheetId = $ds->id;
+        $this->dsExamId     = (string) $ds->exam_id;
+        $this->dsStandardId = (string) $ds->standard_id;
+        $this->dsSectionId  = (string) ($ds->section_id ?? '');
+
+        // Start from the class's subject list so a subject with no paper yet is
+        // still offered, then fill in what the sheet already holds.
+        $this->loadDsSubjects();
+
+        foreach ($ds->papers as $paper) {
+            $row = $this->dsPapers[$paper->subject_id] ?? ['name' => $paper->subject->name ?? 'Subject'];
+            $this->dsPapers[$paper->subject_id] = array_merge($row, [
+                'exam_date'  => $paper->exam_date?->toDateString() ?? '',
+                'start_time' => $paper->start_time ? substr($paper->start_time, 0, 5) : '',
+                'end_time'   => $paper->end_time ? substr($paper->end_time, 0, 5) : '',
+                'shift'      => (int) ($paper->shift ?: 1),
+            ]);
+        }
+
+        $this->showDatesheetPanel = true;
+    }
+
+    /**
+     * Two papers clash when the same class sits both at once: the same date
+     * with overlapping times, or — when a paper carries no times — the same
+     * date and shift. Checked inside the form and against every datesheet the
+     * class already has, including the class-wide one a section inherits.
+     *
+     * @return string[] one line per clash
+     */
+    private function datesheetClashes(): array
+    {
+        $rows = [];
+        foreach ($this->dsPapers as $subjectId => $p) {
+            if (empty($p['exam_date'])) continue;
+            $rows[] = [
+                'subject' => $p['name'] ?? 'Subject',
+                'date'    => $p['exam_date'],
+                'start'   => $p['start_time'] ?: null,
+                'end'     => $p['end_time'] ?: null,
+                'shift'   => (int) ($p['shift'] ?? 1),
+            ];
+        }
+
+        $clashes = [];
+
+        // Inside the form
+        for ($i = 0; $i < count($rows); $i++) {
+            for ($j = $i + 1; $j < count($rows); $j++) {
+                if ($this->papersOverlap($rows[$i], $rows[$j])) {
+                    $clashes[] = $rows[$i]['subject'] . ' and ' . $rows[$j]['subject']
+                        . ' are both on ' . $this->prettyDate($rows[$i]['date']) . ' at the same time.';
+                }
+            }
+        }
+
+        // The sheet this save writes to is replaced wholesale, so its own papers
+        // are not a clash with themselves.
+        $targetId = $this->editDatesheetId ?: ExamDatesheet::where('organization_id', Auth::user()->organization_id)
+            ->where('exam_id', $this->dsExamId)
+            ->where('standard_id', $this->dsStandardId)
+            ->where(fn ($q) => $this->dsSectionId
+                ? $q->where('section_id', $this->dsSectionId)
+                : $q->whereNull('section_id'))
+            ->value('id');
+
+        // Against what the class already has (any exam — the class can only sit
+        // one paper at a time, whoever set it).
+        $existing = ExamDatesheetPaper::query()
+            ->join('exam_datesheets as d', 'd.id', '=', 'exam_datesheet_papers.exam_datesheet_id')
+            ->join('subjects as s', 's.id', '=', 'exam_datesheet_papers.subject_id')
+            ->leftJoin('exams as e', 'e.id', '=', 'd.exam_id')
+            ->where('d.organization_id', Auth::user()->organization_id)
+            ->where('d.standard_id', $this->dsStandardId)
+            ->when(
+                $this->dsSectionId,
+                // A section's papers clash with its own sheet and with the
+                // class-wide sheet it inherits; a class-wide sheet clashes with
+                // every section of the class, so it filters on nothing.
+                fn ($q) => $q->where(fn ($qq) => $qq->whereNull('d.section_id')->orWhere('d.section_id', $this->dsSectionId)),
+            )
+            ->when($targetId, fn ($q) => $q->where('d.id', '!=', $targetId))
+            ->get([
+                'exam_datesheet_papers.exam_date', 'exam_datesheet_papers.start_time',
+                'exam_datesheet_papers.end_time', 'exam_datesheet_papers.shift',
+                's.name as subject_name', 'e.exam_name as exam_name',
+            ]);
+
+        foreach ($rows as $row) {
+            foreach ($existing as $old) {
+                $other = [
+                    'date'  => \Carbon\Carbon::parse($old->exam_date)->toDateString(),
+                    'start' => $old->start_time ? substr($old->start_time, 0, 5) : null,
+                    'end'   => $old->end_time ? substr($old->end_time, 0, 5) : null,
+                    'shift' => (int) ($old->shift ?: 1),
+                ];
+                if ($this->papersOverlap($row, $other)) {
+                    $clashes[] = $row['subject'] . ' on ' . $this->prettyDate($row['date'])
+                        . ' runs into ' . $old->subject_name
+                        . ($old->exam_name ? ' (' . $old->exam_name . ')' : '')
+                        . ', already set at that time for this class.';
+                }
+            }
+        }
+
+        return array_values(array_unique($clashes));
+    }
+
+    /** Same day, and either overlapping clock times or the same shift. */
+    private function papersOverlap(array $a, array $b): bool
+    {
+        if ($a['date'] !== $b['date']) return false;
+
+        if ($a['start'] && $a['end'] && $b['start'] && $b['end']) {
+            return $a['start'] < $b['end'] && $b['start'] < $a['end'];
+        }
+
+        return (int) $a['shift'] === (int) $b['shift'];
+    }
+
+    private function prettyDate(string $date): string
+    {
+        try {
+            return \Carbon\Carbon::parse($date)->format('d M Y');
+        } catch (\Throwable $e) {
+            return $date;
+        }
+    }
+
     public function saveDatesheet(): void
     {
         $this->validate([
@@ -809,10 +1013,29 @@ class SeatingPlan extends Component
             return;
         }
 
+        $clashes = $this->datesheetClashes();
+        if ($clashes) {
+            $this->addError('dsPapers', implode(' ', array_slice($clashes, 0, 3)));
+            $this->notification()->error($clashes[0]);
+            return;
+        }
+
         $orgId = Auth::user()->organization_id;
 
         DB::transaction(function () use ($orgId) {
-            $ds = ExamDatesheet::updateOrCreate(
+            $ds = $this->editDatesheetId
+                ? ExamDatesheet::where('organization_id', $orgId)->findOrFail($this->editDatesheetId)
+                : null;
+
+            if ($ds) {
+                $ds->update([
+                    'exam_id'     => $this->dsExamId,
+                    'standard_id' => $this->dsStandardId,
+                    'section_id'  => $this->dsSectionId ?: null,
+                ]);
+            }
+
+            $ds = $ds ?: ExamDatesheet::updateOrCreate(
                 [
                     'organization_id' => $orgId,
                     'exam_id'         => $this->dsExamId,
@@ -837,7 +1060,16 @@ class SeatingPlan extends Component
             }
         });
 
-        $this->notification()->success('Datesheet saved.');
+        // Point the tab's filters at what was just saved, so the sheet is on
+        // screen instead of an empty state.
+        $this->dsFilterExamId     = (string) $this->dsExamId;
+        $this->dsFilterStandardId = (string) $this->dsStandardId;
+        if ($this->dsSectionId) {
+            $this->dsFilterSectionId = (string) $this->dsSectionId;
+        }
+        $this->dsFilterSubjectId = '';
+
+        $this->notification()->success($this->editDatesheetId ? 'Datesheet updated.' : 'Datesheet saved.');
         $this->closeDatesheetPanel();
     }
 
@@ -893,6 +1125,10 @@ class SeatingPlan extends Component
             }
         }
 
+        $viewingRoom = $this->viewRoomId
+            ? SeatingRoom::with('seats')->where('organization_id', $orgId)->find($this->viewRoomId)
+            : null;
+
         // ── Datesheet tab data ──
         $datesheets = ExamDatesheet::with(['exam:id,exam_name', 'standard:id,name', 'section:id,name'])
             ->withCount('papers')
@@ -903,6 +1139,32 @@ class SeatingPlan extends Component
         $dsSections = $this->dsStandardId
             ? Section::where('standard_id', $this->dsStandardId)->where('is_active', true)->orderBy('id')->get(['id', 'name'])
             : collect();
+
+        // The tab is filter-driven: exam → class → section, and only then a
+        // sheet. A subject narrows that sheet to the one paper.
+        $dsFilterSections = $this->dsFilterStandardId
+            ? Section::where('standard_id', $this->dsFilterStandardId)->where('is_active', true)
+                ->orderBy('id')->get(['id', 'name'])
+            : collect();
+
+        $filteredDatesheet = $this->filteredDatesheet();
+        $filteredPapers    = collect();
+        $dsFilterSubjects  = collect();
+
+        if ($filteredDatesheet) {
+            $papers = $filteredDatesheet->papers
+                ->sortBy(fn ($p) => ($p->exam_date?->toDateString() ?? '9999-12-31') . ' ' . ($p->start_time ?? ''))
+                ->values();
+
+            $dsFilterSubjects = $papers->map(fn ($p) => [
+                'id'   => $p->subject_id,
+                'name' => $p->subject->name ?? 'Subject',
+            ])->unique('id')->values();
+
+            $filteredPapers = $this->dsFilterSubjectId
+                ? $papers->where('subject_id', (int) $this->dsFilterSubjectId)->values()
+                : $papers;
+        }
 
         $viewingDatesheet = $this->viewingDatesheetId
             ? ExamDatesheet::with(['exam:id,exam_name', 'standard:id,name', 'section:id,name', 'papers.subject:id,name'])
@@ -1014,9 +1276,10 @@ class SeatingPlan extends Component
         $planRollMap = $this->rollMapFor($planAssignments);
 
         return view('livewire.admin.seating-plan', compact(
-            'rooms', 'invigilators', 'exams', 'standards', 'plans',
+            'rooms', 'invigilators', 'exams', 'standards', 'plans', 'viewingRoom',
             'viewingPlan', 'planRooms', 'planAssignments', 'planInvigilators', 'planRollMap',
             'datesheets', 'dsSections', 'viewingDatesheet', 'datesheetStdIds',
+            'dsFilterSections', 'dsFilterSubjects', 'filteredDatesheet', 'filteredPapers',
             'filterPlans', 'filterSections', 'filterStudents', 'graphDates',
             'graphViews', 'graphRoomOptions', 'graphRollMap',
             'graphFocusId', 'graphStudent', 'graphFiltersActive'

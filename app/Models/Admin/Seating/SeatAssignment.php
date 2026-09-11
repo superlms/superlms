@@ -10,7 +10,7 @@ class SeatAssignment extends Model
     protected $table = 'seat_assignments';
 
     protected $fillable = [
-        'seating_plan_id', 'seat_id', 'room_id',
+        'seating_plan_id', 'seat_id', 'seat_position', 'room_id',
         'student_id', 'class_label', 'has_conflict', 'is_locked',
     ];
 

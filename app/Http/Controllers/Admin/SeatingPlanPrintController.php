@@ -70,9 +70,10 @@ class SeatingPlanPrintController extends Controller
             ->whereIn('user_id', $assignments->pluck('student_id')->filter()->unique())
             ->get()->keyBy('user_id');
 
+        // One entry per place at a desk, so a two-seater prints both names.
         $cells = [];
         foreach ($assignments as $a) {
-            if ($a->seat) $cells[$a->seat->row_no][$a->seat->col_no] = $a;
+            if ($a->seat) $cells[$a->seat->row_no][$a->seat->col_no][] = $a;
         }
 
         $pdf = Pdf::loadView('pdf.admin.seating-room', compact('plan', 'room', 'cells', 'students'))

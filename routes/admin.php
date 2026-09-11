@@ -186,6 +186,10 @@ Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
         Route::get('/seating-plan/{id}/room/{roomId}/pdf', [\App\Http\Controllers\Admin\SeatingPlanPrintController::class, 'roomPdf'])
             ->name('admin.seating-plan.room-pdf');
 
+        // Datesheet — the class's papers on one landscape page
+        Route::get('/datesheet/{id}/print', [\App\Http\Controllers\Admin\DatesheetPrintController::class, 'print'])
+            ->name('admin.datesheet.print');
+
         // ID Card printable / download
         Route::get('/id-card/{type}/{id}/print', [\App\Http\Controllers\Admin\IdCardPrintController::class, 'print'])
             ->name('admin.id-card.print');

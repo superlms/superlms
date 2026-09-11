@@ -57,9 +57,11 @@
     @foreach ($rooms as $room)
         @php
             $roomAssignments = $assignments->where('room_id', $room->id);
+            // A desk seats as many as the room says, so a cell is a list of
+            // the places at it — with one seat per desk, a list of one.
             $cells = [];
             foreach ($roomAssignments as $a) {
-                if ($a->seat) $cells[$a->seat->row_no][$a->seat->col_no] = $a;
+                if ($a->seat) $cells[$a->seat->row_no][$a->seat->col_no][] = $a;
             }
             $filled = $roomAssignments->whereNotNull('student_id')->count();
             $empty  = $room->capacity - $filled;
@@ -88,18 +90,25 @@
                 @for ($r = 1; $r <= $room->rows; $r++)
                     <tr>
                         @for ($c = 1; $c <= $room->columns; $c++)
-                            @php $cell = $cells[$r][$c] ?? null; @endphp
-                            @if ($cell && $cell->student_id)
-                                @php $sd = $students[$cell->student_id] ?? null; @endphp
-                                <td class="seat {{ $cell->has_conflict ? 'conflict' : '' }}">
-                                    <span class="num">{{ $cell->seat->seat_number ?? '' }}</span>
-                                    <span class="roll">Roll {{ $sd->roll_no ?? '—' }}</span>
-                                    <span class="name">{{ $sd->full_name ?? ($cell->student->name ?? '') }}</span>
-                                    <span class="cls">{{ $cell->class_label }}</span>
+                            @php
+                                $places = collect($cells[$r][$c] ?? []);
+                                $taken  = $places->filter(fn ($a) => $a->student_id)->values();
+                                $seatNo = $places->first()?->seat?->seat_number ?? '';
+                                $clash  = $places->contains(fn ($a) => $a->has_conflict);
+                            @endphp
+                            @if ($taken->isNotEmpty())
+                                <td class="seat {{ $clash ? 'conflict' : '' }}">
+                                    <span class="num">{{ $seatNo }}</span>
+                                    @foreach ($taken as $a)
+                                        @php $sd = $students[$a->student_id] ?? null; @endphp
+                                        <span class="roll">Roll {{ $sd->roll_no ?? '—' }}</span>
+                                        <span class="name">{{ $sd->full_name ?? ($a->student->name ?? '') }}</span>
+                                        <span class="cls">{{ $a->class_label }}</span>
+                                    @endforeach
                                 </td>
                             @else
                                 <td class="empty">
-                                    {{ $cell->seat->seat_number ?? '' }}<br>—
+                                    {{ $seatNo }}<br>—
                                 </td>
                             @endif
                         @endfor
@@ -111,7 +120,7 @@
                 <span>Capacity: <strong>{{ $room->capacity }}</strong></span>
                 <span>Assigned: <strong>{{ $filled }}</strong></span>
                 <span>Empty: <strong>{{ $empty }}</strong></span>
-                <span>Layout: <strong>{{ $room->rows }} × {{ $room->columns }}</strong></span>
+                <span>Layout: <strong>{{ $room->rows }} × {{ $room->columns }}</strong> @if(($room->seat_capacity ?? 1) > 1)<strong>× {{ $room->seat_capacity }} per desk</strong>@endif</span>
             </div>
 
             <div class="sign">

@@ -26,7 +26,7 @@
             {{ $plan->name }} · {{ $plan->exam->exam_name ?? '' }}
             @if($plan->exam_date) · {{ $plan->exam_date->format('d M Y') }}@endif
             @if($plan->session) · {{ ucfirst($plan->session) }}@endif
-            · {{ $room->rows }} × {{ $room->columns }} = {{ $room->capacity }} seats
+            · {{ $room->rows }} × {{ $room->columns }} desks @if(($room->seat_capacity ?? 1) > 1)× {{ $room->seat_capacity }} @endif= {{ $room->capacity }} seats
         </p>
     </div>
 
@@ -36,17 +36,23 @@
         @for ($r = 1; $r <= $room->rows; $r++)
             <tr>
                 @for ($c = 1; $c <= $room->columns; $c++)
-                    @php $cell = $cells[$r][$c] ?? null; @endphp
-                    @if ($cell && $cell->student_id)
-                        @php $sd = $students[$cell->student_id] ?? null; @endphp
+                    @php
+                        $places = collect($cells[$r][$c] ?? []);
+                        $taken  = $places->filter(fn ($a) => $a->student_id)->values();
+                        $seatNo = $places->first()?->seat?->seat_number ?? ($r . '-' . $c);
+                    @endphp
+                    @if ($taken->isNotEmpty())
                         <td>
-                            <div class="seatno">{{ $cell->seat->seat_number ?? ($r . '-' . $c) }}</div>
-                            <div class="cls">{{ $sd ? (($sd->standard->name ?? '') . ($sd->section ? '-' . $sd->section->name : '')) : $cell->class_label }}</div>
-                            <div class="adm">Roll: {{ $sd->roll_no ?? '—' }} · Adm: {{ $sd->admission_no ?? '—' }}</div>
+                            <div class="seatno">{{ $seatNo }}</div>
+                            @foreach ($taken as $a)
+                                @php $sd = $students[$a->student_id] ?? null; @endphp
+                                <div class="cls">{{ $sd ? (($sd->standard->name ?? '') . ($sd->section ? '-' . $sd->section->name : '')) : $a->class_label }}</div>
+                                <div class="adm">Roll: {{ $sd->roll_no ?? '—' }} · Adm: {{ $sd->admission_no ?? '—' }}</div>
+                            @endforeach
                         </td>
                     @else
                         <td class="empty">
-                            <div class="seatno">{{ $cell->seat->seat_number ?? ($r . '-' . $c) }}</div>
+                            <div class="seatno">{{ $seatNo }}</div>
                             <div class="empty-cell">— empty —</div>
                         </td>
                     @endif
