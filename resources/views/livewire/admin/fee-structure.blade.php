@@ -9,7 +9,7 @@
                 @include('livewire.partials.fee-structure-actions')
             </div>
         @endif
-        @include('livewire.partials.fee-structure-header', ['tabsRowActions' => $embedded])
+        @include('livewire.partials.fee-structure-header')
     </div>
 
     <div class="p-4 sm:p-6 space-y-5">

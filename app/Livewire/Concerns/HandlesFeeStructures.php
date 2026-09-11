@@ -151,6 +151,18 @@ trait HandlesFeeStructures
         $this->structureModalOpen = true;
     }
 
+    /**
+     * The Fee page's own header carries the Add button when this component is
+     * embedded there, so it reaches us as an event. Adding is always academic,
+     * so the tab follows along.
+     */
+    #[\Livewire\Attributes\On('fee-structure-add')]
+    public function openStructureModalFromHost(): void
+    {
+        $this->structureTab = 'academic';
+        $this->openStructureModal();
+    }
+
     public function closeStructureModal(): void
     {
         $this->structureModalOpen = false;

@@ -25,11 +25,15 @@
             <p class="text-xs text-gray-400 mt-1">Pick a class — and a section, if you want — from the filter above.</p>
         </div>
     @else
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="space-y-4">
             @forelse ($structureGroups as $g)
-                @php $secParam = $g['section_id'] ?? ''; @endphp
+                @php
+                    $secParam = $g['section_id'] ?? '';
+                    // Split the heads down the middle so each column reads top-to-bottom.
+                    $feeCols = array_chunk($g['rows']->all(), (int) ceil(max(1, count($g['rows'])) / 2));
+                @endphp
                 <div wire:key="grp-{{ $g['standard_id'] }}-{{ $g['section_id'] ?? 0 }}"
-                    class="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col">
+                    class="bg-white rounded-xl border border-gray-200 overflow-hidden">
 
                     {{-- Card header — view / edit / delete / download / print --}}
                     <div class="px-4 py-3 border-b border-gray-100 flex items-start justify-between gap-2">
@@ -63,13 +67,17 @@
                         </div>
                     </div>
 
-                    {{-- Fee heads: serial · name · amount --}}
-                    <div class="flex-1">
-                        @foreach ($g['rows'] as $i => $r)
-                            <div class="flex items-center gap-3 px-4 py-2 text-sm {{ $i ? 'border-t border-gray-50' : '' }}">
-                                <span class="w-5 text-[11px] text-gray-300 tabular-nums">{{ $i + 1 }}</span>
-                                <span class="flex-1 text-gray-600 truncate">{{ $r->fee_name }}</span>
-                                <span class="text-gray-800 tabular-nums">₹{{ number_format($r->amount, 2) }}</span>
+                    {{-- Fee heads across two columns, nothing drawn between them --}}
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 px-4 py-3">
+                        @foreach ($feeCols as $col => $items)
+                            <div wire:key="grp-col-{{ $g['standard_id'] }}-{{ $g['section_id'] ?? 0 }}-{{ $col }}">
+                                @foreach ($items as $n => $r)
+                                    <div class="flex items-center gap-3 py-1.5 text-sm">
+                                        <span class="w-5 text-[11px] text-gray-300 tabular-nums">{{ $col * count($feeCols[0]) + $n + 1 }}</span>
+                                        <span class="flex-1 text-gray-600 truncate">{{ $r->fee_name }}</span>
+                                        <span class="text-gray-800 tabular-nums">₹{{ number_format($r->amount, 2) }}</span>
+                                    </div>
+                                @endforeach
                             </div>
                         @endforeach
                     </div>
@@ -80,7 +88,7 @@
                     </div>
                 </div>
             @empty
-                <div class="lg:col-span-2 bg-white rounded-2xl border border-dashed border-gray-200 px-4 py-14 text-center">
+                <div class="bg-white rounded-2xl border border-dashed border-gray-200 px-4 py-14 text-center">
                     <p class="text-sm font-semibold text-gray-800">No fee structure for this selection</p>
                     <p class="text-xs text-gray-400 mt-1">Use <strong class="text-gray-600">Add Fee Structure</strong> to create one.</p>
                 </div>
@@ -103,8 +111,10 @@
         @php
             $annual = collect($routeMonthRows)->sum('amount');
             $paidMonths = collect($routeMonthRows)->where('free', false)->count();
+            // Apr–Sep on the left, Oct–Mar on the right.
+            $monthCols = array_chunk($routeMonthRows, (int) ceil(max(1, count($routeMonthRows)) / 2));
         @endphp
-        <div class="max-w-2xl bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
 
             {{-- Card header — view / edit / delete / print / download --}}
             <div class="px-4 py-3 border-b border-gray-100 flex items-start justify-between gap-2">
@@ -139,16 +149,20 @@
                 </div>
             </div>
 
-            {{-- Month-by-month --}}
-            <div>
-                @foreach ($routeMonthRows as $i => $m)
-                    <div class="flex items-center gap-3 px-4 py-2 text-sm {{ $i ? 'border-t border-gray-50' : '' }}">
-                        <span class="w-5 text-[11px] text-gray-300 tabular-nums">{{ $i + 1 }}</span>
-                        <span class="flex-1 text-gray-600">
-                            {{ $m['month'] }}
-                            @if ($m['free'])<span class="ml-1.5 text-[10px] uppercase tracking-wide text-gray-400">Free</span>@endif
-                        </span>
-                        <span class="{{ $m['free'] ? 'text-gray-300' : 'text-gray-800' }} tabular-nums">₹{{ number_format($m['amount'], 2) }}</span>
+            {{-- Month-by-month across two columns, nothing drawn between them --}}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 px-4 py-3">
+                @foreach ($monthCols as $col => $items)
+                    <div wire:key="month-col-{{ $col }}">
+                        @foreach ($items as $n => $m)
+                            <div class="flex items-center gap-3 py-1.5 text-sm">
+                                <span class="w-5 text-[11px] text-gray-300 tabular-nums">{{ $col * count($monthCols[0]) + $n + 1 }}</span>
+                                <span class="flex-1 text-gray-600">
+                                    {{ $m['month'] }}
+                                    @if ($m['free'])<span class="ml-1.5 text-[10px] uppercase tracking-wide text-gray-400">Free</span>@endif
+                                </span>
+                                <span class="{{ $m['free'] ? 'text-gray-300' : 'text-gray-800' }} tabular-nums">₹{{ number_format($m['amount'], 2) }}</span>
+                            </div>
+                        @endforeach
                     </div>
                 @endforeach
             </div>
