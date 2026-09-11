@@ -4,7 +4,9 @@ namespace App\Services\Lists;
 
 use App\Models\Admin\Exam;
 use App\Models\Admin\Fee\FeePayment;
+use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Admin\ExamCopy;
+use App\Models\Admin\ReportCard;
 use App\Models\Admin\StudentIdCard;
 use App\Models\Admin\Transportation;
 use App\Models\Student\AdmitCard;
@@ -93,6 +95,26 @@ class ListReportService
                     'payment_mode'   => 'Mode',
                     'payment_date'   => 'Date',
                     'remark'         => 'Remark',
+                ],
+            ],
+            'fee_due' => [
+                'label'  => 'Fee Due',
+                'desc'   => 'Who owes what — fee due vs collected, per student',
+                'color'  => 'red',
+                'icon'   => 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+                'filters' => ['standard' => 'required', 'section' => 'optional', 'status' => 'optional'],
+                'status_options' => ['' => 'All students', 'due' => 'Due only', 'cleared' => 'Fully paid'],
+                'columns' => [
+                    'roll_no'        => 'Roll No',
+                    'student'        => 'Student',
+                    'class'          => 'Class',
+                    'academic_fee'   => 'Academic Fee',
+                    'academic_paid'  => 'Academic Paid',
+                    'transport_fee'  => 'Transport Fee',
+                    'transport_paid' => 'Transport Paid',
+                    'total_fee'      => 'Total Fee',
+                    'total_paid'     => 'Total Paid',
+                    'due'            => 'Due',
                 ],
             ],
             'transport' => [
@@ -193,6 +215,24 @@ class ListReportService
                     'seat_number'       => 'Seat',
                     'room_number'       => 'Room',
                     'status'            => 'Status',
+                ],
+            ],
+            'report_card' => [
+                'label'  => 'Report Cards',
+                'desc'   => 'Register of issued report cards',
+                'color'  => 'pink',
+                'icon'   => 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+                'filters' => ['standard' => 'optional', 'section' => 'optional', 'status' => 'optional'],
+                'status_options' => ['' => 'All', 'issued' => 'Issued', 'revoked' => 'Revoked'],
+                'columns' => [
+                    'regd_no'       => 'Regd No',
+                    'roll_no'       => 'Roll No',
+                    'student'       => 'Student',
+                    'class'         => 'Class',
+                    'academic_year' => 'Academic Year',
+                    'result'        => 'Result',
+                    'status'        => 'Status',
+                    'issued_at'     => 'Issued On',
                 ],
             ],
         ];
@@ -302,6 +342,93 @@ class ListReportService
                     'payment_mode'   => fn ($r) => ucfirst((string) $r->payment_mode),
                     'payment_date'   => fn ($r) => $fmtDate($r->payment_date),
                     'remark'         => fn ($r) => $r->remark,
+                ]];
+
+            case 'fee_due':
+                if (!$stdId) {
+                    return [collect(), []];
+                }
+
+                $students = StudentDetail::with(['standard:id,name', 'section:id,name'])
+                    ->where('organization_id', $orgId)
+                    ->where('standard_id', $stdId)
+                    ->when($secId, fn ($q) => $q->where('section_id', $secId))
+                    ->orderByRaw('CAST(roll_no AS UNSIGNED), roll_no')
+                    ->get();
+
+                $structures = FeeStructure::where('organization_id', $orgId)
+                    ->where('standard_id', $stdId)
+                    ->where('is_active', true)
+                    ->get();
+
+                $payments = FeePayment::where('organization_id', $orgId)
+                    ->whereIn('student_detail_id', $students->pluck('id'))
+                    ->get()
+                    ->groupBy('student_detail_id');
+
+                $records = $students->map(function ($s) use ($structures, $payments) {
+                    // A section's own fee lines plus the class-wide ones it inherits.
+                    $applicable = $structures->filter(fn ($f) => is_null($f->section_id) || $f->section_id == $s->section_id);
+
+                    $academicFee    = (float) $applicable->where('fee_type', 'academic')->sum('amount');
+                    $transportFee   = $s->transportation_required ? (float) $applicable->where('fee_type', 'transport')->sum('amount') : 0.0;
+                    $studentPayments = $payments->get($s->id, collect());
+                    $academicPaid   = (float) $studentPayments->where('fee_type', 'academic')->sum('amount');
+                    $transportPaid  = (float) $studentPayments->where('fee_type', 'transport')->sum('amount');
+                    $totalFee       = $academicFee + $transportFee;
+                    $totalPaid      = $academicPaid + $transportPaid;
+
+                    $s->setAttribute('fee_academic_fee', $academicFee);
+                    $s->setAttribute('fee_academic_paid', $academicPaid);
+                    $s->setAttribute('fee_transport_fee', $transportFee);
+                    $s->setAttribute('fee_transport_paid', $transportPaid);
+                    $s->setAttribute('fee_total_fee', $totalFee);
+                    $s->setAttribute('fee_total_paid', $totalPaid);
+                    $s->setAttribute('fee_due', max(0, $totalFee - $totalPaid));
+
+                    return $s;
+                });
+
+                $status = $p['status'] ?? null;
+                if ($status === 'due') {
+                    $records = $records->filter(fn ($s) => $s->fee_due > 0);
+                } elseif ($status === 'cleared') {
+                    $records = $records->filter(fn ($s) => $s->fee_due <= 0);
+                }
+                $records = $records->values();
+
+                $money = fn ($v) => number_format((float) $v, 2);
+
+                return [$records, [
+                    'roll_no'        => fn ($r) => $r->roll_no,
+                    'student'        => fn ($r) => $r->full_name,
+                    'class'          => fn ($r) => $this->classLabel($r->standard, $r->section),
+                    'academic_fee'   => fn ($r) => $money($r->fee_academic_fee),
+                    'academic_paid'  => fn ($r) => $money($r->fee_academic_paid),
+                    'transport_fee'  => fn ($r) => $money($r->fee_transport_fee),
+                    'transport_paid' => fn ($r) => $money($r->fee_transport_paid),
+                    'total_fee'      => fn ($r) => $money($r->fee_total_fee),
+                    'total_paid'     => fn ($r) => $money($r->fee_total_paid),
+                    'due'            => fn ($r) => $money($r->fee_due),
+                ]];
+
+            case 'report_card':
+                $records = ReportCard::with(['studentDetail:id,full_name,roll_no', 'standard:id,name', 'section:id,name'])
+                    ->where('organization_id', $orgId)
+                    ->when($stdId, fn ($q) => $q->where('standard_id', $stdId))
+                    ->when($secId, fn ($q) => $q->where('section_id', $secId))
+                    ->when(!empty($p['status']), fn ($q) => $q->where('status', $p['status']))
+                    ->orderByDesc('issued_at')
+                    ->get();
+                return [$records, [
+                    'regd_no'       => fn ($r) => $r->regd_no,
+                    'roll_no'       => fn ($r) => optional($r->studentDetail)->roll_no,
+                    'student'       => fn ($r) => optional($r->studentDetail)->full_name,
+                    'class'         => fn ($r) => $this->classLabel($r->standard, $r->section),
+                    'academic_year' => fn ($r) => $r->academic_year,
+                    'result'        => fn ($r) => ucfirst((string) $r->result),
+                    'status'        => fn ($r) => ucfirst((string) $r->status),
+                    'issued_at'     => fn ($r) => $fmtDate($r->issued_at),
                 ]];
 
             case 'transport':

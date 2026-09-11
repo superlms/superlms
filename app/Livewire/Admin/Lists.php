@@ -32,6 +32,7 @@ class Lists extends Component
     public $sectionId  = '';
     public $examId     = '';
     public string $month = '';
+    public string $status = '';
 
     /** @var array<int,string> selected column keys */
     public array $selectedColumns = [];
@@ -46,7 +47,7 @@ class Lists extends Component
 
     public function openPanel(): void
     {
-        $this->reset(['step', 'type', 'title', 'standardId', 'sectionId', 'examId', 'selectedColumns', 'blankColumns']);
+        $this->reset(['step', 'type', 'title', 'standardId', 'sectionId', 'examId', 'status', 'selectedColumns', 'blankColumns']);
         $this->step = 1;
         $this->orientation = 'portrait';
         $this->month = now()->format('Y-m');
@@ -78,7 +79,7 @@ class Lists extends Component
         // Pre-select every column; the user can trim it down.
         $this->selectedColumns = array_keys($defs[$type]['columns']);
         $this->blankColumns = 0;
-        $this->standardId = $this->sectionId = $this->examId = '';
+        $this->standardId = $this->sectionId = $this->examId = $this->status = '';
         $this->orientation = count($defs[$type]['columns']) > 7 ? 'landscape' : 'portrait';
         $this->resetErrorBag();
         $this->step = 2;
@@ -145,6 +146,7 @@ class Lists extends Component
             'section_id'  => $this->sectionId ?: null,
             'exam_id'     => $this->examId ?: null,
             'month'       => in_array('month', array_keys($def['filters'])) ? $this->month : null,
+            'status'      => in_array('status', array_keys($def['filters'])) ? ($this->status ?: null) : null,
         ], fn ($v) => $v !== null && $v !== '');
 
         $url = route($this->pdfRouteName(), ['organization' => $this->organization]) . '?' . http_build_query($query);

@@ -30,7 +30,7 @@ class ListReportController extends Controller
         $def = $defs[$type];
 
         // Ensure required filters are present.
-        $filterParam = ['standard' => 'standard_id', 'section' => 'section_id', 'exam' => 'exam_id', 'month' => 'month'];
+        $filterParam = ['standard' => 'standard_id', 'section' => 'section_id', 'exam' => 'exam_id', 'month' => 'month', 'status' => 'status'];
         foreach ($def['filters'] as $name => $rule) {
             if ($rule === 'required' && blank($request->query($filterParam[$name] ?? $name))) {
                 abort(422, ucfirst($name) . ' is required for this list.');
@@ -45,6 +45,7 @@ class ListReportController extends Controller
             'section_id'  => $request->integer('section_id') ?: null,
             'exam_id'     => $request->integer('exam_id') ?: null,
             'month'       => $request->query('month') ?: null,
+            'status'      => $request->query('status') ?: null,
             'columns'     => $columns,
         ];
 
@@ -79,6 +80,9 @@ class ListReportController extends Controller
         }
         if ($params['month']) {
             $scope[] = 'Month: ' . \Illuminate\Support\Carbon::parse($params['month'] . '-01')->format('F Y');
+        }
+        if ($params['status'] && !empty($def['status_options'][$params['status']])) {
+            $scope[] = 'Status: ' . $def['status_options'][$params['status']];
         }
 
         $pdf = Pdf::loadView('pdf.admin.list-report', [

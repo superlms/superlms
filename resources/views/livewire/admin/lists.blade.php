@@ -13,6 +13,8 @@
             'teal'    => ['bg' => 'bg-teal-50',     'text' => 'text-teal-600',    'border' => 'hover:border-teal-300'],
             'cyan'    => ['bg' => 'bg-cyan-50',     'text' => 'text-cyan-600',    'border' => 'hover:border-cyan-300'],
             'orange'  => ['bg' => 'bg-orange-50',   'text' => 'text-orange-600',  'border' => 'hover:border-orange-300'],
+            'red'     => ['bg' => 'bg-red-50',      'text' => 'text-red-600',     'border' => 'hover:border-red-300'],
+            'pink'    => ['bg' => 'bg-pink-50',     'text' => 'text-pink-600',    'border' => 'hover:border-pink-300'],
         ];
         $activeDef = $type ? ($definitions[$type] ?? null) : null;
     @endphp
@@ -167,6 +169,17 @@
                                         </label>
                                         <input type="month" wire:model="month" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500">
                                         @error('month')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                                    </div>
+                                @endif
+
+                                @if (isset($filters['status']))
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Status</label>
+                                        <select wire:model="status" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:ring-1 focus:ring-blue-500">
+                                            @foreach (($activeDef['status_options'] ?? ['' => 'All']) as $val => $label)
+                                                <option value="{{ $val }}">{{ $label }}</option>
+                                            @endforeach
+                                        </select>
                                     </div>
                                 @endif
                             </div>
