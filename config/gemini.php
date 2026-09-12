@@ -1,0 +1,82 @@
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Gemini (Google AI Studio) — LMS assistant
+    |--------------------------------------------------------------------------
+    |
+    | The assistant is a read-only bridge over this LMS: a per-organization
+    | knowledge pack plus a small set of scoped query tools. It never sees data
+    | outside the signed-in user's organization, and it is instructed to refuse
+    | anything that is not about this LMS.
+    |
+    | The API key is NEVER committed. Set GEMINI_API_KEY in the environment
+    | (locally in .env, in production in the superlms/app secret).
+    |
+    */
+
+    'api_key'  => env('GEMINI_API_KEY'),
+
+    'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
+
+    // Free-tier model on AI Studio.
+    //
+    // NOTE: the gemini-2.5-* ids are closed to keys issued from late 2026 on —
+    // generateContent answers 404 "no longer available to new users". So the
+    // default is the moving alias `gemini-flash-latest`, which always points at
+    // the current free-tier Flash and will not break again the next time Google
+    // rotates a version. Pin an exact id with GEMINI_MODEL if you need one.
+    'model'    => env('GEMINI_MODEL', 'gemini-flash-latest'),
+
+    'enabled'  => env('GEMINI_ENABLED', true),
+
+    'timeout'  => (int) env('GEMINI_TIMEOUT', 45),
+
+    'generation' => [
+        // Low temperature: this is a reporting assistant, not a writer.
+        'temperature'      => (float) env('GEMINI_TEMPERATURE', 0.2),
+        'maxOutputTokens'  => (int) env('GEMINI_MAX_OUTPUT_TOKENS', 1400),
+        // 2.5 models think before answering; a small budget keeps replies fast
+        // and stops the free-tier token quota from being burnt on reasoning.
+        'thinkingBudget'   => (int) env('GEMINI_THINKING_BUDGET', 0),
+    ],
+
+    'cache' => [
+        // Explicit context caching (POST /cachedContents). The knowledge pack +
+        // system instruction + tool declarations are uploaded once and reused,
+        // so every question only pays for the question itself.
+        'enabled' => env('GEMINI_CACHE_ENABLED', true),
+
+        // How long Gemini keeps the uploaded context.
+        'ttl_seconds' => (int) env('GEMINI_CACHE_TTL', 3600),
+
+        // How long we keep the generated LMS snapshot before rebuilding it.
+        // Short enough that "how many students" stays current, long enough that
+        // a burst of questions does not re-run the whole summary query set.
+        'snapshot_seconds' => (int) env('GEMINI_SNAPSHOT_TTL', 300),
+
+        // Some tiers (free included, at times) reject cachedContents outright.
+        // When that happens we stop retrying for this long and fall back to
+        // sending the context inline, where implicit caching still applies.
+        'unsupported_backoff_seconds' => 6 * 3600,
+    ],
+
+    // Per-user throttle, so one tab cannot exhaust the daily free quota.
+    'rate_limit' => [
+        'per_minute' => (int) env('GEMINI_RATE_PER_MINUTE', 6),
+        'per_day'    => (int) env('GEMINI_RATE_PER_DAY', 200),
+    ],
+
+    // How many tool round-trips one question may take before we answer with
+    // whatever we have. Guards against a model that keeps calling tools.
+    'max_tool_rounds' => 4,
+
+    // Turns of chat history sent back with each question.
+    'history_turns' => 8,
+
+    // Panels that get the floating assistant.
+    'roles' => ['admin', 'sub-admin', 'accounts', 'super-admin', 'sub-super-admin'],
+
+];

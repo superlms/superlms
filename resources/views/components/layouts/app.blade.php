@@ -162,6 +162,13 @@
         @livewire('chat.notifier')
     @endif
 
+    {{-- ─── Gemini LMS assistant (floating, bottom-right) ───
+         Renders nothing unless the role is allowed AND an API key is set, so a
+         deployment without GEMINI_API_KEY simply has no button. --}}
+    @if (Auth::user() && in_array(Auth::user()->role, (array) config('gemini.roles', [])))
+        @livewire('components.gemini-assistant')
+    @endif
+
     @livewireScripts
     @livewireCalendarScripts
     @include('partials.auto-refresh')
