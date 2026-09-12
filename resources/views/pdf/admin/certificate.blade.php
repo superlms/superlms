@@ -53,7 +53,6 @@
         .footer-table { width: 100%; }
         {{-- Date matches the signature block's size — they read as one line of footing. --}}
         .footer-table td { vertical-align: bottom; font-size: 9pt; color: #374151; }
-        .cert-no { text-align: center; color: #9ca3af; }
         {{-- No rule above the issuer's name — the signature sits on bare paper. --}}
         .sig-rule { width: 44mm; margin-left: auto; text-align: center; font-size: 9pt; color: #6b7280; }
     </style>
@@ -82,11 +81,7 @@
             $mobile  = $contact['mobile']  ?? ($cert->organization->mobile_number ?? null);
             $email   = $contact['email']   ?? ($cert->organization->email ?? null);
             $website = $contact['website'] ?? null;
-            $bits    = array_filter([
-                $mobile  ? 'Mobile: ' . $mobile : null,
-                $email   ? 'Email: ' . $email   : null,
-                $website ?: null,
-            ]);
+            $bits    = array_filter([$mobile, $email, $website]);
         @endphp
         @if ($logoSrc)
             <img class="logo" src="{{ $logoSrc }}" alt="Logo">
@@ -97,7 +92,7 @@
             <div class="school-addr">{{ $address }}</div>
         @endif
         @if (count($bits))
-            <div class="school-contact">{{ implode('  ·  ', $bits) }}</div>
+            <div class="school-contact">{{ implode(' · ', $bits) }}</div>
         @endif
 
         <div class="cert-title">Certificate</div>
@@ -132,13 +127,12 @@
         </div>
     </div>
 
-    {{-- Date · certificate no · signature --}}
+    {{-- Date · signature --}}
     <div class="footer">
         <table class="footer-table">
             <tr>
-                <td style="width:34%; text-align:left;">{{ $cert->issued_date->format('d F, Y') }}</td>
-                <td class="cert-no" style="width:32%;">@if ($cert->certificate_no) No. {{ $cert->certificate_no }} @endif</td>
-                <td style="width:34%;">
+                <td style="width:50%; text-align:left;">{{ $cert->issued_date->format('d F, Y') }}</td>
+                <td style="width:50%;">
                     <div class="sig-rule">
                         {{ $cert->issued_by }}@if ($cert->issued_by_designation)<br>{{ $cert->issued_by_designation }}@endif
                     </div>

@@ -5,65 +5,51 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <title>Transfer Certificate - {{ $tc->student->full_name ?? '' }}</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        {{-- No margin in the `*` reset: it wipes @page margins and the sheet bleeds to
+             the paper edge. Page padding does the insetting instead. --}}
+        * { padding: 0; }
+        @page { size: A4 portrait; margin: 0; }
 
-        @page { size: A4 portrait; margin: 8mm; }
+        body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 9pt; color: #1f2937; background: #fff; }
+        .page { width: 210mm; padding: 10mm 15mm; }
+        .sheet { border: 0.8px solid #e5e7eb; padding: 8mm 9mm 6mm; }
 
-        body {
-            font-family: "DejaVu Sans", Arial, sans-serif;
-            font-size: 9pt;
-            color: #111;
-            background: #fff;
-        }
+        /* ── Masthead ── */
+        .head { text-align: center; }
+        .logo { height: 16mm; margin: 0 0 3mm; }
+        .school-name { font-family: "DejaVu Serif", Georgia, serif; font-size: 16pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #111827; }
+        .affil { font-size: 8pt; color: #6b7280; margin-top: 1mm; }
+        .addr { font-size: 8pt; color: #6b7280; margin-top: 1mm; }
+        {{-- Same masthead contact line as the achievement certificate. --}}
+        .contact { font-size: 8pt; color: #9ca3af; margin-top: 1mm; }
 
-        .sheet { border: 1.5px solid #2b2b2b; }
+        .rule { border-top: 0.8px solid #e5e7eb; margin: 4mm 0 0; }
 
-        /* ── Header ── */
-        .hdr { width: 100%; border-collapse: collapse; }
-        .hdr td { vertical-align: middle; padding: 4mm 5mm 3mm; }
-        .logo-cell { width: 32mm; text-align: center; }
-        .logo-cell img { max-height: 25mm; max-width: 30mm; }
-        .info-cell { text-align: center; padding-right: 32mm; }
+        /* ── Title ── */
+        .title { text-align: center; font-family: "DejaVu Serif", Georgia, serif; font-size: 12pt; font-weight: bold;
+                 text-transform: uppercase; letter-spacing: 5px; color: #111827; margin: 4mm 0 0; }
 
-        .school-name {
-            font-family: "DejaVu Serif", Georgia, serif;
-            font-size: 18pt; font-weight: bold;
-            letter-spacing: 1px; text-transform: uppercase; color: #111;
-        }
-        .affil { font-size: 9.5pt; letter-spacing: 0.5px; text-transform: uppercase; margin-top: 1.5mm; color: #222; }
-        .addr  { font-size: 9pt; text-transform: uppercase; margin-top: 0.8mm; color: #333; }
+        /* ── Identifier strip: label above value, no boxes ── */
+        .meta { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 4mm; }
+        .meta td { width: 25%; vertical-align: top; }
+        .meta-label { font-size: 6.5pt; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; }
+        .meta-value { font-size: 9pt; font-weight: bold; color: #111827; margin-top: 0.8mm; }
 
-        /* ── School code / affiliation band ── */
-        .codes { width: 100%; border-collapse: collapse; border-top: 1.2px solid #2b2b2b; }
-        .codes td {
-            padding: 2mm 5mm; font-size: 12pt; text-transform: uppercase;
-            font-family: "DejaVu Serif", Georgia, serif; color: #111;
-        }
-        .codes td.right { text-align: right; }
-
-        /* ── Banner ── */
-        .banner {
-            background: #3f3f46; color: #fff; text-align: center;
-            font-family: "DejaVu Serif", Georgia, serif;
-            font-weight: bold; font-size: 16pt; letter-spacing: 4px;
-            text-transform: uppercase; padding: 3mm 0;
-        }
-
-        /* ── Book No / Admission No ── */
-        .badm { width: 100%; border-collapse: collapse; border-bottom: 1.2px solid #2b2b2b; }
-        .badm td { padding: 2.5mm 5mm; font-size: 11pt; }
-        .badm td.right { text-align: right; }
-
-        /* ── Data list ── */
-        .data-wrap { padding: 3.5mm 6mm 3mm; }
-        .data { width: 100%; border-collapse: collapse; }
-        .data td { vertical-align: top; padding: 1.4mm 0; font-size: 9pt; line-height: 1.35; color: #111; }
-        .data td.num { width: 7mm; }
-        .data strong { font-weight: bold; color: #000; }
+        /* ── The statutory questions ── */
+        {{-- `table-layout: fixed` or dompdf hands the long labels two thirds of the row
+             and squeezes the answers; percentages (not mm) are what survive it. --}}
+        .data { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 4mm; }
+        .data td { vertical-align: top; padding: 0.7mm 0; border-bottom: 0.5px solid #f3f4f6; line-height: 1.25; }
+        .data td.num { width: 6%; font-size: 8pt; color: #9ca3af; }
+        .data td.label { width: 54%; font-size: 8.5pt; color: #6b7280; padding-right: 4mm; }
+        .data td.value { width: 40%; font-size: 9pt; font-weight: bold; color: #111827; }
+        .data tr.last td { border-bottom: 0; }
 
         /* ── Signatures ── */
-        .sig { width: 100%; border-collapse: collapse; margin-top: 6mm; }
-        .sig td { text-align: center; width: 33.33%; font-size: 10pt; font-weight: bold; padding: 0 5mm 7mm; color: #111; }
+        .sig { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 7mm; }
+        .sig td { width: 33.33%; text-align: center; padding: 0 6mm; }
+        .sig-line { border-top: 0.8px solid #d1d5db; padding-top: 2mm; font-size: 8pt; text-transform: uppercase;
+                    letter-spacing: 1px; color: #6b7280; }
     </style>
 </head>
 <body>
@@ -79,6 +65,16 @@
             $logoSrc = public_path('storage/' . $org->logo);
         }
     }
+
+    // The controller supplies the masthead; fall back to the school record alone so
+    // the template still renders when handed nothing but a TC.
+    $contact = $contact ?? [];
+    $address = $contact['address'] ?? ($org->address ?? null);
+    $bits    = array_filter([
+        $contact['mobile']  ?? ($org->mobile_number ?? null),
+        $contact['email']   ?? ($org->email ?? null),
+        $contact['website'] ?? null,
+    ]);
 
     $ones = ['','ONE','TWO','THREE','FOUR','FIVE','SIX','SEVEN','EIGHT','NINE',
              'TEN','ELEVEN','TWELVE','THIRTEEN','FOURTEEN','FIFTEEN','SIXTEEN',
@@ -108,170 +104,105 @@
     if ($lcDigits !== '' && (int) $lcDigits >= 1 && (int) $lcDigits <= 31) {
         $lastClassWords = $ones[(int) $lcDigits];
     }
+
+    $admissionWith = ($tc->student->date_of_admission?->format('d/m/Y') ?? '—')
+        . (($tc->student->standard?->name ?? false) ? '  ·  Class ' . $tc->student->standard->name : '');
+
+    // One list, one shape: every question is a label and its answer.
+    $rows = [
+        'Name of pupil'                                          => $tc->student->full_name ?? '—',
+        "Mother's name"                                          => $tc->student->mother_name ?? '—',
+        "Father's / guardian name"                               => $tc->student->father_name ?? '—',
+        'Nationality'                                            => $tc->nationality,
+        'Belongs to Schedule Caste / Schedule Tribe'             => $tc->is_sc_st ? 'Yes' : 'No',
+        'Date of first admission in the school with class'       => $admissionWith,
+        'Date of birth as per admission register (in figures)'   => $tc->student->dob?->format('d/m/Y') ?? '—',
+        'Date of birth (in words)'                               => $dobWords,
+        'Class in which the pupil last studied'                  => trim(($tc->last_class_studied ?: '—') . ($lastClassWords ? '  ·  ' . $lastClassWords : '')),
+        'Annual examination last taken, with result'             => $tc->exam_last_taken ?: '—',
+        'Whether failed, if so once / twice in the same class'    => $tc->whether_failed,
+        'Subjects studied'                                       => $tc->subjects_studied ?: '—',
+        'Whether qualified for promotion to the higher class'    => $tc->qualified_for_promotion,
+        'Month upto which school dues are paid'                  => $tc->fees_paid_upto ?: '—',
+        'Any fee concession availed, and its nature'             => $tc->fee_concession ?: 'None',
+        'Total number of working days'                           => $tc->total_working_days,
+        'Total number of working days present'                   => $tc->days_present,
+        'Whether NCC cadet / boy scout / girl guide'             => $tc->is_ncc_scout,
+        'Games / extra-curricular activities taken part in'      => $tc->extra_activities ?: 'None',
+        'General conduct'                                        => $tc->general_conduct,
+        'Date of application for certificate'                    => $tc->application_date?->format('d/m/Y') ?? '—',
+        'Date of issue of certificate'                           => $tc->issue_date?->format('d/m/Y') ?? '—',
+        'Reason for leaving the school'                          => $tc->reason_for_leaving ?: '—',
+        'Any other remark'                                       => $tc->remarks ?: 'No',
+    ];
 @endphp
 
-<div class="sheet">
+<div class="page">
+    <div class="sheet">
 
-    {{-- ── SCHOOL HEADER ── --}}
-    <table class="hdr">
-        <tr>
-            <td class="logo-cell">
-                @if ($logoSrc)
-                    <img src="{{ $logoSrc }}" alt="Logo">
-                @endif
-            </td>
-            <td class="info-cell">
-                <div class="school-name">{{ strtoupper($org->name ?? 'School Name') }}</div>
-                <div class="affil">Affiliated to {{ $org->education_board ?: 'CBSE, New Delhi' }}</div>
-                @if ($org->address ?? false)
-                    <div class="addr">{{ $org->address }}</div>
-                @endif
-            </td>
-        </tr>
-    </table>
+        {{-- ── Masthead ── --}}
+        <div class="head">
+            @if ($logoSrc)
+                <img class="logo" src="{{ $logoSrc }}" alt="Logo">
+            @endif
+            <div class="school-name">{{ strtoupper($org->name ?? 'School Name') }}</div>
+            <div class="affil">
+                Affiliated to {{ $org->education_board ?: 'CBSE, New Delhi' }}@if ($org->affiliation_no) · Affiliation No. {{ $org->affiliation_no }}@endif
+            </div>
+            @if ($address)
+                <div class="addr">{{ $address }}</div>
+            @endif
+            @if (count($bits))
+                <div class="contact">{{ implode(' · ', $bits) }}</div>
+            @endif
+        </div>
 
-    {{-- ── SCHOOL CODE / AFFILIATION NO ── --}}
-    <table class="codes">
-        <tr>
-            <td>School Code:{{ $org->school_code ?: '—' }}</td>
-            <td class="right">Affiliation No:{{ $org->affiliation_no ?: '—' }}</td>
-        </tr>
-    </table>
+        <div class="rule"></div>
+        <div class="title">Transfer Certificate</div>
 
-    {{-- ── BANNER ── --}}
-    <div class="banner">Transfer Certificate</div>
-
-    {{-- ── BOOK NO / ADMISSION NO ── --}}
-    <table class="badm">
-        <tr>
-            <td>Book No: <strong>{{ $tc->book_no ?: '—' }}</strong></td>
-            <td class="right">Admission No: <strong>{{ $tc->student->admission_no ?? '—' }}</strong></td>
-        </tr>
-    </table>
-
-    {{-- ── DATA LIST ── --}}
-    <div class="data-wrap">
-        <table class="data">
+        {{-- ── Identifiers ── --}}
+        <table class="meta">
             <tr>
-                <td class="num">1.</td>
-                <td>Name of pupil:- <strong>{{ $tc->student->full_name ?? '—' }}</strong></td>
-            </tr>
-            <tr>
-                <td class="num">2.</td>
-                <td>Mother's Name:- <strong>{{ $tc->student->mother_name ?? '—' }}</strong></td>
-            </tr>
-            <tr>
-                <td class="num">3.</td>
-                <td>Father's / Guardian Name:- <strong>{{ $tc->student->father_name ?? '—' }}</strong></td>
-            </tr>
-            <tr>
-                <td class="num">4.</td>
-                <td>Nationality:- <strong>{{ $tc->nationality }}</strong></td>
-            </tr>
-            <tr>
-                <td class="num">5.</td>
-                <td>Whether the Candidate belongs to Schedule Caste or Schedule Tribe:- <strong>{{ $tc->is_sc_st ? 'Yes' : 'No' }}</strong></td>
-            </tr>
-            <tr>
-                <td class="num">6.</td>
                 <td>
-                    Date of first admission in the school with Class:-
-                    <strong>{{ $tc->student->date_of_admission?->format('d/m/Y') ?? '—' }}</strong>
-                    @if ($tc->student->standard?->name ?? false)
-                        &nbsp;&nbsp; Class:- <strong>{{ $tc->student->standard->name }}</strong>
-                    @endif
+                    <div class="meta-label">TC No</div>
+                    <div class="meta-value">{{ $tc->tc_no ?: '—' }}</div>
                 </td>
-            </tr>
-            <tr>
-                <td class="num">7.</td>
                 <td>
-                    Date of birth according to Admission register (in figure):-
-                    <strong>{{ $tc->student->dob?->format('d/m/Y') ?? '—' }}</strong>
-                    &nbsp; (in words):- <strong>{{ $dobWords }}</strong>
+                    <div class="meta-label">Book No</div>
+                    <div class="meta-value">{{ $tc->book_no ?: '—' }}</div>
                 </td>
-            </tr>
-            <tr>
-                <td class="num">8.</td>
                 <td>
-                    Class in which the pupil last studied (in figures):-
-                    <strong>{{ $tc->last_class_studied ?: '—' }}</strong>
-                    @if ($lastClassWords)
-                        &nbsp; (in words):- <strong>{{ $lastClassWords }}</strong>
-                    @endif
+                    <div class="meta-label">Admission No</div>
+                    <div class="meta-value">{{ $tc->student->admission_no ?? '—' }}</div>
                 </td>
-            </tr>
-            <tr>
-                <td class="num">9.</td>
-                <td>School/Board Annual examination last taken with results:- <strong>{{ $tc->exam_last_taken ?: '—' }}</strong></td>
-            </tr>
-            <tr>
-                <td class="num">10.</td>
-                <td>Whether failed, if so once/twice in the same class:- <strong>{{ $tc->whether_failed }}</strong></td>
-            </tr>
-            <tr>
-                <td class="num">11.</td>
-                <td>Subjects studied:- <strong>{{ $tc->subjects_studied ?: '—' }}</strong></td>
-            </tr>
-            <tr>
-                <td class="num">12.</td>
-                <td>Whether qualified for promotion to the higher class:- <strong>{{ $tc->qualified_for_promotion }}</strong></td>
-            </tr>
-            <tr>
-                <td class="num">13.</td>
-                <td>Month upto which the (pupil has paid) school dues paid:- <strong>{{ $tc->fees_paid_upto ?: '—' }}</strong></td>
-            </tr>
-            <tr>
-                <td class="num">14.</td>
-                <td>Any fee concession availed of: if so, the nature of such concession:- <strong>{{ $tc->fee_concession ?: 'None' }}</strong></td>
-            </tr>
-            <tr>
-                <td class="num">15.</td>
-                <td>Total No. of working days:- <strong>{{ $tc->total_working_days }}</strong></td>
-            </tr>
-            <tr>
-                <td class="num">16.</td>
-                <td>Total No. of working days present:- <strong>{{ $tc->days_present }}</strong></td>
-            </tr>
-            <tr>
-                <td class="num">17.</td>
-                <td>Whether NCC Cadet/Boy Scout/Girl Guide:- <strong>{{ $tc->is_ncc_scout }}</strong></td>
-            </tr>
-            <tr>
-                <td class="num">18.</td>
-                <td>Game played or extra curricular activities in which pupil usually took part (mention):- <strong>{{ $tc->extra_activities ?: 'None' }}</strong></td>
-            </tr>
-            <tr>
-                <td class="num">19.</td>
-                <td>General conduct:- <strong>{{ $tc->general_conduct }}</strong></td>
-            </tr>
-            <tr>
-                <td class="num">20.</td>
-                <td>Date of application for certificate:- <strong>{{ $tc->application_date?->format('d/m/Y') ?? '—' }}</strong></td>
-            </tr>
-            <tr>
-                <td class="num">21.</td>
-                <td>Date of issue of certificate:- <strong>{{ $tc->issue_date?->format('d/m/Y') ?? '—' }}</strong></td>
-            </tr>
-            <tr>
-                <td class="num">22.</td>
-                <td>Reason for leaving the school:- <strong>{{ $tc->reason_for_leaving ?: '—' }}</strong></td>
-            </tr>
-            <tr>
-                <td class="num">23.</td>
-                <td>Any other Remark:- <strong>{{ $tc->remarks ?: 'No' }}</strong></td>
+                <td>
+                    <div class="meta-label">School Code</div>
+                    <div class="meta-value">{{ $org->school_code ?: '—' }}</div>
+                </td>
             </tr>
         </table>
+
+        {{-- ── The record ── --}}
+        <table class="data">
+            @foreach ($rows as $label => $value)
+                <tr @if ($loop->last) class="last" @endif>
+                    <td class="num">{{ $loop->iteration }}</td>
+                    <td class="label">{{ $label }}</td>
+                    <td class="value">{{ $value }}</td>
+                </tr>
+            @endforeach
+        </table>
+
+        {{-- ── Signatures ── --}}
+        <table class="sig">
+            <tr>
+                <td><div class="sig-line">Class Teacher</div></td>
+                <td><div class="sig-line">Issued By</div></td>
+                <td><div class="sig-line">Principal</div></td>
+            </tr>
+        </table>
+
     </div>
-
-    {{-- ── SIGNATURES ── --}}
-    <table class="sig">
-        <tr>
-            <td>Class Teacher</td>
-            <td>Issuer</td>
-            <td>Principle</td>
-        </tr>
-    </table>
-
 </div>
 </body>
 </html>

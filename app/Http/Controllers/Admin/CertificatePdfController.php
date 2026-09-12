@@ -95,6 +95,15 @@ class CertificatePdfController extends Controller
         ];
     }
 
+    /** Same masthead for the transfer certificate. */
+    private function tcData(TransferCertificate $tc): array
+    {
+        return [
+            'tc'      => $tc,
+            'contact' => $this->contactLine($tc->organization_id, $tc->organization),
+        ];
+    }
+
     /**
      * NOTE: these routes are /{organization}/certificates/{id}/... — TWO params.
      * Scalar controller args are filled positionally, so $organization MUST be
@@ -164,7 +173,7 @@ class CertificatePdfController extends Controller
             return $tc;
         }
 
-        return $this->render('pdf.admin.tc-certificate', ['tc' => $tc])
+        return $this->render('pdf.admin.tc-certificate', $this->tcData($tc))
             ->download('TC_' . ($tc->tc_no ?? $tc->id) . '.pdf');
     }
 
@@ -178,7 +187,7 @@ class CertificatePdfController extends Controller
             return $tc;
         }
 
-        return $this->render('pdf.admin.tc-certificate', ['tc' => $tc])
+        return $this->render('pdf.admin.tc-certificate', $this->tcData($tc))
             ->stream('TC_' . ($tc->tc_no ?? $tc->id) . '.pdf');
     }
 }
