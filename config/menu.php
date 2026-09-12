@@ -361,16 +361,6 @@ return [
             'icon' => 'document-text',
             'prefix' => 'super-admin.documents',
         ],
-        // Moved off the top bar. `always` keeps it in a sub-super-admin's
-        // sidebar too — the route is already allowed to them unconditionally,
-        // so filtering it out would hide a page they can open.
-        [
-            'title' => 'Profile',
-            'link' => 'super-admin.profile',
-            'icon' => 'user',
-            'prefix' => 'super-admin.profile',
-            'always' => true,
-        ],
 
     ],
 
@@ -380,6 +370,14 @@ return [
             'link' => 'accounts.dashboard',
             'icon' => 'home',
             'prefix' => 'accounts.dashboard',
+        ],
+        // Off the top bar and straight under Dashboard: this panel has no
+        // "More" screen, so the sidebar is where the account lives.
+        [
+            'title' => 'Profile',
+            'link' => 'accounts.profile',
+            'icon' => 'user',
+            'prefix' => 'accounts.profile',
         ],
         [
             'title' => 'Payroll',
@@ -488,14 +486,6 @@ return [
             'link' => 'accounts.tc-certificate',
             'icon' => 'document-arrow-down',
             'prefix' => 'accounts.tc-certificate',
-        ],
-        // Moved off the top bar. This panel has no "More" screen, so the
-        // sidebar is where Profile belongs.
-        [
-            'title' => 'Profile',
-            'link' => 'accounts.profile',
-            'icon' => 'user',
-            'prefix' => 'accounts.profile',
         ],
     ],
 

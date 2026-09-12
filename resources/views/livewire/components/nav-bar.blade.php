@@ -207,6 +207,16 @@
                         <span class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center pointer-events-none">{{ $unreadNotifications > 99 ? '99+' : $unreadNotifications }}</span>
                     @endif
                 </div>
+
+                {{-- Profile — platform side only. Super-admin has no More screen
+                     and its sidebar is platform navigation, not a personal menu,
+                     so the top bar is where the account lives. Admin/sub-admin
+                     reach it from More, accounts from the sidebar. --}}
+                @if (in_array(auth()->user()->role, ['super-admin', 'sub-super-admin']))
+                    <x-button rounded class="h-9 w-9 bg-white" icon="user" outline
+                        wire:click="profilePage" title="Profile" />
+                @endif
+
                 @if (in_array(auth()->user()->role, ['accounts', 'admin', 'sub-admin']))
                     <div class="relative inline-flex"
                         x-data="{ count: {{ (int) ($unreadMessages ?? 0) }} }"
@@ -218,8 +228,6 @@
                     </div>
                 @endif
 
-                {{-- Profile moved off the top bar: it is a tile on the More
-                     screen (admin) and a sidebar entry (accounts, super-admin). --}}
                 <x-button rounded class="h-9 w-9 bg-white" icon="arrow-right-on-rectangle" outline
                     wire:click="confirmLogout" />
             </div>

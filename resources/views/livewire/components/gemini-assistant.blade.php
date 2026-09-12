@@ -93,6 +93,15 @@
 
                 @keyframes gem-pulse { 0% { box-shadow: 0 0 0 0 rgba(220,38,38,.45); } 70% { box-shadow: 0 0 0 10px rgba(220,38,38,0); } 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); } }
                 .gem-listening { animation: gem-pulse 1.4s infinite; }
+
+                /* Panel size. Written as real CSS rather than `sm:w-[460px]`
+                   because the Tailwind bundle is only rebuilt in the image
+                   build — a brand-new arbitrary utility would not exist in a
+                   stale public/build. Full-bleed on a phone, a comfortable
+                   column from sm up, always capped to the space under the top
+                   bar. */
+                .gem-panel { height: 680px; max-height: calc(100vh - 5.5rem); }
+                @media (min-width: 640px) { .gem-panel { width: 460px; } }
             </style>
 
             {{-- ───────────── Chat window ───────────── --}}
@@ -101,10 +110,9 @@
                      so the screen behind it stays readable while you ask. --}}
                 <div class="fixed inset-0 z-[69]" wire:click="close"></div>
 
-                <div class="fixed z-[70] bg-white shadow-2xl border border-gray-200 flex flex-col overflow-hidden
-                            inset-x-3 top-[4.25rem] rounded-2xl
-                            sm:inset-x-auto sm:right-5 sm:w-[390px]"
-                    style="max-height: calc(100vh - 5.5rem); height: 560px;">
+                <div class="gem-panel fixed z-[70] bg-white shadow-2xl border border-gray-200 flex flex-col
+                            overflow-hidden inset-x-3 top-[4.25rem] rounded-2xl
+                            sm:inset-x-auto sm:right-5">
 
                     {{-- Header --}}
                     <div class="flex items-center gap-2.5 px-4 py-3 border-b border-gray-200 flex-shrink-0">
