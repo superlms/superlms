@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Admin\Certificate;
+use App\Models\Admin\SchoolInfo;
 use App\Models\Admin\TransferCertificate;
+use App\Models\Organization;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
@@ -50,14 +52,47 @@ class CertificatePdfController extends Controller
      * rendered from the very same template and options — what you view is what
      * you print.
      */
-    private function render(string $view, string $key, $model): \Barryvdh\DomPDF\PDF
+    private function render(string $view, array $data): \Barryvdh\DomPDF\PDF
     {
-        return Pdf::loadView($view, [$key => $model])
+        return Pdf::loadView($view, $data)
             ->setPaper('a4', 'portrait')
             ->setOption('dpi', 150)
             ->setOption('isHtml5ParserEnabled', true)
             ->setOption('isRemoteEnabled', true)
             ->setOption('defaultFont', 'DejaVu Sans');
+    }
+
+    /**
+     * Address / mobile / email / website for the certificate masthead. Same
+     * authority order as the ledger statement: the school record wins, the
+     * website builder's SchoolInfo fills the gaps, and a website address is
+     * only ever kept there. Wrapped because school_infos may be missing on an
+     * older schema — the certificate still has to render.
+     */
+    private function contactLine(int $orgId, ?Organization $org): array
+    {
+        $info = null;
+        try {
+            $info = SchoolInfo::where('organization_id', $orgId)->first();
+        } catch (\Throwable $e) {
+            // masthead falls back to the school record alone
+        }
+
+        return [
+            'address' => $org?->address ?: ($info->school_address ?? null),
+            'mobile'  => $org?->mobile_number ?: ($info->school_mobile ?? null),
+            'email'   => $org?->email ?: ($info->school_email ?? null),
+            'website' => $info->website_url ?? null,
+        ];
+    }
+
+    /** View data for a certificate — the row plus its school's masthead. */
+    private function certData(Certificate $cert): array
+    {
+        return [
+            'cert'    => $cert,
+            'contact' => $this->contactLine($cert->organization_id, $cert->organization),
+        ];
     }
 
     /**
@@ -96,7 +131,7 @@ class CertificatePdfController extends Controller
             return $cert;
         }
 
-        return $this->render('pdf.admin.certificate', 'cert', $cert)
+        return $this->render('pdf.admin.certificate', $this->certData($cert))
             ->download('certificate_' . ($cert->certificate_no ?? $cert->id) . '.pdf');
     }
 
@@ -112,7 +147,7 @@ class CertificatePdfController extends Controller
             return $cert;
         }
 
-        return $this->render('pdf.admin.certificate', 'cert', $cert)
+        return $this->render('pdf.admin.certificate', $this->certData($cert))
             ->stream('certificate_' . ($cert->certificate_no ?? $cert->id) . '.pdf');
     }
 
@@ -129,7 +164,7 @@ class CertificatePdfController extends Controller
             return $tc;
         }
 
-        return $this->render('pdf.admin.tc-certificate', 'tc', $tc)
+        return $this->render('pdf.admin.tc-certificate', ['tc' => $tc])
             ->download('TC_' . ($tc->tc_no ?? $tc->id) . '.pdf');
     }
 
@@ -143,7 +178,7 @@ class CertificatePdfController extends Controller
             return $tc;
         }
 
-        return $this->render('pdf.admin.tc-certificate', 'tc', $tc)
+        return $this->render('pdf.admin.tc-certificate', ['tc' => $tc])
             ->stream('TC_' . ($tc->tc_no ?? $tc->id) . '.pdf');
     }
 }
