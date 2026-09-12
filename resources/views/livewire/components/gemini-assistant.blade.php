@@ -94,14 +94,14 @@
                 @keyframes gem-pulse { 0% { box-shadow: 0 0 0 0 rgba(220,38,38,.45); } 70% { box-shadow: 0 0 0 10px rgba(220,38,38,0); } 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); } }
                 .gem-listening { animation: gem-pulse 1.4s infinite; }
 
-                /* Panel size. Written as real CSS rather than `sm:w-[460px]`
+                /* Panel size. Written as real CSS rather than `sm:w-[520px]`
                    because the Tailwind bundle is only rebuilt in the image
                    build — a brand-new arbitrary utility would not exist in a
                    stale public/build. Full-bleed on a phone, a comfortable
                    column from sm up, always capped to the space under the top
                    bar. */
-                .gem-panel { height: 680px; max-height: calc(100vh - 5.5rem); }
-                @media (min-width: 640px) { .gem-panel { width: 460px; } }
+                .gem-panel { height: 760px; max-height: calc(100vh - 5.5rem); }
+                @media (min-width: 640px) { .gem-panel { width: 520px; } }
             </style>
 
             {{-- ───────────── Chat window ───────────── --}}
