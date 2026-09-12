@@ -1,9 +1,11 @@
 {{--
-    Floating Gemini assistant — bottom-right on every panel page.
+    The LMS assistant panel.
 
-    The window is capped to the space *below* the top bar so it can never float
-    over the navbar, and it is anchored bottom-right rather than being a
-    full-height slide-in, so it does not fight the page underneath.
+    It has no launcher of its own — the top bar owns that button (next to the
+    notification bell) and flips this open with a `gemini-toggle` browser event,
+    so opening it costs no server round-trip. The panel drops from under the top
+    bar on the right, below the navbar rather than over it, and is capped to the
+    height left underneath.
 --}}
 <div>
     @if ($enabled)
@@ -61,6 +63,8 @@
             }"
             x-on:gemini-run.window="$wire.run()"
             x-on:gemini-scroll.window="scrollDown()"
+            x-on:gemini-toggle.window="$wire.toggle()"
+            x-on:keydown.escape.window="if ($wire.open) $wire.close()"
             wire:key="gemini-assistant">
 
             <style>
@@ -93,19 +97,19 @@
 
             {{-- ───────────── Chat window ───────────── --}}
             @if ($open)
+                {{-- Click-away layer: closes the panel without dimming the page,
+                     so the screen behind it stays readable while you ask. --}}
+                <div class="fixed inset-0 z-[69]" wire:click="close"></div>
+
                 <div class="fixed z-[70] bg-white shadow-2xl border border-gray-200 flex flex-col overflow-hidden
-                            inset-x-3 bottom-24 rounded-2xl
+                            inset-x-3 top-[4.25rem] rounded-2xl
                             sm:inset-x-auto sm:right-5 sm:w-[390px]"
-                    style="max-height: calc(100vh - 10rem); height: 560px;">
+                    style="max-height: calc(100vh - 5.5rem); height: 560px;">
 
                     {{-- Header --}}
                     <div class="flex items-center gap-2.5 px-4 py-3 border-b border-gray-200 flex-shrink-0">
-                        <span class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                            style="background: linear-gradient(135deg,#4285f4 0%,#9b72cb 50%,#d96570 100%)">
-                            <svg viewBox="0 0 24 24" class="w-4 h-4" fill="#fff" aria-hidden="true">
-                                <path d="M12 0c0 6.627-5.373 12-12 12 6.627 0 12 5.373 12 12 0-6.627 5.373-12 12-12-6.627 0-12-5.373-12-12z" />
-                            </svg>
-                        </span>
+                        <img src="{{ asset('website-image/Group 11525.png') }}" alt=""
+                            width="32" height="32" class="w-8 h-8 object-contain flex-shrink-0">
                         <div class="min-w-0 flex-1">
                             <p class="text-sm font-semibold text-gray-900 leading-tight">LMS Assistant</p>
                             <p class="text-[11px] text-gray-400 leading-tight truncate">Gemini · {{ $scopeLabel }} data only</p>
@@ -206,8 +210,8 @@
                             </template>
 
                             <button type="button" wire:click="submit" wire:loading.attr="disabled" wire:target="submit,run"
-                                class="w-9 h-9 flex items-center justify-center rounded-xl text-white flex-shrink-0 disabled:opacity-50"
-                                style="background: linear-gradient(135deg,#4285f4 0%,#9b72cb 100%)" title="Send">
+                                class="w-9 h-9 flex items-center justify-center rounded-xl text-white flex-shrink-0 bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                                title="Send">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7" /></svg>
                             </button>
                         </div>
@@ -220,20 +224,6 @@
                 </div>
             @endif
 
-            {{-- ───────────── Launcher ───────────── --}}
-            <button type="button" wire:click="toggle"
-                class="fixed bottom-5 right-5 z-[70] w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white transition hover:scale-105 active:scale-95"
-                style="background: linear-gradient(135deg,#4285f4 0%,#9b72cb 50%,#d96570 100%)"
-                title="{{ $open ? 'Close assistant' : 'Ask the LMS assistant' }}"
-                aria-label="LMS assistant">
-                @if ($open)
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                @else
-                    <svg viewBox="0 0 24 24" class="w-7 h-7" fill="currentColor" aria-hidden="true">
-                        <path d="M12 0c0 6.627-5.373 12-12 12 6.627 0 12 5.373 12 12 0-6.627 5.373-12 12-12-6.627 0-12-5.373-12-12z" />
-                    </svg>
-                @endif
-            </button>
         </div>
     @endif
 </div>

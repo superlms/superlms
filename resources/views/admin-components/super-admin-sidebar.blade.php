@@ -8,7 +8,9 @@
         $granted  = (array) $authUser->permissions;
         $navItems = collect($allItems)
             ->reject(fn($i) => ($i['link'] ?? '') === 'super-admin.users')
-            ->filter(fn($i) => in_array($i['link'] ?? '', $granted, true))
+            // `always` items (Profile) stay: the route guard allows them to
+            // every sub-super-admin, so hiding them would strand the page.
+            ->filter(fn($i) => ($i['always'] ?? false) || in_array($i['link'] ?? '', $granted, true))
             ->values()
             ->all();
     } else {

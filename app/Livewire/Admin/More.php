@@ -8,6 +8,7 @@ class More extends Component
 {
     /** Tiles for items moved out of the main sidebar — keep titles + icons stable. */
     public array $items = [
+        ['title' => 'Profile',             'route' => 'admin.profile',              'icon' => 'user'],
         ['title' => 'Users',               'route' => 'admin.users',                'icon' => 'user-group'],
         ['title' => 'Admissions',          'route' => 'admin.admissions',           'icon' => 'user-plus'],
         ['title' => 'Website Data',         'route' => 'admin.website-data',         'icon' => 'globe-alt'],
@@ -29,6 +30,16 @@ class More extends Component
     {
         $this->organization = request()->route('organization')
             ?? auth()->user()?->organization;
+
+        // A sub-admin reaches this screen for Profile alone, so drop the tiles
+        // their permissions would bounce them straight back off.
+        $user = auth()->user();
+        if ($user?->role === 'sub-admin') {
+            $this->items = array_values(array_filter(
+                $this->items,
+                fn (array $item) => $user->canAccessAdminRoute($item['route']),
+            ));
+        }
     }
 
     public function render()

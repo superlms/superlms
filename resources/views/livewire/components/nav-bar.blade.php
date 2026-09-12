@@ -187,6 +187,19 @@
 
             {{-- ── RIGHT — Actions ── --}}
             <div class="flex items-center gap-1.5 flex-shrink-0">
+                {{-- LMS assistant. The panel itself lives in the global
+                     components.gemini-assistant component at the end of the
+                     layout; this only flips it open, via a browser event, so
+                     opening it costs no server round-trip. --}}
+                @if ($assistantEnabled)
+                    <button type="button" x-on:click="$dispatch('gemini-toggle')"
+                        title="Ask the LMS assistant" aria-label="Ask the LMS assistant"
+                        class="h-9 w-9 rounded-full bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center transition-colors">
+                        <img src="{{ asset('website-image/Group 11525.png') }}" alt=""
+                            width="20" height="20" class="w-5 h-5 object-contain">
+                    </button>
+                @endif
+
                 <div class="relative inline-flex" wire:poll.60s>
                     <x-button rounded class="h-9 w-9 bg-white" icon="bell-alert" outline
                         wire:click="$toggle('showNotifications')" />
@@ -205,10 +218,8 @@
                     </div>
                 @endif
 
-                @if (auth()->user()->role !== 'super-admin')
-                    <x-button rounded class="h-9 w-9 bg-white" icon="user" outline wire:click="profilePage" />
-                @endif
-
+                {{-- Profile moved off the top bar: it is a tile on the More
+                     screen (admin) and a sidebar entry (accounts, super-admin). --}}
                 <x-button rounded class="h-9 w-9 bg-white" icon="arrow-right-on-rectangle" outline
                     wire:click="confirmLogout" />
             </div>

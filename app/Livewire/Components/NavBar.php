@@ -238,11 +238,27 @@ class NavBar extends Component
         //
     }
 
+    /**
+     * Whether to show the assistant button. Same two conditions the assistant
+     * itself uses, so the button and the panel can never disagree: the role is
+     * one the assistant serves, and an API key is actually configured. Without
+     * a key nothing is shown rather than a button that only reports an error.
+     */
+    private function assistantEnabled(): bool
+    {
+        $user = Auth::user();
+
+        return $user
+            && in_array($user->role, (array) config('gemini.roles', []), true)
+            && app(\App\Services\Gemini\GeminiAssistant::class)->available();
+    }
+
     public function render()
     {
         return view('livewire.components.nav-bar', [
             'unreadMessages'      => $this->unreadMessagesCount(),
             'unreadNotifications' => $this->unreadNotificationsCount(),
+            'assistantEnabled'    => $this->assistantEnabled(),
         ]);
     }
 }

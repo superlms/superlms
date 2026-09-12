@@ -28,7 +28,10 @@ return [
     // default is the moving alias `gemini-flash-latest`, which always points at
     // the current free-tier Flash and will not break again the next time Google
     // rotates a version. Pin an exact id with GEMINI_MODEL if you need one.
-    'model'    => env('GEMINI_MODEL', 'gemini-flash-latest'),
+    // flash-lite: the cheapest free-tier model that still does function calling,
+    // and the one with the roomiest free request quota. `gemini-flash-latest`
+    // resolves to full Flash, whose free allowance runs out far sooner.
+    'model'    => env('GEMINI_MODEL', 'gemini-flash-lite-latest'),
 
     'enabled'  => env('GEMINI_ENABLED', true),
 
