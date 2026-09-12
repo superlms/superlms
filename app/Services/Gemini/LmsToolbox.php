@@ -377,10 +377,12 @@ class LmsToolbox
                 'parameters'  => $this->schema($school + [
                     'entity'     => $this->str('Record type from describe_data, e.g. "students".'),
                     'search'     => $this->str('Free text matched against that record type\'s searchable fields.'),
+                    'standard'   => $this->str('Narrow to one class by NAME, e.g. "NURSERY" — no need to know its id.'),
+                    'section'    => $this->str('Narrow to one section by NAME, e.g. "A".'),
                     'where'      => $this->arr('Filters, all of which must hold.', $this->schema([
                         'field' => $this->str('Field name, exactly as describe_data spells it.'),
                         'op'    => $this->enum(['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'like', 'in', 'is_null', 'not_null', 'empty', 'not_empty'], 'Comparison. Use not_empty for "has a value" (a photo, a phone number) and empty for "is missing".'),
-                        'value' => $this->str('The value to compare against. Leave out for is_null / not_null / empty / not_empty. For "in", separate values with commas.'),
+                        'value' => $this->str('The value to compare against. Leave out for is_null / not_null / empty / not_empty; for "in", separate values with commas. An id field may be given a NAME instead — field "standard_id" with value "NURSERY" works.'),
                     ], ['field', 'op'])),
                     'fields'     => $this->arr('Which fields to return. Leave out for a sensible default.', $this->str('Field name.')),
                     'order_by'   => $this->str('Field to sort by (default the newest first).'),
@@ -394,6 +396,8 @@ class LmsToolbox
                 'description' => 'Count, total or average any field of any record type, optionally grouped. Use for "how many students per class", "total expense by reason", "average marks by section".' . $note,
                 'parameters'  => $this->schema($school + [
                     'entity'   => $this->str('Record type from describe_data.'),
+                    'standard' => $this->str('Narrow to one class by NAME.'),
+                    'section'  => $this->str('Narrow to one section by NAME.'),
                     'metric'   => $this->enum(['count', 'sum', 'avg', 'min', 'max'], 'What to work out (default count).'),
                     'field'    => $this->str('Field to total or average. Required for anything but count.'),
                     'group_by' => $this->str('Field to group by, e.g. "standard_id", "payment_mode".'),
@@ -622,6 +626,10 @@ class LmsToolbox
 
         return [
             'covers'   => $this->coverage($orgId),
+            // The roster is deliberately four columns wide. Say where the rest
+            // lives, so a follow-up for Aadhaar or a father's name is answered
+            // instead of being reported as missing.
+            'more_fields' => 'Only the basics are here. Every other student field - father_name, mother_name, aadhar_no, dob, address, phone, image (photo), transportation_required - comes from query_records with entity "students" and this class name.',
             'class'    => Standard::find($std)?->name,
             'total'    => (clone $q)->count(),
             'showing'  => $rows->count(),
@@ -1559,8 +1567,9 @@ class LmsToolbox
             return ['error' => 'That record type cannot be read from this panel.'];
         }
 
-        [$applied, $rejected] = $this->applyWhere($query, (array) ($a['where'] ?? []), $columns);
+        [$applied, $rejected] = $this->applyWhere($query, (array) ($a['where'] ?? []), $columns, $orgId);
         $this->applySearch($query, $a['search'] ?? null, $entity, $columns);
+        $this->narrowByClass($query, $a, $columns, $orgId);
 
         $total = (clone $query)->count();
 
@@ -1636,8 +1645,9 @@ class LmsToolbox
             return ['error' => 'That calculation needs a numeric field that exists on this record type.'];
         }
 
-        [$applied, $rejected] = $this->applyWhere($query, (array) ($a['where'] ?? []), $columns);
+        [$applied, $rejected] = $this->applyWhere($query, (array) ($a['where'] ?? []), $columns, $orgId);
         $this->applySearch($query, $a['search'] ?? null, $entity, $columns);
+        $this->narrowByClass($query, $a, $columns, $orgId);
 
         $expression = $metric === 'count' ? 'COUNT(*)' : strtoupper($metric) . '(`' . $field . '`)';
 
@@ -1709,7 +1719,7 @@ class LmsToolbox
      * @param  array<int,string>  $columns
      * @return array{0:array<int,string>,1:array<int,string>}
      */
-    private function applyWhere(Builder $query, array $clauses, array $columns): array
+    private function applyWhere(Builder $query, array $clauses, array $columns, ?int $orgId = null): array
     {
         $applied = $rejected = [];
 
@@ -1722,6 +1732,25 @@ class LmsToolbox
 
             if (! $field || ! in_array($field, $columns, true)) {
                 $rejected[] = 'no such field: ' . ($field ?: '(blank)');
+                continue;
+            }
+
+            // "standard_id is NURSERY" — the model should never have to know an
+            // id to ask a question a person would ask by name.
+            if ($value !== null && ! is_numeric($value) && isset(LmsDataMap::LABELS[$field]) && in_array($op, ['eq', 'ne', 'in', 'like'], true)) {
+                $ids = $this->idsNamed($field, $value, $orgId);
+
+                if ($ids === []) {
+                    // Nothing carries that name, so nothing matches. Dropping
+                    // the filter instead would answer about the whole school
+                    // and look like a real count.
+                    $query->whereRaw('1 = 0');
+                    $applied[] = $field . ' is ' . $value . ' (no such ' . (self::LABEL_ALIAS[$field] ?? $field) . ' exists)';
+                    continue;
+                }
+
+                $op === 'ne' ? $query->whereNotIn($field, $ids) : $query->whereIn($field, $ids);
+                $applied[] = $field . ' ' . ($op === 'ne' ? 'is not ' : 'is ') . $value;
                 continue;
             }
 
@@ -1749,6 +1778,52 @@ class LmsToolbox
         }
 
         return [$applied, $rejected];
+    }
+
+    /**
+     * The ids of the rows a label names — "NURSERY" for standard_id, a student
+     * name for student_detail_id — pinned to the caller's school where the
+     * target carries one.
+     *
+     * @return array<int,int>
+     */
+    private function idsNamed(string $field, string $value, ?int $orgId): array
+    {
+        $target = LmsDataMap::LABELS[$field];
+        $query  = $target['model']::query();
+
+        if ($orgId && in_array('organization_id', LmsDataMap::columns($target['model']), true)) {
+            $query->where('organization_id', $orgId);
+        }
+
+        return $query
+            ->where(fn ($w) => $w
+                ->where($target['column'], $value)
+                ->orWhere($target['column'], 'like', "%{$value}%"))
+            ->limit(200)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    /** `standard` / `section` arguments, by name, on any entity that has them. */
+    private function narrowByClass(Builder $query, array $a, array $columns, ?int $orgId): void
+    {
+        $standardId = null;
+
+        if (in_array('standard_id', $columns, true)) {
+            $standardId = $this->standardId($a['standard'] ?? null, $orgId);
+            if ($standardId) {
+                $query->where('standard_id', $standardId);
+            }
+        }
+
+        if (in_array('section_id', $columns, true)) {
+            $sectionId = $this->sectionId($a['section'] ?? null, $standardId, $orgId);
+            if ($sectionId) {
+                $query->where('section_id', $sectionId);
+            }
+        }
     }
 
     private function applySearch(Builder $query, mixed $text, array $entity, array $columns): void
