@@ -3,6 +3,7 @@
 namespace App\Services\Gemini;
 
 use App\Models\Admin\AdmissionEnquiry;
+use App\Models\Admin\AdminAttendance;
 use App\Models\Admin\AdminEmployee;
 use App\Models\Admin\Announcement;
 use App\Models\Admin\Certificate;
@@ -21,6 +22,7 @@ use App\Models\Student\StudentDetail;
 use App\Models\Student\Subject;
 use App\Models\SuperAdmin\CreditQuery;
 use App\Models\SuperAdmin\SuperAdminFeePayment;
+use App\Models\Teacher\TeacherAttendance;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
@@ -38,6 +40,11 @@ use Illuminate\Support\Facades\Log;
  * It is deliberately a *summary*: anything specific (a named student, a fee
  * range, a date's attendance) is answered by a tool call in {@see LmsToolbox},
  * which re-queries live data under the same scope.
+ *
+ * Sections are gated by the caller's modules, so a sub-admin without the Fee
+ * screen never has this school's collection totals put in front of them —
+ * {@see LmsScope::key()} folds the permission set into the cache key so two
+ * logins of the same school cannot share the wrong pack.
  */
 class LmsKnowledge
 {
@@ -158,9 +165,21 @@ class LmsKnowledge
         - TC = Transfer Certificate, issued when a student leaves. Certificates
           are separate and are Achievement or Participation.
         - Arrangement = covering an absent teacher's periods.
-        - Attendance status is present, absent, half day or holiday. A day
-          nobody marked stays genuinely unmarked — it is NOT an absence, and it
-          must never be reported as one.
+        - Attendance is THREE separate registers, marked on different screens
+          and stored in different places: STUDENT attendance, TEACHER
+          attendance, and non-teaching EMPLOYEE attendance. One of them being
+          unmarked says nothing whatsoever about the other two — never answer
+          about teachers from the student figures, or the other way round.
+        - Attendance status is present, absent, half day or holiday (staff can
+          also be on leave). A day nobody marked stays genuinely unmarked — it
+          is NOT an absence, and it must never be reported as one.
+        - A school can also raise a CREDIT request with SuperLMS from its own
+          panel: an amount for a period, with a per-day penalty after the due
+          date, which SuperLMS leaves pending, approves or denies. "Credit
+          enquiry", "credit request" and "credit status" all mean these.
+        - Every panel has a More screen carrying the platform documents —
+          Privacy Policy, Terms of Use, Terms & Conditions, About App. Their
+          text is readable; it is not a screen the assistant has to guess at.
         - Ledger = the school's own cash in / cash out book.
         - Concession = a waiver on a student's fee. Penalty = a late fee.
         - Academic year is written like "2026-27".
@@ -245,10 +264,13 @@ class LmsKnowledge
                 $f->academic_year ?: 'current year'
             ))->implode("\n");
 
-        $ledgerIn  = (float) LedgerTransaction::where('organization_id', $orgId)->where('type', 'in')->sum('amount');
-        $ledgerOut = (float) LedgerTransaction::where('organization_id', $orgId)->where('type', 'out')->sum('amount');
+        // The ledger stores 'credit' and 'expense'. It was read here as 'in'
+        // and 'out', which match nothing — so every snapshot reported a school
+        // with a busy ledger as having moved no money at all.
+        $ledgerIn  = (float) LedgerTransaction::where('organization_id', $orgId)->where('type', 'credit')->sum('amount');
+        $ledgerOut = (float) LedgerTransaction::where('organization_id', $orgId)->where('type', 'expense')->sum('amount');
 
-        // ── Attendance (today) ──
+        // ── Attendance (today) — all three registers, each named ──
         $att = StudentAttendance::where('organization_id', $orgId)
             ->whereDate('attendance_date', $today)
             ->selectRaw('status, COUNT(*) c')->groupBy('status')->pluck('c', 'status');
@@ -258,6 +280,28 @@ class LmsKnowledge
                 'present %d, absent %d, half-day %d, holiday %d',
                 (int) ($att[1] ?? 0), (int) ($att[0] ?? 0), (int) ($att[2] ?? 0), (int) ($att[3] ?? 0)
             );
+
+        $tAtt = TeacherAttendance::where('organization_id', $orgId)
+            ->whereDate('attendance_date', $today)
+            ->selectRaw('status, COUNT(*) c')->groupBy('status')->pluck('c', 'status');
+        $tAttLine = $tAtt->isEmpty()
+            ? 'not marked yet today'
+            : sprintf(
+                'marked for %d teacher(s) — present %d, absent %d, half-day %d, holiday %d',
+                (int) $tAtt->sum(),
+                (int) ($tAtt[1] ?? 0), (int) ($tAtt[0] ?? 0), (int) ($tAtt[2] ?? 0), (int) ($tAtt[3] ?? 0)
+            );
+
+        $eAtt = AdminAttendance::where('organization_id', $orgId)
+            ->whereDate('date', $today)->count();
+        $eAttLine = $eAtt === 0 ? 'not marked yet today' : sprintf('marked for %d employee(s)', $eAtt);
+
+        // Credit raised with SuperLMS from this school's own panel.
+        $credits = CreditQuery::where('organization_id', $orgId)
+            ->selectRaw('status, COUNT(*) c, SUM(amount) total')
+            ->groupBy('status')->get()
+            ->map(fn ($r) => sprintf('%s: %d (%s)', $r->status ?: 'unset', (int) $r->c, $this->money($r->total)))
+            ->implode('; ');
 
         // ── Activity ──
         $exams      = Exam::where('organization_id', $orgId)->count();
@@ -272,6 +316,94 @@ class LmsKnowledge
         $panelUsers = User::where('organization_id', $orgId)
             ->whereIn('role', ['admin', 'sub-admin', 'accounts'])->count();
 
+        // ── Permission-gated sections ──
+        // The snapshot is the one part of the prompt the model does not have to
+        // ask for, so anything a login may not read must simply not be in it.
+        $blocks = [];
+
+        $people = array_filter([
+            $this->scope->can('students') ? "- Students: {$students}" : null,
+            $this->scope->can('teachers') ? "- Teachers: {$teachers}" : null,
+            $this->scope->can('teachers') ? "- Non-teaching employees: {$staff}" : null,
+            $this->scope->can('students')
+                ? '- Student gender split: male ' . $this->i($genders['male'] ?? 0)
+                    . ', female ' . $this->i($genders['female'] ?? 0)
+                    . ', other ' . $this->i($genders['other'] ?? 0)
+                : null,
+        ]);
+
+        if ($people !== []) {
+            $blocks[] = "## People\n" . implode("\n", $people);
+        }
+
+        if ($this->scope->can('classes')) {
+            $subjectList = $this->listOrNone($subjects->implode(', '));
+
+            $blocks[] = <<<TXT
+            ## Classes & sections
+            {$classLines}
+
+            ## Subjects
+            {$subjectList}
+            TXT;
+        }
+
+        if ($this->scope->can('fees')) {
+            $blocks[] = <<<TXT
+            ## Fees collected (from students)
+            - This month: {$this->money($feeMonth)}
+            - Last 12 months: {$this->money($feeYear)}
+            - All time: {$this->money($feeAll)} across {$feeCount} payment(s)
+            - By mode: {$this->listOrNone($byMode)}
+
+            ## Active fee structures
+            {$this->listOrNone($structures)}
+            TXT;
+        }
+
+        if ($this->scope->can('ledger')) {
+            $blocks[] = <<<TXT
+            ## School ledger
+            - Cash in: {$this->money($ledgerIn)} | Cash out: {$this->money($ledgerOut)} | Balance: {$this->money($ledgerIn - $ledgerOut)}
+            TXT;
+        }
+
+        if ($this->scope->can('attendance')) {
+            $blocks[] = <<<TXT
+            ## Attendance today ({$today}) — three separate registers
+            - Students: {$attLine}
+            - Teachers: {$tAttLine}
+            - Non-teaching employees: {$eAttLine}
+            (Counts as at the moment above, and STUDENTS are not TEACHERS: one
+            register being unmarked says nothing about the others. For any
+            question about a particular day — today included — call
+            daily_summary or the attendance tools rather than reading this line
+            back.)
+            TXT;
+        }
+
+        if ($this->scope->can('credit')) {
+            $blocks[] = <<<TXT
+            ## Credit requests raised with SuperLMS
+            - {$this->listOrNone($credits)}
+            TXT;
+        }
+
+        $activity = array_filter([
+            $this->scope->can('exams') ? "- Exams created: {$exams}{$this->nextExamLine($nextExam)}" : null,
+            $this->scope->can('announcements') ? "- Announcements: {$notices}" : null,
+            $this->scope->can('homework') ? "- Homework posted: {$homework}" : null,
+            $this->scope->can('transport') ? "- Transport routes: {$routes}" : null,
+            $this->scope->can('certificates') ? "- Certificates issued: {$certs} | Transfer certificates: {$tcs}" : null,
+            $this->scope->can('enquiries') ? "- Admission enquiries: {$enquiries}" : null,
+        ]);
+
+        if ($activity !== []) {
+            $activityLines = implode("\n", $activity);
+            $blocks[] = "## Academics & operations\n" . $activityLines;
+        }
+
+        $gated   = implode("\n\n", $blocks);
         $product = $this->productPack();
 
         return <<<TXT
@@ -279,6 +411,15 @@ class LmsKnowledge
 
         # Live snapshot — {$this->orgName($org)}
         (generated {$now->format('d M Y, H:i')} IST; counts are live at that moment)
+
+        ## Today
+        - Today is {$now->format('l, d F Y')}. "Aaj" means {$today}, "kal"
+          means either {$now->copy()->subDay()->toDateString()} (yesterday) or
+          {$now->copy()->addDay()->toDateString()} (tomorrow) — take it from the
+          sentence, and say which date you used.
+
+        ## This login
+        {$this->accessLines()}
 
         ## School
         - Name: {$this->orgName($org)}
@@ -288,39 +429,7 @@ class LmsKnowledge
         - Contact: {$this->v($org?->email)} / {$this->v($org?->mobile_number)}
         - Panel users (admin/sub-admin/accounts): {$panelUsers}
 
-        ## People
-        - Students: {$students}
-        - Teachers: {$teachers}
-        - Non-teaching employees: {$staff}
-        - Student gender split: male {$this->i($genders['male'] ?? 0)}, female {$this->i($genders['female'] ?? 0)}, other {$this->i($genders['other'] ?? 0)}
-
-        ## Classes & sections
-        {$classLines}
-
-        ## Subjects
-        {$this->listOrNone($subjects->implode(', '))}
-
-        ## Fees collected (from students)
-        - This month: {$this->money($feeMonth)}
-        - Last 12 months: {$this->money($feeYear)}
-        - All time: {$this->money($feeAll)} across {$feeCount} payment(s)
-        - By mode: {$this->listOrNone($byMode)}
-
-        ## Active fee structures
-        {$this->listOrNone($structures)}
-
-        ## School ledger
-        - Cash in: {$this->money($ledgerIn)} | Cash out: {$this->money($ledgerOut)} | Balance: {$this->money($ledgerIn - $ledgerOut)}
-
-        ## Attendance
-        - Today ({$today}): {$attLine}
-
-        ## Academics & operations
-        - Exams created: {$exams}{$this->nextExamLine($nextExam)}
-        - Announcements: {$notices} | Homework posted: {$homework}
-        - Transport routes: {$routes}
-        - Certificates issued: {$certs} | Transfer certificates: {$tcs}
-        - Admission enquiries: {$enquiries}
+        {$gated}
         TXT;
     }
 
@@ -368,6 +477,12 @@ class LmsKnowledge
         # Live snapshot — SuperLMS platform
         (generated {$now->format('d M Y, H:i')} IST)
 
+        ## Today
+        - Today is {$now->format('l, d F Y')}. "Aaj" means {$today}.
+
+        ## This login
+        {$this->accessLines()}
+
         ## Platform
         - Schools (organizations): {$orgs} — active {$active}, inactive {$this->i($orgs - $active)}
         - Students across all schools: {$students}
@@ -393,6 +508,34 @@ class LmsKnowledge
     }
 
     // ── formatting helpers ───────────────────────────────────────────────
+
+    /**
+     * What this login may and may not read.
+     *
+     * Written into the pack so the model can answer "why can't you see the
+     * fees" correctly — as a permission on the account rather than as missing
+     * data — and so it never offers a screen the user cannot open.
+     */
+    private function accessLines(): string
+    {
+        $granted = LmsAccess::labels($this->scope->modules);
+        $missing = LmsAccess::labels($this->scope->missingModules());
+
+        $lines = [
+            '- Signed in as: ' . $this->scope->userName . ' (role: ' . $this->scope->role . ')',
+            '- Can read: ' . ($granted ? implode(', ', $granted) : 'nothing beyond the basics'),
+        ];
+
+        if ($missing !== []) {
+            $lines[] = '- NOT granted (this login has no access — say so plainly if asked, and'
+                . ' that a full admin can grant it from the Users screen; never call it missing data): '
+                . implode(', ', $missing);
+        }
+
+        // Plain newlines: the heredoc this lands in only dedents its own
+        // literal lines, so anything indented here comes out crooked.
+        return implode("\n", $lines);
+    }
 
     private function orgName(?Organization $org): string
     {

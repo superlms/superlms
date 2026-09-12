@@ -11,6 +11,12 @@ use App\Models\User;
  * there is exactly one place where "which organization" is decided. A school
  * panel user can never widen it: `organizationId` comes from their own user
  * row, not from anything the model or the browser sends.
+ *
+ * It carries the second gate too: the MODULES this login may read, worked out
+ * from its role and — for a sub-admin — from the screens it was actually
+ * granted. Tools, record types and even the sections of the knowledge pack are
+ * filtered through it, so the assistant can never read out a number from a
+ * screen the user cannot open.
  */
 class LmsScope
 {
@@ -29,17 +35,20 @@ class LmsScope
         public readonly ?int $restrictedOrganizationId,
         public readonly string $role,
         public readonly string $userName,
+        /** @var array<int,string> Module slugs from {@see LmsAccess}. */
+        public readonly array $modules,
     ) {}
 
     public static function for(User $user): ?self
     {
-        $role = (string) $user->role;
+        $role    = (string) $user->role;
+        $modules = LmsAccess::modulesFor($user);
 
         if (in_array($role, ['admin', 'sub-admin', 'accounts'], true)) {
             $orgId = (int) ($user->organization_id ?? 0);
 
             return $orgId > 0
-                ? new self(self::KIND_SCHOOL, $orgId, null, $role, (string) $user->name)
+                ? new self(self::KIND_SCHOOL, $orgId, null, $role, (string) $user->name, $modules)
                 : null;
         }
 
@@ -54,6 +63,7 @@ class LmsScope
                 $role === 'sub-super-admin' ? $user->allowedOrganizationId() : null,
                 $role,
                 (string) $user->name,
+                $modules,
             );
         }
 
@@ -86,29 +96,86 @@ class LmsScope
         return $this->kind === self::KIND_PLATFORM;
     }
 
-    /** Cache key fragment — distinct per scope so packs never cross over. */
-    public function key(): string
+    /** Whether this login may read a module at all. */
+    public function can(string $module): bool
     {
-        if ($this->isSchool()) {
-            return 'school-' . $this->organizationId;
+        return in_array($module, $this->modules, true);
+    }
+
+    /** True when every one of these modules is readable. */
+    public function canAll(string ...$modules): bool
+    {
+        foreach ($modules as $module) {
+            if (! $this->can($module)) {
+                return false;
+            }
         }
 
-        return 'platform-' . $this->role . ($this->restrictedOrganizationId ? '-org' . $this->restrictedOrganizationId : '');
+        return true;
+    }
+
+    /** True when at least one of these modules is readable. */
+    public function canAny(string ...$modules): bool
+    {
+        foreach ($modules as $module) {
+            if ($this->can($module)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Modules this login was NOT granted — named in the knowledge pack. */
+    public function missingModules(): array
+    {
+        $all = array_keys(LmsAccess::MODULES);
+
+        if ($this->isSchool()) {
+            $all = array_values(array_diff($all, ['platform']));
+        }
+
+        return array_values(array_diff($all, $this->modules));
+    }
+
+    /** Whether this login is held to a subset of its panel's screens. */
+    public function isRestricted(): bool
+    {
+        return $this->missingModules() !== [];
+    }
+
+    /**
+     * Cache key fragment — distinct per scope so packs never cross over.
+     *
+     * The permission set is part of it: two sub-admins of the same school with
+     * different screens granted must never share a knowledge pack, or one
+     * would be handed the other's fee totals.
+     */
+    public function key(): string
+    {
+        $base = $this->isSchool()
+            ? 'school-' . $this->organizationId
+            : 'platform-' . $this->role . ($this->restrictedOrganizationId ? '-org' . $this->restrictedOrganizationId : '');
+
+        $modules = $this->modules;
+        sort($modules);
+
+        return $base . '-' . $this->role . '-' . substr(md5(implode(',', $modules)), 0, 8);
     }
 
     /**
      * The bucket the daily question allowance is counted against.
      *
-     * One school shares one allowance across every one of its panel users —
-     * admin, sub-admin and accounts all draw from the same 50. The platform
-     * side gets its own bucket, and a sub-super-admin pinned to a school draws
-     * from that school's bucket, because their questions read that school's
-     * data.
+     * One bucket is one role inside one school: every admin of a school shares
+     * the admin allowance, every sub-admin the sub-admin allowance, and the
+     * platform roles have their own. A sub-super-admin pinned to a school still
+     * counts against the platform side, because the allowance follows the
+     * login's role, not the data it happens to read.
      */
     public function quotaKey(): string
     {
-        $orgId = $this->forcedOrganizationId();
+        $orgId = $this->isSchool() ? $this->organizationId : null;
 
-        return $orgId ? 'org-' . $orgId : 'platform';
+        return ($orgId ? 'org-' . $orgId : 'platform') . ':' . $this->role;
     }
 }

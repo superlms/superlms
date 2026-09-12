@@ -6,11 +6,14 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * The daily question allowance, counted per organization rather than per user.
+ * The daily question allowance, counted per role inside one school.
  *
- * One school gets one allowance for the whole day, shared by every panel user
- * it has — the admin, every sub-admin and the accounts login all draw from the
- * same 50. The platform side (super-admin) has its own separate bucket.
+ * One bucket is one role of one organization: every admin of a school draws
+ * from that school's admin allowance, every sub-admin from its sub-admin
+ * allowance, and the accounts logins from theirs. That keeps a school with ten
+ * sub-admins from spending ten times the budget, while still giving the roles
+ * that do the most asking the bigger share. The platform super-admin is
+ * unlimited.
  *
  * The window is a calendar day in the app timezone, not a rolling 24 hours, so
  * "resets at midnight" is a real answer we can show rather than a guess. The
@@ -22,11 +25,21 @@ class GeminiQuota
 {
     public function __construct(private readonly LmsScope $scope) {}
 
+    /** The day's allowance for this role. 0 means unlimited. */
     public function limit(): int
     {
-        return (int) ($this->scope->isSchool() || $this->scope->forcedOrganizationId()
-            ? config('gemini.quota.per_organization_per_day', 50)
-            : config('gemini.quota.platform_per_day', 200));
+        $limits = (array) config('gemini.quota.per_role_per_day', []);
+
+        $limit = array_key_exists($this->scope->role, $limits)
+            ? $limits[$this->scope->role]
+            : config('gemini.quota.default_per_day', 50);
+
+        return max(0, (int) $limit);
+    }
+
+    public function unlimited(): bool
+    {
+        return $this->limit() === 0;
     }
 
     public function used(): int
@@ -36,12 +49,16 @@ class GeminiQuota
 
     public function remaining(): int
     {
+        if ($this->unlimited()) {
+            return PHP_INT_MAX;
+        }
+
         return max(0, $this->limit() - $this->used());
     }
 
     public function exhausted(): bool
     {
-        return $this->remaining() <= 0;
+        return ! $this->unlimited() && $this->remaining() <= 0;
     }
 
     /** Midnight tonight, in the app timezone — when the allowance comes back. */
@@ -71,6 +88,8 @@ class GeminiQuota
             return false;
         }
 
+        // An unlimited role is still counted — the number is worth having when
+        // somebody asks what the platform side is spending — but never blocks.
         $key = $this->key();
 
         // add() then increment(): the first caller of the day creates the entry
@@ -91,9 +110,9 @@ class GeminiQuota
     /**
      * Give a question back.
      *
-     * Used when the failure was not the school's doing — Gemini's own quota,
-     * an outage, a dropped connection. Losing one of fifty because Google was
-     * busy would be the wrong way round.
+     * Used when the failure was not the school's doing — the upstream model's
+     * own quota, an outage, a dropped connection. Losing one of fifty because
+     * somebody else was busy would be the wrong way round.
      */
     public function refund(): void
     {

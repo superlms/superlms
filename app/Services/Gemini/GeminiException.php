@@ -5,9 +5,12 @@ namespace App\Services\Gemini;
 use RuntimeException;
 
 /**
- * A Gemini API call that failed in a way the user should hear about.
+ * An assistant API call that failed in a way the user should hear about.
  * `userMessage()` is safe to show in the chat panel — it never leaks the key,
- * the endpoint or the raw upstream payload.
+ * the endpoint, the raw upstream payload, or the name of the model behind the
+ * assistant. To the user this is Super LMS; who answers for it is not their
+ * concern, and naming a third party in an error only sends them to the wrong
+ * support desk.
  */
 class GeminiException extends RuntimeException
 {
@@ -28,12 +31,12 @@ class GeminiException extends RuntimeException
         }
 
         return match (true) {
-            $this->status === 429 => 'The Gemini quota is used up for now. ' . $this->retryHint(),
+            $this->status === 429 => 'The assistant has hit its own service limit for the moment. ' . $this->retryHint(),
             $this->status === 401,
-            $this->status === 403 => 'Gemini rejected the API key. Please check the GEMINI_API_KEY setting.',
-            $this->status === 400 => 'Gemini could not process that request. Try rephrasing the question.',
-            $this->status >= 500  => 'Gemini is temporarily unavailable. Please try again shortly.',
-            default               => 'Could not reach Gemini just now. Please try again.',
+            $this->status === 403 => 'The API key behind the assistant was rejected. An administrator needs to check it in the environment settings.',
+            $this->status === 400 => 'The assistant could not process that request. Try rephrasing the question.',
+            $this->status >= 500  => 'The assistant is temporarily unavailable. Please try again shortly.',
+            default               => 'The assistant could not be reached just now. Please try again.',
         };
     }
 

@@ -193,7 +193,8 @@
                      opening it costs no server round-trip. --}}
                 @if ($assistantEnabled)
                     <button type="button" x-on:click="$dispatch('gemini-toggle')"
-                        title="Ask the LMS assistant" aria-label="Ask the LMS assistant"
+                        title="Ask the {{ config('gemini.brand', 'Super LMS') }} assistant"
+                        aria-label="Ask the {{ config('gemini.brand', 'Super LMS') }} assistant"
                         class="h-9 w-9 rounded-full bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center transition-colors">
                         <img src="{{ asset('website-image/Group 11525.png') }}" alt=""
                             width="20" height="20" class="w-5 h-5 object-contain">

@@ -113,7 +113,7 @@ newgrp docker
 - `AWS_*`: point at the media bucket + CloudFront in the **new** account
   (create them, or reuse — see step 7). Backups use `BACKUP_S3_BUCKET`.
 - ZeptoMail / PhonePe / Firebase: copy from the old `superlms/app` secret.
-- `GEMINI_API_KEY`: the LMS assistant button (top bar, left of the bell) is
+- `GEMINI_API_KEY`: the Super LMS assistant button (top bar, left of the bell) is
   hidden while this is blank. Add the key, then recreate the app container
   (`./deploy.sh`, or `$C up -d --force-recreate web`) — `env_file` is only
   read at container start, so a plain restart is not enough.

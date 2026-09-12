@@ -4,18 +4,28 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Gemini (Google AI Studio) — LMS assistant
+    | The Super LMS assistant
     |--------------------------------------------------------------------------
     |
     | The assistant is a read-only bridge over this LMS: a per-organization
-    | knowledge pack plus a small set of scoped query tools. It never sees data
-    | outside the signed-in user's organization, and it is instructed to refuse
-    | anything that is not about this LMS.
+    | knowledge pack plus a set of scoped query tools. It never sees data
+    | outside the signed-in user's organization, it is held to that login's own
+    | screen permissions, and it is instructed to refuse anything that is not
+    | about this LMS.
+    |
+    | It is called "Super LMS" everywhere a user can see. The `gemini.*` keys
+    | and the GEMINI_* environment variables keep their names on purpose: they
+    | are what the production secret and the deployed .env already carry, and
+    | renaming them would take the assistant offline until every box was
+    | edited. The model behind it is never named to a user.
     |
     | The API key is NEVER committed. Set GEMINI_API_KEY in the environment
     | (locally in .env, in production in the superlms/app secret).
     |
     */
+
+    // What the assistant calls itself in the panel. Never the model's name.
+    'brand' => env('LMS_ASSISTANT_NAME', 'Super LMS'),
 
     'api_key'  => env('GEMINI_API_KEY'),
 
@@ -78,13 +88,24 @@ return [
         'per_minute' => (int) env('GEMINI_RATE_PER_MINUTE', 12),
     ],
 
-    // The daily allowance, counted per ORGANIZATION, not per user: one school's
-    // admin, sub-admins and accounts logins all draw from the same number, and
-    // it resets at midnight in the app timezone. The platform (super-admin)
-    // side has its own separate bucket.
+    // The daily allowance, per ROLE, resetting at midnight in the app timezone.
+    //
+    // A bucket is one role inside one school: every admin of a school draws
+    // from that school's admin allowance, every sub-admin from its sub-admin
+    // allowance, and so on — so a school with ten sub-admins cannot spend ten
+    // times the budget. 0 means unlimited, which is what the platform
+    // super-admin gets.
     'quota' => [
-        'per_organization_per_day' => (int) env('GEMINI_ORG_DAILY_LIMIT', 150),
-        'platform_per_day'         => (int) env('GEMINI_PLATFORM_DAILY_LIMIT', 400),
+        'per_role_per_day' => [
+            'super-admin'     => (int) env('GEMINI_LIMIT_SUPER_ADMIN', 0),
+            'sub-super-admin' => (int) env('GEMINI_LIMIT_SUB_SUPER_ADMIN', 100),
+            'admin'           => (int) env('GEMINI_LIMIT_ADMIN', 100),
+            'sub-admin'       => (int) env('GEMINI_LIMIT_SUB_ADMIN', 50),
+            'accounts'        => (int) env('GEMINI_LIMIT_ACCOUNTS', 50),
+        ],
+
+        // Anything not named above.
+        'default_per_day' => (int) env('GEMINI_LIMIT_DEFAULT', 50),
     ],
 
     // How many tool round-trips one question may take. A question like "every

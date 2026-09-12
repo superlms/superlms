@@ -1,12 +1,14 @@
 {{--
-    The LMS assistant panel.
+    The Super LMS assistant panel.
 
     It has no launcher of its own — the top bar owns that button (next to the
     notification bell) and flips this open with a `gemini-toggle` browser event,
     so opening it costs no server round-trip. The panel itself is the house
-    slide-in shell — the same `fixed inset-x-0 bottom-0 top-16` frame the
-    certificate and student panels use — so it sits BELOW the navbar, never
-    over it.
+    slide-in shell, and it starts at `--lms-nav-h` — the navbar's full height,
+    ITS BOTTOM BORDER INCLUDED. `top-16` is one pixel short of that, which put
+    the panel's white edge and its backdrop-blur over the top bar's border and
+    smeared it across the width of the page. Anchor to the variable, not to a
+    utility class that only nearly fits.
 --}}
 <div>
     @if ($enabled)
@@ -254,9 +256,9 @@
             wire:key="gemini-assistant">
 
             <style>
-                /* Element-level styling for the markdown Gemini returns — these
-                   tags come from the converter, not from Blade, so utility
-                   classes cannot reach them. */
+                /* Element-level styling for the markdown the answer arrives as
+                   — these tags come from the converter, not from Blade, so
+                   utility classes cannot reach them. */
                 .gem-md > *:first-child { margin-top: 0; }
                 .gem-md > *:last-child  { margin-bottom: 0; }
                 .gem-md p               { margin: 0 0 .5rem; }
@@ -290,10 +292,12 @@
 
             {{-- ───────────── Chat panel ───────────── --}}
             @if ($open)
-                {{-- The house slide-in shell: starts under the navbar, anchored
-                     right, full height, behind it the same barely-there scrim
-                     every other panel uses. --}}
-                <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
+                {{-- The house slide-in shell: starts under the navbar — below
+                     its bottom border, not on top of it — anchored right, full
+                     height, behind it the same barely-there scrim every other
+                     panel uses. --}}
+                <div class="fixed inset-x-0 bottom-0 z-[9999] overflow-hidden"
+                     style="top: var(--lms-nav-h, 65px);">
                     <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="close"></div>
                     <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col" wire:click.stop>
 
@@ -306,16 +310,24 @@
                             {{-- One line does double duty: what the panel can see, and the
                                  last copy/download result, so a chip never acts silently. --}}
                             <p class="text-xs mt-0.5 truncate">
-                                <span x-show="! toast" class="text-gray-500">Gemini · {{ $scopeLabel }} data only</span>
+                                <span x-show="! toast" class="text-gray-500">{{ config('gemini.brand', 'Super LMS') }} · {{ $scopeLabel }} data only</span>
                                 <span x-show="toast" x-cloak x-text="toast" class="text-blue-600 font-medium"></span>
                             </p>
                         </div>
-                        {{-- The day's shared allowance, at a glance. --}}
-                        <span title="Questions left today for everyone in this account. Resets {{ $resetsAt }}."
-                            class="text-xs font-semibold px-2 py-1 rounded-md flex-shrink-0
-                                   {{ $remaining === 0 ? 'bg-red-50 text-red-600' : ($remaining <= 5 ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500') }}">
-                            {{ $remaining }}/{{ $dailyLimit }}
-                        </span>
+                        {{-- The day's shared allowance, at a glance. A role with
+                             no cap gets no counter rather than a fake number. --}}
+                        @if ($unlimited)
+                            <span title="This login has no daily question limit."
+                                class="text-xs font-semibold px-2 py-1 rounded-md flex-shrink-0 bg-emerald-50 text-emerald-700">
+                                Unlimited
+                            </span>
+                        @else
+                            <span title="Questions left today, shared by every {{ $roleLabel }} login here. Resets {{ $resetsAt }}."
+                                class="text-xs font-semibold px-2 py-1 rounded-md flex-shrink-0
+                                       {{ $remaining === 0 ? 'bg-red-50 text-red-600' : ($remaining <= 5 ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500') }}">
+                                {{ $remaining }}/{{ $dailyLimit }}
+                            </span>
+                        @endif
                         @if (count($messages))
                             <button type="button" wire:click="clear" title="Clear chat"
                                 class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
@@ -403,15 +415,16 @@
 
                     {{-- Composer --}}
                     <div class="border-t border-gray-200 px-6 py-3.5 flex-shrink-0 bg-white">
-                        @if ($remaining === 0)
+                        @if (! $unlimited && $remaining === 0)
                             {{-- Out of questions: say so, and say exactly when it comes back. --}}
                             <div class="flex items-start gap-2 px-3 py-2.5 bg-red-50 border border-red-200 rounded-xl">
                                 <svg class="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M12 21a9 9 0 110-18 9 9 0 010 18z" /></svg>
                                 <div class="min-w-0">
                                     <p class="text-xs font-semibold text-red-800">Daily limit reached</p>
                                     <p class="text-[11px] text-red-700 mt-0.5 leading-snug">
-                                        All {{ $dailyLimit }} questions for {{ $scopeLabel === 'This school' ? 'this school' : 'this panel' }} have been used today —
-                                        the count is shared by everyone who logs in here.
+                                        All {{ $dailyLimit }} questions for the {{ $roleLabel }} logins of
+                                        {{ $scopeLabel === 'This school' ? 'this school' : 'this panel' }} have been used today —
+                                        the count is shared by everyone with this role.
                                         Resets <span class="font-semibold">{{ $resetsAt }}</span>.
                                     </p>
                                 </div>
@@ -446,7 +459,11 @@
                             </button>
                         </div>
                         <p class="mt-1.5 text-[10px] text-gray-400 text-center" x-show="!listening">
-                            {{ $remaining }} of {{ $dailyLimit }} questions left today · resets {{ $resetsAt }}
+                            @if ($unlimited)
+                                No daily question limit on this login
+                            @else
+                                {{ $remaining }} of {{ $dailyLimit }} questions left today · resets {{ $resetsAt }}
+                            @endif
                         </p>
                         <p class="mt-1.5 text-[10px] text-red-500 text-center" x-show="listening" x-cloak>Listening… speak now</p>
                         @endif

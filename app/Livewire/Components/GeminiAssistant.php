@@ -13,12 +13,12 @@ use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
- * The floating assistant mounted on every panel page.
+ * The floating Super LMS assistant, mounted on every panel page.
  *
  * Asking is two round-trips on purpose: `submit()` paints the user's bubble and
  * the typing dots immediately, then the browser calls `run()`, which is the one
- * that waits on Gemini. One trip would leave the panel frozen with nothing on
- * screen for as long as the model takes.
+ * that waits on the answer. One trip would leave the panel frozen with nothing
+ * on screen for as long as the model takes.
  */
 class GeminiAssistant extends Component
 {
@@ -40,12 +40,20 @@ class GeminiAssistant extends Component
     #[Locked]
     public array $suggestions = [];
 
-    /** The day's allowance, shared by everyone in this organization. */
+    /** The day's allowance, shared by everyone with this role in this school. */
     #[Locked]
     public int $remaining = 0;
 
     #[Locked]
     public int $dailyLimit = 0;
+
+    /** Super-admins have no cap; the counter is hidden rather than faked. */
+    #[Locked]
+    public bool $unlimited = false;
+
+    /** "admin", "accounts" … — what the footer calls the shared allowance. */
+    #[Locked]
+    public string $roleLabel = '';
 
     /** e.g. "Sun, 13 Sep at 12:00 AM (in 4 hours 53 minutes)". */
     #[Locked]
@@ -60,18 +68,20 @@ class GeminiAssistant extends Component
         }
 
         $this->scopeLabel = $scope->isSchool() ? 'This school' : 'All schools';
+        $this->roleLabel  = str_replace('-', ' ', $scope->role);
         $this->refreshQuota($scope);
         $this->suggestions = $scope->isSchool()
-            ? [
-                'How many students do we have, class-wise?',
-                'How much fee was collected this month?',
-                'Who has pending fees?',
-                'Aaj ki attendance kya hai?',
-            ]
+            ? array_values(array_filter([
+                'Aaj ki summary do',
+                $scope->can('fees') ? 'How much fee was collected this month?' : null,
+                $scope->can('fees') ? 'Who has pending fees?' : null,
+                $scope->can('attendance') ? 'Aaj teacher attendance mark hui hai?' : null,
+                $scope->can('students') ? 'How many students do we have, class-wise?' : null,
+            ]))
             : [
+                'Aaj ki summary do',
                 'How many schools are active?',
                 'Platform fees collected this month?',
-                'Show the newest schools',
                 'Pending credit requests kaunse hain?',
             ];
     }
@@ -100,8 +110,9 @@ class GeminiAssistant extends Component
 
         $quota = new GeminiQuota($scope);
 
+        $this->unlimited  = $quota->unlimited();
         $this->dailyLimit = $quota->limit();
-        $this->remaining  = $quota->remaining();
+        $this->remaining  = $this->unlimited ? 0 : $quota->remaining();
         $this->resetsAt   = $quota->resetDescription();
     }
 
@@ -159,7 +170,7 @@ class GeminiAssistant extends Component
         }
 
         if (! $assistant->available()) {
-            $this->messages[] = ['role' => 'model', 'text' => 'The assistant is not configured yet. An administrator needs to set GEMINI_API_KEY.'];
+            $this->messages[] = ['role' => 'model', 'text' => 'The assistant is not configured yet. An administrator needs to set its API key in the environment.'];
 
             return;
         }

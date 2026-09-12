@@ -2,6 +2,7 @@
 
 namespace App\Services\Gemini;
 
+use App\Models\AboutApp;
 use App\Models\Admin\AdmissionEnquiry;
 use App\Models\Admin\AdminEmployee;
 use App\Models\Admin\Announcement;
@@ -19,9 +20,13 @@ use App\Models\Admin\HomeWork;
 use App\Models\Admin\LedgerTransaction;
 use App\Models\Admin\RateLms;
 use App\Models\Admin\TeacherTimeTable;
+use App\Models\Admin\TermAndCondition;
 use App\Models\Admin\Transportation;
 use App\Models\Admin\TransferCertificate;
+use App\Models\Admin\TransportFeePayment;
+use App\Models\Calendar\TimeTable as CalendarEvent;
 use App\Models\Organization;
+use App\Models\PrivacyPolicy;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentAttendance;
@@ -31,6 +36,7 @@ use App\Models\SuperAdmin\CreditQuery;
 use App\Models\SuperAdmin\SuperAdminFeePayment;
 use App\Models\Teacher\TeacherAttendance;
 use App\Models\Teacher\TeacherDetail;
+use App\Models\TermOfUse;
 use App\Models\User;
 use App\Models\WebsiteDemo;
 use Illuminate\Database\Eloquent\Builder;
@@ -65,6 +71,14 @@ use Illuminate\Support\Facades\Log;
  *
  * Rows handed to a cross-organization reader carry the school name, so an
  * answer spanning schools can never silently merge two of them.
+ *
+ * ── Which tools exist at all ─────────────────────────────────────────────
+ * A second gate sits next to the first: every tool belongs to a MODULE, and a
+ * tool whose module this login was not granted is never declared, and would be
+ * refused if the model named it anyway. A sub-admin who cannot open the Fee
+ * screen has no fee tool, and the refusal says so — "you were not granted
+ * that screen" is a different answer from "there is no data", and giving the
+ * second when the first is true is how an assistant ends up lying.
  */
 class LmsToolbox
 {
@@ -79,11 +93,64 @@ class LmsToolbox
     private const WEEKDAYS = [1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday', 7 => 'Sunday'];
 
     /** Record types only the platform panel may list. */
-    private const PLATFORM_ENTITIES = ['credit_queries', 'support_messages', 'ratings', 'demo_requests', 'schools'];
+    private const PLATFORM_ENTITIES = ['demo_requests', 'schools'];
 
     private const SCHOOL_ENTITIES = [
         'announcements', 'homework', 'exams', 'certificates', 'transfer_certificates',
         'admission_enquiries', 'ledger', 'transport', 'books', 'fee_structures',
+        'credit_queries', 'support_messages', 'ratings',
+    ];
+
+    /** The module each `recent_records` entity belongs to. */
+    private const RECENT_ENTITY_MODULE = [
+        'announcements'         => 'announcements',
+        'homework'              => 'homework',
+        'exams'                 => 'exams',
+        'certificates'          => 'certificates',
+        'transfer_certificates' => 'certificates',
+        'admission_enquiries'   => 'enquiries',
+        'ledger'                => 'ledger',
+        'transport'             => 'transport',
+        'books'                 => 'library',
+        'fee_structures'        => 'fees',
+        'credit_queries'        => 'credit',
+        'support_messages'      => 'support',
+        'ratings'               => 'support',
+        'demo_requests'         => 'platform',
+        'schools'               => 'platform',
+    ];
+
+    /**
+     * The module each tool belongs to. A login without that module never sees
+     * the tool declared, and cannot run it by name either.
+     */
+    private const TOOL_MODULE = [
+        'search_students'       => 'students',
+        'student_profile'       => 'students',
+        'class_roster'          => 'students',
+        'search_staff'          => 'teachers',
+        'search_users'          => 'users',
+        'fee_payments'          => 'fees',
+        'fee_defaulters'        => 'fees',
+        'attendance_report'     => 'attendance',
+        'staff_attendance'      => 'attendance',
+        'exam_results'          => 'exams',
+        'exam_schedule'         => 'exams',
+        'payroll_report'        => 'payroll',
+        'ledger_report'         => 'ledger',
+        'class_timetable'       => 'timetable',
+        'credit_requests'       => 'credit',
+        // Always available: each one filters what it shows by module itself.
+        'daily_summary'         => 'overview',
+        'describe_data'         => 'overview',
+        'query_records'         => 'overview',
+        'aggregate_records'     => 'overview',
+        'recent_records'        => 'overview',
+        'policy_document'       => 'support',
+        // Platform panel only.
+        'search_schools'        => 'platform',
+        'school_overview'       => 'platform',
+        'platform_fee_payments' => 'platform',
     ];
 
     public function __construct(private readonly LmsScope $scope) {}
@@ -101,9 +168,23 @@ class LmsToolbox
         // platform-only tools underneath.
         $tools = $this->schoolToolDeclarations($this->scope->readsWholePlatform());
 
-        return $this->scope->isPlatform()
-            ? array_merge($tools, $this->platformToolDeclarations())
-            : $tools;
+        if ($this->scope->isPlatform()) {
+            $tools = array_merge($tools, $this->platformToolDeclarations());
+        }
+
+        // Drop anything this login was not granted. Done here rather than only
+        // at call time: a tool the model cannot see is a tool it cannot be
+        // talked into trying, and the declaration list is what it reasons over.
+        return array_values(array_filter(
+            $tools,
+            fn (array $tool) => $this->allows((string) $tool['name']),
+        ));
+    }
+
+    /** Whether this login's modules cover a tool. */
+    private function allows(string $tool): bool
+    {
+        return $this->scope->can(self::TOOL_MODULE[$tool] ?? 'overview');
     }
 
     /**
@@ -115,6 +196,19 @@ class LmsToolbox
      */
     public function run(string $name, array $args): array
     {
+        if (! $this->allows($name)) {
+            $module = self::TOOL_MODULE[$name] ?? 'overview';
+
+            return ['error' => $module === 'platform'
+                ? 'That is platform (super-admin) data. This panel only ever sees its own school — say so; it is not a missing permission the school can grant itself.'
+                : sprintf(
+                    'This login was not granted the %s screen, so that data cannot be read here. '
+                    . 'Tell the user it is a permission limit on their own account, not missing data '
+                    . '— a full admin can grant the screen from the Users page.',
+                    LmsAccess::label($module),
+                )];
+        }
+
         if (! in_array($name, array_column($this->declarations(), 'name'), true)) {
             return ['error' => 'Unknown tool for this panel.'];
         }
@@ -152,6 +246,9 @@ class LmsToolbox
     private function dispatch(string $name, array $args): array
     {
         return match ($name) {
+            'daily_summary'         => $this->dailySummary($args),
+            'policy_document'       => $this->policyDocument($args),
+            'credit_requests'       => $this->creditRequests($args),
             'search_students'       => $this->searchStudents($args),
             'student_profile'       => $this->studentProfile($args),
             'class_roster'          => $this->classRoster($args),
@@ -232,11 +329,38 @@ class LmsToolbox
             ? ' Covers every school unless a school is named.'
             : ' Covers this school only.';
 
-        $entities = $this->scope->isPlatform()
-            ? array_merge(self::SCHOOL_ENTITIES, self::PLATFORM_ENTITIES)
-            : self::SCHOOL_ENTITIES;
+        $entities = array_values(array_filter(
+            $this->scope->isPlatform()
+                ? array_merge(self::SCHOOL_ENTITIES, self::PLATFORM_ENTITIES)
+                : self::SCHOOL_ENTITIES,
+            fn (string $entity) => $this->scope->can(self::RECENT_ENTITY_MODULE[$entity] ?? 'overview'),
+        ));
 
         return [
+            [
+                'name'        => 'daily_summary',
+                'description' => 'One day of the school in a single call: student attendance AND staff attendance with whether each was actually marked, fee collected, ledger money in/out, salaries paid, new admissions, enquiries received, homework and announcements posted, exams running, calendar events and birthdays. Use it for "aaj ki summary", "today\'s report", "kya hua aaj", "kal ka summary" — and for "is attendance marked today", which it answers for students and staff at once.' . $note,
+                'parameters'  => $this->schema($school + [
+                    'date' => $this->str('The day, YYYY-MM-DD. Defaults to today.'),
+                ]),
+            ],
+            [
+                'name'        => 'credit_requests',
+                'description' => 'Credit requests raised with SuperLMS: heading, reason, amount, status (pending / processing / approved / denied), the period it covers, the per-day penalty, what is owed as of today and whether it has been collected. Use it for anything about credit, a credit enquiry, a credit request or its status.' . $note,
+                'parameters'  => $this->schema($school + [
+                    'status' => $this->enum(['pending', 'processing', 'approved', 'denied', 'any'], 'Filter by status (default any).'),
+                    'limit'  => $this->int('Max rows (default 20, max 100).'),
+                ]),
+            ],
+            [
+                'name'        => 'policy_document',
+                'description' => 'The text of the SuperLMS documents every panel links to under More: the Privacy Policy, the Terms of Use, the Terms & Conditions, and About App (company name, CIN, contact details, team). Call it whenever the user asks what the privacy policy or the terms say, or who runs SuperLMS. With no search word it returns the section headings and an excerpt of each; pass `search` or `section` to get the full text of the ones that matter.',
+                'parameters'  => $this->schema([
+                    'document' => $this->enum(['privacy_policy', 'terms_of_use', 'terms_and_conditions', 'about_app', 'list'], 'Which document. "list" names the documents that exist.'),
+                    'search'   => $this->str('Only return sections whose heading or text contains this word — returned in full.'),
+                    'section'  => $this->str('One section, by its heading or its number. Returned in full.'),
+                ], ['document']),
+            ],
             [
                 'name'        => 'search_students',
                 'description' => 'Find students by name, admission number, roll number, father/mother name, class or section, and count how many match.' . $note,
@@ -294,7 +418,7 @@ class LmsToolbox
             ],
             [
                 'name'        => 'attendance_report',
-                'description' => 'Student attendance counts (present / absent / half day / holiday) for a date or a date range, optionally for one class.' . $note,
+                'description' => 'STUDENT attendance counts (present / absent / half day / holiday) for a date or a date range, optionally for one class, with which classes were marked and which were not. For teachers or other staff use staff_attendance instead — this tool never looks at them.' . $note,
                 'parameters'  => $this->schema($school + [
                     'date'     => $this->str('A single day, YYYY-MM-DD. Defaults to today when no range is given.'),
                     'from'     => $this->str('Range start, YYYY-MM-DD.'),
@@ -326,7 +450,7 @@ class LmsToolbox
             ],
             [
                 'name'        => 'staff_attendance',
-                'description' => 'Teacher and employee attendance (present / absent / half day / holiday) for a date or a range, with the names marked absent.' . $note,
+                'description' => 'TEACHER and non-teaching EMPLOYEE attendance (present / absent / half day / holiday) for a date or a range, with who was absent and how many of the staff were marked at all. This is the only tool that reads staff attendance — attendance_report reads STUDENTS and says nothing about teachers, so never answer a question about teacher attendance from it.' . $note,
                 'parameters'  => $this->schema($school + [
                     'date'  => $this->str('A single day, YYYY-MM-DD. Defaults to today when no range is given.'),
                     'from'  => $this->str('Range start, YYYY-MM-DD.'),
@@ -370,6 +494,16 @@ class LmsToolbox
                 ]),
             ],
             [
+                'name'        => 'search_users',
+                'description' => 'Find login accounts — admins, sub-admins, accounts users, teachers and students — by name, email, mobile or role, with their profile photo and when they last signed in. Use for "who are the admins here", "how many teacher logins exist", "find this email", "whose account is disabled". Returns a count per role as well as the matching accounts.' . $note,
+                'parameters'  => $this->schema($school + [
+                    'query'  => $this->str('Free text: name, email or mobile.'),
+                    'role'   => $this->enum(['admin', 'sub-admin', 'accounts', 'teacher', 'user', 'super-admin', 'sub-super-admin', 'any'], 'Limit to one role (default any). "user" is a student login.'),
+                    'active' => $this->enum(['yes', 'no', 'any'], 'Only enabled logins, only disabled ones, or both (default any).'),
+                    'limit'  => $this->int('Max rows (default 20, max 100).'),
+                ]),
+            ],
+            [
                 'name'        => 'describe_data',
                 'description' => 'What records this panel can read, and what fields each one has. Call it with no arguments to list the record types, or with one entity to see its exact field names before querying it. Use this whenever a question asks about something the other tools do not obviously cover — a photo, an address, a route, a status, any column at all.' . $note,
                 'parameters'  => $this->schema($school + [
@@ -389,7 +523,8 @@ class LmsToolbox
                         'op'    => $this->enum(['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'like', 'in', 'is_null', 'not_null', 'empty', 'not_empty'], 'Comparison. Use not_empty for "has a value" (a photo, a phone number) and empty for "is missing".'),
                         'value' => $this->str('The value to compare against. Leave out for is_null / not_null / empty / not_empty; for "in", separate values with commas. An id field may be given a NAME instead — field "standard_id" with value "NURSERY" works.'),
                     ], ['field', 'op'])),
-                    'fields'     => $this->arr('Which fields to return. Leave out for a sensible default.', $this->str('Field name.')),
+                    'fields'     => $this->arr('Which fields to return. Leave out for a sensible default, or pass "*" for every field there is.', $this->str('Field name, or "*" for all of them.')),
+                    'all_fields' => $this->bool('True to return EVERY field of the record, not the default dozen. Use it whenever the user asks for full details, complete data, or "saara data".'),
                     'order_by'   => $this->str('Field to sort by (default the newest first).'),
                     'direction'  => $this->enum(['asc', 'desc'], 'Sort direction (default desc).'),
                     'count_only' => $this->bool('True to return only how many rows match, without listing them.'),
@@ -455,17 +590,6 @@ class LmsToolbox
                     'limit'  => $this->int('Max rows (default 20, max 100).'),
                 ]),
             ],
-            [
-                'name'        => 'search_users',
-                'description' => 'Find login accounts across the platform — admins, sub-admins, accounts users, teachers, students and super-admins — by name, email, mobile, role or school. Use for "who are the admins of X", "how many teacher logins exist", "find this email". Returns a count per role as well as the matching accounts.',
-                'parameters'  => $this->schema([
-                    'query'  => $this->str('Free text: name, email or mobile.'),
-                    'role'   => $this->enum(['admin', 'sub-admin', 'accounts', 'teacher', 'user', 'super-admin', 'sub-super-admin', 'any'], 'Limit to one role (default any). "user" is a student login.'),
-                    'school' => $this->str('Limit to one school, by name or serial number.'),
-                    'active' => $this->enum(['yes', 'no', 'any'], 'Only enabled logins, only disabled ones, or both (default any).'),
-                    'limit'  => $this->int('Max rows (default 20, max 100).'),
-                ]),
-            ],
         ];
     }
 
@@ -510,12 +634,23 @@ class LmsToolbox
                 'phone'        => $s->phone,
             ]))->all();
 
-        return [
+        // Two children with the same name are common; when the search text is
+        // a name and more than one came back, say so, so a follow-up about
+        // "their" fees is asked about rather than guessed at.
+        $names = array_count_values(array_filter(array_column($rows, 'name')));
+        $dupes = array_keys(array_filter($names, fn (int $n) => $n > 1));
+
+        return $this->clean([
             'covers'   => $this->coverage($orgId),
             'matched'  => (clone $q)->count(),
             'showing'  => count($rows),
             'students' => $rows,
-        ];
+            'same_name' => $dupes !== []
+                ? 'More than one student is called: ' . implode(', ', $dupes)
+                . '. Before answering anything about one of them, ask which one — by admission number,'
+                . ' in the language the user asked in.'
+                : null,
+        ]);
     }
 
     private function studentProfile(array $a): array
@@ -534,21 +669,36 @@ class LmsToolbox
             return ['error' => 'Give an admission number or a name.'];
         }
 
-        $matches = $q->limit(6)->get();
+        $matches = $q->with('section:id,name')->limit(8)->get();
 
         if ($matches->isEmpty()) {
             return ['found' => false, 'message' => 'No student matched in ' . $this->coverage($orgId) . '.'];
         }
+
+        // Several students share a name in almost every school. Handing back the
+        // first one would put another child's fees and attendance under the name
+        // the user asked about, so this comes back as a question instead — with
+        // exactly the columns that tell them apart.
         if ($matches->count() > 1) {
             return [
-                'found'      => false,
-                'message'    => 'More than one student matched — ask the user which one.',
-                'candidates' => $matches->map(fn ($s) => $this->clean([
+                'found'       => false,
+                'ambiguous'   => true,
+                'match_count' => $matches->count(),
+                'message'     => 'STOP: ' . $matches->count() . ' students match that name. Do NOT answer about any '
+                    . 'one of them. List these candidates with their admission number, class and '
+                    . 'father\'s name, and ask the user which one they mean — in the language they '
+                    . 'asked in.',
+                'candidates'  => $matches->map(fn ($s) => $this->clean([
                     'school'       => $cross ? ($s->organization->name ?? null) : null,
                     'name'         => $s->full_name,
                     'admission_no' => $s->admission_no,
+                    'roll_no'      => $s->roll_no,
                     'class'        => $s->standard->name ?? null,
+                    'section'      => $s->section->name ?? null,
+                    'father'       => $s->father_name,
+                    'phone'        => $s->phone,
                 ]))->all(),
+                'next_step'   => 'Once the user picks one, call student_profile again with that admission_no.',
             ];
         }
 
@@ -725,7 +875,7 @@ class LmsToolbox
         $cross = $this->spansSchools($orgId);
 
         $q = $this->pin(User::query(), $orgId)
-            ->select(['id', 'name', 'email', 'mobile_number', 'role', 'is_active', 'organization_id', 'last_login_at', 'created_at']);
+            ->select(['id', 'name', 'email', 'mobile_number', 'role', 'image', 'is_active', 'organization_id', 'last_login_at', 'created_at']);
 
         if ($cross) {
             $q->with('organization:id,name');
@@ -764,6 +914,7 @@ class LmsToolbox
                     'email'      => $u->email,
                     'mobile'     => $u->mobile_number,
                     'role'       => $u->role,
+                    'photo'      => $u->image ?: null,
                     'active'     => (bool) $u->is_active,
                     'last_login' => optional($u->last_login_at)->toDateTimeString(),
                 ]))->all(),
@@ -981,8 +1132,9 @@ class LmsToolbox
         $holiday = (int) ($counts[3] ?? 0);
         $marked  = $present + $absent + $half;
 
-        return [
+        $out = [
             'covers'       => $this->coverage($orgId),
+            'reads'        => 'students only — teacher and employee attendance is a different tool',
             'period'       => ['from' => $from, 'to' => $to],
             'class'        => $std ? Standard::find($std)?->name : 'all classes',
             'present'      => $present,
@@ -991,8 +1143,22 @@ class LmsToolbox
             'holiday'      => $holiday,
             'marked_total' => $marked,
             'present_pct'  => $marked > 0 ? round(($present + $half * 0.5) / $marked * 100, 1) : null,
-            'note'         => $marked === 0 ? 'Attendance has not been marked for this period.' : null,
+            'note'         => $marked === 0
+                ? 'Student attendance was never marked for this period. That is NOT the same as everybody being absent, and it says nothing about teacher attendance.'
+                : null,
         ];
+
+        // For a single day of one school, say which classes were left unmarked:
+        // "attendance is done" is usually asked class by class.
+        if ($orgId && ! $std && $from && $from === $to) {
+            $day = $this->studentAttendanceOfDay($orgId, $from);
+
+            $out['classes_marked']     = $day['classes_marked'] ?? null;
+            $out['classes_not_marked'] = $day['classes_not_marked'] ?? null;
+            $out['students_total']     = $day['students_total'] ?? null;
+        }
+
+        return $this->clean($out);
     }
 
     // ══════════════════════════════════════════════════════════════════
@@ -1243,22 +1409,6 @@ class LmsToolbox
             'period' => ['from' => $from, 'to' => $to],
         ];
 
-        $tally = function ($rows) {
-            $counts = ['present' => 0, 'absent' => 0, 'half_day' => 0, 'holiday' => 0];
-            foreach ($rows as $status => $n) {
-                $label = match ((string) $status) {
-                    '1', 'present' => 'present',
-                    '0', 'absent'  => 'absent',
-                    '2', 'half_day', 'half day' => 'half_day',
-                    '3', 'holiday' => 'holiday',
-                    default        => 'present',
-                };
-                $counts[$label] += (int) $n;
-            }
-
-            return $counts;
-        };
-
         if ($type !== 'employee') {
             $q = $this->pin(TeacherAttendance::query(), $orgId);
             if ($from) {
@@ -1268,9 +1418,11 @@ class LmsToolbox
                 $q->whereDate('attendance_date', '<=', $to);
             }
 
-            $out['teachers'] = $tally(
+            $out['teachers'] = $this->tallyAttendance(
                 (clone $q)->selectRaw('status, COUNT(*) c')->groupBy('status')->pluck('c', 'status')->all()
             );
+            $out['teachers']['marked']         = array_sum($out['teachers']) > 0;
+            $out['teachers']['teachers_total'] = $this->pin(TeacherDetail::query(), $orgId)->count();
             $out['teachers_absent'] = (clone $q)->where('status', 0)
                 ->with('teacherDetail.user:id,name')
                 ->limit($limit)->get()
@@ -1289,9 +1441,11 @@ class LmsToolbox
                 $q->whereDate('date', '<=', $to);
             }
 
-            $out['employees'] = $tally(
+            $out['employees'] = $this->tallyAttendance(
                 (clone $q)->selectRaw('status, COUNT(*) c')->groupBy('status')->pluck('c', 'status')->all()
             );
+            $out['employees']['marked']          = array_sum($out['employees']) > 0;
+            $out['employees']['employees_total'] = $this->pin(AdminEmployee::query(), $orgId)->count();
             $out['employees_absent'] = (clone $q)->whereIn('status', [0, 'absent'])
                 ->with('employee:id,name')
                 ->limit($limit)->get()
@@ -1301,9 +1455,13 @@ class LmsToolbox
                 ]))->values()->all();
         }
 
-        $marked = array_sum($out['teachers'] ?? []) + array_sum($out['employees'] ?? []);
-        if ($marked === 0) {
-            $out['note'] = 'Staff attendance has not been marked for this period.';
+        // Read the flags the two blocks already set — `teachers_total` is an
+        // int in the same array, so summing the array would count staff who
+        // exist as staff who were marked.
+        $anyMarked = ($out['teachers']['marked'] ?? false) || ($out['employees']['marked'] ?? false);
+
+        if (! $anyMarked) {
+            $out['note'] = 'Staff attendance was never marked for this period — which is not the same as everybody being absent. Say it was not marked.';
         }
 
         return $out;
@@ -1395,9 +1553,11 @@ class LmsToolbox
         }
 
         if ($party = $this->text($a['party'] ?? null)) {
+            // `party` and `reason` are the only text columns this table has —
+            // naming a `party_to` that does not exist failed the whole query,
+            // and the model reported the ledger as unreadable.
             $q->where(fn ($w) => $w
                 ->where('party', 'like', "%{$party}%")
-                ->orWhere('party_to', 'like', "%{$party}%")
                 ->orWhere('reason', 'like', "%{$party}%"));
         }
 
@@ -1413,8 +1573,7 @@ class LmsToolbox
                 'date'   => optional($t->txn_date)->toDateString(),
                 'type'   => $t->type,
                 'amount' => round((float) $t->amount, 2),
-                'party'  => $t->party ?: $t->party_to,
-                'mode'   => $t->mode,
+                'party'  => $t->party,
                 'reason' => $t->reason,
             ]))->all();
 
@@ -1594,12 +1753,24 @@ class LmsToolbox
             return $head;
         }
 
-        $asked = array_map(fn ($f) => $this->resolveField((string) $f, $entity), (array) ($a['fields'] ?? []));
+        $asked = (array) ($a['fields'] ?? []);
+
+        // "*" and all_fields both mean the whole record. Asked for full details,
+        // the assistant used to hand back the same dozen default columns and
+        // call it complete; now it returns every column it is allowed to read.
+        $everything = filter_var($a['all_fields'] ?? false, FILTER_VALIDATE_BOOLEAN)
+            || in_array('*', array_map('strval', $asked), true)
+            || in_array('all', array_map('strtolower', array_map('strval', $asked)), true);
+
+        $asked = array_map(fn ($f) => $this->resolveField((string) $f, $entity), $asked);
 
         $fields = array_values(array_intersect($asked, $columns));
         $wanted = array_values(array_intersect($asked, $this->relatedFieldNames($entity)));
 
-        if ($fields === [] && $wanted === []) {
+        if ($everything) {
+            $fields = $columns;
+            $wanted = $this->relatedFieldNames($entity);
+        } elseif ($fields === [] && $wanted === []) {
             $fields = $this->defaultFields($columns, $entity);
             $wanted = $this->relatedFieldNames($entity);
         }
@@ -1623,7 +1794,7 @@ class LmsToolbox
 
         $models = $query->with($loads)
             ->orderBy($order, $direction)
-            ->limit($this->limit($a, 20))
+            ->limit($everything ? min($this->limit($a, 20), 40) : $this->limit($a, 20))
             ->get($select);
 
         $rows = $models->map(function (Model $model) use ($wanted) {
@@ -1639,11 +1810,17 @@ class LmsToolbox
             return $row;
         })->all();
 
-        return $head + [
+        return $head + $this->clean([
             'fields' => array_merge($fields, $wanted),
             'rows'   => $this->labelRows($rows, $fields),
-            'note'   => $rows === [] ? 'Nothing matches this filter.' : null,
-        ];
+            'note'   => match (true) {
+                $rows === [] => 'Nothing matches this filter.',
+                // Say it, so the model does not report a default selection as
+                // the whole record when the user asked for everything.
+                ! $everything => 'These are the default columns. For every field of the record, ask again with all_fields true.',
+                default => null,
+            },
+        ]);
     }
 
     private function aggregateRecords(array $a): array
@@ -2110,11 +2287,19 @@ class LmsToolbox
 
             'credit_queries' => ['credit_queries' => $this->pin(CreditQuery::query(), $orgId)->with('organization:id,name')
                 ->orderByDesc('id')->limit($limit)->get()
-                ->map(fn ($r) => ['school' => $r->organization->name ?? null, 'heading' => $r->heading, 'amount' => (float) $r->amount, 'status' => $r->status, 'from' => (string) $r->start_date, 'to' => (string) $r->end_date])->all()],
+                ->map(fn ($r) => $this->clean([
+                    'school'  => $this->spansSchools($orgId) ? ($r->organization->name ?? null) : null,
+                    'heading' => $r->heading,
+                    'reason'  => $r->reason,
+                    'amount'  => (float) $r->amount,
+                    'status'  => $r->status,
+                    'from'    => optional($r->start_date)->toDateString(),
+                    'due_on'  => optional($r->end_date)->toDateString(),
+                ]))->all()],
 
             'support_messages' => ['support_messages' => $this->pin(ContactSuperAdmin::query(), $orgId)->with('organization:id,name')
                 ->orderByDesc('id')->limit($limit)->get()
-                ->map(fn ($r) => array_merge(['school' => $r->organization->name ?? null], $this->pick($r, ['subject', 'title', 'message', 'description', 'status', 'created_at'])))->all()],
+                ->map(fn ($r) => array_merge(['school' => $r->organization->name ?? null], $this->pick($r, ['topic', 'admin_query', 'super_admin_text', 'super_admin_reply', 'created_at'])))->all()],
 
             'ratings' => ['ratings' => $this->pin(RateLms::query(), $orgId)->with('organization:id,name')
                 ->orderByDesc('id')->limit($limit)->get()
@@ -2221,6 +2406,492 @@ class LmsToolbox
             'student_fees_collected' => (float) FeePayment::where('organization_id', $org->id)->sum('amount'),
             'platform_fees_paid'     => (float) SuperAdminFeePayment::where('organization_id', $org->id)->sum('amount'),
         ];
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // One day of the school
+    // ══════════════════════════════════════════════════════════════════
+
+    /**
+     * "Aaj ki summary do."
+     *
+     * The commonest question there is, and the one the assistant used to be
+     * worst at, because answering it from single-subject tools took more tool
+     * rounds than a question is allowed. So it is one call: every part of the
+     * day this login may read, each of them saying explicitly whether something
+     * was recorded or simply never marked.
+     */
+    private function dailySummary(array $a): array
+    {
+        $orgId = $this->effectiveOrganizationId($a);
+        $date  = $this->date($a['date'] ?? null) ?: now()->toDateString();
+        $day   = Carbon::parse($date);
+
+        $out = [
+            'covers'   => $this->coverage($orgId),
+            'date'     => $date,
+            'weekday'  => $day->format('l'),
+            'is_today' => $date === now()->toDateString(),
+        ];
+
+        if ($this->scope->can('attendance')) {
+            $out['student_attendance'] = $this->studentAttendanceOfDay($orgId, $date);
+            $out['staff_attendance']   = $this->staffAttendanceOfDay($orgId, $date);
+        }
+
+        if ($this->scope->can('fees')) {
+            $fees = $this->pin(FeePayment::query(), $orgId)->whereDate('payment_date', $date);
+            $count = (clone $fees)->count();
+
+            $out['fee_collected'] = $this->clean([
+                'amount'   => round((float) (clone $fees)->sum('amount'), 2),
+                'payments' => $count,
+                'by_mode'  => (clone $fees)->selectRaw('payment_mode, COUNT(*) c, SUM(amount) total')
+                    ->groupBy('payment_mode')->get()
+                    ->mapWithKeys(fn ($r) => [($r->payment_mode ?: 'unspecified') => ['count' => (int) $r->c, 'total' => round((float) $r->total, 2)]])->all(),
+                'note'     => $count === 0 ? 'No fee was collected on this date.' : null,
+            ]);
+        }
+
+        if ($this->scope->can('transport')) {
+            $transport = $this->pin(TransportFeePayment::query(), $orgId)->whereDate('payment_date', $date);
+            $out['transport_fee_collected'] = [
+                'amount'   => round((float) (clone $transport)->sum('amount'), 2),
+                'payments' => (clone $transport)->count(),
+            ];
+        }
+
+        if ($this->scope->can('ledger')) {
+            $ledger = $this->pin(LedgerTransaction::query(), $orgId)->whereDate('txn_date', $date);
+            $in     = round((float) (clone $ledger)->where('type', 'credit')->sum('amount'), 2);
+            $outAmt = round((float) (clone $ledger)->where('type', 'expense')->sum('amount'), 2);
+
+            $out['ledger'] = [
+                'money_in'  => $in,
+                'money_out' => $outAmt,
+                'net'       => round($in - $outAmt, 2),
+                'entries'   => (clone $ledger)->count(),
+            ];
+        }
+
+        if ($this->scope->can('payroll')) {
+            $salary = $this->pin(AdminSalaryPayment::query(), $orgId)->whereDate('payment_date', $date);
+            $out['salary_paid'] = [
+                'amount'   => round((float) (clone $salary)->sum('amount'), 2),
+                'payments' => (clone $salary)->count(),
+            ];
+        }
+
+        if ($this->scope->can('students')) {
+            $out['new_admissions'] = $this->pin(StudentDetail::query(), $orgId)
+                ->whereDate('date_of_admission', $date)->count();
+
+            $out['birthdays'] = $this->pin(StudentDetail::query(), $orgId)
+                ->whereNotNull('dob')
+                ->whereMonth('dob', $day->month)->whereDay('dob', $day->day)
+                ->with('standard:id,name')
+                ->limit(20)->get()
+                ->map(fn ($s) => $this->clean(['name' => $s->full_name, 'class' => $s->standard->name ?? null]))
+                ->all();
+        }
+
+        if ($this->scope->can('enquiries')) {
+            $out['enquiries_received'] = $this->pin(AdmissionEnquiry::query(), $orgId)
+                ->whereDate('created_at', $date)->count();
+        }
+
+        if ($this->scope->can('homework')) {
+            $homework = $this->pin(HomeWork::query(), $orgId)->whereDate('created_at', $date);
+            $out['homework_posted'] = [
+                'count' => (clone $homework)->count(),
+                'items' => (clone $homework)->with(['standard:id,name', 'subject:id,name'])->limit(10)->get()
+                    ->map(fn ($h) => $this->clean([
+                        'title'   => $h->title,
+                        'class'   => $h->standard->name ?? null,
+                        'subject' => $h->subject->name ?? null,
+                    ]))->all(),
+            ];
+        }
+
+        if ($this->scope->can('announcements')) {
+            $out['announcements_posted'] = $this->pin(Announcement::query(), $orgId)
+                ->whereDate('created_at', $date)
+                ->limit(10)->get(['announcement_name', 'type'])
+                ->map(fn ($n) => $this->clean(['title' => $n->announcement_name, 'type' => $n->type]))->all();
+        }
+
+        if ($this->scope->can('exams')) {
+            $out['exams_running'] = $this->pin(Exam::query(), $orgId)
+                ->whereDate('start_date', '<=', $date)
+                ->whereDate('end_date', '>=', $date)
+                ->limit(10)->get(['exam_name', 'term', 'start_date', 'end_date'])
+                ->map(fn ($e) => $this->clean([
+                    'name' => $e->exam_name,
+                    'term' => $e->term,
+                    'from' => (string) $e->start_date,
+                    'to'   => (string) $e->end_date,
+                ]))->all();
+        }
+
+        if ($this->scope->can('calendar')) {
+            $out['calendar_events'] = $this->pin(CalendarEvent::query(), $orgId)
+                ->whereDate('date', $date)
+                ->limit(15)->get(['title', 'event_type', 'start_time', 'end_time', 'is_cancelled'])
+                ->map(fn ($e) => $this->clean([
+                    'title'     => $e->title,
+                    'type'      => $e->event_type,
+                    'from'      => $e->start_time,
+                    'to'        => $e->end_time,
+                    'cancelled' => $e->is_cancelled ? true : null,
+                ]))->all();
+        }
+
+        if ($this->scope->can('credit')) {
+            $pending = $this->pin(CreditQuery::query(), $orgId)
+                ->whereIn('status', ['pending', 'processing'])->count();
+
+            if ($pending > 0) {
+                $out['credit_requests_awaiting_decision'] = $pending;
+            }
+        }
+
+        return $this->clean($out);
+    }
+
+    /**
+     * Student attendance for one day — and, when it is one school, which
+     * classes were marked and which were left alone.
+     *
+     * "Not marked" and "everybody absent" are completely different facts, and
+     * the panel treats them as such; so must this.
+     */
+    private function studentAttendanceOfDay(?int $orgId, string $date): array
+    {
+        $q = $this->pin(StudentAttendance::query(), $orgId)->whereDate('attendance_date', $date);
+
+        $counts  = (clone $q)->selectRaw('status, COUNT(*) c')->groupBy('status')->pluck('c', 'status');
+        $present = (int) ($counts[1] ?? 0);
+        $absent  = (int) ($counts[0] ?? 0);
+        $half    = (int) ($counts[2] ?? 0);
+        $holiday = (int) ($counts[3] ?? 0);
+        $counted = $present + $absent + $half;
+
+        $out = [
+            'marked'          => ($counted + $holiday) > 0,
+            'students_marked' => $counted + $holiday,
+            'present'         => $present,
+            'absent'          => $absent,
+            'half_day'        => $half,
+            'holiday'         => $holiday,
+            'present_pct'     => $counted > 0 ? round(($present + $half * 0.5) / $counted * 100, 1) : null,
+        ];
+
+        if (! $orgId) {
+            return $this->clean($out);
+        }
+
+        $out['students_total'] = StudentDetail::where('organization_id', $orgId)->count();
+
+        $classes = Standard::where('organization_id', $orgId)->orderBy('order')->orderBy('id')->pluck('name', 'id')->all();
+
+        $markedIds = StudentDetail::where('organization_id', $orgId)
+            ->whereIn('id', StudentAttendance::where('organization_id', $orgId)
+                ->whereDate('attendance_date', $date)->select('student_detail_id'))
+            ->distinct()->pluck('standard_id')->filter()->all();
+
+        $marked = array_values(array_intersect_key($classes, array_flip($markedIds)));
+
+        $out['classes_marked']     = $marked;
+        $out['classes_not_marked'] = array_values(array_diff(array_values($classes), $marked));
+
+        if (! $out['marked']) {
+            $out['note'] = 'Student attendance was never marked for this date — that is not the same as everybody being absent.';
+        }
+
+        return $this->clean($out);
+    }
+
+    /**
+     * Teacher and employee attendance for one day, with how many of the staff
+     * were marked at all — so "is teacher attendance done today" has a real
+     * answer instead of being inferred from the student numbers.
+     */
+    private function staffAttendanceOfDay(?int $orgId, string $date): array
+    {
+        $teachers = $this->pin(TeacherAttendance::query(), $orgId)->whereDate('attendance_date', $date);
+        $tCounts  = $this->tallyAttendance((clone $teachers)->selectRaw('status, COUNT(*) c')
+            ->groupBy('status')->pluck('c', 'status')->all());
+
+        $out = ['teachers' => $tCounts + [
+            'marked'         => array_sum($tCounts) > 0,
+            'teachers_total' => $this->pin(TeacherDetail::query(), $orgId)->count(),
+            'absent_names'   => (clone $teachers)->where('status', 0)
+                ->with('teacherDetail.user:id,name')->limit(25)->get()
+                ->map(fn ($r) => $r->teacherDetail->user->name ?? null)
+                ->filter()->values()->all(),
+        ]];
+
+        $employees = $this->pin(AdminAttendance::query(), $orgId)->whereDate('date', $date);
+        $eCounts   = $this->tallyAttendance((clone $employees)->selectRaw('status, COUNT(*) c')
+            ->groupBy('status')->pluck('c', 'status')->all());
+
+        $out['employees'] = $eCounts + [
+            'marked'          => array_sum($eCounts) > 0,
+            'employees_total' => $this->pin(AdminEmployee::query(), $orgId)->count(),
+            'absent_names'    => (clone $employees)->whereIn('status', [0, 'absent'])
+                ->with('employee:id,name')->limit(25)->get()
+                ->map(fn ($r) => $r->employee->name ?? null)
+                ->filter()->values()->all(),
+        ];
+
+        if (! $out['teachers']['marked']) {
+            $out['teachers']['note'] = 'Teacher attendance was never marked for this date.';
+        }
+        if (! $out['employees']['marked']) {
+            $out['employees']['note'] = 'Employee attendance was never marked for this date.';
+        }
+
+        return $out;
+    }
+
+    /**
+     * Attendance rows come back keyed by whatever the table stores — teachers
+     * use 0/1/2/3, non-teaching staff an enum of words, including 'leave'.
+     * Anything unrecognised is counted as `other` rather than quietly folded
+     * into "present", which is how somebody on leave used to be reported as
+     * having turned up.
+     *
+     * @param  array<int|string,int>  $rows  status => count
+     * @return array<string,int>
+     */
+    private function tallyAttendance(array $rows): array
+    {
+        $counts = ['present' => 0, 'absent' => 0, 'half_day' => 0, 'holiday' => 0, 'leave' => 0, 'other' => 0];
+
+        foreach ($rows as $status => $n) {
+            $label = match (strtolower((string) $status)) {
+                '1', 'present'              => 'present',
+                '0', 'absent'               => 'absent',
+                '2', 'half_day', 'half day' => 'half_day',
+                '3', 'holiday'              => 'holiday',
+                'leave', '4'                => 'leave',
+                default                     => 'other',
+            };
+
+            $counts[$label] += (int) $n;
+        }
+
+        return array_filter($counts, fn (int $n) => $n > 0) + ['present' => 0, 'absent' => 0];
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // Credit raised with SuperLMS
+    // ══════════════════════════════════════════════════════════════════
+
+    /**
+     * The school's own credit requests, which it raises from its panel and
+     * SuperLMS approves. They used to be readable only from the platform side,
+     * so a school admin asking about the request they had just sent was told
+     * there was no such data.
+     */
+    private function creditRequests(array $a): array
+    {
+        $orgId = $this->effectiveOrganizationId($a);
+        $cross = $this->spansSchools($orgId);
+        $limit = $this->limit($a, 20);
+
+        $q = $this->pin(CreditQuery::query(), $orgId);
+
+        $status = strtolower((string) ($a['status'] ?? 'any'));
+        if (in_array($status, ['pending', 'processing', 'approved', 'denied'], true)) {
+            $q->where('status', $status);
+        }
+
+        $rows = (clone $q)
+            ->with(array_values(array_filter([$cross ? 'organization:id,name' : null, 'approvedBy:id,name'])))
+            ->orderByDesc('id')->limit($limit)->get()
+            ->map(function (CreditQuery $c) use ($cross) {
+                $repay = $c->repayment();
+
+                return $this->clean([
+                    'school'        => $cross ? ($c->organization->name ?? null) : null,
+                    'heading'       => $c->heading,
+                    'reason'        => $c->reason,
+                    'amount'        => round((float) $c->amount, 2),
+                    'status'        => $c->status,
+                    'from'          => optional($c->start_date)->toDateString(),
+                    'due_on'        => optional($c->end_date)->toDateString(),
+                    'penalty_per_day' => round((float) $c->penalties_per_day, 2),
+                    'penalty_so_far'  => $repay['penalty'],
+                    'payable_now'     => $repay['total'],
+                    'days_overdue'    => $repay['days_overdue'] ?: null,
+                    'days_left'       => $repay['days_left'] ?: null,
+                    'settled'         => $repay['settled'],
+                    'collected_on'    => optional($c->collected_at)->toDateString(),
+                    'admin_remark'    => $c->admin_remark,
+                    'approved_by'     => $c->approvedBy->name ?? null,
+                    'requested_on'    => optional($c->created_at)->toDateString(),
+                ]);
+            })->all();
+
+        $byStatus = (clone $q)->reorder()->selectRaw('status, COUNT(*) c, SUM(amount) total')
+            ->groupBy('status')->get()
+            ->mapWithKeys(fn ($r) => [($r->status ?: 'unset') => ['count' => (int) $r->c, 'total' => round((float) $r->total, 2)]])
+            ->all();
+
+        return $this->clean([
+            'covers'    => $this->coverage($orgId),
+            'total'     => (clone $q)->count(),
+            'by_status' => $byStatus,
+            'requests'  => $rows,
+            'note'      => $rows === []
+                ? 'No credit request has been raised' . ($status !== 'any' ? ' with that status' : '') . '.'
+                : null,
+        ]);
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // Platform documents (More → Privacy Policy, Terms, About)
+    // ══════════════════════════════════════════════════════════════════
+
+    /** The documents every panel links to, and where their text lives. */
+    private const DOCUMENTS = [
+        'privacy_policy'       => ['model' => PrivacyPolicy::class,   'title' => 'Privacy Policy'],
+        'terms_of_use'         => ['model' => TermOfUse::class,       'title' => 'Terms of Use'],
+        'terms_and_conditions' => ['model' => TermAndCondition::class, 'title' => 'Terms & Conditions'],
+    ];
+
+    /**
+     * The Privacy Policy, the Terms and About App — readable, not raw JSON.
+     *
+     * Every panel has these on its More screen, so the assistant being unable
+     * to say what its own privacy policy contains was a plain hole. They are
+     * long (the policy alone runs to two dozen sections), so the default answer
+     * is the headings plus an excerpt, and a search word or a section name
+     * brings back full text.
+     */
+    private function policyDocument(array $a): array
+    {
+        $which = strtolower((string) ($a['document'] ?? 'list'));
+
+        if ($which === 'about_app') {
+            return $this->aboutApp();
+        }
+
+        if (! isset(self::DOCUMENTS[$which])) {
+            return [
+                'documents' => array_merge(
+                    array_map(fn (array $d) => $d['title'], self::DOCUMENTS),
+                    ['about_app' => 'About App — company name, CIN, contact details, team'],
+                ),
+                'how'       => 'Call policy_document again with one of these keys.',
+            ];
+        }
+
+        $spec = self::DOCUMENTS[$which];
+        $row  = $spec['model']::query()->orderBy('id')->first();
+
+        if (! $row) {
+            return ['error' => 'The ' . $spec['title'] . ' has not been published yet, so there is no text to read.'];
+        }
+
+        $sections = array_values(array_filter(
+            (array) data_get($row->metadata, 'sections', []),
+            fn ($s) => is_array($s) && (filled($s['head'] ?? null) || filled($s['desc'] ?? null)),
+        ));
+
+        // Stamp each one with its position in the document before anything is
+        // filtered out, so a searched section is still cited by its real number.
+        foreach ($sections as $i => $section) {
+            $sections[$i]['number'] = $i + 1;
+        }
+
+        if ($sections === []) {
+            return ['error' => 'The ' . $spec['title'] . ' has no sections recorded.'];
+        }
+
+        $search  = $this->text($a['search'] ?? null);
+        $section = $this->text($a['section'] ?? null);
+
+        // One named section, by number or by (part of) its heading.
+        if ($section !== null) {
+            $index = ctype_digit($section) ? ((int) $section) - 1 : null;
+
+            $found = $index !== null
+                ? array_slice($sections, max(0, $index), 1)
+                : array_values(array_filter(
+                    $sections,
+                    fn ($s) => stripos((string) ($s['head'] ?? ''), $section) !== false,
+                ));
+
+            return $this->documentAnswer($spec['title'], $row, $found, count($sections), true);
+        }
+
+        if ($search !== null) {
+            $found = array_values(array_filter($sections, fn ($s) => stripos(
+                (string) ($s['head'] ?? '') . ' ' . (string) ($s['desc'] ?? ''),
+                $search
+            ) !== false));
+
+            return $this->documentAnswer($spec['title'], $row, $found, count($sections), true) + [
+                'searched_for' => $search,
+            ];
+        }
+
+        return $this->documentAnswer($spec['title'], $row, $sections, count($sections), false);
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $sections
+     * @return array<string,mixed>
+     */
+    private function documentAnswer(string $title, Model $row, array $sections, int $total, bool $full): array
+    {
+        // Full text is capped per section and per answer: a legal document can
+        // run to tens of thousands of characters, and a tool result that big
+        // costs more than the question it answers.
+        $sections = array_slice($sections, 0, $full ? 6 : 30);
+
+        return $this->clean([
+            'document'       => $title,
+            'last_updated'   => optional($row->last_updated)->toDateString(),
+            'total_sections' => $total,
+            'showing'        => count($sections),
+            'sections'       => array_map(fn (array $s, int $i) => $this->clean([
+                'number' => (int) ($s['number'] ?? $i + 1),
+                'head'   => trim((string) ($s['head'] ?? '')) ?: null,
+                'text'   => \Illuminate\Support\Str::limit(
+                    trim(strip_tags((string) ($s['desc'] ?? ''))),
+                    $full ? 2000 : 220,
+                ) ?: null,
+            ]), $sections, array_keys($sections)),
+            'note'           => $sections === []
+                ? 'No section of the ' . $title . ' matches that.'
+                : ($full ? null : 'These are excerpts. Ask again with `search` or `section` for a section in full.'),
+        ]);
+    }
+
+    /** About App — who runs SuperLMS, and how to reach them. */
+    private function aboutApp(): array
+    {
+        $about = AboutApp::query()->orderBy('id')->first();
+
+        if (! $about) {
+            return ['error' => 'About App has not been filled in yet.'];
+        }
+
+        return $this->clean([
+            'document'     => 'About App',
+            'heading'      => $about->heading,
+            'sub_heading'  => $about->sub_heading,
+            'company_name' => $about->company_name,
+            'company_cin'  => $about->company_cin,
+            'address'      => $about->address,
+            'contact'      => $about->contact_details ?: null,
+            'social_media' => $about->social_media ?: null,
+            'team'         => $about->core_team ?: null,
+            'content'      => $about->content ?: null,
+        ]);
     }
 
     // ══════════════════════════════════════════════════════════════════

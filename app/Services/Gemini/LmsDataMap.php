@@ -15,10 +15,13 @@ use Illuminate\Support\Facades\Schema;
  * to expose — a profile photo, a religion, a route number — is answerable
  * instead of being met with "that is not available in this panel".
  *
- * Two rules keep it safe:
+ * Three rules keep it safe:
  *  1. Only entities listed here can be reached, and only through the query
  *     tools, which pin every read to the caller's organization.
- *  2. Columns are discovered from the real table, then filtered through
+ *  2. Every entity belongs to a MODULE ({@see MODULE_OF}), and an entity whose
+ *     module this login was not granted is not even listed — a sub-admin
+ *     without the Fee screen cannot see that fee records exist.
+ *  3. Columns are discovered from the real table, then filtered through
  *     {@see SENSITIVE} — passwords, tokens, OTPs and secrets can never be
  *     named, selected, filtered on or returned, whatever the model asks for.
  */
@@ -142,8 +145,8 @@ class LmsDataMap
         ],
         'fee_payments' => [
             'model'  => \App\Models\Admin\Fee\FeePayment::class,
-            'label'  => 'Fee actually collected from students.',
-            'search' => ['receipt_no', 'payment_mode', 'fee_type', 'remarks'],
+            'label'  => 'Fee actually collected from students. receipt_number is the receipt, payment_date the day it was taken, waiver_amount a concession applied on the spot and penalty_amount a late fee.',
+            'search' => ['receipt_number', 'payment_mode', 'fee_type', 'remark'],
         ],
         'fee_concessions' => [
             'model'  => \App\Models\Admin\Fee\FeeConcession::class,
@@ -152,13 +155,13 @@ class LmsDataMap
         ],
         'fee_cycles' => [
             'model'  => \App\Models\Admin\Fee\FeeCycle::class,
-            'label'  => 'The school\'s installment cycle.',
-            'search' => ['name'],
+            'label'  => 'The school\'s installment cycle: each row is one installment as a PERCENT of the year\'s fee (fee_percent) with a due_date and a penalty_per_day.',
+            'search' => ['fee_type', 'academic_year'],
         ],
         'ledger' => [
             'model'  => \App\Models\Admin\LedgerTransaction::class,
-            'label'  => 'School ledger: credit (money in) and expense (money out).',
-            'search' => ['party', 'party_to', 'reason', 'mode'],
+            'label'  => 'School ledger: type "credit" is money in, "expense" is money out. txn_date is the day, party who it was with, reason what for.',
+            'search' => ['party', 'reason', 'type'],
         ],
         'salary_payments' => [
             'model'  => \App\Models\Admin\AdminSalaryPayment::class,
@@ -167,18 +170,18 @@ class LmsDataMap
         ],
         'transport_routes' => [
             'model'  => \App\Models\Admin\Transportation::class,
-            'label'  => 'Bus routes and vehicles.',
-            'search' => ['route_name', 'vehicle_number', 'driver_name', 'driver_phone'],
+            'label'  => 'Bus routes. The driver is a separate record, joined by driver_detail_id — read names, phone and vehicle from the drivers entity.',
+            'search' => ['route_name', 'pickup_location', 'drop_location', 'stops'],
         ],
         'transport_students' => [
             'model'  => \App\Models\Admin\TransportationStudent::class,
-            'label'  => 'Which student rides which route.',
-            'search' => ['pickup_point'],
+            'label'  => 'Which student rides which route, and for how many months they are billed.',
+            'search' => [],
         ],
         'transport_fee_payments' => [
             'model'  => \App\Models\Admin\TransportFeePayment::class,
-            'label'  => 'Transport fee collected.',
-            'search' => ['payment_mode', 'remarks'],
+            'label'  => 'Transport fee collected, with its own receipt_number.',
+            'search' => ['payment_mode', 'remark', 'receipt_number'],
         ],
         'homework' => [
             'model'  => \App\Models\Admin\HomeWork::class,
@@ -192,13 +195,13 @@ class LmsDataMap
         ],
         'announcements' => [
             'model'  => \App\Models\Admin\Announcement::class,
-            'label'  => 'Announcements and notices.',
-            'search' => ['title', 'description'],
+            'label'  => 'Announcements and notices. announcement_name is the title, announcement_content the body.',
+            'search' => ['announcement_name', 'announcement_content', 'type'],
         ],
         'books' => [
             'model'  => \App\Models\Admin\Book::class,
-            'label'  => 'Library books.',
-            'search' => ['title', 'author', 'isbn'],
+            'label'  => 'Library books, attached to a class/section/subject.',
+            'search' => ['title'],
         ],
         'certificates' => [
             'model'  => \App\Models\Admin\Certificate::class,
@@ -212,8 +215,8 @@ class LmsDataMap
         ],
         'admission_enquiries' => [
             'model'  => \App\Models\Admin\AdmissionEnquiry::class,
-            'label'  => 'Admission enquiries received.',
-            'search' => ['name', 'phone', 'email', 'status'],
+            'label'  => 'Admission enquiries received. student_name is the child, guardian_name the parent, mobile the contact, status where the enquiry has got to, and admission_fee / collected_amount any money already taken.',
+            'search' => ['student_name', 'guardian_name', 'mobile', 'email', 'status', 'remarks'],
         ],
         'timetable' => [
             'model'  => \App\Models\Admin\TeacherTimeTable::class,
@@ -279,8 +282,8 @@ class LmsDataMap
         ],
         'topics' => [
             'model'  => \App\Models\Student\Topic::class,
-            'label'  => 'Topics inside a chapter.',
-            'search' => ['name', 'description'],
+            'label'  => 'Topics inside a chapter. topic_name is the title, topic_content the body.',
+            'search' => ['topic_name', 'topic_content'],
         ],
         'student_syllabus' => [
             'model'  => \App\Models\Student\StudentSyllabus::class,
@@ -314,8 +317,8 @@ class LmsDataMap
         ],
         'teacher_arrangements' => [
             'model'  => \App\Models\Admin\TeacherArrangement::class,
-            'label'  => 'Substitute (arrangement) duties for absent teachers.',
-            'search' => ['reason', 'status'],
+            'label'  => 'Substitute (arrangement) duties for absent teachers: original_teacher_id is who is away, substitute_teacher_id who covers, on `date`.',
+            'search' => ['reason'],
         ],
         'teacher_availability' => [
             'model'  => \App\Models\Admin\TeacherAvailability::class,
@@ -334,8 +337,8 @@ class LmsDataMap
         ],
         'seating_rooms' => [
             'model'  => \App\Models\Admin\Seating\SeatingRoom::class,
-            'label'  => 'Rooms available for exam seating.',
-            'search' => ['name', 'code'],
+            'label'  => 'Rooms available for exam seating — room_name, building, rows x columns and capacity.',
+            'search' => ['room_name', 'building', 'notes'],
         ],
         'seat_assignments' => [
             'model'   => \App\Models\Admin\Seating\SeatAssignment::class,
@@ -350,18 +353,34 @@ class LmsDataMap
         ],
         'drivers' => [
             'model'  => \App\Models\Admin\DriverDetail::class,
-            'label'  => 'Bus drivers — licence, phone, vehicle.',
-            'search' => ['name', 'phone', 'licence_number', 'license_number'],
+            'label'  => 'Bus drivers. license_no is the licence, vehicle_no the bus. The driver\'s NAME and photo are on the login, as user.name / user.image.',
+            'search' => ['license_no', 'vehicle_no', 'vehicle_type', 'phone'],
+            'related' => [
+                'user' => [
+                    'column' => 'user_id',
+                    'model'  => \App\Models\User::class,
+                    'fields' => ['name', 'email', 'mobile_number', 'image', 'is_active'],
+                ],
+            ],
+            'aliases' => [
+                'name'           => 'user.name',
+                'driver_name'    => 'user.name',
+                'photo'          => 'user.image',
+                'image'          => 'user.image',
+                'licence_number' => 'license_no',
+                'license_number' => 'license_no',
+                'vehicle_number' => 'vehicle_no',
+            ],
         ],
         'calendar_events' => [
             'model'  => \App\Models\Calendar\TimeTable::class,
-            'label'  => 'Calendar events — meetings, holidays, activities.',
-            'search' => ['title', 'description', 'type'],
+            'label'  => 'Calendar events — meetings, holidays, activities. `date` is the day, event_type the kind.',
+            'search' => ['title', 'description', 'event_type'],
         ],
         'school_info' => [
             'model'  => \App\Models\Admin\SchoolInfo::class,
-            'label'  => 'The school\'s own profile: address, contacts, website details.',
-            'search' => ['school_name', 'school_email', 'school_mobile'],
+            'label'  => 'The school\'s own profile: about_school, address, contacts, website details, vision/mission/values/goals.',
+            'search' => ['about_school', 'school_email', 'school_mobile', 'school_address'],
         ],
         'management_team' => [
             'model'   => \App\Models\Admin\SchoolManagementTeam::class,
@@ -371,8 +390,8 @@ class LmsDataMap
         ],
         'rules' => [
             'model'  => \App\Models\Admin\RulesAndRegulation::class,
-            'label'  => 'School rules and regulations.',
-            'search' => ['title', 'description'],
+            'label'  => 'School rules and regulations; the text is in `content`.',
+            'search' => ['content'],
         ],
         'fee_settings' => [
             'model'  => \App\Models\Admin\Fee\FeeSettings::class,
@@ -381,18 +400,36 @@ class LmsDataMap
         ],
         'contact_messages_students' => [
             'model'  => \App\Models\Admin\ContactAdminStudent::class,
-            'label'  => 'Messages students sent the school office.',
-            'search' => ['subject', 'message', 'status'],
+            'label'  => 'Messages students sent the school office. topic is the subject, student_query the message, admin_reply / admin_text the office\'s answer.',
+            'search' => ['topic', 'student_query', 'admin_reply'],
         ],
         'contact_messages_teachers' => [
             'model'  => \App\Models\Admin\ContactAdminTeacher::class,
-            'label'  => 'Messages teachers sent the school office.',
-            'search' => ['subject', 'message', 'status'],
+            'label'  => 'Messages teachers sent the school office. topic is the subject, teacher_query the message, admin_reply / admin_text the office\'s answer.',
+            'search' => ['topic', 'teacher_query', 'admin_reply'],
         ],
         'school_enquiries' => [
             'model'  => \App\Models\Admin\AdminEnquiry::class,
-            'label'  => 'General enquiries received by the school.',
-            'search' => ['name', 'email', 'phone', 'message', 'status'],
+            'label'  => 'General enquiries received by the school. full_name is who wrote in, description what they asked.',
+            'search' => ['full_name', 'email', 'mobile_number', 'description', 'type'],
+        ],
+        // Raised BY a school and answered by SuperLMS. The school panel shows
+        // each of these too, so the school's own login must be able to read
+        // them — pinned to itself, exactly like everything above.
+        'credit_queries' => [
+            'model'  => \App\Models\SuperAdmin\CreditQuery::class,
+            'label'  => 'Credit requests this school raised with SuperLMS: amount, heading, reason, status (pending / approved / denied / processing), start and end date, per-day penalty, admin remark, and when it was approved or collected.',
+            'search' => ['heading', 'reason', 'status', 'admin_remark'],
+        ],
+        'support_messages' => [
+            'model'  => \App\Models\Admin\ContactSuperAdmin::class,
+            'label'  => 'Support messages sent to SuperLMS. topic is the subject, admin_query is what was asked, super_admin_reply / super_admin_text is the answer.',
+            'search' => ['topic', 'admin_query', 'super_admin_reply'],
+        ],
+        'ratings' => [
+            'model'  => \App\Models\Admin\RateLms::class,
+            'label'  => 'Ratings and feedback left about the LMS itself.',
+            'search' => ['feedback', 'status'],
         ],
     ];
 
@@ -406,42 +443,27 @@ class LmsDataMap
         'platform_fee_payments' => [
             'model'  => \App\Models\SuperAdmin\SuperAdminFeePayment::class,
             'label'  => 'Platform fees paid by schools to SuperLMS.',
-            'search' => ['payment_mode', 'transaction_id', 'status'],
+            'search' => ['payment_mode', 'receipt_number', 'remark', 'academic_year'],
         ],
         'platform_fee_structures' => [
             'model'  => \App\Models\SuperAdmin\SuperAdminFeeStructure::class,
-            'label'  => 'What SuperLMS charges its schools.',
-            'search' => ['name', 'type'],
+            'label'  => 'What SuperLMS charges its schools. fee_label is the name, fee_type the kind.',
+            'search' => ['fee_label', 'fee_type', 'academic_year'],
         ],
         'platform_employees' => [
             'model'  => \App\Models\SuperAdmin\SuperAdminEmployee::class,
             'label'  => 'SuperLMS\'s own staff.',
             'search' => ['name', 'email', 'mobile', 'designation'],
         ],
-        'credit_queries' => [
-            'model'  => \App\Models\SuperAdmin\CreditQuery::class,
-            'label'  => 'Credit requests raised by schools.',
-            'search' => ['status', 'message'],
-        ],
-        'support_messages' => [
-            'model'  => \App\Models\Admin\ContactSuperAdmin::class,
-            'label'  => 'Support messages schools sent to SuperLMS.',
-            'search' => ['subject', 'message', 'status'],
-        ],
-        'ratings' => [
-            'model'  => \App\Models\Admin\RateLms::class,
-            'label'  => 'Ratings and feedback schools left about the LMS.',
-            'search' => ['feedback'],
-        ],
         'demo_requests' => [
             'model'  => \App\Models\WebsiteDemo::class,
             'label'  => 'Demo requests from the marketing site.',
-            'search' => ['name', 'email', 'phone', 'school_name', 'status'],
+            'search' => ['full_name', 'email', 'phone', 'school_name', 'city', 'role', 'remark'],
         ],
         'website_contacts' => [
             'model'  => \App\Models\WebsiteContact::class,
             'label'  => 'Contact-form messages from the marketing site.',
-            'search' => ['name', 'email', 'phone', 'message'],
+            'search' => ['full_name', 'email', 'phone_number', 'school_name', 'subject', 'description'],
         ],
         'payment_transactions' => [
             'model'  => \App\Models\PaymentTransaction::class,
@@ -468,12 +490,162 @@ class LmsDataMap
         'transportation_id' => ['model' => \App\Models\Admin\Transportation::class, 'column' => 'route_name'],
     ];
 
-    /** @return array<string,array<string,mixed>> */
+
+    /**
+     * Which module each record type belongs to.
+     *
+     * A login only ever sees the entities of the modules it was granted, so
+     * this is a permission table as much as a grouping. Anything not named here
+     * falls back to the school profile group, which everyone can read.
+     *
+     * @var array<string,string>
+     */
+    public const MODULE_OF = [
+        // People
+        'students'            => 'students',
+        'teachers'            => 'teachers',
+        'employees'           => 'teachers',
+        'logins'              => 'users',
+        'staff_profiles'      => 'users',
+
+        // Structure
+        'classes'             => 'classes',
+        'sections'            => 'classes',
+        'subjects'            => 'classes',
+        'class_subjects'      => 'classes',
+        'section_subjects'    => 'classes',
+        'teacher_subjects'    => 'teachers',
+        'teacher_sections'    => 'teachers',
+        'teacher_class_assignments' => 'teachers',
+
+        // Attendance
+        'student_attendance'  => 'attendance',
+        'teacher_attendance'  => 'attendance',
+        'employee_attendance' => 'attendance',
+
+        // Exams
+        'exams'               => 'exams',
+        'exam_marks'          => 'exams',
+        'subject_marks'       => 'exams',
+        'exam_datesheets'     => 'exams',
+        'exam_papers'         => 'exams',
+        'syllabus_chapters'   => 'exams',
+        'report_cards'        => 'exams',
+        'seating_plans'       => 'exams',
+        'seating_rooms'       => 'exams',
+        'seat_assignments'    => 'exams',
+        'invigilators'        => 'exams',
+
+        // Money
+        'fee_structures'      => 'fees',
+        'fee_payments'        => 'fees',
+        'fee_concessions'     => 'fees',
+        'fee_cycles'          => 'fees',
+        'fee_settings'        => 'fees',
+        'ledger'              => 'ledger',
+        'salary_payments'     => 'payroll',
+        'credit_queries'      => 'credit',
+
+        // Transport
+        'transport_routes'        => 'transport',
+        'transport_students'      => 'transport',
+        'transport_fee_payments'  => 'transport',
+        'drivers'                 => 'transport',
+
+        // Teaching
+        'homework'             => 'homework',
+        'homework_completions' => 'homework',
+        'assignments'          => 'homework',
+        'chapters'             => 'syllabus',
+        'topics'               => 'syllabus',
+        'student_syllabus'     => 'syllabus',
+        'timetable'            => 'timetable',
+        'teacher_arrangements' => 'timetable',
+        'teacher_availability' => 'timetable',
+        'calendar_events'      => 'calendar',
+
+        // Paperwork
+        'announcements'         => 'announcements',
+        'books'                 => 'library',
+        'certificates'          => 'certificates',
+        'transfer_certificates' => 'certificates',
+        'student_id_cards'      => 'idcards',
+        'teacher_id_cards'      => 'idcards',
+        'employee_id_cards'     => 'idcards',
+        'admit_cards'           => 'idcards',
+        'admission_enquiries'   => 'enquiries',
+        'school_enquiries'      => 'enquiries',
+
+        // The school's own profile and its thread with SuperLMS — no screen to
+        // grant, so nobody is refused them.
+        'school_info'                 => 'overview',
+        'management_team'             => 'overview',
+        'school_documents'            => 'overview',
+        'rules'                       => 'overview',
+        'contact_messages_students'   => 'support',
+        'contact_messages_teachers'   => 'support',
+        'support_messages'            => 'support',
+        'ratings'                     => 'support',
+
+        // Platform-only records.
+        'schools'                  => 'platform',
+        'platform_fee_payments'    => 'platform',
+        'platform_fee_structures'  => 'platform',
+        'platform_employees'       => 'platform',
+        'demo_requests'            => 'platform',
+        'website_contacts'         => 'platform',
+        'payment_transactions'     => 'platform',
+    ];
+
+    /** The module an entity belongs to. */
+    public static function moduleOf(string $key): string
+    {
+        return self::MODULE_OF[$key] ?? 'overview';
+    }
+
+    /**
+     * The record types this caller may read: their panel's set, filtered down
+     * to the modules their login was actually granted.
+     *
+     * @return array<string,array<string,mixed>>
+     */
     public static function forScope(LmsScope $scope): array
     {
-        return $scope->isPlatform()
+        $all = $scope->isPlatform()
             ? array_merge(self::SCHOOL, self::PLATFORM)
             : self::SCHOOL;
+
+        return array_filter(
+            $all,
+            fn (string $key) => $scope->can(self::moduleOf($key)),
+            ARRAY_FILTER_USE_KEY,
+        );
+    }
+
+    /**
+     * Record types this caller would have, were their login granted the
+     * screens — so a refusal can name the module instead of pretending the
+     * data does not exist.
+     *
+     * @return array<string,string>  entity => module
+     */
+    public static function blockedForScope(LmsScope $scope): array
+    {
+        $all = $scope->isPlatform()
+            ? array_merge(self::SCHOOL, self::PLATFORM)
+            : self::SCHOOL;
+
+        $blocked = [];
+
+        foreach (array_keys($all) as $key) {
+            $module = self::moduleOf($key);
+
+            if (! $scope->can($module)) {
+                $blocked[$key] = $module;
+            }
+        }
+
+        return $blocked;
     }
 
     /** @return array<string,mixed>|null */

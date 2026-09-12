@@ -37,6 +37,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
 
     <style>
+        /* The top bar's real height: the 4rem row plus the 1px bottom border it
+           draws. Overlays that must sit UNDER the top bar anchor to this, not to
+           `top-16` — 64px lands on the border itself, and an overlay with a
+           background or a backdrop-blur then smears that line across the page. */
+        :root { --lms-nav-h: 65px; }
+
         /* Prevent any horizontal scroll at root level */
         html,
         body {
@@ -162,10 +168,10 @@
         @livewire('chat.notifier')
     @endif
 
-    {{-- ─── LMS assistant panel ───
+    {{-- ─── Super LMS assistant panel ───
          The launcher lives in the top bar (next to the bell); this is only the
          panel it opens. Renders nothing unless the role is allowed AND an API
-         key is set, so a deployment without GEMINI_API_KEY has no button. --}}
+         key is set, so a deployment without one has no button. --}}
     @if (Auth::user() && in_array(Auth::user()->role, (array) config('gemini.roles', [])))
         @livewire('components.gemini-assistant')
     @endif
