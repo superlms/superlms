@@ -227,6 +227,23 @@ trait HandlesStudentFeeView
         return $flags;
     }
 
+    /**
+     * Who took the money. transport_fee_payments.submitted_by is a user id,
+     * fee_payments.submitted_by is the collector's NAME (and older fee rows
+     * hold an id) — so resolve an id when it is one, and otherwise print what
+     * is stored instead of a dash.
+     *
+     * @param  array<int,string>  $submitters
+     */
+    private function collectorName(mixed $value, array $submitters): string
+    {
+        if ($value === null || $value === '') {
+            return '—';
+        }
+
+        return $submitters[$value] ?? (string) $value;
+    }
+
     /** Academic and transport receipts in one list, newest first. */
     private function mergedPayments($academic, $transport, array $submitters): array
     {
@@ -241,7 +258,7 @@ trait HandlesStudentFeeView
             'payment_mode'   => $p->payment_mode,
             'payment_date'   => optional($p->payment_date)->format('d M Y'),
             'sort'           => optional($p->payment_date)->timestamp ?? 0,
-            'collected_by'   => $submitters[$p->submitted_by] ?? '—',
+            'collected_by'   => $this->collectorName($p->submitted_by, $submitters),
             'remark'         => $p->remark,
             'is_concession'  => $p->payment_mode === 'concession',
         ])->all();
@@ -258,7 +275,7 @@ trait HandlesStudentFeeView
                 'payment_mode'   => $p->payment_mode,
                 'payment_date'   => optional($p->payment_date)->format('d M Y'),
                 'sort'           => optional($p->payment_date)->timestamp ?? 0,
-                'collected_by'   => $submitters[$p->submitted_by] ?? '—',
+                'collected_by'   => $this->collectorName($p->submitted_by, $submitters),
                 'remark'         => $p->remark,
                 'is_concession'  => $p->payment_mode === 'concession',
             ];
