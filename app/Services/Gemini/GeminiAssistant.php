@@ -72,7 +72,7 @@ class GeminiAssistant
         $used          = [];
         $dropThinking  = false;
 
-        for ($round = 0; $round <= (int) config('gemini.max_tool_rounds', 4); $round++) {
+        for ($round = 0; $round <= (int) config('gemini.max_tool_rounds', 8); $round++) {
             $payload = ['contents' => $contents, 'generationConfig' => $this->generationConfig($dropThinking)];
 
             if ($cacheName) {
@@ -146,8 +146,44 @@ class GeminiAssistant
             $contents[] = ['role' => 'user', 'parts' => $responses];
         }
 
+        // Out of tool rounds. Everything looked up so far is sitting in
+        // $contents, so spend one more call ANSWERING from it instead of
+        // throwing the work away and asking the user to split the question.
+        $contents[] = ['role' => 'user', 'parts' => [['text' =>
+            'No more lookups are available for this question. Answer now, in full, '
+            . 'from the tool results already above. If one part of the question '
+            . 'could not be checked, give everything else and say in one line what '
+            . 'is missing.',
+        ]]];
+
+        $payload = [
+            'contents'         => $contents,
+            'generationConfig' => $this->generationConfig($dropThinking),
+            // Tools off for this turn: the model must write the answer.
+            'toolConfig'       => ['functionCallingConfig' => ['mode' => 'NONE']],
+        ];
+
+        if ($cacheName) {
+            $payload['cachedContent'] = $cacheName;
+        } else {
+            $payload['systemInstruction'] = ['parts' => [['text' => $system]]];
+            $payload['tools']             = $tools;
+        }
+
+        try {
+            $response = $this->client->generateContent($payload);
+            $this->logUsage($response, $cacheName);
+            $parts = data_get($response, 'candidates.0.content.parts', []);
+            $text  = trim($this->text($parts, $response));
+        } catch (GeminiException $e) {
+            Log::info('gemini: final answer attempt failed', ['status' => $e->status]);
+            $text = '';
+        }
+
         return [
-            'text'      => 'That needed more lookups than I am allowed in one go. Please ask it in smaller parts.',
+            'text'      => $text !== ''
+                ? $text
+                : 'That took more lookups than one question is allowed. Ask it in two parts and I will have both.',
             'tools'     => $used,
             'cached'    => (bool) $cacheName,
             'remaining' => $quota->remaining(),

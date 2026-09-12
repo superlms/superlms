@@ -75,7 +75,7 @@ return [
     // Burst guard, per signed-in user. Stops one tab hammering the API; the
     // real budget is the daily allowance below.
     'rate_limit' => [
-        'per_minute' => (int) env('GEMINI_RATE_PER_MINUTE', 6),
+        'per_minute' => (int) env('GEMINI_RATE_PER_MINUTE', 12),
     ],
 
     // The daily allowance, counted per ORGANIZATION, not per user: one school's
@@ -83,13 +83,16 @@ return [
     // it resets at midnight in the app timezone. The platform (super-admin)
     // side has its own separate bucket.
     'quota' => [
-        'per_organization_per_day' => (int) env('GEMINI_ORG_DAILY_LIMIT', 50),
-        'platform_per_day'         => (int) env('GEMINI_PLATFORM_DAILY_LIMIT', 200),
+        'per_organization_per_day' => (int) env('GEMINI_ORG_DAILY_LIMIT', 150),
+        'platform_per_day'         => (int) env('GEMINI_PLATFORM_DAILY_LIMIT', 400),
     ],
 
-    // How many tool round-trips one question may take before we answer with
-    // whatever we have. Guards against a model that keeps calling tools.
-    'max_tool_rounds' => 4,
+    // How many tool round-trips one question may take. A question like "every
+    // driver with their routes" legitimately needs several — the guard is
+    // against a model that loops, not against a thorough answer. When the cap
+    // is reached the assistant spends one more call answering from what it has
+    // already gathered rather than giving the question back.
+    'max_tool_rounds' => (int) env('GEMINI_MAX_TOOL_ROUNDS', 8),
 
     // Turns of chat history sent back with each question.
     'history_turns' => 8,

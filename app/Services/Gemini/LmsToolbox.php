@@ -68,7 +68,12 @@ use Illuminate\Support\Facades\Log;
  */
 class LmsToolbox
 {
-    private const MAX_ROWS = 40;
+    /**
+     * The most rows any one tool call returns. Generous on purpose: a listing
+     * that is cut short costs another round-trip, and round-trips are what run
+     * a question out of road.
+     */
+    private const MAX_ROWS = 100;
 
     /** How day_of_week is stored on the timetable (1 = Monday). */
     private const WEEKDAYS = [1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday', 7 => 'Sunday'];
@@ -239,7 +244,7 @@ class LmsToolbox
                     'query'    => $this->str('Free text: part of a name, admission no or roll no.'),
                     'standard' => $this->str('Class name, e.g. "10th".'),
                     'section'  => $this->str('Section name, e.g. "A".'),
-                    'limit'    => $this->int('Max rows to return (default 20, max 40).'),
+                    'limit'    => $this->int('Max rows to return (default 20, max 100).'),
                 ]),
             ],
             [
@@ -264,7 +269,7 @@ class LmsToolbox
                 'parameters'  => $this->schema($school + [
                     'query' => $this->str('Free text to match.'),
                     'type'  => $this->enum(['teacher', 'employee', 'any'], 'Which staff list to search (default any).'),
-                    'limit' => $this->int('Max rows (default 20, max 40).'),
+                    'limit' => $this->int('Max rows (default 20, max 100).'),
                 ]),
             ],
             [
@@ -276,7 +281,7 @@ class LmsToolbox
                     'standard' => $this->str('Limit to one class.'),
                     'fee_type' => $this->str('Limit to one fee type, e.g. tuition.'),
                     'student'  => $this->str('Student name or admission no.'),
-                    'limit'    => $this->int('Max payment rows listed (default 20, max 40).'),
+                    'limit'    => $this->int('Max payment rows listed (default 20, max 100).'),
                 ]),
             ],
             [
@@ -284,7 +289,7 @@ class LmsToolbox
                 'description' => 'Students whose paid amount is below what their class is charged by the active fee structures. Use for "who has pending fees", "defaulters of 10th". Needs one school.',
                 'parameters'  => $this->schema($school + [
                     'standard' => $this->str('Limit to one class.'),
-                    'limit'    => $this->int('Max rows (default 20, max 40).'),
+                    'limit'    => $this->int('Max rows (default 20, max 100).'),
                 ]),
             ],
             [
@@ -306,7 +311,7 @@ class LmsToolbox
                     'section'  => $this->str('Section name, e.g. "A".'),
                     'subject'  => $this->str('One subject, e.g. "COMPUTER". Leave out to total every subject.'),
                     'student'  => $this->str('One student, by name or admission number. Returns their subject-wise marks.'),
-                    'limit'    => $this->int('How many students to list, best first (default 20, max 40) — pass 3 for "top 3".'),
+                    'limit'    => $this->int('How many students to list, best first (default 20, max 100) — pass 3 for "top 3".'),
                 ]),
             ],
             [
@@ -316,7 +321,7 @@ class LmsToolbox
                     'exam'     => $this->str('Exam name. Leave out for the most recent datesheet.'),
                     'standard' => $this->str('Class name.'),
                     'section'  => $this->str('Section name.'),
-                    'limit'    => $this->int('Max papers to list (default 20, max 40).'),
+                    'limit'    => $this->int('Max papers to list (default 20, max 100).'),
                 ]),
             ],
             [
@@ -327,7 +332,7 @@ class LmsToolbox
                     'from'  => $this->str('Range start, YYYY-MM-DD.'),
                     'to'    => $this->str('Range end, YYYY-MM-DD.'),
                     'type'  => $this->enum(['teacher', 'employee', 'any'], 'Which staff list (default any).'),
-                    'limit' => $this->int('Max names listed (default 20, max 40).'),
+                    'limit' => $this->int('Max names listed (default 20, max 100).'),
                 ]),
             ],
             [
@@ -339,7 +344,7 @@ class LmsToolbox
                     'to'       => $this->str('Range end, YYYY-MM-DD.'),
                     'status'   => $this->enum(['paid', 'pending', 'any'], 'Filter by payment status (default any).'),
                     'employee' => $this->str('One employee, by name.'),
-                    'limit'    => $this->int('Max rows (default 20, max 40).'),
+                    'limit'    => $this->int('Max rows (default 20, max 100).'),
                 ]),
             ],
             [
@@ -350,7 +355,7 @@ class LmsToolbox
                     'to'    => $this->str('End date, YYYY-MM-DD.'),
                     'type'  => $this->enum(['credit', 'expense', 'any'], 'Only money in, only money out, or both (default any).'),
                     'party' => $this->str('Match the party / reason text.'),
-                    'limit' => $this->int('Max entries listed (default 20, max 40).'),
+                    'limit' => $this->int('Max entries listed (default 20, max 100).'),
                 ]),
             ],
             [
@@ -361,7 +366,7 @@ class LmsToolbox
                     'section'  => $this->str('Section name.'),
                     'teacher'  => $this->str('Teacher name, to read that teacher\'s week instead of a class.'),
                     'day'      => $this->str('One day, e.g. "Monday". Leave out for the whole week.'),
-                    'limit'    => $this->int('Max periods (default 40, max 40).'),
+                    'limit'    => $this->int('Max periods (default 40, max 100).'),
                 ]),
             ],
             [
@@ -388,7 +393,7 @@ class LmsToolbox
                     'order_by'   => $this->str('Field to sort by (default the newest first).'),
                     'direction'  => $this->enum(['asc', 'desc'], 'Sort direction (default desc).'),
                     'count_only' => $this->bool('True to return only how many rows match, without listing them.'),
-                    'limit'      => $this->int('Max rows (default 20, max 40).'),
+                    'limit'      => $this->int('Max rows (default 20, max 100).'),
                 ], ['entity']),
             ],
             [
@@ -414,7 +419,7 @@ class LmsToolbox
                 'description' => 'The most recent rows of one record type.' . $note,
                 'parameters'  => $this->schema($school + [
                     'entity' => $this->enum($entities, 'Which record type to list.'),
-                    'limit'  => $this->int('Max rows (default 10, max 40).'),
+                    'limit'  => $this->int('Max rows (default 10, max 100).'),
                 ], ['entity']),
             ],
         ];
@@ -430,7 +435,7 @@ class LmsToolbox
                 'parameters'  => $this->schema([
                     'query'  => $this->str('Free text to match.'),
                     'status' => $this->enum(['active', 'inactive', 'any'], 'Filter by account status (default any).'),
-                    'limit'  => $this->int('Max rows (default 20, max 40).'),
+                    'limit'  => $this->int('Max rows (default 20, max 100).'),
                 ]),
             ],
             [
@@ -447,7 +452,7 @@ class LmsToolbox
                     'from'   => $this->str('Start date, YYYY-MM-DD.'),
                     'to'     => $this->str('End date, YYYY-MM-DD.'),
                     'school' => $this->str('Limit to one school name or serial.'),
-                    'limit'  => $this->int('Max rows (default 20, max 40).'),
+                    'limit'  => $this->int('Max rows (default 20, max 100).'),
                 ]),
             ],
             [
@@ -458,7 +463,7 @@ class LmsToolbox
                     'role'   => $this->enum(['admin', 'sub-admin', 'accounts', 'teacher', 'user', 'super-admin', 'sub-super-admin', 'any'], 'Limit to one role (default any). "user" is a student login.'),
                     'school' => $this->str('Limit to one school, by name or serial number.'),
                     'active' => $this->enum(['yes', 'no', 'any'], 'Only enabled logins, only disabled ones, or both (default any).'),
-                    'limit'  => $this->int('Max rows (default 20, max 40).'),
+                    'limit'  => $this->int('Max rows (default 20, max 100).'),
                 ]),
             ],
         ];
