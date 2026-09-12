@@ -6,18 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\Admin\Fee\FeeConcession;
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\Fee\FeeStructure;
-use App\Models\Admin\Transportation;
 use App\Models\Admin\TransportFeePayment;
+use App\Models\User;
 use App\Support\FeeCycleBreakdown;
+use App\Support\TransportBilling;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class FeeReceiptController extends Controller
 {
-    /** Academic year, April first. June is the free month on transport routes. */
-    private const MONTHS = ['apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec', 'jan', 'feb', 'mar'];
-
     /**
      * The printable fee receipt: who paid, what this payment was, how the
      * year's fee is split by the school's own fee cycle, and where the student
@@ -52,7 +49,7 @@ class FeeReceiptController extends Controller
             ->get();
 
         $academicGross = (float) $structures->where('fee_type', 'academic')->sum('amount');
-        [$route, $transportGross] = $this->transportFor($orgId, $student->id);
+        [$route, $transportGross] = TransportBilling::forStudent($orgId, $student->id);
 
         $academicNet  = $this->netOf($academicGross, 'academic', $concessions);
         $transportNet = $this->netOf($transportGross, 'transport', $concessions);
@@ -85,12 +82,26 @@ class FeeReceiptController extends Controller
             'cycles'      => FeeCycleBreakdown::build($orgId, $student->id, $paid, $totals),
             'overall'     => $overall,
             'concessions' => $concessions,
-            // fee_payments.submitted_by is the collector's name itself (see
-            // Admin\Fee and Accounts\FeeSubmission), not a user id — it was
-            // never a valid User::find() lookup, which is why this always
-            // rendered as a dash.
-            'collectedBy' => $payment->submitted_by ?: '—',
+            // fee_payments.submitted_by holds the collector's NAME today (see
+            // Admin\Fee and Accounts\FeeSubmission). Rows written by older
+            // builds hold a user id instead, so resolve one when that is what
+            // is stored rather than printing a bare number.
+            'collectedBy' => $this->collectorName($payment->submitted_by),
         ]);
+    }
+
+    /** The collector's name, whether the column holds a name or an old user id. */
+    private function collectorName(mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return '—';
+        }
+
+        if (ctype_digit((string) $value)) {
+            return User::find((int) $value)?->name ?: (string) $value;
+        }
+
+        return (string) $value;
     }
 
     /** A concession-adjusted total for one side of the ledger. */
@@ -110,43 +121,4 @@ class FeeReceiptController extends Controller
         return round(max(0, $gross - $taken), 2);
     }
 
-    /**
-     * The student's route and the year's transport fee — monthly fee times the
-     * months they are billed for. Transport is never a fee_structures row.
-     *
-     * @return array{0: ?Transportation, 1: float}
-     */
-    private function transportFor(int $orgId, int $studentId): array
-    {
-        $route = Transportation::where('organization_id', $orgId)
-            ->whereHas('students', fn ($q) => $q->where('student_details.id', $studentId))
-            ->orderByDesc('is_active')
-            ->first();
-
-        if (!$route) {
-            return [null, 0.0];
-        }
-
-        $pivot = DB::table('transportation_students')
-            ->where('organization_id', $orgId)
-            ->where('transportation_id', $route->id)
-            ->where('student_detail_id', $studentId)
-            ->first();
-
-        $raw = $pivot->billable_months ?? null;
-        if (is_string($raw)) {
-            $raw = json_decode($raw, true) ?: [];
-        }
-        $raw = (array) $raw;
-
-        $billed = 0;
-        foreach (self::MONTHS as $key) {
-            $on = array_key_exists($key, $raw) ? (bool) $raw[$key] : ($key !== 'jun');
-            if ($on) {
-                $billed++;
-            }
-        }
-
-        return [$route, round((float) $route->monthly_fee * $billed, 2)];
-    }
 }
