@@ -37,13 +37,48 @@ class LmsDataMap
     public const SCHOOL = [
         'students' => [
             'model'  => \App\Models\Student\StudentDetail::class,
-            'label'  => 'Student records — personal details, class, section, photo, admission number.',
+            'label'  => 'Student records — personal details, class, section, admission number. The PROFILE PHOTO the panel shows is on the login, as user.image, not on this row.',
             'search' => ['full_name', 'admission_no', 'roll_no', 'father_name', 'mother_name', 'phone', 'email'],
+            'related' => [
+                'user' => [
+                    'column' => 'user_id',
+                    'model'  => \App\Models\User::class,
+                    'fields' => ['name', 'email', 'mobile_number', 'image', 'is_active', 'last_login_at'],
+                ],
+            ],
+            // student_details.image is vestigial — the panel uploads the photo
+            // to the login row — so a question about a photo has to land on
+            // user.image however it is spelled.
+            'aliases' => [
+                'image'         => 'user.image',
+                'photo'         => 'user.image',
+                'profile_image' => 'user.image',
+                'profile_photo' => 'user.image',
+                'picture'       => 'user.image',
+                'name'          => 'full_name',
+                'student_name'  => 'full_name',
+            ],
         ],
         'teachers' => [
             'model'  => \App\Models\Teacher\TeacherDetail::class,
-            'label'  => 'Teacher records. The teacher\'s name and email live on their login (user_id).',
+            'label'  => 'Teacher records. Name, email and photo live on the login, as user.name / user.image.',
             'search' => ['employee_id', 'phone', 'qualification'],
+            'related' => [
+                'user' => [
+                    'column' => 'user_id',
+                    'model'  => \App\Models\User::class,
+                    'fields' => ['name', 'email', 'mobile_number', 'image', 'is_active', 'last_login_at'],
+                ],
+            ],
+            'aliases' => [
+                'image'         => 'user.image',
+                'photo'         => 'user.image',
+                'profile_image' => 'user.image',
+                'picture'       => 'user.image',
+                'name'          => 'user.name',
+                'teacher_name'  => 'user.name',
+                'email'         => 'user.email',
+            ],
         ],
         'employees' => [
             'model'  => \App\Models\Admin\AdminEmployee::class,
@@ -191,14 +226,173 @@ class LmsDataMap
             'search' => [],
         ],
         'school_documents' => [
-            'model'  => \App\Models\Admin\SchoolDocument::class,
-            'label'  => 'Documents uploaded for the school.',
-            'search' => ['title', 'type'],
+            'model'   => \App\Models\Admin\SchoolDocument::class,
+            'label'   => 'Documents uploaded for the school.',
+            'search'  => ['title', 'file_type'],
+            // No organization_id of its own — it hangs off the school profile.
+            'pin_via' => ['column' => 'school_info_id', 'model' => \App\Models\Admin\SchoolInfo::class],
         ],
-        'school_users' => [
+        'logins' => [
             'model'  => \App\Models\User::class,
-            'label'  => 'Login accounts belonging to this school — admins, accounts, teachers, students.',
+            'label'  => 'Login accounts of this school — admins, accounts staff, teachers and students. Carries each person\'s name, email, mobile and profile photo (image).',
             'search' => ['name', 'email', 'mobile_number', 'role'],
+        ],
+        'staff_profiles' => [
+            'model'  => \App\Models\Admin\SchoolUser::class,
+            'label'  => 'Profile rows for a school\'s own users — designation, department, employee id, photo.',
+            'search' => ['employee_id', 'designation', 'department', 'phone'],
+        ],
+        'admit_cards' => [
+            'model'  => \App\Models\Student\AdmitCard::class,
+            'label'  => 'Admit cards generated for exams.',
+            'search' => ['admit_card_number', 'student_name', 'father_name'],
+        ],
+        'teacher_id_cards' => [
+            'model'  => \App\Models\Admin\TeacherIdCard::class,
+            'label'  => 'Generated teacher ID cards.',
+            'search' => [],
+        ],
+        'employee_id_cards' => [
+            'model'  => \App\Models\Admin\EmployeeIdCard::class,
+            'label'  => 'Generated employee ID cards.',
+            'search' => [],
+        ],
+        'subject_marks' => [
+            'model'  => \App\Models\Admin\ExamSubjectMark::class,
+            'label'  => 'Subject-wise marks attached to an exam copy.',
+            'search' => ['grade', 'evaluation_type'],
+        ],
+        'exam_papers' => [
+            'model'  => \App\Models\Admin\ExamPaper::class,
+            'label'  => 'Question papers uploaded for exams.',
+            'search' => [],
+        ],
+        'syllabus_chapters' => [
+            'model'  => \App\Models\Admin\ExamSyllabusChapter::class,
+            'label'  => 'Chapters included in an exam\'s syllabus.',
+            'search' => [],
+        ],
+        'chapters' => [
+            'model'  => \App\Models\Student\Chapter::class,
+            'label'  => 'Chapters of a subject.',
+            'search' => ['name', 'description'],
+        ],
+        'topics' => [
+            'model'  => \App\Models\Student\Topic::class,
+            'label'  => 'Topics inside a chapter.',
+            'search' => ['name', 'description'],
+        ],
+        'student_syllabus' => [
+            'model'  => \App\Models\Student\StudentSyllabus::class,
+            'label'  => 'Syllabus progress recorded for students.',
+            'search' => [],
+        ],
+        'class_subjects' => [
+            'model'  => \App\Models\Student\StandardSubject::class,
+            'label'  => 'Which subjects a class studies.',
+            'search' => [],
+        ],
+        'section_subjects' => [
+            'model'  => \App\Models\Student\SectionSubject::class,
+            'label'  => 'Which subjects a section studies.',
+            'search' => [],
+        ],
+        'teacher_subjects' => [
+            'model'  => \App\Models\Teacher\TeacherSubject::class,
+            'label'  => 'Subjects assigned to teachers.',
+            'search' => [],
+        ],
+        'teacher_sections' => [
+            'model'  => \App\Models\Teacher\TeacherSection::class,
+            'label'  => 'Sections assigned to teachers.',
+            'search' => [],
+        ],
+        'teacher_class_assignments' => [
+            'model'  => \App\Models\Teacher\AssignTeacherStandard::class,
+            'label'  => 'Class-teacher assignments.',
+            'search' => [],
+        ],
+        'teacher_arrangements' => [
+            'model'  => \App\Models\Admin\TeacherArrangement::class,
+            'label'  => 'Substitute (arrangement) duties for absent teachers.',
+            'search' => ['reason', 'status'],
+        ],
+        'teacher_availability' => [
+            'model'  => \App\Models\Admin\TeacherAvailability::class,
+            'label'  => 'When teachers are free or busy.',
+            'search' => [],
+        ],
+        'homework_completions' => [
+            'model'  => \App\Models\Admin\HomeWorkCompletion::class,
+            'label'  => 'Which students completed which homework.',
+            'search' => [],
+        ],
+        'seating_plans' => [
+            'model'  => \App\Models\Admin\Seating\SeatingPlan::class,
+            'label'  => 'Exam seating plans.',
+            'search' => ['name', 'status'],
+        ],
+        'seating_rooms' => [
+            'model'  => \App\Models\Admin\Seating\SeatingRoom::class,
+            'label'  => 'Rooms available for exam seating.',
+            'search' => ['name', 'code'],
+        ],
+        'seat_assignments' => [
+            'model'   => \App\Models\Admin\Seating\SeatAssignment::class,
+            'label'   => 'Which student sits where in an exam.',
+            'search'  => ['class_label'],
+            'pin_via' => ['column' => 'seating_plan_id', 'model' => \App\Models\Admin\Seating\SeatingPlan::class],
+        ],
+        'invigilators' => [
+            'model'  => \App\Models\Admin\Seating\SeatingInvigilator::class,
+            'label'  => 'Invigilators available for exam duty.',
+            'search' => [],
+        ],
+        'drivers' => [
+            'model'  => \App\Models\Admin\DriverDetail::class,
+            'label'  => 'Bus drivers — licence, phone, vehicle.',
+            'search' => ['name', 'phone', 'licence_number', 'license_number'],
+        ],
+        'calendar_events' => [
+            'model'  => \App\Models\Calendar\TimeTable::class,
+            'label'  => 'Calendar events — meetings, holidays, activities.',
+            'search' => ['title', 'description', 'type'],
+        ],
+        'school_info' => [
+            'model'  => \App\Models\Admin\SchoolInfo::class,
+            'label'  => 'The school\'s own profile: address, contacts, website details.',
+            'search' => ['school_name', 'school_email', 'school_mobile'],
+        ],
+        'management_team' => [
+            'model'   => \App\Models\Admin\SchoolManagementTeam::class,
+            'label'   => 'Management team shown on the school website.',
+            'search'  => ['name', 'designation'],
+            'pin_via' => ['column' => 'school_info_id', 'model' => \App\Models\Admin\SchoolInfo::class],
+        ],
+        'rules' => [
+            'model'  => \App\Models\Admin\RulesAndRegulation::class,
+            'label'  => 'School rules and regulations.',
+            'search' => ['title', 'description'],
+        ],
+        'fee_settings' => [
+            'model'  => \App\Models\Admin\Fee\FeeSettings::class,
+            'label'  => 'Fee module settings — late fee rules and the like.',
+            'search' => [],
+        ],
+        'contact_messages_students' => [
+            'model'  => \App\Models\Admin\ContactAdminStudent::class,
+            'label'  => 'Messages students sent the school office.',
+            'search' => ['subject', 'message', 'status'],
+        ],
+        'contact_messages_teachers' => [
+            'model'  => \App\Models\Admin\ContactAdminTeacher::class,
+            'label'  => 'Messages teachers sent the school office.',
+            'search' => ['subject', 'message', 'status'],
+        ],
+        'school_enquiries' => [
+            'model'  => \App\Models\Admin\AdminEnquiry::class,
+            'label'  => 'General enquiries received by the school.',
+            'search' => ['name', 'email', 'phone', 'message', 'status'],
         ],
     ];
 

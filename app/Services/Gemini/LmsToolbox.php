@@ -1534,14 +1534,18 @@ class LmsToolbox
             return ['error' => 'That record type cannot be read from this panel.'];
         }
 
-        return [
+        return $this->clean([
             'covers'       => $this->coverage($orgId),
             'entity'       => $key,
             'about'        => $entity['label'],
-            'fields'       => $columns,
+            'fields'       => array_merge($columns, $this->relatedFieldNames($entity)),
             'searchable'   => array_values(array_intersect($entity['search'], $columns)),
             'rows_visible' => $query->count(),
-        ];
+            'note'         => $this->relatedFieldNames($entity)
+                ? 'Dotted names are fields of a linked record; ask for them like any other field, in `fields` or in a filter.'
+                : null,
+            'same_as'      => $entity['aliases'] ?? null,
+        ]);
     }
 
     private function queryRecords(array $a): array
@@ -1567,7 +1571,7 @@ class LmsToolbox
             return ['error' => 'That record type cannot be read from this panel.'];
         }
 
-        [$applied, $rejected] = $this->applyWhere($query, (array) ($a['where'] ?? []), $columns, $orgId);
+        [$applied, $rejected] = $this->applyWhere($query, (array) ($a['where'] ?? []), $columns, $orgId, $entity);
         $this->applySearch($query, $a['search'] ?? null, $entity, $columns);
         $this->narrowByClass($query, $a, $columns, $orgId);
 
@@ -1585,30 +1589,53 @@ class LmsToolbox
             return $head;
         }
 
-        $fields = array_values(array_intersect(
-            array_map(fn ($f) => (string) $f, (array) ($a['fields'] ?? [])),
-            $columns,
-        ));
+        $asked = array_map(fn ($f) => $this->resolveField((string) $f, $entity), (array) ($a['fields'] ?? []));
 
-        if ($fields === []) {
+        $fields = array_values(array_intersect($asked, $columns));
+        $wanted = array_values(array_intersect($asked, $this->relatedFieldNames($entity)));
+
+        if ($fields === [] && $wanted === []) {
             $fields = $this->defaultFields($columns, $entity);
+            $wanted = $this->relatedFieldNames($entity);
         }
 
         // Ids the row needs for its labels have to be selected even when the
         // caller did not ask for them.
         $select = array_values(array_unique(array_merge($fields, array_values(array_intersect(array_keys(self::LABEL_ALIAS), $columns)))));
 
-        $order     = in_array($this->text($a['order_by'] ?? null), $columns, true) ? $this->text($a['order_by']) : (in_array('id', $columns, true) ? 'id' : $columns[0]);
+        $asks      = $this->text($a['order_by'] ?? null);
+        $asks      = $asks ? $this->resolveField($asks, $entity) : null;
+        $order     = in_array($asks, $columns, true) ? $asks : (in_array('id', $columns, true) ? 'id' : $columns[0]);
         $direction = strtolower((string) ($a['direction'] ?? 'desc')) === 'asc' ? 'asc' : 'desc';
 
-        $rows = $query->orderBy($order, $direction)
+        // A related field is loaded through its relation and flattened into the
+        // row as `user_name`, `user_image` … — one query for the lot, not one
+        // per row.
+        $loads = [];
+        foreach ($this->groupRelatedFields($wanted) as $relation => $subFields) {
+            $loads[$relation] = fn ($q) => $q->select(array_values(array_unique(array_merge(['id'], $subFields))));
+        }
+
+        $models = $query->with($loads)
+            ->orderBy($order, $direction)
             ->limit($this->limit($a, 20))
-            ->get($select)
-            ->map(fn (Model $row) => $row->getAttributes())
-            ->all();
+            ->get($select);
+
+        $rows = $models->map(function (Model $model) use ($wanted) {
+            $row = $model->getAttributes();
+
+            foreach ($this->groupRelatedFields($wanted) as $relation => $subFields) {
+                $related = $model->relationLoaded($relation) ? $model->getRelation($relation) : null;
+                foreach ($subFields as $field) {
+                    $row[$relation . '_' . $field] = $related?->{$field};
+                }
+            }
+
+            return $row;
+        })->all();
 
         return $head + [
-            'fields' => $fields,
+            'fields' => array_merge($fields, $wanted),
             'rows'   => $this->labelRows($rows, $fields),
             'note'   => $rows === [] ? 'Nothing matches this filter.' : null,
         ];
@@ -1638,14 +1665,19 @@ class LmsToolbox
         }
 
         $metric = in_array($a['metric'] ?? 'count', ['count', 'sum', 'avg', 'min', 'max'], true) ? ($a['metric'] ?? 'count') : 'count';
-        $field  = in_array($this->text($a['field'] ?? null), $columns, true) ? $this->text($a['field']) : null;
-        $group  = in_array($this->text($a['group_by'] ?? null), $columns, true) ? $this->text($a['group_by']) : null;
+        $askField = $this->text($a['field'] ?? null);
+        $askGroup = $this->text($a['group_by'] ?? null);
+        $askField = $askField ? $this->resolveField($askField, $entity) : null;
+        $askGroup = $askGroup ? $this->resolveField($askGroup, $entity) : null;
+
+        $field  = in_array($askField, $columns, true) ? $askField : null;
+        $group  = in_array($askGroup, $columns, true) ? $askGroup : null;
 
         if ($metric !== 'count' && ! $field) {
             return ['error' => 'That calculation needs a numeric field that exists on this record type.'];
         }
 
-        [$applied, $rejected] = $this->applyWhere($query, (array) ($a['where'] ?? []), $columns, $orgId);
+        [$applied, $rejected] = $this->applyWhere($query, (array) ($a['where'] ?? []), $columns, $orgId, $entity);
         $this->applySearch($query, $a['search'] ?? null, $entity, $columns);
         $this->narrowByClass($query, $a, $columns, $orgId);
 
@@ -1704,8 +1736,15 @@ class LmsToolbox
             return $query->where($model->getTable() . '.organization_id', $orgId);
         }
 
-        // Pinned through a parent that does carry the school.
-        foreach (['student_detail_id' => StudentDetail::class, 'standard_id' => Standard::class, 'section_id' => Section::class] as $column => $parent) {
+        // Declared parent first — some tables hang off the school profile or a
+        // seating plan rather than off anything with a class on it.
+        $parents = [];
+        if (! empty($entity['pin_via'])) {
+            $parents[$entity['pin_via']['column']] = $entity['pin_via']['model'];
+        }
+        $parents += ['student_detail_id' => StudentDetail::class, 'standard_id' => Standard::class, 'section_id' => Section::class];
+
+        foreach ($parents as $column => $parent) {
             if (in_array($column, $columns, true)) {
                 return $query->whereIn($column, (new $parent)->newQuery()->where('organization_id', $orgId)->select('id'));
             }
@@ -1719,9 +1758,10 @@ class LmsToolbox
      * @param  array<int,string>  $columns
      * @return array{0:array<int,string>,1:array<int,string>}
      */
-    private function applyWhere(Builder $query, array $clauses, array $columns, ?int $orgId = null): array
+    private function applyWhere(Builder $query, array $clauses, array $columns, ?int $orgId = null, array $entity = []): array
     {
-        $applied = $rejected = [];
+        $applied  = $rejected = [];
+        $related  = $this->relatedFieldNames($entity);
 
         foreach (array_slice($clauses, 0, 8) as $clause) {
             $clause = (array) $clause;
@@ -1729,6 +1769,20 @@ class LmsToolbox
             $op     = strtolower((string) ($clause['op'] ?? 'eq'));
             $value  = $clause['value'] ?? null;
             $value  = is_scalar($value) ? (string) $value : null;
+
+            $field = $field ? $this->resolveField($field, $entity) : $field;
+
+            // `user.image` and friends — filter inside the linked record.
+            if ($field && str_contains($field, '.') && in_array($field, $related, true)) {
+                [$relation, $sub] = explode('.', $field, 2);
+
+                $query->whereHas($relation, function ($q) use ($sub, $op, $value) {
+                    $this->applyOp($q, $sub, $op, $value);
+                });
+
+                $applied[] = $field . ' ' . $op . ' ' . (string) $value;
+                continue;
+            }
 
             if (! $field || ! in_array($field, $columns, true)) {
                 $rejected[] = 'no such field: ' . ($field ?: '(blank)');
@@ -1754,30 +1808,95 @@ class LmsToolbox
                 continue;
             }
 
-            match ($op) {
-                'eq'        => $query->where($field, $value),
-                'ne'        => $query->where($field, '!=', $value),
-                'gt'        => $query->where($field, '>', $value),
-                'gte'       => $query->where($field, '>=', $value),
-                'lt'        => $query->where($field, '<', $value),
-                'lte'       => $query->where($field, '<=', $value),
-                'like'      => $query->where($field, 'like', '%' . $value . '%'),
-                'in'        => $query->whereIn($field, array_map('trim', explode(',', (string) $value))),
-                'is_null'   => $query->whereNull($field),
-                'not_null'  => $query->whereNotNull($field),
-                // "has a photo" is not the same as "the column is not null":
-                // an empty string is how this app records "nothing uploaded".
-                'empty'     => $query->where(fn ($w) => $w->whereNull($field)->orWhere($field, '')),
-                'not_empty' => $query->whereNotNull($field)->where($field, '!=', ''),
-                default     => $rejected[] = 'unknown comparison: ' . $op,
-            };
-
-            if (! str_starts_with(end($rejected) ?: '', 'unknown comparison')) {
-                $applied[] = trim($field . ' ' . $op . ' ' . (string) $value);
+            if (! $this->applyOp($query, $field, $op, $value)) {
+                $rejected[] = 'unknown comparison: ' . $op;
+                continue;
             }
+
+            $applied[] = trim($field . ' ' . $op . ' ' . (string) $value);
         }
 
         return [$applied, $rejected];
+    }
+
+    /** One comparison, on a query that may be the main one or a relation's. */
+    private function applyOp($query, string $field, string $op, ?string $value): bool
+    {
+        match ($op) {
+            'eq'        => $query->where($field, $value),
+            'ne'        => $query->where($field, '!=', $value),
+            'gt'        => $query->where($field, '>', $value),
+            'gte'       => $query->where($field, '>=', $value),
+            'lt'        => $query->where($field, '<', $value),
+            'lte'       => $query->where($field, '<=', $value),
+            'like'      => $query->where($field, 'like', '%' . $value . '%'),
+            'in'        => $query->whereIn($field, array_map('trim', explode(',', (string) $value))),
+            'is_null'   => $query->whereNull($field),
+            'not_null'  => $query->whereNotNull($field),
+            // "has a photo" is not the same as "the column is not null": an
+            // empty string is how this app records "nothing uploaded".
+            'empty'     => $query->where(fn ($w) => $w->whereNull($field)->orWhere($field, '')),
+            'not_empty' => $query->whereNotNull($field)->where($field, '!=', ''),
+            default     => null,
+        };
+
+        return in_array($op, ['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'like', 'in', 'is_null', 'not_null', 'empty', 'not_empty'], true);
+    }
+
+    /**
+     * The real field behind a name the model used. A student's photo lives on
+     * the login, not the student row, so "image" has to mean `user.image` here
+     * — otherwise the panel shows a photo and the assistant swears there is
+     * none.
+     */
+    private function resolveField(string $field, array $entity): string
+    {
+        if (isset($entity['aliases'][$field])) {
+            return $entity['aliases'][$field];
+        }
+
+        // "class", "section", "subject", "student", "school" are what a person
+        // calls the id columns, and what rows come back labelled as — so they
+        // have to work as field names too.
+        return array_flip(self::LABEL_ALIAS)[$field] ?? $field;
+    }
+
+    /**
+     * Field names an entity exposes through a linked record, as `user.image`.
+     *
+     * @return array<int,string>
+     */
+    private function relatedFieldNames(array $entity): array
+    {
+        $names = [];
+
+        foreach ($entity['related'] ?? [] as $relation => $spec) {
+            $allowed = LmsDataMap::columns($spec['model']);
+
+            foreach ($spec['fields'] as $field) {
+                if (in_array($field, $allowed, true)) {
+                    $names[] = $relation . '.' . $field;
+                }
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * @param  array<int,string>  $dotted
+     * @return array<string,array<int,string>>
+     */
+    private function groupRelatedFields(array $dotted): array
+    {
+        $grouped = [];
+
+        foreach ($dotted as $name) {
+            [$relation, $field] = explode('.', $name, 2);
+            $grouped[$relation][] = $field;
+        }
+
+        return $grouped;
     }
 
     /**
