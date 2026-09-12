@@ -161,6 +161,9 @@ class LmsToolbox
             'payroll_report'        => $this->payrollReport($args),
             'ledger_report'         => $this->ledgerReport($args),
             'class_timetable'       => $this->classTimetable($args),
+            'describe_data'         => $this->describeData($args),
+            'query_records'         => $this->queryRecords($args),
+            'aggregate_records'     => $this->aggregateRecords($args),
             'recent_records'        => $this->recentRecords($args),
             'search_schools'        => $this->searchSchools($args),
             'school_overview'       => $this->schoolOverview($args),
@@ -360,6 +363,47 @@ class LmsToolbox
                     'day'      => $this->str('One day, e.g. "Monday". Leave out for the whole week.'),
                     'limit'    => $this->int('Max periods (default 40, max 40).'),
                 ]),
+            ],
+            [
+                'name'        => 'describe_data',
+                'description' => 'What records this panel can read, and what fields each one has. Call it with no arguments to list the record types, or with one entity to see its exact field names before querying it. Use this whenever a question asks about something the other tools do not obviously cover — a photo, an address, a route, a status, any column at all.' . $note,
+                'parameters'  => $this->schema($school + [
+                    'entity' => $this->str('Record type to describe, e.g. "students". Leave out to list everything readable.'),
+                ]),
+            ],
+            [
+                'name'        => 'query_records',
+                'description' => 'Read any record type from describe_data, with filters, and get the rows back. This is the general way to answer anything the purpose-built tools do not: for example students whose photo is uploaded (entity "students", where field "image" op "not_empty"), students from one city, books by an author, unpaid salaries. Ids that name something — class, section, subject, student, exam, school — come back resolved to names as well.' . $note,
+                'parameters'  => $this->schema($school + [
+                    'entity'     => $this->str('Record type from describe_data, e.g. "students".'),
+                    'search'     => $this->str('Free text matched against that record type\'s searchable fields.'),
+                    'where'      => $this->arr('Filters, all of which must hold.', $this->schema([
+                        'field' => $this->str('Field name, exactly as describe_data spells it.'),
+                        'op'    => $this->enum(['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'like', 'in', 'is_null', 'not_null', 'empty', 'not_empty'], 'Comparison. Use not_empty for "has a value" (a photo, a phone number) and empty for "is missing".'),
+                        'value' => $this->str('The value to compare against. Leave out for is_null / not_null / empty / not_empty. For "in", separate values with commas.'),
+                    ], ['field', 'op'])),
+                    'fields'     => $this->arr('Which fields to return. Leave out for a sensible default.', $this->str('Field name.')),
+                    'order_by'   => $this->str('Field to sort by (default the newest first).'),
+                    'direction'  => $this->enum(['asc', 'desc'], 'Sort direction (default desc).'),
+                    'count_only' => $this->bool('True to return only how many rows match, without listing them.'),
+                    'limit'      => $this->int('Max rows (default 20, max 40).'),
+                ], ['entity']),
+            ],
+            [
+                'name'        => 'aggregate_records',
+                'description' => 'Count, total or average any field of any record type, optionally grouped. Use for "how many students per class", "total expense by reason", "average marks by section".' . $note,
+                'parameters'  => $this->schema($school + [
+                    'entity'   => $this->str('Record type from describe_data.'),
+                    'metric'   => $this->enum(['count', 'sum', 'avg', 'min', 'max'], 'What to work out (default count).'),
+                    'field'    => $this->str('Field to total or average. Required for anything but count.'),
+                    'group_by' => $this->str('Field to group by, e.g. "standard_id", "payment_mode".'),
+                    'search'   => $this->str('Free text filter, as in query_records.'),
+                    'where'    => $this->arr('Filters, as in query_records.', $this->schema([
+                        'field' => $this->str('Field name.'),
+                        'op'    => $this->enum(['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'like', 'in', 'is_null', 'not_null', 'empty', 'not_empty'], 'Comparison.'),
+                        'value' => $this->str('Value to compare against.'),
+                    ], ['field', 'op'])),
+                ], ['entity']),
             ],
             [
                 'name'        => 'recent_records',
@@ -1429,6 +1473,387 @@ class LmsToolbox
     }
 
     // ══════════════════════════════════════════════════════════════════
+    // The general surface — any record type in LmsDataMap
+    // ══════════════════════════════════════════════════════════════════
+
+    /** Ids that mean something to a person, and what to call them in a row. */
+    private const LABEL_ALIAS = [
+        'standard_id'       => 'class',
+        'section_id'        => 'section',
+        'subject_id'        => 'subject',
+        'student_detail_id' => 'student',
+        'exam_id'           => 'exam',
+        'organization_id'   => 'school',
+        'user_id'           => 'user',
+        'admin_employee_id' => 'employee',
+        'transportation_id' => 'route',
+    ];
+
+    /** Columns that are noise in a listing unless they were asked for. */
+    private const DULL_COLUMNS = ['created_at', 'updated_at', 'deleted_at', 'created_by', 'updated_by', 'email_verified_at'];
+
+    private function describeData(array $a): array
+    {
+        $map = LmsDataMap::forScope($this->scope);
+        $key = $this->text($a['entity'] ?? null);
+
+        if (! $key) {
+            return [
+                'covers'  => $this->coverage($this->effectiveOrganizationId($a)),
+                'records' => array_map(
+                    fn (string $name) => ['entity' => $name, 'about' => $map[$name]['label']],
+                    array_keys($map),
+                ),
+                'how'     => 'Pick one and call describe_data again with it to see its field names, then query_records to read rows.',
+            ];
+        }
+
+        if (! isset($map[$key])) {
+            return ['error' => 'No such record type.', 'available' => array_keys($map)];
+        }
+
+        $entity  = $map[$key];
+        $columns = LmsDataMap::columns($entity['model']);
+
+        if ($columns === []) {
+            return ['error' => 'That module is not set up on this installation, so there is nothing to read.'];
+        }
+
+        $orgId = $this->effectiveOrganizationId($a);
+        $query = $this->scopedQuery($entity, $orgId);
+
+        if (! $query) {
+            return ['error' => 'That record type cannot be read from this panel.'];
+        }
+
+        return [
+            'covers'       => $this->coverage($orgId),
+            'entity'       => $key,
+            'about'        => $entity['label'],
+            'fields'       => $columns,
+            'searchable'   => array_values(array_intersect($entity['search'], $columns)),
+            'rows_visible' => $query->count(),
+        ];
+    }
+
+    private function queryRecords(array $a): array
+    {
+        $map = LmsDataMap::forScope($this->scope);
+        $key = $this->text($a['entity'] ?? null);
+
+        if (! $key || ! isset($map[$key])) {
+            return ['error' => 'No such record type.', 'available' => array_keys($map)];
+        }
+
+        $entity  = $map[$key];
+        $columns = LmsDataMap::columns($entity['model']);
+        $orgId   = $this->effectiveOrganizationId($a);
+
+        if ($columns === []) {
+            return ['error' => 'That module is not set up on this installation, so there is nothing to read.'];
+        }
+
+        $query = $this->scopedQuery($entity, $orgId);
+
+        if (! $query) {
+            return ['error' => 'That record type cannot be read from this panel.'];
+        }
+
+        [$applied, $rejected] = $this->applyWhere($query, (array) ($a['where'] ?? []), $columns);
+        $this->applySearch($query, $a['search'] ?? null, $entity, $columns);
+
+        $total = (clone $query)->count();
+
+        $head = $this->clean([
+            'covers'        => $this->coverage($orgId),
+            'entity'        => $key,
+            'matching_rows' => $total,
+            'filters'       => $applied ?: null,
+            'ignored'       => $rejected ?: null,
+        ]);
+
+        if (filter_var($a['count_only'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+            return $head;
+        }
+
+        $fields = array_values(array_intersect(
+            array_map(fn ($f) => (string) $f, (array) ($a['fields'] ?? [])),
+            $columns,
+        ));
+
+        if ($fields === []) {
+            $fields = $this->defaultFields($columns, $entity);
+        }
+
+        // Ids the row needs for its labels have to be selected even when the
+        // caller did not ask for them.
+        $select = array_values(array_unique(array_merge($fields, array_values(array_intersect(array_keys(self::LABEL_ALIAS), $columns)))));
+
+        $order     = in_array($this->text($a['order_by'] ?? null), $columns, true) ? $this->text($a['order_by']) : (in_array('id', $columns, true) ? 'id' : $columns[0]);
+        $direction = strtolower((string) ($a['direction'] ?? 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        $rows = $query->orderBy($order, $direction)
+            ->limit($this->limit($a, 20))
+            ->get($select)
+            ->map(fn (Model $row) => $row->getAttributes())
+            ->all();
+
+        return $head + [
+            'fields' => $fields,
+            'rows'   => $this->labelRows($rows, $fields),
+            'note'   => $rows === [] ? 'Nothing matches this filter.' : null,
+        ];
+    }
+
+    private function aggregateRecords(array $a): array
+    {
+        $map = LmsDataMap::forScope($this->scope);
+        $key = $this->text($a['entity'] ?? null);
+
+        if (! $key || ! isset($map[$key])) {
+            return ['error' => 'No such record type.', 'available' => array_keys($map)];
+        }
+
+        $entity  = $map[$key];
+        $columns = LmsDataMap::columns($entity['model']);
+        $orgId   = $this->effectiveOrganizationId($a);
+
+        if ($columns === []) {
+            return ['error' => 'That module is not set up on this installation, so there is nothing to read.'];
+        }
+
+        $query = $this->scopedQuery($entity, $orgId);
+
+        if (! $query) {
+            return ['error' => 'That record type cannot be read from this panel.'];
+        }
+
+        $metric = in_array($a['metric'] ?? 'count', ['count', 'sum', 'avg', 'min', 'max'], true) ? ($a['metric'] ?? 'count') : 'count';
+        $field  = in_array($this->text($a['field'] ?? null), $columns, true) ? $this->text($a['field']) : null;
+        $group  = in_array($this->text($a['group_by'] ?? null), $columns, true) ? $this->text($a['group_by']) : null;
+
+        if ($metric !== 'count' && ! $field) {
+            return ['error' => 'That calculation needs a numeric field that exists on this record type.'];
+        }
+
+        [$applied, $rejected] = $this->applyWhere($query, (array) ($a['where'] ?? []), $columns);
+        $this->applySearch($query, $a['search'] ?? null, $entity, $columns);
+
+        $expression = $metric === 'count' ? 'COUNT(*)' : strtoupper($metric) . '(`' . $field . '`)';
+
+        $head = $this->clean([
+            'covers'  => $this->coverage($orgId),
+            'entity'  => $key,
+            'metric'  => $metric . ($field ? " of {$field}" : ''),
+            'filters' => $applied ?: null,
+            'ignored' => $rejected ?: null,
+        ]);
+
+        if (! $group) {
+            $value = (clone $query)->selectRaw($expression . ' as value')->value('value');
+
+            return $head + ['value' => $this->number($value)];
+        }
+
+        $rows = (clone $query)
+            ->selectRaw('`' . $group . '` as bucket, ' . $expression . ' as value')
+            ->groupBy($group)
+            ->orderByDesc('value')
+            ->limit(self::MAX_ROWS)
+            ->get()
+            ->map(fn ($row) => ['group' => $row->bucket, 'value' => $this->number($row->value)])
+            ->all();
+
+        return $head + [
+            'grouped_by' => self::LABEL_ALIAS[$group] ?? $group,
+            'groups'     => $this->labelGroups($rows, $group),
+            'note'       => $rows === [] ? 'Nothing matches this filter.' : null,
+        ];
+    }
+
+    // ── plumbing for the general surface ──────────────────────────────
+
+    /**
+     * A query for one entity, already pinned to the caller's school — or null
+     * when it cannot be pinned, which is the only safe answer: a table with no
+     * organization of its own is reached through its parent, and if there is no
+     * parent either, a school user does not get to read it at all.
+     */
+    private function scopedQuery(array $entity, ?int $orgId): ?Builder
+    {
+        /** @var Model $model */
+        $model   = new $entity['model'];
+        $columns = LmsDataMap::columns($entity['model']);
+        $query   = $model->newQuery();
+
+        if (! $orgId) {
+            return $query;
+        }
+
+        if (in_array('organization_id', $columns, true)) {
+            return $query->where($model->getTable() . '.organization_id', $orgId);
+        }
+
+        // Pinned through a parent that does carry the school.
+        foreach (['student_detail_id' => StudentDetail::class, 'standard_id' => Standard::class, 'section_id' => Section::class] as $column => $parent) {
+            if (in_array($column, $columns, true)) {
+                return $query->whereIn($column, (new $parent)->newQuery()->where('organization_id', $orgId)->select('id'));
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<int,mixed>  $clauses
+     * @param  array<int,string>  $columns
+     * @return array{0:array<int,string>,1:array<int,string>}
+     */
+    private function applyWhere(Builder $query, array $clauses, array $columns): array
+    {
+        $applied = $rejected = [];
+
+        foreach (array_slice($clauses, 0, 8) as $clause) {
+            $clause = (array) $clause;
+            $field  = $this->text($clause['field'] ?? null);
+            $op     = strtolower((string) ($clause['op'] ?? 'eq'));
+            $value  = $clause['value'] ?? null;
+            $value  = is_scalar($value) ? (string) $value : null;
+
+            if (! $field || ! in_array($field, $columns, true)) {
+                $rejected[] = 'no such field: ' . ($field ?: '(blank)');
+                continue;
+            }
+
+            match ($op) {
+                'eq'        => $query->where($field, $value),
+                'ne'        => $query->where($field, '!=', $value),
+                'gt'        => $query->where($field, '>', $value),
+                'gte'       => $query->where($field, '>=', $value),
+                'lt'        => $query->where($field, '<', $value),
+                'lte'       => $query->where($field, '<=', $value),
+                'like'      => $query->where($field, 'like', '%' . $value . '%'),
+                'in'        => $query->whereIn($field, array_map('trim', explode(',', (string) $value))),
+                'is_null'   => $query->whereNull($field),
+                'not_null'  => $query->whereNotNull($field),
+                // "has a photo" is not the same as "the column is not null":
+                // an empty string is how this app records "nothing uploaded".
+                'empty'     => $query->where(fn ($w) => $w->whereNull($field)->orWhere($field, '')),
+                'not_empty' => $query->whereNotNull($field)->where($field, '!=', ''),
+                default     => $rejected[] = 'unknown comparison: ' . $op,
+            };
+
+            if (! str_starts_with(end($rejected) ?: '', 'unknown comparison')) {
+                $applied[] = trim($field . ' ' . $op . ' ' . (string) $value);
+            }
+        }
+
+        return [$applied, $rejected];
+    }
+
+    private function applySearch(Builder $query, mixed $text, array $entity, array $columns): void
+    {
+        $text = $this->text($text);
+        if (! $text) {
+            return;
+        }
+
+        $searchable = array_values(array_intersect($entity['search'] ?? [], $columns));
+        if ($searchable === []) {
+            return;
+        }
+
+        $query->where(function ($w) use ($searchable, $text) {
+            foreach ($searchable as $column) {
+                $w->orWhere($column, 'like', "%{$text}%");
+            }
+        });
+    }
+
+    /**
+     * What to show when the model did not choose: identity first, timestamps
+     * last, and never more than a screenful of columns.
+     *
+     * @param  array<int,string>  $columns
+     * @return array<int,string>
+     */
+    private function defaultFields(array $columns, array $entity): array
+    {
+        $preferred = array_values(array_intersect(
+            array_merge(['id'], $entity['search'] ?? [], array_keys(self::LABEL_ALIAS)),
+            $columns,
+        ));
+
+        $rest = array_values(array_diff($columns, $preferred, self::DULL_COLUMNS));
+
+        return array_slice(array_merge($preferred, $rest), 0, 12);
+    }
+
+    /**
+     * Turn the foreign keys in a set of rows into names, in one query per kind
+     * rather than one per row.
+     *
+     * @param  array<int,array<string,mixed>>  $rows
+     * @param  array<int,string>  $fields
+     * @return array<int,array<string,mixed>>
+     */
+    private function labelRows(array $rows, array $fields): array
+    {
+        foreach (LmsDataMap::LABELS as $column => $target) {
+            $ids = array_values(array_unique(array_filter(array_column($rows, $column))));
+            if ($ids === []) {
+                continue;
+            }
+
+            $names = $target['model']::query()->whereIn('id', $ids)->pluck($target['column'], 'id');
+            $alias = self::LABEL_ALIAS[$column] ?? str_replace('_id', '', $column);
+
+            foreach ($rows as $i => $row) {
+                if (! empty($row[$column]) && isset($names[$row[$column]])) {
+                    $rows[$i][$alias] = $names[$row[$column]];
+                }
+                // The raw id is noise once it has a name — unless it was asked for.
+                if (! in_array($column, $fields, true)) {
+                    unset($rows[$i][$column]);
+                }
+            }
+        }
+
+        return array_map(fn (array $row) => $this->clean($row), $rows);
+    }
+
+    /**
+     * @param  array<int,array{group:mixed,value:mixed}>  $rows
+     * @return array<int,array<string,mixed>>
+     */
+    private function labelGroups(array $rows, string $column): array
+    {
+        $target = LmsDataMap::LABELS[$column] ?? null;
+        if (! $target) {
+            return $rows;
+        }
+
+        $ids   = array_values(array_unique(array_filter(array_column($rows, 'group'))));
+        $names = $ids === [] ? collect() : $target['model']::query()->whereIn('id', $ids)->pluck($target['column'], 'id');
+
+        return array_map(fn (array $row) => [
+            'group' => $names[$row['group']] ?? $row['group'],
+            'value' => $row['value'],
+        ], $rows);
+    }
+
+    private function number(mixed $value): int|float|null
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $number = (float) $value;
+
+        return floor($number) == $number ? (int) $number : round($number, 2);
+    }
+
+    // ══════════════════════════════════════════════════════════════════
     // Recent records
     // ══════════════════════════════════════════════════════════════════
 
@@ -1778,6 +2203,17 @@ class LmsToolbox
     private function int(string $description): array
     {
         return ['type' => 'INTEGER', 'description' => $description];
+    }
+
+    private function bool(string $description): array
+    {
+        return ['type' => 'BOOLEAN', 'description' => $description];
+    }
+
+    /** @param  array<string,mixed>  $items */
+    private function arr(string $description, array $items): array
+    {
+        return ['type' => 'ARRAY', 'description' => $description, 'items' => $items];
     }
 
     private function enum(array $values, string $description): array

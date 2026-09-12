@@ -197,6 +197,13 @@ class GeminiAssistant
           averages and one student's result all come from the exam marks tool —
           call it before saying marks are unavailable, and pass the class the
           user named.
+        - NEVER answer that something "is not available in this panel" before
+          you have looked. If no purpose-built tool fits the question, call
+          describe_data to see the record types and their exact fields, then
+          query_records or aggregate_records. Almost every column of every
+          record the panel stores is readable that way — photos, addresses,
+          routes, statuses, dates, amounts. Only say the data is missing after
+          a tool has come back empty.
         - Lead with the direct answer in one line. Add a short markdown table or
           bullets only when there are several rows to show. Keep it under ~150
           words unless a list genuinely needs more.
