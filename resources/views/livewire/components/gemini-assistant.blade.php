@@ -15,6 +15,191 @@
                 recog: null,
                 supportsVoice: !!(window.SpeechRecognition || window.webkitSpeechRecognition),
 
+                // ── Taking things out of the panel ──────────────────
+                // Everything below reads the rendered bubble in the DOM rather
+                // than the markdown behind it: what you see is what you copy.
+                toast: '',
+
+                flash(message) {
+                    this.toast = message;
+                    clearTimeout(this._toastTimer);
+                    this._toastTimer = setTimeout(() => { this.toast = ''; }, 1800);
+                },
+
+                bubble(el) {
+                    return el.closest('[data-gem-row]')?.querySelector('[data-gem-bubble]') || null;
+                },
+
+                async writeClipboard(text) {
+                    if (! text) return false;
+
+                    try {
+                        await navigator.clipboard.writeText(text);
+                        return true;
+                    } catch (e) {
+                        // navigator.clipboard needs a secure context; the old
+                        // textarea trick still works where it is missing.
+                        const box = document.createElement('textarea');
+                        box.value = text;
+                        box.setAttribute('readonly', '');
+                        box.style.position = 'fixed';
+                        box.style.top = '-1000px';
+                        document.body.appendChild(box);
+                        box.select();
+                        let ok = false;
+                        try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+                        box.remove();
+                        return ok;
+                    }
+                },
+
+                saveBlob(blob, name) {
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = name;
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    setTimeout(() => URL.revokeObjectURL(url), 5000);
+                },
+
+                async saveUrl(url, name) {
+                    try {
+                        const blob = await (await fetch(url, { mode: 'cors' })).blob();
+                        const ext = (blob.type.split('/')[1] || '').split('+')[0].replace('jpeg', 'jpg');
+                        const named = /\.[a-z0-9]{2,5}$/i.test(name) || ! ext ? name : name + '.' + ext;
+                        this.saveBlob(blob, named);
+                        return true;
+                    } catch (e) {
+                        // A cross-origin file without CORS headers cannot be
+                        // read here — hand it to the browser instead of failing.
+                        window.open(url, '_blank', 'noopener');
+                        return false;
+                    }
+                },
+
+                async copyMessage(el) {
+                    const bubble = this.bubble(el);
+                    if (! bubble) return;
+                    this.flash(await this.writeClipboard(bubble.innerText.trim()) ? 'Copied' : 'Copy failed');
+                },
+
+                async copyInput() {
+                    const text = (this.$refs.input?.value || '').trim();
+                    if (! text) { this.flash('Nothing to copy'); return; }
+                    this.flash(await this.writeClipboard(text) ? 'Copied' : 'Copy failed');
+                },
+
+                // ── Tables ──
+                readTables(el) {
+                    return [...(this.bubble(el)?.querySelectorAll('table') || [])].map((table) => {
+                        const rows = [...table.rows].map((row) =>
+                            [...row.cells].map((cell) => cell.innerText.trim().replace(/\s+/g, ' ')));
+
+                        return { headers: table.tHead ? (rows.shift() || []) : [], rows };
+                    });
+                },
+
+                async copyTable(el) {
+                    // Tab-separated, so it pastes into Excel or Sheets as cells
+                    // rather than as one long line.
+                    const text = this.readTables(el)
+                        .map((t) => [t.headers, ...t.rows].filter((r) => r.length).map((r) => r.join('\t')).join('\n'))
+                        .filter(Boolean).join('\n\n');
+
+                    this.flash(await this.writeClipboard(text) ? 'Table copied' : 'Copy failed');
+                },
+
+                async tablePdf(el) {
+                    const tables = this.readTables(el).filter((t) => t.headers.length || t.rows.length);
+                    if (! tables.length) return;
+
+                    this.flash('Making PDF…');
+
+                    try {
+                        const response = await fetch('{{ route('assistant.table-pdf') }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/pdf',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            },
+                            body: JSON.stringify({ title: 'LMS Assistant', tables }),
+                        });
+
+                        if (! response.ok) throw new Error(response.status);
+
+                        this.saveBlob(await response.blob(), 'lms-assistant-table.pdf');
+                        this.flash('PDF downloaded');
+                    } catch (e) {
+                        this.flash('PDF failed');
+                    }
+                },
+
+                // ── Images ──
+                readImages(el) {
+                    return [...(this.bubble(el)?.querySelectorAll('img') || [])];
+                },
+
+                async copyImage(el) {
+                    const image = this.readImages(el)[0];
+                    if (! image) return;
+
+                    try {
+                        const blob = await (await fetch(image.src, { mode: 'cors' })).blob();
+                        // The clipboard only takes PNG; anything else goes
+                        // through a canvas first.
+                        const png = blob.type === 'image/png' ? blob : await this.toPng(image);
+                        await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+                        this.flash('Image copied');
+                    } catch (e) {
+                        this.flash('Copy blocked — use Save');
+                    }
+                },
+
+                toPng(image) {
+                    return new Promise((resolve, reject) => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = image.naturalWidth;
+                        canvas.height = image.naturalHeight;
+                        canvas.getContext('2d').drawImage(image, 0, 0);
+                        canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('no blob')), 'image/png');
+                    });
+                },
+
+                async saveImages(el) {
+                    const images = this.readImages(el);
+                    if (! images.length) return;
+
+                    for (const [index, image] of images.entries()) {
+                        await this.saveUrl(image.src, 'assistant-image-' + (index + 1));
+                    }
+                    this.flash(images.length > 1 ? 'Images downloaded' : 'Image downloaded');
+                },
+
+                // ── Files and documents behind links ──
+                readLinks(el) {
+                    return [...(this.bubble(el)?.querySelectorAll('a[href]') || [])]
+                        .filter((a) => /^https?:/i.test(a.href));
+                },
+
+                async copyLinks(el) {
+                    const urls = this.readLinks(el).map((a) => a.href).join('\n');
+                    this.flash(await this.writeClipboard(urls) ? 'Link copied' : 'Copy failed');
+                },
+
+                async saveFiles(el) {
+                    const links = this.readLinks(el);
+                    if (! links.length) return;
+
+                    for (const link of links) {
+                        const guess = (link.href.split('?')[0].split('/').pop() || 'file');
+                        await this.saveUrl(link.href, guess);
+                    }
+                    this.flash('Download started');
+                },
+
                 scrollDown() {
                     this.$nextTick(() => {
                         const box = this.$refs.stream;
@@ -95,6 +280,12 @@
                 @keyframes gem-pulse { 0% { box-shadow: 0 0 0 0 rgba(220,38,38,.45); } 70% { box-shadow: 0 0 0 10px rgba(220,38,38,0); } 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); } }
                 .gem-listening { animation: gem-pulse 1.4s infinite; }
 
+                /* Copy / download chips under a bubble. Always visible rather
+                   than hover-only: half the panel's users are on a phone. */
+                .gem-act { font-size: 10.5px; line-height: 1; padding: 3.5px 7px; border-radius: 6px;
+                           color: #6b7280; background: #fff; border: 1px solid #e5e7eb; white-space: nowrap; }
+                .gem-act:hover { color: #111827; background: #f9fafb; border-color: #d1d5db; }
+
             </style>
 
             {{-- ───────────── Chat panel ───────────── --}}
@@ -112,7 +303,12 @@
                             width="36" height="36" class="w-9 h-9 object-contain flex-shrink-0">
                         <div class="min-w-0 flex-1">
                             <h2 class="text-lg font-semibold text-gray-900 leading-tight">LMS Assistant</h2>
-                            <p class="text-xs text-gray-500 mt-0.5 truncate">Gemini · {{ $scopeLabel }} data only</p>
+                            {{-- One line does double duty: what the panel can see, and the
+                                 last copy/download result, so a chip never acts silently. --}}
+                            <p class="text-xs mt-0.5 truncate">
+                                <span x-show="! toast" class="text-gray-500">Gemini · {{ $scopeLabel }} data only</span>
+                                <span x-show="toast" x-cloak x-text="toast" class="text-blue-600 font-medium"></span>
+                            </p>
                         </div>
                         {{-- The day's shared allowance, at a glance. --}}
                         <span title="Questions left today for everyone in this account. Resets {{ $resetsAt }}."
@@ -153,13 +349,39 @@
 
                         @foreach ($messages as $i => $message)
                             @if ($message['role'] === 'user')
-                                <div wire:key="gm-{{ $i }}" class="flex justify-end">
-                                    <div class="max-w-[85%] px-3 py-2 rounded-2xl rounded-br-sm bg-blue-600 text-white text-[13px] leading-relaxed whitespace-pre-wrap break-words">{{ $message['text'] }}</div>
+                                <div wire:key="gm-{{ $i }}" data-gem-row class="flex flex-col items-end">
+                                    <div data-gem-bubble class="max-w-[85%] px-3 py-2 rounded-2xl rounded-br-sm bg-blue-600 text-white text-[13px] leading-relaxed whitespace-pre-wrap break-words">{{ $message['text'] }}</div>
+                                    <div class="mt-1 flex items-center gap-1">
+                                        <button type="button" class="gem-act" x-on:click="copyMessage($el)">Copy</button>
+                                    </div>
                                 </div>
                             @else
-                                <div wire:key="gm-{{ $i }}" class="flex justify-start">
-                                    <div class="gem-md max-w-[90%] px-3 py-2 rounded-2xl rounded-bl-sm bg-white border border-gray-200 text-[13px] leading-relaxed text-gray-700 break-words overflow-x-auto">
-                                        {!! $this->html($message['text']) !!}
+                                @php
+                                    // What the bubble will actually contain decides which chips it
+                                    // gets — no point offering "Download PDF" on a one-line answer.
+                                    $rendered = $this->html($message['text']);
+                                    $hasTable = str_contains($rendered, '<table');
+                                    $hasImage = str_contains($rendered, '<img');
+                                    $hasLink  = str_contains($rendered, '<a href');
+                                @endphp
+                                <div wire:key="gm-{{ $i }}" data-gem-row class="flex flex-col items-start">
+                                    <div data-gem-bubble class="gem-md max-w-[90%] px-3 py-2 rounded-2xl rounded-bl-sm bg-white border border-gray-200 text-[13px] leading-relaxed text-gray-700 break-words overflow-x-auto">
+                                        {!! $rendered !!}
+                                    </div>
+                                    <div class="mt-1 flex flex-wrap items-center gap-1">
+                                        <button type="button" class="gem-act" x-on:click="copyMessage($el)">Copy</button>
+                                        @if ($hasTable)
+                                            <button type="button" class="gem-act" x-on:click="copyTable($el)">Copy table</button>
+                                            <button type="button" class="gem-act" x-on:click="tablePdf($el)">Table PDF</button>
+                                        @endif
+                                        @if ($hasImage)
+                                            <button type="button" class="gem-act" x-on:click="copyImage($el)">Copy image</button>
+                                            <button type="button" class="gem-act" x-on:click="saveImages($el)">Save image</button>
+                                        @endif
+                                        @if ($hasLink)
+                                            <button type="button" class="gem-act" x-on:click="copyLinks($el)">Copy link</button>
+                                            <button type="button" class="gem-act" x-on:click="saveFiles($el)">Save file</button>
+                                        @endif
                                     </div>
                                 </div>
                             @endif
@@ -201,6 +423,12 @@
                                 x-bind:disabled="$wire.pending"
                                 placeholder="{{ 'Ask about students, fees, attendance…' }}"
                                 class="flex-1 resize-none max-h-28 px-3 py-2 border border-gray-300 rounded-xl text-[13px] focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"></textarea>
+
+                            {{-- Copy the question you typed, before or after sending. --}}
+                            <button type="button" x-on:click="copyInput()" title="Copy what you typed"
+                                class="w-9 h-9 flex items-center justify-center rounded-xl flex-shrink-0 bg-gray-100 text-gray-500 hover:bg-gray-200">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                            </button>
 
                             <template x-if="supportsVoice">
                                 <button type="button" x-on:click="toggleVoice()"

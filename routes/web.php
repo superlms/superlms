@@ -122,6 +122,12 @@ Route::get('/chat/attachment/{message}', [\App\Http\Controllers\Chat\AttachmentC
     ->whereNumber('message')
     ->name('chat.attachment');
 
+// The LMS assistant's "download as PDF": the panel posts the ROWS of a table it
+// has already shown, and gets the same table back as a file. Registered before
+// website.php so the {organization} wildcard does not swallow it.
+Route::post('/assistant/table-pdf', [\App\Http\Controllers\AssistantExportController::class, 'tablePdf'])
+    ->name('assistant.table-pdf');
+
 //SuperLMS Website (must be before admin — avoids {organization} wildcard swallowing /web/* routes)
 require __DIR__.'/website.php';
 
