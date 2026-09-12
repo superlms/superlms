@@ -3,9 +3,10 @@
 
     It has no launcher of its own — the top bar owns that button (next to the
     notification bell) and flips this open with a `gemini-toggle` browser event,
-    so opening it costs no server round-trip. The panel drops from under the top
-    bar on the right, below the navbar rather than over it, and is capped to the
-    height left underneath.
+    so opening it costs no server round-trip. The panel itself is the house
+    slide-in shell — the same `fixed inset-x-0 bottom-0 top-16` frame the
+    certificate and student panels use — so it sits BELOW the navbar, never
+    over it.
 --}}
 <div>
     @if ($enabled)
@@ -94,63 +95,56 @@
                 @keyframes gem-pulse { 0% { box-shadow: 0 0 0 0 rgba(220,38,38,.45); } 70% { box-shadow: 0 0 0 10px rgba(220,38,38,0); } 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); } }
                 .gem-listening { animation: gem-pulse 1.4s infinite; }
 
-                /* Panel size. Written as real CSS rather than `sm:w-[520px]`
-                   because the Tailwind bundle is only rebuilt in the image
-                   build — a brand-new arbitrary utility would not exist in a
-                   stale public/build. Full-bleed on a phone, a comfortable
-                   column from sm up, always capped to the space under the top
-                   bar. */
-                .gem-panel { height: 760px; max-height: calc(100vh - 5.5rem); }
-                @media (min-width: 640px) { .gem-panel { width: 520px; } }
             </style>
 
-            {{-- ───────────── Chat window ───────────── --}}
+            {{-- ───────────── Chat panel ───────────── --}}
             @if ($open)
-                {{-- Click-away layer: closes the panel without dimming the page,
-                     so the screen behind it stays readable while you ask. --}}
-                <div class="fixed inset-0 z-[69]" wire:click="close"></div>
-
-                <div class="gem-panel fixed z-[70] bg-white shadow-2xl border border-gray-200 flex flex-col
-                            overflow-hidden inset-x-3 top-[4.25rem] rounded-2xl
-                            sm:inset-x-auto sm:right-5">
+                {{-- The house slide-in shell: starts under the navbar, anchored
+                     right, full height, behind it the same barely-there scrim
+                     every other panel uses. --}}
+                <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
+                    <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="close"></div>
+                    <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col" wire:click.stop>
 
                     {{-- Header --}}
-                    <div class="flex items-center gap-2.5 px-4 py-3 border-b border-gray-200 flex-shrink-0">
+                    <div class="flex items-center gap-3 px-6 py-4 border-b border-gray-200 flex-shrink-0">
                         <img src="{{ asset('website-image/Group 11525.png') }}" alt=""
-                            width="32" height="32" class="w-8 h-8 object-contain flex-shrink-0">
+                            width="36" height="36" class="w-9 h-9 object-contain flex-shrink-0">
                         <div class="min-w-0 flex-1">
-                            <p class="text-sm font-semibold text-gray-900 leading-tight">LMS Assistant</p>
-                            <p class="text-[11px] text-gray-400 leading-tight truncate">Gemini · {{ $scopeLabel }} data only</p>
+                            <h2 class="text-lg font-semibold text-gray-900 leading-tight">LMS Assistant</h2>
+                            <p class="text-xs text-gray-500 mt-0.5 truncate">Gemini · {{ $scopeLabel }} data only</p>
                         </div>
                         {{-- The day's shared allowance, at a glance. --}}
                         <span title="Questions left today for everyone in this account. Resets {{ $resetsAt }}."
-                            class="text-[11px] font-semibold px-1.5 py-0.5 rounded-md flex-shrink-0
+                            class="text-xs font-semibold px-2 py-1 rounded-md flex-shrink-0
                                    {{ $remaining === 0 ? 'bg-red-50 text-red-600' : ($remaining <= 5 ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500') }}">
                             {{ $remaining }}/{{ $dailyLimit }}
                         </span>
                         @if (count($messages))
                             <button type="button" wire:click="clear" title="Clear chat"
-                                class="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M4 7h16M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" /></svg>
+                                class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M4 7h16M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" /></svg>
                             </button>
                         @endif
                         <button type="button" wire:click="close" title="Close"
-                            class="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                            class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                     </div>
 
                     {{-- Stream --}}
-                    <div x-ref="stream" x-init="scrollDown()" class="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-gray-50">
+                    <div x-ref="stream" x-init="scrollDown()" class="flex-1 overflow-y-auto px-6 py-5 space-y-3 bg-gray-50">
                         @if (empty($messages))
-                            <div class="text-center pt-6 pb-3">
-                                <p class="text-sm font-semibold text-gray-700">Ask about your LMS data</p>
-                                <p class="text-xs text-gray-400 mt-1 px-3">Students, fees, attendance, staff, certificates — type or speak, in English or Hindi.</p>
+                            <div class="text-center pt-8 pb-4">
+                                <p class="text-base font-semibold text-gray-700">Ask about your LMS data</p>
+                                <p class="text-xs text-gray-400 mt-1 px-6">Students, fees, attendance, staff, certificates — type or speak, in English or Hindi.</p>
                             </div>
-                            <div class="space-y-2">
+                            {{-- Two-up: a single column of short prompts looked
+                                 stranded once the panel got this wide. --}}
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 @foreach ($suggestions as $i => $suggestion)
                                     <button type="button" wire:click="useSuggestion({{ $i }})"
-                                        class="w-full text-left px-3 py-2 text-xs text-gray-700 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50/50">
+                                        class="w-full h-full text-left px-3.5 py-2.5 text-xs text-gray-700 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50/50">
                                         {{ $suggestion }}
                                     </button>
                                 @endforeach
@@ -186,7 +180,7 @@
                     </div>
 
                     {{-- Composer --}}
-                    <div class="border-t border-gray-200 p-3 flex-shrink-0 bg-white">
+                    <div class="border-t border-gray-200 px-6 py-3.5 flex-shrink-0 bg-white">
                         @if ($remaining === 0)
                             {{-- Out of questions: say so, and say exactly when it comes back. --}}
                             <div class="flex items-start gap-2 px-3 py-2.5 bg-red-50 border border-red-200 rounded-xl">
@@ -228,6 +222,8 @@
                         </p>
                         <p class="mt-1.5 text-[10px] text-red-500 text-center" x-show="listening" x-cloak>Listening… speak now</p>
                         @endif
+                    </div>
+
                     </div>
                 </div>
             @endif
