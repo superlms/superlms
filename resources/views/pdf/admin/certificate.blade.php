@@ -39,7 +39,8 @@
              what keeps the lower third of the page from reading as dead paper. --}}
         .footer { position: absolute; left: 24mm; right: 24mm; bottom: 36mm; }
         .footer-table { width: 100%; }
-        .footer-table td { vertical-align: bottom; font-size: 11pt; color: #374151; }
+        {{-- Date matches the signature block's size — they read as one line of footing. --}}
+        .footer-table td { vertical-align: bottom; font-size: 9pt; color: #374151; }
 
         .seal-outer { width: 26mm; height: 26mm; margin: 0 auto; border: 1.5px solid #c9a24b; border-radius: 13mm; }
         .seal-inner { width: 21mm; height: 21mm; margin: 2mm auto 0; border: 0.8px solid #e6ce90; border-radius: 10.5mm; text-align: center; }
@@ -48,7 +49,7 @@
         .seal-year { font-size: 8pt; font-weight: bold; color: #8a6d1f; margin-top: 0.6mm; }
 
         {{-- No rule above the issuer's name — the signature sits on bare paper. --}}
-        .sig-rule { width: 55mm; margin-left: auto; text-align: center; font-size: 9pt; color: #6b7280; }
+        .sig-rule { width: 44mm; margin-left: auto; text-align: center; font-size: 9pt; color: #6b7280; }
 
         .contact { position: absolute; left: 24mm; right: 24mm; bottom: 17mm; }
         .contact-table { width: 100%; }

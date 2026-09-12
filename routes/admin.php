@@ -167,9 +167,13 @@ Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
         //Certificate PDF Download Routes
         Route::get('/certificates/{id}/download', [CertificatePdfController::class, 'downloadCert'])
             ->name('admin.cert.download');
+        Route::get('/certificates/{id}/view', [CertificatePdfController::class, 'viewCert'])
+            ->name('admin.cert.view');
 
         Route::get('/tc/{id}/download', [CertificatePdfController::class, 'downloadTc'])
             ->name('admin.tc.download');
+        Route::get('/tc/{id}/view', [CertificatePdfController::class, 'viewTc'])
+            ->name('admin.tc.view');
 
         // Report Card PDF Routes
         Route::get('/report-card/{id}/download', [ReportCardController::class, 'download'])

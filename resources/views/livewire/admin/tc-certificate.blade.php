@@ -545,55 +545,17 @@
             $pv     = $previewCert ?: $previewTc;
             $isTc   = (bool) $previewTc;
             $pvStu  = $pv->student;
-            $pvRows = $isTc
-                ? [
-                    'TC No'               => $pv->tc_no,
-                    'Book No'             => $pv->book_no ?: 'N/A',
-                    'Student'             => $pvStu->full_name ?? 'N/A',
-                    'Admission No'        => $pvStu->admission_no ?? 'N/A',
-                    'Class'               => $pvStu->standard->name ?? 'N/A',
-                    'Section'             => $pvStu->section->name ?? 'N/A',
-                    "Father's Name"       => $pvStu->father_name ?? 'N/A',
-                    "Mother's Name"       => $pvStu->mother_name ?? 'N/A',
-                    'Nationality'         => $pv->nationality,
-                    'SC / ST'             => $pv->is_sc_st ? 'Yes' : 'No',
-                    'Class Last Studied'  => $pv->last_class_studied ?: 'N/A',
-                    'Exam Last Taken'     => $pv->exam_last_taken ?: 'N/A',
-                    'Whether Failed'      => $pv->whether_failed,
-                    'Subjects Studied'    => $pv->subjects_studied ?: 'N/A',
-                    'Qualified for Promotion' => $pv->qualified_for_promotion,
-                    'Fees Paid Upto'      => $pv->fees_paid_upto ?: 'N/A',
-                    'Fee Concession'      => $pv->fee_concession ?: 'None',
-                    'Total Working Days'  => $pv->total_working_days,
-                    'Days Present'        => $pv->days_present,
-                    'NCC / Scout / Guide' => $pv->is_ncc_scout,
-                    'Extra Activities'    => $pv->extra_activities ?: 'None',
-                    'General Conduct'     => $pv->general_conduct,
-                    'Application Date'    => $pv->application_date?->format('d M Y') ?? 'N/A',
-                    'Issue Date'          => $pv->issue_date?->format('d M Y') ?? 'N/A',
-                    'Reason for Leaving'  => $pv->reason_for_leaving ?: 'N/A',
-                    'Remarks'             => $pv->remarks ?: 'No',
-                ]
-                : [
-                    'Certificate No' => $pv->certificate_no,
-                    'Type'           => ucfirst($pv->type),
-                    'Student'        => $pvStu->full_name ?? 'N/A',
-                    'Admission No'   => $pvStu->admission_no ?? 'N/A',
-                    'Class'          => $pvStu->standard->name ?? 'N/A',
-                    'Section'        => $pvStu->section->name ?? 'N/A',
-                    'Event'          => $pv->event_name,
-                    'Description'    => $pv->description ?: '—',
-                    'Issued By'      => $pv->issued_by,
-                    'Designation'    => $pv->issued_by_designation ?: 'N/A',
-                    'Issued Date'    => $pv->issued_date?->format('d M Y') ?? 'N/A',
-                ];
             $pvPdf = $isTc
                 ? route('admin.tc.download', ['organization' => auth()->user()->organization_id, 'id' => $pv->id])
                 : route('admin.cert.download', ['organization' => auth()->user()->organization_id, 'id' => $pv->id]);
+            // Streamed inline: the panel shows the printed certificate itself, not the fields behind it.
+            $pvView = $isTc
+                ? route('admin.tc.view', ['organization' => auth()->user()->organization_id, 'id' => $pv->id])
+                : route('admin.cert.view', ['organization' => auth()->user()->organization_id, 'id' => $pv->id]);
         @endphp
         <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closePreview"></div>
-            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col" wire:click.stop>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col" wire:click.stop>
 
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div class="min-w-0">
@@ -608,13 +570,9 @@
                     </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-                    @foreach ($pvRows as $label => $value)
-                        <div class="grid grid-cols-3 gap-3 text-sm">
-                            <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
-                            <span class="col-span-2 text-gray-800 font-medium break-words">{{ $value }}</span>
-                        </div>
-                    @endforeach
+                <div class="flex-1 overflow-hidden bg-gray-100">
+                    <iframe src="{{ $pvView }}#toolbar=0&amp;navpanes=0&amp;view=FitH"
+                        class="w-full h-full border-0" title="{{ $isTc ? 'Transfer Certificate' : 'Certificate' }}"></iframe>
                 </div>
 
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between flex-shrink-0">

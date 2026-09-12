@@ -93,7 +93,9 @@ Route::prefix('accounts')->group(function () {
             Route::get('/report-card/{id}/print', [\App\Http\Controllers\Admin\ReportCardController::class, 'print'])->name('accounts.report-card.print');
             Route::get('/tc-certificate', TcCertificate::class)->name('accounts.tc-certificate');
             Route::get('/certificates/{id}/download', [\App\Http\Controllers\Admin\CertificatePdfController::class, 'downloadCert'])->name('accounts.cert.download');
+            Route::get('/certificates/{id}/view', [\App\Http\Controllers\Admin\CertificatePdfController::class, 'viewCert'])->name('accounts.cert.view');
             Route::get('/tc/{id}/download', [\App\Http\Controllers\Admin\CertificatePdfController::class, 'downloadTc'])->name('accounts.tc.download');
+            Route::get('/tc/{id}/view', [\App\Http\Controllers\Admin\CertificatePdfController::class, 'viewTc'])->name('accounts.tc.view');
             Route::get('/profile', Profile::class)->name('accounts.profile');
             Route::get('/messages', Messenger::class)->name('accounts.messages');
             Route::get('/notification', Notification::class)->name('accounts.notification');

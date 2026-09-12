@@ -46,31 +46,74 @@ class CertificatePdfController extends Controller
     }
 
     /**
-     * Download Achievement / Participation certificate as PDF
-     * Route: GET /admin/certificates/{id}/download
+     * Shared paper setup, so the on-screen preview and the downloaded file are
+     * rendered from the very same template and options — what you view is what
+     * you print.
      */
-    public function downloadCert($organization, int $id): Response
+    private function render(string $view, string $key, $model): \Barryvdh\DomPDF\PDF
     {
-        // NOTE: the route is /{organization}/certificates/{id}/download — TWO params.
-        // Scalar controller args are filled positionally, so $organization MUST be
-        // declared first or $id would receive the organization value (the #4-vs-#1 bug).
-        Log::info('cert.download hit', ['id' => $id, 'user' => Auth::id(), 'org' => Auth::user()?->organization_id]);
-
-        $cert = Certificate::with(['student', 'organization'])->find($id);
-        if (! $cert || $cert->organization_id !== Auth::user()?->organization_id) {
-            return $this->notFound('certificate', $id, Certificate::class, 'certificates');
-        }
-
-        $pdf = Pdf::loadView('pdf.admin.certificate', compact('cert'))
+        return Pdf::loadView($view, [$key => $model])
             ->setPaper('a4', 'portrait')
             ->setOption('dpi', 150)
             ->setOption('isHtml5ParserEnabled', true)
             ->setOption('isRemoteEnabled', true)
             ->setOption('defaultFont', 'DejaVu Sans');
+    }
 
-        $filename = 'certificate_' . ($cert->certificate_no ?? $cert->id) . '.pdf';
+    /**
+     * NOTE: these routes are /{organization}/certificates/{id}/... — TWO params.
+     * Scalar controller args are filled positionally, so $organization MUST be
+     * declared first or $id would receive the organization value (the #4-vs-#1 bug).
+     */
+    private function findCert(int $id): Certificate|Response
+    {
+        $cert = Certificate::with(['student', 'organization'])->find($id);
 
-        return $pdf->download($filename);
+        return (! $cert || $cert->organization_id !== Auth::user()?->organization_id)
+            ? $this->notFound('certificate', $id, Certificate::class, 'certificates')
+            : $cert;
+    }
+
+    private function findTc(int $id): TransferCertificate|Response
+    {
+        $tc = TransferCertificate::with(['student', 'organization'])->find($id);
+
+        return (! $tc || $tc->organization_id !== Auth::user()?->organization_id)
+            ? $this->notFound('transfer certificate', $id, TransferCertificate::class, 'transfer_certificates')
+            : $tc;
+    }
+
+    /**
+     * Download Achievement / Participation certificate as PDF
+     * Route: GET /admin/certificates/{id}/download
+     */
+    public function downloadCert($organization, int $id): Response
+    {
+        Log::info('cert.download hit', ['id' => $id, 'user' => Auth::id(), 'org' => Auth::user()?->organization_id]);
+
+        $cert = $this->findCert($id);
+        if ($cert instanceof Response) {
+            return $cert;
+        }
+
+        return $this->render('pdf.admin.certificate', 'cert', $cert)
+            ->download('certificate_' . ($cert->certificate_no ?? $cert->id) . '.pdf');
+    }
+
+    /**
+     * Same certificate, streamed inline so the View panel can show the printed
+     * page itself instead of a list of the fields behind it.
+     * Route: GET /admin/certificates/{id}/view
+     */
+    public function viewCert($organization, int $id): Response
+    {
+        $cert = $this->findCert($id);
+        if ($cert instanceof Response) {
+            return $cert;
+        }
+
+        return $this->render('pdf.admin.certificate', 'cert', $cert)
+            ->stream('certificate_' . ($cert->certificate_no ?? $cert->id) . '.pdf');
     }
 
     /**
@@ -79,23 +122,28 @@ class CertificatePdfController extends Controller
      */
     public function downloadTc($organization, int $id): Response
     {
-        // Same two-param route shape as downloadCert — $organization first (positional).
         Log::info('tc.download hit', ['id' => $id, 'user' => Auth::id(), 'org' => Auth::user()?->organization_id]);
 
-        $tc = TransferCertificate::with(['student', 'organization'])->find($id);
-        if (! $tc || $tc->organization_id !== Auth::user()?->organization_id) {
-            return $this->notFound('transfer certificate', $id, TransferCertificate::class, 'transfer_certificates');
+        $tc = $this->findTc($id);
+        if ($tc instanceof Response) {
+            return $tc;
         }
 
-        $pdf = Pdf::loadView('pdf.admin.tc-certificate', compact('tc'))
-            ->setPaper('a4', 'portrait')
-            ->setOption('dpi', 150)
-            ->setOption('isHtml5ParserEnabled', true)
-            ->setOption('isRemoteEnabled', true)
-            ->setOption('defaultFont', 'DejaVu Sans');
+        return $this->render('pdf.admin.tc-certificate', 'tc', $tc)
+            ->download('TC_' . ($tc->tc_no ?? $tc->id) . '.pdf');
+    }
 
-        $filename = 'TC_' . ($tc->tc_no ?? $tc->id) . '.pdf';
+    /**
+     * Route: GET /admin/tc/{id}/view
+     */
+    public function viewTc($organization, int $id): Response
+    {
+        $tc = $this->findTc($id);
+        if ($tc instanceof Response) {
+            return $tc;
+        }
 
-        return $pdf->download($filename);
+        return $this->render('pdf.admin.tc-certificate', 'tc', $tc)
+            ->stream('TC_' . ($tc->tc_no ?? $tc->id) . '.pdf');
     }
 }
