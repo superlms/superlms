@@ -8,12 +8,17 @@ use App\Models\Admin\Announcement;
 use App\Models\Admin\Book;
 use App\Models\Admin\Certificate;
 use App\Models\Admin\ContactSuperAdmin;
+use App\Models\Admin\AdminAttendance;
+use App\Models\Admin\AdminSalaryPayment;
 use App\Models\Admin\Exam;
+use App\Models\Admin\ExamCopy;
+use App\Models\Admin\ExamDatesheet;
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Admin\HomeWork;
 use App\Models\Admin\LedgerTransaction;
 use App\Models\Admin\RateLms;
+use App\Models\Admin\TeacherTimeTable;
 use App\Models\Admin\Transportation;
 use App\Models\Admin\TransferCertificate;
 use App\Models\Organization;
@@ -21,14 +26,17 @@ use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentAttendance;
 use App\Models\Student\StudentDetail;
+use App\Models\Student\Subject;
 use App\Models\SuperAdmin\CreditQuery;
 use App\Models\SuperAdmin\SuperAdminFeePayment;
+use App\Models\Teacher\TeacherAttendance;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\User;
 use App\Models\WebsiteDemo;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -36,6 +44,11 @@ use Illuminate\Support\Facades\Log;
  *
  * Every tool is a hand-written Eloquent query — the model never supplies SQL, a
  * table name or an organization id. Arguments are whitelisted and clamped here.
+ *
+ * READ-ONLY, and not merely by convention: every call runs inside a transaction
+ * that is always rolled back ({@see run()}), so nothing a tool touches can
+ * survive the call. Creating, updating or deleting anything is the panel's job,
+ * never the assistant's.
  *
  * ── Who can read what ────────────────────────────────────────────────────
  * One method decides it for every query: {@see effectiveOrganizationId()}.
@@ -56,6 +69,9 @@ use Illuminate\Support\Facades\Log;
 class LmsToolbox
 {
     private const MAX_ROWS = 40;
+
+    /** How day_of_week is stored on the timetable (1 = Monday). */
+    private const WEEKDAYS = [1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday', 7 => 'Sunday'];
 
     /** Record types only the platform panel may list. */
     private const PLATFORM_ENTITIES = ['credit_queries', 'support_messages', 'ratings', 'demo_requests', 'schools'];
@@ -99,26 +115,58 @@ class LmsToolbox
         }
 
         try {
-            return match ($name) {
-                'search_students'       => $this->searchStudents($args),
-                'student_profile'       => $this->studentProfile($args),
-                'class_roster'          => $this->classRoster($args),
-                'search_staff'          => $this->searchStaff($args),
-                'search_users'          => $this->searchUsers($args),
-                'fee_payments'          => $this->feePayments($args),
-                'fee_defaulters'        => $this->feeDefaulters($args),
-                'attendance_report'     => $this->attendanceReport($args),
-                'recent_records'        => $this->recentRecords($args),
-                'search_schools'        => $this->searchSchools($args),
-                'school_overview'       => $this->schoolOverview($args),
-                'platform_fee_payments' => $this->platformFeePayments($args),
-                default                 => ['error' => 'Tool not implemented.'],
-            };
+            // Read-only, enforced rather than promised: the whole call runs in a
+            // transaction we always roll back, so even a future tool that wrote
+            // something by accident could not leave it behind. Reads are
+            // unaffected.
+            DB::beginTransaction();
+
+            try {
+                return $this->dispatch($name, $args);
+            } finally {
+                DB::rollBack();
+            }
         } catch (\Throwable $e) {
             Log::warning('gemini.tool failed', ['tool' => $name, 'error' => $e->getMessage()]);
 
+            // A table this installation never got (the schema drifts between
+            // deployments). Say that, rather than letting the model report an
+            // empty result as "there is no data".
+            if (str_contains($e->getMessage(), "doesn't exist")) {
+                return ['error' => 'That module is not set up on this installation, so there is nothing to read.'];
+            }
+
             return ['error' => 'That data could not be read right now.'];
         }
+    }
+
+    /**
+     * @param  array<string,mixed>  $args
+     * @return array<string,mixed>
+     */
+    private function dispatch(string $name, array $args): array
+    {
+        return match ($name) {
+            'search_students'       => $this->searchStudents($args),
+            'student_profile'       => $this->studentProfile($args),
+            'class_roster'          => $this->classRoster($args),
+            'search_staff'          => $this->searchStaff($args),
+            'search_users'          => $this->searchUsers($args),
+            'fee_payments'          => $this->feePayments($args),
+            'fee_defaulters'        => $this->feeDefaulters($args),
+            'attendance_report'     => $this->attendanceReport($args),
+            'exam_results'          => $this->examResults($args),
+            'exam_schedule'         => $this->examSchedule($args),
+            'staff_attendance'      => $this->staffAttendance($args),
+            'payroll_report'        => $this->payrollReport($args),
+            'ledger_report'         => $this->ledgerReport($args),
+            'class_timetable'       => $this->classTimetable($args),
+            'recent_records'        => $this->recentRecords($args),
+            'search_schools'        => $this->searchSchools($args),
+            'school_overview'       => $this->schoolOverview($args),
+            'platform_fee_payments' => $this->platformFeePayments($args),
+            default                 => ['error' => 'Tool not implemented.'],
+        };
     }
 
     // ══════════════════════════════════════════════════════════════════
@@ -244,6 +292,73 @@ class LmsToolbox
                     'from'     => $this->str('Range start, YYYY-MM-DD.'),
                     'to'       => $this->str('Range end, YYYY-MM-DD.'),
                     'standard' => $this->str('Limit to one class.'),
+                ]),
+            ],
+            [
+                'name'        => 'exam_results',
+                'description' => 'Exam marks that have actually been entered, ranked best first. Use it for anything about marks, results, toppers or performance: "who scored the highest", "top 3 of nursery", "class average in Unit Test 1", "how did this student do". Each student comes back with marks obtained, maximum, percentage, grade and whether they were absent; with no subject named every subject is added up.' . $note,
+                'parameters'  => $this->schema($school + [
+                    'exam'     => $this->str('Exam name, e.g. "Unit Test 1". Leave out for the latest exam that has marks.'),
+                    'standard' => $this->str('Class name, e.g. "NURSERY", "10th".'),
+                    'section'  => $this->str('Section name, e.g. "A".'),
+                    'subject'  => $this->str('One subject, e.g. "COMPUTER". Leave out to total every subject.'),
+                    'student'  => $this->str('One student, by name or admission number. Returns their subject-wise marks.'),
+                    'limit'    => $this->int('How many students to list, best first (default 20, max 40) — pass 3 for "top 3".'),
+                ]),
+            ],
+            [
+                'name'        => 'exam_schedule',
+                'description' => 'The datesheet: which subject is examined on which date and at what time, for a class. Use for "when is the maths paper", "exam schedule of 10th".' . $note,
+                'parameters'  => $this->schema($school + [
+                    'exam'     => $this->str('Exam name. Leave out for the most recent datesheet.'),
+                    'standard' => $this->str('Class name.'),
+                    'section'  => $this->str('Section name.'),
+                    'limit'    => $this->int('Max papers to list (default 20, max 40).'),
+                ]),
+            ],
+            [
+                'name'        => 'staff_attendance',
+                'description' => 'Teacher and employee attendance (present / absent / half day / holiday) for a date or a range, with the names marked absent.' . $note,
+                'parameters'  => $this->schema($school + [
+                    'date'  => $this->str('A single day, YYYY-MM-DD. Defaults to today when no range is given.'),
+                    'from'  => $this->str('Range start, YYYY-MM-DD.'),
+                    'to'    => $this->str('Range end, YYYY-MM-DD.'),
+                    'type'  => $this->enum(['teacher', 'employee', 'any'], 'Which staff list (default any).'),
+                    'limit' => $this->int('Max names listed (default 20, max 40).'),
+                ]),
+            ],
+            [
+                'name'        => 'payroll_report',
+                'description' => 'Staff salary payments: totals paid and pending, by month, with the matching payment rows. Use for "salary paid this month", "whose salary is pending".' . $note,
+                'parameters'  => $this->schema($school + [
+                    'month'    => $this->str('One month, YYYY-MM.'),
+                    'from'     => $this->str('Range start, YYYY-MM-DD (on payment date).'),
+                    'to'       => $this->str('Range end, YYYY-MM-DD.'),
+                    'status'   => $this->enum(['paid', 'pending', 'any'], 'Filter by payment status (default any).'),
+                    'employee' => $this->str('One employee, by name.'),
+                    'limit'    => $this->int('Max rows (default 20, max 40).'),
+                ]),
+            ],
+            [
+                'name'        => 'ledger_report',
+                'description' => 'The school ledger: money in (credit) versus money out (expense) for a period, the net, and the matching entries. Use for "kharcha kitna hua", "expenses this month".' . $note,
+                'parameters'  => $this->schema($school + [
+                    'from'  => $this->str('Start date, YYYY-MM-DD.'),
+                    'to'    => $this->str('End date, YYYY-MM-DD.'),
+                    'type'  => $this->enum(['credit', 'expense', 'any'], 'Only money in, only money out, or both (default any).'),
+                    'party' => $this->str('Match the party / reason text.'),
+                    'limit' => $this->int('Max entries listed (default 20, max 40).'),
+                ]),
+            ],
+            [
+                'name'        => 'class_timetable',
+                'description' => 'Periods from the timetable — which subject, which teacher, which day and time — for one class and section, or for one teacher. Needs one school.',
+                'parameters'  => $this->schema($school + [
+                    'standard' => $this->str('Class name.'),
+                    'section'  => $this->str('Section name.'),
+                    'teacher'  => $this->str('Teacher name, to read that teacher\'s week instead of a class.'),
+                    'day'      => $this->str('One day, e.g. "Monday". Leave out for the whole week.'),
+                    'limit'    => $this->int('Max periods (default 40, max 40).'),
                 ]),
             ],
             [
@@ -824,6 +939,496 @@ class LmsToolbox
     }
 
     // ══════════════════════════════════════════════════════════════════
+    // Exams — marks and datesheet
+    // ══════════════════════════════════════════════════════════════════
+
+    /**
+     * Marks, read exactly the way the Performance screen reads them: one
+     * exam_copies row per student per subject. With no subject named the
+     * subjects are added up per student and the list is ranked by marks, so
+     * "top 3" is just a limit. An absent row stays a row but adds no marks —
+     * reporting it as a zero would libel the student.
+     */
+    private function examResults(array $a): array
+    {
+        $orgId = $this->effectiveOrganizationId($a);
+        $cross = $this->spansSchools($orgId);
+        $limit = $this->limit($a, 20);
+
+        $stdId = $this->standardId($a['standard'] ?? null, $orgId);
+        $secId = $this->sectionId($a['section'] ?? null, $stdId, $orgId);
+        $subId = $this->subjectId($a['subject'] ?? null, $orgId);
+        $stuId = $this->studentRefId($a['student'] ?? null, $orgId);
+
+        $base = $this->pin(ExamCopy::query(), $orgId);
+        if ($stdId) {
+            $base->where('standard_id', $stdId);
+        }
+        if ($secId) {
+            $base->where('section_id', $secId);
+        }
+        if ($subId) {
+            $base->where('subject_id', $subId);
+        }
+        if ($stuId) {
+            $base->where('student_detail_id', $stuId);
+        }
+
+        // No exam named: answer about the latest exam that actually has marks
+        // for this selection, rather than blending several exams into one list.
+        $examId = $this->examId($a['exam'] ?? null, $orgId) ?: (clone $base)->max('exam_id');
+        if ($examId) {
+            $base->where('exam_id', $examId);
+        }
+
+        $exam = $examId ? Exam::find($examId) : null;
+
+        $head = $this->clean([
+            'covers'  => $this->coverage($orgId),
+            'exam'    => $exam->exam_name ?? null,
+            'term'    => $exam->term ?? null,
+            'class'   => $stdId ? Standard::find($stdId)?->name : null,
+            'section' => $secId ? Section::find($secId)?->name : null,
+            'subject' => $subId ? Subject::find($subId)?->name : ($stuId || $stdId ? 'all subjects added up' : null),
+        ]);
+
+        $rows = (clone $base)
+            ->with(array_values(array_filter([
+                'studentDetail:id,full_name,admission_no,roll_no,standard_id,section_id',
+                'studentDetail.standard:id,name',
+                'studentDetail.section:id,name',
+                'subject:id,name',
+                $cross ? 'organization:id,name' : null,
+            ])))
+            ->limit(2000)
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return $head + [
+                'students' => [],
+                'note'     => 'No exam marks have been entered for this selection yet.',
+            ];
+        }
+
+        $grading = app(\App\Services\GradingService::class);
+
+        $totals = [];
+        foreach ($rows as $r) {
+            $sid = $r->student_detail_id;
+            $totals[$sid] ??= [
+                'school'       => $cross ? ($r->organization->name ?? null) : null,
+                'name'         => $r->studentDetail->full_name ?? null,
+                'roll_no'      => $r->studentDetail->roll_no ?? null,
+                'admission_no' => $r->studentDetail->admission_no ?? null,
+                'class'        => $r->studentDetail->standard->name ?? null,
+                'section'      => $r->studentDetail->section->name ?? null,
+                'obtained'     => 0.0,
+                'max'          => 0.0,
+                'subjects'     => [],
+                'absent_in'    => 0,
+            ];
+
+            $absent = (bool) $r->is_absent;
+            $totals[$sid]['max'] += (float) $r->max_marks;
+            if ($absent) {
+                $totals[$sid]['absent_in']++;
+            } else {
+                $totals[$sid]['obtained'] += (float) $r->marks_obtained;
+            }
+
+            $totals[$sid]['subjects'][] = $this->clean([
+                'subject'  => $r->subject->name ?? null,
+                'obtained' => $absent ? null : round((float) $r->marks_obtained, 2),
+                'max'      => round((float) $r->max_marks, 2),
+                'absent'   => $absent ?: null,
+            ]);
+        }
+
+        foreach ($totals as &$t) {
+            $t['obtained']   = round($t['obtained'], 2);
+            $t['max']        = round($t['max'], 2);
+            $t['percentage'] = $t['max'] > 0 ? round($t['obtained'] / $t['max'] * 100, 2) : null;
+            $t['grade']      = $t['percentage'] !== null ? ($grading->gradeLetter((float) $t['percentage']) ?: null) : null;
+            // Absent in everything: no percentage to speak of, just say so.
+            if ($t['absent_in'] > 0 && $t['obtained'] == 0.0) {
+                $t['grade'] = 'AB';
+            }
+        }
+        unset($t);
+
+        // Best first, percentage breaking ties — the Performance screen's order.
+        uasort($totals, function ($x, $y) {
+            $byMarks = $y['obtained'] <=> $x['obtained'];
+
+            return $byMarks !== 0 ? $byMarks : (($y['percentage'] ?? 0) <=> ($x['percentage'] ?? 0));
+        });
+
+        $scored  = array_values(array_filter($totals, fn ($t) => $t['absent_in'] === 0 || $t['obtained'] > 0));
+        $average = $scored !== []
+            ? round(array_sum(array_map(fn ($t) => (float) ($t['percentage'] ?? 0), $scored)) / count($scored), 2)
+            : null;
+
+        $single = $stuId !== null || count($totals) === 1;
+
+        $list = [];
+        $rank = 1;
+        foreach ($totals as $t) {
+            if (count($list) >= $limit) {
+                break;
+            }
+            $row = $this->clean([
+                'rank'         => $rank++,
+                'school'       => $t['school'],
+                'name'         => $t['name'],
+                'roll_no'      => $t['roll_no'],
+                'admission_no' => $t['admission_no'],
+                'class'        => $t['class'],
+                'section'      => $t['section'],
+                'obtained'     => $t['obtained'],
+                'max'          => $t['max'],
+                'percentage'   => $t['percentage'],
+                'grade'        => $t['grade'],
+                'absent_in'    => $t['absent_in'] ?: null,
+                // Subject-by-subject only for one student: a whole class of
+                // breakdowns is more rows than any answer needs.
+                'subjects'     => $single ? $t['subjects'] : null,
+            ]);
+            $list[] = $row;
+        }
+
+        $absentees = count($totals) - count($scored);
+
+        return $head + $this->clean([
+            'students_with_marks' => count($scored),
+            'students_listed'     => count($list),
+            'class_average_pct'   => $average,
+            'highest_marks'       => $scored !== [] ? $scored[0]['obtained'] : null,
+            'topper'              => $scored !== [] ? $scored[0]['name'] : null,
+            'students_absent'     => $absentees ?: null,
+            'students'            => $list,
+            'note'                => $scored === []
+                ? 'Marks exist for this selection but every student is marked absent.'
+                : null,
+        ]);
+    }
+
+    /** The datesheet: subject, date and time, per class. */
+    private function examSchedule(array $a): array
+    {
+        $orgId = $this->effectiveOrganizationId($a);
+        $limit = $this->limit($a, 20);
+
+        $stdId = $this->standardId($a['standard'] ?? null, $orgId);
+        $secId = $this->sectionId($a['section'] ?? null, $stdId, $orgId);
+
+        $q = $this->pin(ExamDatesheet::query(), $orgId)
+            ->with(['exam:id,exam_name,term', 'standard:id,name', 'section:id,name', 'papers.subject:id,name']);
+
+        if ($stdId) {
+            $q->where('standard_id', $stdId);
+        }
+        if ($secId) {
+            $q->where('section_id', $secId);
+        }
+        if ($examId = $this->examId($a['exam'] ?? null, $orgId)) {
+            $q->where('exam_id', $examId);
+        }
+
+        $sheets = $q->orderByDesc('id')->limit(10)->get();
+
+        $papers = [];
+        foreach ($sheets as $sheet) {
+            foreach ($sheet->papers as $paper) {
+                if (count($papers) >= $limit) {
+                    break 2;
+                }
+                $papers[] = $this->clean([
+                    'exam'    => $sheet->exam->exam_name ?? null,
+                    'class'   => $sheet->standard->name ?? null,
+                    'section' => $sheet->section->name ?? null,
+                    'subject' => $paper->subject->name ?? null,
+                    'date'    => $paper->exam_date ? Carbon::parse($paper->exam_date)->toDateString() : null,
+                    'from'    => $paper->start_time,
+                    'to'      => $paper->end_time,
+                    'shift'   => $paper->shift,
+                ]);
+            }
+        }
+
+        // Chronological, because a datesheet is read forwards.
+        usort($papers, fn ($x, $y) => ($x['date'] ?? '') <=> ($y['date'] ?? ''));
+
+        return $this->clean([
+            'covers' => $this->coverage($orgId),
+            'class'  => $stdId ? Standard::find($stdId)?->name : null,
+            'papers' => $papers,
+            'note'   => $papers === [] ? 'No datesheet has been published for this selection.' : null,
+        ]);
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // Staff — attendance and payroll
+    // ══════════════════════════════════════════════════════════════════
+
+    private function staffAttendance(array $a): array
+    {
+        $orgId = $this->effectiveOrganizationId($a);
+        $limit = $this->limit($a, 20);
+        $type  = in_array($a['type'] ?? 'any', ['teacher', 'employee', 'any'], true) ? ($a['type'] ?? 'any') : 'any';
+
+        [$from, $to] = $this->range($a);
+        if (! $from && ! $to) {
+            $from = $to = $this->date($a['date'] ?? null) ?: now()->toDateString();
+        }
+
+        $out = [
+            'covers' => $this->coverage($orgId),
+            'period' => ['from' => $from, 'to' => $to],
+        ];
+
+        $tally = function ($rows) {
+            $counts = ['present' => 0, 'absent' => 0, 'half_day' => 0, 'holiday' => 0];
+            foreach ($rows as $status => $n) {
+                $label = match ((string) $status) {
+                    '1', 'present' => 'present',
+                    '0', 'absent'  => 'absent',
+                    '2', 'half_day', 'half day' => 'half_day',
+                    '3', 'holiday' => 'holiday',
+                    default        => 'present',
+                };
+                $counts[$label] += (int) $n;
+            }
+
+            return $counts;
+        };
+
+        if ($type !== 'employee') {
+            $q = $this->pin(TeacherAttendance::query(), $orgId);
+            if ($from) {
+                $q->whereDate('attendance_date', '>=', $from);
+            }
+            if ($to) {
+                $q->whereDate('attendance_date', '<=', $to);
+            }
+
+            $out['teachers'] = $tally(
+                (clone $q)->selectRaw('status, COUNT(*) c')->groupBy('status')->pluck('c', 'status')->all()
+            );
+            $out['teachers_absent'] = (clone $q)->where('status', 0)
+                ->with('teacherDetail.user:id,name')
+                ->limit($limit)->get()
+                ->map(fn ($r) => $this->clean([
+                    'name' => $r->teacherDetail->user->name ?? null,
+                    'date' => optional($r->attendance_date)->toDateString(),
+                ]))->values()->all();
+        }
+
+        if ($type !== 'teacher') {
+            $q = $this->pin(AdminAttendance::query(), $orgId);
+            if ($from) {
+                $q->whereDate('date', '>=', $from);
+            }
+            if ($to) {
+                $q->whereDate('date', '<=', $to);
+            }
+
+            $out['employees'] = $tally(
+                (clone $q)->selectRaw('status, COUNT(*) c')->groupBy('status')->pluck('c', 'status')->all()
+            );
+            $out['employees_absent'] = (clone $q)->whereIn('status', [0, 'absent'])
+                ->with('employee:id,name')
+                ->limit($limit)->get()
+                ->map(fn ($r) => $this->clean([
+                    'name' => $r->employee->name ?? null,
+                    'date' => $r->date ? Carbon::parse($r->date)->toDateString() : null,
+                ]))->values()->all();
+        }
+
+        $marked = array_sum($out['teachers'] ?? []) + array_sum($out['employees'] ?? []);
+        if ($marked === 0) {
+            $out['note'] = 'Staff attendance has not been marked for this period.';
+        }
+
+        return $out;
+    }
+
+    private function payrollReport(array $a): array
+    {
+        $orgId = $this->effectiveOrganizationId($a);
+        $cross = $this->spansSchools($orgId);
+        $limit = $this->limit($a, 20);
+
+        $q = $this->pin(AdminSalaryPayment::query(), $orgId);
+
+        if ($month = $this->text($a['month'] ?? null)) {
+            $q->where('month', 'like', substr($month, 0, 7) . '%');
+        }
+
+        [$from, $to] = $this->range($a);
+        if ($from) {
+            $q->whereDate('payment_date', '>=', $from);
+        }
+        if ($to) {
+            $q->whereDate('payment_date', '<=', $to);
+        }
+
+        $status = $a['status'] ?? 'any';
+        if (in_array($status, ['paid', 'pending'], true)) {
+            $q->where('status', $status);
+        }
+
+        if ($who = $this->text($a['employee'] ?? null)) {
+            $q->whereHas('employee', fn ($w) => $w->where('name', 'like', "%{$who}%"));
+        }
+
+        $byStatus = (clone $q)->selectRaw('status, COUNT(*) c, SUM(amount) total')
+            ->groupBy('status')->get()
+            ->mapWithKeys(fn ($r) => [(string) ($r->status ?: 'unknown') => [
+                'count' => (int) $r->c,
+                'total' => round((float) $r->total, 2),
+            ]])->all();
+
+        $rows = (clone $q)
+            ->with(array_values(array_filter(['employee:id,name,organization_id', $cross ? 'organization:id,name' : null])))
+            ->orderByDesc('payment_date')->orderByDesc('id')
+            ->limit($limit)->get()
+            ->map(fn ($p) => $this->clean([
+                'school'   => $cross ? ($p->organization->name ?? null) : null,
+                'employee' => $p->employee->name ?? null,
+                'month'    => $p->month,
+                'amount'   => round((float) $p->amount, 2),
+                'status'   => $p->status,
+                'mode'     => $p->payment_mode,
+                'paid_on'  => $p->payment_date ? Carbon::parse($p->payment_date)->toDateString() : null,
+            ]))->all();
+
+        return $this->clean([
+            'covers'      => $this->coverage($orgId),
+            'total_rows'  => (clone $q)->count(),
+            'total_amount'=> round((float) (clone $q)->sum('amount'), 2),
+            'by_status'   => $byStatus,
+            'payments'    => $rows,
+            'note'        => $rows === [] ? 'No salary payments match this selection.' : null,
+        ]);
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // Ledger and timetable
+    // ══════════════════════════════════════════════════════════════════
+
+    private function ledgerReport(array $a): array
+    {
+        $orgId = $this->effectiveOrganizationId($a);
+        $cross = $this->spansSchools($orgId);
+        $limit = $this->limit($a, 20);
+
+        $q = $this->pin(LedgerTransaction::query(), $orgId);
+
+        [$from, $to] = $this->range($a);
+        if ($from) {
+            $q->whereDate('txn_date', '>=', $from);
+        }
+        if ($to) {
+            $q->whereDate('txn_date', '<=', $to);
+        }
+
+        $type = $a['type'] ?? 'any';
+        if (in_array($type, ['credit', 'expense'], true)) {
+            $q->where('type', $type);
+        }
+
+        if ($party = $this->text($a['party'] ?? null)) {
+            $q->where(fn ($w) => $w
+                ->where('party', 'like', "%{$party}%")
+                ->orWhere('party_to', 'like', "%{$party}%")
+                ->orWhere('reason', 'like', "%{$party}%"));
+        }
+
+        $credit  = (float) (clone $q)->where('type', 'credit')->sum('amount');
+        $expense = (float) (clone $q)->where('type', 'expense')->sum('amount');
+
+        $rows = (clone $q)
+            ->with(array_values(array_filter([$cross ? 'organization:id,name' : null])))
+            ->orderByDesc('txn_date')->orderByDesc('id')
+            ->limit($limit)->get()
+            ->map(fn ($t) => $this->clean([
+                'school' => $cross ? ($t->organization->name ?? null) : null,
+                'date'   => optional($t->txn_date)->toDateString(),
+                'type'   => $t->type,
+                'amount' => round((float) $t->amount, 2),
+                'party'  => $t->party ?: $t->party_to,
+                'mode'   => $t->mode,
+                'reason' => $t->reason,
+            ]))->all();
+
+        return $this->clean([
+            'covers'        => $this->coverage($orgId),
+            'period'        => ['from' => $from, 'to' => $to],
+            'money_in'      => round($credit, 2),
+            'money_out'     => round($expense, 2),
+            'net'           => round($credit - $expense, 2),
+            'entry_count'   => (clone $q)->count(),
+            'entries'       => $rows,
+            'note'          => $rows === [] ? 'No ledger entries match this selection.' : null,
+        ]);
+    }
+
+    private function classTimetable(array $a): array
+    {
+        $orgId = $this->effectiveOrganizationId($a);
+        $limit = $this->limit($a, 40);
+
+        $stdId = $this->standardId($a['standard'] ?? null, $orgId);
+        $secId = $this->sectionId($a['section'] ?? null, $stdId, $orgId);
+
+        $q = $this->pin(TeacherTimeTable::query(), $orgId)
+            ->with(['teacher.user:id,name', 'standard:id,name', 'section:id,name', 'subject:id,name']);
+
+        if ($stdId) {
+            $q->where('standard_id', $stdId);
+        }
+        if ($secId) {
+            $q->where('section_id', $secId);
+        }
+        if ($teacher = $this->text($a['teacher'] ?? null)) {
+            $q->whereHas('teacher.user', fn ($w) => $w->where('name', 'like', "%{$teacher}%"));
+        }
+        // day_of_week is stored 1..6 (Mon..Sat), so a day NAME has to be
+        // translated before it can match anything.
+        if ($day = $this->text($a['day'] ?? null)) {
+            $number = null;
+            foreach (self::WEEKDAYS as $n => $label) {
+                if (strcasecmp($label, $day) === 0 || stripos($label, $day) === 0) {
+                    $number = $n;
+                    break;
+                }
+            }
+
+            $number ? $q->where('day_of_week', $number) : $q->where('day_of_week', 'like', "%{$day}%");
+        }
+
+        $periods = $q->orderBy('day_of_week')->orderBy('start_time')
+            ->limit($limit)->get()
+            ->map(fn ($p) => $this->clean([
+                'day'     => self::WEEKDAYS[(int) $p->day_of_week] ?? $p->day_of_week,
+                'from'    => $p->start_time,
+                'to'      => $p->end_time,
+                'class'   => $p->standard->name ?? null,
+                'section' => $p->section->name ?? null,
+                'subject' => $p->subject->name ?? null,
+                'teacher' => $p->teacher->user->name ?? null,
+            ]))->all();
+
+        return $this->clean([
+            'covers'  => $this->coverage($orgId),
+            'class'   => $stdId ? Standard::find($stdId)?->name : null,
+            'section' => $secId ? Section::find($secId)?->name : null,
+            'periods' => $periods,
+            'note'    => $periods === [] ? 'No timetable periods are set for this selection.' : null,
+        ]);
+    }
+
+    // ══════════════════════════════════════════════════════════════════
     // Recent records
     // ══════════════════════════════════════════════════════════════════
 
@@ -1093,6 +1698,50 @@ class LmsToolbox
      * pinned reader can only ever resolve their own, so a `school` argument
      * they should not have is a dead end rather than a way out.
      */
+    private function examId(mixed $name, ?int $orgId): ?int
+    {
+        $name = $this->text($name);
+        if (! $name) {
+            return null;
+        }
+
+        return $this->pin(Exam::query(), $orgId)
+            ->where(fn ($w) => $w->where('exam_name', $name)->orWhere('exam_name', 'like', "%{$name}%"))
+            ->orderByRaw('CASE WHEN exam_name = ? THEN 0 ELSE 1 END', [$name])
+            ->orderByDesc('id')
+            ->value('id');
+    }
+
+    private function subjectId(mixed $name, ?int $orgId): ?int
+    {
+        $name = $this->text($name);
+        if (! $name) {
+            return null;
+        }
+
+        return $this->pin(Subject::query(), $orgId)
+            ->where(fn ($w) => $w->where('name', $name)->orWhere('name', 'like', "%{$name}%"))
+            ->orderByRaw('CASE WHEN name = ? THEN 0 ELSE 1 END', [$name])
+            ->value('id');
+    }
+
+    /** One student, by admission number or name. */
+    private function studentRefId(mixed $ref, ?int $orgId): ?int
+    {
+        $ref = $this->text($ref);
+        if (! $ref) {
+            return null;
+        }
+
+        return $this->pin(StudentDetail::query(), $orgId)
+            ->where(fn ($w) => $w
+                ->where('admission_no', $ref)
+                ->orWhere('full_name', $ref)
+                ->orWhere('full_name', 'like', "%{$ref}%"))
+            ->orderByRaw('CASE WHEN admission_no = ? OR full_name = ? THEN 0 ELSE 1 END', [$ref, $ref])
+            ->value('id');
+    }
+
     private function findSchool(mixed $needle): ?Organization
     {
         $needle = $this->text($needle);
