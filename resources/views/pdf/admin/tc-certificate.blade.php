@@ -21,9 +21,9 @@
         /* ── Header ── */
         .hdr { width: 100%; border-collapse: collapse; }
         .hdr td { vertical-align: middle; padding: 4mm 5mm 3mm; }
-        .logo-cell { width: 26mm; text-align: center; }
-        .logo-cell img { max-height: 19mm; max-width: 24mm; }
-        .info-cell { text-align: center; padding-right: 26mm; }
+        .logo-cell { width: 32mm; text-align: center; }
+        .logo-cell img { max-height: 25mm; max-width: 30mm; }
+        .info-cell { text-align: center; padding-right: 32mm; }
 
         .school-name {
             font-family: "DejaVu Serif", Georgia, serif;

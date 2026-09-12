@@ -210,6 +210,49 @@ class TcCertificate extends Component
         return $this->studentsFor($this->tcClass, $this->tcSection, $this->tcStudentSearch);
     }
 
+    /**
+     * The picker collapses to a single "selected student" card once a student is
+     * chosen, so the panel needs the student itself — not just its id. Looked up
+     * directly (not from the filtered list) so it survives a search/class change.
+     */
+    #[Computed]
+    public function selectedCertStudent()
+    {
+        return $this->student_detail_id
+            ? StudentDetail::with(['standard', 'section'])->find($this->student_detail_id)
+            : null;
+    }
+
+    #[Computed]
+    public function selectedTcStudent()
+    {
+        return $this->tc_student_id
+            ? StudentDetail::with(['standard', 'section'])->find($this->tc_student_id)
+            : null;
+    }
+
+    public function selectCertStudent(int $id): void
+    {
+        $this->student_detail_id = $id;
+        $this->resetValidation('student_detail_id');
+    }
+
+    public function clearCertStudent(): void
+    {
+        $this->student_detail_id = null;
+    }
+
+    public function selectTcStudent(int $id): void
+    {
+        $this->tc_student_id = $id;
+        $this->resetValidation('tc_student_id');
+    }
+
+    public function clearTcStudent(): void
+    {
+        $this->tc_student_id = null;
+    }
+
     public function updatedFilterClass(): void   { $this->filterSection = ''; $this->resetPage(); }
     public function updatedFilterSection(): void  { $this->resetPage(); }
     public function updatedFilterMonth(): void    { $this->resetPage(); }
@@ -572,9 +615,13 @@ class TcCertificate extends Component
 
         if ($this->previewModal && $this->previewId) {
             if ($this->previewType === 'tc') {
-                $previewTc = TransferCertificate::with(['student', 'organization'])->find($this->previewId);
+                $previewTc = TransferCertificate::with(['student.standard', 'student.section', 'organization'])
+                    ->where('organization_id', $this->organizationId)
+                    ->find($this->previewId);
             } else {
-                $previewCert = Certificate::with(['student', 'organization'])->find($this->previewId);
+                $previewCert = Certificate::with(['student.standard', 'student.section', 'organization'])
+                    ->where('organization_id', $this->organizationId)
+                    ->find($this->previewId);
             }
         }
 

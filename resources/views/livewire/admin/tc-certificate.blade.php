@@ -140,6 +140,9 @@
                                     <td class="px-4 py-3 text-gray-600 whitespace-nowrap">{{ $cert->issued_date->format('d M Y') }}</td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-center gap-1">
+                                            <button wire:click="previewCert({{ $cert->id }})" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200" title="View">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                            </button>
                                             <a href="{{ route('admin.cert.download', ['organization' => auth()->user()->organization_id, 'id' => $cert->id]) }}" target="_blank"
                                                 class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-green-50 hover:text-green-600 hover:border-green-200" title="Download PDF">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
@@ -209,6 +212,9 @@
                                     <td class="px-4 py-3 text-gray-600 whitespace-nowrap">{{ $tc->issue_date->format('d M Y') }}</td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-center gap-1">
+                                            <button wire:click="previewTc({{ $tc->id }})" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200" title="View">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                            </button>
                                             <a href="{{ route('admin.tc.download', ['organization' => auth()->user()->organization_id, 'id' => $tc->id]) }}" target="_blank"
                                                 class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-green-50 hover:text-green-600 hover:border-green-200" title="Download PDF">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
@@ -240,296 +246,388 @@
         @endif
     </div>
 
-    {{-- ══════════════ ISSUE CERTIFICATE SLIDE-IN PANEL ══════════════ --}}
+    {{-- ══════════════ ISSUE CERTIFICATE SLIDE-IN PANEL (student-style) ══════════════ --}}
     @if ($certModal)
     <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
         <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeCertModal"></div>
-        <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col" wire:click.stop>
-            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-                <div>
-                    <h3 class="text-base font-bold text-gray-800">{{ $editCertId ? 'Edit Certificate' : 'Issue Certificate' }}</h3>
-                    <p class="text-xs text-gray-400 mt-0.5">Choose a student, then fill the certificate details</p>
+        <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col" wire:click.stop>
+
+            {{-- Fixed header --}}
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                <div class="min-w-0">
+                    <h2 class="text-lg font-semibold text-gray-900">{{ $editCertId ? 'Edit Certificate' : 'Issue Certificate' }}</h2>
+                    <p class="text-xs text-gray-500 mt-0.5">Pick the student, then fill the certificate details</p>
                 </div>
-                <button wire:click="closeCertModal" class="text-gray-400 hover:text-gray-600">
+                <button wire:click="closeCertModal" type="button"
+                    class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>
 
-            <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+            {{-- Scrollable body --}}
+            <div class="flex-1 overflow-y-auto px-6 py-6 space-y-5">
+
                 {{-- Type --}}
                 <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1.5">Type <span class="text-red-500">*</span></label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Type <span class="text-red-500">*</span></label>
                     <div class="grid grid-cols-2 gap-3">
-                        <label class="flex items-center gap-2 px-4 py-2.5 rounded-lg border cursor-pointer transition {{ $type === 'achievement' ? 'border-blue-500 bg-blue-50/50' : 'border-gray-200 hover:bg-gray-50' }}">
+                        <label class="flex items-center gap-2.5 px-3.5 py-2.5 rounded-md border cursor-pointer {{ $type === 'achievement' ? 'border-blue-500 bg-blue-50/60' : 'border-gray-300 hover:bg-gray-50' }}">
                             <input type="radio" wire:model.live="type" value="achievement" class="text-blue-600 focus:ring-blue-500">
-                            <span class="text-sm font-semibold text-gray-800">Achievement</span>
+                            <span class="text-sm font-medium text-gray-800">Achievement</span>
                         </label>
-                        <label class="flex items-center gap-2 px-4 py-2.5 rounded-lg border cursor-pointer transition {{ $type === 'participation' ? 'border-blue-500 bg-blue-50/50' : 'border-gray-200 hover:bg-gray-50' }}">
+                        <label class="flex items-center gap-2.5 px-3.5 py-2.5 rounded-md border cursor-pointer {{ $type === 'participation' ? 'border-blue-500 bg-blue-50/60' : 'border-gray-300 hover:bg-gray-50' }}">
                             <input type="radio" wire:model.live="type" value="participation" class="text-blue-600 focus:ring-blue-500">
-                            <span class="text-sm font-semibold text-gray-800">Participation</span>
+                            <span class="text-sm font-medium text-gray-800">Participation</span>
                         </label>
                     </div>
                 </div>
 
-                {{-- Student picker by class/section --}}
-                @unless ($editCertId)
-                <div class="border border-gray-200 rounded-xl overflow-hidden">
-                    <div class="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
-                        <p class="text-xs font-bold text-gray-700">Select Student <span class="text-red-500">*</span></p>
-                    </div>
-                    <div class="p-4 space-y-3">
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <select wire:model.live="certClass" class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500">
-                                <option value="">Select Class</option>
-                                @foreach ($this->standards as $std)
-                                    <option value="{{ $std->id }}">{{ $std->name }}</option>
-                                @endforeach
-                            </select>
-                            <select wire:model.live="certSection" @disabled($this->certSections->isEmpty()) class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500 disabled:opacity-50">
-                                <option value="">All Sections</option>
-                                @foreach ($this->certSections as $sec)
-                                    <option value="{{ $sec->id }}">{{ $sec->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        @if ($certClass)
-                            <div class="relative">
-                                <svg class="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                                <input wire:model.live.debounce.300ms="certStudentSearch" type="text" placeholder="Search student by name or admission no…" class="w-full pl-8 rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500" />
-                            </div>
-                            <div class="max-h-48 overflow-y-auto divide-y divide-gray-100 border border-gray-100 rounded-lg">
-                                @forelse ($this->certIssueStudents as $stu)
-                                    <label class="flex items-center gap-3 px-3 py-2 cursor-pointer {{ $student_detail_id == $stu->id ? 'bg-blue-50' : 'hover:bg-gray-50' }}">
-                                        <input type="radio" wire:model.live="student_detail_id" value="{{ $stu->id }}" class="text-blue-600 focus:ring-blue-500">
-                                        <span class="text-sm text-gray-800">{{ $stu->full_name }}</span>
-                                        <span class="text-xs text-gray-400 ml-auto">{{ $stu->admission_no }}</span>
-                                    </label>
-                                @empty
-                                    <p class="px-3 py-4 text-center text-sm text-gray-400">No students found.</p>
-                                @endforelse
-                            </div>
-                        @else
-                            <p class="text-xs text-gray-400">Choose a class to load students.</p>
-                        @endif
-                        @error('student_detail_id') <p class="text-xs text-red-500">{{ $message }}</p> @enderror
-                    </div>
-                </div>
-                @endunless
+                {{-- Student picker --}}
+                @include('livewire.partials.certificate-student-picker', [
+                    'classProp'    => 'certClass',
+                    'sectionProp'  => 'certSection',
+                    'searchProp'   => 'certStudentSearch',
+                    'classValue'   => $certClass,
+                    'sectionsList' => $this->certSections,
+                    'students'     => $this->certIssueStudents,
+                    'standards'    => $this->standards,
+                    'selected'     => $this->selectedCertStudent,
+                    'selectMethod' => 'selectCertStudent',
+                    'clearMethod'  => 'clearCertStudent',
+                    'errorKey'     => 'student_detail_id',
+                    'locked'       => (bool) $editCertId,
+                ])
 
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1.5">Event / Activity Name <span class="text-red-500">*</span></label>
-                    <input type="text" wire:model.defer="event_name" placeholder="{{ $type === 'achievement' ? 'e.g. Annual Science Olympiad 2025' : 'e.g. Annual Sports Day 2025' }}" class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500">
-                    @error('event_name') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1.5">Description</label>
-                    <textarea wire:model.defer="description" rows="3" placeholder="{{ $type === 'achievement' ? 'For securing First Position in...' : 'For actively participating in...' }}" class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500 resize-none"></textarea>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1.5">Issued By <span class="text-red-500">*</span></label>
-                        <input type="text" wire:model.defer="issued_by" placeholder="e.g. Rajesh Kumar" class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500">
-                        @error('issued_by') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1.5">Designation</label>
-                        <input type="text" wire:model.defer="issued_by_designation" placeholder="e.g. Principal" class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="sm:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Event / Activity Name <span class="text-red-500">*</span></label>
+                        <input type="text" wire:model.defer="event_name" maxlength="255"
+                            placeholder="{{ $type === 'achievement' ? 'e.g. Annual Science Olympiad 2025' : 'e.g. Annual Sports Day 2025' }}"
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 @error('event_name') border-red-400 @enderror">
+                        @error('event_name')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                     <div class="sm:col-span-2">
-                        <label class="block text-xs font-semibold text-gray-600 mb-1.5">Issued Date <span class="text-red-500">*</span></label>
-                        <input type="date" wire:model.defer="issued_date" class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500">
-                        @error('issued_date') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                            Description <span class="text-gray-400 font-normal text-xs">(optional)</span>
+                        </label>
+                        <textarea wire:model.defer="description" rows="3" maxlength="1000"
+                            placeholder="{{ $type === 'achievement' ? 'For securing First Position in…' : 'For actively participating in…' }}"
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm resize-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 @error('description') border-red-400 @enderror"></textarea>
+                        @error('description')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Issued By <span class="text-red-500">*</span></label>
+                        <input type="text" wire:model.defer="issued_by" maxlength="255" placeholder="e.g. Rajesh Kumar"
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 @error('issued_by') border-red-400 @enderror">
+                        @error('issued_by')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                            Designation <span class="text-gray-400 font-normal text-xs">(optional)</span>
+                        </label>
+                        <input type="text" wire:model.defer="issued_by_designation" maxlength="100" placeholder="e.g. Principal"
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 @error('issued_by_designation') border-red-400 @enderror">
+                        @error('issued_by_designation')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Issued Date <span class="text-red-500">*</span></label>
+                        <input type="date" wire:model.defer="issued_date"
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 @error('issued_date') border-red-400 @enderror">
+                        @error('issued_date')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                 </div>
             </div>
 
-            <div class="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2 flex-shrink-0">
-                <button wire:click="closeCertModal" class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition">Cancel</button>
-                <button wire:click="saveCert" class="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-sm transition">{{ $editCertId ? 'Update' : 'Issue' }}</button>
+            {{-- Footer --}}
+            <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                <button type="button" wire:click="closeCertModal"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                <button type="button" wire:click="saveCert" wire:loading.attr="disabled" wire:target="saveCert"
+                    class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md disabled:opacity-60">
+                    <span wire:loading.remove wire:target="saveCert">{{ $editCertId ? 'Update Certificate' : 'Issue Certificate' }}</span>
+                    <span wire:loading wire:target="saveCert">Saving...</span>
+                </button>
             </div>
         </div>
     </div>
     @endif
 
-    {{-- ══════════════ ISSUE TC SLIDE-IN PANEL ══════════════ --}}
+    {{-- ══════════════ ISSUE TC SLIDE-IN PANEL (student-style) ══════════════ --}}
     @if ($tcModal)
     <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
         <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeTcModal"></div>
-        <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col" wire:click.stop>
-            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-                <div>
-                    <h3 class="text-base font-bold text-gray-800">{{ $editTcId ? 'Edit' : 'Issue' }} Transfer Certificate</h3>
-                    <p class="text-xs text-gray-400 mt-0.5">Choose a student, then fill all details as per records</p>
+        <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col" wire:click.stop>
+
+            {{-- Fixed header --}}
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                <div class="min-w-0">
+                    <h2 class="text-lg font-semibold text-gray-900">{{ $editTcId ? 'Edit' : 'Issue' }} Transfer Certificate</h2>
+                    <p class="text-xs text-gray-500 mt-0.5">Pick the student, then fill all details as per records</p>
                 </div>
-                <button wire:click="closeTcModal" class="text-gray-400 hover:text-gray-600">
+                <button wire:click="closeTcModal" type="button"
+                    class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>
 
-            <div class="flex-1 overflow-y-auto px-6 py-5 space-y-6">
-                {{-- Student picker --}}
-                <div>
-                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 pb-1 border-b">Select Student</p>
-                    @unless ($editTcId)
-                    <div class="space-y-3">
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <select wire:model.live="tcClass" class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500">
-                                <option value="">Select Class</option>
-                                @foreach ($this->standards as $std)
-                                    <option value="{{ $std->id }}">{{ $std->name }}</option>
-                                @endforeach
-                            </select>
-                            <select wire:model.live="tcSection" @disabled($this->tcSections->isEmpty()) class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500 disabled:opacity-50">
-                                <option value="">All Sections</option>
-                                @foreach ($this->tcSections as $sec)
-                                    <option value="{{ $sec->id }}">{{ $sec->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        @if ($tcClass)
-                            <div class="relative">
-                                <svg class="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                                <input wire:model.live.debounce.300ms="tcStudentSearch" type="text" placeholder="Search student by name or admission no…" class="w-full pl-8 rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500" />
-                            </div>
-                            <div class="max-h-48 overflow-y-auto divide-y divide-gray-100 border border-gray-100 rounded-lg">
-                                @forelse ($this->tcIssueStudents as $stu)
-                                    <label class="flex items-center gap-3 px-3 py-2 cursor-pointer {{ $tc_student_id == $stu->id ? 'bg-blue-50' : 'hover:bg-gray-50' }}">
-                                        <input type="radio" wire:model.live="tc_student_id" value="{{ $stu->id }}" class="text-blue-600 focus:ring-blue-500">
-                                        <span class="text-sm text-gray-800">{{ $stu->full_name }}</span>
-                                        <span class="text-xs text-gray-400 ml-auto">{{ $stu->admission_no }}</span>
-                                    </label>
-                                @empty
-                                    <p class="px-3 py-4 text-center text-sm text-gray-400">No students found.</p>
-                                @endforelse
-                            </div>
-                        @else
-                            <p class="text-xs text-gray-400">Choose a class to load students.</p>
-                        @endif
-                        @error('tc_student_id') <p class="text-xs text-red-500">{{ $message }}</p> @enderror
-                    </div>
-                    @else
-                        <p class="text-sm text-gray-600">Editing TC for the selected student.</p>
-                    @endunless
-                </div>
+            {{-- Scrollable body --}}
+            <div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
 
-                {{-- Other details --}}
+                {{-- Student picker --}}
+                @include('livewire.partials.certificate-student-picker', [
+                    'classProp'    => 'tcClass',
+                    'sectionProp'  => 'tcSection',
+                    'searchProp'   => 'tcStudentSearch',
+                    'classValue'   => $tcClass,
+                    'sectionsList' => $this->tcSections,
+                    'students'     => $this->tcIssueStudents,
+                    'standards'    => $this->standards,
+                    'selected'     => $this->selectedTcStudent,
+                    'selectMethod' => 'selectTcStudent',
+                    'clearMethod'  => 'clearTcStudent',
+                    'errorKey'     => 'tc_student_id',
+                    'locked'       => (bool) $editTcId,
+                ])
+
+                {{-- Student & Academic --}}
                 <div>
-                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 pb-1 border-b">Student & Academic</p>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Student &amp; Academic</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Nationality</label>
-                            <input type="text" wire:model.defer="nationality" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 text-sm">
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Nationality</label>
+                            <input type="text" wire:model.defer="nationality"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Book No.</label>
-                            <input type="text" wire:model.defer="book_no" placeholder="e.g. 096" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 text-sm">
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Book No.</label>
+                            <input type="text" wire:model.defer="book_no" placeholder="e.g. 096"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                         </div>
-                        <div class="sm:col-span-2 flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                            <input type="checkbox" wire:model.defer="is_sc_st" id="tc_scst" class="h-4 w-4 text-blue-500 rounded border-gray-300">
-                            <label for="tc_scst" class="text-sm text-gray-700">Belongs to Scheduled Caste / Scheduled Tribe</label>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Class Last Studied</label>
-                            <input type="text" wire:model.defer="last_class_studied" placeholder="e.g. 12th" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Exam Last Taken with Result</label>
-                            <input type="text" wire:model.defer="exam_last_taken" placeholder="e.g. 12th Passed" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 text-sm">
+                        <div class="sm:col-span-2">
+                            <label class="flex items-center gap-2.5 px-3.5 py-2.5 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
+                                <input type="checkbox" wire:model.defer="is_sc_st" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="text-sm text-gray-700">Belongs to Scheduled Caste / Scheduled Tribe</span>
+                            </label>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Whether Failed</label>
-                            <select wire:model.defer="whether_failed" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 text-sm">
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Class Last Studied</label>
+                            <input type="text" wire:model.defer="last_class_studied" placeholder="e.g. 12th"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Exam Last Taken with Result</label>
+                            <input type="text" wire:model.defer="exam_last_taken" placeholder="e.g. 12th Passed"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Whether Failed</label>
+                            <select wire:model.defer="whether_failed"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                                 @foreach ($failedOptions as $opt)<option value="{{ $opt }}">{{ $opt }}</option>@endforeach
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Qualified for Promotion</label>
-                            <select wire:model.defer="qualified_for_promotion" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 text-sm">
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Qualified for Promotion</label>
+                            <select wire:model.defer="qualified_for_promotion"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                                 <option value="Yes">Yes</option><option value="No">No</option>
                             </select>
                         </div>
                         <div class="sm:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Subjects Studied</label>
-                            <input type="text" wire:model.defer="subjects_studied" placeholder="e.g. Hindi, English, Mathematics, Science" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 text-sm">
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Subjects Studied</label>
+                            <input type="text" wire:model.defer="subjects_studied" placeholder="e.g. Hindi, English, Mathematics, Science"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                     </div>
                 </div>
 
+                {{-- Attendance & Fees --}}
                 <div>
-                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 pb-1 border-b">Attendance & Fees</p>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Attendance &amp; Fees</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Total Working Days</label>
-                            <input type="number" wire:model.defer="total_working_days" min="0" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 text-sm">
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Total Working Days</label>
+                            <input type="number" wire:model.defer="total_working_days" min="0"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Days Present</label>
-                            <input type="number" wire:model.defer="days_present" min="0" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 text-sm">
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Days Present</label>
+                            <input type="number" wire:model.defer="days_present" min="0"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Fees Paid Upto</label>
-                            <input type="text" wire:model.defer="fees_paid_upto" placeholder="e.g. March 2026" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 text-sm">
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Fees Paid Upto</label>
+                            <input type="text" wire:model.defer="fees_paid_upto" placeholder="e.g. March 2026"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Fee Concession (if any)</label>
-                            <input type="text" wire:model.defer="fee_concession" placeholder="e.g. None" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 text-sm">
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Fee Concession (if any)</label>
+                            <input type="text" wire:model.defer="fee_concession" placeholder="e.g. None"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                     </div>
                 </div>
 
+                {{-- Activities & Conduct --}}
                 <div>
-                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 pb-1 border-b">Activities & Conduct</p>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Activities &amp; Conduct</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">NCC / Scout / Guide</label>
-                            <select wire:model.defer="is_ncc_scout" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 text-sm">
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">NCC / Scout / Guide</label>
+                            <select wire:model.defer="is_ncc_scout"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                                 @foreach ($nccOptions as $opt)<option value="{{ $opt }}">{{ $opt }}</option>@endforeach
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">General Conduct</label>
-                            <select wire:model.defer="general_conduct" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 text-sm">
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">General Conduct <span class="text-red-500">*</span></label>
+                            <select wire:model.defer="general_conduct"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 @error('general_conduct') border-red-400 @enderror">
                                 @foreach ($conductOptions as $opt)<option value="{{ $opt }}">{{ $opt }}</option>@endforeach
                             </select>
+                            @error('general_conduct')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div class="sm:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Games / Extra-Curricular Activities</label>
-                            <input type="text" wire:model.defer="extra_activities" placeholder="e.g. Cricket, Debate" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 text-sm">
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Games / Extra-Curricular Activities</label>
+                            <input type="text" wire:model.defer="extra_activities" placeholder="e.g. Cricket, Debate"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                     </div>
                 </div>
 
+                {{-- Issue Details --}}
                 <div>
-                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 pb-1 border-b">Issue Details</p>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Issue Details</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Date of Application <span class="text-red-500">*</span></label>
-                            <input type="date" wire:model.defer="application_date" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 text-sm">
-                            @error('application_date') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Date of Application <span class="text-red-500">*</span></label>
+                            <input type="date" wire:model.defer="application_date"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 @error('application_date') border-red-400 @enderror">
+                            @error('application_date')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Date of Issue <span class="text-red-500">*</span></label>
-                            <input type="date" wire:model.defer="tc_issue_date" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 text-sm">
-                            @error('tc_issue_date') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Date of Issue <span class="text-red-500">*</span></label>
+                            <input type="date" wire:model.defer="tc_issue_date"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 @error('tc_issue_date') border-red-400 @enderror">
+                            @error('tc_issue_date')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div class="sm:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Reason for Leaving</label>
-                            <input type="text" wire:model.defer="reason_for_leaving" placeholder="e.g. No Further Classes" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 text-sm">
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Reason for Leaving</label>
+                            <input type="text" wire:model.defer="reason_for_leaving" placeholder="e.g. No Further Classes"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                         </div>
                         <div class="sm:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Any Other Remark</label>
-                            <textarea wire:model.defer="tc_remarks" rows="2" placeholder="e.g. No" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 text-sm resize-none"></textarea>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Any Other Remark</label>
+                            <textarea wire:model.defer="tc_remarks" rows="2" placeholder="e.g. No"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm resize-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2 flex-shrink-0">
-                <button wire:click="closeTcModal" class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition">Cancel</button>
-                <button wire:click="saveTc" class="px-5 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-sm transition">{{ $editTcId ? 'Update TC' : 'Issue TC' }}</button>
+            {{-- Footer --}}
+            <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                <button type="button" wire:click="closeTcModal"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                <button type="button" wire:click="saveTc" wire:loading.attr="disabled" wire:target="saveTc"
+                    class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md disabled:opacity-60">
+                    <span wire:loading.remove wire:target="saveTc">{{ $editTcId ? 'Update TC' : 'Issue TC' }}</span>
+                    <span wire:loading wire:target="saveTc">Saving...</span>
+                </button>
             </div>
         </div>
     </div>
+    @endif
+
+    {{-- ══════════════ VIEW SLIDE-IN PANEL (student view style) ══════════════ --}}
+    @if ($previewModal && ($previewCert || $previewTc))
+        @php
+            $pv     = $previewCert ?: $previewTc;
+            $isTc   = (bool) $previewTc;
+            $pvStu  = $pv->student;
+            $pvRows = $isTc
+                ? [
+                    'TC No'               => $pv->tc_no,
+                    'Book No'             => $pv->book_no ?: 'N/A',
+                    'Student'             => $pvStu->full_name ?? 'N/A',
+                    'Admission No'        => $pvStu->admission_no ?? 'N/A',
+                    'Class'               => $pvStu->standard->name ?? 'N/A',
+                    'Section'             => $pvStu->section->name ?? 'N/A',
+                    "Father's Name"       => $pvStu->father_name ?? 'N/A',
+                    "Mother's Name"       => $pvStu->mother_name ?? 'N/A',
+                    'Nationality'         => $pv->nationality,
+                    'SC / ST'             => $pv->is_sc_st ? 'Yes' : 'No',
+                    'Class Last Studied'  => $pv->last_class_studied ?: 'N/A',
+                    'Exam Last Taken'     => $pv->exam_last_taken ?: 'N/A',
+                    'Whether Failed'      => $pv->whether_failed,
+                    'Subjects Studied'    => $pv->subjects_studied ?: 'N/A',
+                    'Qualified for Promotion' => $pv->qualified_for_promotion,
+                    'Fees Paid Upto'      => $pv->fees_paid_upto ?: 'N/A',
+                    'Fee Concession'      => $pv->fee_concession ?: 'None',
+                    'Total Working Days'  => $pv->total_working_days,
+                    'Days Present'        => $pv->days_present,
+                    'NCC / Scout / Guide' => $pv->is_ncc_scout,
+                    'Extra Activities'    => $pv->extra_activities ?: 'None',
+                    'General Conduct'     => $pv->general_conduct,
+                    'Application Date'    => $pv->application_date?->format('d M Y') ?? 'N/A',
+                    'Issue Date'          => $pv->issue_date?->format('d M Y') ?? 'N/A',
+                    'Reason for Leaving'  => $pv->reason_for_leaving ?: 'N/A',
+                    'Remarks'             => $pv->remarks ?: 'No',
+                ]
+                : [
+                    'Certificate No' => $pv->certificate_no,
+                    'Type'           => ucfirst($pv->type),
+                    'Student'        => $pvStu->full_name ?? 'N/A',
+                    'Admission No'   => $pvStu->admission_no ?? 'N/A',
+                    'Class'          => $pvStu->standard->name ?? 'N/A',
+                    'Section'        => $pvStu->section->name ?? 'N/A',
+                    'Event'          => $pv->event_name,
+                    'Description'    => $pv->description ?: '—',
+                    'Issued By'      => $pv->issued_by,
+                    'Designation'    => $pv->issued_by_designation ?: 'N/A',
+                    'Issued Date'    => $pv->issued_date?->format('d M Y') ?? 'N/A',
+                ];
+            $pvPdf = $isTc
+                ? route('admin.tc.download', ['organization' => auth()->user()->organization_id, 'id' => $pv->id])
+                : route('admin.cert.download', ['organization' => auth()->user()->organization_id, 'id' => $pv->id]);
+        @endphp
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closePreview"></div>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col" wire:click.stop>
+
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $pvStu->full_name ?? 'Certificate' }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5 truncate">
+                            {{ $isTc ? 'Transfer Certificate · ' . $pv->tc_no : ucfirst($pv->type) . ' Certificate · ' . $pv->certificate_no }}
+                        </p>
+                    </div>
+                    <button wire:click="closePreview" type="button"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                    @foreach ($pvRows as $label => $value)
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
+                            <span class="col-span-2 text-gray-800 font-medium break-words">{{ $value }}</span>
+                        </div>
+                    @endforeach
+                </div>
+
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
+                    <a href="{{ $pvPdf }}" target="_blank"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md inline-flex items-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                        Download PDF
+                    </a>
+                    <button type="button" wire:click="closePreview"
+                        class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
+                </div>
+            </div>
+        </div>
     @endif
 
 </div>

@@ -15,9 +15,11 @@
 
         .content { position: absolute; top: 0; left: 0; right: 0; bottom: 0; text-align: center; padding: 22mm 22mm; }
 
-        .logo { height: 24mm; margin-bottom: 6mm; }
-        .school-name { font-size: 19pt; font-weight: bold; color: #1f2937; font-family: "DejaVu Serif", Georgia, serif; letter-spacing: 0.5px; }
-        .school-addr { font-size: 9pt; color: #6b7280; margin-top: 2mm; }
+        .logo { height: 34mm; margin-bottom: 6mm; }
+        {{-- School name + address share the student-name serif; the address sits exactly
+             2px below the name's size (25px → 23px). --}}
+        .school-name { font-size: 25px; font-weight: bold; color: #1f2937; font-family: "DejaVu Serif", Georgia, serif; letter-spacing: 0.5px; }
+        .school-addr { font-size: 23px; color: #6b7280; font-family: "DejaVu Serif", Georgia, serif; margin-top: 2mm; }
 
         .cert-title { font-size: 34pt; font-weight: bold; color: #1f2937; font-family: "DejaVu Serif", Georgia, serif; letter-spacing: 4px; text-transform: uppercase; margin-top: 12mm; }
         .cert-sub-wrap { margin: 3mm auto 0; width: 60%; position: relative; }
@@ -26,15 +28,17 @@
 
         .presented { font-size: 10pt; color: #9ca3af; letter-spacing: 3px; text-transform: uppercase; margin-top: 12mm; }
         .student-name { font-size: 36pt; color: #8a6d1f; font-style: italic; font-family: "DejaVu Serif", Georgia, serif; margin-top: 4mm; }
-        .name-rule { width: 62%; margin: 4mm auto 0; border-top: 1.2px solid #c9a24b; }
 
         .description { font-size: 11pt; color: #4b5563; line-height: 1.7; max-width: 150mm; margin: 12mm auto 0; }
         .dated { font-size: 10pt; color: #6b7280; letter-spacing: 1px; margin-top: 8mm; }
+        {{-- The gold rule sits flush under the subject line — no gap above it. --}}
+        .subject-rule { width: 62%; margin: 0 auto; padding: 0; border-top: 1.2px solid #c9a24b; }
 
         .footer { position: absolute; left: 22mm; right: 22mm; bottom: 26mm; }
         .footer-table { width: 100%; }
         .footer-table td { vertical-align: bottom; font-size: 11pt; color: #374151; }
-        .sig-rule { border-top: 1.2px solid #9ca3af; width: 55mm; margin-left: auto; padding-top: 2mm; text-align: center; font-size: 9pt; color: #6b7280; }
+        {{-- No rule above the issuer's name — the signature sits on bare paper. --}}
+        .sig-rule { width: 55mm; margin-left: auto; text-align: center; font-size: 9pt; color: #6b7280; }
 
         .contact { position: absolute; left: 22mm; right: 22mm; bottom: 14mm; }
         .contact-table { width: 100%; }
@@ -72,7 +76,6 @@
 
         <div class="presented">This is proudly presented to</div>
         <div class="student-name">{{ $cert->student->full_name ?? 'Student Name' }}</div>
-        <div class="name-rule"></div>
 
         @if ($cert->description)
             <div class="description">{{ $cert->description }}</div>
@@ -87,6 +90,7 @@
 
         @if ($cert->event_name)
             <div class="dated">{{ strtoupper($cert->event_name) }}</div>
+            <div class="subject-rule"></div>
         @endif
     </div>
 
