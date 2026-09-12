@@ -38,9 +38,15 @@ return [
         // Low temperature: this is a reporting assistant, not a writer.
         'temperature'      => (float) env('GEMINI_TEMPERATURE', 0.2),
         'maxOutputTokens'  => (int) env('GEMINI_MAX_OUTPUT_TOKENS', 1400),
-        // 2.5 models think before answering; a small budget keeps replies fast
-        // and stops the free-tier token quota from being burnt on reasoning.
-        'thinkingBudget'   => (int) env('GEMINI_THINKING_BUDGET', 0),
+        // Thinking budget. Left unset by default: 2.5/3.x Flash accepts
+        // thinkingBudget, but some siblings (flash-lite among them) answer 400
+        // "Request contains an invalid argument" for it. Set
+        // GEMINI_THINKING_BUDGET=0 to disable reasoning on a model that does
+        // take it — the request retries once without the field if it is
+        // rejected, so a wrong setting degrades rather than breaks.
+        'thinkingBudget'   => env('GEMINI_THINKING_BUDGET') !== null
+            ? (int) env('GEMINI_THINKING_BUDGET')
+            : null,
     ],
 
     'cache' => [
@@ -63,10 +69,19 @@ return [
         'unsupported_backoff_seconds' => 6 * 3600,
     ],
 
-    // Per-user throttle, so one tab cannot exhaust the daily free quota.
+    // Burst guard, per signed-in user. Stops one tab hammering the API; the
+    // real budget is the daily allowance below.
     'rate_limit' => [
         'per_minute' => (int) env('GEMINI_RATE_PER_MINUTE', 6),
-        'per_day'    => (int) env('GEMINI_RATE_PER_DAY', 200),
+    ],
+
+    // The daily allowance, counted per ORGANIZATION, not per user: one school's
+    // admin, sub-admins and accounts logins all draw from the same number, and
+    // it resets at midnight in the app timezone. The platform (super-admin)
+    // side has its own separate bucket.
+    'quota' => [
+        'per_organization_per_day' => (int) env('GEMINI_ORG_DAILY_LIMIT', 50),
+        'platform_per_day'         => (int) env('GEMINI_PLATFORM_DAILY_LIMIT', 200),
     ],
 
     // How many tool round-trips one question may take before we answer with

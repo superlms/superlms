@@ -4,6 +4,7 @@ namespace App\Livewire\Components;
 
 use App\Services\Gemini\GeminiAssistant as Assistant;
 use App\Services\Gemini\GeminiException;
+use App\Services\Gemini\GeminiQuota;
 use App\Services\Gemini\LmsScope;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -39,6 +40,17 @@ class GeminiAssistant extends Component
     #[Locked]
     public array $suggestions = [];
 
+    /** The day's allowance, shared by everyone in this organization. */
+    #[Locked]
+    public int $remaining = 0;
+
+    #[Locked]
+    public int $dailyLimit = 0;
+
+    /** e.g. "Sun, 13 Sep at 12:00 AM (in 4 hours 53 minutes)". */
+    #[Locked]
+    public string $resetsAt = '';
+
     public function mount(): void
     {
         $scope = ($user = Auth::user()) ? LmsScope::for($user) : null;
@@ -47,7 +59,8 @@ class GeminiAssistant extends Component
             return;
         }
 
-        $this->scopeLabel  = $scope->isSchool() ? 'This school' : 'All schools';
+        $this->scopeLabel = $scope->isSchool() ? 'This school' : 'All schools';
+        $this->refreshQuota($scope);
         $this->suggestions = $scope->isSchool()
             ? [
                 'How many students do we have, class-wise?',
@@ -66,6 +79,30 @@ class GeminiAssistant extends Component
     public function toggle(): void
     {
         $this->open = ! $this->open;
+
+        // The allowance is shared, so another user in the same school may have
+        // spent some of it since this page was loaded.
+        if ($this->open) {
+            $this->refreshQuota();
+        }
+    }
+
+    /**
+     * Re-read the shared allowance. Cheap — one cache get.
+     */
+    private function refreshQuota(?LmsScope $scope = null): void
+    {
+        $scope ??= ($user = Auth::user()) ? LmsScope::for($user) : null;
+
+        if (! $scope) {
+            return;
+        }
+
+        $quota = new GeminiQuota($scope);
+
+        $this->dailyLimit = $quota->limit();
+        $this->remaining  = $quota->remaining();
+        $this->resetsAt   = $quota->resetDescription();
     }
 
     public function close(): void
@@ -127,6 +164,8 @@ class GeminiAssistant extends Component
             return;
         }
 
+        $this->refreshQuota();
+
         // Everything before the question just asked is the conversation so far.
         $history = array_slice($this->messages, 0, -1);
 
@@ -138,6 +177,8 @@ class GeminiAssistant extends Component
         } catch (\Throwable $e) {
             Log::error('gemini.assistant failed', ['error' => $e->getMessage()]);
             $this->messages[] = ['role' => 'model', 'text' => 'Something went wrong while answering. Please try again.'];
+        } finally {
+            $this->refreshQuota();
         }
     }
 

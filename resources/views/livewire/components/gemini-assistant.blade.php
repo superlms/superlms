@@ -110,6 +110,12 @@
                             <p class="text-sm font-semibold text-gray-900 leading-tight">LMS Assistant</p>
                             <p class="text-[11px] text-gray-400 leading-tight truncate">Gemini · {{ $scopeLabel }} data only</p>
                         </div>
+                        {{-- The day's shared allowance, at a glance. --}}
+                        <span title="Questions left today for everyone in this account. Resets {{ $resetsAt }}."
+                            class="text-[11px] font-semibold px-1.5 py-0.5 rounded-md flex-shrink-0
+                                   {{ $remaining === 0 ? 'bg-red-50 text-red-600' : ($remaining <= 5 ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500') }}">
+                            {{ $remaining }}/{{ $dailyLimit }}
+                        </span>
                         @if (count($messages))
                             <button type="button" wire:click="clear" title="Clear chat"
                                 class="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
@@ -169,6 +175,20 @@
 
                     {{-- Composer --}}
                     <div class="border-t border-gray-200 p-3 flex-shrink-0 bg-white">
+                        @if ($remaining === 0)
+                            {{-- Out of questions: say so, and say exactly when it comes back. --}}
+                            <div class="flex items-start gap-2 px-3 py-2.5 bg-red-50 border border-red-200 rounded-xl">
+                                <svg class="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M12 21a9 9 0 110-18 9 9 0 010 18z" /></svg>
+                                <div class="min-w-0">
+                                    <p class="text-xs font-semibold text-red-800">Daily limit reached</p>
+                                    <p class="text-[11px] text-red-700 mt-0.5 leading-snug">
+                                        All {{ $dailyLimit }} questions for {{ $scopeLabel === 'This school' ? 'this school' : 'this panel' }} have been used today —
+                                        the count is shared by everyone who logs in here.
+                                        Resets <span class="font-semibold">{{ $resetsAt }}</span>.
+                                    </p>
+                                </div>
+                            </div>
+                        @else
                         <div class="flex items-end gap-2">
                             <textarea x-ref="input" wire:model="prompt" rows="1"
                                 x-on:keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); $wire.submit(); }"
@@ -192,9 +212,10 @@
                             </button>
                         </div>
                         <p class="mt-1.5 text-[10px] text-gray-400 text-center" x-show="!listening">
-                            Reads your LMS data only · double-check anything critical
+                            {{ $remaining }} of {{ $dailyLimit }} questions left today · resets {{ $resetsAt }}
                         </p>
                         <p class="mt-1.5 text-[10px] text-red-500 text-center" x-show="listening" x-cloak>Listening… speak now</p>
+                        @endif
                     </div>
                 </div>
             @endif

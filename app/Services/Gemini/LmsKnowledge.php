@@ -64,7 +64,9 @@ class LmsKnowledge
     private function build(): string
     {
         try {
-            return $this->scope->isSchool() ? $this->schoolPack() : $this->platformPack();
+            // A sub-super-admin pinned to one school gets that school's pack:
+            // a platform-wide summary would be full of numbers they cannot read.
+            return $this->scope->forcedOrganizationId() ? $this->schoolPack() : $this->platformPack();
         } catch (\Throwable $e) {
             Log::warning('gemini.knowledge build failed', ['error' => $e->getMessage()]);
 
@@ -172,7 +174,7 @@ class LmsKnowledge
     // ─────────────────────────────────────────────────────────────────────
     private function schoolPack(): string
     {
-        $orgId = (int) $this->scope->organizationId;
+        $orgId = (int) $this->scope->forcedOrganizationId();
         $org   = Organization::find($orgId);
 
         $now        = now();
@@ -331,10 +333,12 @@ class LmsKnowledge
         $today      = $now->toDateString();
         $monthStart = $now->copy()->startOfMonth()->toDateString();
 
-        $orgs     = Organization::count();
-        $active   = Organization::where('status', 1)->count();
-        $students = StudentDetail::count();
-        $teachers = TeacherDetail::count();
+        $orgs       = Organization::count();
+        $active     = Organization::where('status', 1)->count();
+        $students   = StudentDetail::count();
+        $teachers   = TeacherDetail::count();
+        $logins     = User::count();
+        $panelUsers = User::whereIn('role', ['admin', 'sub-admin', 'accounts'])->count();
 
         $schoolLines = Organization::orderByDesc('id')->limit(40)
             ->get(['id', 'name', 'status', 'education_board', 'state', 'serial_number'])
@@ -368,6 +372,13 @@ class LmsKnowledge
         - Schools (organizations): {$orgs} — active {$active}, inactive {$this->i($orgs - $active)}
         - Students across all schools: {$students}
         - Teachers across all schools: {$teachers}
+        - Login accounts across all schools: {$logins} ({$panelUsers} admin/sub-admin/accounts)
+
+        ## What you can read here
+        Everything, for every school. The school-level tools (students, staff,
+        logins, fees, attendance, records) all work from this panel: leave the
+        `school` argument out to read across the whole platform, or name a
+        school to narrow to one.
 
         ## Platform fees charged to schools
         - This month: {$this->money($revMonth)}

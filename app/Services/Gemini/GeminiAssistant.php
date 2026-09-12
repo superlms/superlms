@@ -29,7 +29,7 @@ class GeminiAssistant
 
     /**
      * @param  array<int,array{role:string,text:string}>  $history
-     * @return array{text:string,tools:array<int,string>,cached:bool}
+     * @return array{text:string,tools:array<int,string>,cached:bool,remaining:int}
      *
      * @throws GeminiException
      */
@@ -44,6 +44,21 @@ class GeminiAssistant
 
         $this->throttle($user);
 
+        // Counted before the call, not after: a question that reaches Gemini
+        // has been paid for whether or not the answer is useful, and counting
+        // afterwards would let a failing request be retried without limit.
+        $quota = new GeminiQuota($scope);
+
+        if (! $quota->consume()) {
+            throw new GeminiException('daily organization quota spent', 429, null, sprintf(
+                'The daily limit of %d %s for %s has been used up — it is shared by everyone who logs in here. It resets %s.',
+                $quota->limit(),
+                $quota->limit() === 1 ? 'question' : 'questions',
+                $scope->isSchool() ? 'this school' : 'this panel',
+                $quota->resetDescription(),
+            ));
+        }
+
         $knowledge = new LmsKnowledge($scope);
         $toolbox   = new LmsToolbox($scope);
 
@@ -54,10 +69,11 @@ class GeminiAssistant
 
         $contents = $this->conversation($history, $question, $cacheName ? null : $knowledge->pack());
 
-        $used = [];
+        $used          = [];
+        $dropThinking  = false;
 
         for ($round = 0; $round <= (int) config('gemini.max_tool_rounds', 4); $round++) {
-            $payload = ['contents' => $contents, 'generationConfig' => $this->generationConfig()];
+            $payload = ['contents' => $contents, 'generationConfig' => $this->generationConfig($dropThinking)];
 
             if ($cacheName) {
                 // With a cache the instruction and tools live *in* the cache —
@@ -79,6 +95,21 @@ class GeminiAssistant
                     continue;
                 }
 
+                // Not every model accepts a thinking budget; the ones that do
+                // not answer a flat 400. Drop the field and try once more
+                // rather than failing the question over a tuning knob.
+                if ($e->status === 400 && ! $dropThinking && $this->generationConfig(false) !== $this->generationConfig(true)) {
+                    Log::info('gemini: model rejected thinkingConfig, retrying without it');
+                    $dropThinking = true;
+                    continue;
+                }
+
+                // Gemini's own quota, or an outage, is not the school's fault —
+                // give them the question back before giving up.
+                if ($e->status === 429 || $e->status >= 500 || $e->status === 0) {
+                    $quota->refund();
+                }
+
                 throw $e;
             }
 
@@ -89,9 +120,10 @@ class GeminiAssistant
 
             if ($calls === []) {
                 return [
-                    'text'   => $this->text($parts, $response),
-                    'tools'  => $used,
-                    'cached' => (bool) $cacheName,
+                    'text'      => $this->text($parts, $response),
+                    'tools'     => $used,
+                    'cached'    => (bool) $cacheName,
+                    'remaining' => $quota->remaining(),
                 ];
             }
 
@@ -115,9 +147,10 @@ class GeminiAssistant
         }
 
         return [
-            'text'   => 'That needed more lookups than I am allowed in one go. Please ask it in smaller parts.',
-            'tools'  => $used,
-            'cached' => (bool) $cacheName,
+            'text'      => 'That needed more lookups than I am allowed in one go. Please ask it in smaller parts.',
+            'tools'     => $used,
+            'cached'    => (bool) $cacheName,
+            'remaining' => $quota->remaining(),
         ];
     }
 
@@ -129,9 +162,11 @@ class GeminiAssistant
             ? 'the school panel of one school on SuperLMS'
             : 'the SuperLMS super-admin panel, which runs the whole platform';
 
-        $limits = $scope->isSchool()
-            ? 'You can only see this one school. You have no access to any other school on the platform — say so plainly if asked.'
-            : 'You can see every school on the platform, plus what each school pays SuperLMS.';
+        $limits = match (true) {
+            $scope->isSchool() => 'You can only see this one school. You have no access to any other school on the platform, and no tool you have can reach one — if you are asked about another school, say plainly that this panel only sees its own data.',
+            $scope->readsWholePlatform() => 'You can read the whole platform: every school, every student, every staff member, every login account, all fee collection and all platform fees. The school-level tools take an optional `school` argument — leave it out for a platform-wide answer, pass a school name or serial number to narrow to one. Always say which school a figure belongs to when the answer spans more than one, and use the `covers` field each tool returns to say so accurately.',
+            default => 'You are limited to the one school this login is assigned to, even though this is the super-admin panel. You have no access to any other school\'s data.',
+        };
 
         return <<<TXT
         You are the SuperLMS Assistant, built into {$where}. You are speaking to
@@ -267,7 +302,7 @@ class GeminiAssistant
         return $contents;
     }
 
-    private function generationConfig(): array
+    private function generationConfig(bool $withoutThinking = false): array
     {
         $config = [
             'temperature'     => (float) config('gemini.generation.temperature', 0.2),
@@ -275,7 +310,7 @@ class GeminiAssistant
         ];
 
         $budget = config('gemini.generation.thinkingBudget');
-        if ($budget !== null) {
+        if (! $withoutThinking && $budget !== null) {
             $config['thinkingConfig'] = ['thinkingBudget' => (int) $budget];
         }
 
@@ -374,21 +409,19 @@ class GeminiAssistant
         };
     }
 
+    /**
+     * Burst guard only, per signed-in user — the day's budget is the
+     * per-organization allowance in {@see GeminiQuota}.
+     */
     private function throttle(User $user): void
     {
-        $perMinute = (int) config('gemini.rate_limit.per_minute', 10);
-        $perDay    = (int) config('gemini.rate_limit.per_day', 200);
+        $perMinute = (int) config('gemini.rate_limit.per_minute', 6);
 
         if (RateLimiter::tooManyAttempts('gemini:min:' . $user->id, $perMinute)) {
             throw new GeminiException('local per-minute limit', 429, null,
                 'You are asking faster than the assistant is allowed to answer. Give it a few seconds.');
         }
-        if (RateLimiter::tooManyAttempts('gemini:day:' . $user->id, $perDay)) {
-            throw new GeminiException('local per-day limit', 429, null,
-                'You have reached the daily limit for the assistant. It resets tomorrow.');
-        }
 
         RateLimiter::hit('gemini:min:' . $user->id, 60);
-        RateLimiter::hit('gemini:day:' . $user->id, 86400);
     }
 }
