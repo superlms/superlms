@@ -11,7 +11,10 @@
         @page { size: A4 portrait; margin: 0; }
 
         body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 9pt; color: #1f2937; background: #fff; }
-        .page { width: 210mm; padding: 10mm 15mm; }
+        {{-- No width here: dompdf ignores box-sizing, so `width: 210mm` plus the side
+             padding lays the sheet out 240mm wide and the right edge falls off the
+             paper. Width auto fills the page and the padding insets inside it. --}}
+        .page { padding: 10mm 14mm; }
         .sheet { border: 0.8px solid #e5e7eb; padding: 8mm 9mm 6mm; }
 
         /* ── Masthead ── */
@@ -42,7 +45,9 @@
         .data td { vertical-align: top; padding: 0.7mm 0; border-bottom: 0.5px solid #f3f4f6; line-height: 1.25; }
         .data td.num { width: 6%; font-size: 8pt; color: #9ca3af; }
         .data td.label { width: 54%; font-size: 8.5pt; color: #6b7280; padding-right: 4mm; }
-        .data td.value { width: 40%; font-size: 9pt; font-weight: bold; color: #111827; }
+        {{-- The answers carry the weight of the page by being darker, not bolder — a
+             column of bold shouts over the questions it belongs to. --}}
+        .data td.value { width: 40%; font-size: 8.5pt; font-weight: normal; color: #111827; }
         .data tr.last td { border-bottom: 0; }
 
         /* ── Signatures ── */
