@@ -277,9 +277,18 @@ class HomeWorkController extends Controller
             $perPage   = (int) $request->get('per_page', 100);
             $homeworks = $query->paginate($perPage);
 
+            // Each homework carries its class's period in the teacher's timetable,
+            // and a day's homework runs in period order (latest day first).
+            $periods = $this->teacherPeriods($user);
+            $list    = $homeworks->getCollection()
+                ->map(fn($h) => $this->formatHomework($h) + $this->periodOf($h, $periods))
+                ->sort(fn($a, $b) => [$b['assigned_date'], $a['period_start'] ?? '99:99']
+                    <=> [$a['assigned_date'], $b['period_start'] ?? '99:99'])
+                ->values();
+
             return $this->responseService->success(
                 [
-                    'homeworks'  => $homeworks->getCollection()->map(fn($h) => $this->formatHomework($h))->values(),
+                    'homeworks'  => $list,
                     'pagination' => [
                         'current_page' => $homeworks->currentPage(),
                         'last_page'    => $homeworks->lastPage(),
@@ -440,6 +449,36 @@ class HomeWorkController extends Controller
             ->where('section_id', $sectionId)
             ->where('subject_id', $subjectId)
             ->exists();
+    }
+
+    // The teacher's periods, active ones first, earliest first.
+    private function teacherPeriods($user)
+    {
+        $teacher = TeacherDetail::where('user_id', $user->id)->first(['id']);
+        if (!$teacher) return collect();
+
+        return TeacherTimeTable::where('teacher_detail_id', $teacher->id)
+            ->where('organization_id', $user->organization_id)
+            ->orderByDesc('is_active')
+            ->orderBy('start_time')
+            ->orderBy('day_of_week')
+            ->get(['standard_id', 'section_id', 'subject_id', 'day_of_week', 'start_time', 'end_time']);
+    }
+
+    // The homework's class period on the weekday it was set — or, when that
+    // class isn't taught that day, its earliest period in the week.
+    private function periodOf(HomeWork $h, $periods): array
+    {
+        $slots = $periods->where('standard_id', $h->standard_id)
+            ->where('section_id', $h->section_id)
+            ->where('subject_id', $h->subject_id);
+
+        $slot = $slots->firstWhere('day_of_week', $h->created_at?->dayOfWeekIso) ?? $slots->first();
+
+        return [
+            'period_start' => $slot?->start_time ? substr($slot->start_time, 0, 5) : null,
+            'period_end'   => $slot?->end_time ? substr($slot->end_time, 0, 5) : null,
+        ];
     }
 
     // Homework files are stored as an S3 path (app) or a full S3 URL (admin).
