@@ -46,21 +46,12 @@ class HomeWorkController extends Controller
 
         // A teacher may only post homework for a (class, section, subject) that is
         // assigned to them in the timetable.
-        if (($user->role ?? null) === 'teacher') {
-            $teacher = TeacherDetail::where('user_id', $user->id)->first(['id']);
-            $teaches = $teacher && TeacherTimeTable::where('teacher_detail_id', $teacher->id)
-                ->where('organization_id', $user->organization_id)
-                ->where('standard_id', $request->standard_id)
-                ->where('section_id', $request->section_id)
-                ->where('subject_id', $request->subject_id)
-                ->exists();
-
-            if (!$teaches) {
-                return $this->responseService->errorResponse(
-                    'You can only add homework for a class & subject assigned to you in the timetable.',
-                    403
-                );
-            }
+        if (($user->role ?? null) === 'teacher'
+            && !$this->teaches($user, $request->standard_id, $request->section_id, $request->subject_id)) {
+            return $this->responseService->errorResponse(
+                'You can only add homework for a class & subject assigned to you in the timetable.',
+                403
+            );
         }
 
         DB::beginTransaction();
@@ -102,30 +93,80 @@ class HomeWorkController extends Controller
         }
     }
 
-    // Update homework
+    // Update homework. Fields left out keep their value; a sent (even empty)
+    // description replaces it; remove_file=1 drops the attachment.
     public function updateHomeWork(Request $request, $chapterId)
     {
+        $validator = Validator::make($request->all(), [
+            'standard_id' => 'nullable|integer',
+            'section_id'  => 'nullable|integer',
+            'subject_id'  => 'nullable|integer',
+            'title'       => 'nullable|string|max:255',
+            'name'        => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+            'remove_file' => 'nullable|boolean',
+            'file'        => 'nullable|file|mimes:pdf,jpeg,jpg,png,doc,docx|max:10240',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->responseService->errorResponse($validator->errors()->first(), 422);
+        }
+
         try {
-            $homework = HomeWork::where('organization_id', Auth::user()->organization_id)
+            $user     = Auth::user();
+            $homework = HomeWork::where('organization_id', $user->organization_id)
                 ->findOrFail($chapterId);
+
+            $isTeacher = ($user->role ?? null) === 'teacher';
+
+            // A teacher edits only the homework they posted.
+            if ($isTeacher && (int) $homework->user_id !== (int) $user->id) {
+                return $this->responseService->errorResponse('You can only edit homework you posted.', 403);
+            }
 
             $data = [
                 'standard_id' => $request->standard_id ?? $homework->standard_id,
                 'section_id'  => $request->section_id ?? $homework->section_id,
                 'subject_id'  => $request->subject_id ?? $homework->subject_id,
                 'title'       => $request->input('title', $request->input('name', $homework->title)),
-                'description' => $request->description ?? $homework->description,
+                'description' => $request->has('description') ? $request->description : $homework->description,
             ];
+
+            if (!trim((string) $data['title'])) {
+                return $this->responseService->errorResponse('Please enter a homework title.', 422);
+            }
+
+            // Moving it to another class must still be one they teach.
+            $movedClass = (int) $data['standard_id'] !== (int) $homework->standard_id
+                || (int) $data['section_id'] !== (int) $homework->section_id
+                || (int) $data['subject_id'] !== (int) $homework->subject_id;
+
+            if ($isTeacher && $movedClass
+                && !$this->teaches($user, $data['standard_id'], $data['section_id'], $data['subject_id'])) {
+                return $this->responseService->errorResponse(
+                    'You can only set homework for a class & subject assigned to you in the timetable.',
+                    403
+                );
+            }
+
+            $oldFile = $homework->file;
 
             if ($request->hasFile('file')) {
                 $path = $request->file('file')->store('admin/homework', 's3');
-                if ($path !== false) {
-                    Storage::disk('s3')->setVisibility($path, 'public');
-                    $data['file'] = $path;
+                if ($path === false) {
+                    return $this->responseService->errorResponse('File upload failed.', 500);
                 }
+                Storage::disk('s3')->setVisibility($path, 'public');
+                $data['file'] = $path;
+            } elseif ($request->boolean('remove_file')) {
+                $data['file'] = null;
             }
 
             $homework->update($data);
+
+            if ($oldFile && array_key_exists('file', $data)) {
+                $this->deleteFile($oldFile);
+            }
             $homework->load(['standard', 'section', 'subject', 'user']);
 
             return $this->responseService->success(
@@ -147,11 +188,21 @@ class HomeWorkController extends Controller
     {
         DB::beginTransaction();
         try {
-            $homework = HomeWork::where('organization_id', Auth::user()->organization_id)
+            $user     = Auth::user();
+            $homework = HomeWork::where('organization_id', $user->organization_id)
                 ->findOrFail($chapterId);
 
+            // A teacher deletes only the homework they posted.
+            if (($user->role ?? null) === 'teacher' && (int) $homework->user_id !== (int) $user->id) {
+                DB::rollBack();
+                return $this->responseService->errorResponse('You can only delete homework you posted.', 403);
+            }
+
+            $file = $homework->file;
             $homework->delete();
             DB::commit();
+
+            if ($file) $this->deleteFile($file);
 
             return $this->responseService->success([], 'Homework deleted successfully');
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
@@ -377,6 +428,30 @@ class HomeWorkController extends Controller
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
+
+    // Is this (class, section, subject) assigned to the teacher in the timetable?
+    private function teaches($user, $standardId, $sectionId, $subjectId): bool
+    {
+        $teacher = TeacherDetail::where('user_id', $user->id)->first(['id']);
+
+        return $teacher && TeacherTimeTable::where('teacher_detail_id', $teacher->id)
+            ->where('organization_id', $user->organization_id)
+            ->where('standard_id', $standardId)
+            ->where('section_id', $sectionId)
+            ->where('subject_id', $subjectId)
+            ->exists();
+    }
+
+    // Homework files are stored as an S3 path (app) or a full S3 URL (admin).
+    private function deleteFile(string $file): void
+    {
+        try {
+            $path = preg_match('#^https?://#i', $file) ? parse_url($file, PHP_URL_PATH) : $file;
+            Storage::disk('s3')->delete(ltrim((string) $path, '/'));
+        } catch (\Throwable $e) {
+            logger()->warning('Homework file delete failed: ' . $e->getMessage());
+        }
+    }
 
     private function formatHomework(HomeWork $h): array
     {
