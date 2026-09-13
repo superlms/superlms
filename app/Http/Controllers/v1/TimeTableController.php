@@ -197,7 +197,7 @@ class TimeTableController extends Controller
             'total_classes' => $todayTimeTables->count(),
             'timetable' => $todayTimeTables->map(function ($timetable) {
                 return $this->formatTimeTable($timetable);
-            })
+            })->values()
         ];
 
         return $this->responseService->success(
@@ -252,7 +252,7 @@ class TimeTableController extends Controller
             'total_classes' => $dayTimeTables->count(),
             'timetable' => $dayTimeTables->map(function ($timetable) {
                 return $this->formatTimeTable($timetable);
-            })
+            })->values()
         ];
 
         return $this->responseService->success(
@@ -284,7 +284,7 @@ class TimeTableController extends Controller
             'total_classes' => $dateTimeTables->count(),
             'timetable' => $dateTimeTables->map(function ($timetable) {
                 return $this->formatTimeTable($timetable);
-            })
+            })->values()
         ];
 
         return $this->responseService->success(
@@ -318,9 +318,11 @@ class TimeTableController extends Controller
                     'day_name' => $this->getDayName($day),
                     'date' => $date->format('Y-m-d'),
                     'total_classes' => $dayTimeTables->count(),
+                    // A filtered collection keeps its row numbers as keys, which
+                    // JSON turns into an object for every day after the first.
                     'timetable' => $dayTimeTables->map(function ($timetable) {
                         return $this->formatTimeTable($timetable);
-                    })
+                    })->values()
                 ];
             }
         }
