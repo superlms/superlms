@@ -98,10 +98,12 @@ class TransportController extends ApiController
             'pickup_location' => $t->pickup_location,
             'drop_location'   => $t->drop_location,
             'pickup_time'     => $t->pickup_time,
+            'drop_time'       => $t->drop_time,
             'stops'           => $t->stops ?? [],
             'monthly_fee'     => (float) $t->monthly_fee,
             'capacity'        => $t->capacity,
             'vehicle_no'      => $t->driver?->vehicle_no,
+            'vehicle_type'    => $t->vehicle_type ?? $t->driver?->vehicle_type,
             'driver'          => $t->driver ? [
                 'id'          => $t->driver->id,
                 'name'        => $t->driver->user?->name,
