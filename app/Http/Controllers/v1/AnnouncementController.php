@@ -73,6 +73,8 @@ class AnnouncementController extends Controller
                         $announcementData['creator_email'] = null;
                         $announcementData['creator_avatar'] = $announcement->organization->logo ?? null;
                     }
+                    // The school's name, shown under "Posted By" in the app.
+                    $announcementData['organization_name'] = $announcement->organization->name ?? null;
 
                     // Add full URLs for files
                     $announcementData['image_url'] = $announcement->announcement_image
@@ -156,6 +158,8 @@ class AnnouncementController extends Controller
                 $announcementData['creator_email'] = null;
                 $announcementData['creator_avatar'] = $announcement->organization->logo ?? null;
             }
+            // The school's name, shown under "Posted By" in the app.
+            $announcementData['organization_name'] = $announcement->organization->name ?? null;
 
             // Add full URLs for files
             $announcementData['image_url'] = $announcement->announcement_image

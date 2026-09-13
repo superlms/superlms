@@ -313,6 +313,8 @@ class CalendarController extends Controller
                 'creator_email' => $creator->email ?? null,
                 'creator_avatar' => ($creator->image ?? null)
                     ?: ($event->organization->logo ?? null),
+                // The school's name, shown under "Posted By" in the app.
+                'organization_name' => $event->organization->name ?? null,
                 'created_at' => $event->created_at->format('Y-m-d H:i:s'),
                 'updated_at' => $event->updated_at->format('Y-m-d H:i:s'),
             ];
