@@ -55,7 +55,7 @@ class DashboardController extends ApiController
             'performance' => $this->studentPerformance($student->id, $orgId),
             'exams'       => ['upcoming' => $this->upcomingExams($orgId)],
             'homework'    => $this->studentHomework($student, $orgId),
-            'notices'     => $this->notices($orgId, ['user', 'all'], $student->standard_id),
+            'notices'     => $this->notices($orgId, ['user', 'all'], $student->standard_id, true),
         ], 'Student dashboard fetched successfully.');
     }
 
@@ -326,16 +326,17 @@ class DashboardController extends ApiController
     }
 
     /**
-     * $standardId narrows to a student's own class: school-wide notices plus
-     * the ones aimed at that class. Null (teachers) sees them all.
+     * For a student, school-wide notices plus the ones aimed at their own class
+     * ($standardId) — a student with no class yet sees only the school-wide
+     * ones, never another class's. Teachers see them all.
      */
-    private function notices(int $orgId, array $types, ?int $standardId = null)
+    private function notices(int $orgId, array $types, ?int $standardId = null, bool $forStudent = false)
     {
         return Announcement::where('organization_id', $orgId)
             ->whereIn('type', $types)
-            ->when($standardId, fn ($q) => $q->where(fn ($w) => $w
+            ->when($forStudent, fn ($q) => $q->where(fn ($w) => $w
                 ->whereNull('standard_id')
-                ->orWhere('standard_id', $standardId)))
+                ->when($standardId, fn ($c) => $c->orWhere('standard_id', $standardId))))
             ->latest()
             ->limit(3)
             ->get()

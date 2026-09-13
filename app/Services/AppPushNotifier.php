@@ -38,19 +38,26 @@ class AppPushNotifier
 
     /**
      * A new announcement was posted by admin. Audience follows its `type`:
-     * all → students + teachers, user → students, teacher → teachers.
+     * all → students + teachers, user → students, teacher → teachers. One aimed
+     * at a class (`standard_id`) goes only to that class's students — the same
+     * people who can see it in the app.
      */
     public function announcement(Announcement $a): void
     {
         $this->safe(function () use ($a) {
-            $roles = match ($a->type) {
-                'user'    => [self::STUDENT],
-                'teacher' => [self::TEACHER],
-                default   => [self::STUDENT, self::TEACHER], // 'all'
-            };
+            if ($a->standard_id) {
+                $ids = $this->classStudentUserIds($a->organization_id, (int) $a->standard_id);
+            } else {
+                $roles = match ($a->type) {
+                    'user'    => [self::STUDENT],
+                    'teacher' => [self::TEACHER],
+                    default   => [self::STUDENT, self::TEACHER], // 'all'
+                };
+                $ids = $this->orgUserIds($a->organization_id, $roles);
+            }
 
             $this->fcm()->notifyUserIds(
-                $this->orgUserIds($a->organization_id, $roles),
+                $ids,
                 'announcement',
                 [
                     'title'  => $a->announcement_name ?: 'New Announcement',
@@ -152,6 +159,28 @@ class AppPushNotifier
 
         return User::where('organization_id', $orgId)
             ->whereIn('role', $roles)
+            ->pluck('id')
+            ->all();
+    }
+
+    /**
+     * The student accounts in one class of the org.
+     *
+     * @return array<int>
+     */
+    private function classStudentUserIds(?int $orgId, int $standardId): array
+    {
+        if (!$orgId) {
+            return [];
+        }
+
+        $studentUserIds = StudentDetail::where('organization_id', $orgId)
+            ->where('standard_id', $standardId)
+            ->whereNotNull('user_id')
+            ->pluck('user_id');
+
+        return User::whereIn('id', $studentUserIds)
+            ->where('role', self::STUDENT)
             ->pluck('id')
             ->all();
     }
