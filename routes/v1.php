@@ -124,6 +124,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // Teacher routes here
         Route::prefix('teacher')->group(function () {
             Route::get('/profile', [TeacherController::class, 'teacherProfile']);
+            Route::post('/profile/photo', [TeacherController::class, 'updateTeacherPhoto']);
             Route::get('/subject', [SubjectController::class, 'getTeacherSubject']);
             Route::get('/dashboard', [DashboardController::class, 'teacherDashboard']); // home + analytics
 
