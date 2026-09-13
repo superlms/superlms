@@ -568,6 +568,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::prefix('transport')->group(function () {
             Route::get('/my-route', [TransportController::class, 'myRoute']);
             Route::get('/routes',   [TransportController::class, 'routes']);
+            Route::get('/receipt/{id}/pdf', [TransportController::class, 'receiptPdf'])->whereNumber('id');
         });
 
         // Exams Api

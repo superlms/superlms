@@ -5,6 +5,7 @@ namespace App\Http\Controllers\v1;
 use App\Models\Admin\Transportation;
 use App\Models\Admin\TransportFeePayment;
 use App\Models\Student\StudentDetail;
+use App\Support\TransportReceipt;
 use Illuminate\Support\Facades\DB;
 
 class TransportController extends ApiController
@@ -88,6 +89,38 @@ class TransportController extends ApiController
         return $this->success($routes, 'Transport routes fetched successfully.');
     }
 
+    /**
+     * GET /api/v1/transport/receipt/{id}/pdf
+     *
+     * One of the student's own transport fee receipts, as a PDF.
+     */
+    public function receiptPdf(int $id)
+    {
+        [$user, $err] = $this->authUser();
+        if ($err) return $err;
+
+        if ($err = $this->requireRole('user')) return $err;
+
+        $student = StudentDetail::where('user_id', $user->id)
+            ->where('organization_id', $user->organization_id)
+            ->first();
+
+        if (!$student) {
+            return $this->error('Student profile not found.', 404);
+        }
+
+        $payment = TransportFeePayment::with(TransportReceipt::WITH)
+            ->where('organization_id', $user->organization_id)
+            ->where('student_detail_id', $student->id)
+            ->find($id);
+
+        if (!$payment) {
+            return $this->error('Receipt not found.', 404);
+        }
+
+        return TransportReceipt::pdf($payment)->stream("Transport_Receipt_{$payment->receipt_number}.pdf");
+    }
+
     // ── Private ───────────────────────────────────────────────────────────────
 
     private function formatTransport(Transportation $t): array
@@ -140,10 +173,16 @@ class TransportController extends ApiController
         $billableCount = count(array_filter($months));
         $annualFee     = round($monthlyFee * $billableCount, 2);
 
-        $totalPaid = (float) TransportFeePayment::where('organization_id', $transport->organization_id)
+        // Oldest first, so the serial numbers run in the order they were paid.
+        $payments = TransportFeePayment::with('submittedBy:id,name')
+            ->where('organization_id', $transport->organization_id)
             ->where('student_detail_id', $student->id)
             ->where('transportation_id', $transport->id)
-            ->sum('amount');
+            ->orderBy('payment_date')
+            ->orderBy('id')
+            ->get();
+
+        $totalPaid = (float) $payments->sum('amount');
 
         // Allocate the paid amount across billable months, oldest first.
         $remaining = $totalPaid;
@@ -185,6 +224,22 @@ class TransportController extends ApiController
             'total_paid'   => round($totalPaid, 2),
             'total_due'    => round(max(0, $annualFee - $totalPaid), 2),
             'schedule'     => $schedule,
+            // Every payment made on this route, each with its receipt.
+            'payments'     => $payments->values()->map(function (TransportFeePayment $p, int $i) use ($student) {
+                $p->setRelation('studentDetail', $student);
+
+                return [
+                    'id'             => $p->id,
+                    'serial'         => $i + 1,
+                    'amount'         => (float) $p->amount,
+                    'date'           => $p->payment_date?->format('d M Y'),
+                    'day'            => $p->payment_date?->format('l'),
+                    'submitted_by'   => TransportReceipt::submittedBy($p),
+                    'type'           => TransportReceipt::type($p),
+                    'mode'           => TransportReceipt::modeLabel($p->payment_mode),
+                    'receipt_number' => $p->receipt_number,
+                ];
+            })->all(),
         ];
     }
 
