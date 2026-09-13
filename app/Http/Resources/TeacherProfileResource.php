@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Student\Section;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -81,6 +82,10 @@ class TeacherProfileResource extends JsonResource
                 'standard_name'   => optional($class->standard)->name ?? null,
                 'section_id'      => $class->section_id ?? null,
                 'section_name'    => optional($class->section)->name ?? null,
+                // Class teacher of a whole class (no section): all of its sections.
+                'section_names'   => $class->section
+                    ? [$class->section->name]
+                    : Section::where('standard_id', $class->standard_id)->orderBy('name')->pluck('name')->values(),
                 'source'          => 'assign_teacher_standard',
             ];
         });
