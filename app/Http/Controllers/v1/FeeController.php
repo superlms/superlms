@@ -365,10 +365,12 @@ class FeeController extends ApiController
         $billableCount = count(array_filter($months));
         $annualFee     = round($monthlyFee * $billableCount, 2);
 
-        $payments = TransportFeePayment::where('organization_id', $orgId)
+        $payments = TransportFeePayment::with('submittedBy:id,name')
+            ->where('organization_id', $orgId)
             ->where('student_detail_id', $student->id)
             ->where('transportation_id', $transport->id)
             ->latest('payment_date')
+            ->latest('id')
             ->get();
 
         $totalPaid = (float) $payments->sum('amount');
@@ -433,16 +435,28 @@ class FeeController extends ApiController
             ],
             'schedule' => $schedule,
             'upcoming' => $upcoming,
-            'paid'     => $payments->map(fn($p) => [
-                'id'             => $p->id,
-                'receipt_number' => $p->receipt_number,
-                'fee_type'       => 'transport',
-                'amount'         => (float) $p->amount,
-                'penalty_amount' => 0.0,
-                'payment_mode'   => $p->payment_mode,
-                'payment_date'   => $p->payment_date?->format('Y-m-d'),
-                'remark'         => $p->remark,
-            ])->values(),
+            'paid'     => $payments->values()->map(function (TransportFeePayment $p, int $i) use ($payments, $student) {
+                $p->setRelation('studentDetail', $student);
+
+                return [
+                    'id'             => $p->id,
+                    'receipt_number' => $p->receipt_number,
+                    'fee_type'       => 'transport',
+                    'amount'         => (float) $p->amount,
+                    'penalty_amount' => 0.0,
+                    'payment_mode'   => $p->payment_mode,
+                    'payment_date'   => $p->payment_date?->format('Y-m-d'),
+                    'remark'         => $p->remark,
+                    // For the app's detailed list — newest first, so the serial
+                    // counts back from the latest.
+                    'serial'         => $payments->count() - $i,
+                    'date'           => $p->payment_date?->format('d M Y'),
+                    'day'            => $p->payment_date?->format('l'),
+                    'submitted_by'   => \App\Support\TransportReceipt::submittedBy($p),
+                    'type'           => \App\Support\TransportReceipt::type($p),
+                    'mode'           => \App\Support\TransportReceipt::modeLabel($p->payment_mode),
+                ];
+            })->values(),
         ];
     }
 
