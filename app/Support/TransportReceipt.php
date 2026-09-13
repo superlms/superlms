@@ -82,12 +82,15 @@ class TransportReceipt
     }
 
     /**
-     * Paid in the app (the online checkout records no staff member) or at the
-     * school counter (recorded by whoever took it).
+     * Paid in the app (the online checkout records an online payment with no
+     * staff member) or at the school counter (anything recorded by staff, or
+     * taken in cash, cheque and the like).
      */
     public static function type(TransportFeePayment $payment): string
     {
-        return $payment->submitted_by ? 'Counter' : 'Online';
+        return !$payment->submitted_by && strtolower((string) $payment->payment_mode) === 'online'
+            ? 'Online'
+            : 'Counter';
     }
 
     /** The staff member who recorded it, else the student who paid in the app. */

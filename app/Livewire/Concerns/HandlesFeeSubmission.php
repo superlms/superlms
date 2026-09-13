@@ -5,9 +5,11 @@ namespace App\Livewire\Concerns;
 use App\Models\Admin\Fee\FeeConcession;
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\Fee\FeeStructure;
+use App\Models\Admin\TransportFeePayment;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
+use App\Support\TransportBilling;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -223,18 +225,41 @@ trait HandlesFeeSubmission
         try {
             $student = StudentDetail::find($this->selectedStudentId);
 
-            FeePayment::create([
-                'organization_id'   => $this->orgId(),
-                'student_detail_id' => $this->selectedStudentId,
-                'standard_id'       => $student->standard_id,
-                'section_id'        => $student->section_id,
-                'fee_type'          => $this->submitFeeType,
-                'amount'            => $this->submitAmount,
-                'payment_mode'      => $this->submitPaymentMode,
-                'payment_date'      => $this->submitDate,
-                'remark'            => $this->submitRemark,
-                'submitted_by'      => $this->submittedBy,
-            ]);
+            if ($this->submitFeeType === 'transport') {
+                // A bus fee goes with the student's other transport payments —
+                // transport_fee_payments, which the Transport module, View Fee,
+                // this ledger's own transport side, the receipts and the app all
+                // read. Booked into fee_payments it showed on the Payments list
+                // and nowhere else.
+                [$route] = TransportBilling::forStudent($this->orgId(), (int) $student->id);
+                $year    = (int) date('Y', strtotime((string) $this->submitDate));
+
+                TransportFeePayment::create([
+                    'organization_id'   => $this->orgId(),
+                    'transportation_id' => $route?->id,
+                    'student_detail_id' => $student->id,
+                    'amount'            => $this->submitAmount,
+                    'payment_mode'      => $this->submitPaymentMode,
+                    'payment_date'      => $this->submitDate,
+                    'academic_year'     => $year . '-' . substr((string) ($year + 1), -2),
+                    'remark'            => $this->submitRemark ?: null,
+                    // transport_fee_payments keeps the collector as a user id
+                    'submitted_by'      => Auth::id(),
+                ]);
+            } else {
+                FeePayment::create([
+                    'organization_id'   => $this->orgId(),
+                    'student_detail_id' => $this->selectedStudentId,
+                    'standard_id'       => $student->standard_id,
+                    'section_id'        => $student->section_id,
+                    'fee_type'          => $this->submitFeeType,
+                    'amount'            => $this->submitAmount,
+                    'payment_mode'      => $this->submitPaymentMode,
+                    'payment_date'      => $this->submitDate,
+                    'remark'            => $this->submitRemark,
+                    'submitted_by'      => $this->submittedBy,
+                ]);
+            }
 
             $this->notification()->success('Fee submitted successfully!');
             $this->reset(['submitAmount', 'submitFeeType', 'submitPaymentMode', 'submitRemark', 'submittedBy']);
