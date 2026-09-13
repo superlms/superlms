@@ -101,6 +101,7 @@ class StudentAttendanceService
                         // Prepare updates
                         $updates[] = [
                             'id' => $existingAttendances[$studentId]->id,
+                            'student_detail_id' => $studentId,
                             'status' => $attendance['status'],
                             'remarks' => $attendance['remarks'] ?? null,
                             'marked_by' => $markedById,
@@ -151,32 +152,32 @@ class StudentAttendanceService
     protected function bulkUpdateAttendances($updates)
     {
         $table = (new StudentAttendance())->getTable();
-        $cases = [];
         $ids = [];
-        $params = [];
+        $statusCases = $remarksCases = $markedByCases = [];
+        $statusParams = $remarksParams = $markedByParams = [];
 
+        // Each column gets its own CASE. They used to share one list holding all
+        // three values per id, and since the first matching WHEN wins, remarks
+        // and marked_by were overwritten with the status code on every update.
         foreach ($updates as $update) {
-            $id = $update['id'];
-            $cases[] = "WHEN {$id} then ?";
-            $params[] = $update['status'];
-            $cases[] = "WHEN {$id} then ?";
-            $params[] = $update['remarks'];
-            $cases[] = "WHEN {$id} then ?";
-            $params[] = $update['marked_by'];
+            $id = (int) $update['id'];
             $ids[] = $id;
+            $statusCases[] = "WHEN {$id} THEN ?";
+            $statusParams[] = $update['status'];
+            $remarksCases[] = "WHEN {$id} THEN ?";
+            $remarksParams[] = $update['remarks'];
+            $markedByCases[] = "WHEN {$id} THEN ?";
+            $markedByParams[] = $update['marked_by'];
         }
 
-        $ids = implode(',', $ids);
-        $cases = implode(' ', $cases);
-
         return DB::update(
-            "UPDATE {$table} SET 
-                status = CASE id {$cases} END,
-                remarks = CASE id {$cases} END,
-                marked_by = CASE id {$cases} END,
+            "UPDATE {$table} SET
+                status = CASE id " . implode(' ', $statusCases) . " END,
+                remarks = CASE id " . implode(' ', $remarksCases) . " END,
+                marked_by = CASE id " . implode(' ', $markedByCases) . " END,
                 updated_at = ?
-            WHERE id IN ({$ids})",
-            array_merge($params, $params, $params, [now()])
+            WHERE id IN (" . implode(',', $ids) . ")",
+            array_merge($statusParams, $remarksParams, $markedByParams, [now()])
         );
     }
 

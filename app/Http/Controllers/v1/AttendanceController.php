@@ -20,8 +20,8 @@ class AttendanceController extends Controller
     protected $responseService;
     protected $attendanceService;
 
-    /** Teachers may mark/edit attendance for the last 3 working days (Sundays excluded). */
-    private const MARKABLE_DAYS = 3;
+    /** Teachers may mark/edit attendance for the last 7 working days (Sundays excluded). */
+    private const MARKABLE_DAYS = 7;
 
     public function __construct(StudentAttendanceService $attendanceService, ResponseService $responseService)
     {
