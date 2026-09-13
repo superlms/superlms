@@ -280,11 +280,8 @@ class HomeWorkController extends Controller
             // Each homework carries its class's period in the teacher's timetable,
             // and a day's homework runs in period order (latest day first).
             $periods = $this->teacherPeriods($user);
-            $list    = $homeworks->getCollection()
-                ->map(fn($h) => $this->formatHomework($h) + $this->periodOf($h, $periods))
-                ->sort(fn($a, $b) => [$b['assigned_date'], $a['period_start'] ?? '99:99']
-                    <=> [$a['assigned_date'], $b['period_start'] ?? '99:99'])
-                ->values();
+            $list    = $this->inPeriodOrder($homeworks->getCollection()
+                ->map(fn($h) => $this->formatHomework($h) + $this->periodOf($h, $periods)));
 
             return $this->responseService->success(
                 [
@@ -356,6 +353,17 @@ class HomeWorkController extends Controller
                 ->pluck('home_work_id')
                 ->flip();
 
+            // Each homework carries its period in the class timetable, and a
+            // day's homework runs in period order (latest day first).
+            $periods = $this->periods([
+                'organization_id' => $organizationId,
+                'standard_id'     => $studentDetail->standard_id,
+                'section_id'      => $studentDetail->section_id,
+            ]);
+            $list = $this->inPeriodOrder($homeworks->getCollection()->map(fn($h) => $this->formatHomework($h)
+                + $this->periodOf($h, $periods)
+                + ['is_completed' => $completedIds->has($h->id)]));
+
             return $this->responseService->success(
                 [
                     'student_info' => [
@@ -365,9 +373,7 @@ class HomeWorkController extends Controller
                         'section'  => $studentDetail->section->name ?? null,
                         'roll_no'  => $studentDetail->roll_no,
                     ],
-                    'homeworks'  => $homeworks->getCollection()->map(fn($h) => $this->formatHomework($h) + [
-                        'is_completed' => $completedIds->has($h->id),
-                    ])->values(),
+                    'homeworks'  => $list,
                     'pagination' => [
                         'current_page' => $homeworks->currentPage(),
                         'last_page'    => $homeworks->lastPage(),
@@ -451,18 +457,30 @@ class HomeWorkController extends Controller
             ->exists();
     }
 
-    // The teacher's periods, active ones first, earliest first.
+    // The teacher's periods.
     private function teacherPeriods($user)
     {
         $teacher = TeacherDetail::where('user_id', $user->id)->first(['id']);
         if (!$teacher) return collect();
 
-        return TeacherTimeTable::where('teacher_detail_id', $teacher->id)
-            ->where('organization_id', $user->organization_id)
+        return $this->periods(['teacher_detail_id' => $teacher->id, 'organization_id' => $user->organization_id]);
+    }
+
+    // Timetable periods matching $where, active ones first, earliest first.
+    private function periods(array $where)
+    {
+        return TeacherTimeTable::where($where)
             ->orderByDesc('is_active')
             ->orderBy('start_time')
             ->orderBy('day_of_week')
             ->get(['standard_id', 'section_id', 'subject_id', 'day_of_week', 'start_time', 'end_time']);
+    }
+
+    // Latest day first; within a day, in period order (homework without a period last).
+    private function inPeriodOrder($list)
+    {
+        return $list->sort(fn($a, $b) => [$b['assigned_date'], $a['period_start'] ?? '99:99']
+            <=> [$a['assigned_date'], $b['period_start'] ?? '99:99'])->values();
     }
 
     // The homework's class period on the weekday it was set — or, when that
