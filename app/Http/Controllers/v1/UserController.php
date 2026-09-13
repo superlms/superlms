@@ -103,7 +103,7 @@ class UserController extends Controller
                 'standard',
                 'section',
                 'organization',
-                'transportations',
+                'transportations.driver.user',
             ])->where('user_id', $user->id)->first();
 
             if (!$studentDetail) {
