@@ -274,6 +274,8 @@ class CalendarController extends Controller
                 'is_all_day' => (bool)$event->is_all_day,
                 'event_type' => $event->event_type,
                 'color' => $event->color,
+                // Optional image/PDF (public S3 URL), shown under the description.
+                'attachment' => $event->attachment ?: null,
                 'is_cancelled' => (bool)$event->is_cancelled,
                 'cancellation_reason' => $event->cancellation_reason,
                 'location' => $event->location ? [
