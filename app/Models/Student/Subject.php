@@ -54,4 +54,14 @@ class Subject extends Model
         return $this->belongsToMany(Section::class, 'section_subjects')
             ->withPivot(['standard_id', 'organization_id']);
     }
+
+    /**
+     * The subject's section names, each once. A section can be linked more
+     * than once (a copy left under its old class after it moved), and two
+     * sections can share a name — neither should read "SECTION A, SECTION A".
+     */
+    public function sectionNames(): string
+    {
+        return $this->sections->pluck('name')->unique()->implode(', ');
+    }
 }

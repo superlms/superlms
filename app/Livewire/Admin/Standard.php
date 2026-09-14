@@ -912,7 +912,7 @@ class Standard extends Component
             'detail_image' => $s->detail_image,
             'class'        => $standard?->name ?? 'Not assigned',
             'is_mandatory' => $standard ? ($standard->pivot?->is_mandatory ? 'Yes' : 'No') : 'N/A',
-            'sections'     => $s->sections->pluck('name')->implode(', '),
+            'sections'     => $s->sectionNames(),
             'created_at'   => $s->created_at->format('d M Y, h:i A'),
         ];
         $this->showViewModal = true;

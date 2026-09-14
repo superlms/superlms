@@ -401,8 +401,8 @@ class AdminStandardController extends ApiController
             'standard_id'  => $standard?->id,
             'standard_name' => $standard?->name,
             'is_mandatory' => $standard ? (bool) ($standard->pivot?->is_mandatory) : null,
-            'section_ids'  => $s->sections->pluck('id')->toArray(),
-            'sections'     => $s->sections->pluck('name')->implode(', '),
+            'section_ids'  => $s->sections->pluck('id')->unique()->values()->toArray(),
+            'sections'     => $s->sectionNames(),
             'created_at'   => $s->created_at?->toIso8601String(),
         ];
     }

@@ -339,7 +339,7 @@
                                 <div class="col-span-3 text-sm text-gray-600 truncate">
                                     {{ $subject->standards->pluck('name')->implode(', ') ?: '—' }}
                                     @if ($subject->sections->count())
-                                        <span class="text-gray-400">· {{ $subject->sections->pluck('name')->implode(', ') }}</span>
+                                        <span class="text-gray-400">· {{ $subject->sectionNames() }}</span>
                                     @endif
                                 </div>
                                 <div class="col-span-1 text-center">
