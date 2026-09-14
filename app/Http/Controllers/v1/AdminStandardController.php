@@ -498,12 +498,16 @@ class AdminStandardController extends ApiController
                     'is_mandatory'    => $request->boolean('is_mandatory', true),
                 ]);
                 foreach ($request->section_ids as $sectionId) {
-                    SectionSubject::create([
-                        'section_id'      => $sectionId,
-                        'subject_id'      => $subject->id,
-                        'standard_id'     => $request->standard_id,
-                        'organization_id' => $orgId,
-                    ]);
+                    // firstOrCreate → a section sent twice (or a double-tapped
+                    // save) links once, never "SECTION A, SECTION A".
+                    SectionSubject::firstOrCreate(
+                        [
+                            'section_id'  => (int) $sectionId,
+                            'subject_id'  => $subject->id,
+                            'standard_id' => $request->standard_id,
+                        ],
+                        ['organization_id' => $orgId]
+                    );
                 }
                 return $subject;
             });
@@ -567,12 +571,16 @@ class AdminStandardController extends ApiController
                 );
                 SectionSubject::where('subject_id', $subject->id)->where('standard_id', $request->standard_id)->delete();
                 foreach ($request->section_ids as $sectionId) {
-                    SectionSubject::create([
-                        'section_id'      => $sectionId,
-                        'subject_id'      => $subject->id,
-                        'standard_id'     => $request->standard_id,
-                        'organization_id' => $orgId,
-                    ]);
+                    // firstOrCreate → a section sent twice (or a double-tapped
+                    // save) links once, never "SECTION A, SECTION A".
+                    SectionSubject::firstOrCreate(
+                        [
+                            'section_id'  => (int) $sectionId,
+                            'subject_id'  => $subject->id,
+                            'standard_id' => $request->standard_id,
+                        ],
+                        ['organization_id' => $orgId]
+                    );
                 }
             });
         } catch (\Throwable $e) {
