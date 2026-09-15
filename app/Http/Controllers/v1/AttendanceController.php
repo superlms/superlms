@@ -8,6 +8,7 @@ use App\Models\Teacher\{AssignTeacherStandard, TeacherAttendance, TeacherDetail}
 use App\Services\AppPushNotifier;
 use App\Services\ResponseService;
 use App\Services\StudentAttendanceService;
+use App\Support\AcademicYear;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
@@ -20,9 +21,6 @@ class AttendanceController extends Controller
     protected $responseService;
     protected $attendanceService;
 
-    /** Teachers may mark/edit attendance for the last 7 working days (Sundays excluded). */
-    private const MARKABLE_DAYS = 7;
-
     public function __construct(StudentAttendanceService $attendanceService, ResponseService $responseService)
     {
         $this->responseService = $responseService;
@@ -30,37 +28,21 @@ class AttendanceController extends Controller
     }
 
     /**
-     * The dates a teacher may currently mark: the last MARKABLE_DAYS working days
-     * (Sundays are auto-holidays and excluded), most recent first.
-     */
-    private function markableDates(): array
-    {
-        $dates  = [];
-        $cursor = now()->startOfDay();
-        while (count($dates) < self::MARKABLE_DAYS) {
-            if ($cursor->dayOfWeek !== Carbon::SUNDAY) {
-                $dates[] = $cursor->toDateString();
-            }
-            $cursor->subDay();
-        }
-        return $dates;
-    }
-
-    /**
-     * Validate that $date is one of the markable working days.
+     * Validate that $date can be marked: a day of this session (from 1 April)
+     * up to today, and not a Sunday — Sundays are always holidays.
      * Returns an error string when not allowed, or null when allowed.
      */
     private function outsideEditWindow(string $date): ?string
     {
-        $target = Carbon::parse($date);
+        $target = Carbon::parse($date)->startOfDay();
         if ($target->dayOfWeek === Carbon::SUNDAY) {
             return 'Sunday is a holiday — attendance cannot be marked.';
         }
         if ($target->isFuture() && !$target->isToday()) {
             return 'You cannot mark attendance for a future date.';
         }
-        if (!in_array($target->toDateString(), $this->markableDates(), true)) {
-            return 'Attendance can only be marked for the last ' . self::MARKABLE_DAYS . ' working days (Sundays excluded).';
+        if ($target->lt(AcademicYear::start())) {
+            return 'Attendance can only be marked from ' . AcademicYear::start()->format('j M Y') . ', the start of this session.';
         }
         return null;
     }
@@ -124,6 +106,7 @@ class AttendanceController extends Controller
                         'student_id' => $student->id,
                         'user_id' => $student->user_id,
                         'roll_no' => $student->roll_no,
+                        'admission_no' => $student->admission_no,
                         'full_name' => $student->full_name,
                         'photo' => $student->user->image ?? null,
                         'standard_id' => $student->standard_id,
