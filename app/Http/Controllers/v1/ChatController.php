@@ -322,12 +322,16 @@ class ChatController extends ApiController
     private function person(TeacherDetail|StudentDetail $p): array
     {
         if ($p instanceof TeacherDetail) {
+            // What they teach the student's class.
+            $subjects = $p->timetables->pluck('subject.name')->filter()->unique()->values();
+
             return [
                 'user_id'  => (int) $p->user_id,
                 'name'     => (string) $p->user?->name,
                 'avatar'   => $p->user?->image,
-                // What they teach the student's class: "Mathematics, Science".
-                'subtitle' => $p->timetables->pluck('subject.name')->filter()->unique()->implode(', ') ?: null,
+                // "Mathematics, Science"
+                'subtitle' => $subjects->implode(', ') ?: null,
+                'subjects' => $subjects->all(),
             ];
         }
 
@@ -337,6 +341,9 @@ class ChatController extends ApiController
             'avatar'   => $p->user?->image,
             // "10th A"
             'subtitle' => trim(($p->standard?->name ?? '') . ' ' . ($p->section?->name ?? '')) ?: null,
+            // The class and section on their own, for picking a class first.
+            'standard' => $p->standard ? ['id' => $p->standard->id, 'name' => $p->standard->name] : null,
+            'section'  => $p->section ? ['id' => $p->section->id, 'name' => $p->section->name] : null,
         ];
     }
 
