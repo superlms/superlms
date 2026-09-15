@@ -12,6 +12,7 @@ use App\Services\FirebaseNotificationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -59,9 +60,10 @@ class ChatController extends ApiController
 
         $rows = $people->get()->map(fn($p) => $this->person($p));
         $conversationByUser = $this->conversationsByUser($me, $rows->pluck('user_id')->all());
+        $blocked = array_flip($this->blockedBy($me->id, $rows->pluck('user_id')->all()));
 
         $items = $rows
-            ->map(function (array $p) use ($me, $conversationByUser) {
+            ->map(function (array $p) use ($me, $conversationByUser, $blocked) {
                 $cid  = $conversationByUser[$p['user_id']] ?? null;
                 $last = $cid
                     ? Message::where('conversation_id', $cid)->visibleTo($me->id)->latest('id')->first()
@@ -75,6 +77,8 @@ class ChatController extends ApiController
                     'conversation_id' => $cid,
                     'last_message'    => $last ? $this->preview($last, $me->id) : null,
                     'unread'          => $unread,
+                    // This user has blocked them.
+                    'blocked'         => isset($blocked[$p['user_id']]),
                     '_sort'           => $last?->id ?? 0,
                 ];
             })
@@ -150,6 +154,9 @@ class ChatController extends ApiController
                 ->values()
             : [];
 
+        $blocked   = $this->hasBlocked($me->id, $userId);
+        $blockedMe = $this->hasBlocked($userId, $me->id);
+
         return $this->success([
             'conversation_id' => $conversation?->id,
             'contact'         => $contact,
@@ -157,6 +164,9 @@ class ChatController extends ApiController
             'has_more'        => $hasMore,
             'receipts'        => $receipts,
             'pinned'          => $pinned,
+            // This user has blocked them; either way round, no message can be sent.
+            'blocked'         => $blocked,
+            'can_message'     => !$blocked && !$blockedMe,
         ], 'Chat messages fetched.');
     }
 
@@ -177,6 +187,13 @@ class ChatController extends ApiController
 
         if (!$this->personFor($me, $userId)) {
             return $this->error('You cannot chat with this person.', 403);
+        }
+
+        if ($this->hasBlocked($me->id, $userId)) {
+            return $this->error('You blocked this person. Unblock them to send a message.', 403);
+        }
+        if ($this->hasBlocked($userId, $me->id)) {
+            return $this->error("You can't message this person.", 403);
         }
 
         $data = [
@@ -279,7 +296,9 @@ class ChatController extends ApiController
         $targets = collect($request->user_ids)
             ->map(fn($id) => (int) $id)
             ->unique()
-            ->filter(fn($id) => $this->personFor($me, $id) !== null)
+            ->filter(fn($id) => $this->personFor($me, $id) !== null
+                && !$this->hasBlocked($me->id, $id)
+                && !$this->hasBlocked($id, $me->id))
             ->values();
         if ($targets->isEmpty()) {
             return $this->error('You cannot chat with these people.', 403);
@@ -327,6 +346,54 @@ class ChatController extends ApiController
         Message::markDeliveredFor($me->id);
 
         return $this->success(null, 'Delivered.');
+    }
+
+    /** Block people: they can no longer message this user, nor this user them, until unblocked. */
+    public function block(Request $request)
+    {
+        return $this->setBlocked($request, true);
+    }
+
+    public function unblock(Request $request)
+    {
+        return $this->setBlocked($request, false);
+    }
+
+    private function setBlocked(Request $request, bool $block)
+    {
+        [$me, $err] = $this->authUser();
+        if ($err) return $err;
+
+        if ($err = $this->validateWith($request, [
+            'user_ids'   => 'required|array|min:1',
+            'user_ids.*' => 'integer',
+        ])) return $err;
+
+        if (!$this->blocksReady()) {
+            return $this->error('Blocking is not available yet. Please try again later.', 503);
+        }
+
+        $ids = collect($request->user_ids)
+            ->map(fn($id) => (int) $id)
+            ->unique()
+            ->reject(fn($id) => $id === (int) $me->id)
+            ->values();
+
+        if ($block) {
+            $now = now();
+            DB::table('chat_blocks')->insertOrIgnore(
+                $ids->map(fn($id) => [
+                    'user_id'         => $me->id,
+                    'blocked_user_id' => $id,
+                    'created_at'      => $now,
+                    'updated_at'      => $now,
+                ])->all()
+            );
+        } else {
+            DB::table('chat_blocks')->where('user_id', $me->id)->whereIn('blocked_user_id', $ids)->delete();
+        }
+
+        return $this->success(['user_ids' => $ids, 'blocked' => $block], $block ? 'Blocked.' : 'Unblocked.');
     }
 
     public function deleteConversations(Request $request)
@@ -505,6 +572,36 @@ class ChatController extends ApiController
         $conversation->participants()->attach([$me->id, $userId]);
 
         return $conversation;
+    }
+
+    /** chat_blocks exists once its migration has run; until then nobody is blocked. */
+    private ?bool $blocksReady = null;
+
+    private function blocksReady(): bool
+    {
+        return $this->blocksReady ??= Schema::hasTable('chat_blocks');
+    }
+
+    /** Whether $userId has blocked $otherId. */
+    private function hasBlocked(int $userId, int $otherId): bool
+    {
+        return $this->blocksReady()
+            && DB::table('chat_blocks')->where('user_id', $userId)->where('blocked_user_id', $otherId)->exists();
+    }
+
+    /** The ids among $otherIds that $userId has blocked. */
+    private function blockedBy(int $userId, array $otherIds): array
+    {
+        if (!$this->blocksReady() || empty($otherIds)) {
+            return [];
+        }
+
+        return DB::table('chat_blocks')
+            ->where('user_id', $userId)
+            ->whereIn('blocked_user_id', $otherIds)
+            ->pluck('blocked_user_id')
+            ->map(fn($id) => (int) $id)
+            ->all();
     }
 
     /** $me's visible messages among these ids, in conversations $me belongs to. */

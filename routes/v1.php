@@ -309,6 +309,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/messages/pin', [ChatController::class, 'pinMessages']);
             Route::post('/messages/forward', [ChatController::class, 'forwardMessages']);
             Route::post('/delivered', [ChatController::class, 'delivered']);
+            Route::post('/block', [ChatController::class, 'block']);
+            Route::post('/unblock', [ChatController::class, 'unblock']);
             Route::post('/conversations/delete', [ChatController::class, 'deleteConversations']);
         });
 
