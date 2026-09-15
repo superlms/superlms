@@ -8,6 +8,7 @@ use App\Services\ResponseService;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class AnnouncementController extends Controller
@@ -55,9 +56,17 @@ class AnnouncementController extends Controller
             }
 
             // Get the last 30 announcements
-            $announcements = $query->limit(30)
-                ->get()
-                ->map(function ($announcement) {
+            $rows = $query->limit(30)->get();
+
+            // The ones this user has opened — the app's unread dot.
+            $readIds = DB::table('announcement_reads')
+                ->where('user_id', $user->id)
+                ->whereIn('announcement_id', $rows->pluck('id'))
+                ->pluck('announcement_id')
+                ->flip();
+
+            $announcements = $rows
+                ->map(function ($announcement) use ($readIds) {
                     $announcementData = $announcement->toArray();
 
                     // Add creator details if user exists. Avatar falls back to
@@ -84,6 +93,8 @@ class AnnouncementController extends Controller
                     $announcementData['pdf_url'] = $announcement->announcement_pdf
                         ? Storage::disk('s3')->url($announcement->announcement_pdf)
                         : null;
+
+                    $announcementData['is_read'] = $readIds->has($announcement->id);
 
                     return $announcementData;
                 });
@@ -173,6 +184,54 @@ class AnnouncementController extends Controller
             return $this->responseService->success(
                 $announcementData,
                 'Announcement retrieved successfully'
+            );
+        } catch (Exception $e) {
+            return $this->responseService->errorResponse(
+                'An error occurred: ' . $e->getMessage(),
+                500
+            );
+        }
+    }
+
+    /**
+     * Record that the user has opened these announcements, so they stay read
+     * after the app is reinstalled or used on another phone.
+     */
+    public function markRead(Request $request)
+    {
+        try {
+            $user = Auth::user();
+
+            if (!$user) {
+                return $this->responseService->errorResponse(
+                    'Authentication required',
+                    401
+                );
+            }
+
+            $validated = $request->validate([
+                'ids'   => 'required|array|max:500',
+                'ids.*' => 'integer',
+            ]);
+
+            // Only this school's announcements.
+            $ids = Announcement::where('organization_id', $user->organization_id)
+                ->whereIn('id', $validated['ids'])
+                ->pluck('id');
+
+            $now = now();
+            DB::table('announcement_reads')->insertOrIgnore(
+                $ids->map(fn ($id) => [
+                    'announcement_id' => $id,
+                    'user_id'         => $user->id,
+                    'created_at'      => $now,
+                    'updated_at'      => $now,
+                ])->all()
+            );
+
+            return $this->responseService->success(
+                ['marked' => $ids->count()],
+                'Announcements marked as read'
             );
         } catch (Exception $e) {
             return $this->responseService->errorResponse(

@@ -139,6 +139,7 @@ Route::middleware('auth:sanctum')->group(function () {
         //Announcement Routes All
         Route::prefix('announcement')->group(function () {
             Route::post('/', [AnnouncementController::class, 'announcementList']);
+            Route::post('/read', [AnnouncementController::class, 'markRead']);
             Route::get('/{id}', [AnnouncementController::class, 'getAnnouncement']);
         });
 
