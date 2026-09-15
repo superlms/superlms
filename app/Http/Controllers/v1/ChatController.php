@@ -139,12 +139,24 @@ class ChatController extends ApiController
             ];
         }
 
+        // Every pinned message, newest pin first, for the bar over the conversation.
+        $pinned = $conversation
+            ? Message::where('conversation_id', $conversation->id)
+                ->visibleTo($me->id)
+                ->whereNotNull('pinned_at')
+                ->orderByDesc('pinned_at')
+                ->get()
+                ->map(fn(Message $m) => $this->format($m, $me->id))
+                ->values()
+            : [];
+
         return $this->success([
             'conversation_id' => $conversation?->id,
             'contact'         => $contact,
             'messages'        => $messages->map(fn(Message $m) => $this->format($m, $me->id))->values(),
             'has_more'        => $hasMore,
             'receipts'        => $receipts,
+            'pinned'          => $pinned,
         ], 'Chat messages fetched.');
     }
 
@@ -219,6 +231,102 @@ class ChatController extends ApiController
         $this->hideForMe($me->id, $ids);
 
         return $this->success(['deleted' => count($ids)], 'Messages deleted.');
+    }
+
+    /** Pin the selected messages — or unpin them, when every one is pinned already. */
+    public function pinMessages(Request $request)
+    {
+        [$me, $err] = $this->authUser();
+        if ($err) return $err;
+
+        if ($err = $this->validateWith($request, [
+            'ids'   => 'required|array|min:1',
+            'ids.*' => 'integer',
+        ])) return $err;
+
+        $messages = $this->myMessages($me, $request->ids);
+        if ($messages->isEmpty()) {
+            return $this->error('Nothing to pin.', 404);
+        }
+
+        $unpin = $messages->every(fn(Message $m) => $m->pinned_at !== null);
+        Message::whereIn('id', $messages->pluck('id'))->update(['pinned_at' => $unpin ? null : now()]);
+
+        return $this->success(
+            ['pinned' => !$unpin, 'ids' => $messages->pluck('id')->values()],
+            $unpin ? 'Unpinned.' : 'Pinned.'
+        );
+    }
+
+    /** Send copies of the selected messages, files included, to other contacts. */
+    public function forwardMessages(Request $request)
+    {
+        [$me, $err] = $this->authUser();
+        if ($err) return $err;
+
+        if ($err = $this->validateWith($request, [
+            'ids'        => 'required|array|min:1',
+            'ids.*'      => 'integer',
+            'user_ids'   => 'required|array|min:1',
+            'user_ids.*' => 'integer',
+        ])) return $err;
+
+        $messages = $this->myMessages($me, $request->ids);
+        if ($messages->isEmpty()) {
+            return $this->error('Nothing to forward.', 404);
+        }
+
+        $targets = collect($request->user_ids)
+            ->map(fn($id) => (int) $id)
+            ->unique()
+            ->filter(fn($id) => $this->personFor($me, $id) !== null)
+            ->values();
+        if ($targets->isEmpty()) {
+            return $this->error('You cannot chat with these people.', 403);
+        }
+
+        // The last copy sent to each person, for their push.
+        $lastTo = [];
+
+        DB::transaction(function () use ($me, $messages, $targets, &$lastTo) {
+            foreach ($targets as $userId) {
+                $conversation = $this->conversationWith($me, $userId) ?? $this->startConversation($me, $userId);
+
+                foreach ($messages as $m) {
+                    $lastTo[$userId] = Message::create([
+                        'conversation_id'   => $conversation->id,
+                        'sender_id'         => $me->id,
+                        'forwarded_from_id' => $m->id,
+                        'body'              => $m->body,
+                        'attachment_url'    => $m->attachment_url,
+                        'attachment_path'   => $m->attachment_path,
+                        'attachment_name'   => $m->attachment_name,
+                        'attachment_type'   => $m->attachment_type,
+                        'attachment_size'   => $m->attachment_size,
+                    ]);
+                }
+
+                $conversation->update(['last_message_at' => now()]);
+                $conversation->participants()->updateExistingPivot($me->id, ['cleared_at' => null]);
+            }
+        });
+
+        foreach ($lastTo as $userId => $message) {
+            $this->pushTo($me, $userId, $message);
+        }
+
+        return $this->success(['forwarded_to' => $targets->count()], 'Forwarded.');
+    }
+
+    /** This phone has received what was sent to its user: the senders' second tick. */
+    public function delivered()
+    {
+        [$me, $err] = $this->authUser();
+        if ($err) return $err;
+
+        Message::markDeliveredFor($me->id);
+
+        return $this->success(null, 'Delivered.');
     }
 
     public function deleteConversations(Request $request)
@@ -399,6 +507,16 @@ class ChatController extends ApiController
         return $conversation;
     }
 
+    /** $me's visible messages among these ids, in conversations $me belongs to. */
+    private function myMessages(User $me, array $ids)
+    {
+        return Message::whereIn('id', array_map('intval', $ids))
+            ->visibleTo($me->id)
+            ->whereHas('conversation.participants', fn($q) => $q->where('user_id', $me->id))
+            ->orderBy('id')
+            ->get();
+    }
+
     /** Record "deleted for me" rows, skipping any that already exist. */
     private function hideForMe(int $userId, array $messageIds): void
     {
@@ -436,6 +554,8 @@ class ChatController extends ApiController
             'mine'       => (int) $m->sender_id === $meId,
             'created_at' => $m->created_at?->toIso8601String(),
             'status'     => $m->deliveryState(),
+            'pinned'     => $m->pinned_at !== null,
+            'forwarded'  => $m->forwarded_from_id !== null,
             'attachment' => $hasFile ? [
                 'type' => $m->attachment_type === 'image' ? 'image' : 'file',
                 'name' => $m->attachment_name,

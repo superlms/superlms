@@ -306,6 +306,9 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/with/{userId}', [ChatController::class, 'messages'])->whereNumber('userId');
             Route::post('/with/{userId}', [ChatController::class, 'send'])->whereNumber('userId');
             Route::post('/messages/delete', [ChatController::class, 'deleteMessages']);
+            Route::post('/messages/pin', [ChatController::class, 'pinMessages']);
+            Route::post('/messages/forward', [ChatController::class, 'forwardMessages']);
+            Route::post('/delivered', [ChatController::class, 'delivered']);
             Route::post('/conversations/delete', [ChatController::class, 'deleteConversations']);
         });
 
