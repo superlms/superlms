@@ -150,9 +150,14 @@ class SubjectController extends Controller
                 }
             }
 
-            // Add from Timetable (if not already added)
+            // Add from Timetable (if that class, section and subject is not already added —
+            // the same subject taught to another class is its own row)
             foreach ($timetableSubjects as $tt) {
-                if ($tt->subject && !$allSubjects->where('subject_id', $tt->subject_id)->first()) {
+                $added = $allSubjects->contains(fn ($s) => $s['subject_id'] == $tt->subject_id
+                    && $s['standard_id'] == $tt->standard_id
+                    && $s['section_id'] == $tt->section_id);
+
+                if ($tt->subject && !$added) {
                     $allSubjects->push([
                         'source' => 'timetable',
                         'subject_id' => $tt->subject_id,
