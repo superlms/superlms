@@ -23,10 +23,19 @@ class Subject extends Model
         return \App\Support\SubjectIcons::keyFor($this->name);
     }
 
-    /** Absolute URL of that icon as an SVG, for the API / mobile apps. */
+    /**
+     * Absolute URL of that icon for the API / mobile apps — as a PNG, since an
+     * app's <Image> cannot draw SVG. The PNGs are the same tiles rendered once
+     * into public/subject-icons (scripts/render-subject-icons.mjs); a key with
+     * no PNG yet falls back to the SVG route.
+     */
     public function iconUrl(): string
     {
-        return route('subject.icon', ['key' => str_replace(' ', '-', $this->iconKey())]);
+        $slug = str_replace(' ', '-', $this->iconKey());
+
+        return is_file(public_path("subject-icons/{$slug}.png"))
+            ? asset("subject-icons/{$slug}.png")
+            : route('subject.icon', ['key' => $slug]);
     }
 
     public function teachers()
