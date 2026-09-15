@@ -7,6 +7,7 @@ use App\Models\Admin\TeacherTimeTable;
 use App\Models\Student\StudentDetail;
 use App\Models\Teacher\TeacherDetail;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class BookController extends ApiController
 {
@@ -156,7 +157,7 @@ class BookController extends ApiController
      */
     private function formatBook(Book $book, bool $withPdf = false): array
     {
-        $cover = $book->book_logo;
+        $cover = $this->fileUrl($book->book_logo);
 
         $data = [
             'id'        => $book->id,
@@ -174,9 +175,42 @@ class BookController extends ApiController
         ];
 
         if ($withPdf) {
-            $data['pdf_url'] = $book->pdf_file;
+            $data['pdf_url'] = $this->fileUrl($book->pdf_file);
         }
 
         return $data;
+    }
+
+    /**
+     * A link the app can open to a book's cover or PDF. Both are saved as their
+     * S3 object URL, but the bucket does not serve objects publicly — a raw URL
+     * answers Access Denied — so the app gets a link signed for a few hours,
+     * as the web panel's download reads the object with the server's own key.
+     * Anything that is not a library file on the bucket passes through as it is.
+     */
+    private function fileUrl(?string $url): ?string
+    {
+        if (!$url) {
+            return null;
+        }
+
+        $key = ltrim((string) parse_url($url, PHP_URL_PATH), '/');
+
+        // Path-style endpoints put the bucket first: /bucket/admin/library/…
+        $bucket = (string) config('filesystems.disks.s3.bucket');
+        if ($bucket !== '' && str_starts_with($key, $bucket . '/')) {
+            $key = substr($key, strlen($bucket) + 1);
+        }
+        $key = rawurldecode($key);
+
+        if (!str_starts_with($key, 'admin/library/')) {
+            return $url;
+        }
+
+        try {
+            return Storage::disk('s3')->temporaryUrl($key, now()->addHours(6));
+        } catch (\Throwable $e) {
+            return $url;
+        }
     }
 }
