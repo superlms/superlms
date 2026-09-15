@@ -211,6 +211,8 @@ class InstructorController extends ApiController
 
         $data = [
             'id'          => $t->id,
+            // Their own account, so the app can open a chat with them.
+            'user_id'     => $t->user_id,
             'name'        => $t->user?->name,
             'email'       => $t->user?->email,
             'avatar'      => $t->user?->image,
@@ -248,6 +250,8 @@ class InstructorController extends ApiController
     {
         $data = [
             'id'          => $t->id,
+            // Their own account, so the app can open a chat with them.
+            'user_id'     => $t->user_id,
             'name'        => $t->user?->name,
             'email'       => $t->user?->email,
             'avatar'      => $t->user?->image,

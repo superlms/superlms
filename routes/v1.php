@@ -6,6 +6,7 @@ use App\Http\Controllers\v1\AttendanceController;
 use App\Http\Controllers\v1\AuthController;
 use App\Http\Controllers\v1\BookController;
 use App\Http\Controllers\v1\CalendarController;
+use App\Http\Controllers\v1\ChatController;
 use App\Http\Controllers\v1\ContentController;
 use App\Http\Controllers\v1\DashboardController;
 use App\Http\Controllers\v1\ExamController;
@@ -297,6 +298,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::prefix('instructors')->group(function () {
             Route::get('/',    [InstructorController::class, 'index']);
             Route::get('/{id}', [InstructorController::class, 'show']);
+        });
+
+        // Chat — students with their teachers (app polling + push)
+        Route::prefix('chat')->group(function () {
+            Route::get('/contacts', [ChatController::class, 'contacts']);
+            Route::get('/with/{userId}', [ChatController::class, 'messages'])->whereNumber('userId');
+            Route::post('/with/{userId}', [ChatController::class, 'send'])->whereNumber('userId');
+            Route::post('/messages/delete', [ChatController::class, 'deleteMessages']);
+            Route::post('/conversations/delete', [ChatController::class, 'deleteConversations']);
         });
 
         // Fees Api  (student only)
