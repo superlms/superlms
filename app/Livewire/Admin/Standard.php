@@ -13,8 +13,10 @@ use App\Models\Teacher\TeacherAssignment;
 use App\Models\User;
 use App\Support\StandardOrder;
 use App\Support\StudentNumbers;
+use App\Support\SubjectMove;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 use WireUi\Traits\WireUiActions;
 use Illuminate\Support\Facades\Storage;
@@ -72,6 +74,10 @@ class Standard extends Component
     public $selectedSectionsForSubject   = [];
     public $isMandatory                  = true;
     public $existingSubjects             = [];
+    // The class a subject being edited was opened in — picking another class
+    // moves the subject out of this one.
+    #[Locked]
+    public $subjectFromStandard          = null;
     // Subjects no longer carry an uploaded image — the icon is derived from the
     // subject name (App\Support\SubjectIcons). The detail image is still used
     // by the content screens, so it stays.
@@ -117,6 +123,11 @@ class Standard extends Component
         if ($property === 'selectedStandardForSubject' && $this->selectedStandardForSubject) {
             $this->loadSectionsForSelectedStandard();
             $this->loadExistingSubjectsForStandard();
+            // Sections ticked under the previous class aren't this class's.
+            $this->selectedSectionsForSubject = array_values(array_intersect(
+                array_map('intval', (array) $this->selectedSectionsForSubject),
+                $this->sections->pluck('id')->map(fn($id) => (int) $id)->all(),
+            ));
         }
         if ($property === 'filterSubjectStandard') {
             $this->filterSection = '';
@@ -301,7 +312,7 @@ class Standard extends Component
             'subjectName', 'subjectCode', 'subjectActive',
             'selectedStandardForSubject', 'selectedSectionsForSubject', 'isMandatory',
             'subjectDetailImage', 'subjectDetailImageUrl',
-            'subjectDetailImagePreview', 'existingSubjects',
+            'subjectDetailImagePreview', 'existingSubjects', 'subjectFromStandard',
         ]);
         $this->standardActive = true;
         $this->sectionActive = true;
@@ -330,7 +341,7 @@ class Standard extends Component
             'subjectName', 'subjectCode',
             'selectedStandardForSubject', 'selectedSectionsForSubject', 'isMandatory',
             'subjectDetailImage', 'subjectDetailImageUrl',
-            'subjectDetailImagePreview', 'existingSubjects',
+            'subjectDetailImagePreview', 'existingSubjects', 'subjectFromStandard',
         ]);
         $this->subjectActive = true;
     }
@@ -526,6 +537,35 @@ class Standard extends Component
         ]);
 
         $org = Auth::user()->organization_id;
+        $toStandard = (int) $this->selectedStandardForSubject;
+
+        $picked = array_unique(array_map('intval', $this->selectedSectionsForSubject));
+        if (count(SubjectMove::sectionsIn($picked, $toStandard)) !== count($picked)) {
+            $this->addError('selectedSectionsForSubject', 'Please select sections of the selected class.');
+            return;
+        }
+
+        // Editing a subject into another class moves it out of the class it
+        // was opened in — unless that class's timetable or assignments use it.
+        $fromStandard = $this->editId ? (int) $this->subjectFromStandard : 0;
+        $moving       = $fromStandard && $fromStandard !== $toStandard;
+
+        if ($this->editId) {
+            if ($moving && ($blocker = SubjectMove::blocker((int) $this->editId, $fromStandard))) {
+                $this->addError('selectedStandardForSubject', $blocker);
+                return;
+            }
+
+            $dupName = Subject::where('organization_id', $org)
+                ->where('name', $this->subjectName)
+                ->where('id', '!=', $this->editId)
+                ->whereHas('standards', fn($q) => $q->where('standard_id', $toStandard))
+                ->exists();
+            if ($dupName) {
+                $this->addError('subjectName', 'A subject with this name already exists in the selected class.');
+                return;
+            }
+        }
 
         // For CREATE: a subject with this name may already exist in the class but
         // be missing its section link (an orphan that shows in no section). Reuse
@@ -578,10 +618,14 @@ class Standard extends Component
             // One transaction so the subject and ALL its class/section links are
             // saved together — never a subject that exists but is linked to no
             // section (which is what left subjects invisible before).
-            DB::transaction(function () use ($org, $existing, $subjectData) {
+            DB::transaction(function () use ($org, $existing, $subjectData, $moving, $fromStandard) {
                 if ($this->editId) {
                     $subject = Subject::find($this->editId);
                     $subject->update($subjectData);
+                    // Moved: no longer in the old class or its sections.
+                    if ($moving) {
+                        SubjectMove::leave($subject->id, $fromStandard);
+                    }
                     // Edit replaces this class's section links wholesale.
                     SectionSubject::where('subject_id', $subject->id)
                         ->where('standard_id', $this->selectedStandardForSubject)->delete();
@@ -663,7 +707,12 @@ class Standard extends Component
         $this->subjectDetailImageUrl = $subject->detail_image;
         $this->subjectDetailImagePreview = $subject->detail_image;
 
-        $ss = StandardSubject::where('subject_id', $id)->first();
+        // The class being viewed, when the subject is in it; else its first.
+        $ss = StandardSubject::where('subject_id', $id)
+            ->when($this->filterSubjectStandard, fn($q) => $q->orderByRaw('standard_id = ? desc', [(int) $this->filterSubjectStandard]))
+            ->orderBy('id')
+            ->first();
+        $this->subjectFromStandard = $ss?->standard_id;
         if ($ss) {
             $this->selectedStandardForSubject = $ss->standard_id;
             $this->isMandatory                = $ss->is_mandatory;

@@ -13,6 +13,8 @@ use App\Models\Organization;
 use App\Models\User;
 use App\Support\StandardOrder;
 use App\Support\StudentNumbers;
+use App\Support\SubjectMove;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -459,6 +461,21 @@ class AdminStandardController extends ApiController
         $data[$field] = Storage::disk('s3')->url($path);
     }
 
+    /**
+     * Keep only the sent sections that are the class's own — the app sends a
+     * subject's sections in every class it is in. None left is an error.
+     */
+    private function keepClassSections(Request $request, int $standardId): ?JsonResponse
+    {
+        $sectionIds = SubjectMove::sectionsIn($request->section_ids, $standardId);
+        if (!$sectionIds) {
+            return $this->error('Please select sections of the selected class.', 422);
+        }
+        $request->merge(['section_ids' => $sectionIds]);
+
+        return null;
+    }
+
     /** POST /admin/subjects (multipart) */
     public function storeSubject(Request $request)
     {
@@ -482,6 +499,8 @@ class AdminStandardController extends ApiController
             'image'        => 'nullable|image|max:2048',
             'detail_image' => 'nullable|image|max:2048',
         ], ['section_ids.required' => 'Please select at least one section.'])) return $err;
+
+        if ($err = $this->keepClassSections($request, (int) $request->standard_id)) return $err;
 
         $orgId = $user->organization_id;
 
@@ -552,6 +571,8 @@ class AdminStandardController extends ApiController
             'code'         => 'required|string|max:50',
             'description'  => 'nullable|string',
             'standard_id'  => 'required|exists:standards,id',
+            // The class the subject was edited from; its first class if not sent.
+            'from_standard_id' => 'nullable|integer',
             'section_ids'  => 'required|array|min:1',
             'section_ids.*' => 'exists:sections,id',
             'is_mandatory' => 'nullable|boolean',
@@ -559,6 +580,25 @@ class AdminStandardController extends ApiController
             'image'        => 'nullable|image|max:2048',
             'detail_image' => 'nullable|image|max:2048',
         ], ['section_ids.required' => 'Please select at least one section.'])) return $err;
+
+        $toStandard = (int) $request->standard_id;
+        if ($err = $this->keepClassSections($request, $toStandard)) return $err;
+
+        // Edited into another class, the subject moves: it leaves the class it
+        // was edited from — unless that class's timetable or assignments use it.
+        // Without from_standard_id, a subject already in the chosen class stays
+        // put, and one that isn't leaves its first class.
+        $links = StandardSubject::where('subject_id', $subject->id)->orderBy('id')->pluck('standard_id')->map(fn ($v) => (int) $v);
+        if ($request->filled('from_standard_id') && $links->contains((int) $request->from_standard_id)) {
+            $fromStandard = (int) $request->from_standard_id;
+        } else {
+            $fromStandard = $links->contains($toStandard) ? $toStandard : (int) $links->first();
+        }
+        $moving = $fromStandard && $fromStandard !== $toStandard;
+
+        if ($moving && ($blocker = SubjectMove::blocker($subject->id, $fromStandard))) {
+            return $this->error($blocker, 422);
+        }
 
         $dupName = StandardSubject::where('standard_id', $request->standard_id)
             ->whereHas('subject', fn ($q) => $q->where('name', $request->name)->where('id', '!=', $id))->exists();
@@ -578,8 +618,12 @@ class AdminStandardController extends ApiController
         $this->applySubjectImage($request, 'detail_image', $data, $subject);
 
         try {
-            DB::transaction(function () use ($request, $subject, $data, $orgId) {
+            DB::transaction(function () use ($request, $subject, $data, $orgId, $moving, $fromStandard) {
                 $subject->update($data);
+                // Moved: no longer in the old class or its sections.
+                if ($moving) {
+                    SubjectMove::leave($subject->id, $fromStandard);
+                }
                 StandardSubject::updateOrCreate(
                     ['standard_id' => $request->standard_id, 'subject_id' => $subject->id],
                     ['organization_id' => $orgId, 'is_mandatory' => $request->boolean('is_mandatory', true)]
