@@ -15,13 +15,16 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
- * A subject edited from one class into another moves: it lists under the new
- * class and its sections only.
+ * Subjects on the admin Standard page (and the app's subject API): an added
+ * subject lists under the section it was added to, and one edited from one
+ * class into another moves — it lists under the new class and its sections
+ * only.
  */
-class SubjectMoveTest extends TestCase
+class StandardSubjectsTest extends TestCase
 {
     private int $org = 9;
 
@@ -95,6 +98,9 @@ class SubjectMoveTest extends TestCase
 
         DB::table('organizations')->insert(['id' => $this->org, 'education_board' => 'UP']);
 
+        // Rendering a Livewire component signs its snapshot.
+        config(['app.key' => 'base64:' . base64_encode(str_repeat('k', 32))]);
+
         $admin = new User(['name' => 'Admin', 'email' => 'admin@example.com']);
         $admin->id = 1;
         $admin->organization_id = $this->org;
@@ -153,6 +159,78 @@ class SubjectMoveTest extends TestCase
         $page->filterSection = $section->id;
 
         return collect($page->getFilteredSubjectsProperty()->items())->pluck('name')->all();
+    }
+
+    public function test_a_subject_added_from_a_section_lists_there(): void
+    {
+        [$one, $oneA] = $this->classWithSections('Class 1');
+
+        Livewire::test(StandardPage::class)
+            ->call('drillIntoSection', $oneA->id)
+            ->call('openAddForm')
+            ->set('addType', 'subject')
+            ->assertSet('selectedSectionsForSubject', [$oneA->id])
+            // Sent with every keystroke, so a quick Create saves what was typed.
+            ->assertSeeHtml('wire:model.live="subjectName"')
+            ->set('subjectName', 'Maths')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertSet('openForm', false)
+            ->assertSee('Maths');
+    }
+
+    public function test_a_section_ticked_under_another_class_is_not_saved(): void
+    {
+        [$one, $oneA] = $this->classWithSections('Class 1');
+        [$two] = $this->classWithSections('Class 2');
+
+        // Opened from class 1 section A, then switched to class 2 with no
+        // section of its own ticked: before, it saved a subject no section
+        // listed.
+        Livewire::test(StandardPage::class)
+            ->call('drillIntoSection', $oneA->id)
+            ->call('openAddForm')
+            ->set('addType', 'subject')
+            ->set('subjectName', 'Maths')
+            ->set('selectedStandardForSubject', $two->id)
+            ->assertSet('selectedSectionsForSubject', [])
+            ->call('save')
+            ->assertHasErrors(['selectedSectionsForSubject']);
+
+        $this->assertSame(0, Subject::count());
+
+        // Nor can one be slipped in by hand.
+        Livewire::test(StandardPage::class)
+            ->call('openAddForm')
+            ->set('addType', 'subject')
+            ->set('subjectName', 'Maths')
+            ->set('selectedStandardForSubject', $two->id)
+            ->set('selectedSectionsForSubject', [$oneA->id])
+            ->call('save')
+            ->assertHasErrors(['selectedSectionsForSubject']);
+
+        $this->assertSame(0, Subject::count());
+    }
+
+    public function test_the_subject_list_keeps_its_page(): void
+    {
+        [$one, $oneA] = $this->classWithSections('Class 1');
+        foreach (range(1, 11) as $n) {
+            $this->subjectIn(sprintf('Subject %02d', $n), $one, [$oneA]);
+        }
+
+        Livewire::test(StandardPage::class)
+            ->call('drillIntoSection', $oneA->id)
+            ->set('perPage', 10)
+            ->assertDontSee('Subject 11')
+            ->call('gotoPage', 2)
+            ->assertSee('Subject 11')
+            // Any other request stays on page 2.
+            ->call('closeViewModal')
+            ->assertSee('Subject 11')
+            // A new filter starts from page 1.
+            ->set('filterStatus', 'active')
+            ->assertDontSee('Subject 11');
     }
 
     public function test_editing_a_subject_into_another_class_moves_it_there(): void

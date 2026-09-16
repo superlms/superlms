@@ -21,10 +21,13 @@ use Livewire\Component;
 use WireUi\Traits\WireUiActions;
 use Illuminate\Support\Facades\Storage;
 use Livewire\WithFileUploads;
+use Livewire\WithPagination;
 
 class Standard extends Component
 {
-    use WireUiActions, WithFileUploads;
+    // WithPagination keeps the list on its page across Livewire requests —
+    // without it every action went back to page 1 and the page links broke.
+    use WireUiActions, WithFileUploads, WithPagination;
 
     public $editId       = null;
 
@@ -138,6 +141,7 @@ class Standard extends Component
     {
         if (in_array($name, ['search', 'filterStandard', 'filterStatus', 'filterSection', 'filterSubjectStandard', 'perPage'])) {
             $this->closeModal();
+            $this->resetPage();
         }
     }
 
@@ -150,6 +154,7 @@ class Standard extends Component
 
     public function drillIntoClass(int $standardId): void
     {
+        $this->resetPage();
         $this->activeTab      = 'section';
         $this->filterStandard = $standardId;
         $this->search         = '';
@@ -160,6 +165,7 @@ class Standard extends Component
     {
         $section = Section::find($sectionId);
         if ($section) {
+            $this->resetPage();
             $this->activeTab             = 'subject';
             $this->filterSubjectStandard = $section->standard_id;
             $this->filterSection         = $sectionId;
@@ -299,6 +305,7 @@ class Standard extends Component
     {
         $this->reset(['search', 'filterStandard', 'filterStatus',
                       'filterSubjectStandard', 'filterSection']);
+        $this->resetPage();
         $this->closeModal();
     }
 
