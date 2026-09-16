@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\User;
 use App\Services\OtpMailService;
 use Illuminate\Support\Facades\Hash;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -35,6 +36,10 @@ class ResetPassword extends Component
      */
     public int $otpLockedUntil = 0;
 
+    /** This reset's OTP request — only its own code is accepted here. */
+    #[Locked]
+    public ?string $otpChallenge = null;
+
     public function sendOtp(): void
     {
         $this->validate(['email' => 'required|email']);
@@ -49,7 +54,7 @@ class ResetPassword extends Component
         }
 
         try {
-            OtpMailService::sendOtp($user, 'Admin Panel');
+            $this->otpChallenge = OtpMailService::sendOtp($user, 'Admin Panel', $this->otpChallenge);
             $this->step = 2;
             $this->resendAvailableAt = now()->addSeconds(self::RESEND_COOLDOWN)->timestamp;
             $this->dispatch('start-countdown', resendAt: $this->resendAvailableAt);
@@ -87,7 +92,7 @@ class ResetPassword extends Component
         }
 
         try {
-            OtpMailService::verifyOtp($user, $enteredOtp);
+            OtpMailService::verifyOtp($user, $enteredOtp, $this->otpChallenge, forReset: true);
             $this->step = 3;
         } catch (\Exception $e) {
             $this->otp = ['', '', '', '', '', ''];
@@ -122,12 +127,17 @@ class ResetPassword extends Component
             return;
         }
 
+        // Only this reset's own OTP, verified, lets the password change.
+        if (!OtpMailService::consumeVerified($user, $this->otpChallenge)) {
+            $this->addError('email', 'Session expired. Please start the process again.');
+            $this->step = 1;
+            return;
+        }
+
         $user->rememberPlainPassword($this->password);
         $user->update([
             'password' => Hash::make($this->password),
         ]);
-
-        OtpMailService::clearOtp($user);
 
         session()->flash('message', 'Password reset successfully!');
         return redirect()->route('admin.login');

@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\OtpMailService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 class Login extends Component
@@ -21,6 +22,10 @@ class Login extends Component
     public array  $otp       = ['', '', '', '', '', ''];
     public int    $countdown = 120;
     public bool   $canResend = false;
+
+    /** This sign-in's OTP request — only its own code signs in here. */
+    #[Locked]
+    public ?string $otpChallenge = null;
 
     /**
      * Unix timestamp the OTP lockout lifts at (0 = not locked out). Absolute so
@@ -98,7 +103,7 @@ class Login extends Component
         }
 
         try {
-            OtpMailService::sendOtp($user, 'School Admin');
+            $this->otpChallenge = OtpMailService::sendOtp($user, 'School Admin', $this->otpChallenge);
         } catch (\Exception $e) {
             // A lockout is a deliberate refusal, not a delivery failure — say so
             // rather than hiding it behind the generic message.
@@ -152,7 +157,7 @@ class Login extends Component
         }
 
         try {
-            OtpMailService::verifyOtp($user, $entered);
+            OtpMailService::verifyOtp($user, $entered, $this->otpChallenge);
         } catch (\Exception $e) {
             $this->otp = ['', '', '', '', '', ''];
             $this->otpLockedUntil = OtpMailService::lockedUntil($user);
@@ -188,7 +193,7 @@ class Login extends Component
         }
 
         try {
-            OtpMailService::sendOtp($user, 'School Admin');
+            $this->otpChallenge = OtpMailService::sendOtp($user, 'School Admin', $this->otpChallenge);
             $this->otp       = ['', '', '', '', '', ''];
             $this->countdown = 120;
             $this->canResend = false;

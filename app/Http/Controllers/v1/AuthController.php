@@ -227,13 +227,16 @@ class AuthController extends Controller
 
         try {
             $panelName = $user->role === 'teacher' ? 'Teacher App' : 'Student App';
-            OtpMailService::sendOtp($user, $panelName);
+            $otpToken  = OtpMailService::sendOtp($user, $panelName);
 
             return $this->responseService->success(
                 [
                     'user_id'    => $user->id,
                     'email'      => $user->email,
                     'expires_in' => 120, // seconds
+                    // Send back with verify-otp / resend-otp / change-password:
+                    // this request's code is the only one they accept.
+                    'otp_token'  => $otpToken,
                 ],
                 'OTP sent successfully to your email address.'
             );
@@ -248,8 +251,9 @@ class AuthController extends Controller
     public function verifyOtp(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'user_id' => 'required|numeric',
-            'otp'     => 'required|digits:6',
+            'user_id'   => 'required|numeric',
+            'otp'       => 'required|digits:6',
+            'otp_token' => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
@@ -266,7 +270,9 @@ class AuthController extends Controller
         }
 
         try {
-            OtpMailService::verifyOtp($user, (string) $request->otp);
+            // The app verifies here for both password resets and the admin
+            // sign-in, so the request is kept for change-password either way.
+            OtpMailService::verifyOtp($user, (string) $request->otp, $this->otpToken($request, $user), forReset: true);
         } catch (Exception $e) {
             return $this->responseService->errorResponse($e->getMessage(), 401);
         }
@@ -280,7 +286,8 @@ class AuthController extends Controller
     public function resendOtp(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'user_id' => 'required|numeric',
+            'user_id'   => 'required|numeric',
+            'otp_token' => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
@@ -296,7 +303,8 @@ class AuthController extends Controller
             return $this->responseService->errorResponse('User not found.', 404);
         }
 
-        $remaining = OtpMailService::resendAvailableIn($user);
+        $otpToken  = $this->otpToken($request, $user);
+        $remaining = OtpMailService::resendAvailableIn($user, $otpToken);
         if ($remaining > 0) {
             return $this->responseService->errorResponse(
                 "Please wait {$remaining} seconds before requesting a new OTP.",
@@ -306,13 +314,14 @@ class AuthController extends Controller
 
         try {
             $panelName = $user->role === 'teacher' ? 'Teacher App' : 'Student App';
-            OtpMailService::sendOtp($user, $panelName);
+            $otpToken  = OtpMailService::sendOtp($user, $panelName, $otpToken);
 
             return $this->responseService->success(
                 [
                     'user_id'    => $user->id,
                     'email'      => $user->email,
                     'expires_in' => 120,
+                    'otp_token'  => $otpToken,
                 ],
                 'OTP resent successfully to your email address.'
             );
@@ -324,11 +333,23 @@ class AuthController extends Controller
         }
     }
 
+    /**
+     * The OTP request a call belongs to. App builds from before otp_token don't
+     * send one; for them the user's latest request stands in.
+     */
+    private function otpToken(Request $request, User $user): ?string
+    {
+        return $request->filled('otp_token')
+            ? (string) $request->input('otp_token')
+            : OtpMailService::latestChallenge($user);
+    }
+
     public function changePassword(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'password' => ['required', 'string', 'min:8', 'regex:/[a-z]/', 'regex:/[A-Z]/', 'regex:/[0-9]/', 'regex:/[@$!%*#?&]/', 'confirmed'],
-            'user_id' => 'required|numeric'
+            'user_id' => 'required|numeric',
+            'otp_token' => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
@@ -347,7 +368,9 @@ class AuthController extends Controller
                 );
             }
 
-            if ($user->otp_expires_at !== null) {
+            // Only a verified OTP request of this user's lets the password
+            // change, and only once.
+            if (!OtpMailService::consumeVerified($user, $this->otpToken($request, $user))) {
                 return $this->responseService->errorResponse(
                     'OTP not verified',
                     400

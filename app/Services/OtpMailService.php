@@ -2,12 +2,21 @@
 
 namespace App\Services;
 
+use App\Exceptions\OtpDeliveryException;
 use App\Mail\LoginOtpMail;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
+/**
+ * Email OTPs, one per request. Every sendOtp() opens (or, on resend, renews) a
+ * request with its own code and returns a token for it; a code only verifies
+ * against the token it was sent for. So when the same account asks for codes
+ * from two devices at once, each device signs in with its own code — the other
+ * device's code is simply wrong there — and neither request cancels the other.
+ */
 class OtpMailService
 {
     /** Wrong OTP entries allowed before the user is made to wait. */
@@ -15,6 +24,18 @@ class OtpMailService
 
     /** How long that wait lasts. */
     public const LOCKOUT_MINUTES = 5;
+
+    /** How long a code can be entered after it is sent. */
+    public const CODE_TTL_SECONDS = 120;
+
+    /** Minimum gap between two codes for the same request. */
+    public const RESEND_COOLDOWN_SECONDS = 120;
+
+    /** How long a verified request can still be used to set a new password. */
+    public const VERIFIED_TTL_SECONDS = 600;
+
+    /** How long a request is remembered after its last code was sent. */
+    private const REQUEST_TTL_SECONDS = 900;
 
     /**
      * Whether login 2-step (OTP) verification is currently enabled.
@@ -29,15 +50,19 @@ class OtpMailService
     }
 
     /**
-     * Generate a 6-digit OTP, save it to the user, and deliver it.
+     * Generate a 6-digit OTP for a request of this user's, and deliver it.
+     * Returns the request's token, which the caller keeps and hands back to
+     * verifyOtp(). Pass the token of the caller's current request to resend:
+     * the request keeps its token and only its old code stops working.
      *
      * Primary channel is the ZeptoMail OTP template. If that fails (e.g. the
      * ZeptoMail account is out of credit / unreachable), we fall back to the
      * app's own mailer (SMTP/SES/…) so a single provider outage doesn't lock
-     * everyone out of their panel. If neither channel can deliver, a clean
-     * exception is thrown for the caller to surface — 2FA is never skipped.
+     * everyone out of their panel. If neither channel can deliver, an
+     * OtpDeliveryException is thrown for the caller to surface — 2FA is never
+     * skipped.
      */
-    public static function sendOtp(User $user, string $panelName): void
+    public static function sendOtp(User $user, string $panelName, ?string $challenge = null): string
     {
         // Resending must not be a way around the lockout.
         if ($remaining = self::lockoutSecondsRemaining($user)) {
@@ -46,15 +71,25 @@ class OtpMailService
 
         $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
-        $user->update([
-            'otp' => $otp,
-            'otp_expires_at' => now()->addMinutes(2),
-        ]);
+        // A token that isn't this user's starts a request of its own.
+        if (!$challenge || !self::request($user, $challenge)) {
+            $challenge = Str::random(40);
+        }
+
+        $ttl = now()->addSeconds(self::REQUEST_TTL_SECONDS);
+        Cache::put(self::requestKey($challenge), [
+            'user_id'     => $user->id,
+            'code'        => self::hashCode($otp),
+            'sent_at'     => now()->timestamp,
+            'expires_at'  => now()->addSeconds(self::CODE_TTL_SECONDS)->timestamp,
+            'verified_at' => null,
+        ], $ttl);
+        Cache::put(self::latestKey($user), $challenge, $ttl);
 
         // ── Primary: ZeptoMail template ──
         try {
             self::sendViaZeptoMail($user, $panelName, $otp);
-            return;
+            return $challenge;
         } catch (\Throwable $e) {
             Log::warning('OTP primary (ZeptoMail) send failed — trying SMTP fallback', [
                 'email' => $user->email,
@@ -68,8 +103,10 @@ class OtpMailService
         // 'log'/'array' mailers "succeed" without delivering anything, which
         // would strand the user on the verify screen with no code — so treat
         // those as no fallback and surface a clean error instead.
+        $failed = "Couldn't send the OTP email right now. Please try again in a moment.";
+
         if (!self::hasRealMailer()) {
-            throw new \RuntimeException("Couldn't send the OTP email right now. Please try again in a moment.");
+            throw new OtpDeliveryException($failed, $challenge, $otp);
         }
 
         try {
@@ -80,8 +117,10 @@ class OtpMailService
                 'panel' => $panelName,
                 'error' => $e->getMessage(),
             ]);
-            throw new \RuntimeException("Couldn't send the OTP email right now. Please try again in a moment.");
+            throw new OtpDeliveryException($failed, $challenge, $otp);
         }
+
+        return $challenge;
     }
 
     /**
@@ -115,30 +154,43 @@ class OtpMailService
     }
 
     /**
-     * Verify the OTP entered by user.
+     * Verify the OTP entered by the user against the request it was entered
+     * for — a code sent for any other request, even the same user's, fails.
+     * A verified request is used up, unless $forReset keeps it (marked
+     * verified) for consumeVerified() to let a new password through.
      */
-    public static function verifyOtp(User $user, string $enteredOtp): bool
+    public static function verifyOtp(User $user, string $enteredOtp, ?string $challenge, bool $forReset = false): bool
     {
         if ($remaining = self::lockoutSecondsRemaining($user)) {
             throw new \Exception(self::lockoutMessage($remaining));
         }
 
-        if (empty($user->otp)) {
+        if (!$challenge) {
             throw new \Exception('No OTP was requested.');
         }
 
-        if (now()->greaterThan($user->otp_expires_at)) {
-            self::clearOtp($user);
+        $request = self::request($user, $challenge);
+
+        if (!$request) {
             throw new \Exception('OTP has expired. Please request a new one.');
         }
 
-        if ($user->otp !== $enteredOtp) {
+        if ($request['verified_at']) {
+            throw new \Exception('This OTP has already been used. Please request a new one.');
+        }
+
+        if (now()->timestamp > $request['expires_at']) {
+            Cache::forget(self::requestKey($challenge));
+            throw new \Exception('OTP has expired. Please request a new one.');
+        }
+
+        if (!hash_equals($request['code'], self::hashCode($enteredOtp))) {
             $attempts = self::registerFailedAttempt($user);
 
             if ($attempts >= self::MAX_ATTEMPTS) {
                 // Burn the code too, so sitting out the wait still requires a
                 // freshly mailed OTP rather than another go at this one.
-                self::clearOtp($user);
+                Cache::forget(self::requestKey($challenge));
                 throw new \Exception(self::lockoutMessage(self::LOCKOUT_MINUTES * 60));
             }
 
@@ -146,10 +198,67 @@ class OtpMailService
             throw new \Exception('Invalid OTP. ' . $left . ' attempt' . ($left === 1 ? '' : 's') . ' left.');
         }
 
-        self::clearOtp($user);
+        if ($forReset) {
+            $request['verified_at'] = now()->timestamp;
+            Cache::put(self::requestKey($challenge), $request, now()->addSeconds(self::VERIFIED_TTL_SECONDS));
+        } else {
+            Cache::forget(self::requestKey($challenge));
+        }
         self::clearAttempts($user);
 
         return true;
+    }
+
+    /**
+     * True — once — when this user's request was verified within the last
+     * VERIFIED_TTL_SECONDS. A verified request is used up whether or not it
+     * was still fresh.
+     */
+    public static function consumeVerified(User $user, ?string $challenge): bool
+    {
+        $request = $challenge ? self::request($user, $challenge) : null;
+
+        if (!$request || !$request['verified_at']) {
+            return false;
+        }
+
+        Cache::forget(self::requestKey($challenge));
+
+        return now()->timestamp - $request['verified_at'] <= self::VERIFIED_TTL_SECONDS;
+    }
+
+    /**
+     * Token of the user's most recent request. Only for API clients that
+     * predate tokens — with it, the latest code is the one that counts.
+     */
+    public static function latestChallenge(User $user): ?string
+    {
+        return Cache::get(self::latestKey($user));
+    }
+
+    /** The request behind a token, when it exists and belongs to the user. */
+    private static function request(User $user, string $challenge): ?array
+    {
+        $request = Cache::get(self::requestKey($challenge));
+
+        return is_array($request) && (int) $request['user_id'] === (int) $user->id
+            ? $request
+            : null;
+    }
+
+    private static function requestKey(string $challenge): string
+    {
+        return 'otp_request:' . $challenge;
+    }
+
+    private static function latestKey(User $user): string
+    {
+        return 'otp_latest_request:' . $user->id;
+    }
+
+    private static function hashCode(string $otp): string
+    {
+        return hash_hmac('sha256', $otp, (string) config('app.key'));
     }
 
     /**
@@ -221,38 +330,25 @@ class OtpMailService
     }
 
     /**
-     * Clear OTP from user after successful verification.
+     * Seconds left in a request's resend cooldown (0 = resend allowed). Another
+     * request of the same user's doesn't hold this one back.
      */
-    public static function clearOtp(User $user): void
+    public static function resendAvailableIn(User $user, ?string $challenge): int
     {
-        $user->update([
-            'otp' => null,
-            'otp_expires_at' => null,
-        ]);
-    }
+        $request = $challenge ? self::request($user, $challenge) : null;
 
-    /**
-     * Seconds left in the 120 second resend cooldown (0 = resend allowed).
-     */
-    public static function resendAvailableIn(User $user): int
-    {
-        if (empty($user->otp_expires_at)) {
+        if (!$request || $request['verified_at']) {
             return 0;
         }
 
-        // Carbon 3's diffInSeconds is signed, so diff from the older date
-        // to now() to get positive elapsed seconds.
-        $otpCreatedAt = \Carbon\Carbon::parse($user->otp_expires_at)->subMinutes(2);
-        $elapsed      = (int) $otpCreatedAt->diffInSeconds(now());
-
-        return max(0, 120 - $elapsed);
+        return max(0, $request['sent_at'] + self::RESEND_COOLDOWN_SECONDS - now()->timestamp);
     }
 
     /**
-     * Check if resend is allowed (120 second cooldown).
+     * Check if resend is allowed for a request.
      */
-    public static function canResend(User $user): bool
+    public static function canResend(User $user, ?string $challenge): bool
     {
-        return self::resendAvailableIn($user) === 0;
+        return self::resendAvailableIn($user, $challenge) === 0;
     }
 }

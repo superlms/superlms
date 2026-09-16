@@ -2,10 +2,12 @@
 
 namespace App\Livewire\SuperAdmin;
 
+use App\Exceptions\OtpDeliveryException;
 use App\Models\User;
 use App\Services\OtpMailService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 class Login extends Component
@@ -20,6 +22,10 @@ class Login extends Component
     public array $otp = ['', '', '', '', '', ''];
     public int   $countdown = 120;
     public bool  $canResend = false;
+
+    /** This sign-in's OTP request — only its own code signs in here. */
+    #[Locked]
+    public ?string $otpChallenge = null;
 
     /**
      * Unix timestamp the OTP lockout lifts at (0 = not locked out). Absolute so
@@ -77,21 +83,26 @@ class Login extends Component
                 ->with('success', 'Login successful.');
         }
 
-        // The OTP is saved to the user inside sendOtp BEFORE the email is sent,
+        // The OTP request is opened inside sendOtp BEFORE the email is sent,
         // so even if email delivery fails we can still continue. TEMPORARY: if
         // delivery fails (e.g. ZeptoMail outage), log the OTP so a super-admin
         // can sign in from the logs. Remove this catch once email is healthy.
         try {
-            OtpMailService::sendOtp($user, 'Super Admin');
+            $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin', $this->otpChallenge);
+        } catch (OtpDeliveryException $e) {
+            $this->otpChallenge = $e->challenge;
+            \Log::warning('SUPERADMIN OTP email failed; OTP for ' . $user->email . ' = ' . $e->otp . ' (expires 2 min)', ['err' => $e->getMessage()]);
         } catch (\Throwable $e) {
-            // A lockout must stop the flow; only delivery failures fall through
-            // to the log-the-OTP escape hatch below.
+            // A lockout must stop the flow — and with no request opened there
+            // is no code to enter either.
             if ($lockedUntil = OtpMailService::lockedUntil($user)) {
                 $this->otpLockedUntil = $lockedUntil;
                 $this->addError('email', $e->getMessage());
                 return;
             }
-            \Log::warning('SUPERADMIN OTP email failed; OTP for ' . $user->email . ' = ' . $user->otp . ' (expires 2 min)', ['err' => $e->getMessage()]);
+            logger()->error('OTP send failed during super-admin login: ' . $e->getMessage());
+            $this->addError('email', 'Failed to send OTP. Please try again.');
+            return;
         }
 
         $this->otpSentTo  = $user->email;
@@ -126,7 +137,7 @@ class Login extends Component
         }
 
         try {
-            OtpMailService::verifyOtp($user, $entered);
+            OtpMailService::verifyOtp($user, $entered, $this->otpChallenge);
             // Panel-specific guard: signing in here never touches the admin
             // or accounts sessions in the same browser.
             Auth::guard('superadmin')->login($user);
@@ -152,7 +163,7 @@ class Login extends Component
         }
 
         try {
-            OtpMailService::sendOtp($user, 'Super Admin');
+            $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin', $this->otpChallenge);
             $this->otp       = ['', '', '', '', '', ''];
             $this->countdown = 120;
             $this->canResend = false;

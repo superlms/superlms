@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\OtpMailService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 class ForgotPassword extends Component
@@ -18,6 +19,10 @@ class ForgotPassword extends Component
     public array $otp = ['', '', '', '', '', ''];
     public int   $countdown = 120;
     public bool  $canResend = false;
+
+    /** This reset's OTP request — only its own code is accepted here. */
+    #[Locked]
+    public ?string $otpChallenge = null;
 
     /**
      * Unix timestamp the OTP lockout lifts at (0 = not locked out). Absolute so
@@ -48,7 +53,7 @@ class ForgotPassword extends Component
         }
 
         try {
-            OtpMailService::sendOtp($user, 'Super Admin Panel');
+            $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin Panel', $this->otpChallenge);
         } catch (\Throwable $e) {
             $this->otpLockedUntil = OtpMailService::lockedUntil($user);
             $this->addError('email', $e->getMessage());
@@ -89,7 +94,7 @@ class ForgotPassword extends Component
         }
 
         try {
-            OtpMailService::verifyOtp($user, $entered);
+            OtpMailService::verifyOtp($user, $entered, $this->otpChallenge);
         } catch (\Exception $e) {
             $this->otp = ['', '', '', '', '', ''];
             $this->otpLockedUntil = OtpMailService::lockedUntil($user);
@@ -118,7 +123,7 @@ class ForgotPassword extends Component
         }
 
         try {
-            OtpMailService::sendOtp($user, 'Super Admin Panel');
+            $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin Panel', $this->otpChallenge);
         } catch (\Throwable $e) {
             $this->otpLockedUntil = OtpMailService::lockedUntil($user);
             $this->addError('otp', $e->getMessage());

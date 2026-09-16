@@ -5,6 +5,7 @@ namespace App\Livewire\Accounts;
 use App\Models\User;
 use App\Services\OtpMailService;
 use Illuminate\Support\Facades\Hash;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 class ResetPassword extends Component
@@ -22,6 +23,10 @@ class ResetPassword extends Component
 
     private const RESEND_COOLDOWN = 120;
 
+    /** This reset's OTP request — only its own code is accepted here. */
+    #[Locked]
+    public ?string $otpChallenge = null;
+
     public function sendOtp(): void
     {
         $this->validate(['email' => 'required|email']);
@@ -34,7 +39,7 @@ class ResetPassword extends Component
         }
 
         try {
-            OtpMailService::sendOtp($user, 'Accounts Panel');
+            $this->otpChallenge = OtpMailService::sendOtp($user, 'Accounts Panel', $this->otpChallenge);
             $this->step = 2;
             $this->resendAvailableAt = now()->getTimestamp() + self::RESEND_COOLDOWN;
         } catch (\Exception $e) {
@@ -59,7 +64,7 @@ class ResetPassword extends Component
         }
 
         try {
-            OtpMailService::verifyOtp($user, $enteredOtp);
+            OtpMailService::verifyOtp($user, $enteredOtp, $this->otpChallenge, forReset: true);
             $this->step = 3;
         } catch (\Exception $e) {
             $this->otp = ['', '', '', '', '', ''];
@@ -99,12 +104,17 @@ class ResetPassword extends Component
             return;
         }
 
+        // Only this reset's own OTP, verified, lets the password change.
+        if (!OtpMailService::consumeVerified($user, $this->otpChallenge)) {
+            $this->addError('email', 'Session expired. Please start the process again.');
+            $this->step = 1;
+            return;
+        }
+
         $user->rememberPlainPassword($this->password);
         $user->update([
             'password' => Hash::make($this->password),
         ]);
-
-        OtpMailService::clearOtp($user);
 
         return redirect()->route('accounts.login')
             ->with('success', 'Password reset successfully. Please login with your new password.');

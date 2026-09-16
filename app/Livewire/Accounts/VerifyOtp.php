@@ -49,7 +49,8 @@ class VerifyOtp extends Component
         $user = Auth::user();
 
         try {
-            OtpMailService::verifyOtp($user, $enteredOtp);
+            OtpMailService::verifyOtp($user, $enteredOtp, session('accounts_otp_challenge'));
+            session()->forget('accounts_otp_challenge');
             session(['accounts_otp_verified' => true]);
 
             return redirect()->route('accounts.dashboard', ['organization' => $user->organization_id])
@@ -71,7 +72,7 @@ class VerifyOtp extends Component
         $user = Auth::user();
 
         try {
-            OtpMailService::sendOtp($user, 'Accounts Panel');
+            session(['accounts_otp_challenge' => OtpMailService::sendOtp($user, 'Accounts Panel', session('accounts_otp_challenge'))]);
             $this->resendAvailableAt = now()->getTimestamp() + self::RESEND_COOLDOWN;
             $this->otp = ['', '', '', '', '', ''];
             session()->flash('success', 'OTP resent to your email.');
