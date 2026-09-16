@@ -11,6 +11,7 @@ use App\Models\Student\StudentDetail;
 use App\Models\Student\Subject;
 use App\Models\Teacher\TeacherAssignment;
 use App\Models\User;
+use App\Support\StandardOrder;
 use App\Support\StudentNumbers;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -159,7 +160,7 @@ class Standard extends Component
     public function loadStandards(): void
     {
         $this->standards = StudentStandard::where('organization_id', Auth::user()->organization_id)
-            ->where('is_active', true)->orderBy('id')->get();
+            ->where('is_active', true)->orderBy('order')->orderBy('id')->get();
     }
 
     public function loadAllSections(): void
@@ -218,7 +219,8 @@ class Standard extends Component
         }
         if ($this->filterStatus !== '') $query->where('is_active', $this->filterStatus === 'active');
 
-        return $query->orderBy('id')->paginate($this->perPage);
+        // By each class's Display Order.
+        return $query->orderBy('order')->orderBy('id')->paginate($this->perPage);
     }
 
     public function getFilteredSectionsProperty()
@@ -408,11 +410,13 @@ class Standard extends Component
         $orgId = Auth::user()->organization_id;
 
         $this->validate([
-            'standardName' => 'required|string|max:255',
-            'standardCode' => 'required|string|max:10',
+            'standardName'  => 'required|string|max:255',
+            'standardCode'  => 'required|string|max:10',
+            'standardOrder' => ['nullable', StandardOrder::RULE],
         ], [
             'standardCode.required' => 'Please enter a class code.',
             'standardCode.max'      => 'Class code may not be longer than 10 characters.',
+            'standardOrder.regex'   => 'Display order must be a whole number.',
         ]);
 
         // Same-name within org cannot exist
@@ -435,24 +439,32 @@ class Standard extends Component
             return;
         }
 
+        // Left blank, the class goes after the last one.
+        $order = StandardOrder::parse($this->standardOrder) ?? StandardOrder::next($orgId);
+
         $data = [
             'name'            => $this->standardName,
             // Roll numbers are built from the last digit of this code, so what
             // the admin types here decides what this class's rolls look like.
             'code'            => $this->standardCode,
             'board'           => $this->standardBoard ?: $this->resolveOrgBoard(),
-            'order'           => $this->standardOrder ? (int) $this->standardOrder : 0,
+            'order'           => $order,
             'is_active'       => $this->standardActive,
             'organization_id' => $orgId,
         ];
 
-        if ($this->editId) {
-            StudentStandard::find($this->editId)->update($data);
-            $this->notification()->success('Class updated successfully!');
-        } else {
-            StudentStandard::create($data);
-            $this->notification()->success('Class created successfully!');
-        }
+        // No two classes share an order: whoever holds it moves down one.
+        DB::transaction(function () use ($orgId, $order, $data) {
+            StandardOrder::makeRoom($orgId, $order, $this->editId ? (int) $this->editId : null);
+
+            if ($this->editId) {
+                StudentStandard::find($this->editId)->update($data);
+            } else {
+                StudentStandard::create($data);
+            }
+        });
+
+        $this->notification()->success($this->editId ? 'Class updated successfully!' : 'Class created successfully!');
 
         $this->closeModal();
         $this->mount();

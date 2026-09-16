@@ -11,6 +11,7 @@ use App\Models\Student\Subject;
 use App\Models\Teacher\TeacherAssignment;
 use App\Models\Organization;
 use App\Models\User;
+use App\Support\StandardOrder;
 use App\Support\StudentNumbers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -145,9 +146,9 @@ class AdminStandardController extends ApiController
         if ($err = $this->validateWith($request, [
             'name'      => 'required|string|max:255',
             'code'      => 'nullable|string|max:50',
-            'order'     => 'nullable|integer',
+            'order'     => ['nullable', StandardOrder::RULE],
             'is_active' => 'nullable|boolean',
-        ])) return $err;
+        ], ['order.regex' => 'Order must be a whole number.'])) return $err;
 
         $orgId = $user->organization_id;
 
@@ -165,14 +166,22 @@ class AdminStandardController extends ApiController
             return $this->error('A class with this code already exists.', 422);
         }
 
-        $s = Standard::create([
-            'name'            => $request->name,
-            'code'            => $code,
-            'board'           => $this->orgBoard($orgId),
-            'order'           => $request->filled('order') ? (int) $request->order : 0,
-            'is_active'       => $request->boolean('is_active', true),
-            'organization_id' => $orgId,
-        ]);
+        // Left blank, the class goes after the last one; an order another
+        // class holds moves that class down one.
+        $order = StandardOrder::parse($request->input('order')) ?? StandardOrder::next($orgId);
+
+        $s = DB::transaction(function () use ($request, $orgId, $code, $order) {
+            StandardOrder::makeRoom($orgId, $order);
+
+            return Standard::create([
+                'name'            => $request->name,
+                'code'            => $code,
+                'board'           => $this->orgBoard($orgId),
+                'order'           => $order,
+                'is_active'       => $request->boolean('is_active', true),
+                'organization_id' => $orgId,
+            ]);
+        });
 
         return $this->success($this->shapeStandard($s), 'Class created successfully!');
     }
@@ -190,9 +199,9 @@ class AdminStandardController extends ApiController
         if ($err = $this->validateWith($request, [
             'name'      => 'required|string|max:255',
             'code'      => 'required|string|max:50',
-            'order'     => 'nullable|integer',
+            'order'     => ['nullable', StandardOrder::RULE],
             'is_active' => 'nullable|boolean',
-        ])) return $err;
+        ], ['order.regex' => 'Order must be a whole number.'])) return $err;
 
         if (Standard::where('organization_id', $orgId)->where('name', $request->name)->where('id', '!=', $id)->exists()) {
             return $this->error('A class with this name already exists.', 422);
@@ -201,12 +210,18 @@ class AdminStandardController extends ApiController
             return $this->error('A class with this code already exists.', 422);
         }
 
-        $s->update([
-            'name'      => $request->name,
-            'code'      => $request->code,
-            'order'     => $request->filled('order') ? (int) $request->order : $s->order,
-            'is_active' => $request->boolean('is_active', $s->is_active),
-        ]);
+        $order = StandardOrder::parse($request->input('order')) ?? (int) $s->order;
+
+        DB::transaction(function () use ($request, $s, $orgId, $order) {
+            StandardOrder::makeRoom($orgId, $order, $s->id);
+
+            $s->update([
+                'name'      => $request->name,
+                'code'      => $request->code,
+                'order'     => $order,
+                'is_active' => $request->boolean('is_active', $s->is_active),
+            ]);
+        });
 
         return $this->success($this->shapeStandard($s->fresh()), 'Class updated successfully!');
     }
