@@ -21,6 +21,7 @@ use App\Models\Student\Subject;
 use App\Models\Teacher\TeacherAttendance;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\User;
+use App\Support\AdminAppOtp;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -61,6 +62,12 @@ class AdminController extends ApiController
 
         if ($user->role === 'sub-admin' && !$user->is_active) {
             return $this->error('Your account is inactive. Please contact the administrator.', 403);
+        }
+
+        // No session without the emailed code (see POST /login), which this
+        // older endpoint has no step for.
+        if (AdminAppOtp::required($user)) {
+            return $this->error(AdminAppOtp::UPDATE_APP_MESSAGE, 426);
         }
 
         $token = $user->createToken('admin_token')->plainTextToken;

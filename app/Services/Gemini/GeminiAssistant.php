@@ -28,6 +28,29 @@ class GeminiAssistant
     }
 
     /**
+     * The questions offered to start with, for the panel and the app alike.
+     *
+     * @return array<int,string>
+     */
+    public static function suggestionsFor(LmsScope $scope): array
+    {
+        return $scope->isSchool()
+            ? array_values(array_filter([
+                'Aaj ki summary do',
+                $scope->can('fees') ? 'How much fee was collected this month?' : null,
+                $scope->can('fees') ? 'Who has pending fees?' : null,
+                $scope->can('attendance') ? 'Aaj teacher attendance mark hui hai?' : null,
+                $scope->can('students') ? 'How many students do we have, class-wise?' : null,
+            ]))
+            : [
+                'Aaj ki summary do',
+                'How many schools are active?',
+                'Platform fees collected this month?',
+                'Pending credit requests kaunse hain?',
+            ];
+    }
+
+    /**
      * @param  array<int,array{role:string,text:string}>  $history
      * @return array{text:string,tools:array<int,string>,cached:bool,remaining:int}
      *

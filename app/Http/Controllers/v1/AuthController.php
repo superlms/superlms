@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Services\OtplessService;
 use App\Services\OtpMailService;
 use App\Services\ResponseService;
+use App\Support\AdminAppOtp;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
@@ -64,6 +65,12 @@ class AuthController extends Controller
      *
      * Returns: { user, token, token_type, role, user_type, dashboard }
      *   where user_type / dashboard ∈ { student, teacher, admin, accounts }.
+     *
+     * A school admin or sub-admin gets no session here, as on the web: the app
+     * sends `otp_supported`, a code is mailed, and the reply is
+     * { otp_required, user_id, email, otp_token, expires_in, resend_in } for
+     * POST /login/verify-otp. Without `otp_supported` (an older app) an admin
+     * is asked to update the app.
      */
     public function login(Request $request)
     {
@@ -129,21 +136,132 @@ class AuthController extends Controller
                 return $this->responseService->error('No organization assigned to this account.', 403);
             }
 
-            $userType = $this->userTypeForRole($user->role);
-            $token    = $user->createToken('auth_token')->plainTextToken;
-            $parts    = explode('|', $token);
+            if (AdminAppOtp::required($user)) {
+                if (!$request->boolean('otp_supported')) {
+                    return $this->responseService->error(AdminAppOtp::UPDATE_APP_MESSAGE, 426);
+                }
 
-            return $this->responseService->success([
-                'user'       => $this->loginProfile($user, $userType),
-                'token'      => end($parts),
-                'token_type' => 'Bearer',
-                'role'       => $user->role,
-                'user_type'  => $userType,
-                'dashboard'  => $userType,
-            ], 'Login successful');
+                try {
+                    return $this->responseService->success(
+                        AdminAppOtp::challenge($user, 'login'),
+                        'We sent a code to your email address.'
+                    );
+                } catch (\RuntimeException $e) {
+                    return $this->otpSendFailed($user, $e);
+                }
+            }
+
+            return $this->loginSuccess($user);
         } catch (\Exception $e) {
             return $this->responseService->error('Login failed: ' . $e->getMessage(), 500);
         }
+    }
+
+    /**
+     * POST /api/v1/login/verify-otp
+     *
+     * A school admin's sign-in, finished: the code mailed by POST /login for
+     * that request. Body: user_id, otp_token, otp. Returns what /login returns
+     * for everyone else.
+     */
+    public function verifyLoginOtp(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'user_id'   => 'required|integer',
+            'otp_token' => 'required|string|max:100',
+            'otp'       => 'required|digits:6',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->responseService->error(implode(' ', $validator->errors()->all()), 422);
+        }
+
+        $user = User::whereIn('role', ['admin', 'sub-admin'])->find($request->user_id);
+        if (!$user) {
+            return $this->responseService->error(AdminAppOtp::EXPIRED_MESSAGE, 401);
+        }
+
+        try {
+            AdminAppOtp::verify($user, 'login', (string) $request->otp_token, (string) $request->otp);
+        } catch (\Exception $e) {
+            return $this->responseService->error($e->getMessage(), 401);
+        }
+
+        // Whatever changed while the code was on its way still counts.
+        if ($refusal = AdminAppOtp::refusal($user)) {
+            return $this->responseService->error($refusal, 403);
+        }
+
+        return $this->loginSuccess($user);
+    }
+
+    /**
+     * POST /api/v1/login/resend-otp
+     *
+     * A new code for a school admin's pending sign-in — at the login screen
+     * (purpose "login", the default) or in the account switcher ("switch").
+     * Body: user_id, otp_token, purpose.
+     */
+    public function resendLoginOtp(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'user_id'   => 'required|integer',
+            'otp_token' => 'required|string|max:100',
+            'purpose'   => 'nullable|in:login,switch',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->responseService->error(implode(' ', $validator->errors()->all()), 422);
+        }
+
+        $user = User::whereIn('role', ['admin', 'sub-admin'])->find($request->user_id);
+        if (!$user) {
+            return $this->responseService->error(AdminAppOtp::EXPIRED_MESSAGE, 401);
+        }
+
+        try {
+            $wait = AdminAppOtp::resend($user, (string) $request->input('purpose', 'login'), (string) $request->otp_token);
+        } catch (\InvalidArgumentException $e) {
+            return $this->responseService->error($e->getMessage(), 401);
+        } catch (\RuntimeException $e) {
+            return $this->otpSendFailed($user, $e);
+        }
+
+        if ($wait) {
+            return $this->responseService->error("Please wait {$wait} seconds before requesting a new OTP.", 429);
+        }
+
+        return $this->responseService->success([
+            'otp_token'  => (string) $request->otp_token,
+            'expires_in' => OtpMailService::CODE_TTL_SECONDS,
+            'resend_in'  => OtpMailService::RESEND_COOLDOWN_SECONDS,
+        ], 'OTP resent successfully to your email address.');
+    }
+
+    /** A code that could not go out: locked out, expired, or no mail channel worked. */
+    private function otpSendFailed(User $user, \RuntimeException $e)
+    {
+        return $this->responseService->error(
+            $e->getMessage(),
+            OtpMailService::lockedUntil($user) ? 429 : 503
+        );
+    }
+
+    /** A session for the app, and who it belongs to. */
+    private function loginSuccess(User $user)
+    {
+        $userType = $this->userTypeForRole($user->role);
+        $token    = $user->createToken('auth_token')->plainTextToken;
+        $parts    = explode('|', $token);
+
+        return $this->responseService->success([
+            'user'       => $this->loginProfile($user, $userType),
+            'token'      => end($parts),
+            'token_type' => 'Bearer',
+            'role'       => $user->role,
+            'user_type'  => $userType,
+            'dashboard'  => $userType,
+        ], 'Login successful');
     }
 
     /** Map a DB role to the app's friendly account type. */

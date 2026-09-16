@@ -70,20 +70,7 @@ class GeminiAssistant extends Component
         $this->scopeLabel = $scope->isSchool() ? 'This school' : 'All schools';
         $this->roleLabel  = str_replace('-', ' ', $scope->role);
         $this->refreshQuota($scope);
-        $this->suggestions = $scope->isSchool()
-            ? array_values(array_filter([
-                'Aaj ki summary do',
-                $scope->can('fees') ? 'How much fee was collected this month?' : null,
-                $scope->can('fees') ? 'Who has pending fees?' : null,
-                $scope->can('attendance') ? 'Aaj teacher attendance mark hui hai?' : null,
-                $scope->can('students') ? 'How many students do we have, class-wise?' : null,
-            ]))
-            : [
-                'Aaj ki summary do',
-                'How many schools are active?',
-                'Platform fees collected this month?',
-                'Pending credit requests kaunse hain?',
-            ];
+        $this->suggestions = Assistant::suggestionsFor($scope);
     }
 
     public function toggle(): void

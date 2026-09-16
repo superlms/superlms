@@ -29,6 +29,7 @@ use App\Http\Controllers\v1\AdminSyllabusController;
 use App\Http\Controllers\v1\AdminChapterContentController;
 use App\Http\Controllers\v1\AdminQuizController;
 use App\Http\Controllers\v1\AssignmentController;
+use App\Http\Controllers\v1\AssistantController;
 use App\Http\Controllers\v1\AdminBookController;
 use App\Http\Controllers\v1\AdminTimetableController;
 use App\Http\Controllers\v1\AdminArrangementController;
@@ -83,6 +84,11 @@ Route::prefix('v1')->group(function () {
         Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
         Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
         Route::post('/change-password', [AuthController::class, 'changePassword']);
+        // A school admin's emailed code — at login, and when the account is
+        // added to the account switcher.
+        Route::post('/login/verify-otp', [AuthController::class, 'verifyLoginOtp']);
+        Route::post('/login/resend-otp', [AuthController::class, 'resendLoginOtp']);
+        Route::post('/switch-account/add/verify-otp', [SwitchAccountController::class, 'verifyAddOtp']);
     });
 
     Route::get('/terms-and-conditions', [AuthController::class, 'termsAndConditions']);
@@ -103,6 +109,10 @@ Route::middleware('auth:sanctum')->group(function () {
         //Auth Api
         Route::post('/update-password', [AuthController::class, 'updatePassword']);
         Route::get('/school-info', [AuthController::class, 'schoolInfo']);
+
+        // LMS Assist — the web panel's assistant, for the app
+        Route::get('/assistant', [AssistantController::class, 'status']);
+        Route::post('/assistant/ask', [AssistantController::class, 'ask']);
 
         //Rules and Regulation
         Route::get('/rules-and-regulation', [AuthController::class, 'rulesAndRegulations']);

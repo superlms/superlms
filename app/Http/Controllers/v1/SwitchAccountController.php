@@ -6,6 +6,8 @@ use App\Models\Organization;
 use App\Models\Student\StudentDetail;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\User;
+use App\Services\OtpMailService;
+use App\Support\AdminAppOtp;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -86,8 +88,69 @@ class SwitchAccountController extends ApiController
             return $this->error('This account has been deactivated.', 403);
         }
 
-        // ── Issue a fresh token for this account (each added account has
-        //    its own token; removing one does not log out the others). ──
+        // ── A school admin is added only after the code mailed to them, as at
+        //    login: the reply carries { otp_required, user_id, otp_token … }
+        //    for POST /switch-account/add/verify-otp. ──
+        if (AdminAppOtp::required($user)) {
+            if (!$request->boolean('otp_supported')) {
+                return $this->error(AdminAppOtp::UPDATE_APP_MESSAGE, 426);
+            }
+            if ($refusal = AdminAppOtp::refusal($user)) {
+                return $this->error($refusal, 403);
+            }
+
+            try {
+                return $this->success(
+                    AdminAppOtp::challenge($user, 'switch'),
+                    'We sent a code to your email address.'
+                );
+            } catch (\RuntimeException $e) {
+                return $this->error($e->getMessage(), OtpMailService::lockedUntil($user) ? 429 : 503);
+            }
+        }
+
+        return $this->added($user);
+    }
+
+    /**
+     * POST /api/v1/switch-account/add/verify-otp
+     *
+     * A school admin's account, added once the mailed code is entered.
+     * Body: user_id, otp_token, otp. Returns what /switch-account/add returns
+     * for everyone else.
+     */
+    public function verifyAddOtp(Request $request)
+    {
+        if ($err = $this->validateWith($request, [
+            'user_id'   => 'required|integer',
+            'otp_token' => 'required|string|max:100',
+            'otp'       => 'required|digits:6',
+        ])) return $err;
+
+        $user = User::whereIn('role', ['admin', 'sub-admin'])->find($request->user_id);
+        if (!$user) {
+            return $this->error(AdminAppOtp::EXPIRED_MESSAGE, 401);
+        }
+
+        try {
+            AdminAppOtp::verify($user, 'switch', (string) $request->otp_token, (string) $request->otp);
+        } catch (\Exception $e) {
+            return $this->error($e->getMessage(), 401);
+        }
+
+        if ($refusal = AdminAppOtp::refusal($user)) {
+            return $this->error($refusal, 403);
+        }
+
+        return $this->added($user);
+    }
+
+    /**
+     * A fresh token for this account (each added account has its own token;
+     * removing one does not log out the others).
+     */
+    private function added(User $user)
+    {
         $tokenName = $user->role . '_switch_' . now()->timestamp;
         $token     = $user->createToken($tokenName)->plainTextToken;
         $snapshot  = $this->buildSnapshot($user);
