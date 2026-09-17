@@ -65,6 +65,7 @@ class Payroll extends Component
     public        $empPhoto;
     public        $empExistingPhoto   = null;
     public        $empTeacherDetailId = null;
+    public ?int   $pendingDeleteEmpId = null; // employee waiting on the delete confirm
 
     // ─── Employee list filters ────────────────────────────────────────────────
     public string $empSearch     = '';
@@ -408,27 +409,30 @@ class Payroll extends Component
         return null;
     }
 
+    /**
+     * Ask before deleting, in the page's own modal: WireUI's dialog builds its
+     * classes at runtime, they are not in the compiled Tailwind bundle, and it
+     * never showed.
+     */
     public function deleteEmployee($id): void
     {
-        $this->dialog()->confirm([
-            'title'       => 'Delete Employee?',
-            'description' => 'This will delete the employee and all their records.',
-            'icon'        => 'exclamation-circle',
-            'iconColor'   => 'text-red-500',
-            'accept'      => [
-                'label'  => 'Yes, delete',
-                'method' => 'doDeleteEmployee',
-                'params' => $id,
-                'color'  => 'negative',
-            ],
-            'reject' => ['label' => 'No'],
-        ]);
+        $this->pendingDeleteEmpId = AdminEmployee::forOrganization($this->orgId())->whereKey($id)->exists()
+            ? (int) $id
+            : null;
     }
 
-    public function doDeleteEmployee($id): void
+    public function cancelDeleteEmployee(): void
     {
-        AdminEmployee::forOrganization($this->orgId())->find($id)?->delete();
-        $this->notification()->success('Employee deleted!');
+        $this->pendingDeleteEmpId = null;
+    }
+
+    public function doDeleteEmployee(): void
+    {
+        if ($this->pendingDeleteEmpId) {
+            AdminEmployee::forOrganization($this->orgId())->find($this->pendingDeleteEmpId)?->delete();
+            $this->notification()->success('Employee deleted!');
+        }
+        $this->pendingDeleteEmpId = null;
     }
 
     public function viewEmployee($id): void

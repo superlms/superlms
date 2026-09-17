@@ -257,6 +257,29 @@ class PayrollSamePersonTest extends TestCase
         $this->assertSame(1, AdminEmployee::count());
     }
 
+    public function test_deleting_an_employee_asks_first_in_the_pages_own_modal(): void
+    {
+        $emp = AdminEmployee::create(['organization_id' => $this->org, 'name' => 'Suresh', 'type' => 'employee', 'salary' => 0]);
+        $other = AdminEmployee::create(['organization_id' => $this->org + 1, 'name' => 'Elsewhere', 'type' => 'employee', 'salary' => 0]);
+
+        $page = Livewire::test(PayrollPage::class)
+            ->call('deleteEmployee', $emp->id)
+            ->assertSet('pendingDeleteEmpId', $emp->id)
+            ->assertSee('Delete Employee?')
+            ->call('cancelDeleteEmployee')
+            ->assertSet('pendingDeleteEmpId', null)
+            ->assertDontSee('Delete Employee?');
+        $this->assertNotNull($emp->fresh());
+
+        $page->call('deleteEmployee', $other->id)->assertSet('pendingDeleteEmpId', null);
+
+        $page->call('deleteEmployee', $emp->id)
+            ->call('doDeleteEmployee')
+            ->assertSet('pendingDeleteEmpId', null);
+        $this->assertNull($emp->fresh());
+        $this->assertNotNull($other->fresh());
+    }
+
     public function test_the_driver_filter_lists_a_teacher_who_drives(): void
     {
         $this->teacher('Ramesh Kumar', '9876543210');

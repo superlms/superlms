@@ -916,4 +916,28 @@
         </div>
     @endif
 
+    {{-- ══════════ DELETE EMPLOYEE CONFIRM ══════════
+         The page's own modal (the Attendance page's), not WireUI's dialog —
+         that one's runtime classes are not in the compiled Tailwind bundle. --}}
+    @if ($pendingDeleteEmpId !== null)
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="cancelDeleteEmployee"></div>
+            <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
+                <div class="flex items-start gap-4">
+                    <div class="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center flex-shrink-0">
+                        <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-base font-semibold text-gray-900 mb-1">Delete Employee?</h3>
+                        <p class="text-sm text-gray-500">This will delete the employee and all their records.</p>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end gap-2 mt-5">
+                    <button wire:click="cancelDeleteEmployee" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">No</button>
+                    <button wire:click="doDeleteEmployee" wire:loading.attr="disabled" wire:target="doDeleteEmployee" class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:opacity-60">Yes, delete</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
 </div>
