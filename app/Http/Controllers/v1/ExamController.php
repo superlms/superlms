@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\v1;
 
 use App\Models\Admin\Exam;
+use App\Models\Admin\ExamDatesheet;
 use App\Models\Admin\ExamSyllabusChapter;
 use App\Models\Admin\TeacherTimeTable;
 use App\Models\Student\AdmitCard;
@@ -230,7 +231,127 @@ class ExamController extends ApiController
         return $pdf->stream("Admit_Card_{$name}.pdf");
     }
 
+    /**
+     * GET /api/v1/exams/{id}/datesheet
+     *
+     * The exam's date sheet, paper by paper, as the admin panel set it. A
+     * student gets their class's: the section's own sheet, else the class-wide
+     * one, else any the class has — as the admit card picks it. A teacher gets
+     * one block per class and section they teach, holding the papers of the
+     * subjects they teach there; blocks without papers are left out.
+     */
+    public function datesheet(int $id)
+    {
+        [$user, $err] = $this->authUser();
+        if ($err) return $err;
+
+        if (!in_array($user->role, ['user', 'teacher'], true)) {
+            return $this->error('Access denied for your role.', 403);
+        }
+
+        $orgId = $user->organization_id;
+        $exam  = Exam::where('organization_id', $orgId)->where('is_published', true)->find($id);
+        if (!$exam) {
+            return $this->error('Exam not found.', 404);
+        }
+
+        $classes = [];
+
+        if ($user->role === 'user') {
+            $student = StudentDetail::with(['standard:id,name', 'section:id,name'])
+                ->where('user_id', $user->id)
+                ->where('organization_id', $orgId)
+                ->first(['id', 'standard_id', 'section_id']);
+            if (!$student) {
+                return $this->error('Student details not found.', 404);
+            }
+
+            $sheet = $this->datesheetFor($orgId, $exam->id, (int) $student->standard_id, $student->section_id ? (int) $student->section_id : null);
+            $classes[] = [
+                'standard_id'   => $student->standard_id,
+                'standard_name' => $student->standard?->name,
+                'section_id'    => $student->section_id,
+                'section_name'  => $student->section?->name,
+                'papers'        => $sheet ? $this->formatPapers($sheet->papers) : [],
+            ];
+        } else {
+            $teacher = TeacherDetail::where('user_id', $user->id)->first(['id']);
+            $rows = $teacher
+                ? TeacherTimeTable::with(['standard:id,name,order', 'section:id,name'])
+                    ->where('teacher_detail_id', $teacher->id)
+                    ->where('organization_id', $orgId)
+                    ->get(['standard_id', 'section_id', 'subject_id'])
+                    ->filter(fn($r) => $r->standard && $r->subject_id)
+                : collect();
+
+            $groups = $rows
+                ->groupBy(fn($r) => $r->standard_id . '-' . ($r->section_id ?? 0))
+                ->sortBy([
+                    fn($a, $b) => [(int) $a->first()->standard->order, $a->first()->standard_id]
+                        <=> [(int) $b->first()->standard->order, $b->first()->standard_id],
+                    fn($a, $b) => strnatcasecmp((string) $a->first()->section?->name, (string) $b->first()->section?->name),
+                ]);
+
+            foreach ($groups as $group) {
+                $first = $group->first();
+                $sheet = $this->datesheetFor($orgId, $exam->id, (int) $first->standard_id, $first->section_id ? (int) $first->section_id : null);
+                if (!$sheet) continue;
+
+                $papers = $sheet->papers->whereIn('subject_id', $group->pluck('subject_id')->unique()->all());
+                if ($papers->isEmpty()) continue;
+
+                $classes[] = [
+                    'standard_id'   => $first->standard_id,
+                    'standard_name' => $first->standard->name,
+                    'section_id'    => $first->section_id,
+                    'section_name'  => $first->section?->name,
+                    'papers'        => $this->formatPapers($papers),
+                ];
+            }
+        }
+
+        return $this->success([
+            'exam'    => $this->formatExam($exam),
+            'classes' => $classes,
+        ], 'Date sheet fetched successfully.');
+    }
+
     // ── Private ───────────────────────────────────────────────────────────────
+
+    /** The date sheet a class and section sit by — the admit card's choice. */
+    private function datesheetFor(int $orgId, int $examId, int $standardId, ?int $sectionId): ?ExamDatesheet
+    {
+        $base = ExamDatesheet::with('papers.subject')
+            ->where('organization_id', $orgId)
+            ->where('exam_id', $examId)
+            ->where('standard_id', $standardId);
+
+        $sheet = $sectionId ? (clone $base)->where('section_id', $sectionId)->first() : null;
+
+        return $sheet
+            ?? (clone $base)->whereNull('section_id')->first()
+            ?? (clone $base)->first();
+    }
+
+    private function formatPapers($papers): array
+    {
+        $time = fn($t) => $t ? Carbon::parse($t)->format('H:i') : null;
+
+        return collect($papers)
+            ->sortBy(fn($p) => ($p->exam_date?->toDateString() ?? '9999-12-31') . ' ' . ($p->start_time ?? ''))
+            ->map(fn($p) => [
+                'id'            => $p->id,
+                'subject_id'    => $p->subject_id,
+                'subject_name'  => $p->subject?->name,
+                'subject_image' => $p->subject?->iconUrl(),
+                'exam_date'     => $p->exam_date?->format('Y-m-d'),
+                'start_time'    => $time($p->start_time),
+                'end_time'      => $time($p->end_time),
+                'shift'         => (int) $p->shift,
+            ])
+            ->values()
+            ->all();
+    }
 
     /**
      * Exam IDs relevant to the caller.

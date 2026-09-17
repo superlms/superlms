@@ -319,6 +319,7 @@ class DashboardController extends ApiController
                     'type'          => $e->exam_type,
                     'academic_year' => $e->academic_year,
                     'date_range'    => $this->dateRange($e->start_date, $e->end_date),
+                    'total_marks'   => $e->total_marks !== null ? (float) $e->total_marks : null,
                     'status'        => $status,
                 ];
             })
