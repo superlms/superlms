@@ -254,6 +254,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
             // Exam-copy PDFs
             Route::prefix('exam-copies')->group(function () {
+                // Upload Copies: exam → class → students, as the admin panel does it
+                Route::get('/classes',         [TeacherExamCopyController::class, 'examClasses']); // ?exam_id=
+                Route::get('/sheet',           [TeacherExamCopyController::class, 'sheet']);       // ?exam_id=&standard_id=&section_id=&subject_id=
+                Route::post('/sheet/upload',   [TeacherExamCopyController::class, 'uploadCopy']);  // multipart, one student's PDF
+                Route::post('/sheet/remove',   [TeacherExamCopyController::class, 'removeCopy']);
                 Route::get('/',           [TeacherExamCopyController::class, 'index']);
                 Route::post('/',          [TeacherExamCopyController::class, 'store']);    // multipart
                 Route::get('/{id}',       [TeacherExamCopyController::class, 'show'])->whereNumber('id');
@@ -277,6 +282,7 @@ Route::middleware('auth:sanctum')->group(function () {
             });
 
             Route::prefix('exam-copies')->group(function () {
+                Route::get('/exams/{examId}', [StudentExamCopyController::class, 'exam'])->whereNumber('examId');
                 Route::get('/',     [StudentExamCopyController::class, 'index']);
                 Route::get('/{id}', [StudentExamCopyController::class, 'show'])->whereNumber('id');
             });

@@ -34,6 +34,41 @@ class ExamCopy extends Model
             ->gradeLetter((float) $this->percentage) ?? ($this->grade ?: 'F');
     }
 
+    /**
+     * The copy's PDF as a link. The admin panel stores the S3 key and the older
+     * app endpoints stored the full URL; either reads back as a URL.
+     */
+    public function pdfUrl(): ?string
+    {
+        if (!$this->pdf_path) {
+            return null;
+        }
+
+        return str_starts_with($this->pdf_path, 'http')
+            ? $this->pdf_path
+            : \Illuminate\Support\Facades\Storage::disk('s3')->url($this->pdf_path);
+    }
+
+    /** Remove the copy's PDF from S3, whichever way its path was stored. */
+    public function deletePdfFile(): void
+    {
+        if (!$this->pdf_path) {
+            return;
+        }
+
+        $key = str_starts_with($this->pdf_path, 'http')
+            ? ltrim((string) parse_url($this->pdf_path, PHP_URL_PATH), '/')
+            : $this->pdf_path;
+
+        try {
+            if ($key) {
+                \Illuminate\Support\Facades\Storage::disk('s3')->delete($key);
+            }
+        } catch (\Throwable $e) {
+            logger()->warning('exam-copy PDF delete failed: ' . $e->getMessage());
+        }
+    }
+
     public function organization()
     {
         return $this->belongsTo(Organization::class);
