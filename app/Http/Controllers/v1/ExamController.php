@@ -463,20 +463,26 @@ class ExamController extends ApiController
     /**
      * Build syllabus[] for an exam scoped to the caller:
      *   - Student → their standard_id + section_id
-     *   - Teacher → all (standard, subject) combos in their TeacherSubject assignments
+     *   - Teacher → the classes, sections and subjects of their timetable and
+     *               assignments
      * Optional ?subject_id filter applies to both.
      *
-     * Returns: [ { subject_id, subject_name, standard_id, standard_name,
-     *             chapter_count, chapters: [ { id, name, description, order,
-     *             topics: [ { id, topic_name } ] } ] } ]
+     * Returns one block per class, section (null: the whole class) and subject:
+     *   [ { standard_id, standard_name, section_id, section_name, subject_id,
+     *       subject_name, subject_image, chapter_count,
+     *       chapters: [ { id, name, description, order, topics: [ { id, topic_name } ] } ] } ]
      */
     private function getExamSyllabusForUser(Exam $exam, $user, Request $request): array
     {
         $orgId     = $user->organization_id;
-        $subjectId = $request->get('subject_id');
+        $subjectId = $request->query('subject_id');
 
         $base = ExamSyllabusChapter::where('organization_id', $orgId)
             ->where('exam_id', $exam->id);
+
+        // The section(s) a row's chapters are listed under for this caller —
+        // null for the whole class. One block per class, section and subject.
+        $placesFor = fn($r) => [$r->section_id ?: null];
 
         if ($user->role === 'user') {
             $student = StudentDetail::where('user_id', $user->id)->first(['id', 'standard_id', 'section_id']);
@@ -489,6 +495,9 @@ class ExamController extends ApiController
                       ->orWhereNull('section_id');
                 });
             }
+
+            // The section's chapters and the whole class's make one block per subject.
+            $placesFor = fn($r) => [$student->section_id ?: null];
         } elseif ($user->role === 'teacher') {
             $teacher = TeacherDetail::where('user_id', $user->id)->first(['id']);
             if (!$teacher) return [];
@@ -497,14 +506,14 @@ class ExamController extends ApiController
             // build the (standard_id, subject_id) pairs from the timetable AND any
             // directly-assigned subjects. Using only TeacherSubject left teachers
             // with no syllabus because assignments live in the timetable.
-            $pairs = collect()
+            $taught = collect()
                 ->merge(TeacherTimeTable::where('teacher_detail_id', $teacher->id)
-                    ->get(['standard_id', 'subject_id']))
+                    ->get(['standard_id', 'section_id', 'subject_id']))
                 ->merge(TeacherSubject::where('teacher_detail_id', $teacher->id)
-                    ->get(['standard_id', 'subject_id']));
+                    ->get(['standard_id', 'section_id', 'subject_id']))
+                ->filter(fn($r) => $r->standard_id && $r->subject_id);
 
-            $assignments = $pairs
-                ->filter(fn($r) => $r->standard_id && $r->subject_id)
+            $assignments = $taught
                 ->map(fn($r) => $r->standard_id . '-' . $r->subject_id)
                 ->unique()
                 ->values()
@@ -513,32 +522,69 @@ class ExamController extends ApiController
             if (empty($assignments)) return [];
 
             $base->whereIn(\DB::raw('CONCAT(standard_id, "-", subject_id)'), $assignments);
+
+            // The sections the teacher takes each class and subject in (null: the
+            // whole class). A section's chapters show only to that section's
+            // teacher; the whole class's show under each of the teacher's sections.
+            $sectionsOf = $taught
+                ->groupBy(fn($r) => $r->standard_id . '-' . $r->subject_id)
+                ->map(fn($g) => $g->map(fn($r) => $r->section_id ?: null)->unique()->values());
+
+            $placesFor = function ($r) use ($sectionsOf) {
+                $mine = $sectionsOf->get($r->standard_id . '-' . $r->subject_id, collect());
+                if ($mine->contains(null)) {
+                    return [$r->section_id ?: null];
+                }
+                if ($r->section_id) {
+                    return $mine->contains($r->section_id) ? [$r->section_id] : [];
+                }
+                return $mine->all();
+            };
         }
 
         if ($subjectId) {
             $base->where('subject_id', $subjectId);
         }
 
-        $rows = $base->with(['standard:id,name', 'subject:id,name'])
-            ->get(['exam_id', 'standard_id', 'subject_id', 'chapter_id']);
+        $rows = $base->with(['standard:id,name,order', 'subject:id,name'])
+            ->get(['exam_id', 'standard_id', 'section_id', 'subject_id', 'chapter_id']);
 
         if ($rows->isEmpty()) return [];
 
-        $chapterIds = $rows->pluck('chapter_id')->unique()->values()->toArray();
+        $blocks = [];
+        foreach ($rows as $r) {
+            foreach ($placesFor($r) as $sectionId) {
+                $key = $r->standard_id . '-' . ($sectionId ?? 0) . '-' . $r->subject_id;
+                $blocks[$key] ??= ['row' => $r, 'section_id' => $sectionId, 'chapter_ids' => []];
+                $blocks[$key]['chapter_ids'][] = $r->chapter_id;
+            }
+        }
 
-        $chapters = Chapter::with(['topics:id,chapter_id,topic_name'])
-            ->whereIn('id', $chapterIds)
+        if (!$blocks) return [];
+
+        $sectionNames = \App\Models\Student\Section::whereIn('id', collect($blocks)->pluck('section_id')->filter()->unique())
+            ->pluck('name', 'id');
+
+        // In the syllabus's own order; topics too.
+        $chapters = Chapter::with(['topics' => fn($q) => $q->orderBy('order')->orderBy('id')->select('id', 'chapter_id', 'topic_name', 'order')])
+            ->whereIn('id', $rows->pluck('chapter_id')->unique()->values())
             ->orderBy('order')
-            ->get(['id', 'name', 'description', 'order', 'subject_id', 'standard_id'])
-            ->keyBy('id');
+            ->orderBy('id')
+            ->get(['id', 'name', 'description', 'order', 'subject_id', 'standard_id']);
 
-        return $rows
-            ->groupBy(fn($r) => $r->standard_id . '-' . $r->subject_id)
-            ->map(function ($group) use ($chapters) {
-                $first = $group->first();
-                $chapterList = $group->pluck('chapter_id')
-                    ->map(fn($cid) => $chapters->get($cid))
-                    ->filter()
+        return collect($blocks)
+            ->sortBy([
+                fn($a, $b) => [(int) ($a['row']->standard->order ?? 0), $a['row']->standard_id]
+                    <=> [(int) ($b['row']->standard->order ?? 0), $b['row']->standard_id],
+                fn($a, $b) => strnatcasecmp((string) ($sectionNames[$a['section_id']] ?? ''), (string) ($sectionNames[$b['section_id']] ?? '')),
+                fn($a, $b) => strnatcasecmp((string) ($a['row']->subject->name ?? ''), (string) ($b['row']->subject->name ?? '')),
+            ])
+            ->map(function ($block) use ($chapters, $sectionNames) {
+                $first = $block['row'];
+                // A chapter set for a section and for the whole class is one chapter.
+                $ids = collect($block['chapter_ids'])->unique();
+                $chapterList = $chapters
+                    ->filter(fn($ch) => $ids->contains($ch->id))
                     ->values()
                     ->map(fn($ch) => [
                         'id'          => $ch->id,
@@ -554,8 +600,11 @@ class ExamController extends ApiController
                 return [
                     'standard_id'   => $first->standard_id,
                     'standard_name' => $first->standard->name ?? null,
+                    'section_id'    => $block['section_id'],
+                    'section_name'  => $block['section_id'] ? ($sectionNames[$block['section_id']] ?? null) : null,
                     'subject_id'    => $first->subject_id,
                     'subject_name'  => $first->subject->name ?? null,
+                    'subject_image' => $first->subject?->iconUrl(),
                     'chapter_count' => $chapterList->count(),
                     'chapters'      => $chapterList,
                 ];
