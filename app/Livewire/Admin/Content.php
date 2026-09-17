@@ -115,11 +115,7 @@ class Content extends Component
         $org = Auth::user()->organization_id;
         $query = Subject::where('organization_id', $org)->where('is_active', true);
 
-        if ($this->filterSection) {
-            $query->whereHas('sections', fn($q) => $q->where('sections.id', $this->filterSection));
-        } else {
-            $query->whereHas('standards', fn($q) => $q->where('standards.id', $this->filterStandard));
-        }
+        $query->taughtIn($this->filterStandard, $this->filterSection ?: null);
         $this->filterSubjects = $query->orderBy('id')->get();
     }
 

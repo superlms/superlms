@@ -5,6 +5,7 @@ namespace App\Models\Student;
 use App\Models\Teacher\TeacherSubject;
 use App\Models\User;
 use App\Traits\HasCommonScopes;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class Subject extends Model
@@ -12,6 +13,33 @@ class Subject extends Model
     use HasCommonScopes;
 
     protected $fillable = ['name', 'code', 'organization_id', 'description', 'is_active', 'image', 'detail_image'];
+
+    /**
+     * Subjects taught in a class, or in one section of it.
+     *
+     * A section's subjects are its links saved for that same class. Older data
+     * has a section linked to subjects of other classes (a section ticked
+     * while a subject was saved under another class, or left behind when it
+     * moved), and those must not list under this section. A class's subjects
+     * are its own links plus those of its sections.
+     */
+    public function scopeTaughtIn(Builder $query, $standardId, $sectionId = null): Builder
+    {
+        $id = $this->qualifyColumn('id');
+
+        if ($sectionId) {
+            return $query->whereIn($id, fn ($q) => $q->select('subject_id')->from('section_subjects')
+                ->where('section_id', $sectionId)
+                ->where('standard_id', $standardId));
+        }
+
+        return $query->where(fn ($w) => $w
+            ->whereIn($id, fn ($q) => $q->select('subject_id')->from('standard_subjects')
+                ->where('standard_id', $standardId))
+            ->orWhereIn($id, fn ($q) => $q->select('subject_id')->from('section_subjects')
+                ->where('standard_id', $standardId)
+                ->whereIn('section_id', fn ($s) => $s->select('id')->from('sections')->where('standard_id', $standardId))));
+    }
 
     /**
      * Built-in icon for this subject, resolved from its name (see

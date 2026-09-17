@@ -37,11 +37,7 @@ class AdminSyllabusController extends ApiController
     private function subjectsFor(int $orgId, $standardId, $sectionId = null)
     {
         $query = Subject::where('organization_id', $orgId)->where('is_active', true);
-        if ($sectionId) {
-            $query->whereHas('sections', fn ($q) => $q->where('sections.id', $sectionId));
-        } else {
-            $query->whereHas('standards', fn ($q) => $q->where('standards.id', $standardId));
-        }
+        $query->taughtIn($standardId, $sectionId ?: null);
         return $query->orderBy('name')->get(['id', 'name', 'code']);
     }
 

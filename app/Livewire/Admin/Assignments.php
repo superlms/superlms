@@ -154,11 +154,7 @@ class Assignments extends Component
 
         $query = Subject::where('organization_id', $this->orgId())->where('is_active', true);
 
-        if ($sectionId) {
-            $query->whereHas('sections', fn($q) => $q->where('sections.id', $sectionId));
-        } else {
-            $query->whereHas('standards', fn($q) => $q->where('standards.id', $standardId));
-        }
+        $query->taughtIn($standardId, $sectionId ?: null);
 
         return $query->orderBy('id')->get();
     }

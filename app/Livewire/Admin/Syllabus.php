@@ -85,6 +85,12 @@ class Syllabus extends Component
         $org = Auth::user()->organization_id;
         $this->standards = Standard::where('organization_id', $org)->where('is_active', true)->inClassOrder()->get();
         $this->loadStats();
+
+        // Filters come back from the URL (refresh, back): fill their lists too.
+        if ($this->filterStandard) {
+            $this->filterSections = Section::where('standard_id', $this->filterStandard)->where('is_active', true)->get();
+            $this->loadFilterSubjects();
+        }
     }
 
     private function loadStats(): void
@@ -138,11 +144,7 @@ class Syllabus extends Component
         $org = Auth::user()->organization_id;
         $query = Subject::where('organization_id', $org)->where('is_active', true);
 
-        if ($this->filterSection) {
-            $query->whereHas('sections', fn($q) => $q->where('sections.id', $this->filterSection));
-        } else {
-            $query->whereHas('standards', fn($q) => $q->where('standards.id', $this->filterStandard));
-        }
+        $query->taughtIn($this->filterStandard, $this->filterSection ?: null);
 
         $this->filterSubjectsList = $query->orderBy('id')->get();
     }
@@ -229,11 +231,7 @@ class Syllabus extends Component
         $org   = Auth::user()->organization_id;
         $query = Subject::where('organization_id', $org)->where('is_active', true);
 
-        if ($this->chapterSectionId) {
-            $query->whereHas('sections', fn($q) => $q->where('sections.id', $this->chapterSectionId));
-        } else {
-            $query->whereHas('standards', fn($q) => $q->where('standards.id', $this->chapterStandardId));
-        }
+        $query->taughtIn($this->chapterStandardId, $this->chapterSectionId ?: null);
         $this->chapterSubjects = $query->orderBy('id')->get();
     }
 
@@ -396,11 +394,7 @@ class Syllabus extends Component
         $org   = Auth::user()->organization_id;
         $query = Subject::where('organization_id', $org)->where('is_active', true);
 
-        if ($this->topicSectionId) {
-            $query->whereHas('sections', fn($q) => $q->where('sections.id', $this->topicSectionId));
-        } else {
-            $query->whereHas('standards', fn($q) => $q->where('standards.id', $this->topicStandardId));
-        }
+        $query->taughtIn($this->topicStandardId, $this->topicSectionId ?: null);
         $this->topicSubjects = $query->orderBy('id')->get();
     }
 
@@ -663,8 +657,8 @@ class Syllabus extends Component
                         )
                 );
             })
-            ->whereHas('standards', fn($sq) => $sq->where('standards.id', $this->filterStandard))
-            ->when($this->filterSection, fn($q) => $q->whereHas('sections', fn($sq) => $sq->where('sections.id', $this->filterSection)))
+            // Only this class's (or section's) own subjects — see Subject::taughtIn.
+            ->taughtIn($this->filterStandard, $this->filterSection ?: null)
             ->where('id', $this->filterSubject)
             ->orderBy('id')
             ->paginate($this->perPage);

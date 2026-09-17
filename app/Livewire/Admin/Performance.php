@@ -80,13 +80,27 @@ class Performance extends Component
     // ════════════════════════════════════════════════════════════════════════
     public function mount(): void
     {
+        $this->loadFilterLists();
+        $this->loadStats();
+    }
+
+    /**
+     * The filter bar's lists for the class and section it has picked. The
+     * Upload Marks panel fills the same sections / subjects / students, so
+     * they are put back whenever the bar is shown again — otherwise it kept
+     * every subject (or the panel's) under a chosen class and section.
+     */
+    private function loadFilterLists(): void
+    {
         $this->loadFilters();
         if ($this->filterStandard) {
             $this->sections = Section::where('standard_id', $this->filterStandard)
                 ->where('is_active', true)->get();
             $this->loadSubjectsForStandard($this->filterStandard, $this->filterSection ?: null);
+            $this->students = $this->filterSection
+                ? $this->loadStudents($this->filterStandard, $this->filterSection)
+                : [];
         }
-        $this->loadStats();
     }
 
     private function loadStats(): void
@@ -111,7 +125,7 @@ class Performance extends Component
             $this->performers = [];
         } else {
             $this->resetPage();
-            $this->loadFilters();
+            $this->loadFilterLists();
         }
     }
 
@@ -181,7 +195,7 @@ class Performance extends Component
         $this->showUploadModal = false;
         $this->editingStudents = [];
         if ($this->activeTab === 'subject') {
-            $this->loadFilters();
+            $this->loadFilterLists();
         }
     }
 
