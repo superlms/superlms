@@ -47,7 +47,7 @@ class AdminHomeworkController extends ApiController
         $orgId = $user->organization_id;
 
         $classes = Standard::where('organization_id', $orgId)->where('is_active', true)
-            ->orderBy('id')->get(['id', 'name'])
+            ->inClassOrder()->get(['id', 'name'])
             ->map(fn ($s) => [
                 'id'       => $s->id,
                 'name'     => $s->name,

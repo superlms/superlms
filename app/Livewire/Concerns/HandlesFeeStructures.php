@@ -513,7 +513,7 @@ trait HandlesFeeStructures
         $orgId = $this->orgId();
 
         $standards = Standard::where('organization_id', $orgId)
-            ->where('is_active', true)->orderBy('id')->get();
+            ->where('is_active', true)->inClassOrder()->get();
 
         $filterSections = $this->filterStructureStandard
             ? Section::where('organization_id', $orgId)

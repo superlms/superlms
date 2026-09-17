@@ -335,7 +335,7 @@ class Fees extends Component
             // monthly → Apr–Mar rows, quarterly → 4 rows, yearly → single total row
             $this->loadInstallments();
         } elseif ($this->updateOrgFeeType === 'per_student') {
-            $this->standards = Standard::where('organization_id', $org->id)->orderBy('id')->get();
+            $this->standards = Standard::where('organization_id', $org->id)->inClassOrder()->get();
         }
     }
 
@@ -1161,7 +1161,7 @@ class Fees extends Component
                 ->get();
 
             $currentFeeType = $this->currentFeeType();
-            $viewStandards  = Standard::where('organization_id', $this->selectedSchool->id)->orderBy('id')->get();
+            $viewStandards  = Standard::where('organization_id', $this->selectedSchool->id)->inClassOrder()->get();
         }
 
         return view('livewire.super-admin.fees', compact('feeStructures', 'currentFeeType', 'schools', 'boards', 'organizations', 'viewStandards'));

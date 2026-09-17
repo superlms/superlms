@@ -186,7 +186,7 @@ class AddExam extends Component
 
         $this->allStandards = Standard::where('organization_id', $orgId)
             ->where('is_active', true)
-            ->orderBy('id')
+            ->inClassOrder()
             ->get(['id', 'name', 'code'])
             ->toArray();
 

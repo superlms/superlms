@@ -66,7 +66,7 @@ class Content extends Component
     public function mount(): void
     {
         $org = Auth::user()->organization_id;
-        $this->standards = Standard::where('organization_id', $org)->where('is_active', true)->orderBy('id')->get();
+        $this->standards = Standard::where('organization_id', $org)->where('is_active', true)->inClassOrder()->get();
         $this->loadStats();
     }
 

@@ -80,7 +80,7 @@ class TimeTable extends Component
         // e.g. Class 1, 2, … 10 instead of alphabetical (2, 10, …).
         $this->standards   = Standard::where('organization_id', $org)
             ->where('is_active', true)
-            ->orderBy('id')
+            ->inClassOrder()
             ->get();
         $this->allTeachers = TeacherDetail::with('user:id,name,email,is_active')
             ->where('organization_id', $org)

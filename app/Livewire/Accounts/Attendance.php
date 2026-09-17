@@ -782,7 +782,7 @@ class Attendance extends Component
     {
         $orgId = Auth::user()->organization_id;
 
-        $standards = Standard::where('organization_id', $orgId)->orderBy('id')->get(['id', 'name']);
+        $standards = Standard::where('organization_id', $orgId)->inClassOrder()->get(['id', 'name']);
         $teachers  = TeacherDetail::with('user:id,name,email,image')->where('organization_id', $orgId)->get()
             ->sortBy(fn($t) => $t->user->name ?? '')->values();
 
@@ -793,12 +793,14 @@ class Attendance extends Component
         // ── Class Teachers tab: filtered assignment list ──
         // Mode-aware: "By Class" only filters on class/section, "By Teacher" only
         // on the teacher — so a filter from one method never leaks into the other.
-        $assignments = AssignTeacherStandard::with(['teacher.user:id,name,email,image', 'standard:id,name', 'section:id,name'])
+        // Listed in class order, as the Standard page lists the classes.
+        $assignments = AssignTeacherStandard::with(['teacher.user:id,name,email,image', 'standard:id,name,order', 'section:id,name'])
             ->where('organization_id', $orgId)
             ->when($this->ctMode === 'by_class' && $this->ctFilterStandard, fn($q) => $q->where('standard_id', $this->ctFilterStandard))
             ->when($this->ctMode === 'by_class' && $this->ctFilterSection,  fn($q) => $q->where('section_id', $this->ctFilterSection))
             ->when($this->ctMode === 'by_teacher' && $this->ctFilterTeacher, fn($q) => $q->where('teacher_detail_id', $this->ctFilterTeacher))
-            ->latest()->get();
+            ->get();
+        $assignments = AssignTeacherStandard::sortInClassOrder($assignments);
         $ctSections = $this->ctFilterStandard ? Section::where('standard_id', $this->ctFilterStandard)->orderBy('id')->get(['id', 'name']) : collect();
 
         // Assign panel: only teachers who are not a class teacher yet, plus the

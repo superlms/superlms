@@ -274,7 +274,7 @@ trait HandlesPenalties
         $orgId = $this->orgId();
 
         $pStandards = Standard::where('organization_id', $orgId)
-            ->where('is_active', true)->orderBy('id')->get();
+            ->where('is_active', true)->inClassOrder()->get();
 
         $activeStandard = $this->penaltySubTab === 'by_student'
             ? $this->penaltyViewStandardId

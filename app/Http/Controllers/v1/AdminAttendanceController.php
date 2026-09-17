@@ -73,7 +73,7 @@ class AdminAttendanceController extends ApiController
         if ($err) return $err;
         $orgId = $user->organization_id;
 
-        $classes = Standard::where('organization_id', $orgId)->orderBy('id')->get(['id', 'name'])
+        $classes = Standard::where('organization_id', $orgId)->inClassOrder()->get(['id', 'name'])
             ->map(fn ($s) => [
                 'id'       => $s->id,
                 'name'     => $s->name,
@@ -366,12 +366,14 @@ class AdminAttendanceController extends ApiController
         $orgId = $user->organization_id;
         $mode  = $request->input('mode') === 'by_teacher' ? 'by_teacher' : 'by_class';
 
-        $assignments = AssignTeacherStandard::with(['teacher.user:id,name,email,image', 'standard:id,name', 'section:id,name'])
+        // In class order, as the Standard page lists the classes.
+        $assignments = AssignTeacherStandard::with(['teacher.user:id,name,email,image', 'standard:id,name,order', 'section:id,name'])
             ->where('organization_id', $orgId)
             ->when($mode === 'by_class' && $request->filled('standard_id'), fn ($q) => $q->where('standard_id', $request->standard_id))
             ->when($mode === 'by_class' && $request->filled('section_id'),  fn ($q) => $q->where('section_id', $request->section_id))
             ->when($mode === 'by_teacher' && $request->filled('teacher_id'), fn ($q) => $q->where('teacher_detail_id', $request->teacher_id))
-            ->latest()->get()
+            ->get();
+        $assignments = AssignTeacherStandard::sortInClassOrder($assignments)
             ->map(fn ($a) => [
                 'id'           => $a->id,
                 'teacher_id'   => $a->teacher_detail_id,

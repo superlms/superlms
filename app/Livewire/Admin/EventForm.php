@@ -116,7 +116,7 @@ class EventForm extends Component
         
         $this->standards = Standard::where('organization_id', $organizationId)
             ->where('is_active', true)
-            ->get();
+            ->inClassOrder()->get();
             
         $this->teachers = User::where('organization_id', $organizationId)
             ->where('role', 'teacher')

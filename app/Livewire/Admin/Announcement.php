@@ -95,7 +95,7 @@ class Announcement extends Component
         // Classes for the "which students?" picker.
         $standards = \App\Models\Student\Standard::where('organization_id', Auth::user()->organization_id)
             ->where('is_active', true)
-            ->orderBy('id')
+            ->inClassOrder()
             ->get(['id', 'name']);
 
         // Stats

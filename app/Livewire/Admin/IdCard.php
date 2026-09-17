@@ -340,7 +340,7 @@ class IdCard extends Component
                     ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath()]
                 ),
                 'standards' => \App\Models\Student\Standard::where('organization_id', $orgId)
-                    ->where('is_active', true)->orderBy('id')->get(['id', 'name']),
+                    ->where('is_active', true)->inClassOrder()->get(['id', 'name']),
                 'sections'  => collect(),
             ]);
         }
@@ -406,7 +406,7 @@ class IdCard extends Component
         $cards = $query->latest()->paginate($this->perPage);
 
         $standards = \App\Models\Student\Standard::where('organization_id', $orgId)
-            ->where('is_active', true)->orderBy('id')->get(['id', 'name']);
+            ->where('is_active', true)->inClassOrder()->get(['id', 'name']);
         $sections = $this->standardFilter
             ? \App\Models\Student\Section::where('standard_id', $this->standardFilter)->orderBy('id')->get(['id', 'name'])
             : collect();

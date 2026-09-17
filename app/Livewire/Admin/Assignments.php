@@ -124,7 +124,7 @@ class Assignments extends Component
     {
         $this->standards = Standard::where('organization_id', $this->orgId())
             ->where('is_active', true)
-            ->orderBy('id')
+            ->inClassOrder()
             ->get();
 
         $this->filterSections = $this->sectionsFor($this->filterStandard);

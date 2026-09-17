@@ -147,7 +147,7 @@ class Dashboard extends Component
     {
         return view('livewire.accounts.dashboard', array_merge($this->analyticsViewData(), [
             'standards' => Standard::where('organization_id', $this->orgId())
-                ->where('is_active', true)->orderBy('id')->get(),
+                ->where('is_active', true)->inClassOrder()->get(),
             'orgId' => $this->orgId(),
             'menu'  => \App\Support\ModuleAccess::filterMenu(
                 collect(config('menu.accounts', []))

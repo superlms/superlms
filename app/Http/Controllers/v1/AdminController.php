@@ -185,7 +185,7 @@ class AdminController extends ApiController
 
         // ── Class distribution (today) ──
         $cd = ['labels' => [], 'present' => [], 'absent' => []];
-        foreach (Standard::where('organization_id', $orgId)->orderBy('id')->get() as $std) {
+        foreach (Standard::where('organization_id', $orgId)->inClassOrder()->get() as $std) {
             $ids = StudentDetail::where('organization_id', $orgId)->where('standard_id', $std->id)->pluck('id');
             $cd['labels'][]  = $std->name;
             $cd['present'][] = StudentAttendance::whereIn('student_detail_id', $ids)->whereDate('attendance_date', $today)->where('status', 1)->count();
@@ -427,7 +427,7 @@ class AdminController extends ApiController
         return [
             'exams'     => Exam::where('organization_id', $orgId)->orderByDesc('id')->get(['id', 'exam_name'])
                 ->map(fn ($e) => ['id' => $e->id, 'name' => $e->exam_name])->values(),
-            'standards' => Standard::where('organization_id', $orgId)->orderBy('id')->get(['id', 'name'])
+            'standards' => Standard::where('organization_id', $orgId)->inClassOrder()->get(['id', 'name'])
                 ->map(fn ($s) => ['id' => $s->id, 'name' => $s->name])->values(),
             'subjects'  => Subject::where('organization_id', $orgId)->orderBy('name')->get(['id', 'name'])
                 ->map(fn ($s) => ['id' => $s->id, 'name' => $s->name])->values(),

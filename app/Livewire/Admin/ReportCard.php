@@ -435,7 +435,7 @@ class ReportCard extends Component
     {
         return Standard::where('organization_id', Auth::user()->organization_id)
             ->where('is_active', true)
-            ->orderBy('id')
+            ->inClassOrder()
             ->get();
     }
 

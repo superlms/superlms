@@ -97,6 +97,32 @@ class ClassTeacherAssignTest extends TestCase
     }
 
     #[DataProvider('pages')]
+    public function test_class_teachers_and_the_class_pickers_follow_the_standard_pages_order(string $pageClass): void
+    {
+        // Added out of order: the Standard page lists them 1, 2, 10.
+        $ten = Standard::create(['organization_id' => $this->org, 'name' => '10', 'order' => 3]);
+        $one = Standard::create(['organization_id' => $this->org, 'name' => '1', 'order' => 1]);
+        $two = Standard::create(['organization_id' => $this->org, 'name' => '2', 'order' => 2]);
+        $b = \App\Models\Student\Section::create(['standard_id' => $one->id, 'organization_id' => $this->org, 'name' => 'B']);
+
+        $this->assign($this->teacher('Asha'), $ten);
+        AssignTeacherStandard::create(['organization_id' => $this->org, 'teacher_detail_id' => $this->teacher('Bina')->id, 'standard_id' => $one->id, 'section_id' => $b->id]);
+        $this->assign($this->teacher('Chetan'), $two);
+        $this->assign($this->teacher('Deepa'), $one);
+
+        $page = new $pageClass();
+        $page->mount();
+        $page->mainTab = 'class_teachers';
+        $data = $page->render()->getData();
+
+        $this->assertSame(['1', '2', '10'], $data['standards']->pluck('name')->all());
+        $this->assertSame(
+            ['Deepa · 1', 'Bina · 1', 'Chetan · 2', 'Asha · 10'],
+            $data['assignments']->map(fn ($a) => $a->teacher->user->name . ' · ' . $a->standard->name)->all()
+        );
+    }
+
+    #[DataProvider('pages')]
     public function test_an_assigned_teacher_is_not_offered_again(string $pageClass): void
     {
         $asha  = $this->teacher('Asha');

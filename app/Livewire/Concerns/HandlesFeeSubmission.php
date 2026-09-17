@@ -306,7 +306,7 @@ trait HandlesFeeSubmission
         $orgId = $this->orgId();
 
         $fsStandards = Standard::where('organization_id', $orgId)
-            ->where('is_active', true)->orderBy('id')->get();
+            ->where('is_active', true)->inClassOrder()->get();
 
         $fsSections = $this->submissionStandardId
             ? Section::where('organization_id', $orgId)

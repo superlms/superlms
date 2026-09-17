@@ -1183,7 +1183,7 @@ class SeatingPlan extends Component
         $rooms = SeatingRoom::where('organization_id', $orgId)->orderBy('room_name')->get();
         $invigilators = SeatingInvigilator::where('organization_id', $orgId)->orderBy('name')->get();
         $exams = Exam::where('organization_id', $orgId)->orderBy('start_date', 'desc')->get(['id', 'exam_name', 'academic_year', 'exam_type', 'start_date']);
-        $standards = Standard::where('organization_id', $orgId)->where('is_active', true)->orderBy('id')->get(['id', 'name']);
+        $standards = Standard::where('organization_id', $orgId)->where('is_active', true)->inClassOrder()->get(['id', 'name']);
 
         // The plans are not listed any more — the finder is how you reach one —
         // so all the header needs is how many there are.

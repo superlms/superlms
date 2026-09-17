@@ -86,7 +86,7 @@ class Analytics extends Component
     public function mount(): void
     {
         $this->standards = Standard::where('organization_id', $this->orgId())
-            ->orderBy('id')->get();
+            ->inClassOrder()->get();
 
         $now = Carbon::now();
         $thisAy = $now->month >= 4 ? (int) $now->year : (int) $now->year - 1;
@@ -290,7 +290,7 @@ class Analytics extends Component
         $from  = Carbon::today()->subDays(29);
         $rows  = [];
 
-        foreach (Standard::where('organization_id', $orgId)->orderBy('id')->get() as $std) {
+        foreach (Standard::where('organization_id', $orgId)->inClassOrder()->get() as $std) {
             $studentIds = StudentDetail::where('organization_id', $orgId)
                 ->where('standard_id', $std->id)->pluck('id');
             if ($studentIds->isEmpty()) continue;
@@ -768,7 +768,7 @@ class Analytics extends Component
     {
         $orgId     = $this->orgId();
         $today     = Carbon::today();
-        $standards = Standard::where('organization_id', $orgId)->orderBy('id')->get();
+        $standards = Standard::where('organization_id', $orgId)->inClassOrder()->get();
 
         $labels = $present = $absent = [];
 
@@ -925,7 +925,7 @@ class Analytics extends Component
     protected function loadFeeClassDataStatic(): void
     {
         $orgId     = $this->orgId();
-        $standards = Standard::where('organization_id', $orgId)->orderBy('id')->get();
+        $standards = Standard::where('organization_id', $orgId)->inClassOrder()->get();
         $labels    = $standards->pluck('name')->toArray();
 
         $collected = [];

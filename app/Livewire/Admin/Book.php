@@ -96,7 +96,7 @@ class Book extends Component
         
         $this->standards = Standard::where('organization_id', $organizationId)
             ->where('is_active', true)
-            ->orderBy('id')
+            ->inClassOrder()
             ->get();
     }
 

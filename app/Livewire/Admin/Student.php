@@ -144,7 +144,7 @@ class Student extends Component
     {
         $cityHelper        = new CityGetHelper();
         $this->states      = $cityHelper->getState();
-        $this->standards   = Standard::where('organization_id', Auth::user()->organization_id)->get();
+        $this->standards   = Standard::where('organization_id', Auth::user()->organization_id)->inClassOrder()->get();
 
         $this->loadRoutes();
         $this->loadSections();

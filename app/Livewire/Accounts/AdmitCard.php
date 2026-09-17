@@ -506,7 +506,7 @@ class AdmitCard extends Component
     #[\Livewire\Attributes\Computed]
     public function standards()
     {
-        return Standard::where('organization_id', $this->orgId())->orderBy('id')->get();
+        return Standard::where('organization_id', $this->orgId())->inClassOrder()->get();
     }
 
     #[\Livewire\Attributes\Computed]

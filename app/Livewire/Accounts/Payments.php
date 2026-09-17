@@ -41,7 +41,7 @@ class Payments extends Component
     public function render()
     {
         $standards = Standard::where('organization_id', $this->orgId())
-            ->where('is_active', true)->orderBy('id')->get();
+            ->where('is_active', true)->inClassOrder()->get();
 
         return view('livewire.accounts.payments', array_merge(
             ['standards' => $standards],

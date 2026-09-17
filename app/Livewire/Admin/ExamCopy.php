@@ -104,7 +104,7 @@ class ExamCopy extends Component
 
         $this->standards = Standard::where('organization_id', $orgId)
             ->where('is_active', true)
-            ->orderBy('id')
+            ->inClassOrder()
             ->get(['id', 'name']);
 
         $this->filterSubjects = Subject::where('organization_id', $orgId)

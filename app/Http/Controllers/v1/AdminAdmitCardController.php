@@ -59,7 +59,7 @@ class AdminAdmitCardController extends ApiController
                 'academic_year' => $e->academic_year,
             ]);
 
-        $classes = Standard::where('organization_id', $orgId)->orderBy('id')->get(['id', 'name'])
+        $classes = Standard::where('organization_id', $orgId)->inClassOrder()->get(['id', 'name'])
             ->map(fn ($s) => [
                 'id'       => $s->id,
                 'name'     => $s->name,

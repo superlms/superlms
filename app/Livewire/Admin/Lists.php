@@ -172,7 +172,7 @@ class Lists extends Component
         $orgId = Auth::user()?->organization_id;
 
         $standards = Standard::where('organization_id', $orgId)->where('is_active', true)
-            ->orderBy('id')->get(['id', 'name']);
+            ->inClassOrder()->get(['id', 'name']);
 
         $sections = $this->standardId
             ? Section::where('standard_id', $this->standardId)->where('is_active', true)
