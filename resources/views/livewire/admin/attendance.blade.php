@@ -96,7 +96,7 @@
                     @elseif ($teacherView === 'by_month')
                         <input type="month" wire:key="t-bymonth-month" wire:model.live="tMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
                         <select wire:key="t-bymonth-teacher" wire:model.live="tTeacherId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
-                            <option value="">Select teacher…</option>
+                            <option value="">All teachers</option>
                             @foreach ($teachers as $t)<option value="{{ $t->id }}">{{ $t->user->name ?? '—' }}</option>@endforeach
                         </select>
                     @elseif ($teacherView === 'by_teacher')
@@ -249,12 +249,12 @@
                 </div>
             @endif
 
-            {{-- ─── BY MONTH (month + teacher → month card, payroll style) ─── --}}
+            {{-- ─── BY MONTH (the month's dates down the side, a column per teacher) ─── --}}
             @if ($teacherView === 'by_month')
-                @if ($tCards)
-                    @include('livewire.admin._partials.attendance-monthcards', ['cards' => $tCards, 'title' => $tCardsTitle, 'person' => $tCardsPerson])
+                @if ($tMonthGrid)
+                    @include('livewire.admin._partials.attendance-monthgrid', ['grid' => $tMonthGrid, 'statusPill' => $statusPill, 'statusText' => $statusText])
                 @else
-                    <div class="bg-white rounded-xl border border-gray-200 py-12 text-center text-gray-400 text-sm">Select a teacher to view the monthly attendance.</div>
+                    <div class="bg-white rounded-xl border border-gray-200 py-12 text-center text-gray-400 text-sm">Select a month to view the teachers' attendance.</div>
                 @endif
             @endif
 

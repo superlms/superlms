@@ -782,6 +782,76 @@ class Attendance extends Component
         return ['counts' => $counts, 'months' => $months];
     }
 
+    /**
+     * By Month for teachers: every date of the month down the side and one
+     * column per teacher (or just the one picked), each cell that teacher's
+     * status that day. Sundays without a record read as the standing holiday,
+     * other past days without one as not marked, and days still to come are
+     * left blank. Totals per teacher go in the last row.
+     */
+    private function teacherMonthGrid($teachers, int $orgId): ?array
+    {
+        if (!preg_match('/^\d{4}-\d{2}$/', $this->tMonth)) {
+            return null;
+        }
+        $start = Carbon::createFromFormat('Y-m-d', $this->tMonth . '-01')->startOfDay();
+        $end   = $start->copy()->endOfMonth();
+        $today = Carbon::today();
+
+        $columns = $this->tTeacherId
+            ? $teachers->where('id', (int) $this->tTeacherId)->values()
+            : $teachers;
+
+        $saved = [];
+        TeacherAttendance::where('organization_id', $orgId)
+            ->whereIn('teacher_detail_id', $columns->pluck('id'))
+            ->whereBetween('attendance_date', [$start->toDateString(), $end->toDateString()])
+            ->get(['teacher_detail_id', 'attendance_date', 'status'])
+            ->each(function ($r) use (&$saved) {
+                $saved[$r->teacher_detail_id][Carbon::parse($r->attendance_date)->toDateString()] = $this->toLabel($r->status);
+            });
+
+        $blank  = ['present' => 0, 'absent' => 0, 'half_day' => 0, 'holiday' => 0, 'not_marked' => 0];
+        $totals = [];
+        foreach ($columns as $t) {
+            $totals[$t->id] = $blank;
+        }
+
+        $rows = [];
+        for ($d = $start->copy(); $d->lte($end); $d->addDay()) {
+            $ds    = $d->toDateString();
+            $cells = [];
+            foreach ($columns as $t) {
+                if ($d->gt($today)) {
+                    $cells[$t->id] = null;
+                    continue;
+                }
+                $status = $saved[$t->id][$ds] ?? $this->unmarkedStatusFor($ds);
+                $cells[$t->id] = $status;
+                $totals[$t->id][$status]++;
+            }
+            $rows[] = [
+                'date'   => $ds,
+                'label'  => $d->format('d M'),
+                'dow'    => $d->format('D'),
+                'sunday' => $d->isSunday(),
+                'today'  => $d->isSameDay($today),
+                'cells'  => $cells,
+            ];
+        }
+
+        return [
+            'title'    => $start->format('F Y'),
+            'teachers' => $columns->map(fn ($t) => [
+                'id'    => $t->id,
+                'name'  => $t->user->name ?? '—',
+                'image' => $t->user->image ?? null,
+            ])->values()->all(),
+            'rows'     => $rows,
+            'totals'   => $totals,
+        ];
+    }
+
     /** Month cards for a single Y-m month. */
     private function monthCardsFor(string $model, string $fk, $personId, string $monthStr, int $orgId): array
     {
@@ -882,15 +952,17 @@ class Attendance extends Component
             }
         }
 
-        // ── Teacher: month cards (by_month, and by_teacher monthly/yearly) ──
+        // ── Teacher: by month — dates down the side, a column per teacher ──
+        $tMonthGrid = ($this->mainTab === 'teacher' && $this->teacherView === 'by_month' && $this->tMonth)
+            ? $this->teacherMonthGrid($teachers, $orgId)
+            : null;
+
+        // ── Teacher: month cards (by_teacher monthly/yearly) ──
         $tCards = null; $tCardsTitle = ''; $tCardsPerson = '';
         if ($this->mainTab === 'teacher' && $this->tTeacherId) {
             $tCardsPerson = $teachers->firstWhere('id', (int) $this->tTeacherId)?->user?->name ?? '';
 
-            if ($this->teacherView === 'by_month' && $this->tMonth) {
-                $tCards = $this->monthCardsFor(TeacherAttendance::class, 'teacher_detail_id', $this->tTeacherId, $this->tMonth, $orgId);
-                $tCardsTitle = Carbon::createFromFormat('Y-m-d', $this->tMonth . '-01')->format('F Y');
-            } elseif ($this->teacherView === 'by_teacher') {
+            if ($this->teacherView === 'by_teacher') {
                 if ($this->tRange === 'yearly' && $this->tYear) {
                     $tCards = $this->yearCardsFor(TeacherAttendance::class, 'teacher_detail_id', $this->tTeacherId, (int) $this->tYear, $orgId);
                     $tCardsTitle = $this->academicYearLabel((int) $this->tYear);
@@ -961,7 +1033,7 @@ class Attendance extends Component
 
         return view('livewire.admin.attendance', compact(
             'standards', 'teachers', 'assignTeachers', 'assignments', 'ctSections', 'markTeachers', 'academicYears',
-            'tByDateRows', 'tByDateStats', 'tCards', 'tCardsTitle', 'tCardsPerson',
+            'tByDateRows', 'tByDateStats', 'tCards', 'tCardsTitle', 'tCardsPerson', 'tMonthGrid',
             'stSections', 'stStudents', 'markStudents', 'sMarkSections',
             'sByDateRows', 'sByDateStats', 'sCards', 'sCardsTitle', 'sCardsPerson'
         ));
