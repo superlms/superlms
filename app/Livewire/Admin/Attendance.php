@@ -196,6 +196,12 @@ class Attendance extends Component
 
     public function updatedTMarkDate(): void
     {
+        // Only a real calendar day is loaded (and later saved against).
+        $d = \DateTime::createFromFormat('!Y-m-d', (string) $this->tMarkDate);
+        if (!$d || $d->format('Y-m-d') !== $this->tMarkDate) {
+            $this->tMarkDate = now()->toDateString();
+        }
+
         $this->loadTeacherMark();
     }
 

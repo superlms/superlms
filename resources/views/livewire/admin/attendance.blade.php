@@ -449,7 +449,7 @@
     <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
         <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeTeacherMark"></div>
         <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col"
-            wire:key="tmark-{{ $tMarkDate }}-{{ count($teacherMark) }}"
+            wire:key="tmark-{{ count($teacherMark) }}"
             x-data="{
                 rows: @js(collect($teacherMark)->map(fn ($r) => (string) ($r['status'] ?? ''))->all()),
                 get total() { return Object.keys(this.rows).length },
@@ -484,7 +484,13 @@
 
             {{-- Toolbar --}}
             <div class="px-6 py-3 border-b border-gray-100 flex flex-wrap items-center gap-2 flex-shrink-0">
-                <input type="date" wire:model.live="tMarkDate"
+                {{-- The panel is no longer keyed on the date, and the box is left
+                     alone by re-renders, so the calendar and a date being typed
+                     are never torn down mid-way. Only a whole date is sent, once
+                     the typing pauses: while a year is typed Chrome passes
+                     through 0002, 0020 … which must not load. --}}
+                <input type="date" wire:ignore value="{{ $tMarkDate }}"
+                    x-on:input.debounce.400ms="if (/^(19|20)\d{2}-\d{2}-\d{2}$/.test($el.value) && $el.value !== $wire.tMarkDate) $wire.$set('tMarkDate', $el.value)"
                     class="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                 <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-xs">
                     <button type="button" x-on:click="all('present')" class="px-2.5 py-1.5 text-gray-600 hover:bg-gray-50">All present</button>
