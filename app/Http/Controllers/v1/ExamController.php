@@ -316,6 +316,88 @@ class ExamController extends ApiController
         ], 'Date sheet fetched successfully.');
     }
 
+    /**
+     * GET /api/v1/exams/{id}/seating
+     *
+     * Student-only. Where the student sits for each paper of the exam: the
+     * papers of their class's date sheet (as the date sheet picks it), each
+     * with the room and seat of that paper's own session from the seating
+     * plans the school generated — a student can move rooms between papers.
+     * A paper with no seat of its own falls back to the room and seat on the
+     * student's admit card. With no date sheet, the sessions they are seated
+     * in are listed on their own.
+     */
+    public function seating(int $id)
+    {
+        [$user, $err] = $this->authUser();
+        if ($err) return $err;
+
+        if ($user->role !== 'user') {
+            return $this->error('Only students can see a seating plan.', 403);
+        }
+
+        $orgId = $user->organization_id;
+        $exam  = Exam::where('organization_id', $orgId)->where('is_published', true)->find($id);
+        if (!$exam) {
+            return $this->error('Exam not found.', 404);
+        }
+
+        $student = StudentDetail::with(['standard:id,name', 'section:id,name'])
+            ->where('user_id', $user->id)
+            ->where('organization_id', $orgId)
+            ->first(['id', 'user_id', 'standard_id', 'section_id']);
+        if (!$student) {
+            return $this->error('Student details not found.', 404);
+        }
+
+        $sessions = app(SeatLocator::class)->forExam($orgId, $exam->id, [$user->id, $student->id]);
+        $mine     = $sessions[(int) $user->id] ?? $sessions[(int) $student->id] ?? [];
+
+        $admit = AdmitCard::where('student_detail_id', $student->id)
+            ->where('exam_id', $exam->id)
+            ->where('status', 'active')
+            ->latest()
+            ->first(['id', 'room_number', 'seat_number', 'exam_center', 'reporting_time']);
+
+        // "A1 (1)" where the plan lettered the desk, else the seat as stored.
+        $deskOf = fn(array $s) => ($s['desk'] ?? '—') !== '—' ? $s['desk'] : ($s['seat'] ?? null);
+
+        $sheet  = $this->datesheetFor($orgId, $exam->id, (int) $student->standard_id, $student->section_id ? (int) $student->section_id : null);
+        $papers = $sheet ? $this->formatPapers($sheet->papers) : [];
+
+        if ($papers) {
+            $papers = array_map(function ($p) use ($mine, $admit, $deskOf) {
+                $seat = SeatLocator::seatFor($mine, $p['exam_date'], (int) $p['shift']);
+                return $p + [
+                    'room' => $seat ? $seat['room'] : ($admit?->room_number ?: null),
+                    'seat' => $seat ? $deskOf($seat) : ($admit?->seat_number ?: null),
+                ];
+            }, $papers);
+        } else {
+            $papers = collect($mine)->values()->map(fn($s, $i) => [
+                'id'            => -($i + 1),
+                'subject_id'    => null,
+                'subject_name'  => null,
+                'subject_image' => null,
+                'exam_date'     => $s['date'] ?: null,
+                'start_time'    => null,
+                'end_time'      => null,
+                'shift'         => (int) $s['shift'],
+                'room'          => $s['room'],
+                'seat'          => $deskOf($s),
+            ])->all();
+        }
+
+        return $this->success([
+            'exam'           => $this->formatExam($exam),
+            'class'          => trim(($student->standard?->name ?? '') . ($student->section ? ' - ' . $student->section->name : '')),
+            'exam_center'    => $admit?->exam_center ?: null,
+            'reporting_time' => $admit?->reporting_time ?: null,
+            'seated'         => collect($papers)->contains(fn($p) => !empty($p['room']) || !empty($p['seat'])),
+            'papers'         => $papers,
+        ], 'Seating plan fetched successfully.');
+    }
+
     // ── Private ───────────────────────────────────────────────────────────────
 
     /** The date sheet a class and section sit by — the admit card's choice. */

@@ -608,6 +608,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/{id}/syllabus',       [ExamController::class, 'syllabus'])->whereNumber('id');
             // The exam's date sheet: the student's class, or the teacher's classes and subjects
             Route::get('/{id}/datesheet',      [ExamController::class, 'datesheet'])->whereNumber('id');
+            // Student: room and seat for each paper
+            Route::get('/{id}/seating',        [ExamController::class, 'seating'])->whereNumber('id');
             // Student admit card for a specific exam (issued check + streamed PDF)
             Route::get('/{id}/admit-card',     [ExamController::class, 'admitCard'])->whereNumber('id');
             Route::get('/{id}/admit-card/pdf', [ExamController::class, 'admitCardPdf'])->whereNumber('id');

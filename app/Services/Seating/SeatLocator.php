@@ -65,6 +65,14 @@ class SeatLocator
                     $a->seat?->col_no,
                     $a->seat_position,
                 ),
+                // The same without the room — "A1 (1)" — for a screen that
+                // shows the room beside it.
+                'desk'    => SeatLabel::full(
+                    null,
+                    $a->seat?->row_no,
+                    $a->seat?->col_no,
+                    $a->seat_position,
+                ),
                 'date'    => $date,
                 'shift'   => $shift,
                 'plan_id' => (int) $a->seating_plan_id,
