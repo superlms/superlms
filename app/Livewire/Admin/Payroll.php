@@ -6,10 +6,12 @@ use App\Models\Admin\AdminAttendance;
 use App\Models\Admin\AdminEmployee;
 use App\Models\Admin\AdminSalaryPayment;
 use App\Models\Admin\DriverDetail;
+use App\Models\Admin\EmployeeIdCard;
 use App\Models\Teacher\TeacherAttendance;
 use App\Models\Teacher\TeacherDetail;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -119,15 +121,22 @@ class Payroll extends Component
         // Salary defaults to the PREVIOUS month — that's the payable, fully-attended month.
         $this->salaryMonth = now()->subMonthNoOverflow()->format('Y-m');
         $this->payDate     = now()->format('Y-m-d');
+
+        // Rows made before a person's rows were joined (a teacher or manager
+        // who also drives) are joined once as the page opens.
+        $this->ensurePayrollEmployees();
+        $this->mergeSamePersonRows();
     }
 
     /**
      * Make sure every teacher and driver in the org has a payroll row, so they
-     * show up here automatically without being re-added by hand.
+     * show up here automatically without being re-added by hand. Returns
+     * whether any row was added.
      */
-    private function ensurePayrollEmployees(): void
+    private function ensurePayrollEmployees(): bool
     {
         $org = $this->orgId();
+        $added = false;
 
         // Teachers → link via teacher_detail_id
         $linkedTeachers = AdminEmployee::forOrganization($org)
@@ -136,8 +145,9 @@ class Payroll extends Component
             ->where('organization_id', $org)
             ->when(count($linkedTeachers), fn($q) => $q->whereNotIn('id', $linkedTeachers))
             ->get()
-            ->each(function ($td) use ($org) {
+            ->each(function ($td) use ($org, &$added) {
                 if (!$td->user) return;
+                $added = true;
                 AdminEmployee::create([
                     'organization_id'   => $org,
                     'teacher_detail_id' => $td->id,
@@ -153,7 +163,7 @@ class Payroll extends Component
 
         // Drivers → link via driver_detail_id (skip gracefully until the migration lands)
         if (!Schema::hasColumn('admin_employees', 'driver_detail_id')) {
-            return;
+            return $added;
         }
         $linkedDrivers = AdminEmployee::forOrganization($org)
             ->whereNotNull('driver_detail_id')->pluck('driver_detail_id')->all();
@@ -161,7 +171,8 @@ class Payroll extends Component
             ->where('organization_id', $org)
             ->when(count($linkedDrivers), fn($q) => $q->whereNotIn('id', $linkedDrivers))
             ->get()
-            ->each(function ($dd) use ($org) {
+            ->each(function ($dd) use ($org, &$added) {
+                $added = true;
                 AdminEmployee::create([
                     'organization_id'  => $org,
                     'driver_detail_id' => $dd->id,
@@ -173,6 +184,86 @@ class Payroll extends Component
                     'salary'           => 0,
                 ]);
             });
+
+        return $added;
+    }
+
+    /**
+     * One person, one payroll row. A driver from Transport who is also a
+     * teacher, a manager or an employee here (see AdminEmployee::isSamePersonAs)
+     * is folded into that row, which then reads "teacher, driver" or
+     * "management, driver". Returns how many driver rows were folded.
+     */
+    private function mergeSamePersonRows(): int
+    {
+        if (!Schema::hasColumn('admin_employees', 'driver_detail_id')) {
+            return 0;
+        }
+
+        $rows = AdminEmployee::with(['teacherDetail.user', 'driverDetail.user'])
+            ->forOrganization($this->orgId())
+            ->orderBy('id')
+            ->get();
+
+        $drivers = $rows->filter(fn ($e) => $e->isLinkedDriverOnly());
+        if ($drivers->isEmpty()) {
+            return 0;
+        }
+
+        // A teacher's row takes the driver first, then management, then employees.
+        $keepers = $rows
+            ->filter(fn ($e) => $e->type !== 'driver' && !$e->driver_detail_id)
+            ->sortBy(fn ($e) => [['teacher' => 0, 'management' => 1][$e->type] ?? 2, $e->id])
+            ->values();
+
+        $merged = 0;
+        foreach ($drivers as $driver) {
+            $keeper = $keepers->first(fn ($k) => $k->isSamePersonAs($driver));
+            if (!$keeper) continue;
+
+            $this->foldDriverInto($keeper, $driver);
+            $keepers = $keepers->reject(fn ($k) => $k->id === $keeper->id)->values();
+            $merged++;
+        }
+
+        return $merged;
+    }
+
+    /**
+     * Move a driver row's records onto the same person's other row and drop
+     * it: attendance (the kept row's own mark wins on a day both were marked),
+     * salary payments, ID cards and the Transport link. The two salaries add
+     * up to what was being paid across both rows, and the kept row takes any
+     * contact or bank detail it was missing.
+     */
+    private function foldDriverInto(AdminEmployee $keeper, AdminEmployee $driver): void
+    {
+        DB::transaction(function () use ($keeper, $driver) {
+            $keeperDays = AdminAttendance::where('admin_employee_id', $keeper->id)
+                ->pluck('date')
+                ->map(fn ($d) => Carbon::parse($d)->toDateString())
+                ->all();
+            AdminAttendance::where('admin_employee_id', $driver->id)
+                ->when($keeperDays, fn ($q) => $q->whereNotIn('date', $keeperDays))
+                ->update(['admin_employee_id' => $keeper->id]);
+            AdminAttendance::where('admin_employee_id', $driver->id)->delete();
+
+            AdminSalaryPayment::where('admin_employee_id', $driver->id)
+                ->update(['admin_employee_id' => $keeper->id]);
+            EmployeeIdCard::where('admin_employee_id', $driver->id)
+                ->update(['admin_employee_id' => $keeper->id]);
+
+            foreach (['email', 'mobile', 'address', 'bank_name', 'bank_account_no', 'bank_holder_name', 'bank_branch', 'bank_ifsc', 'photo', 'joining_date'] as $field) {
+                if (blank($keeper->getAttribute($field)) && filled($driver->getAttribute($field))) {
+                    $keeper->setAttribute($field, $driver->getAttribute($field));
+                }
+            }
+            $keeper->salary           = (float) $keeper->salary + (float) $driver->salary;
+            $keeper->driver_detail_id = $driver->driver_detail_id;
+
+            $driver->delete();
+            $keeper->save();
+        });
     }
 
     // ─── Employee CRUD ────────────────────────────────────────────────────────
@@ -247,6 +338,11 @@ class Payroll extends Component
             'joining_date'      => $this->empJoiningDate ?: null,
         ];
 
+        if ($message = $this->samePersonConflict($data)) {
+            $this->addError('empMobile', $message);
+            return;
+        }
+
         if ($this->empPhoto) {
             if ($this->empExistingPhoto) {
                 Storage::disk('s3')->delete(
@@ -262,14 +358,54 @@ class Payroll extends Component
 
         if ($this->editEmpId) {
             AdminEmployee::find($this->editEmpId)->update($data);
-            $this->notification()->success('Employee updated!');
         } else {
             AdminEmployee::create($data);
-            $this->notification()->success('Employee added!');
         }
+
+        // Someone already listed as a Transport driver joins that row.
+        $joined = $this->mergeSamePersonRows() > 0;
+        $this->notification()->success(
+            $this->editEmpId ? 'Employee updated!' : 'Employee added!',
+            $joined ? 'Also a driver in Transport, so listed once with both types.' : null
+        );
 
         $this->showEmpModal = false;
         $this->resetEmpForm();
+    }
+
+    /**
+     * Stop a second row for someone already on payroll where a driver is
+     * involved: a driver added by hand who is already a teacher, manager or
+     * employee here, or anyone matching a driver who was added by hand.
+     * (A Transport driver is fine — that row is joined in after saving.)
+     */
+    private function samePersonConflict(array $data): ?string
+    {
+        $editing = $this->editEmpId
+            ? AdminEmployee::forOrganization($this->orgId())->find($this->editEmpId)
+            : null;
+        $person = $editing ? clone $editing : new AdminEmployee();
+        $person->fill(array_intersect_key($data, array_flip(['name', 'mobile', 'type', 'teacher_detail_id'])));
+
+        $twin = AdminEmployee::with(['teacherDetail.user', 'driverDetail.user'])
+            ->forOrganization($this->orgId())
+            ->when($editing, fn ($q) => $q->whereKeyNot($editing->id))
+            ->get()
+            ->first(fn ($e) => $e->isSamePersonAs($person));
+        if (!$twin) {
+            return null;
+        }
+
+        $as = implode(', ', array_map('ucfirst', $twin->types()));
+
+        if ($person->type === 'driver' && !$person->driver_detail_id && $twin->type !== 'driver') {
+            return "{$twin->name} is already on payroll as {$as}. Add them as a driver under Transport → Drivers and they will be listed once, with both types.";
+        }
+        if ($person->type !== 'driver' && $twin->type === 'driver' && !$twin->driver_detail_id) {
+            return "{$twin->name} is already on payroll as {$as}. Edit that entry instead.";
+        }
+
+        return null;
     }
 
     public function deleteEmployee($id): void
@@ -307,7 +443,7 @@ class Payroll extends Component
 
         $details = [
             'Designation'  => $employee->designation ?? 'N/A',
-            'Type'         => ucfirst($employee->type),
+            'Type'         => implode(', ', array_map('ucfirst', $employee->types())),
             'Mobile'       => $employee->mobile ?? 'N/A',
             'Email'        => $employee->email ?? 'N/A',
             'Salary'       => '₹' . number_format($employee->salary, 0),
@@ -318,9 +454,10 @@ class Payroll extends Component
             $details['Address'] = $employee->address;
         }
 
-        if ($employee->isTeacher() && $employee->teacher_detail_id) {
+        if ($employee->teacher_detail_id) {
             $details['Linked Teacher'] = $employee->teacherDetail?->user?->name ?? ('Teacher #' . $employee->teacher_detail_id);
-        } elseif ($employee->type === 'driver' && $employee->driver_detail_id) {
+        }
+        if ($employee->driver_detail_id) {
             $details['Linked Driver'] = $employee->driverDetail?->user?->name ?? ('Driver #' . $employee->driver_detail_id);
         }
 
@@ -780,15 +917,17 @@ class Payroll extends Component
     {
         $orgId = $this->orgId();
 
-        // Auto-provision payroll rows for teachers/drivers.
-        $this->ensurePayrollEmployees();
+        // Auto-provision payroll rows for teachers/drivers, one row per person.
+        if ($this->ensurePayrollEmployees()) {
+            $this->mergeSamePersonRows();
+        }
 
         // ── Employees — single query, reuse everywhere ─────────────────────────
         $allEmployees = AdminEmployee::forOrganization($orgId)->orderBy('name')->get();
 
         // Employees tab: search + type + sort
         $employeesList = $allEmployees
-            ->when($this->empTypeFilter, fn($c) => $c->where('type', $this->empTypeFilter))
+            ->when($this->empTypeFilter, fn($c) => $c->filter(fn($e) => $e->hasType($this->empTypeFilter)))
             ->when($this->empSearch, function ($c) {
                 $t = mb_strtolower(trim($this->empSearch));
                 return $c->filter(fn($e) => str_contains(mb_strtolower($e->name), $t)
@@ -807,7 +946,7 @@ class Payroll extends Component
         // Attendance tab list (type filter) — used by the date-mode view and as
         // the options for the employee dropdown, in the same type order.
         $attEmployees = $this->sortByType(
-            $allEmployees->when($this->filterAttendanceType, fn($c) => $c->where('type', $this->filterAttendanceType))
+            $allEmployees->when($this->filterAttendanceType, fn($c) => $c->filter(fn($e) => $e->hasType($this->filterAttendanceType)))
         );
 
         // Marking list: teachers are never marked here — their attendance comes
@@ -817,7 +956,7 @@ class Payroll extends Component
         // Salary tab list: search + type, same order again
         $salaryEmployees = $this->sortByType(
             $allEmployees
-                ->when($this->filterSalaryType, fn($c) => $c->where('type', $this->filterSalaryType))
+                ->when($this->filterSalaryType, fn($c) => $c->filter(fn($e) => $e->hasType($this->filterSalaryType)))
                 ->when($this->salarySearch, function ($c) {
                     $t = mb_strtolower(trim($this->salarySearch));
                     return $c->filter(fn($e) => str_contains(mb_strtolower($e->name), $t));
@@ -827,13 +966,11 @@ class Payroll extends Component
         $allEmployeesForFilter = $allEmployees;
 
         // ── Stats (for employees tab header) ───────────────────────────────────
-        $empStats = [
-            'total'      => $allEmployees->count(),
-            'teacher'    => $allEmployees->where('type', 'teacher')->count(),
-            'management' => $allEmployees->where('type', 'management')->count(),
-            'employee'   => $allEmployees->where('type', 'employee')->count(),
-            'driver'     => $allEmployees->where('type', 'driver')->count(),
-        ];
+        // Someone with two types (teacher and driver) counts under both.
+        $empStats = ['total' => $allEmployees->count()];
+        foreach (['teacher', 'management', 'employee', 'driver'] as $t) {
+            $empStats[$t] = $allEmployees->filter(fn($e) => $e->hasType($t))->count();
+        }
 
         // ── Teacher maps ───────────────────────────────────────────────────────
         $teacherIds = $allEmployees->where('type', 'teacher')->whereNotNull('teacher_detail_id')->pluck('teacher_detail_id');

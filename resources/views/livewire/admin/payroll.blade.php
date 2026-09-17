@@ -133,7 +133,7 @@
                 <select wire:model.live="attEmpId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[170px]">
                     <option value="">Select employee</option>
                     @foreach ($attEmployees as $emp)
-                        <option value="{{ $emp->id }}">{{ $emp->name }} ({{ ucfirst($emp->type) }})</option>
+                        <option value="{{ $emp->id }}">{{ $emp->name }} ({{ implode(', ', array_map('ucfirst', $emp->types())) }})</option>
                     @endforeach
                 </select>
                 @if ($attEmpId)
@@ -270,7 +270,7 @@
                                         </div>
                                     </td>
                                     <td class="px-4 py-3">
-                                        <span class="text-xs px-2 py-0.5 rounded-full font-medium border capitalize {{ $typeChip[$emp->type] ?? 'bg-gray-50 text-gray-600 border-gray-200' }}">{{ $emp->type }}</span>
+                                        <span class="inline-flex flex-wrap gap-1">@foreach ($emp->types() as $t)<span class="text-xs px-2 py-0.5 rounded-full font-medium border capitalize {{ $typeChip[$t] ?? 'bg-gray-50 text-gray-600 border-gray-200' }}">{{ $t }}</span>@endforeach</span>
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-600">{{ $emp->mobile ?? '—' }}</td>
                                     <td class="px-4 py-3 text-sm font-bold text-emerald-700">₹{{ number_format($emp->salary, 0) }}</td>
@@ -365,7 +365,7 @@
                                             </div>
                                         </td>
                                         <td class="px-4 py-3">
-                                            <span class="text-xs px-2 py-0.5 rounded-full font-medium border capitalize {{ $typeChip[$emp->type] ?? 'bg-gray-50 text-gray-600 border-gray-200' }}">{{ $emp->type }}</span>
+                                            <span class="inline-flex flex-wrap gap-1">@foreach ($emp->types() as $t)<span class="text-xs px-2 py-0.5 rounded-full font-medium border capitalize {{ $typeChip[$t] ?? 'bg-gray-50 text-gray-600 border-gray-200' }}">{{ $t }}</span>@endforeach</span>
                                         </td>
                                         <td class="px-4 py-3">
                                             <div class="flex items-center gap-1">
@@ -428,7 +428,7 @@
                                             </div>
                                         </td>
                                         <td class="px-4 py-3">
-                                            <span class="text-xs px-2 py-0.5 rounded-full font-medium border capitalize {{ $typeChip[$emp->type] ?? 'bg-gray-50 text-gray-600 border-gray-200' }}">{{ $emp->type }}</span>
+                                            <span class="inline-flex flex-wrap gap-1">@foreach ($emp->types() as $t)<span class="text-xs px-2 py-0.5 rounded-full font-medium border capitalize {{ $typeChip[$t] ?? 'bg-gray-50 text-gray-600 border-gray-200' }}">{{ $t }}</span>@endforeach</span>
                                         </td>
                                         <td class="px-4 py-3">
                                             @if ($status)
@@ -452,7 +452,7 @@
                 <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                     <div class="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-indigo-50">
                         <h3 class="text-sm font-semibold text-gray-700">{{ $attEmp->name }} <span class="font-normal text-gray-400">· {{ $attPeriodLabel }}</span></h3>
-                        <p class="text-[11px] text-gray-400 capitalize">{{ $attEmp->type }}{{ $attEmp->designation ? ' · ' . $attEmp->designation : '' }}</p>
+                        <p class="text-[11px] text-gray-400 capitalize">{{ implode(', ', $attEmp->types()) }}{{ $attEmp->designation ? ' · ' . $attEmp->designation : '' }}</p>
                     </div>
                     <div class="p-4">
                         {{-- Each month is its own small calendar carrying its own
@@ -582,7 +582,7 @@
                                             <div><p class="text-sm font-medium text-gray-800">{{ $emp->name }}</p><p class="text-xs text-gray-400">{{ $emp->designation ?? '' }}</p></div>
                                         </div>
                                     </td>
-                                    <td class="px-4 py-3"><span class="text-xs px-2 py-0.5 rounded-full font-medium border capitalize {{ $typeChip[$emp->type] ?? 'bg-gray-50 text-gray-600 border-gray-200' }}">{{ $emp->type }}</span></td>
+                                    <td class="px-4 py-3"><span class="inline-flex flex-wrap gap-1">@foreach ($emp->types() as $t)<span class="text-xs px-2 py-0.5 rounded-full font-medium border capitalize {{ $typeChip[$t] ?? 'bg-gray-50 text-gray-600 border-gray-200' }}">{{ $t }}</span>@endforeach</span></td>
                                     <td class="px-4 py-3 text-sm text-gray-700">₹{{ number_format($emp->salary, 0) }}</td>
                                     <td class="px-4 py-3 text-center text-xs">
                                         <span class="text-emerald-600 font-semibold">{{ $b['present'] }}</span> /
@@ -669,7 +669,7 @@
                                     <td class="px-4 py-3 text-xs text-gray-400">{{ $i + 1 }}</td>
                                     <td class="px-4 py-3">
                                         <p class="text-sm font-medium text-gray-800">{{ $payment->employee?->name ?? '—' }}</p>
-                                        <p class="text-xs text-gray-400 capitalize">{{ $payment->employee?->type ?? '' }}</p>
+                                        <p class="text-xs text-gray-400 capitalize">{{ $payment->employee ? implode(', ', $payment->employee->types()) : '' }}</p>
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-700">{{ \Carbon\Carbon::parse($payment->month . '-01')->format('M Y') }}</td>
                                     <td class="px-4 py-3 text-sm font-bold text-gray-800">₹{{ number_format($payment->amount, 0) }}</td>
@@ -737,6 +737,7 @@
                         <div>
                             <label class="block text-xs font-medium text-gray-600 mb-1">Mobile</label>
                             <input type="text" wire:model.defer="empMobile" placeholder="Mobile number" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
+                            @error('empMobile')<p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label class="block text-xs font-medium text-gray-600 mb-1">Designation</label>
