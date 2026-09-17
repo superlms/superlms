@@ -25,6 +25,9 @@ class Attendance extends Component
     private const S_ABSENT  = 0;
     private const S_HALF    = 2;
     private const S_HOLIDAY = 3;
+    // The teacher app saves a student's holiday as 4 (its codes: 0 absent,
+    // 1 present, 4 holiday). Read it as a holiday too, never as absent.
+    private const S_APP_HOLIDAY = 4;
 
     // ── Tabs ─────────────────────────────────────────────────────────────────
     public string $mainTab = 'teacher';        // teacher | student | class_teachers
@@ -123,7 +126,7 @@ class Attendance extends Component
             self::S_PRESENT => 'present',
             self::S_ABSENT  => 'absent',
             self::S_HALF    => 'half_day',
-            self::S_HOLIDAY => 'holiday',
+            self::S_HOLIDAY, self::S_APP_HOLIDAY => 'holiday',
             default         => 'absent',
         };
     }
@@ -143,6 +146,14 @@ class Attendance extends Component
     private function defaultStatusFor($date): string
     {
         return $this->isSunday($date) ? 'holiday' : '';
+    }
+
+    /** A panel row that still shows exactly what is saved for it. */
+    private function unchanged($rec, array $row): bool
+    {
+        return $rec
+            && $this->toLabel($rec->status) === ($row['status'] ?? '')
+            && (string) $rec->remarks === (string) ($row['remark'] ?? '');
     }
 
     /** Rows carrying an actual status — blank ones are not saved at all. */
@@ -264,18 +275,30 @@ class Attendance extends Component
             ->whereIn('id', array_keys($this->teacherMark))
             ->pluck('id')->flip();
 
-        DB::transaction(function () use ($orgId, $markedBy, $valid) {
+        // What is already saved for the day: a row still showing its saved
+        // status and remark is left exactly as it is, so editing one teacher
+        // never rewrites the rest of the day.
+        $saved = TeacherAttendance::where('organization_id', $orgId)
+            ->whereDate('attendance_date', $this->tMarkDate)
+            ->whereIn('teacher_detail_id', array_keys($this->teacherMark))
+            ->get()->keyBy('teacher_detail_id');
+
+        DB::transaction(function () use ($orgId, $markedBy, $valid, $saved) {
             $clear = [];
 
             foreach ($this->teacherMark as $teacherId => $row) {
                 if (!$valid->has($teacherId)) {
                     continue;
                 }
+                $rec = $saved->get($teacherId);
                 if (($row['status'] ?? '') === '') {
-                    $clear[] = $teacherId;
+                    if ($rec) $clear[] = $teacherId;
                     continue;
                 }
                 if (!in_array($row['status'], self::STATUSES, true)) {
+                    continue;
+                }
+                if ($this->unchanged($rec, $row)) {
                     continue;
                 }
                 TeacherAttendance::updateOrCreate(
@@ -452,18 +475,30 @@ class Attendance extends Component
             ->whereIn('id', array_keys($this->studentMark))
             ->pluck('id')->flip();
 
-        DB::transaction(function () use ($orgId, $markedBy, $valid, &$notifyRows) {
+        // As for teachers: rows still showing what is saved are left alone
+        // (including a holiday the teacher app saved), and only the students
+        // whose attendance changed are notified.
+        $saved = StudentAttendance::where('organization_id', $orgId)
+            ->whereDate('attendance_date', $this->sMarkDate)
+            ->whereIn('student_detail_id', array_keys($this->studentMark))
+            ->get()->keyBy('student_detail_id');
+
+        DB::transaction(function () use ($orgId, $markedBy, $valid, $saved, &$notifyRows) {
             $clear = [];
 
             foreach ($this->studentMark as $studentId => $row) {
                 if (!$valid->has($studentId)) {
                     continue;
                 }
+                $rec = $saved->get($studentId);
                 if (($row['status'] ?? '') === '') {
-                    $clear[] = $studentId;
+                    if ($rec) $clear[] = $studentId;
                     continue;
                 }
                 if (!in_array($row['status'], self::STATUSES, true)) {
+                    continue;
+                }
+                if ($this->unchanged($rec, $row)) {
                     continue;
                 }
                 $statusInt = $this->toInt($row['status']);

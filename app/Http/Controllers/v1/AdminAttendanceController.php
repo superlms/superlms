@@ -30,6 +30,9 @@ class AdminAttendanceController extends ApiController
     private const S_ABSENT  = 0;
     private const S_HALF    = 2;
     private const S_HOLIDAY = 3;
+    // The teacher app saves a student's holiday as 4 (its codes: 0 absent,
+    // 1 present, 4 holiday). Read it as a holiday too, never as absent.
+    private const S_APP_HOLIDAY = 4;
 
     private function guard(): array
     {
@@ -59,9 +62,21 @@ class AdminAttendanceController extends ApiController
             self::S_PRESENT => 'present',
             self::S_ABSENT  => 'absent',
             self::S_HALF    => 'half_day',
-            self::S_HOLIDAY => 'holiday',
+            self::S_HOLIDAY, self::S_APP_HOLIDAY => 'holiday',
             default         => 'absent',
         };
+    }
+
+    /**
+     * A submitted row that still carries what is saved for it (its remark is
+     * only compared when one was sent). Such rows are left exactly as saved,
+     * so editing one person never rewrites the rest of the day.
+     */
+    private function unchanged($rec, array $row): bool
+    {
+        return $rec
+            && $this->toLabel($rec->status) === (string) ($row['status'] ?? '')
+            && (!array_key_exists('remark', $row) || (string) $rec->remarks === (string) $row['remark']);
     }
 
     // ══════════════════════════ LOOKUPS ══════════════════════════
@@ -166,8 +181,16 @@ class AdminAttendanceController extends ApiController
 
         $orgId = $user->organization_id;
 
-        DB::transaction(function () use ($request, $orgId, $user) {
+        $saved = TeacherAttendance::where('organization_id', $orgId)
+            ->whereDate('attendance_date', $request->date)
+            ->whereIn('teacher_detail_id', collect($request->marks)->pluck('teacher_detail_id'))
+            ->get()->keyBy('teacher_detail_id');
+
+        DB::transaction(function () use ($request, $orgId, $user, $saved) {
             foreach ($request->marks as $row) {
+                if ($this->unchanged($saved->get($row['teacher_detail_id']), $row)) {
+                    continue;
+                }
                 TeacherAttendance::updateOrCreate(
                     ['teacher_detail_id' => $row['teacher_detail_id'], 'organization_id' => $orgId, 'attendance_date' => $request->date],
                     ['status' => $this->toInt($row['status']), 'remarks' => $row['remark'] ?? '', 'marked_by' => $user->id]
@@ -271,8 +294,17 @@ class AdminAttendanceController extends ApiController
         $orgId = $user->organization_id;
         $notifyRows = [];
 
-        DB::transaction(function () use ($request, $orgId, $user, &$notifyRows) {
+        $saved = StudentAttendance::where('organization_id', $orgId)
+            ->whereDate('attendance_date', $request->date)
+            ->whereIn('student_detail_id', collect($request->marks)->pluck('student_detail_id'))
+            ->get()->keyBy('student_detail_id');
+
+        // Only the students whose attendance changed are written — and told.
+        DB::transaction(function () use ($request, $orgId, $user, $saved, &$notifyRows) {
             foreach ($request->marks as $row) {
+                if ($this->unchanged($saved->get($row['student_detail_id']), $row)) {
+                    continue;
+                }
                 $statusInt = $this->toInt($row['status']);
                 StudentAttendance::updateOrCreate(
                     ['student_detail_id' => $row['student_detail_id'], 'organization_id' => $orgId, 'attendance_date' => $request->date],
