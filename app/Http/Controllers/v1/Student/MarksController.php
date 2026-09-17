@@ -3,8 +3,12 @@
 namespace App\Http\Controllers\v1\Student;
 
 use App\Http\Controllers\v1\ApiController;
+use App\Models\Admin\Exam;
 use App\Models\Admin\ExamCopy;
+use App\Models\Student\SectionSubject;
+use App\Models\Student\StandardSubject;
 use App\Models\Student\StudentDetail;
+use App\Services\GradingService;
 use Illuminate\Http\Request;
 
 /**
@@ -67,6 +71,111 @@ class MarksController extends ApiController
         ]);
 
         return $this->paginated($items, $this->paginationMeta($paginator), 'Marks fetched successfully.');
+    }
+
+    /**
+     * GET /api/v1/student/marks/exams/{examId}
+     *
+     * One exam's result, subject by subject: the student's subjects (the
+     * section's, else the class's — as the Subjects list has them) plus any
+     * other subject marked in that exam, each with its marks, grade and
+     * whether it was absent, or `uploaded: false` while nothing is saved.
+     * The summary adds the saved subjects up, an absence counting 0.
+     */
+    public function exam(int $examId)
+    {
+        [$user, $err] = $this->authUser();
+        if ($err) return $err;
+
+        $student = StudentDetail::where('user_id', $user->id)->first(['id', 'organization_id', 'standard_id', 'section_id']);
+        if (!$student) {
+            return $this->error('Student profile not found.', 404);
+        }
+
+        $orgId = $student->organization_id;
+        $exam  = Exam::where('organization_id', $orgId)->where('is_published', true)->find($examId);
+        if (!$exam) {
+            return $this->error('Exam not found.', 404);
+        }
+
+        $subjects = collect();
+        if ($student->section_id) {
+            $subjects = SectionSubject::with('subject')
+                ->where('organization_id', $orgId)
+                ->where('standard_id', $student->standard_id)
+                ->where('section_id', $student->section_id)
+                ->get()
+                ->pluck('subject');
+        }
+        if ($subjects->filter()->isEmpty()) {
+            $subjects = StandardSubject::with('subject')
+                ->where('organization_id', $orgId)
+                ->where('standard_id', $student->standard_id)
+                ->get()
+                ->pluck('subject');
+        }
+        $subjects = $subjects->filter()->unique('id')->values();
+
+        // Rows holding only an exam-copy PDF carry no result.
+        $rows = ExamCopy::with('subject')
+            ->where('organization_id', $orgId)
+            ->where('student_detail_id', $student->id)
+            ->where('exam_id', $exam->id)
+            ->where(fn($q) => $q->whereNotNull('marks_obtained')->orWhere('is_absent', true))
+            ->latest()
+            ->get()
+            ->unique('subject_id')
+            ->keyBy('subject_id');
+
+        $rows->each(function ($r) use (&$subjects) {
+            if ($r->subject && !$subjects->contains('id', $r->subject_id)) {
+                $subjects->push($r->subject);
+            }
+        });
+
+        $grading = app(GradingService::class);
+
+        $items = $subjects->map(function ($subject) use ($rows) {
+            $r      = $rows->get($subject->id);
+            $absent = (bool) $r?->is_absent;
+            return [
+                'subject_id'     => $subject->id,
+                'subject_name'   => $subject->name,
+                'subject_image'  => $subject->iconUrl(),
+                'uploaded'       => (bool) $r,
+                'is_absent'      => $absent,
+                'marks_obtained' => $r && !$absent ? (float) $r->marks_obtained : null,
+                'max_marks'      => $r && $r->max_marks !== null ? (float) $r->max_marks : null,
+                'percentage'     => $r && !$absent ? (float) $r->percentage : null,
+                'grade'          => $r ? $r->grade_letter : null,
+                'remarks'        => $r?->remarks ?: null,
+            ];
+        });
+
+        $obtained = (float) $rows->sum(fn($r) => $r->is_absent ? 0 : (float) $r->marks_obtained);
+        $max      = (float) $rows->sum(fn($r) => (float) $r->max_marks);
+        $pct      = $max > 0 ? round(($obtained / $max) * 100, 2) : null;
+
+        return $this->success([
+            'exam' => [
+                'id'            => $exam->id,
+                'name'          => $exam->exam_name,
+                'total_marks'   => $exam->total_marks !== null ? (float) $exam->total_marks : null,
+                'passing_marks' => $exam->passing_marks !== null ? (float) $exam->passing_marks : null,
+            ],
+            'subjects' => $items->values()->all(),
+            'summary'  => [
+                'subjects'       => $items->count(),
+                'uploaded'       => $rows->count(),
+                'absent'         => $rows->where('is_absent', true)->count(),
+                'marks_obtained' => $obtained,
+                'max_marks'      => $max,
+                'percentage'     => $pct,
+                'grade'          => $pct !== null ? $grading->gradeLetter($pct) : null,
+                'remark'         => $pct !== null ? $grading->remarkFor($pct) : null,
+            ],
+            'grading_scale' => $grading->scale(),
+        ], 'Exam result fetched successfully.');
     }
 
     /**

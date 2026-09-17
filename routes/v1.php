@@ -242,6 +242,9 @@ Route::middleware('auth:sanctum')->group(function () {
             // Marks (text data)
             Route::prefix('marks')->group(function () {
                 Route::get('/students',   [TeacherMarksController::class, 'students']); // ?standard_id=&section_id=
+                Route::get('/classes',    [TeacherMarksController::class, 'examClasses']); // ?exam_id= — classes with progress
+                Route::get('/sheet',      [TeacherMarksController::class, 'sheet']);       // ?exam_id=&standard_id=&section_id=&subject_id=
+                Route::post('/sheet',     [TeacherMarksController::class, 'saveSheet']);   // whole class at once; blanks → absent
                 Route::get('/',           [TeacherMarksController::class, 'index']);
                 Route::post('/',          [TeacherMarksController::class, 'store']);
                 Route::get('/{id}',       [TeacherMarksController::class, 'show'])->whereNumber('id');
@@ -270,6 +273,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::prefix('marks')->group(function () {
                 Route::get('/',                    [StudentMarksController::class, 'index']);
                 Route::get('/overall-performance', [StudentMarksController::class, 'overallPerformance']);
+                Route::get('/exams/{examId}',      [StudentMarksController::class, 'exam'])->whereNumber('examId');
             });
 
             Route::prefix('exam-copies')->group(function () {

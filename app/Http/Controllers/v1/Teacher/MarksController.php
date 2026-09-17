@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\v1\Teacher;
 
 use App\Http\Controllers\v1\ApiController;
+use App\Models\Admin\Exam;
 use App\Models\Admin\ExamCopy;
 use App\Models\Admin\TeacherTimeTable;
 use App\Models\Student\StudentDetail;
 use App\Models\Teacher\TeacherDetail;
+use App\Services\GradingService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Teacher → Marks management.
@@ -363,7 +366,310 @@ class MarksController extends ApiController
         return $this->success(null, 'Marks deleted successfully.');
     }
 
+    /**
+     * GET /api/v1/teacher/marks/classes?exam_id=X
+     *
+     * The app's Upload Marks, step two: every (class, section, subject) the
+     * teacher teaches, with how far the chosen exam's marks have got there —
+     * `saved` counts the students with marks or marked absent.
+     */
+    public function examClasses(Request $request)
+    {
+        [$user, $err] = $this->authUser();
+        if ($err) return $err;
+        if ($err = $this->requireRole('teacher')) return $err;
+
+        if ($err = $this->validateWith($request, [
+            'exam_id' => 'required|integer',
+        ])) return $err;
+
+        $exam = $this->findExam((int) $request->exam_id, $user->organization_id);
+        if (!$exam) return $this->error('Exam not found.', 404);
+
+        $teacher = TeacherDetail::where('user_id', $user->id)->first(['id']);
+        if (!$teacher) return $this->success([], 'No teacher profile.');
+
+        $rows = TeacherTimeTable::with(['standard:id,name,order', 'section:id,name', 'subject:id,name'])
+            ->where('teacher_detail_id', $teacher->id)
+            ->where('organization_id', $user->organization_id)
+            ->get(['id', 'standard_id', 'section_id', 'subject_id'])
+            ->filter(fn($r) => $r->standard && $r->section && $r->subject)
+            ->unique(fn($r) => $r->standard_id . '-' . $r->section_id . '-' . $r->subject_id)
+            ->sortBy([
+                fn($a, $b) => [(int) $a->standard->order, $a->standard_id] <=> [(int) $b->standard->order, $b->standard_id],
+                fn($a, $b) => strnatcasecmp($a->section->name, $b->section->name),
+                fn($a, $b) => strnatcasecmp($a->subject->name, $b->subject->name),
+            ])
+            ->values();
+
+        if ($rows->isEmpty()) {
+            return $this->success([], 'You do not teach any class yet.');
+        }
+
+        $students = StudentDetail::where('organization_id', $user->organization_id)
+            ->whereIn('standard_id', $rows->pluck('standard_id')->unique())
+            ->whereIn('section_id', $rows->pluck('section_id')->unique())
+            ->selectRaw('standard_id, section_id, COUNT(*) as total')
+            ->groupBy('standard_id', 'section_id')
+            ->get()
+            ->mapWithKeys(fn($r) => [$r->standard_id . '-' . $r->section_id => (int) $r->total]);
+
+        $marks = ExamCopy::where('organization_id', $user->organization_id)
+            ->where('exam_id', $exam->id)
+            ->where(fn($q) => $q->whereNotNull('marks_obtained')->orWhere('is_absent', true))
+            ->selectRaw('standard_id, section_id, subject_id, COUNT(*) as saved, SUM(CASE WHEN is_absent = 1 THEN 1 ELSE 0 END) as absent')
+            ->groupBy('standard_id', 'section_id', 'subject_id')
+            ->get()
+            ->keyBy(fn($r) => $r->standard_id . '-' . $r->section_id . '-' . $r->subject_id);
+
+        $items = $rows->map(function ($r) use ($students, $marks) {
+            $saved = $marks->get($r->standard_id . '-' . $r->section_id . '-' . $r->subject_id);
+            return [
+                'standard_id'   => $r->standard_id,
+                'standard_name' => $r->standard->name,
+                'section_id'    => $r->section_id,
+                'section_name'  => $r->section->name,
+                'subject_id'    => $r->subject_id,
+                'subject_name'  => $r->subject->name,
+                'subject_image' => $r->subject->iconUrl(),
+                'students'      => (int) ($students[$r->standard_id . '-' . $r->section_id] ?? 0),
+                'saved'         => (int) ($saved->saved ?? 0),
+                'absent'        => (int) ($saved->absent ?? 0),
+            ];
+        });
+
+        return $this->success($items->all(), 'Classes fetched successfully.');
+    }
+
+    /**
+     * GET /api/v1/teacher/marks/sheet?exam_id=&standard_id=&section_id=&subject_id=
+     *
+     * One exam's marks for one class, section and subject: every student of
+     * the section with what is saved for them, as the web's Upload Marks
+     * panel loads it. An absent student carries no marks.
+     */
+    public function sheet(Request $request)
+    {
+        [$user, $err] = $this->authUser();
+        if ($err) return $err;
+        if ($err = $this->requireRole('teacher')) return $err;
+
+        [$ctx, $err] = $this->sheetContext($request, $user);
+        if ($err) return $err;
+
+        return $this->success($this->formatSheet($ctx, $user->organization_id), 'Marks fetched successfully.');
+    }
+
+    /**
+     * POST /api/v1/teacher/marks/sheet
+     *
+     * Body: exam_id, standard_id, section_id, subject_id,
+     *       marks: [{ student_detail_id, marks_obtained|null, is_absent? }]
+     *
+     * The web's Upload Marks save: every student of the section gets a row.
+     * A typed mark is kept (held between 0 and the exam's total marks) and
+     * graded; a student left blank, or flagged absent, is saved as absent
+     * (0 marks, grade AB). Nothing is saved unless at least one student has
+     * marks or is flagged, so an untouched sheet cannot mark a class absent.
+     */
+    public function saveSheet(Request $request)
+    {
+        [$user, $err] = $this->authUser();
+        if ($err) return $err;
+        if ($err = $this->requireRole('teacher')) return $err;
+
+        if ($err = $this->validateWith($request, [
+            'marks'                     => 'required|array',
+            'marks.*.student_detail_id' => 'required|integer',
+            'marks.*.marks_obtained'    => 'nullable|numeric|min:0',
+            'marks.*.is_absent'         => 'nullable|boolean',
+        ])) return $err;
+
+        [$ctx, $err] = $this->sheetContext($request, $user);
+        if ($err) return $err;
+
+        $input = collect($request->input('marks'))->keyBy(fn($m) => (int) $m['student_detail_id']);
+
+        $hasMarks = fn($m) => isset($m['marks_obtained']) && $m['marks_obtained'] !== '' && is_numeric($m['marks_obtained']);
+        $flagged  = fn($m) => filter_var($m['is_absent'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+        $anyInput = $ctx['students']->contains(function ($s) use ($input, $hasMarks, $flagged) {
+            $m = $input->get($s->id);
+            return $m && ($hasMarks($m) || $flagged($m));
+        });
+        if (!$anyInput) {
+            return $this->error('Enter marks for at least one student — the rest will be marked absent.', 422);
+        }
+
+        $max     = $ctx['max_marks'];
+        $grading = app(GradingService::class);
+        $saved   = 0;
+        $absent  = 0;
+
+        DB::transaction(function () use ($ctx, $input, $hasMarks, $flagged, $max, $grading, $user, &$saved, &$absent) {
+            foreach ($ctx['students'] as $student) {
+                $m = $input->get($student->id, []);
+
+                $row = ExamCopy::firstOrNew([
+                    'exam_id'           => $ctx['exam']->id,
+                    'standard_id'       => $ctx['standard_id'],
+                    'section_id'        => $ctx['section_id'],
+                    'subject_id'        => $ctx['subject_id'],
+                    'student_detail_id' => $student->id,
+                ]);
+
+                if (!$row->exists) {
+                    $row->fill([
+                        'user_id'           => $user->id,
+                        'uploaded_by'       => $user->id,
+                        'teacher_detail_id' => $ctx['teacher_id'],
+                    ]);
+                }
+
+                if ($hasMarks($m) && !$flagged($m)) {
+                    $obt = max(0, min($max, (float) $m['marks_obtained']));
+                    $pct = $max > 0 ? ($obt / $max) * 100 : 0;
+                    $row->fill([
+                        'organization_id' => $user->organization_id,
+                        'marks_obtained'  => $obt,
+                        'max_marks'       => $max,
+                        'percentage'      => round($pct, 2),
+                        'grade'           => $grading->gradeLetter($pct) ?? 'F',
+                        'is_absent'       => false,
+                    ]);
+                    $saved++;
+                } else {
+                    $row->fill([
+                        'organization_id' => $user->organization_id,
+                        'marks_obtained'  => 0,
+                        'max_marks'       => $max,
+                        'percentage'      => 0,
+                        'grade'           => 'AB',
+                        'is_absent'       => true,
+                    ]);
+                    $absent++;
+                }
+
+                $row->save();
+            }
+        });
+
+        $message = "Marks for {$saved} student(s) saved.";
+        if ($absent > 0) {
+            $message .= " {$absent} student(s) marked absent.";
+        }
+
+        return $this->success($this->formatSheet($ctx, $user->organization_id), $message);
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private function findExam(int $examId, int $orgId): ?Exam
+    {
+        return Exam::where('organization_id', $orgId)->find($examId);
+    }
+
+    /**
+     * Checks a sheet request (exam, class, section, subject the teacher
+     * teaches) and gathers what reading or saving it needs. The total marks
+     * are the exam's, 100 when it has none — as on the web.
+     *
+     * @return array{0: ?array, 1: ?\Illuminate\Http\JsonResponse}
+     */
+    private function sheetContext(Request $request, $user): array
+    {
+        if ($err = $this->validateWith($request, [
+            'exam_id'     => 'required|integer',
+            'standard_id' => 'required|integer',
+            'section_id'  => 'required|integer',
+            'subject_id'  => 'required|integer',
+        ])) return [null, $err];
+
+        $exam = $this->findExam((int) $request->exam_id, $user->organization_id);
+        if (!$exam) return [null, $this->error('Exam not found.', 404)];
+
+        $teacher = TeacherDetail::where('user_id', $user->id)->first(['id']);
+        if (!$teacher) return [null, $this->error('No teacher profile.', 404)];
+
+        $standardId = (int) $request->standard_id;
+        $sectionId  = (int) $request->section_id;
+        $subjectId  = (int) $request->subject_id;
+
+        if (!$this->teacherTeachesTriple($teacher->id, $user->organization_id, $standardId, $sectionId, $subjectId)) {
+            return [null, $this->error('You do not teach this class+subject.', 403)];
+        }
+
+        // Roll number order (2 before 10), then name; no roll number goes last.
+        $students = StudentDetail::with('user:id,name')
+            ->where('organization_id', $user->organization_id)
+            ->where('standard_id', $standardId)
+            ->where('section_id', $sectionId)
+            ->get(['id', 'user_id', 'full_name', 'roll_no', 'admission_no'])
+            ->sort(function ($a, $b) {
+                $ra = trim((string) $a->roll_no);
+                $rb = trim((string) $b->roll_no);
+                if (($ra === '') !== ($rb === '')) return $ra === '' ? 1 : -1;
+                return strnatcasecmp($ra, $rb)
+                    ?: strnatcasecmp((string) ($a->full_name ?? $a->user?->name), (string) ($b->full_name ?? $b->user?->name));
+            })
+            ->values();
+
+        return [[
+            'exam'        => $exam,
+            'teacher_id'  => $teacher->id,
+            'standard_id' => $standardId,
+            'section_id'  => $sectionId,
+            'subject_id'  => $subjectId,
+            'max_marks'   => max(1, (int) ($exam->total_marks ?: 100)),
+            'students'    => $students,
+        ], null];
+    }
+
+    private function formatSheet(array $ctx, int $orgId): array
+    {
+        $rows = ExamCopy::where('organization_id', $orgId)
+            ->where('exam_id', $ctx['exam']->id)
+            ->where('standard_id', $ctx['standard_id'])
+            ->where('section_id', $ctx['section_id'])
+            ->where('subject_id', $ctx['subject_id'])
+            ->whereIn('student_detail_id', $ctx['students']->pluck('id'))
+            ->get(['id', 'student_detail_id', 'marks_obtained', 'max_marks', 'percentage', 'grade', 'is_absent'])
+            ->keyBy('student_detail_id');
+
+        $students = $ctx['students']->map(function ($s) use ($rows) {
+            $row    = $rows->get($s->id);
+            $absent = (bool) ($row?->is_absent);
+            // A row with neither marks nor absence only holds an exam-copy PDF.
+            $saved  = $row && ($absent || $row->marks_obtained !== null);
+            return [
+                'student_detail_id' => $s->id,
+                'name'              => $s->full_name ?? $s->user?->name,
+                'roll_no'           => $s->roll_no,
+                'admission_no'      => $s->admission_no,
+                'mark_id'           => $saved ? $row->id : null,
+                'saved'             => $saved,
+                'is_absent'         => $saved && $absent,
+                'marks_obtained'    => $saved && !$absent ? (float) $row->marks_obtained : null,
+                'max_marks'         => $saved && $row->max_marks !== null ? (float) $row->max_marks : null,
+                'percentage'        => $saved && !$absent ? (float) $row->percentage : null,
+                'grade'             => $saved ? $row->grade : null,
+            ];
+        });
+
+        return [
+            'exam' => [
+                'id'            => $ctx['exam']->id,
+                'name'          => $ctx['exam']->exam_name,
+                'total_marks'   => $ctx['max_marks'],
+                'passing_marks' => $ctx['exam']->passing_marks !== null ? (float) $ctx['exam']->passing_marks : null,
+            ],
+            'standard_id' => $ctx['standard_id'],
+            'section_id'  => $ctx['section_id'],
+            'subject_id'  => $ctx['subject_id'],
+            'uploaded'    => $students->contains('saved', true),
+            'students'    => $students->values()->all(),
+        ];
+    }
 
     /**
      * Returns the set of "standard_id-section_id-subject_id" triples the
