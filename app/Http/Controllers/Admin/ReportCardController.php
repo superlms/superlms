@@ -8,7 +8,6 @@ use App\Models\Admin\ExamCopy;
 use App\Models\Admin\ReportCard;
 use App\Models\Student\SectionSubject;
 use App\Models\Student\StudentAttendance;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -22,17 +21,8 @@ class ReportCardController extends Controller
         $reportCard = $this->getReportCard($id);
         $data = $this->buildReportCardData($reportCard);
 
-        // isRemoteEnabled so an S3-hosted school logo actually loads, and an
-        // explicit font cache so the bundled Poppins faces can be written.
-        $fontDir = \App\Support\PdfFonts::cacheDir();
-
-        $pdf = Pdf::loadView('admin.report-card-pdf', $data)
-            ->setPaper('a4', 'portrait')
-            ->setOption('isHtml5ParserEnabled', true)
-            ->setOption('isRemoteEnabled', true)
-            ->setOption('isFontSubsettingEnabled', true)
-            ->setOption('fontDir', $fontDir)
-            ->setOption('fontCache', $fontDir);
+        // One A4 page, as the card prints.
+        $pdf = app(\App\Services\ReportCardService::class)->pdf($data);
 
         $studentName = str_replace(' ', '_', $reportCard->studentDetail->full_name ?? 'student');
 

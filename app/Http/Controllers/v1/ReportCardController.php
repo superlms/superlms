@@ -8,7 +8,6 @@ use App\Models\Admin\ReportCard;
 use App\Models\Student\StudentDetail;
 use App\Services\GradingService;
 use App\Services\ReportCardService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -207,19 +206,11 @@ class ReportCardController extends ApiController
             return $this->error('Report card not found.', 404);
         }
 
-        $data = app(ReportCardService::class)->buildPdfData($card);
+        $service = app(ReportCardService::class);
 
-        // Same dompdf options the admin download uses, so the in-app preview
-        // and the downloaded file are the same document.
-        $fontDir = \App\Support\PdfFonts::cacheDir();
-
-        $pdf = Pdf::loadView('admin.report-card-pdf', $data)
-            ->setPaper('a4', 'portrait')
-            ->setOption('isHtml5ParserEnabled', true)
-            ->setOption('isRemoteEnabled', true)
-            ->setOption('isFontSubsettingEnabled', true)
-            ->setOption('fontDir', $fontDir)
-            ->setOption('fontCache', $fontDir);
+        // Rendered as the admin download is, so the in-app preview and the
+        // downloaded file are the same one-page document.
+        $pdf = $service->pdf($service->buildPdfData($card));
         $name = str_replace(' ', '_', $student->full_name ?? 'student');
 
         return $pdf->stream("Report_Card_{$name}.pdf");

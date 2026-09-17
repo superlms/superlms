@@ -119,9 +119,41 @@ table.sign-row { width: 100%; border-collapse: collapse; }
 table.sign-row td { width: 50%; padding: 0; font-size: 14.3px; color: #000; border: 0; }
 table.sign-row td.right { text-align: right; }
 
+/* ─── Tighter steps, for a card too tall for one sheet ───────────────── */
+/* dompdf lays tables out taller than a browser, so a card with many exams
+   (narrow columns whose headings wrap) or subjects ran onto a second page
+   that the printed sheet never needs. ReportCardService::pdf() renders the
+   sheet as above first, then with density-1, -2, -3 until it fits: each
+   step takes a little more height out of the rows, then the logo and the
+   headings, and leaves the frame, the columns and the wording alone. */
+.density-1 table.info td,
+.density-1 table.co th, .density-1 table.co td,
+.density-1 table.bottom-info td { padding-top: 3px; padding-bottom: 3px; }
+.density-1 table.marks th, .density-1 table.marks td { padding-top: 3px; padding-bottom: 3px; }
+.density-1 table.marks th.tiny, .density-1 table.marks th.mid { padding-top: 2px; padding-bottom: 2px; }
+
+.density-2 table.info td,
+.density-2 table.co th, .density-2 table.co td,
+.density-2 table.bottom-info td { padding-top: 2px; padding-bottom: 2px; }
+.density-2 table.marks th, .density-2 table.marks td { padding-top: 2px; padding-bottom: 2px; }
+.density-2 table.marks th.tiny, .density-2 table.marks th.mid { padding-top: 1px; padding-bottom: 1px; font-size: 10px; }
+.density-2 .header img.logo { width: 120px; }
+.density-2 table.info, .density-2 table.marks,
+.density-2 table.co-wrap, .density-2 table.bottom-info { margin-bottom: 4px; }
+
+.density-3 table.info td,
+.density-3 table.co th, .density-3 table.co td,
+.density-3 table.bottom-info td { padding-top: 1px; padding-bottom: 1px; font-size: 11px; }
+.density-3 table.marks th, .density-3 table.marks td { padding-top: 1px; padding-bottom: 1px; font-size: 10px; }
+.density-3 table.marks th.tiny, .density-3 table.marks th.mid { padding-top: 1px; padding-bottom: 1px; font-size: 9px; }
+.density-3 table.marks td.subj { font-size: 10.5px; }
+.density-3 .header img.logo { width: 95px; }
+.density-3 table.info, .density-3 table.marks,
+.density-3 table.co-wrap, .density-3 table.bottom-info { margin-bottom: 3px; }
+
     </style>
 </head>
-<body>
+<body class="density-{{ (int) ($density ?? 0) }}">
     @include('admin._report-card-body')
 </body>
 </html>

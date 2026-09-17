@@ -8,6 +8,8 @@ use App\Models\Admin\ReportCard;
 use App\Models\Student\SectionSubject;
 use App\Models\Student\StudentAttendance;
 use App\Models\Student\Subject;
+use App\Support\PdfFonts;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 /**
  * Builds the data array consumed by the `admin.report-card-pdf` /
@@ -138,5 +140,45 @@ class ReportCardService
             ],
             'coScholastic' => $coScholastic,
         ];
+    }
+
+    /** How many tighter layouts the PDF sheet has (see report-card-pdf.blade.php). */
+    public const PDF_DENSITIES = 3;
+
+    /**
+     * The card as the PDF sheet, rendered, on one A4 page as it prints.
+     *
+     * dompdf lays the tables out taller than a browser does, so a card with
+     * many exams (narrow columns whose headings wrap) or many subjects spilled
+     * onto a second page that the printed sheet never needs. The sheet is
+     * rendered as designed first; while it still runs past one page it is
+     * rendered again a step tighter — less padding in the rows, then a
+     * smaller logo and headings — and the first that fits is returned (or
+     * the tightest, if none does). Used by every download and preview: the
+     * admin and accounts panels, and the app.
+     */
+    public function pdf(array $data): \Barryvdh\DomPDF\PDF
+    {
+        $fontDir = PdfFonts::cacheDir();
+        $pdf = null;
+
+        for ($density = 0; $density <= self::PDF_DENSITIES; $density++) {
+            // isRemoteEnabled so an S3-hosted school logo actually loads, and an
+            // explicit font cache so the bundled Poppins faces can be written.
+            $pdf = Pdf::loadView('admin.report-card-pdf', $data + ['density' => $density])
+                ->setPaper('a4', 'portrait')
+                ->setOption('isHtml5ParserEnabled', true)
+                ->setOption('isRemoteEnabled', true)
+                ->setOption('isFontSubsettingEnabled', true)
+                ->setOption('fontDir', $fontDir)
+                ->setOption('fontCache', $fontDir);
+            $pdf->render();
+
+            if ($pdf->getDomPDF()->getCanvas()->get_page_count() <= 1) {
+                break;
+            }
+        }
+
+        return $pdf;
     }
 }
