@@ -592,6 +592,24 @@ class Attendance extends Component
 
         $orgId = Auth::user()->organization_id;
 
+        // A teacher is class teacher of one class only. An assignment being
+        // edited may keep its own teacher.
+        $editing = $this->assignEditId
+            ? AssignTeacherStandard::where('organization_id', $orgId)->find($this->assignEditId)
+            : null;
+        if (!$editing || (int) $editing->teacher_detail_id !== (int) $this->assignTeacherId) {
+            $taken = AssignTeacherStandard::with(['standard:id,name', 'section:id,name'])
+                ->where('organization_id', $orgId)
+                ->where('teacher_detail_id', $this->assignTeacherId)
+                ->when($this->assignEditId, fn($q) => $q->where('id', '!=', $this->assignEditId))
+                ->first();
+            if ($taken) {
+                $class = trim(($taken->standard->name ?? '') . ($taken->section ? ' · ' . $taken->section->name : ''));
+                $this->notification()->error('This teacher is already a class teacher' . ($class !== '' ? ' of ' . $class : '') . '.');
+                return;
+            }
+        }
+
         $dup = AssignTeacherStandard::where('organization_id', $orgId)
             ->where('teacher_detail_id', $this->assignTeacherId)
             ->where('standard_id', $this->assignStandardId)
@@ -789,6 +807,16 @@ class Attendance extends Component
             ->latest()->get();
         $ctSections = $this->ctFilterStandard ? Section::where('standard_id', $this->ctFilterStandard)->orderBy('id')->get(['id', 'name']) : collect();
 
+        // Assign panel: only teachers who are not a class teacher yet, plus the
+        // teacher of the assignment being edited.
+        $assignTeachers = collect();
+        if ($this->showAssignPanel) {
+            $taken = AssignTeacherStandard::where('organization_id', $orgId)->get(['id', 'teacher_detail_id']);
+            $keep = $this->assignEditId ? (int) optional($taken->firstWhere('id', $this->assignEditId))->teacher_detail_id : 0;
+            $takenIds = $taken->pluck('teacher_detail_id')->map(fn($id) => (int) $id)->flip();
+            $assignTeachers = $teachers->reject(fn($t) => (int) $t->id !== $keep && $takenIds->has((int) $t->id))->values();
+        }
+
         // ── Teacher mark list (the slide-in panel) ──
         $markTeachers = $this->showTeacherMarkPanel ? $teachers : collect();
 
@@ -895,7 +923,7 @@ class Attendance extends Component
         }
 
         return view('livewire.admin.attendance', compact(
-            'standards', 'teachers', 'assignments', 'ctSections', 'markTeachers', 'academicYears',
+            'standards', 'teachers', 'assignTeachers', 'assignments', 'ctSections', 'markTeachers', 'academicYears',
             'tByDateRows', 'tByDateStats', 'tCards', 'tCardsTitle', 'tCardsPerson',
             'stSections', 'stStudents', 'markStudents', 'sMarkSections',
             'sByDateRows', 'sByDateStats', 'sCards', 'sCardsTitle', 'sCardsPerson'
