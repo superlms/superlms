@@ -450,8 +450,14 @@
         <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeTeacherMark"></div>
         <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col"
             wire:key="tmark-{{ count($teacherMark) }}"
+            {{-- x-data carries no server data, so it reads the same on every
+                 render: when the date changes the panel is updated in place,
+                 and a changed x-data would make Alpine start a second copy of
+                 this state while the rows, the count and the save button kept
+                 the first one (they showed the old day and saving stayed off).
+                 The rows come from the seed below instead. --}}
             x-data="{
-                rows: @js(collect($teacherMark)->map(fn ($r) => (string) ($r['status'] ?? ''))->all()),
+                rows: {},
                 get total() { return Object.keys(this.rows).length },
                 get marked() { return Object.values(this.rows).filter(v => v !== '').length },
                 pick(id, v) {
@@ -463,8 +469,8 @@
                 all(v) { Object.keys(this.rows).forEach(id => this.pick(id, v)) },
             }">
 
-            {{-- Re-seeds the panel from the server after the date changes, whether
-                 the morph replaced the panel or updated it in place. --}}
+            {{-- Seeds the rows when the panel opens, and again for each new date
+                 (a new key is a new element, so its x-init runs again). --}}
             <div class="hidden" wire:key="tmark-seed-{{ $tMarkDate }}"
                 x-init="rows = @js(collect($teacherMark)->map(fn ($r) => (string) ($r['status'] ?? ''))->all())"></div>
 

@@ -129,6 +129,13 @@ class TeacherMarkDateTest extends TestCase
         // Its rows bind their status classes as objects, so classes the morph
         // left from the previous day come off again (All present cleared none).
         $this->assertStringNotContainsString(':class="rows[{{ $t->id }}] ===', $view);
+
+        // Its x-data holds no server data (a changed x-data restarts Alpine's
+        // state under rows that keep the old one); the seed fills the rows.
+        $panel = substr($view, strpos($view, 'wire:key="tmark-{{ count($teacherMark) }}"'), 1500);
+        $this->assertStringContainsString("x-data=\"{\n                rows: {},", $panel);
+        $this->assertStringNotContainsString('rows: @js(', $panel);
+        $this->assertStringContainsString('wire:key="tmark-seed-{{ $tMarkDate }}"', $panel);
         $this->assertStringContainsString(':class="{ \'bg-gray-50/60\': rows[{{ $t->id }}] === \'\' }"', $view);
         $this->assertStringContainsString(':class="{ \'{{ $statusSel[$st] }}\': rows[{{ $t->id }}] === \'{{ $st }}\', \'text-gray-500 hover:bg-gray-50\': rows[{{ $t->id }}] !== \'{{ $st }}\' }"', $view);
         $this->assertStringContainsString(':class="{ \'bg-gray-100 text-gray-500\': rows[{{ $t->id }}] === \'\', ', $view);
