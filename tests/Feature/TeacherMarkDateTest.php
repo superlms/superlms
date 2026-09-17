@@ -126,6 +126,13 @@ class TeacherMarkDateTest extends TestCase
         $this->assertStringNotContainsString('wire:model.live="tMarkDate"', $view);
         $this->assertStringContainsString('<input type="date" wire:ignore value="{{ $tMarkDate }}"', $view);
 
+        // Its rows bind their status classes as objects, so classes the morph
+        // left from the previous day come off again (All present cleared none).
+        $this->assertStringNotContainsString(':class="rows[{{ $t->id }}] ===', $view);
+        $this->assertStringContainsString(':class="{ \'bg-gray-50/60\': rows[{{ $t->id }}] === \'\' }"', $view);
+        $this->assertStringContainsString(':class="{ \'{{ $statusSel[$st] }}\': rows[{{ $t->id }}] === \'{{ $st }}\', \'text-gray-500 hover:bg-gray-50\': rows[{{ $t->id }}] !== \'{{ $st }}\' }"', $view);
+        $this->assertStringContainsString(':class="{ \'bg-gray-100 text-gray-500\': rows[{{ $t->id }}] === \'\', ', $view);
+
         // The view still compiles to valid PHP.
         $compiled = Blade::compileString($view);
         $file = tempnam(sys_get_temp_dir(), 'blade') . '.php';

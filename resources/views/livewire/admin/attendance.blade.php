@@ -510,11 +510,15 @@
                 <p class="px-6 py-2 text-xs text-gray-500 border-b border-gray-100 flex-shrink-0">Only the rows you set are saved — an unmarked day stays open.</p>
             @endif
 
-            {{-- Rows --}}
+            {{-- Rows. The status classes are bound as objects: a date change
+                 updates these rows in place, and the morph can leave the old
+                 day's classes on a button — an object binding takes them off
+                 again, a string one only removes what it added itself (which
+                 kept an Absent red after All present). --}}
             <div class="flex-1 overflow-y-auto divide-y divide-gray-100">
                 @forelse ($markTeachers as $i => $t)
                     <div wire:key="mark-t-{{ $t->id }}" class="flex flex-wrap items-center gap-x-3 gap-y-2 px-6 py-2.5"
-                        :class="rows[{{ $t->id }}] === '' ? 'bg-gray-50/60' : ''">
+                        :class="{ 'bg-gray-50/60': rows[{{ $t->id }}] === '' }">
                         <span class="w-4 text-[11px] text-gray-300 tabular-nums flex-shrink-0">{{ $i + 1 }}</span>
                         @if ($t->user?->image)
                             <img src="{{ $t->user->image }}" class="w-8 h-8 rounded-full object-cover border border-gray-200 flex-shrink-0">
@@ -531,13 +535,13 @@
                             @foreach ($statusOpts as $st => $label)
                                 <button type="button" x-on:click="pick({{ $t->id }}, '{{ $st }}')"
                                     class="px-2.5 py-1.5 {{ $loop->first ? '' : 'border-l border-gray-200' }}"
-                                    :class="rows[{{ $t->id }}] === '{{ $st }}' ? '{{ $statusSel[$st] }}' : 'text-gray-500 hover:bg-gray-50'">{{ $label }}</button>
+                                    :class="{ '{{ $statusSel[$st] }}': rows[{{ $t->id }}] === '{{ $st }}', 'text-gray-500 hover:bg-gray-50': rows[{{ $t->id }}] !== '{{ $st }}' }">{{ $label }}</button>
                             @endforeach
                             {{-- Leave a row blank and it saves nothing at all, so the
                                  day stays open to be marked later. --}}
                             <button type="button" x-on:click="pick({{ $t->id }}, '')" title="Leave unmarked"
                                 class="px-2 py-1.5 border-l border-gray-200"
-                                :class="rows[{{ $t->id }}] === '' ? 'bg-gray-100 text-gray-500' : 'text-gray-300 hover:text-gray-600 hover:bg-gray-50'">&times;</button>
+                                :class="{ 'bg-gray-100 text-gray-500': rows[{{ $t->id }}] === '', 'text-gray-300 hover:text-gray-600 hover:bg-gray-50': rows[{{ $t->id }}] !== '' }">&times;</button>
                         </div>
                     </div>
                 @empty
