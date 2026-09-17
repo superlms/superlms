@@ -217,7 +217,8 @@ class InstructorController extends ApiController
             'email'       => $t->user?->email,
             'avatar'      => $t->user?->image,
             'employee_id' => $t->employee_id,
-            'phone'       => $t->phone,
+            // No phone: a teacher's mobile number is not a student's to have.
+            // They write to them by email, or through the app's chat.
 
             // Subjects this instructor teaches *for the student's class* (via timetable)
             'subjects' => $timetables
@@ -237,7 +238,6 @@ class InstructorController extends ApiController
             $data['date_of_joining'] = $t->date_of_joining
                 ? \Carbon\Carbon::parse($t->date_of_joining)->format('Y-m-d')
                 : null;
-            $data['phone']           = $t->phone;
             $data['city']            = $t->city;
             $data['state']           = $t->state;
             $data['address']         = $t->address;
