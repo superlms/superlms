@@ -837,9 +837,8 @@ class Attendance extends Component
         return [
             'title'    => $start->format('F Y'),
             'teachers' => $columns->map(fn ($t) => [
-                'id'    => $t->id,
-                'name'  => $t->user->name ?? '—',
-                'image' => $t->user->image ?? null,
+                'id'   => $t->id,
+                'name' => $t->user->name ?? '—',
             ])->values()->all(),
             'rows'     => $rows,
             'totals'   => $totals,

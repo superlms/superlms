@@ -26,17 +26,11 @@
             <table class="min-w-full text-xs border-separate border-spacing-0">
                 <thead>
                     <tr>
-                        <th class="sticky top-0 left-0 z-20 bg-gray-50 border-b border-r border-gray-200 px-3 py-2 text-left font-semibold text-gray-500 uppercase whitespace-nowrap">Date</th>
+                        <th class="sticky top-0 left-0 z-20 bg-gray-50 border-b border-r border-gray-200 px-3 py-2 text-left align-bottom font-semibold text-gray-500 uppercase whitespace-nowrap">Date</th>
                         @foreach ($grid['teachers'] as $t)
-                            <th class="sticky top-0 z-10 bg-gray-50 border-b border-gray-200 px-2 py-2 font-medium text-gray-700 min-w-[6rem] max-w-[8rem]" title="{{ $t['name'] }}">
-                                <div class="flex flex-col items-center gap-1">
-                                    @if ($t['image'])
-                                        <img src="{{ $t['image'] }}" class="w-7 h-7 rounded-full object-cover border border-gray-200">
-                                    @else
-                                        <div class="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-[11px]">{{ strtoupper(substr($t['name'], 0, 1)) }}</div>
-                                    @endif
-                                    <span class="block w-full truncate text-center">{{ $t['name'] }}</span>
-                                </div>
+                            {{-- Names run bottom to top, so each column is only as wide as a cell. --}}
+                            <th class="sticky top-0 z-10 bg-gray-50 border-b border-gray-200 px-2 py-2 align-bottom font-medium text-gray-700" title="{{ $t['name'] }}">
+                                <span class="inline-block max-h-40 overflow-hidden text-ellipsis whitespace-nowrap [writing-mode:vertical-rl] rotate-180">{{ $t['name'] }}</span>
                             </th>
                         @endforeach
                     </tr>
