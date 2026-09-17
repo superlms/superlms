@@ -95,6 +95,29 @@ class TeacherMarkDateTest extends TestCase
         }
     }
 
+    public function test_all_holiday_is_offered_and_saves_as_holiday(): void
+    {
+        foreach (['admin', 'accounts'] as $panel) {
+            $view = file_get_contents(resource_path("views/livewire/{$panel}/attendance.blade.php"));
+            // Teacher and student mark panels.
+            $this->assertSame(2, substr_count($view, 'x-on:click="all(\'holiday\')"'), $panel);
+            $this->assertSame(2, substr_count($view, '>All holiday</button>'), $panel);
+        }
+
+        $t = $this->teacher();
+        $page = new AttendancePage();
+        $page->mount();
+        $page->openTeacherMark();
+        $page->tMarkDate = '2026-09-15';
+        $page->updatedTMarkDate();
+        // What the button does in the browser for each row.
+        $page->teacherMark[$t->id]['status'] = 'holiday';
+        $page->submitTeacherAttendance();
+
+        $saved = TeacherAttendance::where('teacher_detail_id', $t->id)->whereDate('attendance_date', '2026-09-15')->first();
+        $this->assertSame(3, (int) $saved->status);
+    }
+
     public function test_the_panel_is_not_keyed_on_the_date_and_the_box_is_left_alone(): void
     {
         $view = file_get_contents(resource_path('views/livewire/admin/attendance.blade.php'));
