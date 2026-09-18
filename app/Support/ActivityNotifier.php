@@ -77,6 +77,8 @@ class ActivityNotifier
         'AdminEmployee'        => 'Employee',
         'FeePayment'           => 'Fee Payment',
         'TransportFeePayment'  => 'Transport Fee Payment',
+        'FeePaymentRequest'    => 'QR Fee Payment',
+        'PaymentQrCode'        => 'Payment QR',
         'AdminSalaryPayment'   => 'Salary Payment',
         'LedgerTransaction'    => 'Ledger Entry',
         'FeeStructure'         => 'Fee Structure',

@@ -11,6 +11,7 @@ use App\Livewire\Concerns\HandlesStudentFeeView;
 use App\Livewire\Concerns\HandlesViewFee;
 use App\Livewire\Concerns\HandlesFeeCycles;
 use App\Models\Admin\Fee\FeeConcession;
+use App\Models\Admin\Fee\FeePaymentRequest;
 use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
@@ -306,6 +307,13 @@ class Fee extends Component
 
         if ($this->activeTab === 'cycle') {
             $data = array_merge($data, $this->feeCycleViewData());
+        }
+
+        if ($this->activeTab === '') {
+            // The QR Payments card carries how many wait to be checked.
+            $data['qrPending'] = FeePaymentRequest::where('organization_id', $orgId)
+                ->where('status', FeePaymentRequest::STATUS_PENDING)
+                ->count();
         }
 
         if ($this->activeTab === 'account_users') {

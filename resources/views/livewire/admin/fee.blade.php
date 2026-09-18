@@ -15,6 +15,8 @@
             'penalties'      => ['Penalties',       'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z', 'Late-fee penalties', 'amber'],
             'cycle'          => ['Fee Cycle',       'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15', 'Installments & due dates', 'purple'],
             'concession'     => ['Concession',      'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z', 'Discounts & waivers', 'teal'],
+            'payment_qr'     => ['Payment QR',      'M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5zM13.5 14.25h2.25v2.25H13.5v-2.25zm4.5 0h2.25v2.25H18v-2.25zm-4.5 4.5h2.25V21H13.5v-2.25zm4.5 0h2.25V21H18v-2.25z', 'Your UPI QR for fees in the app', 'indigo'],
+            'qr_payments'    => ['QR Payments',     'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z', 'Check UTRs & screenshots, approve', 'emerald'],
             'account_users'  => ['Accounts user',   'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', 'Cashier / account logins', 'orange'],
         ];
         $feeColorMap = [
@@ -115,10 +117,13 @@
                         <div class="w-10 h-10 rounded-lg {{ $c['bg'] }} flex items-center justify-center flex-shrink-0">
                             <svg class="w-5 h-5 {{ $c['text'] }}" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $icon }}" /></svg>
                         </div>
-                        <div class="min-w-0">
+                        <div class="min-w-0 flex-1">
                             <h3 class="text-sm font-semibold text-gray-900">{{ $label }}</h3>
                             <p class="text-xs text-gray-500 mt-0.5 leading-snug">{{ $desc }}</p>
                         </div>
+                        @if ($tab === 'qr_payments' && ($qrPending ?? 0) > 0)
+                            <span title="{{ $qrPending }} to check" class="min-w-[20px] h-5 px-1.5 rounded-full bg-amber-500 text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0">{{ $qrPending > 99 ? '99+' : $qrPending }}</span>
+                        @endif
                     </button>
                 @endforeach
             </div>
@@ -263,6 +268,20 @@
     {{-- ════════════════════════════════════════════════════════════════ --}}
     @if ($activeTab === 'concession')
         @include('livewire.partials.fee-concession-panel')
+    @endif
+
+    {{-- ════════════════════════════════════════════════════════════════ --}}
+    {{-- TAB: PAYMENT QR (the school's UPI QR shown in the app)          --}}
+    {{-- ════════════════════════════════════════════════════════════════ --}}
+    @if ($activeTab === 'payment_qr')
+        @livewire('admin.payment-qr')
+    @endif
+
+    {{-- ════════════════════════════════════════════════════════════════ --}}
+    {{-- TAB: QR PAYMENTS (reported from the app, checked here)          --}}
+    {{-- ════════════════════════════════════════════════════════════════ --}}
+    @if ($activeTab === 'qr_payments')
+        @livewire('admin.qr-payments')
     @endif
 
     {{-- ════════════════════════════════════════════════════════════════ --}}

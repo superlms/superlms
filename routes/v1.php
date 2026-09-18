@@ -44,6 +44,7 @@ use App\Http\Controllers\v1\AdminTcCertificateController;
 use App\Http\Controllers\v1\McqController;
 use App\Http\Controllers\v1\PaymentController;
 use App\Http\Controllers\PhonePeController;
+use App\Http\Controllers\v1\QrPaymentController;
 use App\Http\Controllers\v1\ReportCardController;
 use App\Http\Controllers\v1\Student\ExamCopyController as StudentExamCopyController;
 use App\Http\Controllers\v1\Student\MarksController as StudentMarksController;
@@ -352,6 +353,11 @@ Route::middleware('auth:sanctum')->group(function () {
             // Online fee payment (PhonePe) — initiation is rate-limited.
             Route::post('/pay', [PaymentController::class, 'initiate'])->middleware('throttle:payments');
             Route::get('/pay/{merchantOrderId}/status', [PaymentController::class, 'status']);
+
+            // Paying on the school's own UPI QR, then reporting it (UTR /
+            // screenshot) for the school to check.
+            Route::get('/qr', [QrPaymentController::class, 'show']);
+            Route::post('/qr/submit', [QrPaymentController::class, 'submit'])->middleware('throttle:payments');
         });
 
         // School Admin Api (role: admin / sub-admin) — Phase 0
