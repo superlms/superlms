@@ -8,6 +8,7 @@ use App\Http\Controllers\v1\BookController;
 use App\Http\Controllers\v1\CalendarController;
 use App\Http\Controllers\v1\ChatController;
 use App\Http\Controllers\v1\ContentController;
+use App\Http\Controllers\v1\AnalyticsController;
 use App\Http\Controllers\v1\DashboardController;
 use App\Http\Controllers\v1\ExamController;
 use App\Http\Controllers\v1\FeeController;
@@ -137,7 +138,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/profile', [TeacherController::class, 'teacherProfile']);
             Route::post('/profile/photo', [TeacherController::class, 'updateTeacherPhoto']);
             Route::get('/subject', [SubjectController::class, 'getTeacherSubject']);
-            Route::get('/dashboard', [DashboardController::class, 'teacherDashboard']); // home + analytics
+            Route::get('/dashboard', [DashboardController::class, 'teacherDashboard']); // home
+            Route::get('/analytics', [AnalyticsController::class, 'teacherAnalytics']);
 
             //Admin Api
             Route::prefix('admin')->group(function () {
@@ -272,8 +274,9 @@ Route::middleware('auth:sanctum')->group(function () {
         // Read-only, always scoped to the authenticated student.
         Route::prefix('student')->group(function () {
 
-            // Aggregated home-screen + analytics data
+            // Aggregated home-screen data
             Route::get('/dashboard', [DashboardController::class, 'studentDashboard']);
+            Route::get('/analytics', [AnalyticsController::class, 'studentAnalytics']);
 
             Route::prefix('marks')->group(function () {
                 Route::get('/',                    [StudentMarksController::class, 'index']);
