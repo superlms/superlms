@@ -6,9 +6,12 @@ use App\Models\Admin\Announcement;
 use App\Models\Admin\ContactAdminStudent;
 use App\Models\Admin\ContactAdminTeacher;
 use App\Models\Calendar\TimeTable;
+use App\Models\Student\Standard;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 /**
  * Admin management APIs for the mobile app: Announcements, Calendar events and
@@ -67,33 +70,97 @@ class AdminContentController extends ApiController
         ];
     }
 
-    /** GET /admin/announcements?type=&days= */
+    /**
+     * Announcements older than 60 days go, with their files — as the admin
+     * panel's Announcement screen trims them each time it draws.
+     */
+    private function purgeOldAnnouncements(int $orgId): void
+    {
+        $stale = Announcement::where('organization_id', $orgId)
+            ->where('created_at', '<', Carbon::now()->subDays(60))
+            ->get();
+
+        foreach ($stale as $row) {
+            $this->s3Delete($row->announcement_image);
+            $this->s3Delete($row->announcement_pdf);
+            $row->delete();
+        }
+    }
+
+    /**
+     * GET /admin/announcements?type=&days=&date=
+     *
+     * `date` (Y-m-d) is one day's announcements and wins over `days`, as the
+     * panel's date filter wins over its period. The school's active classes
+     * come along for the "which students" picker and the list's labels.
+     */
     public function announcements(Request $request)
     {
         [$user, $err] = $this->guard();
         if ($err) return $err;
+        if ($err = $this->validateWith($request, [
+            'date' => 'nullable|date_format:Y-m-d',
+            'days' => 'nullable|integer|min:1|max:366',
+        ])) return $err;
+
+        $orgId = $user->organization_id;
+        $this->purgeOldAnnouncements($orgId);
 
         $query = Announcement::with(['user:id,name', 'standard:id,name'])
-            ->where('organization_id', $user->organization_id)
+            ->where('organization_id', $orgId)
             ->latest();
 
         if ($request->filled('type') && in_array($request->type, ['all', 'user', 'teacher'], true)) {
             $query->where('type', $request->type);
         }
-        if ($request->filled('days')) {
+        if ($request->filled('date')) {
+            $query->whereDate('created_at', $request->date);
+        } elseif ($request->filled('days')) {
             $query->where('created_at', '>=', Carbon::now()->subDays((int) $request->days));
         }
 
-        $items = $query->limit(100)->get()->map(fn ($a) => $this->shapeAnnouncement($a));
+        $items = $query->limit(200)->get()->map(fn ($a) => $this->shapeAnnouncement($a));
 
-        $base = Announcement::where('organization_id', $user->organization_id);
+        $base = Announcement::where('organization_id', $orgId);
+        $lastMonth = now()->subMonthNoOverflow();
         $stats = [
             'total'      => (clone $base)->count(),
             'this_month' => (clone $base)->whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->count(),
+            'last_month' => (clone $base)->whereMonth('created_at', $lastMonth->month)->whereYear('created_at', $lastMonth->year)->count(),
         ];
 
-        return $this->success(['announcements' => $items, 'stats' => $stats], 'Announcements fetched.');
+        $standards = Standard::where('organization_id', $orgId)
+            ->where('is_active', true)
+            ->inClassOrder()
+            ->get(['id', 'name']);
+
+        return $this->success([
+            'announcements' => $items,
+            'stats'         => $stats,
+            'standards'     => $standards,
+        ], 'Announcements fetched.');
     }
+
+    /** The panel's limits: a 1000-character title, 3000 of content, a file of 1 MB. */
+    private function announcementRules(int $orgId): array
+    {
+        return [
+            'announcement_name'    => 'required|string|max:1000',
+            'announcement_content' => 'required|string|max:3000',
+            'type'                 => 'required|in:all,user,teacher',
+            'standard_id'          => ['nullable', Rule::exists('standards', 'id')->where('organization_id', $orgId)],
+            'file'                 => 'nullable|file|mimes:jpg,jpeg,png,gif,webp,pdf|max:1024',
+            'remove_image'         => 'nullable|boolean',
+            'remove_pdf'           => 'nullable|boolean',
+        ];
+    }
+
+    private const ANNOUNCEMENT_MESSAGES = [
+        'announcement_name.max'    => 'Title may not be longer than 1000 characters.',
+        'announcement_content.max' => 'Content may not be longer than 3000 characters.',
+        'file.max'                 => 'Attachment must be 1 MB (1024 KB) or smaller.',
+        'file.mimes'               => 'Attachment must be an image or PDF.',
+    ];
 
     /** Store the uploaded file (image or PDF) into the right column on $data. */
     private function applyAnnouncementFile(Request $request, array &$data, ?Announcement $existing): void
@@ -123,13 +190,11 @@ class AdminContentController extends ApiController
     {
         [$user, $err] = $this->guard();
         if ($err) return $err;
-        if ($err = $this->validateWith($request, [
-            'announcement_name'    => 'required|string|max:255',
-            'announcement_content' => 'required|string',
-            'type'                 => 'required|in:all,user,teacher',
-            'standard_id'          => 'nullable|exists:standards,id',
-            'file'                 => 'nullable|file|mimes:jpg,jpeg,png,gif,webp,pdf|max:5120',
-        ])) return $err;
+        if ($err = $this->validateWith(
+            $request,
+            $this->announcementRules($user->organization_id),
+            self::ANNOUNCEMENT_MESSAGES,
+        )) return $err;
 
         $data = [
             'organization_id'      => $user->organization_id,
@@ -147,7 +212,12 @@ class AdminContentController extends ApiController
         return $this->success($this->shapeAnnouncement($a->load(['user:id,name', 'standard:id,name'])), 'Announcement created.');
     }
 
-    /** POST /admin/announcements/{id} (multipart update) */
+    /**
+     * POST /admin/announcements/{id} (multipart update)
+     *
+     * remove_image / remove_pdf take the file that is there off the
+     * announcement (and out of storage), as the panel's cross on it does.
+     */
     public function updateAnnouncement(Request $request, $id)
     {
         [$user, $err] = $this->guard();
@@ -156,13 +226,11 @@ class AdminContentController extends ApiController
         $a = Announcement::where('organization_id', $user->organization_id)->find($id);
         if (!$a) return $this->error('Announcement not found.', 404);
 
-        if ($err = $this->validateWith($request, [
-            'announcement_name'    => 'required|string|max:255',
-            'announcement_content' => 'required|string',
-            'type'                 => 'required|in:all,user,teacher',
-            'standard_id'          => 'nullable|exists:standards,id',
-            'file'                 => 'nullable|file|mimes:jpg,jpeg,png,gif,webp,pdf|max:5120',
-        ])) return $err;
+        if ($err = $this->validateWith(
+            $request,
+            $this->announcementRules($user->organization_id),
+            self::ANNOUNCEMENT_MESSAGES,
+        )) return $err;
 
         $data = [
             'announcement_name'    => $request->announcement_name,
@@ -171,6 +239,14 @@ class AdminContentController extends ApiController
             // Only a student announcement can be aimed at a class; null = all.
             'standard_id'          => $request->type === 'user' ? ($request->standard_id ?: null) : null,
         ];
+        if ($request->boolean('remove_image') && $a->announcement_image) {
+            $this->s3Delete($a->announcement_image);
+            $data['announcement_image'] = null;
+        }
+        if ($request->boolean('remove_pdf') && $a->announcement_pdf) {
+            $this->s3Delete($a->announcement_pdf);
+            $data['announcement_pdf'] = null;
+        }
         $this->applyAnnouncementFile($request, $data, $a);
         $a->update($data);
 
@@ -209,19 +285,33 @@ class AdminContentController extends ApiController
         };
     }
 
+    /**
+     * The panel's event form: a start and an end time unless the event runs
+     * all day, and an image or PDF of up to 1 MB. The title column holds 255
+     * characters.
+     */
     private function eventRules(): array
     {
         return [
             'title'       => 'required|string|max:255',
-            'description' => 'nullable|string',
+            'description' => 'nullable|string|max:3000',
             'date'        => 'required|date_format:Y-m-d',
-            'start_time'  => 'nullable|date_format:H:i',
-            'end_time'    => 'nullable|date_format:H:i',
             'is_all_day'  => 'nullable|boolean',
+            'start_time'  => 'exclude_if:is_all_day,1,true|required|date_format:H:i',
+            'end_time'    => 'exclude_if:is_all_day,1,true|required|date_format:H:i',
             'event_type'  => 'required|in:' . implode(',', self::EVENT_TYPES),
             'color'       => 'nullable|string|max:20',
+            'attachment'  => 'nullable|file|mimes:jpg,jpeg,png,gif,webp,pdf|max:1024',
         ];
     }
+
+    private const EVENT_MESSAGES = [
+        'start_time.required' => 'Pick a start time, or make it an all-day event.',
+        'end_time.required'   => 'Pick an end time, or make it an all-day event.',
+        'description.max'     => 'Description may not be longer than 3000 characters.',
+        'attachment.max'      => 'Attachment must be 1 MB (1024 KB) or smaller.',
+        'attachment.mimes'    => 'Attachment must be an image or PDF.',
+    ];
 
     private function eventPayload(Request $request, int $orgId, int $userId): array
     {
@@ -241,19 +331,36 @@ class AdminContentController extends ApiController
         ];
     }
 
-    /** POST /admin/calendar/events */
+    /** A newly chosen attachment goes up and the one it replaces comes down. */
+    private function applyEventAttachment(Request $request, array &$data, ?TimeTable $existing): void
+    {
+        if (!$request->hasFile('attachment') || !Schema::hasColumn('time_tables', 'attachment')) return;
+
+        if ($existing?->attachment) $this->s3Delete($existing->attachment);
+        $path = $request->file('attachment')->store('admin/calendar/attachments', 's3');
+        Storage::disk('s3')->setVisibility($path, 'public');
+        $data['attachment'] = Storage::disk('s3')->url($path);
+    }
+
+    /** POST /admin/calendar/events (JSON, or multipart with an attachment) */
     public function storeEvent(Request $request)
     {
         [$user, $err] = $this->guard();
         if ($err) return $err;
-        if ($err = $this->validateWith($request, $this->eventRules())) return $err;
+        if ($err = $this->validateWith($request, $this->eventRules(), self::EVENT_MESSAGES)) return $err;
 
-        $event = TimeTable::create($this->eventPayload($request, $user->organization_id, $user->id));
+        $data = $this->eventPayload($request, $user->organization_id, $user->id);
+        $this->applyEventAttachment($request, $data, null);
+        $event = TimeTable::create($data);
 
         return $this->success(['id' => $event->id], 'Event created.');
     }
 
-    /** PUT /admin/calendar/events/{id} */
+    /**
+     * PUT /admin/calendar/events/{id}, or POST for multipart with an attachment.
+     * An event whose day has passed is completed and stays as it was, as in
+     * the panel.
+     */
     public function updateEvent(Request $request, $id)
     {
         [$user, $err] = $this->guard();
@@ -261,11 +368,117 @@ class AdminContentController extends ApiController
 
         $event = TimeTable::where('organization_id', $user->organization_id)->find($id);
         if (!$event) return $this->error('Event not found.', 404);
-        if ($err = $this->validateWith($request, $this->eventRules())) return $err;
+        if ($event->date && $event->date->lt(Carbon::today())) {
+            return $this->error('This event is already completed and cannot be edited.', 422);
+        }
+        if ($err = $this->validateWith($request, $this->eventRules(), self::EVENT_MESSAGES)) return $err;
 
-        $event->update($this->eventPayload($request, $user->organization_id, $event->created_by ?? $user->id));
+        $data = $this->eventPayload($request, $user->organization_id, $event->created_by ?? $user->id);
+        $this->applyEventAttachment($request, $data, $event);
+        $event->update($data);
 
         return $this->success(['id' => $event->id], 'Event updated.');
+    }
+
+    /** One event as the admin calendar lists and shows it. */
+    private function shapeEvent(TimeTable $e): array
+    {
+        $acad = $e->academic;
+        return [
+            'id'            => $e->id,
+            'title'         => $e->title,
+            'description'   => $e->description,
+            'date'          => $e->date?->format('Y-m-d'),
+            'start_time'    => $e->start_time?->format('H:i'),
+            'end_time'      => $e->end_time?->format('H:i'),
+            'is_all_day'    => (bool) $e->is_all_day,
+            'event_type'    => $e->event_type,
+            'color'         => $e->color ?: $this->defaultColor((string) $e->event_type),
+            'attachment'    => $e->attachment ?? null,
+            'location'      => $e->location?->location_display,
+            'standard'      => $acad?->standard?->name,
+            'section'       => $acad?->section?->name,
+            'subject'       => $acad?->subject?->name,
+            'teacher'       => $acad?->teacher?->name,
+            'creator_name'  => $e->creator?->name,
+            'is_completed'  => $e->date ? $e->date->lt(Carbon::today()) : false,
+        ];
+    }
+
+    private function eventsIn(int $orgId, Carbon $from, Carbon $to)
+    {
+        return TimeTable::where('organization_id', $orgId)
+            ->where('is_cancelled', false)
+            ->whereBetween('date', [$from->toDateString(), $to->toDateString()]);
+    }
+
+    /**
+     * GET /admin/calendar/month?month=YYYY-MM
+     *
+     * The month's events, and the panel's counts: today, this week, the month
+     * in view and this year.
+     */
+    public function calendarMonth(Request $request)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+        if ($err = $this->validateWith($request, ['month' => 'nullable|date_format:Y-m'])) return $err;
+
+        $orgId = $user->organization_id;
+        $start = $request->filled('month')
+            ? Carbon::createFromFormat('Y-m-d', $request->month . '-01')->startOfDay()
+            : Carbon::today()->startOfMonth();
+        $end   = $start->copy()->endOfMonth();
+        $today = Carbon::today();
+
+        $events = $this->eventsIn($orgId, $start, $end)
+            ->with(['academic.standard', 'academic.section', 'academic.subject', 'academic.teacher', 'location', 'creator:id,name'])
+            ->orderBy('date')->orderBy('start_time')->orderBy('id')
+            ->get()
+            ->map(fn ($e) => $this->shapeEvent($e));
+
+        return $this->success([
+            'month'  => $start->format('Y-m'),
+            'events' => $events,
+            'stats'  => [
+                'today'         => $this->eventsIn($orgId, $today, $today)->count(),
+                'this_week'     => $this->eventsIn($orgId, $today->copy()->startOfWeek(), $today->copy()->endOfWeek())->count(),
+                'current_month' => $events->count(),
+                'this_year'     => $this->eventsIn($orgId, $today->copy()->startOfYear(), $today->copy()->endOfYear())->count(),
+                'total'         => TimeTable::where('organization_id', $orgId)->where('is_cancelled', false)->count(),
+            ],
+        ], 'Calendar fetched.');
+    }
+
+    /**
+     * GET /admin/calendar/year?year=YYYY — the panel's yearly view: each
+     * month's total and how many events fall on each of its days.
+     */
+    public function calendarYear(Request $request)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+        if ($err = $this->validateWith($request, ['year' => 'nullable|integer|min:2000|max:2100'])) return $err;
+
+        $year = (int) ($request->year ?: now()->year);
+        $byDay = $this->eventsIn($user->organization_id, Carbon::create($year, 1, 1), Carbon::create($year, 12, 31))
+            ->get(['id', 'date'])
+            ->groupBy(fn ($e) => $e->date->format('Y-m-d'))
+            ->map->count();
+
+        $months = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $key  = sprintf('%04d-%02d', $year, $m);
+            $days = $byDay->filter(fn ($n, $day) => str_starts_with($day, $key));
+            $months[] = [
+                'month' => $m,
+                'name'  => Carbon::create($year, $m, 1)->format('F'),
+                'total' => $days->sum(),
+                'days'  => (object) $days->all(),
+            ];
+        }
+
+        return $this->success(['year' => $year, 'months' => $months], 'Year fetched.');
     }
 
     /** DELETE /admin/calendar/events/{id} */

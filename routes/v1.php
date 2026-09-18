@@ -397,6 +397,11 @@ Route::middleware('auth:sanctum')->group(function () {
             // Calendar events (manage — listing/show reuse /calendar/* which is org-scoped)
             Route::post('/calendar/events',        [AdminContentController::class, 'storeEvent']);
             Route::put('/calendar/events/{id}',    [AdminContentController::class, 'updateEvent'])->whereNumber('id');
+            // The same update as multipart, for an attachment
+            Route::post('/calendar/events/{id}',   [AdminContentController::class, 'updateEvent'])->whereNumber('id');
+            // The admin calendar: a month with the panel's counts, and the yearly view
+            Route::get('/calendar/month',          [AdminContentController::class, 'calendarMonth']);
+            Route::get('/calendar/year',           [AdminContentController::class, 'calendarYear']);
             Route::delete('/calendar/events/{id}', [AdminContentController::class, 'deleteEvent'])->whereNumber('id');
 
             // Enquiries (teacher / student)
@@ -555,12 +560,20 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/transport/routes/{id}',        [AdminTransportController::class, 'saveRoute'])->whereNumber('id');
             Route::post('/transport/routes/{id}/toggle', [AdminTransportController::class, 'toggleRoute'])->whereNumber('id');
             Route::delete('/transport/routes/{id}',      [AdminTransportController::class, 'deleteRoute'])->whereNumber('id');
+            // Routes as the panel lists them: one per route, a row per vehicle type under it
+            Route::get('/transport/route-groups',               [AdminTransportController::class, 'routeGroups']);
+            Route::post('/transport/route-groups',              [AdminTransportController::class, 'saveRouteGroup']);
+            Route::get('/transport/route-groups/{key}',         [AdminTransportController::class, 'routeGroup'])->where('key', '[A-Za-z0-9\-]+');
+            Route::post('/transport/route-groups/{key}',        [AdminTransportController::class, 'saveRouteGroup'])->where('key', '[A-Za-z0-9\-]+');
+            Route::post('/transport/route-groups/{key}/toggle', [AdminTransportController::class, 'toggleRouteGroup'])->where('key', '[A-Za-z0-9\-]+');
+            Route::delete('/transport/route-groups/{key}',      [AdminTransportController::class, 'deleteRouteGroup'])->where('key', '[A-Za-z0-9\-]+');
             // Drivers
             Route::get('/transport/drivers',              [AdminTransportController::class, 'drivers']);
             Route::post('/transport/drivers',             [AdminTransportController::class, 'saveDriver']);
             Route::post('/transport/drivers/{id}',        [AdminTransportController::class, 'saveDriver'])->whereNumber('id');
             Route::post('/transport/drivers/{id}/toggle', [AdminTransportController::class, 'toggleDriver'])->whereNumber('id');
             Route::delete('/transport/drivers/{id}',      [AdminTransportController::class, 'deleteDriver'])->whereNumber('id');
+            Route::get('/transport/drivers/{id}',         [AdminTransportController::class, 'driver'])->whereNumber('id');
             // Transport students (per-month billing)
             Route::get('/transport/students',        [AdminTransportController::class, 'students']);
             Route::post('/transport/students/months',[AdminTransportController::class, 'saveStudentMonths']);
@@ -570,6 +583,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/transport/fees/summary',        [AdminTransportController::class, 'feeSummary']);
             Route::post('/transport/fees/payment',       [AdminTransportController::class, 'recordPayment']);
             Route::delete('/transport/fees/payment/{id}',[AdminTransportController::class, 'deletePayment'])->whereNumber('id');
+            Route::get('/transport/fees/payment/{id}/pdf',[AdminTransportController::class, 'receiptPdf'])->whereNumber('id');
 
             // ─── Credit (web parity) ─────────────────────────────────────────
             Route::get('/credit/stats',        [AdminCreditController::class, 'stats']);
