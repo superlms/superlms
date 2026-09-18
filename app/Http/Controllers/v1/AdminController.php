@@ -93,34 +93,11 @@ class AdminController extends ApiController
     }
 
     /**
-     * GET /api/v1/admin/dashboard
-     *
-     * Headline counts for the admin home (Phase 0 shell).
-     */
-    public function dashboard()
-    {
-        [$user, $err] = $this->authUser();
-        if ($err) return $err;
-        if ($err = $this->requireRole(self::ADMIN_ROLES)) return $err;
-
-        $orgId = $user->organization_id;
-        $now   = now();
-
-        $feeMonth = (float) FeePayment::where('organization_id', $orgId)
-            ->whereMonth('payment_date', $now->month)
-            ->whereYear('payment_date', $now->year)
-            ->sum('amount');
-
-        return $this->success([
-            'students'                  => StudentDetail::where('organization_id', $orgId)->count(),
-            'teachers'                  => TeacherDetail::where('organization_id', $orgId)->count(),
-            'fees_collected_total'      => (float) FeePayment::where('organization_id', $orgId)->sum('amount'),
-            'fees_collected_this_month' => round($feeMonth, 2),
-        ], 'Admin dashboard fetched.');
-    }
-
-    /**
      * GET /admin/analytics
+     *
+     * The first admin app's Dashboard and Analytics read this; the redesigned
+     * ones read GET admin/dashboard and admin/analytics/school
+     * (AdminAnalyticsController).
      *
      * Mirrors app/Livewire/Admin/Analytics.php for the mobile app: headline
      * stats, student/teacher attendance (academic-year monthly bars + last-N-day

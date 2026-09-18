@@ -19,6 +19,7 @@ use App\Http\Controllers\v1\InstructorController;
 use App\Http\Controllers\v1\LibraryController;
 use App\Http\Controllers\v1\AccountsController;
 use App\Http\Controllers\v1\AdminController;
+use App\Http\Controllers\v1\AdminAnalyticsController;
 use App\Http\Controllers\v1\AdminChatController;
 use App\Http\Controllers\v1\AdminProfileController;
 use App\Http\Controllers\v1\AdminContentController;
@@ -364,7 +365,10 @@ Route::middleware('auth:sanctum')->group(function () {
         // School Admin Api (role: admin / sub-admin) — Phase 0
         Route::prefix('admin')->group(function () {
             Route::get('/me',        [AdminController::class, 'me']);
-            Route::get('/dashboard', [AdminController::class, 'dashboard']);
+            // The admin app's home and Analytics, as the student and teacher ones
+            Route::get('/dashboard',        [AdminAnalyticsController::class, 'dashboard']);
+            Route::get('/analytics/school', [AdminAnalyticsController::class, 'analytics']);
+            // The first admin app's analytics, for builds that still read it
             Route::get('/analytics', [AdminController::class, 'analytics']);
 
             // More → Admissions / Users / Rate LMS
