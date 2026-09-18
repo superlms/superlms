@@ -416,6 +416,18 @@ class ContentController extends Controller
                 Storage::disk('s3')->setVisibility($pdfPath, 'public');
             }
 
+            // remove_image / remove_pdf take the topic's file off (the app's
+            // editor); its S3 object goes once the topic is saved.
+            $removed = [];
+            if ($request->boolean('remove_image') && !$request->hasFile('image') && $imagePath) {
+                $removed[] = $imagePath;
+                $imagePath = null;
+            }
+            if ($request->boolean('remove_pdf') && !$request->hasFile('pdf') && $pdfPath) {
+                $removed[] = $pdfPath;
+                $pdfPath = null;
+            }
+
             $topic->update([
                 'topic_name' => $request->topic_name ?? $topic->topic_name,
                 'topic_content' => $request->has('topic_content') ? $request->topic_content : $topic->topic_content,
@@ -426,6 +438,12 @@ class ContentController extends Controller
             ]);
 
             DB::commit();
+
+            // A path may be kept as the S3 key or as its full URL.
+            foreach ($removed as $path) {
+                $key = str_starts_with($path, 'http') ? ltrim((string) parse_url($path, PHP_URL_PATH), '/') : $path;
+                if ($key) Storage::disk('s3')->delete($key);
+            }
 
             return $this->responseService->success(
                 $topic,
