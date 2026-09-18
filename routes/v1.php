@@ -19,6 +19,7 @@ use App\Http\Controllers\v1\InstructorController;
 use App\Http\Controllers\v1\LibraryController;
 use App\Http\Controllers\v1\AccountsController;
 use App\Http\Controllers\v1\AdminController;
+use App\Http\Controllers\v1\AdminChatController;
 use App\Http\Controllers\v1\AdminProfileController;
 use App\Http\Controllers\v1\AdminContentController;
 use App\Http\Controllers\v1\AdminStandardController;
@@ -402,6 +403,18 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/enquiries',                    [AdminContentController::class, 'enquiries']);
             Route::post('/enquiries/{tab}/{id}/reply',  [AdminContentController::class, 'replyEnquiry'])->whereNumber('id');
             Route::delete('/enquiries/{tab}/{id}',      [AdminContentController::class, 'deleteEnquiry'])->whereNumber('id');
+
+            // Messages — the web panel's chat between admins, sub-admins and accounts
+            Route::prefix('chat')->group(function () {
+                Route::get('/contacts',              [AdminChatController::class, 'contacts']);
+                Route::get('/with/{userId}',         [AdminChatController::class, 'messages'])->whereNumber('userId');
+                Route::post('/with/{userId}',        [AdminChatController::class, 'send'])->whereNumber('userId');
+                Route::post('/messages/delete',      [AdminChatController::class, 'deleteMessages']);
+                Route::post('/messages/pin',         [AdminChatController::class, 'pinMessages']);
+                Route::post('/messages/forward',     [AdminChatController::class, 'forwardMessages']);
+                Route::post('/conversations/delete', [AdminChatController::class, 'deleteConversations']);
+                Route::post('/conversations/pin',    [AdminChatController::class, 'pinConversations']);
+            });
 
             // ─── Phase 1: Academic management (web parity) ───────────────────
 
