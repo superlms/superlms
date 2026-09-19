@@ -66,6 +66,12 @@ class AssignmentController extends Controller
                     ->where(fn($q) => $q->whereNull('end_date')->orWhere('end_date', '>=', now()));
             }
 
+            // The app's list: only what is not past its due date, soonest due first.
+            if ($request->boolean('hide_closed')) {
+                $query->where(fn($q) => $q->whereNull('end_date')->orWhere('end_date', '>=', now()))
+                    ->orderByRaw('end_date IS NULL, end_date ASC');
+            }
+
             $assignments = $query->orderByDesc('id')->paginate((int) $request->get('per_page', 50));
 
             $submissions = AssignmentSubmission::where('user_id', $user->id)
@@ -187,6 +193,37 @@ class AssignmentController extends Controller
                 return $this->responseService->errorResponse('This assignment is closed', 422);
             }
 
+            $existing = AssignmentSubmission::where('assignment_id', $assignment->id)->where('user_id', $user->id)->first();
+
+            // An MCQ is answered once — its answers show after it is sent — and
+            // a written one can be sent again only until it has been checked.
+            if ($existing && $assignment->isMcq()) {
+                return $this->responseService->errorResponse('You have already submitted this assignment', 422);
+            }
+            if ($existing && $existing->status !== 'submitted') {
+                return $this->responseService->errorResponse('Your submission has already been checked', 422);
+            }
+
+            // Something to send: an answer for an MCQ; text and/or a file, as it asks, for a written one.
+            if ($assignment->isMcq()) {
+                if (empty($request->input('answers'))) {
+                    return $this->responseService->errorResponse('Answer the questions before submitting', 422);
+                }
+            } else {
+                $mode    = $assignment->submission_mode ?: 'both';
+                $hasText = trim((string) $request->input('answer_text', '')) !== '';
+                $hasFile = $request->hasFile('file') || ($existing && $existing->file);
+                if ($mode === 'text' && !$hasText) {
+                    return $this->responseService->errorResponse('Write your answer before submitting', 422);
+                }
+                if ($mode === 'file' && !$hasFile) {
+                    return $this->responseService->errorResponse('Attach your file before submitting', 422);
+                }
+                if ($mode === 'both' && !$hasText && !$hasFile) {
+                    return $this->responseService->errorResponse('Write your answer or attach a file before submitting', 422);
+                }
+            }
+
             $detail = StudentDetail::where('user_id', $user->id)
                 ->where('organization_id', $user->organization_id)
                 ->first(['id']);
@@ -218,7 +255,8 @@ class AssignmentController extends Controller
                 Storage::disk('s3')->setVisibility($path, 'public');
 
                 $submission->file      = Storage::disk('s3')->url($path);
-                $submission->file_name = $request->file('file')->getClientOriginalName();
+                // The app sends the name percent-encoded.
+                $submission->file_name = rawurldecode($request->file('file')->getClientOriginalName());
             }
 
             $submission->save();
@@ -300,9 +338,13 @@ class AssignmentController extends Controller
             'type'            => $a->type,
             'submission_mode' => $a->submission_mode,
             'file'            => $a->file,
+            'standard_id'     => $a->standard_id,
             'standard'        => $a->standard->name ?? null,
+            'section_id'      => $a->section_id,
             'section'         => $a->section->name ?? null,
+            'subject_id'      => $a->subject_id,
             'subject'         => $a->subject->name ?? null,
+            'subject_image'   => $a->subject?->iconUrl(),
             'created_by'      => $a->user->name ?? null,
             'start_date'      => $a->start_date?->toDateTimeString(),
             'end_date'        => $a->end_date?->toDateTimeString(),
@@ -314,7 +356,7 @@ class AssignmentController extends Controller
                 'status'       => $submission->status,
                 'answer_text'  => $submission->answer_text,
                 'file'         => $submission->file,
-                'file_name'    => $submission->file_name,
+                'file_name'    => $submission->file_name ? rawurldecode($submission->file_name) : null,
                 'marks'        => $submission->marks !== null ? (float) $submission->marks : null,
                 'mcq_score'    => $submission->mcq_score,
                 'remarks'      => $submission->remarks,

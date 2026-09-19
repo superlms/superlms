@@ -50,6 +50,7 @@ use App\Http\Controllers\v1\QrPaymentController;
 use App\Http\Controllers\v1\ReportCardController;
 use App\Http\Controllers\v1\Student\ExamCopyController as StudentExamCopyController;
 use App\Http\Controllers\v1\Student\MarksController as StudentMarksController;
+use App\Http\Controllers\v1\Teacher\AssignmentController as TeacherAssignmentController;
 use App\Http\Controllers\v1\Teacher\ExamCopyController as TeacherExamCopyController;
 use App\Http\Controllers\v1\Teacher\MarksController as TeacherMarksController;
 use App\Http\Controllers\v1\SeatingPlanController;
@@ -270,6 +271,16 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::post('/{id}',      [TeacherExamCopyController::class, 'update'])->whereNumber('id'); // multipart, accepts _method=PUT
                 Route::put('/{id}',       [TeacherExamCopyController::class, 'update'])->whereNumber('id');
                 Route::delete('/{id}',    [TeacherExamCopyController::class, 'destroy'])->whereNumber('id');
+            });
+
+            // Assignments — the admin panel's, for the teacher's classes and subjects
+            Route::prefix('assignments')->group(function () {
+                Route::get('/',      [TeacherAssignmentController::class, 'index']);
+                Route::post('/',     [TeacherAssignmentController::class, 'store']);
+                Route::get('/{id}',  [TeacherAssignmentController::class, 'show'])->whereNumber('id');
+                Route::post('/{id}', [TeacherAssignmentController::class, 'update'])->whereNumber('id');
+                Route::get('/{id}/submissions/{submissionId}', [TeacherAssignmentController::class, 'submission'])
+                    ->whereNumber('id')->whereNumber('submissionId');
             });
         });
 
