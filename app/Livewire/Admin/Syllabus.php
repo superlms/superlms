@@ -291,6 +291,9 @@ class Syllabus extends Component
         }
 
         $org = Auth::user()->organization_id;
+        // The subject's chapters as they were, so its teachers hear what changed.
+        $push = app(\App\Services\TeacherPushNotifier::class);
+        $before = $push->outlineSnapshot((int) $org, (int) $this->chapterSubjectId);
 
         try {
             DB::beginTransaction();
@@ -326,6 +329,7 @@ class Syllabus extends Component
                 }
             }
             DB::commit();
+            $push->outlineSaved($before);
 
             $deleted = count(array_unique($this->deletedChapterIds));
             $this->notification()->success(
@@ -473,6 +477,8 @@ class Syllabus extends Component
         }
 
         $org = Auth::user()->organization_id;
+        $push = app(\App\Services\TeacherPushNotifier::class);
+        $before = $push->outlineSnapshotOfChapter((int) $this->topicChapterId);
 
         try {
             DB::beginTransaction();
@@ -502,6 +508,7 @@ class Syllabus extends Component
                 }
             }
             DB::commit();
+            $push->outlineSaved($before);
 
             $deleted = count(array_unique($this->deletedTopicIds));
             $this->notification()->success(
@@ -593,9 +600,12 @@ class Syllabus extends Component
             $this->notification()->error('Topic name is required.');
             return;
         }
+        $push = app(\App\Services\TeacherPushNotifier::class);
+        $before = $push->outlineSnapshotOfChapter((int) Topic::whereKey($this->editTopicId)->value('chapter_id'));
         Topic::where('id', $this->editTopicId)
             ->where('organization_id', Auth::user()->organization_id)
             ->update(['topic_name' => trim($this->editTopicName)]);
+        $push->outlineSaved($before);
         $this->notification()->success('Topic updated!');
         $this->closeTopicEdit();
     }
@@ -615,9 +625,12 @@ class Syllabus extends Component
     public function confirmTopicDelete(): void
     {
         if ($this->deleteTopicId) {
+            $push = app(\App\Services\TeacherPushNotifier::class);
+            $before = $push->outlineSnapshotOfChapter((int) Topic::whereKey($this->deleteTopicId)->value('chapter_id'));
             Topic::where('id', $this->deleteTopicId)
                 ->where('organization_id', Auth::user()->organization_id)
                 ->delete();
+            $push->outlineSaved($before);
             $this->notification()->success('Topic deleted!');
             $this->loadStats();
         }

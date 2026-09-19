@@ -309,6 +309,7 @@ class AdminHomeworkController extends ApiController
         try {
             if ($homework->file) $this->deleteFile($homework->file);
             $homework->delete();
+            app(\App\Services\TeacherPushNotifier::class)->homeworkBySchool($homework, 'deleted');
             return $this->success(null, 'Homework deleted successfully!');
         } catch (\Throwable $e) {
             return $this->error('Error deleting homework: ' . $e->getMessage(), 500);

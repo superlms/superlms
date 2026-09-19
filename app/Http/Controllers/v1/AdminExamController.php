@@ -210,6 +210,8 @@ class AdminExamController extends ApiController
         $exam = Exam::where('organization_id', $user->organization_id)->find($id);
         if (!$exam) return $this->error('Exam not found.', 404);
 
+        // Its teachers hear first — its syllabus says who they are.
+        app(\App\Services\TeacherPushNotifier::class)->examDeleting($exam);
         ExamSyllabusChapter::where('exam_id', $exam->id)->delete();
         $exam->delete();
         return $this->success(null, 'Exam deleted successfully!');
@@ -371,6 +373,10 @@ class AdminExamController extends ApiController
         ])) return $err;
 
         $orgId = $user->organization_id;
+        // The syllabus as it was — its teachers hear when it changes (not when it is first set).
+        $push = app(\App\Services\TeacherPushNotifier::class);
+        $before = $push->examSyllabusSnapshot((int) $orgId, (int) $request->exam_id, (int) $request->standard_id,
+            (int) $request->subject_id, array_map('intval', $request->chapter_ids));
 
         try {
             DB::transaction(function () use ($request, $orgId) {
@@ -406,6 +412,7 @@ class AdminExamController extends ApiController
         } catch (\Throwable $e) {
             return $this->error('Error saving syllabus: ' . $e->getMessage(), 500);
         }
+        $push->examSyllabusSaved($before);
 
         return $this->success(null, 'Syllabus saved successfully!');
     }
@@ -421,11 +428,17 @@ class AdminExamController extends ApiController
             'subject_id'  => 'required|integer',
         ])) return $err;
 
+        $push = app(\App\Services\TeacherPushNotifier::class);
+        $before = $push->examSyllabusSnapshot((int) $user->organization_id, (int) $request->exam_id,
+            (int) $request->standard_id, (int) $request->subject_id);
+
         ExamSyllabusChapter::where('organization_id', $user->organization_id)
             ->where('exam_id', $request->exam_id)
             ->where('standard_id', $request->standard_id)
             ->where('subject_id', $request->subject_id)
             ->delete();
+
+        $push->examSyllabusSaved($before);
 
         return $this->success(null, 'Syllabus removed successfully!');
     }

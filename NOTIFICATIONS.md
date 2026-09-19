@@ -81,6 +81,34 @@ Implemented rules (dispatched via `App\Services\AppPushNotifier`, wired in
 > raw `insert()` that doesn't fire model events. Everything else hangs off model
 > `created`/`saved` events so it fires no matter who edits (API, admin, super-admin).
 
+### The teacher's pushes
+
+`App\Services\TeacherPushNotifier`, wired in `AppServiceProvider::bootTeacherPushNotifications()`
+and at the call sites named below. A teacher is never told about their own
+change, and the school-side rules (homework, timetable, chapters, exams) need a
+school user (admin, sub-admin, accounts…) behind the save. One save can write
+many rows, so a request's lines are gathered per teacher and per subject of the
+push and sent as one push when the request ends — only if their transaction
+commits. The body is an intro line and then the details, one per line (up to 8,
+then "+N more").
+
+| Event | type | Teacher(s) | Screen / params | Fired from |
+| --- | --- | --- | --- | --- |
+| Their profile edited | `profile_updated` | the teacher — each field that changed, old → new | `TeacherProfile` | `User::updated`, `TeacherDetail::updated`; super-admin edit via `profileSnapshot()`/`profileSaved()` |
+| Their attendance marked or changed | `attendance_marked` | the teacher — status and remark | `Attendance` / `{month, monthAt}` | `TeacherAttendance::saved` |
+| School adds / edits / deletes homework | `homework_assigned` | who teaches that class + subject | `Homework` | `HomeWork::created/updated`; deletes at `Admin\Homework` + `AdminHomeworkController::destroy` (the 30-day purge stays silent) |
+| A class's timetable saved or deleted | `timetable_changed` | each teacher whose periods in it changed — added, moved, removed | `Timetable` | `timetableSnapshot()`/`timetableSaved()` in `Admin\TimeTable` + `AdminTimetableController` |
+| An arrangement made, changed or removed (today or later) | `timetable_changed` | the substitute and the teacher whose period it is | `Timetable` | `TeacherArrangement` events |
+| A subject newly given (a new subject · class in their timetable) | `subject_assigned` | the teacher | `Subjects` | same as the timetable |
+| School changes chapters / topics (added, renamed, removed, content) | `chapter_updated` | who teaches that subject in that class | `SubjectDetails` / `{combo}` | `Chapter`/`Topic` events; the panel's Syllabus lists via `outlineSnapshot()`/`outlineSaved()` |
+| Exam added, edited, published, withdrawn or deleted | `exam_updated` | the teachers who see it (its syllabus's classes + subjects, or all teachers when it has none); only published exams | `ExamDetail` / `{examId, teacher}` (`ExamsScreen` when it is gone) | `Exam::created/updated`; deletes via `examDeleting()` at `Admin\AddExam` + `AdminExamController::destroy` |
+| Date sheet issued or changed | `datesheet_issued` | teachers of its subjects in that class — their own papers, only when theirs changed | `DateSheet` / `{teacher}` | `Admin\SeatingPlan::saveDatesheet` |
+| Exam syllabus changed (not the first time it is set) | `exam_syllabus_updated` | teachers of that class + subject — chapters added / removed | `ExamSyllabus` / `{teacher}` | `Admin\AddExam::saveSyllabus`, `AdminExamController::storeSyllabus/deleteSyllabus` |
+| School replies to their Contact School query | `query_replied` | the teacher — the reply | `ViewQuery` / `{item}` | `ContactAdminTeacher::updated` |
+
+Announcements (`announcement`), the More pages (`general`) and chat
+(`chat_message`) reach teachers as described above.
+
 ## One-time credentials setup
 
 1. Firebase Console → project **superlms-lms-57e8c** → ⚙ Project settings →

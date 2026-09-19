@@ -336,6 +336,10 @@ class Teacher extends Component
             $userData['image'] = Storage::disk('s3')->url($path);
         }
 
+        // The profile as it was, so the teacher hears what changed.
+        $push = app(\App\Services\TeacherPushNotifier::class);
+        $before = $push->profileSnapshot((int) $this->editUserId);
+
         User::where('id', $this->editUserId)->update($userData);
 
         TeacherDetail::where('id', $this->editDetailId)->update([
@@ -350,6 +354,7 @@ class Teacher extends Component
             'pincode'           => $this->editPincode,
             'emergency_contact' => $this->editEmergencyContact,
         ]);
+        $push->profileSaved($before);
 
         // Email changed → re-send credentials to the NEW address with the
         // SAME (unchanged) password, exactly like the admin module.

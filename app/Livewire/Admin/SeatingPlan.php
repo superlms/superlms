@@ -1104,6 +1104,10 @@ class SeatingPlan extends Component
         }
 
         $orgId = Auth::user()->organization_id;
+        // The papers as they were, so a teacher hears only when theirs change.
+        $push = app(\App\Services\TeacherPushNotifier::class);
+        $before = $push->datesheetSnapshot((int) $orgId, $this->editDatesheetId ? (int) $this->editDatesheetId : null,
+            (int) $this->dsExamId, (int) $this->dsStandardId, $this->dsSectionId ? (int) $this->dsSectionId : null);
 
         DB::transaction(function () use ($orgId) {
             $ds = $this->editDatesheetId
@@ -1142,6 +1146,7 @@ class SeatingPlan extends Component
                 ]);
             }
         });
+        $push->datesheetSaved($before, (int) $this->dsExamId, (int) $this->dsStandardId, $this->dsSectionId ? (int) $this->dsSectionId : null);
 
         // Point the tab's filters at what was just saved, so the sheet is on
         // screen instead of an empty state.

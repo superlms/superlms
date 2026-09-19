@@ -583,6 +583,7 @@ class Homework extends Component
             }
 
             $homework->delete();
+            app(\App\Services\TeacherPushNotifier::class)->homeworkBySchool($homework, 'deleted');
 
             $this->notification()->success('Homework deleted successfully!');
         } catch (\Exception $e) {

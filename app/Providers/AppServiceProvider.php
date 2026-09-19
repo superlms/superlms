@@ -13,7 +13,9 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        // One per request: it gathers a request's teacher pushes and sends them
+        // when the request ends.
+        $this->app->singleton(\App\Services\TeacherPushNotifier::class);
     }
 
     public function boot(): void
@@ -27,6 +29,12 @@ class AppServiceProvider extends ServiceProvider
         // (Attendance is wired in its controller/Livewire because the bulk path
         //  uses raw inserts that don't fire model events.)
         $this->bootAppPushNotifications();
+
+        // The teacher app's pushes: profile, attendance, homework, timetable,
+        // chapters, exams, Contact School. (Saves that write through the query
+        // builder — a class's timetable, the panel's Syllabus lists, exam
+        // syllabus, date sheets — report themselves from where they save.)
+        $this->bootTeacherPushNotifications();
 
         // In-app notifications for the accounts desk (money + messages).
         $this->bootAccountsNotifications();
@@ -145,5 +153,38 @@ class AppServiceProvider extends ServiceProvider
                 );
             });
         }
+    }
+
+    /** Model events → the teacher's pushes ({@see \App\Services\TeacherPushNotifier}). */
+    private function bootTeacherPushNotifications(): void
+    {
+        $teacher = fn () => app(\App\Services\TeacherPushNotifier::class);
+
+        // Profile edited — the users row and the teacher_details row.
+        \App\Models\User::updated(fn ($user) => $teacher()->userUpdated($user));
+        \App\Models\Teacher\TeacherDetail::updated(fn ($detail) => $teacher()->teacherDetailUpdated($detail));
+
+        // Attendance marked — the admin panel, the admin app and the accounts desk.
+        \App\Models\Teacher\TeacherAttendance::saved(fn ($a) => $teacher()->attendanceSaved($a));
+
+        // Homework the school adds or edits in a teacher's class and subject
+        // (deleting is reported where it deletes — the 30-day purge deletes too).
+        \App\Models\Admin\HomeWork::created(fn ($hw) => $teacher()->homeworkBySchool($hw, 'created'));
+        \App\Models\Admin\HomeWork::updated(fn ($hw) => $teacher()->homeworkBySchool($hw, 'updated'));
+
+        // A substitute put on, changed on or taken off a period.
+        foreach (['created', 'updated', 'deleted'] as $verb) {
+            \App\Models\Admin\TeacherArrangement::$verb(fn ($a) => $teacher()->arrangementChanged($a, $verb));
+            \App\Models\Student\Chapter::$verb(fn ($c) => $teacher()->chapterChanged($c, $verb));
+            \App\Models\Student\Topic::$verb(fn ($t) => $teacher()->topicChanged($t, $verb));
+        }
+
+        // An exam added or edited (deleting is reported where it deletes, while
+        // its syllabus still says who teaches it).
+        \App\Models\Admin\Exam::created(fn ($exam) => $teacher()->examSaved($exam, 'created'));
+        \App\Models\Admin\Exam::updated(fn ($exam) => $teacher()->examSaved($exam, 'updated'));
+
+        // The school's reply to a teacher's Contact School query.
+        \App\Models\Admin\ContactAdminTeacher::updated(fn ($c) => $teacher()->contactReplied($c));
     }
 }

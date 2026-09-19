@@ -433,6 +433,8 @@ class AddExam extends Component
         try {
             $exam = Exam::find($this->deleteTargetId);
             if ($exam) {
+                // Its teachers hear first — its syllabus says who they are.
+                app(\App\Services\TeacherPushNotifier::class)->examDeleting($exam);
                 // Cascade delete syllabus rows for this exam
                 ExamSyllabusChapter::where('exam_id', $exam->id)->delete();
                 $exam->delete();
@@ -678,6 +680,10 @@ class AddExam extends Component
         ]);
 
         $orgId = Auth::user()->organization_id;
+        // The syllabus as it was — its teachers hear when it changes (not when it is first set).
+        $push = app(\App\Services\TeacherPushNotifier::class);
+        $before = $push->examSyllabusSnapshot((int) $orgId, (int) $this->sylModalExamId, (int) $this->sylModalStandardId,
+            (int) $this->sylModalSubjectId, array_map('intval', $this->sylModalChapterIds));
 
         try {
             DB::transaction(function () use ($orgId) {
@@ -720,6 +726,7 @@ class AddExam extends Component
                     ]);
                 }
             });
+            $push->examSyllabusSaved($before);
 
             $this->notification()->success(
                 empty($this->sylModalChapterIds)

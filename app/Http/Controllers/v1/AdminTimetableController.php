@@ -261,6 +261,10 @@ class AdminTimetableController extends ApiController
             }
         }
 
+        // The class's timetable as it was, so each teacher hears what changed.
+        $push = app(\App\Services\TeacherPushNotifier::class);
+        $before = $push->timetableSnapshot((int) $orgId, (int) $request->standard_id, (int) $request->section_id);
+
         try {
             $created = DB::transaction(function () use ($request, $orgId, $user, $rows, $isEdit) {
                 if ($isEdit) {
@@ -300,6 +304,7 @@ class AdminTimetableController extends ApiController
         } catch (\Throwable $e) {
             return $this->error('Error saving timetable: ' . $e->getMessage(), 500);
         }
+        $push->timetableSaved($before);
 
         return $this->success(['created' => $created], "{$created} timetable entries " . ($isEdit ? 'updated.' : 'created.'));
     }
@@ -347,10 +352,15 @@ class AdminTimetableController extends ApiController
             'section_id'  => 'required|integer',
         ])) return $err;
 
+        $push = app(\App\Services\TeacherPushNotifier::class);
+        $before = $push->timetableSnapshot((int) $user->organization_id, (int) $request->standard_id, (int) $request->section_id);
+
         TeacherTimeTable::where('organization_id', $user->organization_id)
             ->where('standard_id', $request->standard_id)
             ->where('section_id', $request->section_id)
             ->delete();
+
+        $push->timetableSaved($before);
 
         return $this->success(null, 'Section timetable removed.');
     }

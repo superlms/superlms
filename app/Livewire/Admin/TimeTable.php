@@ -467,6 +467,10 @@ class TimeTable extends Component
             }
         }
 
+        // The class's timetable as it was, so each teacher hears what changed.
+        $push = app(\App\Services\TeacherPushNotifier::class);
+        $before = $push->timetableSnapshot((int) Auth::user()->organization_id, (int) $this->createStandardId, (int) $this->createSectionId);
+
         try {
             DB::beginTransaction();
             $org = Auth::user()->organization_id;
@@ -513,6 +517,7 @@ class TimeTable extends Component
             }
 
             DB::commit();
+            $push->timetableSaved($before);
             $this->notification()->success('Saved!', "{$created} timetable entries " . ($this->isEdit ? 'updated.' : 'created.'));
             $this->closePanel();
             $this->loadStats();
@@ -562,10 +567,13 @@ class TimeTable extends Component
         if (!$this->deleteStandardId || !$this->deleteSectionId) return;
         try {
             $org = Auth::user()->organization_id;
+            $push = app(\App\Services\TeacherPushNotifier::class);
+            $before = $push->timetableSnapshot((int) $org, (int) $this->deleteStandardId, (int) $this->deleteSectionId);
             TeacherTimeTable::where('organization_id', $org)
                 ->where('standard_id', $this->deleteStandardId)
                 ->where('section_id',  $this->deleteSectionId)
                 ->delete();
+            $push->timetableSaved($before);
             $this->notification()->success('Deleted!', 'Section timetable removed.');
             $this->loadStats();
         } catch (\Throwable $e) {
