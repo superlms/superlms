@@ -73,7 +73,7 @@ Implemented rules (dispatched via `App\Services\AppPushNotifier`, wired in
 | Terms & Conditions changed (`TermAndCondition` saved) | `general` | all students + teachers (global) | `TermsConditionsMore` |
 | Rules & Regulations changed (`RulesAndRegulation` saved) | `general` | the org's students + teachers | `RulesRegulationsMore` |
 | School Info changed (`SchoolInfo` saved) | `general` | the org's students + teachers | `SchoolInfoMore` |
-| Teacher/Admin marks attendance (API bulk submit + admin Livewire) | `attendance_marked` | each marked student | `Attendance` — body carries the status |
+| Teacher/Admin marks attendance (teacher app, a teacher's class holiday, admin panel, admin app, accounts desk) | `attendance_marked` | each student whose mark is new or changed | `Attendance` — body carries the status (2 half day, 3/4 holiday) and the day when it is not today |
 | Teacher/Admin adds homework (`HomeWork` created) | `homework_assigned` | students of that class + section | `Homework` / `{homeworkId}` |
 
 > Attendance is wired at its call sites (`AttendanceController::bulkSubmitAttendance`
@@ -108,6 +108,31 @@ then "+N more").
 
 Announcements (`announcement`), the More pages (`general`) and chat
 (`chat_message`) reach teachers as described above.
+
+### The student's pushes
+
+`App\Services\StudentPushNotifier`, wired in `AppServiceProvider::bootStudentPushNotifications()`,
+at the call sites named below, and — syllabus, exam syllabus and date sheets —
+through the teacher's rules, which hand the class's students their part. It
+gathers and sends the same way (`App\Services\Concerns\GathersPushes`); a student
+is never told of their own change.
+
+| Event | type | Student(s) | Screen / params | Fired from |
+| --- | --- | --- | --- | --- |
+| Their profile edited | `profile_updated` | the student — each field, old → new (Aadhaar only "updated") | `StudentProfile` | `User::updated`, `StudentDetail::updated`; super-admin edit via `profileSnapshot()`/`profileSaved()` |
+| An academic installment due in 10, 7, 3, 1 day, today | `fee_due` | every student with something left on it — the amount and the day, and the late fee per day | `Fees` | `fees:remind`, daily 09:00 IST (`sendFeeReminders()`); once per student, installment and day |
+| That installment a day late | `fee_overdue` | the same — "Penalty has started: ₹x per day" (or pay soon, when the school charges none) | `Fees` | same |
+| Fee paid (academic or late fee) | `fee_paid` | the student — amount, receipt, mode, date, late fee included | `Fees` | `FeePayment::created` (a school-QR approval sends its own push instead) |
+| Transport fee paid | `fee_paid` | the student — amount, route, receipt, mode, date | `Fees` | `TransportFeePayment::created` |
+| Their bus's pickup or drop time changed | `transport_updated` | students on that route | `TransportRoute` | `Transportation::updated` |
+| Chapters / topics of a subject changed by the school or a teacher | `syllabus_updated` | the class's students — added, renamed, removed (not notes/files) | `SyllabusDetail` / `{subjectId, subjectName, subjectImage}` | the teacher's chapter rules |
+| Exam syllabus changed (not the first time it is set) | `exam_syllabus_updated` | the class's students — chapters added / removed | `ExamSyllabus` | `examSyllabusSaved()` |
+| Date sheet issued or changed | `datesheet_issued` | the class's (or section's) students — every paper | `DateSheet` | `datesheetSaved()` |
+| Admit card issued (published exam) | `admit_card_issued` | the student | `AdmitCardScreen` | `AdmitCard::created` |
+| Seating plan published | `seating_published` | each student seated in it — room and seat | `SeatingPlanScreen` | `Admin\SeatingPlan::publishPlan` |
+| Report card issued | `report_card_issued` | the student — result | `ReportCardScreen` | `ReportCard::created` |
+| Marks entered or changed | `marks_uploaded` | the student — a line per subject (marks/max · grade, or Absent) | `PerformanceScreen` | `ExamCopy::saved` |
+| School replies to their Contact School query | `query_replied` | the student — the reply | `ViewQuery` / `{item}` | `ContactAdminStudent::updated` |
 
 ## One-time credentials setup
 

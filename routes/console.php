@@ -28,6 +28,14 @@ Schedule::command('id-cards:generate-missing')
     ->dailyAt('00:00')
     ->withoutOverlapping();
 
+// Every morning at 9am IST: fee reminders to students — an academic
+// installment due in 10, 7, 3 or 1 day or today, or a day late (the late fee
+// has started). See App\Services\StudentPushNotifier::sendFeeReminders().
+Schedule::command('fees:remind')
+    ->dailyAt('09:00')
+    ->timezone('Asia/Kolkata')
+    ->withoutOverlapping();
+
 // Every evening at 8pm IST: send super-admins their end-of-day roll-up
 // notifications (schools added to the listing, students/teachers added-edited-
 // deleted, student fees updated, and the day's platform report). Each lands in

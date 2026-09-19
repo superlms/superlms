@@ -460,6 +460,10 @@ class Student extends Component
             $userData['image'] = Storage::disk('s3')->url($path);
         }
 
+        // The profile as it was, so the student hears what changed.
+        $push = app(\App\Services\StudentPushNotifier::class);
+        $before = $push->profileSnapshot((int) $this->editUserId);
+
         User::where('id', $this->editUserId)->update($userData);
 
         $standardBoard = $this->autoBoard($this->editStandardId, $this->editOrgId) ?: null;
@@ -488,6 +492,7 @@ class Student extends Component
             'appar_id'                => $this->editApparId ?: null,
             'registration_number'     => $this->editRegNo ?: null,
         ]);
+        $push->profileSaved($before);
 
         $detail = StudentDetail::find($this->editDetailId);
         if ($detail) {

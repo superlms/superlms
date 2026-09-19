@@ -221,13 +221,18 @@ class AttendanceController extends Controller
                 return $this->responseService->errorResponse($windowError, 403);
             }
 
+            // What was recorded before, so only a new or changed mark is pushed.
+            $before = StudentAttendance::whereDate('attendance_date', $validated['attendance_date'])
+                ->whereIn('student_detail_id', collect($validated['attendances'])->pluck('student_detail_id'))
+                ->pluck('status', 'student_detail_id');
+
             $results = $this->attendanceService->bulkSubmitAttendance(
                 $validated,
                 $user->id,
                 $user->organization_id
             );
 
-            // Push a notification to each student whose attendance was marked.
+            // Push a notification to each student whose attendance was marked or changed.
             $userIdByDetail = StudentDetail::whereIn(
                 'id',
                 collect($validated['attendances'])->pluck('student_detail_id')
@@ -236,8 +241,9 @@ class AttendanceController extends Controller
             $notifyRows = [];
             foreach ($validated['attendances'] as $a) {
                 $uid = $userIdByDetail[$a['student_detail_id']] ?? null;
-                if ($uid) {
-                    $notifyRows[] = ['user_id' => $uid, 'status' => $a['status']];
+                $was = $before[$a['student_detail_id']] ?? null;
+                if ($uid && ($was === null || (int) $was !== (int) $a['status'])) {
+                    $notifyRows[] = ['user_id' => $uid, 'status' => $a['status'], 'date' => $validated['attendance_date']];
                 }
             }
             app(AppPushNotifier::class)->attendanceMarked($notifyRows);
@@ -332,6 +338,9 @@ class AttendanceController extends Controller
                     $count++;
                 }
             });
+
+            app(AppPushNotifier::class)->attendanceMarked($students->whereNotNull('user_id')
+                ->map(fn ($s) => ['user_id' => $s->user_id, 'status' => 4, 'date' => $date])->values()->all());
 
             return $this->responseService->success([
                 'date'            => $date,

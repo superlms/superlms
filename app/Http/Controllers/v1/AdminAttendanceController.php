@@ -311,7 +311,7 @@ class AdminAttendanceController extends ApiController
                     ['user_id' => $row['user_id'] ?? 0, 'status' => $statusInt, 'remarks' => $row['remark'] ?? '', 'marked_by' => $user->id]
                 );
                 if (!empty($row['user_id'])) {
-                    $notifyRows[] = ['user_id' => $row['user_id'], 'status' => $statusInt];
+                    $notifyRows[] = ['user_id' => $row['user_id'], 'status' => $statusInt, 'date' => $request->date];
                 }
             }
         });

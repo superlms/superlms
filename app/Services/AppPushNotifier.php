@@ -93,9 +93,10 @@ class AppPushNotifier
 
     /**
      * Attendance was marked/updated for a set of students. Each student gets
-     * their own notification with the recorded status.
+     * their own notification with the recorded status, and the day when it is
+     * not today.
      *
-     * @param  array<int, array{user_id?: int|null, status?: mixed}>  $rows
+     * @param  array<int, array{user_id?: int|null, status?: mixed, date?: string|null}>  $rows
      */
     public function attendanceMarked(array $rows): void
     {
@@ -107,12 +108,14 @@ class AppPushNotifier
                 }
 
                 $status = $this->statusLabel($row['status'] ?? null);
+                $date = !empty($row['date']) ? \Carbon\Carbon::parse($row['date']) : null;
+                $for = $date && !$date->isToday() ? ' for ' . $date->format('d M Y') : '';
 
                 $this->fcm()->notifyUserIds([(int) $userId], 'attendance_marked', [
                     'title'  => 'Attendance Marked',
                     'body'   => $status
-                        ? "Your attendance has been marked as {$status}."
-                        : 'Your attendance has been marked.',
+                        ? "Your attendance{$for} has been marked as {$status}."
+                        : "Your attendance{$for} has been marked.",
                     'screen' => 'Attendance',
                 ]);
             }
@@ -193,12 +196,13 @@ class AppPushNotifier
 
     private function statusLabel($code): ?string
     {
+        // As the panel stores them (2 half day, 3 holiday); the teacher app
+        // writes 4 for a holiday.
         return match ((int) $code) {
             0 => 'Absent',
             1 => 'Present',
-            2 => 'Late',
-            3 => 'Half Day',
-            4 => 'Holiday',
+            2 => 'Half Day',
+            3, 4 => 'Holiday',
             default => null,
         };
     }

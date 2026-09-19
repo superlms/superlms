@@ -13,9 +13,10 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        // One per request: it gathers a request's teacher pushes and sends them
-        // when the request ends.
+        // One each per request: they gather a request's teacher and student
+        // pushes and send them when the request ends.
         $this->app->singleton(\App\Services\TeacherPushNotifier::class);
+        $this->app->singleton(\App\Services\StudentPushNotifier::class);
     }
 
     public function boot(): void
@@ -35,6 +36,12 @@ class AppServiceProvider extends ServiceProvider
         // builder — a class's timetable, the panel's Syllabus lists, exam
         // syllabus, date sheets — report themselves from where they save.)
         $this->bootTeacherPushNotifications();
+
+        // The student app's pushes: profile, fees paid, bus timings, admit
+        // cards, report cards, marks, Contact School. (Syllabus, exam syllabus
+        // and date sheets go with the teacher's; fee reminders are a daily
+        // command — fees:remind.)
+        $this->bootStudentPushNotifications();
 
         // In-app notifications for the accounts desk (money + messages).
         $this->bootAccountsNotifications();
@@ -186,5 +193,30 @@ class AppServiceProvider extends ServiceProvider
 
         // The school's reply to a teacher's Contact School query.
         \App\Models\Admin\ContactAdminTeacher::updated(fn ($c) => $teacher()->contactReplied($c));
+    }
+
+    /** Model events → the student's pushes ({@see \App\Services\StudentPushNotifier}). */
+    private function bootStudentPushNotifications(): void
+    {
+        $student = fn () => app(\App\Services\StudentPushNotifier::class);
+
+        // Profile edited — the users row and the student_details row.
+        \App\Models\User::updated(fn ($user) => $student()->userUpdated($user));
+        \App\Models\Student\StudentDetail::updated(fn ($detail) => $student()->studentDetailUpdated($detail));
+
+        // A fee or transport fee booked — counter, panel, admin app or online.
+        \App\Models\Admin\Fee\FeePayment::created(fn ($p) => $student()->feePaid($p));
+        \App\Models\Admin\TransportFeePayment::created(fn ($p) => $student()->transportFeePaid($p));
+
+        // Their bus's pickup / drop time changed.
+        \App\Models\Admin\Transportation::updated(fn ($t) => $student()->routeTimesChanged($t));
+
+        // Admit card and report card issued, marks entered or changed.
+        \App\Models\Student\AdmitCard::created(fn ($card) => $student()->admitCardIssued($card));
+        \App\Models\Admin\ReportCard::created(fn ($rc) => $student()->reportCardIssued($rc));
+        \App\Models\Admin\ExamCopy::saved(fn ($copy) => $student()->marksSaved($copy));
+
+        // The school's reply to a student's Contact School query.
+        \App\Models\Admin\ContactAdminStudent::updated(fn ($c) => $student()->contactReplied($c));
     }
 }

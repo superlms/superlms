@@ -821,6 +821,8 @@ class SeatingPlan extends Component
         SeatingPlanModel::where('id', $id)
             ->where('organization_id', Auth::user()->organization_id)
             ->update(['status' => 'published']);
+        // Each student seated in it hears their room and seat.
+        app(\App\Services\StudentPushNotifier::class)->seatingPublished($id);
         $this->notification()->success('Plan published.');
     }
 

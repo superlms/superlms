@@ -10,14 +10,13 @@ use App\Models\Admin\HomeWork;
 use App\Models\Admin\TeacherArrangement;
 use App\Models\Admin\TeacherTimeTable;
 use App\Models\Student\Chapter;
-use App\Models\Student\Section;
-use App\Models\Student\Standard;
 use App\Models\Student\Subject;
 use App\Models\Student\Topic;
 use App\Models\Teacher\TeacherAttendance;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\Teacher\TeacherSubject;
 use App\Models\User;
+use App\Services\Concerns\GathersPushes;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -41,18 +40,14 @@ use Illuminate\Support\Str;
  * Announcements, the More pages and chat stay with {@see AppPushNotifier} and
  * the chat controller.
  *
- * A save often writes many rows (a class's whole timetable, a list of chapters),
- * so nothing goes out at once: each teacher's lines are gathered per subject of
- * the notification and sent as one push when the request ends, and only if the
- * transaction they were written in commits. Everything fails open — a push must
- * never break the save behind it.
+ * Pushes are gathered per teacher and sent when the request ends
+ * ({@see GathersPushes}).
  */
 class TeacherPushNotifier
 {
-    private const TEACHER = 'teacher';
+    use GathersPushes;
 
-    /** Lines a push lists before "+N more". */
-    private const MAX_LINES = 8;
+    private const TEACHER = 'teacher';
 
     private const DAYS = [1 => 'Mon', 2 => 'Tue', 3 => 'Wed', 4 => 'Thu', 5 => 'Fri', 6 => 'Sat', 7 => 'Sun'];
 
@@ -84,11 +79,6 @@ class TeacherPushNotifier
         'total_marks'   => 'Total marks',
         'passing_marks' => 'Passing marks',
     ];
-
-    /** @var array<string, array> one pending push per teacher and subject */
-    private array $outbox = [];
-
-    private bool $flushBound = false;
 
     // ── Profile ───────────────────────────────────────────────────────────────
 
@@ -347,7 +337,7 @@ class TeacherPushNotifier
     public function chapterChanged(Chapter $c, string $verb): void
     {
         $this->safe(function () use ($c, $verb) {
-            if (!$this->schoolActor()) {
+            if (!$this->staffActor()) {
                 return;
             }
             $name = (string) $c->name;
@@ -365,14 +355,14 @@ class TeacherPushNotifier
                     $lines["ch:{$c->id}:content"] = $line;
                 }
             }
-            $this->queueOutline((int) $c->organization_id, (int) $c->standard_id, $this->sectionOrNull($c->section_id), (int) $c->subject_id, $lines);
+            $this->outlineChanged((int) $c->organization_id, (int) $c->standard_id, $this->sectionOrNull($c->section_id), (int) $c->subject_id, $lines);
         });
     }
 
     public function topicChanged(Topic $t, string $verb): void
     {
         $this->safe(function () use ($t, $verb) {
-            if (!$this->schoolActor()) {
+            if (!$this->staffActor()) {
                 return;
             }
             $chapter = Chapter::find($t->chapter_id);
@@ -395,7 +385,7 @@ class TeacherPushNotifier
                     $lines["tp:{$chapter->id}:{$t->id}:content"] = $line;
                 }
             }
-            $this->queueOutline((int) $chapter->organization_id, (int) $chapter->standard_id, $this->sectionOrNull($chapter->section_id), (int) $chapter->subject_id, $lines);
+            $this->outlineChanged((int) $chapter->organization_id, (int) $chapter->standard_id, $this->sectionOrNull($chapter->section_id), (int) $chapter->subject_id, $lines);
         });
     }
 
@@ -423,7 +413,7 @@ class TeacherPushNotifier
             return;
         }
         $this->safe(function () use ($before) {
-            if (!$this->schoolActor()) {
+            if (!$this->staffActor()) {
                 return;
             }
             $was = $before['chapters'];
@@ -460,7 +450,7 @@ class TeacherPushNotifier
 
             foreach ($byClass as $class => $lines) {
                 [$standardId, $sectionId] = array_map('intval', explode('|', $class));
-                $this->queueOutline($before['org'], $standardId, $sectionId ?: null, $before['subject'], $lines);
+                $this->outlineChanged($before['org'], $standardId, $sectionId ?: null, $before['subject'], $lines);
             }
         });
     }
@@ -579,6 +569,11 @@ class TeacherPushNotifier
             $class = $this->className($standardId, $sectionId);
             $isNew = empty($before['papers']);
 
+            // The class's students hear of the whole sheet, when any paper changed.
+            if ($before['papers'] != $now) {
+                app(StudentPushNotifier::class)->datesheetIssued($exam, $sheet, $standardId, $sectionId, $isNew);
+            }
+
             foreach ($this->teachingRows($orgId, $standardId, $sectionId, $subjects)->groupBy('user_id') as $userId => $rows) {
                 $mine = $rows->pluck('subject_id')->unique();
                 $changed = $mine->contains(fn ($s) => ($before['papers'][$s] ?? null) !== ($now[$s] ?? null));
@@ -668,6 +663,7 @@ class TeacherPushNotifier
                 }
 
                 $section = $was['section'];
+                app(StudentPushNotifier::class)->examSyllabusChanged($exam, $standardId, $section, $subjectId, $lines);
                 $intro = "{$exam->exam_name} syllabus for " . $this->subjectName($subjectId) . ' · ' . $this->className($standardId, $section) . ' has changed:';
                 foreach ($this->teachingRows($orgId, $standardId, $section, [$subjectId])->pluck('user_id')->unique() as $userId) {
                     $this->queue((int) $userId, "syllabus:{$key}", [
@@ -715,94 +711,6 @@ class TeacherPushNotifier
                 ]],
             ], ['reply' => Str::limit($reply, 600)]);
         });
-    }
-
-    // ── Sending ───────────────────────────────────────────────────────────────
-
-    /**
-     * Add lines to a teacher's pending push for $group (created with $meta the
-     * first time). Keyed lines replace each other; it waits for the open
-     * transaction to commit and is dropped if it rolls back.
-     *
-     * @param  array{type:string,title:string,intro:string,screen?:string,params?:array}  $meta
-     * @param  array<int|string, string>  $lines
-     */
-    private function queue(?int $userId, string $group, array $meta, array $lines): void
-    {
-        if (!$userId) {
-            return;
-        }
-        DB::afterCommit(function () use ($userId, $group, $meta, $lines) {
-            $key = "{$userId}|{$group}";
-            $entry = $this->outbox[$key] ?? $meta + ['user' => $userId, 'lines' => []];
-            foreach ($lines as $k => $line) {
-                $entry['lines'][is_int($k) ? $line : $k] = $line;
-            }
-            $this->outbox[$key] = $entry;
-
-            if (!$this->flushBound) {
-                $this->flushBound = true;
-                app()->terminating(fn () => $this->flush());
-            }
-        });
-    }
-
-    /** Send what the request gathered — one push per teacher and subject, alike ones together. */
-    public function flush(): void
-    {
-        $outbox = $this->outbox;
-        $this->outbox = [];
-        $this->flushBound = false;
-
-        $same = [];
-        foreach ($outbox as $entry) {
-            $lines = $this->pruned($entry['lines']);
-            if (!$lines && trim((string) $entry['intro']) === '') {
-                continue;
-            }
-            $more = count($lines) - self::MAX_LINES;
-            $lines = array_slice($lines, 0, self::MAX_LINES);
-            if ($more > 0) {
-                $lines[] = "+{$more} more";
-            }
-            $payload = [
-                'type'   => $entry['type'],
-                'title'  => $entry['title'],
-                'body'   => Str::limit(trim($entry['intro'] . ($lines ? "\n" . implode("\n", $lines) : '')), 1500),
-                'screen' => $entry['screen'] ?? null,
-                'params' => $entry['params'] ?? null,
-            ];
-            $hash = md5(json_encode($payload));
-            $same[$hash]['payload'] = $payload;
-            $same[$hash]['users'][] = $entry['user'];
-        }
-
-        foreach ($same as ['payload' => $payload, 'users' => $users]) {
-            try {
-                app(FirebaseNotificationService::class)->notifyUserIds($users, $payload['type'], $payload);
-            } catch (\Throwable $e) {
-                logger()->warning('[push] teacher notification failed (is FIREBASE_CREDENTIALS set?)', [
-                    'type'  => $payload['type'],
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        }
-    }
-
-    /** A chapter's removal says it all — drop the lines about its topics. */
-    private function pruned(array $lines): array
-    {
-        foreach ($lines as $key => $line) {
-            if (is_string($key) && preg_match('/^ch:(\d+)$/', $key, $m) && str_starts_with($line, 'Chapter removed')) {
-                foreach (array_keys($lines) as $k) {
-                    if (is_string($k) && str_starts_with($k, "tp:{$m[1]}:")) {
-                        unset($lines[$k]);
-                    }
-                }
-            }
-        }
-
-        return array_values($lines);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -892,6 +800,18 @@ class TeacherPushNotifier
         $empty = collect($columns)->every(fn ($c) => $this->norm($m->getAttributes()[$c] ?? null) === '');
 
         return $empty ? "Content removed from {$what}" : "Content updated in {$what}";
+    }
+
+    /**
+     * Chapter and topic lines: to the subject's teachers when the school made
+     * the change, and to the class's students (their syllabus) whoever did.
+     */
+    private function outlineChanged(int $orgId, int $standardId, ?int $sectionId, int $subjectId, array $lines): void
+    {
+        if ($this->schoolActor()) {
+            $this->queueOutline($orgId, $standardId, $sectionId, $subjectId, $lines);
+        }
+        app(StudentPushNotifier::class)->syllabusChanged($orgId, $standardId, $sectionId, $subjectId, $lines);
     }
 
     /** Queue outline lines to every teacher of that subject in that class, opening the subject's chapters. */
@@ -1081,6 +1001,14 @@ class TeacherPushNotifier
         ];
     }
 
+    /** Whoever is saving, when it is the school or a teacher — not a student. */
+    private function staffActor(): ?User
+    {
+        $user = Auth::user();
+
+        return $user && $user->role !== 'user' ? $user : null;
+    }
+
     /** A school-side user (admin, sub-admin, accounts…) doing the save, or null. */
     private function schoolActor(): ?User
     {
@@ -1106,48 +1034,6 @@ class TeacherPushNotifier
         return ($userId ? User::whereKey($userId)->value('name') : null) ?: 'another teacher';
     }
 
-    private function subjectName(int $id): string
-    {
-        return Subject::whereKey($id)->value('name') ?: 'Subject';
-    }
-
-    private function standardName(int $id): ?string
-    {
-        return Standard::whereKey($id)->value('name');
-    }
-
-    private function sectionName(int $id): ?string
-    {
-        return $id ? Section::whereKey($id)->value('name') : null;
-    }
-
-    /** "10th A" — the class as the app names it, with its section when there is one. */
-    private function className(int $standardId, ?int $sectionId): string
-    {
-        return trim(($this->standardName($standardId) ?? 'Class') . ' ' . ($sectionId ? ($this->sectionName($sectionId) ?? '') : ''));
-    }
-
-    private function sectionOrNull($id): ?int
-    {
-        return (int) $id ?: null;
-    }
-
-    private function timeRange($start, $end): string
-    {
-        $fmt = fn ($t) => $t ? Carbon::parse((string) $t)->format('g:i A') : null;
-
-        return implode(' – ', array_filter([$fmt($start), $fmt($end)]));
-    }
-
-    private function dateRange($start, $end): string
-    {
-        $fmt = fn ($d) => $d ? Carbon::parse($d)->format('d M Y') : null;
-        $a = $fmt($start);
-        $b = $fmt($end);
-
-        return $a && $b && $a !== $b ? "{$a} – {$b}" : ($a ?? $b ?? '—');
-    }
-
     private function examValue(string $col, $value): string
     {
         $value = $this->norm($value);
@@ -1156,48 +1042,5 @@ class TeacherPushNotifier
         }
 
         return $col === 'exam_type' ? Str::headline($value) : Str::limit($value, 60);
-    }
-
-    private function day($value): ?string
-    {
-        try {
-            return $value ? Carbon::parse($value)->toDateString() : null;
-        } catch (\Throwable) {
-            return null;
-        }
-    }
-
-    /** A value as text, so 1 / true / "1" and null / "" read alike. */
-    private function norm($value): string
-    {
-        if (is_bool($value)) {
-            return $value ? '1' : '0';
-        }
-        if ($value instanceof \DateTimeInterface) {
-            return $value->format('Y-m-d H:i:s');
-        }
-
-        return is_scalar($value) ? trim((string) $value) : '';
-    }
-
-    /** $fn's result, or null when it throws — a snapshot must never stop the save it is taken for. */
-    private function attempt(callable $fn)
-    {
-        try {
-            return $fn();
-        } catch (\Throwable $e) {
-            logger()->warning('[push] teacher notification snapshot skipped', ['error' => $e->getMessage()]);
-
-            return null;
-        }
-    }
-
-    private function safe(callable $fn): void
-    {
-        try {
-            $fn();
-        } catch (\Throwable $e) {
-            logger()->warning('[push] teacher notification skipped', ['error' => $e->getMessage()]);
-        }
     }
 }
