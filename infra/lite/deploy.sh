@@ -13,6 +13,14 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
+echo "==> Freeing disk before the build (old build cache + images no container uses)"
+# Every deploy leaves a build's cache and the previous image behind, and the box
+# once ran out of disk mid-build. Images of running containers and all volumes
+# (MySQL, Redis, storage) are kept.
+docker builder prune -af >/dev/null 2>&1 || true
+docker image prune -af >/dev/null 2>&1 || true
+df -h / | tail -1
+
 echo "==> Building image + starting data services"
 $COMPOSE build
 $COMPOSE up -d mysql redis
