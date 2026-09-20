@@ -70,6 +70,26 @@
     @endif
 
     {{-- ══════════════════════════════════════════════════
+         REMOVE — the confirm card the rest of the panel uses
+    ══════════════════════════════════════════════════ --}}
+    @if ($showDeleteConfirm)
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[60] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/30 backdrop-blur-[1.5px]" wire:click="cancelRemove"></div>
+            <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+                <div class="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-6 h-6 text-rose-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" /></svg>
+                </div>
+                <h3 class="text-lg font-bold text-gray-900">Remove the payment QR?</h3>
+                <p class="text-sm text-gray-500 mt-1">Students will no longer be able to pay on it from the app. Payments already sent stay in QR Payments.</p>
+                <div class="flex items-center justify-center gap-3 mt-6">
+                    <button wire:click="cancelRemove" class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 border border-gray-200 rounded-lg">Cancel</button>
+                    <button wire:click="removeQr" class="px-5 py-2 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-lg">Remove</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- ══════════════════════════════════════════════════
          SLIDE-IN PANEL — add or edit the QR
     ══════════════════════════════════════════════════ --}}
     @if ($showPanel)

@@ -119,7 +119,13 @@ class QrPagesSmokeTest extends TestCase
             ->assertSee('school@okaxis')
             ->assertSee('Live in the app')
             ->dispatch('payment-qr-add')
-            ->assertSee('Edit payment QR');
+            ->assertSee('Edit payment QR')
+            // Removing asks on the panel's own confirm card, not WireUi's dialog.
+            ->call('confirmRemove')
+            ->assertSet('showDeleteConfirm', true)
+            ->assertSee('Remove the payment QR?')
+            ->call('cancelRemove')
+            ->assertSet('showDeleteConfirm', false);
     }
 
     public function test_qr_payments_takes_the_header_filters_including_the_day(): void

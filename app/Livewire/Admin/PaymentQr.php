@@ -28,6 +28,7 @@ class PaymentQr extends Component
     use WireUiActions, WithFileUploads;
 
     public bool $showPanel = false;
+    public bool $showDeleteConfirm = false;
 
     public $qrImage = null;           // a new upload, not yet saved
     public string $upiId = '';
@@ -140,19 +141,21 @@ class PaymentQr extends Component
 
     // ── Removing ─────────────────────────────────────────────────────────────
 
+    /** The panel's own confirm card, as every other delete here asks. */
     public function confirmRemove(): void
     {
-        $this->dialog()->confirm([
-            'title'       => 'Remove the payment QR?',
-            'description' => 'Students will no longer be able to pay on it from the app. Payments already sent stay in QR Payments.',
-            'icon'        => 'error',
-            'accept'      => ['label' => 'Yes, remove', 'method' => 'removeQr'],
-            'reject'      => ['label' => 'Cancel'],
-        ]);
+        $this->showDeleteConfirm = true;
+    }
+
+    public function cancelRemove(): void
+    {
+        $this->showDeleteConfirm = false;
     }
 
     public function removeQr(): void
     {
+        $this->showDeleteConfirm = false;
+
         $qr = PaymentQrCode::forOrg($this->orgId());
         if (!$qr) {
             return;
