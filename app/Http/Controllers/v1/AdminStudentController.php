@@ -20,12 +20,16 @@ use Illuminate\Support\Facades\Storage;
  * Mirrors app/Livewire/Admin/Student.php — listing with filters/stats, full
  * profile CRUD, auto-generated admission_no / roll_no, board derived from the
  * chosen class, and transport-route sync. Org-scoped, role-gated.
+ *
+ * A class teacher works the same screen for their own class through
+ * Teacher\StudentController, which extends this one and narrows it with
+ * guard(), restrict() and mayTouch().
  */
 class AdminStudentController extends ApiController
 {
     private const ADMIN_ROLES = ['admin', 'sub-admin'];
 
-    private function guard(): array
+    protected function guard(): array
     {
         [$user, $err] = $this->authUser();
         if ($err) return [null, $err];
@@ -36,9 +40,23 @@ class AdminStudentController extends ApiController
         return [$user, null];
     }
 
+    // ════════════ WHAT THIS ACCOUNT MAY TOUCH ════════════
+
+    /** Narrow a students query; an admin sees the whole school. */
+    protected function restrict($query)
+    {
+        return $query;
+    }
+
+    /** May this account keep a student in this class and section? */
+    protected function mayTouch(?int $standardId, ?int $sectionId): bool
+    {
+        return true;
+    }
+
     // ══════════════════════════ LIST + STATS ══════════════════════════
 
-    private function shapeRow(StudentDetail $d): array
+    protected function shapeRow(StudentDetail $d): array
     {
         return [
             'id'           => $d->id,
@@ -65,8 +83,8 @@ class AdminStudentController extends ApiController
         if ($err) return $err;
         $orgId = $user->organization_id;
 
-        $query = StudentDetail::with(['user', 'standard', 'section'])
-            ->whereHas('user', fn ($q) => $q->where('organization_id', $orgId))
+        $query = $this->restrict(StudentDetail::with(['user', 'standard', 'section'])
+            ->whereHas('user', fn ($q) => $q->where('organization_id', $orgId)))
             ->when($request->filled('search'), fn ($q) => $q->where(fn ($q) => $q
                 ->where('full_name', 'like', "%{$request->search}%")
                 ->orWhere('admission_no', 'like', "%{$request->search}%")
@@ -100,9 +118,11 @@ class AdminStudentController extends ApiController
         ], 'Students fetched.');
     }
 
-    private function stats(int $orgId): array
+    protected function stats(int $orgId): array
     {
-        $s = StudentDetail::where('organization_id', $orgId)->selectRaw('
+        $base = fn () => $this->restrict(StudentDetail::where('organization_id', $orgId));
+
+        $s = $base()->selectRaw('
             COUNT(*) as total,
             SUM(CASE WHEN YEAR(created_at) = ? THEN 1 ELSE 0 END) as this_year,
             SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) as last_month
@@ -112,8 +132,7 @@ class AdminStudentController extends ApiController
             'total'      => (int) ($s->total ?? 0),
             'this_year'  => (int) ($s->this_year ?? 0),
             'last_month' => (int) ($s->last_month ?? 0),
-            'active'     => StudentDetail::where('organization_id', $orgId)
-                ->whereHas('user', fn ($q) => $q->where('is_active', true))->count(),
+            'active'     => $base()->whereHas('user', fn ($q) => $q->where('is_active', true))->count(),
         ];
     }
 
@@ -154,7 +173,9 @@ class AdminStudentController extends ApiController
 
         $d = StudentDetail::with(['user', 'standard', 'section', 'transportations'])
             ->where('organization_id', $user->organization_id)->find($id);
-        if (!$d || !$d->user) return $this->error('Student not found.', 404);
+        if (!$d || !$d->user || !$this->mayTouch($d->standard_id, $d->section_id)) {
+            return $this->error('Student not found.', 404);
+        }
 
         $route = $d->transportations->first();
 
@@ -234,6 +255,10 @@ class AdminStudentController extends ApiController
         $transportRequired = $request->boolean('transportation_required');
         if ($err = $this->validateWith($request, $this->rules(false, $transportRequired))) return $err;
 
+        if (!$this->mayTouch((int) $request->standard_id, (int) $request->section_id)) {
+            return $this->error('You can only add students to your own class.', 403);
+        }
+
         // Email collision handling (mirrors web: block other accounts, reuse orphan).
         $orphanUserId = null;
         $existing = User::where('email', $request->email)->first(['id', 'role', 'organization_id']);
@@ -310,11 +335,16 @@ class AdminStudentController extends ApiController
         $orgId = $user->organization_id;
 
         $detail = StudentDetail::where('organization_id', $orgId)->find($id);
-        if (!$detail) return $this->error('Student not found.', 404);
+        if (!$detail || !$this->mayTouch($detail->standard_id, $detail->section_id)) {
+            return $this->error('Student not found.', 404);
+        }
         $student = User::find($detail->user_id);
         if (!$student) return $this->error('Student account not found.', 404);
 
         $transportRequired = $request->boolean('transportation_required');
+        if (!$this->mayTouch((int) $request->standard_id, (int) $request->section_id)) {
+            return $this->error('You can only keep students in your own class.', 403);
+        }
         $rules = $this->rules(true, $transportRequired);
         $rules['email'] .= '|unique:users,email,' . $student->id . ',id,role,user,organization_id,' . $orgId;
         if ($err = $this->validateWith($request, $rules)) return $err;
@@ -421,7 +451,9 @@ class AdminStudentController extends ApiController
         if ($err) return $err;
 
         $detail = StudentDetail::where('organization_id', $user->organization_id)->find($id);
-        if (!$detail) return $this->error('Student not found.', 404);
+        if (!$detail || !$this->mayTouch($detail->standard_id, $detail->section_id)) {
+            return $this->error('Student not found.', 404);
+        }
 
         $student = User::find($detail->user_id);
         if ($student && $student->image) $this->safeS3Delete($student->image);

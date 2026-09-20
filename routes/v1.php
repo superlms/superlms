@@ -53,6 +53,7 @@ use App\Http\Controllers\v1\Student\MarksController as StudentMarksController;
 use App\Http\Controllers\v1\Teacher\AssignmentController as TeacherAssignmentController;
 use App\Http\Controllers\v1\Teacher\ExamCopyController as TeacherExamCopyController;
 use App\Http\Controllers\v1\Teacher\MarksController as TeacherMarksController;
+use App\Http\Controllers\v1\Teacher\StudentController as TeacherStudentController;
 use App\Http\Controllers\v1\SeatingPlanController;
 use App\Http\Controllers\v1\StudentContactController;
 use App\Http\Controllers\v1\SubjectController;
@@ -271,6 +272,18 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::post('/{id}',      [TeacherExamCopyController::class, 'update'])->whereNumber('id'); // multipart, accepts _method=PUT
                 Route::put('/{id}',       [TeacherExamCopyController::class, 'update'])->whereNumber('id');
                 Route::delete('/{id}',    [TeacherExamCopyController::class, 'destroy'])->whereNumber('id');
+            });
+
+            // Students — the admin panel's Students module, for the class a
+            // teacher is class teacher of.
+            Route::prefix('students')->group(function () {
+                Route::get('/classes',  [TeacherStudentController::class, 'classes']);
+                Route::get('/lookups',  [TeacherStudentController::class, 'lookups']);
+                Route::get('/',         [TeacherStudentController::class, 'index']);
+                Route::get('/{id}',     [TeacherStudentController::class, 'show'])->whereNumber('id');
+                Route::post('/',        [TeacherStudentController::class, 'store']);
+                Route::post('/{id}',    [TeacherStudentController::class, 'update'])->whereNumber('id');
+                Route::delete('/{id}',  [TeacherStudentController::class, 'destroy'])->whereNumber('id');
             });
 
             // Assignments — the admin panel's, for the teacher's classes and subjects
