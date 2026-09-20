@@ -1,9 +1,9 @@
-<div class="space-y-5">
+<div>
     @php
         $statusPill = [
-            'pending'  => ['To check', 'bg-amber-100 text-amber-700'],
-            'approved' => ['Approved', 'bg-emerald-100 text-emerald-700'],
-            'rejected' => ['Rejected', 'bg-rose-100 text-rose-600'],
+            'pending'  => ['To check', 'bg-amber-50 text-amber-700 border-amber-100', 'bg-amber-500'],
+            'approved' => ['Approved', 'bg-green-50 text-green-700 border-green-100', 'bg-green-500'],
+            'rejected' => ['Rejected', 'bg-red-50 text-red-600 border-red-100', 'bg-red-500'],
         ];
         $feeLabel = fn ($r) => $r->fee_type === 'transport' ? 'Transport' : 'Academic';
         $forLine  = function ($r) {
@@ -13,143 +13,128 @@
             return $r->meta['installment'] ?? null;
         };
         $orgId = auth()->user()->organization_id;
+        $filtered = $search !== '' || $feeType !== '' || $date !== '';
     @endphp
 
     {{-- ══════════════════════════════════════════════════
-         FIGURES
+         DESKTOP TABLE (hidden on mobile)
     ══════════════════════════════════════════════════ --}}
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <button type="button" wire:click="setStatus('pending')"
-            class="text-left bg-white rounded-xl border p-4 flex items-center gap-3 transition-all hover:shadow-md {{ $status === 'pending' ? 'border-amber-300 ring-1 ring-amber-200' : 'border-gray-200' }}">
-            <div class="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
-                <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            </div>
-            <div class="min-w-0">
-                <p class="text-xs text-gray-500">To check</p>
-                <p class="text-lg font-bold text-gray-900 leading-tight">{{ $stats['pending_count'] }}
-                    <span class="text-sm font-semibold text-gray-500">· ₹{{ number_format($stats['pending_amount'], 0) }}</span></p>
-            </div>
-        </button>
-        <button type="button" wire:click="setStatus('approved')"
-            class="text-left bg-white rounded-xl border p-4 flex items-center gap-3 transition-all hover:shadow-md {{ $status === 'approved' ? 'border-emerald-300 ring-1 ring-emerald-200' : 'border-gray-200' }}">
-            <div class="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            </div>
-            <div class="min-w-0">
-                <p class="text-xs text-gray-500">Approved this month</p>
-                <p class="text-lg font-bold text-gray-900 leading-tight">{{ $stats['approved_count'] }}
-                    <span class="text-sm font-semibold text-gray-500">· ₹{{ number_format($stats['approved_amount'], 0) }}</span></p>
-            </div>
-        </button>
-        <button type="button" wire:click="setStatus('rejected')"
-            class="text-left bg-white rounded-xl border p-4 flex items-center gap-3 transition-all hover:shadow-md {{ $status === 'rejected' ? 'border-rose-300 ring-1 ring-rose-200' : 'border-gray-200' }}">
-            <div class="w-10 h-10 rounded-lg bg-rose-50 flex items-center justify-center flex-shrink-0">
-                <svg class="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            </div>
-            <div class="min-w-0">
-                <p class="text-xs text-gray-500">Rejected this month</p>
-                <p class="text-lg font-bold text-gray-900 leading-tight">{{ $stats['rejected_count'] }}</p>
-            </div>
-        </button>
-    </div>
-
-    {{-- ══════════════════════════════════════════════════
-         LIST
-    ══════════════════════════════════════════════════ --}}
-    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {{-- Filters --}}
-        <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center gap-3">
-            <div class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 text-xs font-medium">
-                @foreach (['pending' => 'To check', 'approved' => 'Approved', 'rejected' => 'Rejected', '' => 'All'] as $key => $label)
-                    <button type="button" wire:click="setStatus('{{ $key }}')"
-                        class="px-3 py-1.5 rounded-md transition-colors {{ $status === $key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800' }}">
-                        {{ $label }}
-                    </button>
-                @endforeach
-            </div>
-            <select wire:model.live="feeType"
-                class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
-                <option value="">All fees</option>
-                <option value="academic">Academic</option>
-                <option value="transport">Transport</option>
-            </select>
-            <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search student, admission no. or UTR..."
-                class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-64 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" />
-            @if ($feeType !== '' || $search !== '')
-                <button wire:click="clearFilters" class="text-xs text-emerald-600 hover:text-emerald-800 font-medium">Clear</button>
-            @endif
-        </div>
-
+    <div class="hidden md:block bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full text-sm min-w-[860px]">
-                <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
-                        <th class="px-4 py-3 text-left">Student</th>
-                        <th class="px-4 py-3 text-left">Fee</th>
-                        <th class="px-4 py-3 text-right">Amount</th>
-                        <th class="px-4 py-3 text-left">UTR</th>
-                        <th class="px-4 py-3 text-left">Paid on</th>
-                        <th class="px-4 py-3 text-center">Proof</th>
-                        <th class="px-4 py-3 text-center w-28">Status</th>
-                        <th class="px-4 py-3 text-center w-24"></th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Student</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Fee</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">UTR</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Paid On</th>
+                        <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                    @forelse ($requests as $r)
+                    @forelse ($requests as $index => $r)
                         @php
                             $st = $r->studentDetail;
-                            [$pillText, $pillClass] = $statusPill[$r->status] ?? [ucfirst($r->status), 'bg-gray-100 text-gray-600'];
+                            [$pillText, $pillClass] = $statusPill[$r->status] ?? [ucfirst($r->status), 'bg-gray-50 text-gray-600 border-gray-100'];
                             $for = $forLine($r);
                         @endphp
-                        <tr wire:key="qrp-{{ $r->id }}" class="hover:bg-gray-50/70 cursor-pointer" wire:click="openReview({{ $r->id }})">
+                        <tr wire:key="qrp-{{ $r->id }}" class="hover:bg-gray-50/70 transition-colors">
+
+                            {{-- S.No --}}
                             <td class="px-4 py-3">
-                                <p class="font-medium text-gray-800 truncate max-w-[220px]">{{ $st?->full_name ?: 'Student removed' }}</p>
-                                <p class="text-xs text-gray-400 truncate">
-                                    {{ $st?->standard?->name ?? '—' }}{{ $st?->section ? ' · ' . $st->section->name : '' }}
-                                    @if ($st?->admission_no) · {{ $st->admission_no }} @endif
-                                </p>
+                                <span class="text-sm text-gray-500 font-medium">{{ $requests->firstItem() + $index }}</span>
                             </td>
+
+                            {{-- Student --}}
                             <td class="px-4 py-3">
-                                <p class="text-gray-700">{{ $feeLabel($r) }}</p>
-                                @if ($for)<p class="text-xs text-gray-400 truncate max-w-[160px]">{{ $for }}</p>@endif
+                                <div class="flex items-center gap-3">
+                                    @if ($st?->image)
+                                        <img src="{{ $st->image }}" class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                                    @else
+                                        <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                            <span class="text-xs font-semibold text-indigo-600">{{ strtoupper(mb_substr($st?->full_name ?: 'S', 0, 1)) }}</span>
+                                        </div>
+                                    @endif
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-semibold text-gray-900 truncate">{{ $st?->full_name ?: 'Student removed' }}</p>
+                                        <p class="text-xs text-gray-400 truncate">
+                                            {{ $st?->standard?->name ?? '—' }}{{ $st?->section ? ' · ' . $st->section->name : '' }}
+                                            @if ($st?->admission_no) · {{ $st->admission_no }} @endif
+                                        </p>
+                                    </div>
+                                </div>
                             </td>
+
+                            {{-- Fee --}}
+                            <td class="px-4 py-3">
+                                <span class="text-xs px-2 py-0.5 rounded-full font-medium border {{ $r->fee_type === 'transport' ? 'bg-purple-50 text-purple-700 border-purple-100' : 'bg-blue-50 text-blue-700 border-blue-100' }}">
+                                    {{ $feeLabel($r) }}
+                                </span>
+                                @if ($for)<p class="text-xs text-gray-400 truncate max-w-[160px] mt-1">{{ $for }}</p>@endif
+                            </td>
+
+                            {{-- Amount --}}
                             <td class="px-4 py-3 text-right">
-                                <p class="font-semibold text-gray-900">₹{{ number_format((float) ($r->approved_amount ?? $r->amount), 2) }}</p>
+                                <p class="text-sm font-semibold text-gray-900">₹{{ number_format((float) ($r->approved_amount ?? $r->amount), 2) }}</p>
                                 @if ($r->approved_amount !== null && (float) $r->approved_amount !== (float) $r->amount)
                                     <p class="text-xs text-gray-400 line-through">₹{{ number_format((float) $r->amount, 2) }}</p>
                                 @endif
                             </td>
-                            <td class="px-4 py-3 font-mono text-xs text-gray-600">{{ $r->utr ?: '—' }}</td>
+
+                            {{-- UTR --}}
                             <td class="px-4 py-3">
-                                <p class="text-gray-700">{{ $r->paid_on?->format('d M Y') ?? '—' }}</p>
+                                <span class="text-sm font-mono text-gray-700">{{ $r->utr ?: '—' }}</span>
+                            </td>
+
+                            {{-- Paid on --}}
+                            <td class="px-4 py-3">
+                                <p class="text-sm text-gray-700">{{ $r->paid_on?->format('d M Y') ?? '—' }}</p>
                                 <p class="text-xs text-gray-400">sent {{ $r->created_at?->diffForHumans() }}</p>
                             </td>
+
+                            {{-- Status --}}
                             <td class="px-4 py-3 text-center">
-                                @if ($r->screenshot_path)
-                                    <span title="Screenshot attached" class="inline-flex items-center justify-center w-7 h-7 rounded-md bg-gray-100 text-gray-500">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                    </span>
-                                @else
-                                    <span class="text-gray-300">—</span>
-                                @endif
+                                <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium border {{ $pillClass }}">
+                                    <span class="w-1.5 h-1.5 rounded-full {{ $statusPill[$r->status][2] ?? 'bg-gray-400' }}"></span>
+                                    {{ $pillText }}
+                                </span>
                             </td>
-                            <td class="px-4 py-3 text-center">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $pillClass }}">{{ $pillText }}</span>
-                            </td>
-                            <td class="px-4 py-3 text-center">
-                                <span class="text-xs font-semibold {{ $r->isPending() ? 'text-emerald-600' : 'text-gray-500' }}">{{ $r->isPending() ? 'Check' : 'View' }} →</span>
+
+                            {{-- Actions --}}
+                            <td class="px-4 py-3">
+                                <div class="flex items-center justify-center gap-1">
+                                    @if ($r->screenshot_path)
+                                        <span title="Screenshot attached" class="p-1.5 text-gray-400">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                        </span>
+                                    @endif
+                                    <button wire:click="openReview({{ $r->id }})" title="{{ $r->isPending() ? 'Check' : 'View' }}"
+                                        class="p-1.5 rounded-lg transition-colors {{ $r->isPending() ? 'text-emerald-600 hover:bg-emerald-50' : 'text-blue-600 hover:bg-blue-50' }}">
+                                        @if ($r->isPending())
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                        @else
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                        @endif
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="px-4 py-14 text-center">
-                                <p class="text-gray-500 font-medium">
-                                    @if ($search !== '' || $feeType !== '')
-                                        Nothing matches this filter.
+                            <td colspan="8" class="px-6 py-16 text-center">
+                                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                </div>
+                                <p class="text-gray-500 text-sm">
+                                    @if ($filtered)
+                                        Nothing matches this filter
                                     @elseif ($status === 'pending')
-                                        Nothing to check — you're all caught up.
+                                        Nothing to check — you are all caught up
                                     @else
-                                        No {{ $status === '' ? '' : $status . ' ' }}QR payments yet.
+                                        No {{ $status === '' ? '' : $status . ' ' }}QR payments yet
                                     @endif
                                 </p>
                                 <p class="text-xs text-gray-400 mt-1">Payments students report from the app after paying on your QR land here.</p>
@@ -159,8 +144,132 @@
                 </tbody>
             </table>
         </div>
+
+        {{-- Pagination (Desktop) --}}
         @if ($requests->hasPages())
-            <div class="px-4 py-3 border-t border-gray-100">{{ $requests->links() }}</div>
+            <div class="px-6 py-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <p class="text-sm text-gray-500">
+                    Showing <span class="font-medium text-gray-700">{{ $requests->firstItem() }}</span>
+                    to <span class="font-medium text-gray-700">{{ $requests->lastItem() }}</span>
+                    of <span class="font-medium text-gray-700">{{ $requests->total() }}</span> payments
+                </p>
+                <div class="flex items-center gap-1">
+                    @if ($requests->onFirstPage())
+                        <span class="px-3 py-1.5 text-sm text-gray-300 border border-gray-200 rounded-lg cursor-not-allowed">&laquo; Prev</span>
+                    @else
+                        <button wire:click="previousPage" class="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">&laquo; Prev</button>
+                    @endif
+
+                    @foreach ($requests->getUrlRange(max(1, $requests->currentPage() - 2), min($requests->lastPage(), $requests->currentPage() + 2)) as $page => $url)
+                        <button wire:click="gotoPage({{ $page }})"
+                            class="px-3 py-1.5 text-sm rounded-lg transition-colors {{ $page == $requests->currentPage() ? 'bg-blue-600 text-white border border-blue-600' : 'text-gray-600 border border-gray-300 hover:bg-gray-50' }}">
+                            {{ $page }}
+                        </button>
+                    @endforeach
+
+                    @if ($requests->hasMorePages())
+                        <button wire:click="nextPage" class="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">Next &raquo;</button>
+                    @else
+                        <span class="px-3 py-1.5 text-sm text-gray-300 border border-gray-200 rounded-lg cursor-not-allowed">Next &raquo;</span>
+                    @endif
+                </div>
+            </div>
+        @endif
+    </div>
+
+    {{-- ══════════════════════════════════════════════════
+         MOBILE CARDS (shown only on mobile)
+    ══════════════════════════════════════════════════ --}}
+    <div class="md:hidden space-y-3">
+        @forelse ($requests as $index => $r)
+            @php
+                $st = $r->studentDetail;
+                [$pillText, $pillClass] = $statusPill[$r->status] ?? [ucfirst($r->status), 'bg-gray-50 text-gray-600 border-gray-100'];
+                $for = $forLine($r);
+            @endphp
+            <div wire:key="qrp-m-{{ $r->id }}" class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                {{-- Card Header --}}
+                <div class="flex items-center gap-3 p-4 border-b border-gray-100">
+                    <span class="text-xs font-bold text-gray-400 w-6 text-center">{{ $requests->firstItem() + $index }}</span>
+                    @if ($st?->image)
+                        <img src="{{ $st->image }}" class="w-10 h-10 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                    @else
+                        <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                            <span class="text-sm font-semibold text-indigo-600">{{ strtoupper(mb_substr($st?->full_name ?: 'S', 0, 1)) }}</span>
+                        </div>
+                    @endif
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-gray-900 truncate">{{ $st?->full_name ?: 'Student removed' }}</p>
+                        <p class="text-xs text-gray-400 truncate">{{ $st?->standard?->name ?? '—' }}{{ $st?->section ? ' · ' . $st->section->name : '' }}</p>
+                    </div>
+                    <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium border {{ $pillClass }}">
+                        <span class="w-1.5 h-1.5 rounded-full {{ $statusPill[$r->status][2] ?? 'bg-gray-400' }}"></span>
+                        {{ $pillText }}
+                    </span>
+                </div>
+
+                {{-- Card Body --}}
+                <div class="px-4 py-3">
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                            <p class="text-xs text-gray-400">Amount</p>
+                            <p class="text-gray-900 font-semibold">₹{{ number_format((float) ($r->approved_amount ?? $r->amount), 2) }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-400">Fee</p>
+                            <p class="text-gray-700 font-medium">{{ $feeLabel($r) }}{{ $for ? ' · ' . $for : '' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-400">UTR</p>
+                            <p class="text-gray-700 font-mono text-xs font-medium">{{ $r->utr ?: '—' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-400">Paid on</p>
+                            <p class="text-gray-700 font-medium">{{ $r->paid_on?->format('d M Y') ?? '—' }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Card Action --}}
+                <div class="border-t border-gray-100">
+                    <button wire:click="openReview({{ $r->id }})"
+                        class="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors {{ $r->isPending() ? 'text-emerald-600 hover:bg-emerald-50' : 'text-blue-600 hover:bg-blue-50' }}">
+                        @if ($r->isPending())
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            Check
+                        @else
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                            View
+                        @endif
+                    </button>
+                </div>
+            </div>
+        @empty
+            <div class="bg-white rounded-xl border border-gray-200 px-6 py-12 text-center">
+                <div class="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
+                <p class="text-gray-500 text-sm">
+                    @if ($filtered)
+                        Nothing matches this filter
+                    @elseif ($status === 'pending')
+                        Nothing to check — you are all caught up
+                    @else
+                        No {{ $status === '' ? '' : $status . ' ' }}QR payments yet
+                    @endif
+                </p>
+            </div>
+        @endforelse
+
+        {{-- Pagination (Mobile) --}}
+        @if ($requests->hasPages())
+            <div class="bg-white rounded-xl border border-gray-200 px-4 py-3 flex items-center justify-between gap-3">
+                <button wire:click="previousPage" @disabled($requests->onFirstPage())
+                    class="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg disabled:opacity-40">&laquo; Prev</button>
+                <span class="text-xs text-gray-500">Page {{ $requests->currentPage() }} of {{ $requests->lastPage() }}</span>
+                <button wire:click="nextPage" @disabled(!$requests->hasMorePages())
+                    class="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg disabled:opacity-40">Next &raquo;</button>
+            </div>
         @endif
     </div>
 

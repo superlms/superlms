@@ -2,10 +2,10 @@
 
 namespace App\Livewire\Admin;
 
-use App\Models\Admin\Fee\FeePaymentRequest;
 use App\Models\Admin\Fee\PaymentQrCode;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use WireUi\Traits\WireUiActions;
@@ -15,12 +15,19 @@ use WireUi\Traits\WireUiActions;
  * Fees screen and pay on. The money goes straight to the school's account; what
  * they report (UTR / screenshot) waits in Fees → QR Payments to be checked.
  *
+ * The page is only the QR itself, large, with edit and remove on it. Adding or
+ * changing it happens in the slide-in panel — the image (previewed there as
+ * soon as it uploads), the UPI ID, the account name, a note, and whether
+ * students see it.
+ *
  * One QR per school. The image is kept on S3 by its key, public — it is meant
  * to be shown.
  */
 class PaymentQr extends Component
 {
     use WireUiActions, WithFileUploads;
+
+    public bool $showPanel = false;
 
     public $qrImage = null;           // a new upload, not yet saved
     public string $upiId = '';
@@ -35,11 +42,6 @@ class PaymentQr extends Component
         'qrImage.max'      => 'The QR image must be 2 MB or smaller.',
         'upiId.regex'      => 'Enter a UPI ID like school@okaxis.',
     ];
-
-    public function mount(): void
-    {
-        $this->fillFromSaved();
-    }
 
     private function orgId(): int
     {
@@ -57,6 +59,31 @@ class PaymentQr extends Component
         $this->isActive     = $qr ? (bool) $qr->is_active : true;
         $this->resetValidation();
     }
+
+    // ── The panel ────────────────────────────────────────────────────────────
+
+    /** Add or edit — the header's button, and the pencil on the QR. */
+    #[On('payment-qr-add')]
+    public function openPanel(): void
+    {
+        $this->fillFromSaved();
+        $this->showPanel = true;
+    }
+
+    public function closePanel(): void
+    {
+        $this->showPanel = false;
+        $this->qrImage   = null;
+        $this->resetValidation();
+    }
+
+    public function clearUpload(): void
+    {
+        $this->qrImage = null;
+        $this->resetValidation('qrImage');
+    }
+
+    // ── Saving ───────────────────────────────────────────────────────────────
 
     public function save(): void
     {
@@ -107,32 +134,11 @@ class PaymentQr extends Component
             $qr ? 'Payment QR updated' : 'Payment QR added',
             $this->isActive ? 'Students can now pay fees on it from the app.' : 'It stays hidden from students until you switch it on.'
         );
-        $this->fillFromSaved();
+
+        $this->closePanel();
     }
 
-    /** Show or hide the saved QR in the app, without touching anything else. */
-    public function toggleActive(): void
-    {
-        $qr = PaymentQrCode::forOrg($this->orgId());
-        if (!$qr) {
-            $this->isActive = !$this->isActive;
-            return;
-        }
-
-        $qr->update(['is_active' => !$qr->is_active, 'updated_by' => Auth::id()]);
-        $this->isActive = (bool) $qr->is_active;
-
-        $this->notification()->success(
-            $qr->is_active ? 'QR switched on' : 'QR switched off',
-            $qr->is_active ? 'Students can pay on it from the app again.' : 'Students no longer see it in the app.'
-        );
-    }
-
-    public function clearUpload(): void
-    {
-        $this->qrImage = null;
-        $this->resetValidation('qrImage');
-    }
+    // ── Removing ─────────────────────────────────────────────────────────────
 
     public function confirmRemove(): void
     {
@@ -176,8 +182,7 @@ class PaymentQr extends Component
 
     public function render()
     {
-        $orgId = $this->orgId();
-        $qr    = PaymentQrCode::forOrg($orgId);
+        $qr = PaymentQrCode::forOrg($this->orgId());
 
         $preview = null;
         if ($this->qrImage) {
@@ -188,15 +193,10 @@ class PaymentQr extends Component
             }
         }
 
-        $pending = FeePaymentRequest::where('organization_id', $orgId)
-            ->where('status', FeePaymentRequest::STATUS_PENDING);
-
         return view('livewire.admin.payment-qr', [
-            'qr'            => $qr,
-            'savedUrl'      => $qr?->imageUrl(),
-            'previewUrl'    => $preview,
-            'pendingCount'  => (clone $pending)->count(),
-            'pendingAmount' => (float) (clone $pending)->sum('amount'),
+            'qr'         => $qr,
+            'savedUrl'   => $qr?->imageUrl(),
+            'previewUrl' => $preview,
         ]);
     }
 }

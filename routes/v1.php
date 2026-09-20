@@ -348,6 +348,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/delivered', [ChatController::class, 'delivered']);
             Route::post('/block', [ChatController::class, 'block']);
             Route::post('/unblock', [ChatController::class, 'unblock']);
+            Route::post('/attachments/received', [ChatController::class, 'attachmentsReceived']);
             Route::post('/conversations/delete', [ChatController::class, 'deleteConversations']);
         });
 
@@ -362,6 +363,10 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/academic',   [FeeController::class, 'academic']);
             Route::get('/transport',  [FeeController::class, 'transport']);
             Route::get('/penalties',  [FeeController::class, 'penalties']);
+
+            // One academic receipt as the school issues it (transport ones are
+            // at /transport/receipt/{id}/pdf).
+            Route::get('/receipt/{id}/pdf', [FeeController::class, 'receiptPdf'])->whereNumber('id');
 
             // Online fee payment (PhonePe) — initiation is rate-limited.
             Route::post('/pay', [PaymentController::class, 'initiate'])->middleware('throttle:payments');

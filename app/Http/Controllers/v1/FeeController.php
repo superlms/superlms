@@ -9,6 +9,8 @@ use App\Models\Admin\Fee\FeeSettings;
 use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Admin\TransportFeePayment;
 use App\Models\Student\StudentDetail;
+use App\Support\FeeReceipt;
+use App\Support\TransportBilling;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -264,6 +266,30 @@ class FeeController extends ApiController
         ], 'Penalties fetched successfully.');
     }
 
+    /**
+     * GET /api/v1/fees/receipt/{id}/pdf
+     *
+     * One of this student's own academic fee receipts, as the school issues
+     * it. The transport ones are at /transport/receipt/{id}/pdf.
+     */
+    public function receiptPdf(int $id)
+    {
+        [$student, $err] = $this->resolveStudent();
+        if ($err) return $err;
+
+        $payment = FeePayment::with(FeeReceipt::WITH)
+            ->where('organization_id', $student->organization_id)
+            ->where('student_detail_id', $student->id)
+            ->where('fee_type', 'academic')
+            ->find($id);
+
+        if (!$payment) {
+            return $this->error('Receipt not found.', 404);
+        }
+
+        return FeeReceipt::pdf($payment)->stream("Fee_Receipt_{$payment->receipt_number}.pdf");
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /** Academic-year month order (April first, March last). */
@@ -516,14 +542,14 @@ class FeeController extends ApiController
             ->get();
 
         $academicDue  = (float) $structures->where('fee_type', 'academic')->sum('amount');
-        $transportDue = $student->transportation_required
-            ? (float) $structures->where('fee_type', 'transport')->sum('amount')
-            : 0.0;
+        // Transport is charged on the student's route (monthly fee × billed
+        // months) and paid into transport_fee_payments — see TransportBilling.
+        $transportDue = (float) TransportBilling::forStudent($orgId, $student->id)[1];
 
         $payments = FeePayment::forStudent($student->id)->forOrg($orgId)->get();
 
         $academicPaid  = (float) $payments->where('fee_type', 'academic')->sum('amount');
-        $transportPaid = (float) $payments->where('fee_type', 'transport')->sum('amount');
+        $transportPaid = (float) (TransportBilling::paidByStudent($orgId, [$student->id])[$student->id] ?? 0);
         $penalties     = (float) $payments->sum('penalty_amount');
         $waived        = (float) $payments->sum('waiver_amount');
 

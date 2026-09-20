@@ -6,6 +6,7 @@ use App\Livewire\Concerns\HandlesStudentFeeView;
 use App\Models\Admin\Fee\FeePaymentRequest;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithPagination;
 use RuntimeException;
@@ -22,10 +23,11 @@ class QrPayments extends Component
 {
     use WireUiActions, WithPagination, HandlesStudentFeeView;
 
-    // Filters
+    // Filters — the bar lives in the Fee header; it pushes them here.
     public string $status  = FeePaymentRequest::STATUS_PENDING; // '' = all
     public string $feeType = '';
     public string $search  = '';
+    public string $date    = '';                                // paid on this day
 
     // Review panel
     public bool $showPanel = false;
@@ -47,20 +49,14 @@ class QrPayments extends Component
             : null;
     }
 
-    public function updatedStatus(): void  { $this->resetPage(); }
-    public function updatedFeeType(): void { $this->resetPage(); }
-    public function updatedSearch(): void  { $this->resetPage(); }
-
-    public function setStatus(string $status): void
+    /** The filter bar in the Fee header sends every change here. */
+    #[On('qr-filter')]
+    public function applyFilters(string $status = '', string $feeType = '', string $search = '', string $date = ''): void
     {
-        $this->status = $status;
-        $this->resetPage();
-    }
-
-    public function clearFilters(): void
-    {
-        $this->feeType = '';
-        $this->search  = '';
+        $this->status  = $status;
+        $this->feeType = $feeType;
+        $this->search  = $search;
+        $this->date    = $date;
         $this->resetPage();
     }
 
@@ -177,15 +173,6 @@ class QrPayments extends Component
         $orgId = $this->orgId();
         $base  = FeePaymentRequest::where('organization_id', $orgId);
 
-        $monthStart = now()->startOfMonth();
-        $stats = [
-            'pending_count'   => (clone $base)->where('status', FeePaymentRequest::STATUS_PENDING)->count(),
-            'pending_amount'  => (float) (clone $base)->where('status', FeePaymentRequest::STATUS_PENDING)->sum('amount'),
-            'approved_count'  => (clone $base)->where('status', FeePaymentRequest::STATUS_APPROVED)->where('reviewed_at', '>=', $monthStart)->count(),
-            'approved_amount' => (float) (clone $base)->where('status', FeePaymentRequest::STATUS_APPROVED)->where('reviewed_at', '>=', $monthStart)->sum('approved_amount'),
-            'rejected_count'  => (clone $base)->where('status', FeePaymentRequest::STATUS_REJECTED)->where('reviewed_at', '>=', $monthStart)->count(),
-        ];
-
         $search = trim($this->search);
 
         $requests = (clone $base)
@@ -198,6 +185,7 @@ class QrPayments extends Component
             ])
             ->when($this->status !== '', fn ($q) => $q->where('status', $this->status))
             ->when($this->feeType !== '', fn ($q) => $q->where('fee_type', $this->feeType))
+            ->when($this->date !== '', fn ($q) => $q->whereDate('paid_on', $this->date))
             ->when($search !== '', function ($q) use ($search) {
                 $q->where(function ($q) use ($search) {
                     $q->where('utr', 'like', '%' . strtoupper(preg_replace('/\s+/', '', $search)) . '%')
@@ -229,7 +217,6 @@ class QrPayments extends Component
 
         return view('livewire.admin.qr-payments', [
             'requests' => $requests,
-            'stats'    => $stats,
             'review'   => $review,
             'ledger'   => $ledger,
         ]);

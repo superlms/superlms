@@ -13,6 +13,7 @@ use App\Livewire\Concerns\HandlesFeeCycles;
 use App\Models\Admin\Fee\FeeConcession;
 use App\Models\Admin\Fee\FeePaymentRequest;
 use App\Models\Admin\Fee\FeeStructure;
+use App\Models\Admin\Fee\PaymentQrCode;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\User;
@@ -62,6 +63,12 @@ class Fee extends Component
     // ─── Account Users (nested component — filters proxied via events) ──────────
     public string $acctSearch = '';
     public string $acctStatus = '';
+
+    // ─── QR Payments (nested component — filters proxied via events) ───────────
+    public string $qrStatus  = FeePaymentRequest::STATUS_PENDING;
+    public string $qrFeeType = '';
+    public string $qrSearch  = '';
+    public string $qrDate    = '';
 
     // ─── Shared ───────────────────────────────────────────────────────────────
     public $search      = '';
@@ -132,15 +139,47 @@ class Fee extends Component
         $this->dispatch('acct-filter', search: '', status: '')->to(AccountUsers::class);
     }
 
+    // ─── QR Payments proxy (the filter bar lives in the fee header) ───────────
+    public function updatedQrStatus(): void  { $this->pushQrFilters(); }
+    public function updatedQrFeeType(): void { $this->pushQrFilters(); }
+    public function updatedQrSearch(): void  { $this->pushQrFilters(); }
+    public function updatedQrDate(): void    { $this->pushQrFilters(); }
+
+    public function qrClearFilters(): void
+    {
+        $this->resetQrFilters();
+        $this->pushQrFilters();
+    }
+
+    private function resetQrFilters(): void
+    {
+        $this->qrStatus  = FeePaymentRequest::STATUS_PENDING;
+        $this->qrFeeType = '';
+        $this->qrSearch  = '';
+        $this->qrDate    = '';
+    }
+
+    private function pushQrFilters(): void
+    {
+        $this->dispatch(
+            'qr-filter',
+            status: $this->qrStatus,
+            feeType: $this->qrFeeType,
+            search: $this->qrSearch,
+            date: $this->qrDate,
+        )->to(QrPayments::class);
+    }
+
     public function showTab(string $tab): void
     {
         $this->activeTab = $tab;
         $this->resetPage();
         $this->search = '';
-        // Account-users filters live in this header; reset them on every switch
-        // so they match the freshly-mounted nested component.
+        // The nested components' filters live in this header; reset them on
+        // every switch so they match the freshly-mounted component.
         $this->acctSearch = '';
         $this->acctStatus = '';
+        $this->resetQrFilters();
 
         if ($tab === 'analytics') {
             $this->loadAnalytics();
@@ -314,6 +353,25 @@ class Fee extends Component
             $data['qrPending'] = FeePaymentRequest::where('organization_id', $orgId)
                 ->where('status', FeePaymentRequest::STATUS_PENDING)
                 ->count();
+        }
+
+        if ($this->activeTab === 'qr_payments') {
+            // What the header counts — the chosen day, or everything.
+            $qrBase = fn () => FeePaymentRequest::where('organization_id', $orgId)
+                ->when($this->qrDate !== '', fn ($q) => $q->whereDate('paid_on', $this->qrDate));
+
+            $data['qrStats'] = [
+                'total'    => $qrBase()->count(),
+                'amount'   => (float) $qrBase()->sum('amount'),
+                'pending'  => $qrBase()->where('status', FeePaymentRequest::STATUS_PENDING)->count(),
+                'approved' => $qrBase()->where('status', FeePaymentRequest::STATUS_APPROVED)->count(),
+                'rejected' => $qrBase()->where('status', FeePaymentRequest::STATUS_REJECTED)->count(),
+            ];
+        }
+
+        if ($this->activeTab === 'payment_qr') {
+            // The header's button reads Add or Edit.
+            $data['qrExists'] = PaymentQrCode::where('organization_id', $orgId)->exists();
         }
 
         if ($this->activeTab === 'account_users') {
