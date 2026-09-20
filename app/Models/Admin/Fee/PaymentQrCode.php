@@ -7,7 +7,9 @@ use Illuminate\Support\Facades\Storage;
 
 /**
  * The school's own UPI QR that students pay fees on from the app. One per
- * school; the image lives on S3 (public — it is meant to be shown) by its key.
+ * school; the image lives on S3 by its key, under admin/ — the prefix the media
+ * bucket reads out without a signature, which is what imageUrl() hands the
+ * panel and the app.
  */
 class PaymentQrCode extends Model
 {

@@ -107,7 +107,7 @@ class QrPagesSmokeTest extends TestCase
     {
         PaymentQrCode::create([
             'organization_id' => $this->org,
-            'qr_path'         => 'fees/qr/4/qr.png',
+            'qr_path'         => 'admin/fees/qr/4/qr.png',
             'upi_id'          => 'school@okaxis',
             'payee_name'      => 'Springfield School',
             'is_active'       => true,

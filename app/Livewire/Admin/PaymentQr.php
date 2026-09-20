@@ -20,8 +20,10 @@ use WireUi\Traits\WireUiActions;
  * soon as it uploads), the UPI ID, the account name, a note, and whether
  * students see it.
  *
- * One QR per school. The image is kept on S3 by its key, public — it is meant
- * to be shown.
+ * One QR per school. The image is kept on S3 by its key, under admin/ — the
+ * media bucket serves that prefix (with super-admin/, superadmin/ and website/)
+ * without a signature, and the QR is shown by its plain URL here and in the
+ * app. Saved anywhere else it is a broken image on both.
  */
 class PaymentQr extends Component
 {
@@ -106,7 +108,7 @@ class PaymentQr extends Component
         $path = $old;
 
         if ($this->qrImage) {
-            $path = $this->qrImage->store("fees/qr/{$orgId}", 's3');
+            $path = $this->qrImage->store("admin/fees/qr/{$orgId}", 's3');
             if (!$path) {
                 $this->notification()->error('Upload failed', 'Could not upload the QR image. Please try again.');
                 return;
