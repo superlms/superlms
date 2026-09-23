@@ -78,19 +78,38 @@ class AttendanceController extends Controller
 
             $date = $request->date ?? now()->toDateString();
 
-            // Get students for each assigned class
+            // Get students for each assigned class. A teacher may be class
+            // teacher of several sections of one class: those come as one
+            // list, the section assigned first leading, each section's
+            // students A to Z by name. Different classes stay apart.
             $studentsByClass = collect();
 
-            foreach ($teacherDetail->assignedClasses as $assignment) {
+            $groups = $teacherDetail->assignedClasses
+                ->sortBy('id')
+                ->groupBy('standard_id', true)
+                ->values();
+
+            foreach ($groups as $group) {
+                $assignment = $group->first();
+                // One of them for the whole class (no section) means all of it.
+                $wholeClass = $group->contains(fn ($a) => !$a->section_id);
+                $sectionIds = $group->pluck('section_id')->filter()->map(fn ($id) => (int) $id)->unique()->values();
+
                 $students = StudentDetail::with(['user', 'standard', 'section'])
                     ->where('organization_id', $user->organization_id)
                     ->where('standard_id', $assignment->standard_id);
 
-                if ($assignment->section_id) {
-                    $students->where('section_id', $assignment->section_id);
+                if (!$wholeClass) {
+                    $students->whereIn('section_id', $sectionIds->all());
                 }
 
-                $students = $students->orderBy('roll_no')->get();
+                $sectionRank = $sectionIds->flip();
+                $students = $students->get()
+                    ->sortBy([
+                        fn ($a, $b) => ($sectionRank[(int) $a->section_id] ?? PHP_INT_MAX) <=> ($sectionRank[(int) $b->section_id] ?? PHP_INT_MAX),
+                        fn ($a, $b) => strcasecmp(trim((string) $a->full_name), trim((string) $b->full_name)),
+                    ])
+                    ->values();
 
                 // Get attendance for each student for the date
                 $studentIds = $students->pluck('id')->toArray();
@@ -128,15 +147,22 @@ class AttendanceController extends Controller
                     ];
                 });
 
+                // Its sections, in the order they were assigned: "5 - A, B".
+                $sectionNames = $wholeClass
+                    ? collect()
+                    : $group->map(fn ($a) => $a->section->name ?? null)->filter()->unique()->values();
+
                 $studentsByClass->push([
                     'assignment_id' => $assignment->id,
+                    'assignment_ids' => $group->pluck('id')->values(),
                     'class_info' => [
                         'standard_id' => $assignment->standard_id,
                         'standard_name' => $assignment->standard->name ?? null,
-                        'section_id' => $assignment->section_id,
-                        'section_name' => $assignment->section->name ?? null,
+                        'section_id' => $wholeClass ? null : $assignment->section_id,
+                        'section_name' => $sectionNames->isNotEmpty() ? $sectionNames->implode(', ') : null,
+                        'section_ids' => $wholeClass ? [] : $sectionIds,
                         'class_display' => ($assignment->standard->name ?? '') .
-                            ($assignment->section ? ' - ' . $assignment->section->name : '')
+                            ($sectionNames->isNotEmpty() ? ' - ' . $sectionNames->implode(', ') : '')
                     ],
                     'total_students' => $classStudents->count(),
                     'students' => $classStudents

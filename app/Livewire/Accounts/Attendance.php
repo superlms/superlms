@@ -621,8 +621,9 @@ class Attendance extends Component
 
         $orgId = Auth::user()->organization_id;
 
-        // A teacher is class teacher of one class only. An assignment being
-        // edited may keep its own teacher.
+        // A teacher is class teacher of one class only — though of as many of
+        // its sections as the school gives them. An assignment being edited
+        // may keep its own teacher.
         $editing = $this->assignEditId
             ? AssignTeacherStandard::where('organization_id', $orgId)->find($this->assignEditId)
             : null;
@@ -630,6 +631,7 @@ class Attendance extends Component
             $taken = AssignTeacherStandard::with(['standard:id,name', 'section:id,name'])
                 ->where('organization_id', $orgId)
                 ->where('teacher_detail_id', $this->assignTeacherId)
+                ->where('standard_id', '!=', $this->assignStandardId)
                 ->when($this->assignEditId, fn($q) => $q->where('id', '!=', $this->assignEditId))
                 ->first();
             if ($taken) {
@@ -973,7 +975,7 @@ class Attendance extends Component
             $stStudents = StudentDetail::with('user:id,name,email,image')
                 ->where('organization_id', $orgId)->where('standard_id', $this->stStandard)
                 ->where('section_id', $this->stSection)->whereNotNull('user_id')
-                ->get()->sortBy(fn($s) => $s->user->name ?? '')->values();
+                ->get()->sortBy(fn($s) => mb_strtolower(trim($s->user->name ?? '')))->values();
         }
 
         // ── Student mark panel: its own class → section → student list ──
@@ -985,7 +987,7 @@ class Attendance extends Component
             $markStudents = StudentDetail::with('user:id,name,email,image')
                 ->where('organization_id', $orgId)->where('standard_id', $this->sMarkStandard)
                 ->where('section_id', $this->sMarkSection)->whereNotNull('user_id')
-                ->get()->sortBy(fn($s) => $s->user->name ?? '')->values();
+                ->get()->sortBy(fn($s) => mb_strtolower(trim($s->user->name ?? '')))->values();
         }
 
         // ── Student: by date ──

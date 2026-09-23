@@ -134,7 +134,7 @@ class AdminAttendanceController extends ApiController
             ->where('standard_id', $standardId)
             ->where('section_id', $sectionId)
             ->whereNotNull('user_id')->get()
-            ->sortBy(fn ($s) => $s->user->name ?? '')->values();
+            ->sortBy(fn ($s) => mb_strtolower(trim($s->user->name ?? '')))->values();
     }
 
     // ══════════════════════════ TEACHER: MARK ══════════════════════════
