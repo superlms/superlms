@@ -47,7 +47,7 @@ class WelcomeWhatsApp
                         self::school($user),
                         $detail->admission_no ?: '-',
                     ],
-                    AccountSetupLink::issue($user),
+                    self::buttons(AccountSetupLink::issue($user)),
                 );
             } catch (\Throwable $e) {
                 Log::error('WelcomeWhatsApp student failed', ['user_id' => $userId, 'error' => $e->getMessage()]);
@@ -76,7 +76,7 @@ class WelcomeWhatsApp
                         self::school($user),
                         $user->username,
                     ],
-                    AccountSetupLink::issue($user),
+                    self::buttons(AccountSetupLink::issue($user)),
                 );
             } catch (\Throwable $e) {
                 Log::error('WelcomeWhatsApp teacher failed', ['user_id' => $userId, 'error' => $e->getMessage()]);
@@ -94,6 +94,26 @@ class WelcomeWhatsApp
         $new = WhatsAppService::normalizePhone($new);
 
         return $new !== null && $new !== WhatsAppService::normalizePhone($old);
+    }
+
+    /**
+     * What the buttons' links end with: View details takes the link's token.
+     * The approved templates' second button, Download Now, was saved as a
+     * dynamic link too (…&pcampaignid=web_share{{1}}), so Meta refuses the
+     * message unless it gets a value as well; it gets a short campaign tag,
+     * which leaves the Play Store link working. Set the tag empty should that
+     * button be made a plain link again.
+     */
+    private static function buttons(string $token): array
+    {
+        $buttons = [0 => $token];
+
+        $tag = (string) config('services.whatsapp.download_button_suffix', '');
+        if ($tag !== '') {
+            $buttons[1] = $tag;
+        }
+
+        return $buttons;
     }
 
     private static function school(User $user): string

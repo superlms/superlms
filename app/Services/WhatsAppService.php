@@ -43,9 +43,11 @@ class WhatsAppService
      * One template message.
      *
      * @param  array<int, string>  $body       the body's {{1}}, {{2}} … in order
-     * @param  string|null         $urlSuffix  the {{1}} of the first URL button
+     * @param  string|array<int, string>|null  $urlSuffix  the {{1}} of the
+     *         first URL button, or of each dynamic URL button by its index
+     *         ([0 => 'token', 1 => 'wa'])
      */
-    public static function sendTemplate(string $to, string $template, array $body = [], ?string $urlSuffix = null): bool
+    public static function sendTemplate(string $to, string $template, array $body = [], string|array|null $urlSuffix = null): bool
     {
         if (!self::enabled()) {
             Log::info('WhatsApp: not configured, skipped', ['template' => $template]);
@@ -65,12 +67,13 @@ class WhatsAppService
                 'parameters' => array_map(fn ($v) => ['type' => 'text', 'text' => (string) $v], array_values($body)),
             ];
         }
-        if ($urlSuffix !== null) {
+        $buttons = is_array($urlSuffix) ? $urlSuffix : ($urlSuffix !== null ? [0 => $urlSuffix] : []);
+        foreach ($buttons as $index => $suffix) {
             $components[] = [
                 'type'       => 'button',
                 'sub_type'   => 'url',
-                'index'      => '0',
-                'parameters' => [['type' => 'text', 'text' => $urlSuffix]],
+                'index'      => (string) $index,
+                'parameters' => [['type' => 'text', 'text' => (string) $suffix]],
             ];
         }
 

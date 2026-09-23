@@ -86,6 +86,25 @@ class WelcomeWhatsAppTest extends TestCase
         $this->assertFalse(\App\Services\WelcomeWhatsApp::numberChanged('9876543210', ''));
     }
 
+    public function test_each_dynamic_button_gets_its_value(): void
+    {
+        config([
+            'services.whatsapp.enabled' => true,
+            'services.whatsapp.token' => 'test-token',
+            'services.whatsapp.phone_number_id' => '1294658720402506',
+        ]);
+        Http::fake(['graph.facebook.com/*' => Http::response(['messages' => [['id' => 'wamid.2']]])]);
+
+        WhatsAppService::sendTemplate('9876543210', 'admission_confirmed', ['A', 'B', 'C', 'D'], [0 => 'tok123', 1 => 'wa']);
+
+        Http::assertSent(function (HttpRequest $r) {
+            $c = $r['template']['components'];
+            return count($c) === 3
+                && $c[1]['index'] === '0' && $c[1]['parameters'][0]['text'] === 'tok123'
+                && $c[2]['index'] === '1' && $c[2]['parameters'][0]['text'] === 'wa';
+        });
+    }
+
     public function test_nothing_is_sent_until_it_is_configured(): void
     {
         config(['services.whatsapp.token' => null, 'services.whatsapp.phone_number_id' => null]);

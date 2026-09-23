@@ -74,6 +74,9 @@ return [
             'student' => env('WHATSAPP_TEMPLATE_STUDENT', 'admission_confirmed'),
             'teacher' => env('WHATSAPP_TEMPLATE_TEACHER', 'teacher_joining_confirmed'),
         ],
+        // The value for the templates' dynamic Download Now button (index 1),
+        // appended to its Play Store link. Empty when that button is static.
+        'download_button_suffix' => env('WHATSAPP_DOWNLOAD_BUTTON_SUFFIX', 'wa'),
         // Where the page's download button goes.
         'app_url'         => env('APP_PLAY_STORE_URL', 'https://play.google.com/store/apps/details?id=com.edyoneapp'),
     ],
