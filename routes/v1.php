@@ -28,6 +28,7 @@ use App\Http\Controllers\v1\AdminStudentController;
 use App\Http\Controllers\v1\AdminTeacherController;
 use App\Http\Controllers\v1\AdminLedgerController;
 use App\Http\Controllers\v1\AdminPayrollController;
+use App\Http\Controllers\v1\AdminFeeController;
 use App\Http\Controllers\v1\AdminIdCardController;
 use App\Http\Controllers\v1\AdminExamController;
 use App\Http\Controllers\v1\AdminSyllabusController;
@@ -505,6 +506,19 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/payroll/salary/{id}',               [AdminPayrollController::class, 'salaryFor'])->whereNumber('id');
             Route::post('/payroll/salary/{id}',              [AdminPayrollController::class, 'pay'])->whereNumber('id');
             Route::get('/payroll/payments',                  [AdminPayrollController::class, 'payments']);
+
+            // Fees — the panel's Fee Submission, View Fee, Payments, Analytics and QR Payments
+            Route::get('/fees/lookups',                      [AdminFeeController::class, 'lookups']);
+            Route::get('/fees/students',                     [AdminFeeController::class, 'students']);
+            Route::get('/fees/students/{id}',                [AdminFeeController::class, 'ledger'])->whereNumber('id');
+            Route::post('/fees/students/{id}/payments',      [AdminFeeController::class, 'collect'])->whereNumber('id');
+            Route::get('/fees/receipt/{id}/pdf',             [AdminFeeController::class, 'receipt'])->whereNumber('id');
+            Route::get('/fees/payments',                     [AdminFeeController::class, 'payments']);
+            Route::get('/fees/analytics',                    [AdminFeeController::class, 'analytics']);
+            Route::get('/fees/qr',                           [AdminFeeController::class, 'qrRequests']);
+            Route::get('/fees/qr/{id}',                      [AdminFeeController::class, 'qrRequest'])->whereNumber('id');
+            Route::post('/fees/qr/{id}/approve',             [AdminFeeController::class, 'qrApprove'])->whereNumber('id');
+            Route::post('/fees/qr/{id}/reject',              [AdminFeeController::class, 'qrReject'])->whereNumber('id');
             Route::get('/teachers/{id}',     [AdminTeacherController::class, 'show'])->whereNumber('id');
             Route::post('/teachers',         [AdminTeacherController::class, 'store']);
             Route::post('/teachers/{id}',    [AdminTeacherController::class, 'update'])->whereNumber('id');
@@ -537,6 +551,9 @@ Route::middleware('auth:sanctum')->group(function () {
             // Syllabus — chapters & topics
             Route::get('/syllabus/stats',          [AdminSyllabusController::class, 'stats']);
             Route::get('/syllabus',                [AdminSyllabusController::class, 'index']);
+            Route::get('/syllabus/outline',        [AdminSyllabusController::class, 'outline']);
+            Route::post('/syllabus/chapters/set',  [AdminSyllabusController::class, 'saveChapterSet']);
+            Route::post('/syllabus/topics/set',    [AdminSyllabusController::class, 'saveTopicSet']);
             Route::post('/syllabus/chapters',      [AdminSyllabusController::class, 'storeChapters']);
             Route::put('/syllabus/chapters/{id}',  [AdminSyllabusController::class, 'updateChapter'])->whereNumber('id');
             Route::delete('/syllabus/chapters/{id}', [AdminSyllabusController::class, 'deleteChapter'])->whereNumber('id');

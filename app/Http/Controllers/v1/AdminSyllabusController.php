@@ -134,6 +134,232 @@ class AdminSyllabusController extends ApiController
         return $this->success(['chapters' => $chapters], 'Syllabus fetched.');
     }
 
+    /** The panel's four counts: classes, subjects, chapters and topics. */
+    private function statsFor(int $orgId): array
+    {
+        return [
+            'standards' => Standard::where('organization_id', $orgId)->where('is_active', true)->count(),
+            'subjects'  => Subject::where('organization_id', $orgId)->where('is_active', true)->count(),
+            'chapters'  => Chapter::where('organization_id', $orgId)->count(),
+            'topics'    => Topic::where('organization_id', $orgId)->count(),
+        ];
+    }
+
+    /**
+     * GET /admin/syllabus/outline?standard_id=&section_id=&subject_id=
+     *
+     * The panel's Syllabus list, as its render() reads it: the picked subject —
+     * one the class (or section) is taught — with every chapter it has, in
+     * their order, each with its topics in the order they were added; and the
+     * panel's counts. Nothing until a class and a subject are picked.
+     */
+    public function outline(Request $request)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+        $orgId = (int) $user->organization_id;
+
+        $stats = $this->statsFor($orgId);
+        if (!$request->filled('standard_id') || !$request->filled('subject_id')) {
+            return $this->success(['subject' => null, 'chapters' => [], 'stats' => $stats], 'Select class and subject.');
+        }
+
+        $subject = Subject::with([
+            'chapters' => fn ($q) => $q->where('organization_id', $orgId)->orderBy('order')->with([
+                'topics' => fn ($tq) => $tq->orderBy('id'),
+            ]),
+        ])
+            ->where('organization_id', $orgId)
+            ->where('is_active', true)
+            ->taughtIn($request->standard_id, $request->section_id ?: null)
+            ->where('id', $request->subject_id)
+            ->first();
+
+        return $this->success([
+            'subject'  => $subject ? ['id' => $subject->id, 'name' => $subject->name, 'image' => $subject->iconUrl()] : null,
+            'chapters' => $subject ? $subject->chapters->map(fn ($c) => [
+                'id'          => $c->id,
+                'name'        => $c->name,
+                'description' => $c->description,
+                'order'       => (int) $c->order,
+                'topics'      => $c->topics->map(fn ($t) => [
+                    'id'    => $t->id,
+                    'name'  => $t->topic_name,
+                    'order' => (int) $t->order,
+                ])->values(),
+            ])->values() : [],
+            'stats'    => $stats,
+        ], 'Syllabus fetched.');
+    }
+
+    /** "3 added. 1 updated. 2 deleted." — or "No changes.", as the panel says it. */
+    private function savedLine(int $created, int $updated, int $deleted): string
+    {
+        return trim(($created ? "{$created} added. " : '') . ($updated ? "{$updated} updated. " : '') . ($deleted ? "{$deleted} deleted." : '')) ?: 'No changes.';
+    }
+
+    /**
+     * POST /admin/syllabus/chapters/set
+     *   {standard_id, section_id?, subject_id, rows:[{id?, name, order}], deleted_ids:[]}
+     *
+     * The panel's chapter manager's Save, as one: removed chapters go with
+     * their topics, saved ones are renamed and reordered, new ones are added
+     * to the class (and section) — in one transaction — and the subject's
+     * teachers hear what changed.
+     */
+    public function saveChapterSet(Request $request)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+        $org = (int) $user->organization_id;
+
+        if (!$request->filled('standard_id') || !$request->filled('subject_id')) {
+            return $this->error('Please select class and subject.', 422);
+        }
+        if (!Subject::where('organization_id', $org)->whereKey($request->subject_id)->exists()
+            || !Standard::where('organization_id', $org)->whereKey($request->standard_id)->exists()) {
+            return $this->error('Subject not found.', 404);
+        }
+
+        $rows    = array_values(array_filter((array) $request->input('rows', []), 'is_array'));
+        $deleted = array_values(array_unique(array_map('intval', (array) $request->input('deleted_ids', []))));
+
+        if (empty($rows) && empty($deleted)) {
+            return $this->error('Please add at least one chapter.', 422);
+        }
+        foreach ($rows as $i => $row) {
+            if (trim((string) ($row['name'] ?? '')) === '') {
+                return $this->error('Chapter ' . ($i + 1) . ': Name is required.', 422);
+            }
+        }
+
+        // The subject's chapters as they were, so its teachers hear what changed.
+        $push   = app(\App\Services\TeacherPushNotifier::class);
+        $before = $push->outlineSnapshot($org, (int) $request->subject_id);
+
+        $created = 0;
+        $updated = 0;
+        try {
+            DB::beginTransaction();
+
+            // Removed existing chapters — their topics go too.
+            if (!empty($deleted)) {
+                Topic::whereIn('chapter_id', $deleted)->where('organization_id', $org)->delete();
+                Chapter::whereIn('id', $deleted)->where('organization_id', $org)->delete();
+            }
+
+            foreach ($rows as $row) {
+                if (!empty($row['id'])) {
+                    Chapter::where('id', $row['id'])->where('organization_id', $org)->update([
+                        'name'  => trim($row['name']),
+                        'order' => (int) ($row['order'] ?? 1),
+                    ]);
+                    $updated++;
+                } else {
+                    Chapter::create([
+                        'organization_id' => $org,
+                        'standard_id'     => $request->standard_id,
+                        'section_id'      => $request->section_id ?: null,
+                        'subject_id'      => $request->subject_id,
+                        'user_id'         => $user->id,
+                        'name'            => trim($row['name']),
+                        'order'           => (int) ($row['order'] ?? 1),
+                        'is_published'    => true,
+                    ]);
+                    $created++;
+                }
+            }
+            DB::commit();
+            $push->outlineSaved($before);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            logger()->error('Chapter save error: ' . $e->getMessage());
+            return $this->error('Error: ' . $e->getMessage(), 500);
+        }
+
+        $count = count($deleted);
+        return $this->success(
+            ['created' => $created, 'updated' => $updated, 'deleted' => $count],
+            'Chapters saved! ' . $this->savedLine($created, $updated, $count)
+        );
+    }
+
+    /**
+     * POST /admin/syllabus/topics/set {chapter_id, rows:[{id?, name, order}], deleted_ids:[]}
+     *
+     * The panel's topic manager's Save for one chapter: removed topics go,
+     * saved ones are renamed and reordered, new ones are added — in one
+     * transaction — and the subject's teachers hear what changed.
+     */
+    public function saveTopicSet(Request $request)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+        $org = (int) $user->organization_id;
+
+        $chapter = $request->filled('chapter_id')
+            ? Chapter::where('organization_id', $org)->find($request->chapter_id)
+            : null;
+        if (!$chapter) {
+            return $this->error('Please select class, subject and chapter.', 422);
+        }
+
+        $rows    = array_values(array_filter((array) $request->input('rows', []), 'is_array'));
+        $deleted = array_values(array_unique(array_map('intval', (array) $request->input('deleted_ids', []))));
+
+        if (empty($rows) && empty($deleted)) {
+            return $this->error('Please add at least one topic.', 422);
+        }
+        foreach ($rows as $i => $row) {
+            if (trim((string) ($row['name'] ?? '')) === '') {
+                return $this->error('Topic ' . ($i + 1) . ': Name is required.', 422);
+            }
+        }
+
+        $push   = app(\App\Services\TeacherPushNotifier::class);
+        $before = $push->outlineSnapshotOfChapter((int) $chapter->id);
+
+        $created = 0;
+        $updated = 0;
+        try {
+            DB::beginTransaction();
+
+            if (!empty($deleted)) {
+                Topic::whereIn('id', $deleted)->where('organization_id', $org)->delete();
+            }
+
+            foreach ($rows as $row) {
+                if (!empty($row['id'])) {
+                    Topic::where('id', $row['id'])->where('organization_id', $org)->update([
+                        'topic_name' => trim($row['name']),
+                        'order'      => (int) ($row['order'] ?? 1),
+                    ]);
+                    $updated++;
+                } else {
+                    Topic::create([
+                        'organization_id' => $org,
+                        'chapter_id'      => $chapter->id,
+                        'topic_name'      => trim($row['name']),
+                        'order'           => (int) ($row['order'] ?? 1),
+                    ]);
+                    $created++;
+                }
+            }
+            DB::commit();
+            $push->outlineSaved($before);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            logger()->error('Topic save error: ' . $e->getMessage());
+            return $this->error('Error: ' . $e->getMessage(), 500);
+        }
+
+        $count = count($deleted);
+        return $this->success(
+            ['created' => $created, 'updated' => $updated, 'deleted' => $count],
+            'Topics saved! ' . $this->savedLine($created, $updated, $count)
+        );
+    }
+
     // ══════════════════════════ CHAPTERS ══════════════════════════
 
     /** POST /admin/syllabus/chapters  (standard_id, section_id?, subject_id, chapters:[{name,description,order}]) */
