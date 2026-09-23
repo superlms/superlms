@@ -741,6 +741,13 @@ class AttendanceController extends Controller
 
             $today = now()->toDateString();
 
+            // Which codes are a holiday. The teacher app saves a student's
+            // holiday as 4. A teacher's own attendance is marked on the panel
+            // and the admin app, which save a holiday as 3 (1 present,
+            // 0 absent, 2 half day, 3 holiday) — so for a teacher 3 is a
+            // holiday too, not an absence.
+            $holidayCodes = $user->role === 'teacher' ? [3, 4] : [4];
+
             $days = [];
             $present = 0; $absent = 0; $working = 0; $holiday = 0; $notMarked = 0;
             for ($d = 1; $d <= $daysInMonth; $d++) {
@@ -756,7 +763,7 @@ class AttendanceController extends Controller
                     $status = 'upcoming';
                 } elseif ($records->has($date)) {
                     $code = $records->get($date);
-                    if ($code === 4) {
+                    if (in_array($code, $holidayCodes, true)) {
                         $status = 'holiday';
                         $holiday++;
                     } elseif ($code === 1) {
