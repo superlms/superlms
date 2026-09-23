@@ -652,7 +652,7 @@
                                            @error('studentsClass') border-red-400 @enderror">
                                     <option value="">Select Class</option>
                                     @foreach ($standards as $standard)
-                                        <option value="{{ $standard->id }}">{{ $standard->name }}{{ $standard->board ? ' · ' . $standard->board : '' }}</option>
+                                        <option value="{{ $standard->id }}">{{ $standard->name }}</option>
                                     @endforeach
                                 </select>
                                 @error('studentsClass')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
