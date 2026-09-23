@@ -26,6 +26,7 @@ use App\Http\Controllers\v1\AdminContentController;
 use App\Http\Controllers\v1\AdminStandardController;
 use App\Http\Controllers\v1\AdminStudentController;
 use App\Http\Controllers\v1\AdminTeacherController;
+use App\Http\Controllers\v1\AdminLedgerController;
 use App\Http\Controllers\v1\AdminIdCardController;
 use App\Http\Controllers\v1\AdminExamController;
 use App\Http\Controllers\v1\AdminSyllabusController;
@@ -482,6 +483,13 @@ Route::middleware('auth:sanctum')->group(function () {
             // Teachers
             Route::get('/teachers',          [AdminTeacherController::class, 'index']);
             Route::get('/teachers/username-check', [AdminTeacherController::class, 'usernameCheck']);
+
+            // Ledger — the panel's statement, manual credits and expenses, PDF
+            Route::get('/ledger',              [AdminLedgerController::class, 'index']);
+            Route::get('/ledger/statement',    [AdminLedgerController::class, 'statement']);
+            Route::get('/ledger/entry/{id}',   [AdminLedgerController::class, 'show'])->whereNumber('id');
+            Route::post('/ledger',             [AdminLedgerController::class, 'store']);
+            Route::post('/ledger/{id}',        [AdminLedgerController::class, 'update'])->whereNumber('id');
             Route::get('/teachers/{id}',     [AdminTeacherController::class, 'show'])->whereNumber('id');
             Route::post('/teachers',         [AdminTeacherController::class, 'store']);
             Route::post('/teachers/{id}',    [AdminTeacherController::class, 'update'])->whereNumber('id');
