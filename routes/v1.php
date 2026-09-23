@@ -481,6 +481,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
             // Teachers
             Route::get('/teachers',          [AdminTeacherController::class, 'index']);
+            Route::get('/teachers/username-check', [AdminTeacherController::class, 'usernameCheck']);
             Route::get('/teachers/{id}',     [AdminTeacherController::class, 'show'])->whereNumber('id');
             Route::post('/teachers',         [AdminTeacherController::class, 'store']);
             Route::post('/teachers/{id}',    [AdminTeacherController::class, 'update'])->whereNumber('id');

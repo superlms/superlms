@@ -31,7 +31,7 @@ class AccountsController extends ApiController
             'password' => ['required', 'string'],
         ])) return $err;
 
-        $user = User::where('email', $request->email)->first();
+        $user = User::where('email', $request->email)->where('role', self::ROLE)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             return $this->error('Invalid email or password.', 401);

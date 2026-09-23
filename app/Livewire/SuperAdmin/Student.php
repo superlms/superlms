@@ -16,6 +16,7 @@ use App\Models\Student\StudentDetail;
 use App\Models\User;
 use App\Services\ZeptoMailService;
 use App\Support\Credentials;
+use App\Support\LoginIdentifier;
 use App\Support\StudentNumbers;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -410,7 +411,8 @@ class Student extends Component
         $this->validate([
             'editOrgId'            => 'required|integer|exists:organizations,id',
             'editName'             => 'required|string|max:50',
-            'editEmail'            => 'required|email:rfc|max:191|unique:users,email,' . $this->editUserId,
+            // Brothers and sisters may share an address; the admission number tells them apart.
+            'editEmail'            => 'required|email:rfc|max:191',
             'editMobile'           => 'required|string|digits:10',
             'editGender'           => 'required|string|in:male,female,other',
             'editDob'              => 'required|date|before:today',
@@ -439,6 +441,11 @@ class Student extends Component
             'editAadharNo.digits'     => 'Aadhar number must be exactly 12 digits.',
             'editImage.max'           => 'Image must be 1 MB (1024 KB) or smaller.',
         ]);
+
+        if (LoginIdentifier::emailReserved($this->editEmail)) {
+            $this->addError('editEmail', 'This email belongs to a school account. Please use a different one.');
+            return;
+        }
 
         $user     = User::find($this->editUserId);
         $oldEmail = $user?->email;
@@ -799,7 +806,7 @@ class Student extends Component
         $this->validate([
             'addOrgId'           => 'required|integer|exists:organizations,id',
             'addName'            => 'required|string|max:50',
-            'addEmail'           => 'required|email:rfc|max:191|unique:users,email',
+            'addEmail'           => 'required|email:rfc|max:191',
             'addMobile'          => 'required|string|digits:10',
             'addGender'          => 'required|string|in:male,female,other',
             'addDob'             => 'required|date|before:today',
@@ -828,6 +835,12 @@ class Student extends Component
             'addAadharNo.digits'     => 'Aadhar number must be exactly 12 digits.',
             'addImage.max'           => 'Image must be 1 MB (1024 KB) or smaller.',
         ]);
+
+        // Brothers and sisters may share an address; a school account's is its own.
+        if (LoginIdentifier::emailReserved($this->addEmail)) {
+            $this->addError('addEmail', 'This email belongs to a school account. Please use a different one.');
+            return;
+        }
 
         $org           = Organization::findOrFail($this->addOrgId);
         $plainPassword = substr(str_shuffle('abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789@#$!'), 0, 10);

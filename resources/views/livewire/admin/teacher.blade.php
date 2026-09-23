@@ -464,7 +464,7 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Full Name <span class="text-red-500">*</span></label>
-                            <input wire:model.defer="teacherName" type="text" maxlength="50"
+                            <input wire:model.blur="teacherName" type="text" maxlength="50"
                                 oninput="this.value=this.value.replace(/[^A-Za-z ]/g,'')"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                             @error('teacherName')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
@@ -472,7 +472,24 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Email <span class="text-red-500">*</span></label>
                             <input wire:model.defer="teacherEmail" type="email" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                            @error('teacherEmail')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            @error('teacherEmail')
+                                <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                            @else
+                                <p class="mt-1 text-xs text-gray-400">Two teachers may share an address — the username beside it is what tells them apart.</p>
+                            @enderror
+                        </div>
+                        {{-- The name this teacher signs in with, and forgets a password by --}}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Username <span class="text-red-500">*</span></label>
+                            <input wire:model.blur="teacherUsername" type="text" maxlength="30" autocomplete="off" spellcheck="false"
+                                oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9._]/g,'')"
+                                placeholder="e.g. meera.sharma"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm font-mono focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('teacherUsername')
+                                <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                            @else
+                                <p class="mt-1 text-xs text-gray-400">{{ \App\Support\Usernames::rulesLine() }} They sign in with it.</p>
+                            @enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Mobile <span class="text-red-500">*</span></label>

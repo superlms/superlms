@@ -7,6 +7,8 @@ use App\Models\Student\Section;
 use App\Models\Teacher\AssignTeacherStandard;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\User;
+use App\Support\LoginIdentifier;
+use App\Support\Usernames;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -41,6 +43,7 @@ class AdminTeacherController extends ApiController
             'user_id'     => $d->user_id,
             'name'        => $d->user->name ?? null,
             'email'       => $d->user->email ?? null,
+            'username'    => $d->user->username ?? null,
             'phone'       => $d->phone,
             'gender'      => $d->user->gender ?? null,
             'employee_id' => $d->employee_id,
@@ -117,6 +120,7 @@ class AdminTeacherController extends ApiController
             'user_id'          => $d->user_id,
             'name'             => $d->user->name,
             'email'            => $d->user->email,
+            'username'         => $d->user->username,
             'phone'            => $d->phone,
             'gender'           => $d->user->gender ?? null,
             'dob'              => $d->user->dob ? (is_string($d->user->dob) ? $d->user->dob : optional($d->user->dob)->format('Y-m-d')) : null,
@@ -139,6 +143,9 @@ class AdminTeacherController extends ApiController
         return [
             'name'             => 'required|string|max:255',
             'email'            => 'required|email|max:191',
+            // What they sign in with — an email may be shared, this may not.
+            // Left out by an app from before usernames: one is made from the name.
+            'username'         => ['nullable', 'string', 'regex:' . Usernames::REGEX],
             'mobile'           => 'required|string|digits:10',
             'dob'              => 'required|date|before:today',
             'gender'           => 'required|string|in:male,female,other',
@@ -155,6 +162,42 @@ class AdminTeacherController extends ApiController
         ];
     }
 
+    /**
+     * GET /admin/teachers/username-check?username=&name=&ignore_user_id=
+     *
+     * Whether a username is free and well formed, for the Add/Edit Teacher
+     * form to say as it is typed: what is wrong with it, the rules, and free
+     * ones near it. With only `name`, a free username made from it.
+     */
+    public function usernameCheck(Request $request)
+    {
+        [, $err] = $this->guard();
+        if ($err) return $err;
+
+        $ignore   = $request->integer('ignore_user_id') ?: null;
+        $username = Usernames::normalize($request->query('username'));
+
+        if ($username === '') {
+            return $this->success([
+                'username'    => '',
+                'available'   => false,
+                'problems'    => [],
+                'rules'       => Usernames::RULES,
+                'suggestions' => $request->filled('name') ? [Usernames::suggest($request->query('name'))] : [],
+            ]);
+        }
+
+        $problems = Usernames::problems($username, $ignore);
+
+        return $this->success([
+            'username'    => $username,
+            'available'   => $problems === [],
+            'problems'    => $problems,
+            'rules'       => Usernames::RULES,
+            'suggestions' => Usernames::taken($username, $ignore) ? Usernames::alternatives($username, 3) : [],
+        ]);
+    }
+
     /** POST /admin/teachers (multipart) */
     public function store(Request $request)
     {
@@ -162,10 +205,17 @@ class AdminTeacherController extends ApiController
         if ($err) return $err;
         $orgId = $user->organization_id;
 
-        if (User::where('email', $request->email)->where('role', 'teacher')->exists()) {
-            return $this->error('A teacher with this email already exists.', 422);
-        }
         if ($err = $this->validateWith($request, $this->rules())) return $err;
+
+        if (!$request->filled('username')) {
+            $request->merge(['username' => Usernames::suggest($request->name, $request->email)]);
+        }
+        if ($problems = Usernames::problems($request->username)) {
+            return $this->error(implode(' ', $problems), 422);
+        }
+        if (LoginIdentifier::emailReserved($request->email)) {
+            return $this->error('This email belongs to a school account. Please use a different one.', 422);
+        }
 
         try {
             $plainPassword = substr(str_shuffle('abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789@#$!'), 0, 10);
@@ -173,6 +223,7 @@ class AdminTeacherController extends ApiController
             $userData = [
                 'name'            => $request->name,
                 'email'           => $request->email,
+                'username'        => Usernames::normalize($request->username),
                 'mobile_number'   => $request->mobile,
                 'role'            => 'teacher',
                 'is_active'       => $request->boolean('is_active'),
@@ -228,14 +279,23 @@ class AdminTeacherController extends ApiController
         $teacher = User::find($detail->user_id);
         if (!$teacher) return $this->error('Teacher account not found.', 404);
 
-        $rules = $this->rules();
-        $rules['email'] .= '|unique:users,email,' . $teacher->id . ',id,role,teacher';
-        if ($err = $this->validateWith($request, $rules)) return $err;
+        if ($err = $this->validateWith($request, $this->rules())) return $err;
+
+        if (!$request->filled('username')) {
+            $request->merge(['username' => $teacher->username ?: Usernames::suggest($request->name, $request->email)]);
+        }
+        if ($problems = Usernames::problems($request->username, $teacher->id)) {
+            return $this->error(implode(' ', $problems), 422);
+        }
+        if (LoginIdentifier::emailReserved($request->email)) {
+            return $this->error('This email belongs to a school account. Please use a different one.', 422);
+        }
 
         try {
             $userData = [
                 'name'          => $request->name,
                 'email'         => $request->email,
+                'username'      => Usernames::normalize($request->username),
                 'mobile_number' => $request->mobile,
                 'is_active'     => $request->boolean('is_active'),
             ];
@@ -299,7 +359,8 @@ class AdminTeacherController extends ApiController
                     'password'      => $plainPassword,
                     'email_address' => $teacher->email,
                     'school_name'   => $schoolName,
-                    'username'      => $teacher->name,
+                    // The name they sign in with, now that they have one.
+                    'username'      => $teacher->username ?: $teacher->name,
                     'name'          => $teacher->name,
                     'login_url'     => url('/login'),
                 ]);

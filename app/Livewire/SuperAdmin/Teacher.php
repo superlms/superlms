@@ -7,6 +7,8 @@ use App\Models\Organization;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\User;
 use App\Services\ZeptoMailService;
+use App\Support\LoginIdentifier;
+use App\Support\Usernames;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -295,7 +297,8 @@ class Teacher extends Component
         $this->validate([
             'editOrgId'            => 'required|integer|exists:organizations,id',
             'editName'             => 'required|string|max:50|regex:/^[A-Za-z ]+$/',
-            'editEmail'            => 'required|email:rfc|max:191|unique:users,email,' . $this->editUserId . ',id,role,teacher',
+            // Two teachers may share an address; the username tells them apart.
+            'editEmail'            => 'required|email:rfc|max:191',
             'editMobile'           => 'required|digits:10',
             'editDob'              => 'required|date|before:today',
             'editGender'           => 'required|string|in:male,female,other',
@@ -314,6 +317,11 @@ class Teacher extends Component
             'editImage.max'              => 'Image must be 1 MB or smaller.',
         ]);
 
+        if (LoginIdentifier::emailReserved($this->editEmail)) {
+            $this->addError('editEmail', 'This email belongs to a school account. Please use a different one.');
+            return;
+        }
+
         $user     = User::find($this->editUserId);
         $oldEmail = $user?->email;
 
@@ -326,6 +334,10 @@ class Teacher extends Component
             'is_active'       => (int) $this->editActive,
             'organization_id' => $this->editOrgId,
         ];
+        // A teacher from before usernames gets one, so they can sign in.
+        if ($user && !$user->username) {
+            $userData['username'] = Usernames::suggest($this->editName, $this->editEmail);
+        }
 
         if ($this->editImage) {
             if ($user?->image) {
@@ -498,9 +510,9 @@ class Teacher extends Component
             'addImage.max'              => 'Image must be 1 MB or smaller.',
         ]);
 
-        $existing = User::where('email', $this->addEmail)->first();
-        if ($existing) {
-            $this->addError('addEmail', 'This email is already used by another account.');
+        // Teachers and students may share an address; a school account's is its own.
+        if (LoginIdentifier::emailReserved($this->addEmail)) {
+            $this->addError('addEmail', 'This email belongs to a school account. Please use a different one.');
             return;
         }
 
@@ -510,6 +522,8 @@ class Teacher extends Component
         $userData = [
             'name'            => $this->addName,
             'email'           => $this->addEmail,
+            // What they sign in with — made from the name, free across every school.
+            'username'        => Usernames::suggest($this->addName, $this->addEmail),
             'mobile_number'   => $this->addMobile,
             'dob'             => $this->addDob,
             'gender'          => $this->addGender,
@@ -550,7 +564,7 @@ class Teacher extends Component
                     'password'      => $plainPassword,
                     'email_address' => $this->addEmail,
                     'school_name'   => $org->name,
-                    'username'      => $this->addName,
+                    'username'      => $user->username ?: $this->addName,
                     'name'          => $this->addName,
                     'login_url'     => url('/login'),
                 ]);

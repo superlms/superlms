@@ -34,6 +34,8 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        // A teacher signs in with this; students use their admission number.
+        'username',
         'password',
         'mobile_number',
         'otp',

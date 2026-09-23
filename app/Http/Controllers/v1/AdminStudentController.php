@@ -8,6 +8,7 @@ use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
 use App\Models\User;
+use App\Support\LoginIdentifier;
 use App\Support\StudentNumbers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -259,19 +260,12 @@ class AdminStudentController extends ApiController
             return $this->error('You can only add students to your own class.', 403);
         }
 
-        // Email collision handling (mirrors web: block other accounts, reuse orphan).
-        $orphanUserId = null;
-        $existing = User::where('email', $request->email)->first(['id', 'role', 'organization_id']);
-        if ($existing) {
-            $sameOrgStudent = $existing->role === 'user' && (int) $existing->organization_id === (int) $orgId;
-            if ($sameOrgStudent) {
-                if (StudentDetail::where('user_id', $existing->id)->exists()) {
-                    return $this->error('A student with this email already exists in this school.', 422);
-                }
-                $orphanUserId = $existing->id;
-            } else {
-                return $this->error('This email is already used by another account. Please use a different email.', 422);
-            }
+        // Brothers and sisters share an address, and so do whole classes whose
+        // parents gave the school one; the admission number is what tells two
+        // students apart, so an email that is already here is fine. Only the
+        // school's own staff keep an address to themselves.
+        if (LoginIdentifier::emailReserved($request->email)) {
+            return $this->error('This email belongs to a school account. Please use a different one.', 422);
         }
 
         try {
@@ -297,10 +291,8 @@ class AdminStudentController extends ApiController
 
             // Locked per school so two concurrent creates can't read the same
             // admission serial; the lock is released once the transaction ends.
-            [$detail, $admissionNo, $student] = StudentNumbers::withCreationLock($orgId, function () use ($request, $userData, $orgId, $orphanUserId) {
-                return DB::transaction(function () use ($request, $userData, $orgId, $orphanUserId) {
-                    if ($orphanUserId) User::where('id', $orphanUserId)->delete();
-
+            [$detail, $admissionNo, $student] = StudentNumbers::withCreationLock($orgId, function () use ($request, $userData, $orgId) {
+                return DB::transaction(function () use ($request, $userData, $orgId) {
                     $student = new User();
                     $student->fill($userData)->save();
 
@@ -320,9 +312,6 @@ class AdminStudentController extends ApiController
             return $this->success($this->shapeRow($detail->fresh(['user', 'standard', 'section'])), 'Student Created Successfully!');
         } catch (\Throwable $e) {
             $msg = $e->getMessage() ?: 'Unknown error';
-            if (str_contains($msg, '1062') && str_contains($msg, 'email')) {
-                $msg = 'This email is already used by another account. Please use a different email.';
-            }
             return $this->error('Error Saving Student: ' . $msg, 500);
         }
     }
@@ -345,9 +334,11 @@ class AdminStudentController extends ApiController
         if (!$this->mayTouch((int) $request->standard_id, (int) $request->section_id)) {
             return $this->error('You can only keep students in your own class.', 403);
         }
-        $rules = $this->rules(true, $transportRequired);
-        $rules['email'] .= '|unique:users,email,' . $student->id . ',id,role,user,organization_id,' . $orgId;
-        if ($err = $this->validateWith($request, $rules)) return $err;
+        if ($err = $this->validateWith($request, $this->rules(true, $transportRequired))) return $err;
+
+        if (LoginIdentifier::emailReserved($request->email)) {
+            return $this->error('This email belongs to a school account. Please use a different one.', 422);
+        }
 
         try {
             $userData = [

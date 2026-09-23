@@ -12,6 +12,7 @@ use App\Models\Student\StudentDetail;
 use App\Models\Student\StudentAttendance;
 use App\Models\Organization;
 use App\Models\User;
+use App\Support\LoginIdentifier;
 use App\Exports\StudentsExport;
 use App\Support\PdfFonts;
 use App\Support\Credentials;
@@ -388,44 +389,13 @@ class Student extends Component
         // Holds an orphan User id queued for deletion inside the transaction.
         $orphanUserIdToDelete = null;
 
-        if (empty($this->studentData['id'])) {
-            $existingUser = User::where('email', $this->studentsEmail)
-                ->first(['id', 'email', 'role', 'organization_id']);
-
-            if ($existingUser) {
-                $sameOrgStudent = $existingUser->role === 'user'
-                    && (int) $existingUser->organization_id === (int) $orgId;
-
-                if ($sameOrgStudent) {
-                    $hasDetail = StudentDetail::where('user_id', $existingUser->id)->exists();
-
-                    if ($hasDetail) {
-                        // Real existing student in this school — block.
-                        $this->addError('studentsEmail', 'A student with this email already exists in this school.');
-                        return;
-                    }
-
-                    // Orphan User from a previous failed save — queue for deletion.
-                    logger()->info('Found orphan student User row, queueing for delete-then-recreate', [
-                        'user_id' => $existingUser->id,
-                        'email'   => $existingUser->email,
-                    ]);
-                    $orphanUserIdToDelete = $existingUser->id;
-                } else {
-                    // Email is taken by some other user (different role, or
-                    // a student in another school). The unique constraint on
-                    // users.email is global, so we MUST block here — otherwise
-                    // the INSERT crashes with SQLSTATE 1062 and the user only
-                    // sees a cryptic toast.
-                    $this->addError('studentsEmail', 'This email is already used by another account. Please use a different email.');
-                    return;
-                }
-            }
-        } else {
-            // On edit, just make sure no OTHER student row in this org owns it
-            $rules['studentsEmail'] .= '|unique:users,email,' . $this->studentData['id']
-                . ',id,role,user'
-                . ($orgId ? ',organization_id,' . $orgId : '');
+        // Brothers and sisters share an address, and so do classes whose
+        // parents gave the school one, so an email already on a student is
+        // fine — the admission number is what tells them apart. Only the
+        // school's own staff keep an address to themselves.
+        if (LoginIdentifier::emailReserved($this->studentsEmail)) {
+            $this->addError('studentsEmail', 'This email belongs to a school account. Please use a different one.');
+            return;
         }
 
         $this->validate($rules, $messages);

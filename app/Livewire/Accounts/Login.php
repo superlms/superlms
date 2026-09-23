@@ -32,7 +32,7 @@ class Login extends Component
     {
         $this->validate();
 
-        $user = User::where('email', $this->email)->first();
+        $user = User::where('email', $this->email)->where('role', 'accounts')->first();
 
         if (!$user) {
             $this->addError('email', 'Email does not exist.');

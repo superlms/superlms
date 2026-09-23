@@ -18,6 +18,8 @@ class UserResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
+            // A teacher's own sign-in name; null for everyone else.
+            'username' => $this->username,
             'email_verified_at' => $this->whenNotNull($this->email_verified_at),
             'mobile' => $this->whenNotNull($this->mobile),
             'role' => $this->role,

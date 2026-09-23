@@ -21,6 +21,7 @@ use App\Services\OtplessService;
 use App\Services\OtpMailService;
 use App\Services\ResponseService;
 use App\Support\AdminAppOtp;
+use App\Support\LoginIdentifier;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
@@ -53,12 +54,14 @@ class AuthController extends Controller
      * POST /api/v1/login
      *
      * Unified login for every user type. The app shows a single login screen:
-     * students enter their admission number, all other roles (teacher, admin,
-     * sub-admin, accounts) enter their email. The role is auto-detected from the
-     * identifier — there is no "select user type" step.
+     * a student enters their admission number, a teacher their username, and
+     * an admin, sub-admin or accounts user their email. The role is worked out
+     * from the identifier (App\Support\LoginIdentifier) — there is no "select
+     * user type" step. A teacher's email still works while it belongs to one
+     * teacher alone.
      *
      * Body:
-     *   - identifier (required) — admission number OR email
+     *   - identifier (required) — admission number, username OR email
      *   - password   (required)
      *
      * Back-compat: also accepts `admission_number` or `email` in place of `identifier`.
@@ -93,27 +96,10 @@ class AuthController extends Controller
         }
 
         try {
-            $isEmail = (bool) filter_var($identifier, FILTER_VALIDATE_EMAIL);
+            [$user, $why] = LoginIdentifier::resolve($identifier);
 
-            if ($isEmail) {
-                // Teacher / Admin / Sub-admin / Accounts all sign in with their email.
-                $user = User::where('email', $identifier)
-                    ->whereIn('role', ['teacher', 'admin', 'sub-admin', 'accounts'])
-                    ->first();
-
-                if (!$user) {
-                    return $this->responseService->error('No account found with this email address.', 401);
-                }
-            } else {
-                // Anything that isn't an email is treated as a student admission number.
-                $studentDetail = StudentDetail::where('admission_no', $identifier)->first();
-                $user = $studentDetail
-                    ? $studentDetail->user()->where('role', 'user')->first()
-                    : null;
-
-                if (!$user) {
-                    return $this->responseService->error('No student account found with this admission number.', 401);
-                }
+            if (!$user) {
+                return $this->responseService->error($why, 401);
             }
 
             if (!Hash::check($request->password, $user->password)) {
@@ -295,6 +281,11 @@ class AuthController extends Controller
             ] : null,
         ];
 
+        // A teacher signs in with their username, so they are told it.
+        if ($userType === 'teacher') {
+            $profile['username'] = $user->username;
+        }
+
         // School admins / sub-admins carry the functionalities they may access,
         // so the mobile app can show only the assigned screens (web parity).
         if ($userType === 'admin') {
@@ -321,10 +312,21 @@ class AuthController extends Controller
         return $profile;
     }
 
+    /**
+     * POST /api/v1/forgot-password
+     *
+     * The code that starts a password reset, mailed to the address the school
+     * has for that account. Identified as at login: a student's admission
+     * number, a teacher's username, a staff email (`identifier`; the older
+     * `email` field still works). The reply says which address it went to, so
+     * the app can show it without the account ever giving it away in full.
+     */
     public function forgotPassword(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'email' => 'required|email',
+        $identifier = trim((string) ($request->input('identifier') ?? $request->input('email') ?? ''));
+
+        $validator = Validator::make(['identifier' => $identifier], [
+            'identifier' => 'required|string|max:191',
         ]);
 
         if ($validator->fails()) {
@@ -334,12 +336,16 @@ class AuthController extends Controller
             );
         }
 
-        $user = User::where('email', $request->email)->first();
+        [$user, $why] = LoginIdentifier::resolve($identifier);
 
         if (!$user) {
+            return $this->responseService->errorResponse($why, 404);
+        }
+
+        if (!$user->email) {
             return $this->responseService->errorResponse(
-                'No account found with this email address.',
-                404
+                'This account has no email address on record. Please ask the school to add one.',
+                422
             );
         }
 
@@ -350,7 +356,9 @@ class AuthController extends Controller
             return $this->responseService->success(
                 [
                     'user_id'    => $user->id,
-                    'email'      => $user->email,
+                    // Said as ra****ta@gmail.com — an admission number alone
+                    // must not hand out somebody's address.
+                    'email'      => LoginIdentifier::maskEmail($user->email),
                     'expires_in' => 120, // seconds
                     // Send back with verify-otp / resend-otp / change-password:
                     // this request's code is the only one they accept.
@@ -437,7 +445,7 @@ class AuthController extends Controller
             return $this->responseService->success(
                 [
                     'user_id'    => $user->id,
-                    'email'      => $user->email,
+                    'email'      => LoginIdentifier::maskEmail($user->email),
                     'expires_in' => 120,
                     'otp_token'  => $otpToken,
                 ],

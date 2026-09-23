@@ -44,7 +44,7 @@ class Login extends Component
             'password.required' => 'The password field is required.',
         ]);
 
-        $user = User::where('email', $this->email)->first();
+        $user = User::where('email', $this->email)->whereIn('role', ['super-admin', 'sub-super-admin'])->first();
 
         if (!$user) {
             $this->addError('email', 'Email does not exist.');
@@ -128,7 +128,7 @@ class Login extends Component
             return;
         }
 
-        $user = User::where('email', $this->email)->first();
+        $user = User::where('email', $this->email)->whereIn('role', ['super-admin', 'sub-super-admin'])->first();
 
         if (!$user) {
             $this->addError('otp', 'Session expired. Please login again.');
@@ -155,7 +155,7 @@ class Login extends Component
             return;
         }
 
-        $user = User::where('email', $this->email)->first();
+        $user = User::where('email', $this->email)->whereIn('role', ['super-admin', 'sub-super-admin'])->first();
 
         if (!$user) {
             $this->step = 'credentials';

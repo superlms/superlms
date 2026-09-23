@@ -6,6 +6,7 @@ use App\Models\Organization;
 use App\Models\Student\StudentDetail;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\User;
+use App\Support\LoginIdentifier;
 use App\Services\OtpMailService;
 use App\Support\AdminAppOtp;
 use Illuminate\Http\Request;
@@ -21,7 +22,8 @@ class SwitchAccountController extends ApiController
      * and can remove any one of them.
      *
      * Body (preferred, unified):
-     *   - identifier: string (required) — admission number (student) OR email (any other role)
+     *   - identifier: string (required) — admission number (student), username
+     *     (teacher) OR email (admin, sub-admin, accounts)
      *   - password:   string (required)
      *
      * The role is auto-detected from the identifier — the app no longer asks the
@@ -56,29 +58,14 @@ class SwitchAccountController extends ApiController
         if ($validationErr) return $validationErr;
 
         if ($identifier === '') {
-            return $this->error('Please provide an admission number or email.', 422);
+            return $this->error('Please provide an admission number, username or email.', 422);
         }
 
-        // ── Resolve user (auto-detect: email = any staff/teacher role, else student) ──
-        $isEmail = (bool) filter_var($identifier, FILTER_VALIDATE_EMAIL);
-        $user    = null;
+        // ── Resolve user — the same identifier the login screen takes ──
+        [$user, $why] = LoginIdentifier::resolve($identifier);
 
-        if ($isEmail) {
-            $user = User::where('email', $identifier)
-                ->whereIn('role', ['teacher', 'admin', 'sub-admin', 'accounts'])
-                ->first();
-            if (!$user) {
-                return $this->error('No account found with this email address.', 401);
-            }
-        } else {
-            $studentDetail = StudentDetail::where('admission_no', $identifier)->first();
-            if (!$studentDetail) {
-                return $this->error('No student account found with this admission number.', 401);
-            }
-            $user = $studentDetail->user()->where('role', 'user')->first();
-            if (!$user) {
-                return $this->error('No valid student account for this admission number.', 401);
-            }
+        if (!$user) {
+            return $this->error($why, 401);
         }
 
         if (!Hash::check($request->password, $user->password)) {
@@ -223,6 +210,10 @@ class SwitchAccountController extends ApiController
             ->where('email', $user->email)
             ->where('role', $user->role)
             ->where('is_active', true)
+            // A student's or teacher's address may be a family's or a
+            // department's, so it proves nothing about who else is theirs:
+            // only their own account comes back. Add the others with a password.
+            ->when(in_array($user->role, LoginIdentifier::SHARED_ROLES, true), fn ($q) => $q->where('id', $user->id))
             ->get()
             ->map(fn($u) => [
                 'user_id'         => $u->id,
@@ -263,6 +254,11 @@ class SwitchAccountController extends ApiController
 
         if ($user->organization_id === $targetOrgId) {
             return $this->error('You are already logged in to this school.', 400);
+        }
+
+        // A shared address is no proof the other account is theirs (see schools()).
+        if (in_array($user->role, LoginIdentifier::SHARED_ROLES, true)) {
+            return $this->error('Add that account with its own admission number or username and password.', 403);
         }
 
         $targetUser = User::where('email', $user->email)

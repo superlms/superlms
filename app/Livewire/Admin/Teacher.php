@@ -17,6 +17,8 @@ use App\Models\Student\Section;
 use App\Models\Admin\SchoolInfo;
 use App\Models\Organization;
 use App\Models\User;
+use App\Support\LoginIdentifier;
+use App\Support\Usernames;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -42,6 +44,10 @@ class Teacher extends Component
     public $dob              = '';
     public $teacherName      = '';
     public $teacherEmail     = '';
+    // What this teacher signs in with; emails are shared now, this is not.
+    public $teacherUsername  = '';
+    // Once it is typed in, the name stops suggesting one.
+    public bool $usernameTyped = false;
     public $teacherMobile    = '';
     public $teacherGender    = '';
     public $teacherActive    = 1;   // new teachers start Active — uncheck to block login
@@ -216,11 +222,29 @@ class Teacher extends Component
     }
 
     // ─── Save ────────────────────────────────────────────────────────────
+    /** A new teacher's name offers a free username, until one is typed in. */
+    public function updatedTeacherName(): void
+    {
+        if ($this->editId || $this->usernameTyped) {
+            return;
+        }
+
+        $this->teacherUsername = Usernames::suggest($this->teacherName);
+    }
+
+    public function updatedTeacherUsername(): void
+    {
+        $this->teacherUsername = Usernames::normalize($this->teacherUsername);
+        $this->usernameTyped   = $this->teacherUsername !== '';
+        $this->resetValidation('teacherUsername');
+    }
+
     public function onSave(): void
     {
         $rules = [
             'teacherName'      => 'required|string|max:50|regex:/^[A-Za-z ]+$/',
             'teacherEmail'     => 'required|email:rfc|max:191',
+            'teacherUsername'  => ['required', 'string', 'regex:' . Usernames::REGEX],
             'teacherMobile'    => 'required|digits:10',
             'dob'              => 'required|date|before:today',
             'teacherGender'    => 'required|string|in:male,female,other',
@@ -242,17 +266,20 @@ class Teacher extends Component
             'teacherMobile.digits'    => 'Mobile number must be exactly 10 digits.',
             'emergencyContact.digits' => 'Emergency contact must be exactly 10 digits.',
             'pincode.digits'          => 'Pincode must be exactly 6 digits.',
+            'teacherUsername.required' => 'Give this teacher a username to sign in with.',
+            'teacherUsername.regex'    => Usernames::rulesLine(),
         ];
 
-        // Unique email (exclude current user when editing, scope to role=teacher)
-        if ($this->editId) {
-            $rules['teacherEmail'] .= '|unique:users,email,' . $this->editId . ',id,role,teacher';
-        } else {
-            $existingUser = User::where('email', $this->teacherEmail)->where('role', 'teacher')->first();
-            if ($existingUser) {
-                $this->addError('teacherEmail', 'A teacher with this email already exists.');
-                return;
-            }
+        // Two teachers may share an email — a department's address, a family's.
+        // The username is what tells them apart, so that is what must be free.
+        $this->teacherUsername = Usernames::normalize($this->teacherUsername);
+        if ($problems = Usernames::problems($this->teacherUsername, $this->editId ?: null)) {
+            $this->addError('teacherUsername', implode(' ', $problems));
+            return;
+        }
+        if (LoginIdentifier::emailReserved($this->teacherEmail)) {
+            $this->addError('teacherEmail', 'This email belongs to a school account. Please use a different one.');
+            return;
         }
 
         $this->validate($rules, $messages);
@@ -273,6 +300,7 @@ class Teacher extends Component
             $userData = [
                 'name'            => $this->teacherName,
                 'email'           => $this->teacherEmail,
+                'username'        => $this->teacherUsername,
                 'mobile_number'   => $this->teacherMobile,
                 'role'            => 'teacher',
                 'is_active'       => $this->teacherActive ?? 0,
@@ -353,7 +381,8 @@ class Teacher extends Component
                             'password'      => $plainPassword,
                             'email_address' => $teacher->email,
                             'school_name'   => $schoolName,
-                            'username'      => $teacher->name,
+                            // The name they sign in with, now that they have one.
+                            'username'      => $teacher->username ?: $teacher->name,
                             'name'          => $teacher->name,
                             'login_url'     => url('/login'),
                         ],
@@ -392,7 +421,8 @@ class Teacher extends Component
                             'password'      => $teacher->plainPassword() ?? 'Use your existing password (unchanged)',
                             'email_address' => $teacher->email,
                             'school_name'   => $schoolName,
-                            'username'      => $teacher->name,
+                            // The name they sign in with, now that they have one.
+                            'username'      => $teacher->username ?: $teacher->name,
                             'name'          => $teacher->name,
                             'login_url'     => url('/login'),
                         ],
@@ -471,6 +501,8 @@ class Teacher extends Component
         $this->editId           = $user->id;
         $this->teacherName      = (string) ($user->name ?? '');
         $this->teacherEmail     = (string) ($user->email ?? '');
+        $this->teacherUsername  = (string) ($user->username ?? '');
+        $this->usernameTyped    = $this->teacherUsername !== '';
         $this->teacherMobile    = (string) ($user->mobile_number ?? '');
         $this->teacherActive    = (int) ($user->is_active ?? 0);
         // dob/gender may be Carbon/null depending on whether lms:migrate added the columns
@@ -824,6 +856,7 @@ class Teacher extends Component
             'selectedCity',
             'teacherName',
             'teacherEmail',
+            'teacherUsername',
             'teacherMobile',
             'teacherGender',
             'employeeId',
@@ -833,6 +866,7 @@ class Teacher extends Component
             'pincode',
             'emergencyContact',
             'teacherActive',
+            'usernameTyped',
             'teacherImage',
             'teacherImageUrl',
         ]);

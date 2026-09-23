@@ -26,6 +26,8 @@ class TeacherProfileResource extends JsonResource
             'user_id'           => $this->user_id ?? null,
             'name'              => $this->user->name ?? null,
             'email'             => $this->user->email ?? null,
+            // What they sign in with, and reset a password by.
+            'username'          => $this->user->username ?? null,
             'mobile_number'     => $this->user->mobile_number ?? null,
             'phone'             => $this->phone ?? null,
             'emergency_contact' => $this->emergency_contact ?? null,
