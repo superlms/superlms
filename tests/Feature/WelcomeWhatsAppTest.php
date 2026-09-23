@@ -135,7 +135,7 @@ class WelcomeWhatsAppTest extends TestCase
             ->assertOk()
             ->assertSee('26TDS100001')
             ->assertSee('Xk9#pQ2m', false)
-            ->assertSee('Download the SuperLMS app')
+            ->assertSee('Download Now')
             ->assertHeader('X-Robots-Tag', 'noindex, nofollow');
 
         // As the approved template's button sends it: a literal {{1}} before the token.

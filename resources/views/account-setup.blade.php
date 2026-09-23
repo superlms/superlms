@@ -34,7 +34,7 @@
         .sub { margin: 0; text-align: center; color: var(--muted); font-size: 14px; }
 
         .fields { margin-top: 24px; display: grid; gap: 10px; }
-        .field { display: flex; align-items: center; gap: 8px; background: var(--field); border: 1px solid var(--line); border-radius: 14px; padding: 12px 8px 12px 16px; }
+        .field { display: flex; align-items: center; gap: 8px; background: transparent; border: 1px solid var(--line); border-radius: 14px; padding: 12px 8px 12px 16px; }
         .field .t { flex: 1; min-width: 0; }
         .field .k { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); }
         .field .v { margin-top: 2px; font: 600 17px/1.3 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; word-break: break-all; }
@@ -111,7 +111,7 @@
 
             <a class="btn" href="{{ $appUrl }}" rel="noopener">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
-                Download the SuperLMS app
+                Download Now
             </a>
 
             <ol class="steps">

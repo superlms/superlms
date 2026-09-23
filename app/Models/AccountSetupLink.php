@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
 class AccountSetupLink extends Model
 {
     /** How long a link keeps working. */
-    public const DAYS = 7;
+    public const DAYS = 30;
 
     protected $fillable = ['user_id', 'token_hash', 'password_hash', 'expires_at', 'opened_at'];
 
