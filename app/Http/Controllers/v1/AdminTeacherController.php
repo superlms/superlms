@@ -292,6 +292,8 @@ class AdminTeacherController extends ApiController
         if (LoginIdentifier::emailReserved($request->email)) {
             return $this->error('This email belongs to a school account. Please use a different one.', 422);
         }
+        // A new number gets the WhatsApp too.
+        $oldMobile = $teacher->mobile_number;
 
         try {
             $userData = [
@@ -325,6 +327,10 @@ class AdminTeacherController extends ApiController
                     'emergency_contact' => $request->emergency_contact ?: null,
                 ]);
             });
+
+            if (\App\Services\WelcomeWhatsApp::numberChanged($oldMobile, $request->mobile)) {
+                \App\Services\WelcomeWhatsApp::teacher((int) $teacher->id);
+            }
 
             return $this->success($this->shapeRow($detail->fresh('user')), 'Teacher Updated Successfully!');
         } catch (\Throwable $e) {

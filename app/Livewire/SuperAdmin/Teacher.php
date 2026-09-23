@@ -324,6 +324,8 @@ class Teacher extends Component
 
         $user     = User::find($this->editUserId);
         $oldEmail = $user?->email;
+        // And the pre-edit mobile: a new number gets the WhatsApp too.
+        $oldMobile = $user?->mobile_number;
 
         $userData = [
             'name'            => $this->editName,
@@ -367,6 +369,11 @@ class Teacher extends Component
             'emergency_contact' => $this->editEmergencyContact,
         ]);
         $push->profileSaved($before);
+
+        // Mobile changed → the new number gets the WhatsApp too.
+        if (\App\Services\WelcomeWhatsApp::numberChanged($oldMobile, $this->editMobile)) {
+            \App\Services\WelcomeWhatsApp::teacher((int) $this->editUserId);
+        }
 
         // Email changed → re-send credentials to the NEW address with the
         // SAME (unchanged) password, exactly like the admin module.

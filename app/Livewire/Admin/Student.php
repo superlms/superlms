@@ -424,6 +424,8 @@ class Student extends Component
             // Pre-edit email — used to notify the student at their NEW address
             // when an admin changes it. The password is never touched here.
             $oldStudentEmail = ($student && $student->exists) ? $student->email : null;
+            // And the pre-edit mobile: a new number gets the WhatsApp too.
+            $oldStudentMobile = ($student && $student->exists) ? $student->mobile_number : null;
 
             $studentData = [
                 'name'            => $this->studentsName,
@@ -549,6 +551,12 @@ class Student extends Component
 
             // ─── After commit ─────────────────────────────────────────────
             if (!$isNew) {
+                // Mobile changed on an edit → the new number gets the WhatsApp
+                // (admission number, and the link to the password and the app).
+                if (\App\Services\WelcomeWhatsApp::numberChanged($oldStudentMobile, $this->studentsMobile)) {
+                    \App\Services\WelcomeWhatsApp::student((int) $student->id);
+                }
+
                 // Email changed on an edit → send credentials to the NEW address,
                 // carrying a password the student can actually log in with: the
                 // one they already have when we can recover it, a freshly set

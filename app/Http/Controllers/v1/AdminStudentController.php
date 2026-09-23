@@ -331,6 +331,8 @@ class AdminStudentController extends ApiController
         }
         $student = User::find($detail->user_id);
         if (!$student) return $this->error('Student account not found.', 404);
+        // A new number gets the WhatsApp too.
+        $oldMobile = $student->mobile_number;
 
         $transportRequired = $request->boolean('transportation_required');
         if (!$this->mayTouch((int) $request->standard_id, (int) $request->section_id)) {
@@ -362,6 +364,10 @@ class AdminStudentController extends ApiController
                 $detail->update($this->detailData($request, $student->id, $orgId, $detail->admission_no, $detail->roll_no, $board));
                 $this->syncTransport($detail, $request, $orgId);
             });
+
+            if (\App\Services\WelcomeWhatsApp::numberChanged($oldMobile, $request->mobile)) {
+                \App\Services\WelcomeWhatsApp::student((int) $student->id);
+            }
 
             return $this->success($this->shapeRow($detail->fresh(['user', 'standard', 'section'])), 'Student Updated Successfully!');
         } catch (\Throwable $e) {

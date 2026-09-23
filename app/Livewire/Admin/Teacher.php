@@ -293,6 +293,8 @@ class Teacher extends Component
             // Remember the pre-edit email so we can notify the teacher at their
             // NEW address when an admin changes it. Password is never touched here.
             $oldEmail       = $isEdit ? $teacher->email : null;
+            // And the pre-edit mobile: a new number gets the WhatsApp too.
+            $oldMobile      = $isEdit ? $teacher->mobile_number : null;
 
             // Build base user payload (only User-table columns!)
             // dob + gender are added below via direct property set IFF the
@@ -416,6 +418,12 @@ class Teacher extends Component
             // Email changed on an edit → send updated credentials to the NEW
             // address. The password is unchanged — include the stored one when
             // known, otherwise tell them to keep using their existing one.
+            // Mobile changed on an edit → the new number gets the WhatsApp
+            // (username, and the link to the password and the app).
+            if ($isEdit && \App\Services\WelcomeWhatsApp::numberChanged($oldMobile, $this->teacherMobile)) {
+                \App\Services\WelcomeWhatsApp::teacher((int) $teacher->id);
+            }
+
             if ($isEdit && $oldEmail && strcasecmp($oldEmail, $teacher->email) !== 0) {
                 $emailTemplateKey = config('services.zeptomail.teacher_password_template_key');
                 if ($emailTemplateKey) {

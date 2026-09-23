@@ -84,6 +84,18 @@ class WelcomeWhatsApp
         })->afterResponse();
     }
 
+    /**
+     * Whether an edit moved the person to a different mobile — the new one
+     * gets the message too. The same number written another way ("98765
+     * 43210", "+91…") is not a change.
+     */
+    public static function numberChanged(?string $old, ?string $new): bool
+    {
+        $new = WhatsAppService::normalizePhone($new);
+
+        return $new !== null && $new !== WhatsAppService::normalizePhone($old);
+    }
+
     private static function school(User $user): string
     {
         return Organization::find($user->organization_id)?->name ?? 'your school';

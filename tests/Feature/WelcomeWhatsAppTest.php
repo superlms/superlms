@@ -76,6 +76,16 @@ class WelcomeWhatsAppTest extends TestCase
         $this->assertNull(WhatsAppService::normalizePhone(null));
     }
 
+    public function test_only_a_different_number_counts_as_a_changed_one(): void
+    {
+        $this->assertTrue(\App\Services\WelcomeWhatsApp::numberChanged('9876543210', '9123456780'));
+        $this->assertTrue(\App\Services\WelcomeWhatsApp::numberChanged(null, '9123456780'));
+        // The same number written another way.
+        $this->assertFalse(\App\Services\WelcomeWhatsApp::numberChanged('9876543210', '+91 98765 43210'));
+        // Nothing to send to.
+        $this->assertFalse(\App\Services\WelcomeWhatsApp::numberChanged('9876543210', ''));
+    }
+
     public function test_nothing_is_sent_until_it_is_configured(): void
     {
         config(['services.whatsapp.token' => null, 'services.whatsapp.phone_number_id' => null]);

@@ -447,8 +447,9 @@ class Student extends Component
             return;
         }
 
-        $user     = User::find($this->editUserId);
-        $oldEmail = $user?->email;
+        $user      = User::find($this->editUserId);
+        $oldEmail  = $user?->email;
+        $oldMobile = $user?->mobile_number;
 
         $userData = [
             'name'            => $this->editName,
@@ -504,6 +505,11 @@ class Student extends Component
         $detail = StudentDetail::find($this->editDetailId);
         if ($detail) {
             $this->syncStudentRoute($detail, (bool) $this->editTransportation, $this->editRoute, $this->editOrgId);
+        }
+
+        // Mobile changed → the new number gets the WhatsApp too.
+        if (\App\Services\WelcomeWhatsApp::numberChanged($oldMobile, $this->editMobile)) {
+            \App\Services\WelcomeWhatsApp::student((int) $this->editUserId);
         }
 
         // Email changed → send credentials to the NEW address, exactly like the
