@@ -11,22 +11,24 @@ use Illuminate\Support\Str;
  * one school address for everyone), so the username is what tells two accounts
  * apart at the login screen and when a password is forgotten.
  *
- * Shape: 4 to 30 characters, a letter first, then lowercase letters, numbers,
- * dots and underscores. Unique across every school.
+ * Shape: 4 to 50 characters, a letter first, then lowercase letters, numbers,
+ * dots and underscores, and at most one @ — the school's own form is the
+ * teacher's first name at the school code, meera@tds, and a second Meera in
+ * that school is meera2@tds. Unique across every school.
  */
 class Usernames
 {
     public const MIN = 4;
-    public const MAX = 30;
+    public const MAX = 50;
 
     /** The rule every username follows, for validation. */
-    public const REGEX = '/^[a-z][a-z0-9._]{3,29}$/';
+    public const REGEX = '/^(?=.{4,50}$)[a-z][a-z0-9._]*(@[a-z0-9._]+)?$/';
 
     /** Said in words, for when one is taken or malformed. */
     public const RULES = [
-        '4 to 30 characters long',
+        '4 to 50 characters long',
         'starts with a letter',
-        'only lowercase letters, numbers, dots and underscores',
+        'only lowercase letters, numbers, dots, underscores and one @ (like meera@tds)',
         'not already taken by another account',
     ];
 
@@ -49,8 +51,11 @@ class Usernames
         if ($username !== '' && !preg_match('/^[a-z]/', $username)) {
             $problems[] = 'It must start with a letter.';
         }
-        if (preg_match('/[^a-z0-9._]/', $username)) {
-            $problems[] = 'It can only hold lowercase letters, numbers, dots and underscores.';
+        if (preg_match('/[^a-z0-9._@]/', $username)) {
+            $problems[] = 'It can only hold lowercase letters, numbers, dots, underscores and one @.';
+        }
+        if (substr_count($username, '@') > 1 || str_ends_with($username, '@')) {
+            $problems[] = 'It can hold one @, with the school code after it (like meera@tds).';
         }
         if ($username !== '' && self::taken($username, $ignoreUserId)) {
             $problems[] = 'Someone already has this username — try ' . implode(' or ', self::alternatives($username)) . '.';
@@ -76,8 +81,13 @@ class Usernames
      * A username from what is known about the person — the name, else the part
      * of their email before the @ — made unique with a number on the end.
      */
-    public static function suggest(?string $name, ?string $email = null): string
+    public static function suggest(?string $name, ?string $email = null, ?int $organizationId = null): string
     {
+        // Within a school, the school's own form: first name at the school code.
+        if ($organizationId) {
+            return self::forSchool($name, $organizationId);
+        }
+
         $base = self::base((string) $name);
 
         if (mb_strlen($base) < self::MIN && $email) {
@@ -88,6 +98,34 @@ class Usernames
         }
 
         return self::makeUnique($base);
+    }
+
+    /**
+     * The school's form of a username: the teacher's first name at the school
+     * code, meera@tds. The next Meera there is meera2@tds, then meera3@tds.
+     */
+    public static function forSchool(?string $name, int $organizationId, ?int $ignoreUserId = null): string
+    {
+        $first = preg_replace('/[^a-z]/', '', strtolower((string) Str::before(trim((string) $name) . ' ', ' ')));
+        $first = mb_substr($first ?: 'teacher', 0, 30);
+
+        $code = self::schoolCode($organizationId);
+
+        $candidate = $first . '@' . $code;
+        for ($n = 2; self::taken($candidate, $ignoreUserId); $n++) {
+            $candidate = $first . $n . '@' . $code;
+        }
+
+        return $candidate;
+    }
+
+    /** The school code as it goes after the @ — "TDS" is tds. */
+    public static function schoolCode(int $organizationId): string
+    {
+        $code = (string) \App\Models\Organization::whereKey($organizationId)->value('school_code');
+        $code = preg_replace('/[^a-z0-9]/', '', strtolower($code));
+
+        return mb_substr($code ?: 'school' . $organizationId, 0, 18);
     }
 
     /** The same name with a number on the end, until no one has it. */
@@ -107,6 +145,20 @@ class Usernames
     /** Three free usernames near the one that was taken. */
     public static function alternatives(string $username, int $count = 2): array
     {
+        // meera@tds taken → meera2@tds, meera3@tds: the number goes before the @.
+        if (str_contains($username, '@')) {
+            [$local, $code] = explode('@', self::normalize($username), 2);
+            $local = rtrim($local, '0123456789') ?: 'teacher';
+            $found = [];
+            for ($n = 2; count($found) < $count && $n < 200; $n++) {
+                if (!self::taken($local . $n . '@' . $code)) {
+                    $found[] = $local . $n . '@' . $code;
+                }
+            }
+
+            return $found ?: [$local . '2@' . $code];
+        }
+
         $base  = self::base($username) ?: 'teacher';
         $found = [];
 

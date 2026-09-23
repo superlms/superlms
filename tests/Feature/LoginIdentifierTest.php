@@ -137,12 +137,38 @@ class LoginIdentifierTest extends TestCase
         $this->assertStringContainsString('meera.sharma1', $taken[0]);
 
         $bad = Usernames::problems('7up');
-        $this->assertStringContainsString('4 to 30 characters', implode(' ', $bad));
+        $this->assertStringContainsString('4 to 50 characters', implode(' ', $bad));
         $this->assertStringContainsString('start with a letter', implode(' ', $bad));
 
         // Editing that same teacher leaves their own username alone.
         $meera = User::where('username', 'meera.sharma')->first();
         $this->assertSame([], Usernames::problems('meera.sharma', $meera->id));
+    }
+
+    public function test_a_school_username_is_the_first_name_at_the_school_code(): void
+    {
+        Schema::create('organizations', function (Blueprint $t) {
+            $t->id();
+            $t->string('school_code')->nullable();
+            $t->timestamps();
+        });
+        \Illuminate\Support\Facades\DB::table('organizations')->insert(['id' => $this->org, 'school_code' => 'TDS']);
+
+        $this->assertSame('meera@tds', Usernames::suggest('Meera Sharma', null, $this->org));
+
+        // A second Meera in the school is meera2@tds, a third meera3@tds.
+        $this->user('Meera Sharma', 'teacher', 'a@example.com', 'meera@tds');
+        $this->assertSame('meera2@tds', Usernames::forSchool('Meera Gupta', $this->org));
+        $this->user('Meera Gupta', 'teacher', 'b@example.com', 'meera2@tds');
+        $this->assertSame('meera3@tds', Usernames::forSchool('Meera Rao', $this->org));
+
+        // It is a valid username, and it signs the teacher in.
+        $this->assertSame([], Usernames::problems('meera3@tds'));
+        $this->assertMatchesRegularExpression(Usernames::REGEX, 'meera2@tds');
+        $this->assertSame('meera@tds', LoginIdentifier::resolve('Meera@TDS')[0]?->username);
+
+        // Taken: the free ones offered carry the number before the @.
+        $this->assertStringContainsString('meera3@tds', implode(' ', Usernames::problems('meera@tds')));
     }
 
     public function test_an_existing_teacher_is_given_one_from_their_name(): void

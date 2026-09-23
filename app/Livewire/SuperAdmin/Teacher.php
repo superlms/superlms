@@ -336,7 +336,7 @@ class Teacher extends Component
         ];
         // A teacher from before usernames gets one, so they can sign in.
         if ($user && !$user->username) {
-            $userData['username'] = Usernames::suggest($this->editName, $this->editEmail);
+            $userData['username'] = Usernames::suggest($this->editName, $this->editEmail, (int) $this->editOrgId);
         }
 
         if ($this->editImage) {
@@ -523,7 +523,7 @@ class Teacher extends Component
             'name'            => $this->addName,
             'email'           => $this->addEmail,
             // What they sign in with — made from the name, free across every school.
-            'username'        => Usernames::suggest($this->addName, $this->addEmail),
+            'username'        => Usernames::suggest($this->addName, $this->addEmail, (int) $this->addOrgId),
             'mobile_number'   => $this->addMobile,
             'dob'             => $this->addDob,
             'gender'          => $this->addGender,

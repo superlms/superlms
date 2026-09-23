@@ -229,7 +229,7 @@ class Teacher extends Component
             return;
         }
 
-        $this->teacherUsername = Usernames::suggest($this->teacherName);
+        $this->teacherUsername = Usernames::suggest($this->teacherName, null, (int) Auth::user()->organization_id);
     }
 
     public function updatedTeacherUsername(): void

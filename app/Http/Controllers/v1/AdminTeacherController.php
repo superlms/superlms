@@ -171,7 +171,7 @@ class AdminTeacherController extends ApiController
      */
     public function usernameCheck(Request $request)
     {
-        [, $err] = $this->guard();
+        [$user, $err] = $this->guard();
         if ($err) return $err;
 
         $ignore   = $request->integer('ignore_user_id') ?: null;
@@ -183,7 +183,7 @@ class AdminTeacherController extends ApiController
                 'available'   => false,
                 'problems'    => [],
                 'rules'       => Usernames::RULES,
-                'suggestions' => $request->filled('name') ? [Usernames::suggest($request->query('name'))] : [],
+                'suggestions' => $request->filled('name') ? [Usernames::suggest($request->query('name'), null, (int) $user->organization_id)] : [],
             ]);
         }
 
@@ -208,7 +208,7 @@ class AdminTeacherController extends ApiController
         if ($err = $this->validateWith($request, $this->rules())) return $err;
 
         if (!$request->filled('username')) {
-            $request->merge(['username' => Usernames::suggest($request->name, $request->email)]);
+            $request->merge(['username' => Usernames::suggest($request->name, $request->email, (int) $orgId)]);
         }
         if ($problems = Usernames::problems($request->username)) {
             return $this->error(implode(' ', $problems), 422);
@@ -282,7 +282,7 @@ class AdminTeacherController extends ApiController
         if ($err = $this->validateWith($request, $this->rules())) return $err;
 
         if (!$request->filled('username')) {
-            $request->merge(['username' => $teacher->username ?: Usernames::suggest($request->name, $request->email)]);
+            $request->merge(['username' => $teacher->username ?: Usernames::suggest($request->name, $request->email, (int) $orgId)]);
         }
         if ($problems = Usernames::problems($request->username, $teacher->id)) {
             return $this->error(implode(' ', $problems), 422);

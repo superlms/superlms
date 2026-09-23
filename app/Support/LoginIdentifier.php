@@ -56,6 +56,17 @@ class LoginIdentifier
             return [null, 'Enter your admission number, username or email.'];
         }
 
+        // A username can carry an @ (meera@tds), so a teacher's username is
+        // looked for before the text is taken for an email.
+        if (str_contains($identifier, '@')) {
+            $teacher = User::where('username', Usernames::normalize($identifier))
+                ->where('role', 'teacher')
+                ->first();
+            if ($teacher) {
+                return [$teacher, null];
+            }
+        }
+
         if (filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
             return self::byEmail($identifier);
         }
