@@ -27,6 +27,7 @@ use App\Http\Controllers\v1\AdminStandardController;
 use App\Http\Controllers\v1\AdminStudentController;
 use App\Http\Controllers\v1\AdminTeacherController;
 use App\Http\Controllers\v1\AdminLedgerController;
+use App\Http\Controllers\v1\AdminPayrollController;
 use App\Http\Controllers\v1\AdminIdCardController;
 use App\Http\Controllers\v1\AdminExamController;
 use App\Http\Controllers\v1\AdminSyllabusController;
@@ -490,6 +491,20 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/ledger/entry/{id}',   [AdminLedgerController::class, 'show'])->whereNumber('id');
             Route::post('/ledger',             [AdminLedgerController::class, 'store']);
             Route::post('/ledger/{id}',        [AdminLedgerController::class, 'update'])->whereNumber('id');
+
+            // Payroll — the panel's employees, staff attendance, salary and payments
+            Route::get('/payroll/employees',                 [AdminPayrollController::class, 'employees']);
+            Route::get('/payroll/employees/{id}',            [AdminPayrollController::class, 'employee'])->whereNumber('id');
+            Route::post('/payroll/employees',                [AdminPayrollController::class, 'saveEmployee']);
+            Route::post('/payroll/employees/{id}',           [AdminPayrollController::class, 'saveEmployee'])->whereNumber('id');
+            Route::delete('/payroll/employees/{id}',         [AdminPayrollController::class, 'deleteEmployee'])->whereNumber('id');
+            Route::get('/payroll/attendance/date',           [AdminPayrollController::class, 'attendanceDate']);
+            Route::get('/payroll/attendance/employee/{id}',  [AdminPayrollController::class, 'attendanceEmployee'])->whereNumber('id');
+            Route::post('/payroll/attendance',               [AdminPayrollController::class, 'markAttendance']);
+            Route::get('/payroll/salary',                    [AdminPayrollController::class, 'salary']);
+            Route::get('/payroll/salary/{id}',               [AdminPayrollController::class, 'salaryFor'])->whereNumber('id');
+            Route::post('/payroll/salary/{id}',              [AdminPayrollController::class, 'pay'])->whereNumber('id');
+            Route::get('/payroll/payments',                  [AdminPayrollController::class, 'payments']);
             Route::get('/teachers/{id}',     [AdminTeacherController::class, 'show'])->whereNumber('id');
             Route::post('/teachers',         [AdminTeacherController::class, 'store']);
             Route::post('/teachers/{id}',    [AdminTeacherController::class, 'update'])->whereNumber('id');
