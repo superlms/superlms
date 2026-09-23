@@ -132,7 +132,9 @@ Route::post('/assistant/table-pdf', [\App\Http\Controllers\AssistantExportContro
 // welcome's "View details". Before website.php, whose {organization} wildcard
 // would swallow it.
 Route::get('/account-setup/{token}', [\App\Http\Controllers\AccountSetupController::class, 'show'])
-    ->where('token', '[A-Za-z0-9]{20,64}')
+    // Any last part: a wrong or cut-short link gets the page's own "does not
+    // work" answer, not the site's bare 404.
+    ->where('token', '[^/]{1,200}')
     ->middleware('throttle:30,1')
     ->name('account.setup');
 

@@ -19,6 +19,11 @@ class AccountSetupController extends Controller
 {
     public function show(string $token)
     {
+        // The approved templates' button was saved with a literal "{{1}}" in
+        // its URL ahead of the variable, so every link arrives as
+        // /account-setup/{{1}}<token> (%7B%7B1%7D%7D encoded). Read past it.
+        $token = preg_replace('/^(?:\{\{1\}\}|%7B%7B1%7D%7D)+/i', '', rawurldecode($token));
+
         $link = AccountSetupLink::with('user')->where('token_hash', hash('sha256', $token))->first();
         $user = $link?->user;
 

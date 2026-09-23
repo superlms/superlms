@@ -138,6 +138,10 @@ class WelcomeWhatsAppTest extends TestCase
             ->assertSee('Download the SuperLMS app')
             ->assertHeader('X-Robots-Tag', 'noindex, nofollow');
 
+        // As the approved template's button sends it: a literal {{1}} before the token.
+        $this->get('/account-setup/%7B%7B1%7D%7D' . $token)->assertOk()->assertSee('Xk9#pQ2m', false);
+        $this->get('/account-setup/{{1}}' . $token)->assertOk()->assertSee('26TDS100001');
+
         // Only the hash is kept.
         $this->assertDatabaseMissing('account_setup_links', ['token_hash' => $token]);
     }
