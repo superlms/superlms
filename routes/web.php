@@ -128,6 +128,14 @@ Route::get('/chat/attachment/{message}', [\App\Http\Controllers\Chat\AttachmentC
 Route::post('/assistant/table-pdf', [\App\Http\Controllers\AssistantExportController::class, 'tablePdf'])
     ->name('assistant.table-pdf');
 
+// A new student's or teacher's login and the app, opened from the WhatsApp
+// welcome's "View details". Before website.php, whose {organization} wildcard
+// would swallow it.
+Route::get('/account-setup/{token}', [\App\Http\Controllers\AccountSetupController::class, 'show'])
+    ->where('token', '[A-Za-z0-9]{20,64}')
+    ->middleware('throttle:30,1')
+    ->name('account.setup');
+
 //SuperLMS Website (must be before admin — avoids {organization} wildcard swallowing /web/* routes)
 require __DIR__.'/website.php';
 

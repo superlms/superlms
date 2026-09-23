@@ -259,6 +259,8 @@ class AdminTeacherController extends ApiController
             });
 
             $this->sendWelcomeEmail($teacher, $orgId, $plainPassword);
+            // And on WhatsApp: the username, and a link to the password and the app.
+            \App\Services\WelcomeWhatsApp::teacher((int) $teacher->id);
 
             $detail = TeacherDetail::with('user')->where('user_id', $teacher->id)->first();
             return $this->success($this->shapeRow($detail), 'Teacher Created Successfully!');

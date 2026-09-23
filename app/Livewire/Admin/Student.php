@@ -636,6 +636,10 @@ class Student extends Component
                     logger()->warning('ZEPTOMAIL_STUDENT_PASSWORD_TEMPLATE_KEY not configured — skipping welcome email.');
                 }
 
+                // And on WhatsApp: the admission number, and a link to the
+                // password and the app. After the response, like the email.
+                \App\Services\WelcomeWhatsApp::student((int) $student->id);
+
                 $this->notification()->success('Student Created Successfully!');
             }
 

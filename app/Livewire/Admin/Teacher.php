@@ -367,6 +367,12 @@ class Teacher extends Component
                 );
             }, 5);
 
+            // On WhatsApp too, on creation only: the username, and a link to
+            // the password and the app. After the response, like the email.
+            if (!$isEdit) {
+                \App\Services\WelcomeWhatsApp::teacher((int) $teacher->id);
+            }
+
             // Send welcome email on creation only — dispatched after-response so
             // a slow ZeptoMail can never block the user's "Saving…" spinner.
             // Same pattern as Student.php for consistency.

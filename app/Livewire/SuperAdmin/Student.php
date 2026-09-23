@@ -930,6 +930,9 @@ class Student extends Component
             Log::error('Student welcome email failed', ['email' => $this->addEmail, 'error' => $e->getMessage()]);
         }
 
+        // And on WhatsApp: the admission number, and a link to the password and the app.
+        \App\Services\WelcomeWhatsApp::student((int) $user->id);
+
         $this->closeAddPanel();
         $this->loadStats();
         $this->resetPage();

@@ -308,6 +308,8 @@ class AdminStudentController extends ApiController
             });
 
             $this->sendWelcomeEmail($student, $orgId, $plainPassword, $admissionNo);
+            // And on WhatsApp: the admission number, and a link to the password and the app.
+            \App\Services\WelcomeWhatsApp::student((int) $student->id);
 
             return $this->success($this->shapeRow($detail->fresh(['user', 'standard', 'section'])), 'Student Created Successfully!');
         } catch (\Throwable $e) {

@@ -576,6 +576,9 @@ class Teacher extends Component
             Log::error('Teacher welcome email failed', ['email' => $this->addEmail, 'error' => $e->getMessage()]);
         }
 
+        // And on WhatsApp: the username, and a link to the password and the app.
+        \App\Services\WelcomeWhatsApp::teacher((int) $user->id);
+
         $this->closeAddPanel();
         $this->loadStats();
         $this->resetPage();

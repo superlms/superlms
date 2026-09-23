@@ -62,6 +62,22 @@ return [
         'webhook_password' => env('PHONEPE_WEBHOOK_PASSWORD'),
     ],
 
+    // WhatsApp Cloud API (Meta) — the welcome message a new student or
+    // teacher gets beside the email. Off until the token and number are set.
+    'whatsapp' => [
+        'enabled'         => env('WHATSAPP_ENABLED', true),
+        'token'           => env('WHATSAPP_TOKEN'),
+        'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
+        'api_version'     => env('WHATSAPP_API_VERSION', 'v21.0'),
+        'language'        => env('WHATSAPP_TEMPLATE_LANGUAGE', 'en'),
+        'templates'       => [
+            'student' => env('WHATSAPP_TEMPLATE_STUDENT', 'admission_confirmed'),
+            'teacher' => env('WHATSAPP_TEMPLATE_TEACHER', 'teacher_joining_confirmed'),
+        ],
+        // Where the page's download button goes.
+        'app_url'         => env('APP_PLAY_STORE_URL', 'https://play.google.com/store/apps/details?id=com.edyoneapp'),
+    ],
+
     'zeptomail' => [
         'api_url' => env('ZEPTOMAIL_API_URL', 'https://api.zeptomail.in/v1.1'),
         'api_token' => env('ZEPTOMAIL_API_TOKEN'),
