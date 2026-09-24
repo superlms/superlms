@@ -87,8 +87,10 @@ class AdminStandardController extends ApiController
             ]);
 
         return $this->success([
-            'classes' => $classes,
-            'board'   => $this->orgBoard($user->organization_id),
+            'classes'   => $classes,
+            'board'     => $this->orgBoard($user->organization_id),
+            // What the panel's Add Class suggests for the code — the admin can change it.
+            'next_code' => StudentNumbers::nextStandardCode($user->organization_id),
         ], 'Academic lookups fetched.');
     }
 
@@ -105,6 +107,8 @@ class AdminStandardController extends ApiController
             'is_active'      => (bool) $s->is_active,
             'sections_count' => $s->sections_count ?? null,
             'subjects_count' => $s->subjects_count ?? null,
+            // The panel's list names each class's sections.
+            'section_names'  => $s->relationLoaded('sections') ? $s->sections->pluck('name')->values()->all() : null,
             'created_at'     => $s->created_at?->toIso8601String(),
         ];
     }
@@ -117,6 +121,7 @@ class AdminStandardController extends ApiController
 
         $orgId = $user->organization_id;
         $query = Standard::withCount(['sections', 'subjects'])
+            ->with(['sections' => fn ($q) => $q->orderBy('id')->select('id', 'standard_id', 'name')])
             ->where('organization_id', $orgId);
 
         if ($request->filled('search')) {
@@ -147,10 +152,13 @@ class AdminStandardController extends ApiController
         if ($err) return $err;
         if ($err = $this->validateWith($request, [
             'name'      => 'required|string|max:255',
-            'code'      => 'nullable|string|max:50',
+            'code'      => 'nullable|string|max:10',
             'order'     => ['nullable', StandardOrder::RULE],
             'is_active' => 'nullable|boolean',
-        ], ['order.regex' => 'Order must be a whole number.'])) return $err;
+        ], [
+            'code.max'    => 'Class code may not be longer than 10 characters.',
+            'order.regex' => 'Display order must be a whole number.',
+        ])) return $err;
 
         $orgId = $user->organization_id;
 
@@ -200,10 +208,14 @@ class AdminStandardController extends ApiController
 
         if ($err = $this->validateWith($request, [
             'name'      => 'required|string|max:255',
-            'code'      => 'required|string|max:50',
+            'code'      => 'required|string|max:10',
             'order'     => ['nullable', StandardOrder::RULE],
             'is_active' => 'nullable|boolean',
-        ], ['order.regex' => 'Order must be a whole number.'])) return $err;
+        ], [
+            'code.required' => 'Please enter a class code.',
+            'code.max'      => 'Class code may not be longer than 10 characters.',
+            'order.regex'   => 'Display order must be a whole number.',
+        ])) return $err;
 
         if (Standard::where('organization_id', $orgId)->where('name', $request->name)->where('id', '!=', $id)->exists()) {
             return $this->error('A class with this name already exists.', 422);
@@ -220,6 +232,8 @@ class AdminStandardController extends ApiController
             $s->update([
                 'name'      => $request->name,
                 'code'      => $request->code,
+                // As the panel saves it: the class's board, or the school's.
+                'board'     => $s->board ?: $this->orgBoard($orgId),
                 'order'     => $order,
                 'is_active' => $request->boolean('is_active', $s->is_active),
             ]);
@@ -236,6 +250,11 @@ class AdminStandardController extends ApiController
 
         $standard = Standard::where('organization_id', $user->organization_id)->find($id);
         if (!$standard) return $this->error('Class not found.', 404);
+
+        // Not while students are in it: they are moved to another class first.
+        if (StudentDetail::where('standard_id', $id)->exists()) {
+            return $this->error('Students are assigned to this class. You can edit it, but it cannot be deleted until the students are moved to another class.', 422);
+        }
 
         if (Section::where('standard_id', $id)->exists()) {
             return $this->error('Please delete all sections of this class first.', 422);
@@ -305,22 +324,27 @@ class AdminStandardController extends ApiController
     {
         [$user, $err] = $this->guard();
         if ($err) return $err;
+        // The panel's Section asks a name and a class; a code and description
+        // are still taken from builds that send them.
         if ($err = $this->validateWith($request, [
             'name'        => 'required|string|max:255',
-            'code'        => 'required|string|max:50',
+            'code'        => 'nullable|string|max:50',
             'description' => 'nullable|string',
             'standard_id' => 'required|exists:standards,id',
             'is_active'   => 'nullable|boolean',
         ])) return $err;
+        if (!Standard::where('organization_id', $user->organization_id)->whereKey($request->standard_id)->exists()) {
+            return $this->error('Class not found.', 404);
+        }
 
-        if (Section::where('standard_id', $request->standard_id)
-            ->where('name', $request->name)->where('code', $request->code)->exists()) {
-            return $this->error('A section with this name and code already exists in the selected class.', 422);
+        // A name once per class.
+        if (Section::where('standard_id', $request->standard_id)->where('name', $request->name)->exists()) {
+            return $this->error('A section with this name already exists in the selected class.', 422);
         }
 
         $s = Section::create([
             'name'            => $request->name,
-            'code'            => $request->code,
+            'code'            => $request->filled('code') ? $request->code : null,
             'description'     => $request->description,
             'standard_id'     => $request->standard_id,
             'is_active'       => $request->boolean('is_active', true),
@@ -341,22 +365,25 @@ class AdminStandardController extends ApiController
 
         if ($err = $this->validateWith($request, [
             'name'        => 'required|string|max:255',
-            'code'        => 'required|string|max:50',
+            'code'        => 'nullable|string|max:50',
             'description' => 'nullable|string',
             'standard_id' => 'required|exists:standards,id',
             'is_active'   => 'nullable|boolean',
         ])) return $err;
-
-        if (Section::where('standard_id', $request->standard_id)
-            ->where('name', $request->name)->where('code', $request->code)
-            ->where('id', '!=', $id)->exists()) {
-            return $this->error('A section with this name and code already exists in the selected class.', 422);
+        if (!Standard::where('organization_id', $user->organization_id)->whereKey($request->standard_id)->exists()) {
+            return $this->error('Class not found.', 404);
         }
 
+        if (Section::where('standard_id', $request->standard_id)->where('name', $request->name)
+            ->where('id', '!=', $id)->exists()) {
+            return $this->error('A section with this name already exists in the selected class.', 422);
+        }
+
+        // What isn't sent is left as it is — the panel's form has no code.
         $s->update([
             'name'        => $request->name,
-            'code'        => $request->code,
-            'description' => $request->description,
+            'code'        => $request->has('code') ? ($request->code ?: null) : $s->code,
+            'description' => $request->has('description') ? $request->description : $s->description,
             'standard_id' => $request->standard_id,
             'is_active'   => $request->boolean('is_active', $s->is_active),
         ]);
@@ -372,6 +399,11 @@ class AdminStandardController extends ApiController
 
         $section = Section::whereHas('standard', fn ($q) => $q->where('organization_id', $user->organization_id))->find($id);
         if (!$section) return $this->error('Section not found.', 404);
+
+        // Not while students are in it: they are moved to another section first.
+        if (StudentDetail::where('section_id', $id)->exists()) {
+            return $this->error('Students are assigned to this section. You can edit it, but it cannot be deleted until the students are moved to another section.', 422);
+        }
 
         try {
             DB::transaction(function () use ($id, $section) {
@@ -489,7 +521,7 @@ class AdminStandardController extends ApiController
 
         if ($err = $this->validateWith($request, [
             'name'         => 'required|string|max:255',
-            'code'         => 'required|string|max:50',
+            'code'         => 'nullable|string|max:50',
             'description'  => 'nullable|string',
             'standard_id'  => 'required|exists:standards,id',
             'section_ids'  => 'required|array|min:1',
@@ -504,33 +536,53 @@ class AdminStandardController extends ApiController
 
         $orgId = $user->organization_id;
 
-        $dupName = StandardSubject::where('standard_id', $request->standard_id)
-            ->whereHas('subject', fn ($q) => $q->where('name', $request->name))->exists();
-        if ($dupName) return $this->error('A subject with this name already exists in the selected class.', 422);
+        // As the panel adds one: a subject of this name already in the class is
+        // used again and only its missing sections are linked — it may be one an
+        // old save left linked to no section. Already in every section picked,
+        // it is a duplicate.
+        $existing = Subject::where('organization_id', $orgId)
+            ->where('name', $request->name)
+            ->whereHas('standards', fn ($q) => $q->where('standard_id', $request->standard_id))
+            ->first();
+        if ($existing) {
+            $linked = SectionSubject::where('subject_id', $existing->id)
+                ->where('standard_id', $request->standard_id)
+                ->pluck('section_id')->map(fn ($v) => (int) $v)->all();
+            if (empty(array_diff($request->section_ids, $linked))) {
+                return $this->error('A subject with this name already exists in the selected section(s).', 422);
+            }
+        }
 
-        $dupCode = StandardSubject::where('standard_id', $request->standard_id)
-            ->whereHas('subject', fn ($q) => $q->where('code', $request->code))->exists();
-        if ($dupCode) return $this->error('A subject with this code already exists in the selected class.', 422);
+        // A code, from the builds that send one, is still once per class.
+        if ($request->filled('code')) {
+            $dupCode = StandardSubject::where('standard_id', $request->standard_id)
+                ->whereHas('subject', fn ($q) => $q->where('code', $request->code)
+                    ->when($existing, fn ($w) => $w->where('id', '!=', $existing->id)))->exists();
+            if ($dupCode) return $this->error('A subject with this code already exists in the selected class.', 422);
+        }
 
         $data = [
             'name'            => $request->name,
-            'code'            => $request->code,
-            'description'     => $request->description,
             'organization_id' => $orgId,
             'is_active'       => $request->boolean('is_active', true),
         ];
-        $this->applySubjectImage($request, 'image', $data, null);
-        $this->applySubjectImage($request, 'detail_image', $data, null);
+        if ($request->filled('code')) $data['code'] = $request->code;
+        if ($request->filled('description')) $data['description'] = $request->description;
+        $this->applySubjectImage($request, 'image', $data, $existing);
+        $this->applySubjectImage($request, 'detail_image', $data, $existing);
 
         try {
-            $subject = DB::transaction(function () use ($request, $data, $orgId) {
-                $subject = Subject::create($data);
-                StandardSubject::create([
-                    'standard_id'     => $request->standard_id,
-                    'subject_id'      => $subject->id,
-                    'organization_id' => $orgId,
-                    'is_mandatory'    => $request->boolean('is_mandatory', true),
-                ]);
+            $subject = DB::transaction(function () use ($request, $data, $orgId, $existing) {
+                if ($existing) {
+                    $existing->update($data);
+                    $subject = $existing;
+                } else {
+                    $subject = Subject::create($data);
+                }
+                StandardSubject::updateOrCreate(
+                    ['standard_id' => $request->standard_id, 'subject_id' => $subject->id],
+                    ['organization_id' => $orgId, 'is_mandatory' => $request->boolean('is_mandatory', true)]
+                );
                 foreach ($request->section_ids as $sectionId) {
                     // firstOrCreate → a section sent twice (or a double-tapped
                     // save) links once, never "SECTION A, SECTION A".
@@ -549,7 +601,7 @@ class AdminStandardController extends ApiController
             return $this->error('Failed to save subject: ' . $e->getMessage(), 500);
         }
 
-        return $this->success($this->shapeSubject($subject->load(['standards', 'sections'])), 'Subject created successfully!');
+        return $this->success($this->shapeSubject($subject->load(['standards', 'sections'])), 'Subject saved successfully!');
     }
 
     /** POST /admin/subjects/{id} (multipart update) */
@@ -568,7 +620,7 @@ class AdminStandardController extends ApiController
 
         if ($err = $this->validateWith($request, [
             'name'         => 'required|string|max:255',
-            'code'         => 'required|string|max:50',
+            'code'         => 'nullable|string|max:50',
             'description'  => 'nullable|string',
             'standard_id'  => 'required|exists:standards,id',
             // The class the subject was edited from; its first class if not sent.
@@ -604,16 +656,20 @@ class AdminStandardController extends ApiController
             ->whereHas('subject', fn ($q) => $q->where('name', $request->name)->where('id', '!=', $id))->exists();
         if ($dupName) return $this->error('A subject with this name already exists in the selected class.', 422);
 
-        $dupCode = StandardSubject::where('standard_id', $request->standard_id)
-            ->whereHas('subject', fn ($q) => $q->where('code', $request->code)->where('id', '!=', $id))->exists();
-        if ($dupCode) return $this->error('A subject with this code already exists in the selected class.', 422);
+        // A code, from the builds that send one, is still once per class.
+        if ($request->filled('code')) {
+            $dupCode = StandardSubject::where('standard_id', $request->standard_id)
+                ->whereHas('subject', fn ($q) => $q->where('code', $request->code)->where('id', '!=', $id))->exists();
+            if ($dupCode) return $this->error('A subject with this code already exists in the selected class.', 422);
+        }
 
+        // What isn't sent is left as it is — the panel's form has no code.
         $data = [
-            'name'        => $request->name,
-            'code'        => $request->code,
-            'description' => $request->description,
-            'is_active'   => $request->boolean('is_active', $subject->is_active),
+            'name'      => $request->name,
+            'is_active' => $request->boolean('is_active', $subject->is_active),
         ];
+        if ($request->has('code')) $data['code'] = $request->code ?: null;
+        if ($request->has('description')) $data['description'] = $request->description;
         $this->applySubjectImage($request, 'image', $data, $subject);
         $this->applySubjectImage($request, 'detail_image', $data, $subject);
 
