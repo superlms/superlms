@@ -208,15 +208,26 @@ class FirebaseNotificationService
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Register / move a device token to this user (multi-device safe).
-     * A given token belongs to exactly one user — if it was seen against
-     * someone else (shared device, re-login), it gets reassigned.
+     * Register a device token for this user (multi-device safe).
+     *
+     * One phone can hold several signed-in accounts (Switch account), each of
+     * which should get its pushes, so a token may belong to more than one user:
+     * $accountIds names every account signed in on the device, and the token's
+     * rows for anyone else are dropped — an account signed out without telling
+     * us, or, from an older app that sends no list, everyone but this user, so
+     * the token moves here as it used to.
+     *
+     * @param  int[]  $accountIds
      */
-    public function saveToken(User $user, string $token, ?string $platform = null): UserFcmToken
+    public function saveToken(User $user, string $token, ?string $platform = null, array $accountIds = []): UserFcmToken
     {
+        $keep = array_values(array_unique(array_merge([(int) $user->id], array_map('intval', $accountIds))));
+
+        UserFcmToken::where('token', $token)->whereNotIn('user_id', $keep)->delete();
+
         return UserFcmToken::updateOrCreate(
-            ['token' => $token],
-            ['user_id' => $user->id, 'platform' => $platform]
+            ['token' => $token, 'user_id' => $user->id],
+            ['platform' => $platform]
         );
     }
 

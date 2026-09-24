@@ -75,8 +75,11 @@ class SendNotificationController extends Controller
     public function registerDeviceToken(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'token'    => 'required|string',
-            'platform' => 'nullable|in:android,ios',
+            'token'      => 'required|string',
+            'platform'   => 'nullable|in:android,ios',
+            // Every account signed in on this phone, which all keep its pushes.
+            'accounts'   => 'nullable|array',
+            'accounts.*' => 'integer',
         ]);
 
         if ($validator->fails()) {
@@ -90,7 +93,8 @@ class SendNotificationController extends Controller
             $this->firebaseService->saveToken(
                 Auth::user(),
                 $request->input('token'),
-                $request->input('platform')
+                $request->input('platform'),
+                (array) $request->input('accounts', [])
             );
 
             return $this->responseService->success(null, 'Device token registered');
