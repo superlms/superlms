@@ -92,6 +92,26 @@ class LoginIdentifierTest extends TestCase
         $this->assertSame($meera->id, LoginIdentifier::resolve('meera@example.com')[0]?->id);
     }
 
+    public function test_a_teacher_signs_in_with_their_username_not_their_email(): void
+    {
+        $meera = $this->user('Meera', 'teacher', 'meera@example.com', 'meera@tds');
+        $this->user('Head', 'admin', 'office@example.com');
+        $aarav = $this->student('Aarav', 'ADM-1', 'aarav@example.com');
+
+        // Signing in: the email is refused and says to use the username…
+        [$user, $why] = LoginIdentifier::resolve('meera@example.com', teacherEmail: false);
+        $this->assertNull($user);
+        $this->assertStringContainsString('username', $why);
+
+        // …which gets her in.
+        $this->assertSame($meera->id, LoginIdentifier::resolve('meera@tds', teacherEmail: false)[0]?->id);
+
+        // Staff and students are found as before.
+        $this->assertSame('admin', LoginIdentifier::resolve('office@example.com', teacherEmail: false)[0]?->role);
+        $this->assertSame($aarav->id, LoginIdentifier::resolve('aarav@example.com', teacherEmail: false)[0]?->id);
+        $this->assertSame($aarav->id, LoginIdentifier::resolve('ADM-1', teacherEmail: false)[0]?->id);
+    }
+
     public function test_staff_keep_their_address_and_win_it(): void
     {
         $admin = $this->user('Head', 'admin', 'office@example.com');

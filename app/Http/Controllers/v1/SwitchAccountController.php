@@ -61,8 +61,9 @@ class SwitchAccountController extends ApiController
             return $this->error('Please provide an admission number, username or email.', 422);
         }
 
-        // ── Resolve user — the same identifier the login screen takes ──
-        [$user, $why] = LoginIdentifier::resolve($identifier);
+        // ── Resolve user — the same identifier the login screen takes, so a
+        //    teacher is added by their username, not their email ──
+        [$user, $why] = LoginIdentifier::resolve($identifier, teacherEmail: false);
 
         if (!$user) {
             return $this->error($why, 401);

@@ -96,7 +96,8 @@ class AuthController extends Controller
         }
 
         try {
-            [$user, $why] = LoginIdentifier::resolve($identifier);
+            // A teacher signs in with their username, not their email.
+            [$user, $why] = LoginIdentifier::resolve($identifier, teacherEmail: false);
 
             if (!$user) {
                 return $this->responseService->error($why, 401);

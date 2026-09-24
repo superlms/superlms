@@ -42,6 +42,7 @@ class AdminAppLoginTest extends TestCase
             $t->id();
             $t->string('name')->nullable();
             $t->string('email')->nullable();
+            $t->string('username', 30)->nullable();
             $t->string('password')->nullable();
             $t->string('password_plain')->nullable();
             $t->string('role')->nullable();
@@ -165,11 +166,14 @@ class AdminAppLoginTest extends TestCase
 
     public function test_other_roles_sign_in_as_before_and_admins_do_when_the_code_is_off(): void
     {
-        $this->user('teacher');
+        $this->user('teacher', ['username' => 'teacher@tds']);
         $this->user('admin');
 
-        $this->login('teacher@example.com', otpSupported: false)
+        // A teacher signs in with their username; their email is refused.
+        $this->login('teacher@tds', otpSupported: false)
             ->assertOk()->assertJsonPath('data.user_type', 'teacher');
+        $this->login('teacher@example.com', otpSupported: false)
+            ->assertStatus(401)->assertJsonPath('message', fn ($m) => str_contains($m, 'username'));
 
         config(['services.otp.login_enabled' => false]);
         $this->login('admin@example.com')

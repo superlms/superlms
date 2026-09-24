@@ -15,8 +15,9 @@ use App\Models\User;
  *   a teacher  their username
  *   an admin, sub-admin or accounts user   their email, theirs alone
  *
- * A teacher's email still gets them in while it points at exactly one of them,
- * so nobody who knew only their address before is shut out by the change.
+ * A teacher signs in to the app with their username alone: login and adding an
+ * account to the switcher refuse a teacher's email. A forgotten password still
+ * finds a teacher by their email while it points at exactly one of them.
  *
  * Login, adding an account to the switcher and forgetting a password all ask
  * here, so all three take the same thing.
@@ -46,9 +47,11 @@ class LoginIdentifier
     }
 
     /**
+     * @param  bool  $teacherEmail  whether a teacher's email may find them — false
+     *                              when signing in, where a teacher gives their username
      * @return array{0: ?User, 1: ?string}  the account, or why there is none
      */
-    public static function resolve(string $identifier): array
+    public static function resolve(string $identifier, bool $teacherEmail = true): array
     {
         $identifier = trim($identifier);
 
@@ -68,7 +71,7 @@ class LoginIdentifier
         }
 
         if (filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
-            return self::byEmail($identifier);
+            return self::byEmail($identifier, $teacherEmail);
         }
 
         // An admission number first — students are the many.
@@ -89,10 +92,11 @@ class LoginIdentifier
     }
 
     /**
-     * An email belongs to the school's staff. It also still finds a teacher, or
-     * a student, while it points at one of them alone.
+     * An email belongs to the school's staff. It also still finds a teacher
+     * (unless $teacherEmail is false), or a student, while it points at one of
+     * them alone.
      */
-    private static function byEmail(string $email): array
+    private static function byEmail(string $email, bool $teacherEmail = true): array
     {
         $staff = User::where('email', $email)->whereIn('role', self::STAFF_ROLES)->first();
         if ($staff) {
@@ -100,6 +104,9 @@ class LoginIdentifier
         }
 
         $teachers = User::where('email', $email)->where('role', 'teacher')->limit(2)->get();
+        if (!$teacherEmail && $teachers->isNotEmpty()) {
+            return [null, 'Teachers sign in with their username. Please use your username instead of your email.'];
+        }
         if ($teachers->count() === 1) {
             return [$teachers->first(), null];
         }
