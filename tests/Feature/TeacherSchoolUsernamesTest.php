@@ -109,6 +109,44 @@ class TeacherSchoolUsernamesTest extends TestCase
         $this->assertStringContainsString('No account found', $why);
     }
 
+    public function test_a_new_school_code_carries_over_to_its_teachers(): void
+    {
+        $meera  = $this->teacher('Meera Sharma', 'meera@tds');
+        $meera2 = $this->teacher('Meera Rao', 'meera2@tds');
+        $other  = $this->teacher('Rahul Singh', 'rahul@dms', 5);
+        $this->migrate();
+
+        \App\Models\Organization::find(4)->update(['school_code' => 'ASIC']);
+
+        $this->assertSame('meera@asic', $this->usernameOf($meera));
+        $this->assertSame('meera2@asic', $this->usernameOf($meera2));
+        $this->assertSame('rahul@dms', $this->usernameOf($other));
+        $this->assertSame('meera@tds', DB::table('users')->where('id', $meera)->value('previous_username'));
+
+        // Either signs her in.
+        $this->assertSame($meera, LoginIdentifier::resolve('meera@asic', teacherEmail: false)[0]?->id);
+        $this->assertSame($meera, LoginIdentifier::resolve('meera@tds', teacherEmail: false)[0]?->id);
+
+        // Saving the school without touching the code renames no one.
+        \App\Models\Organization::find(4)->update(['school_code' => 'ASIC']);
+        $this->assertSame('meera@asic', $this->usernameOf($meera));
+    }
+
+    public function test_usernames_made_under_an_earlier_code_take_the_current_one(): void
+    {
+        $taken    = $this->teacher('Meera Gupta', 'meera@tds');
+        $meera    = $this->teacher('Meera Sharma', 'meera@006');
+        $jitendra = $this->teacher('Jitendra Singh', 'jitendra@006');
+        $this->migrate();
+
+        (require database_path('migrations/2026_09_24_000001_give_teacher_usernames_their_schools_current_code.php'))->up();
+
+        $this->assertSame('meera@tds', $this->usernameOf($taken));
+        $this->assertSame('meera2@tds', $this->usernameOf($meera));
+        $this->assertSame('jitendra@tds', $this->usernameOf($jitendra));
+        $this->assertSame('jitendra@006', DB::table('users')->where('id', $jitendra)->value('previous_username'));
+    }
+
     public function test_running_it_again_changes_nothing(): void
     {
         $meera = $this->teacher('Meera Sharma', 'meera.sharma1');

@@ -54,6 +54,14 @@ class Organization extends Model
         static::deleting(function (self $organization) {
             $organization->purgeSchoolData();
         });
+
+        // A teacher's username ends in the school code, so a new code carries
+        // over to them: meera@006 becomes meera@asic.
+        static::updated(function (self $organization) {
+            if ($organization->wasChanged('school_code')) {
+                \App\Support\Usernames::followSchoolCode($organization->id);
+            }
+        });
     }
 
     /**

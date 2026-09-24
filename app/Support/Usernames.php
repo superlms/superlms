@@ -3,6 +3,8 @@
 namespace App\Support;
 
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -117,6 +119,44 @@ class Usernames
         }
 
         return $candidate;
+    }
+
+    /**
+     * A school's teachers whose username ends in a code that is not the
+     * school's — the one it had before, meera@006 — take the code it has now:
+     * meera@asic. The part before the @ stays (meera2@006 → meera2@asic) unless
+     * that is taken, when the next free number is used. The old username is
+     * kept in previous_username, where it still signs them in.
+     *
+     * @return int how many were renamed
+     */
+    public static function followSchoolCode(int $organizationId): int
+    {
+        $code    = self::schoolCode($organizationId);
+        $keepOld = Schema::hasColumn('users', 'previous_username');
+
+        $teachers = DB::table('users')
+            ->where('role', 'teacher')
+            ->where('organization_id', $organizationId)
+            ->where('username', 'like', '%@%')
+            ->orderBy('id')
+            ->get(['id', 'username'])
+            ->filter(fn ($t) => Str::after((string) $t->username, '@') !== $code);
+
+        foreach ($teachers as $t) {
+            $local     = Str::before((string) $t->username, '@');
+            $base      = rtrim($local, '0123456789') ?: 'teacher';
+            $candidate = $local . '@' . $code;
+            for ($n = 2; self::taken($candidate, $t->id); $n++) {
+                $candidate = $base . $n . '@' . $code;
+            }
+
+            DB::table('users')->where('id', $t->id)->update(
+                ['username' => $candidate] + ($keepOld ? ['previous_username' => $t->username] : [])
+            );
+        }
+
+        return $teachers->count();
     }
 
     /** The school code as it goes after the @ — "TDS" is tds. */
