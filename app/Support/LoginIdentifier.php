@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Student\StudentDetail;
 use App\Models\User;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Who is signing in, from the one thing they typed.
@@ -86,6 +87,17 @@ class LoginIdentifier
             ->first();
         if ($teacher) {
             return [$teacher, null];
+        }
+
+        // The username a teacher had before it took the school code
+        // (meera.sharma1, now meera@tds) still signs them in.
+        if (Schema::hasColumn('users', 'previous_username')) {
+            $teacher = User::where('previous_username', Usernames::normalize($identifier))
+                ->where('role', 'teacher')
+                ->first();
+            if ($teacher) {
+                return [$teacher, null];
+            }
         }
 
         return [null, 'No account found with this admission number or username.'];
