@@ -1012,9 +1012,10 @@
                 </div>
 
                 @if ($viewData['user']->image ?? null)
+                    {{-- One square for every photo, as on Teachers. --}}
                     <img src="{{ $viewData['user']->image }}" alt="{{ $viewData['user']->name ?? '' }}"
-                        style="max-height: calc(100vh - var(--lms-nav-h, 65px) - 8rem)"
-                        class="max-w-[90vw] rounded-lg object-contain shadow-2xl bg-white">
+                        style="--photo: min(28rem, 90vw, calc(100vh - var(--lms-nav-h, 65px) - 8rem)); width: var(--photo); height: var(--photo)"
+                        class="rounded-lg object-cover shadow-2xl bg-white">
                 @else
                     <div class="w-64 h-64 rounded-lg bg-indigo-100 flex items-center justify-center">
                         <span class="text-7xl font-semibold text-indigo-600">{{ strtoupper(substr($viewData['user']->name ?? 'S', 0, 1)) }}</span>

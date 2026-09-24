@@ -700,10 +700,11 @@
                 </div>
 
                 @if ($viewData['user']->image ?? null)
-                    {{-- Leaves room for the buttons above it within the space under the bar. --}}
+                    {{-- Every photo in one square, whatever its own size: filled (as the round
+                         avatar is), and small enough to leave room for the buttons above it. --}}
                     <img src="{{ $viewData['user']->image }}" alt="{{ $viewData['user']->name ?? '' }}"
-                        style="max-height: calc(100vh - var(--lms-nav-h, 65px) - 8rem)"
-                        class="max-w-[90vw] rounded-lg object-contain shadow-2xl bg-white">
+                        style="--photo: min(28rem, 90vw, calc(100vh - var(--lms-nav-h, 65px) - 8rem)); width: var(--photo); height: var(--photo)"
+                        class="rounded-lg object-cover shadow-2xl bg-white">
                 @else
                     <div class="w-64 h-64 rounded-lg bg-teal-100 flex items-center justify-center">
                         <span class="text-7xl font-semibold text-teal-600">{{ strtoupper(substr($viewData['user']->name ?? 'T', 0, 1)) }}</span>
