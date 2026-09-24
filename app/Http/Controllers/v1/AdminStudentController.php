@@ -442,6 +442,50 @@ class AdminStudentController extends ApiController
         })->afterResponse();
     }
 
+    // ══════════════════════════ PHOTO ══════════════════════════
+
+    /**
+     * POST /admin/students/{id}/photo — a new photo (image, up to 2 MB), or
+     * remove=1 to take the photo off. The rest of the student is left as it is.
+     */
+    public function photo(Request $request, $id)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+
+        $detail = StudentDetail::where('organization_id', $user->organization_id)->find($id);
+        if (!$detail || !$this->mayTouch($detail->standard_id, $detail->section_id)) {
+            return $this->error('Student not found.', 404);
+        }
+        $student = User::find($detail->user_id);
+        if (!$student) return $this->error('Student account not found.', 404);
+
+        if ($request->boolean('remove')) {
+            if ($student->image) $this->safeS3Delete($student->image);
+            $student->image = null;
+            $student->save();
+
+            return $this->success(['image' => null], 'Photo removed.');
+        }
+
+        if ($err = $this->validateWith($request, ['image' => 'required|image|max:2048'], [
+            'image.max' => 'The photo may not be larger than 2 MB.',
+        ])) return $err;
+
+        try {
+            $path = $request->file('image')->store('admin/students/images', 's3');
+            Storage::disk('s3')->setVisibility($path, 'public');
+            $old = $student->image;
+            $student->image = Storage::disk('s3')->url($path);
+            $student->save();
+            if ($old) $this->safeS3Delete($old);
+        } catch (\Throwable $e) {
+            return $this->error('Could not save the photo: ' . $e->getMessage(), 500);
+        }
+
+        return $this->success(['image' => $student->image], 'Photo updated.');
+    }
+
     // ══════════════════════════ DELETE ══════════════════════════
 
     /** DELETE /admin/students/{id} */

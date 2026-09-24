@@ -480,6 +480,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/students/{id}',     [AdminStudentController::class, 'show'])->whereNumber('id');
             Route::post('/students',         [AdminStudentController::class, 'store']);
             Route::post('/students/{id}',    [AdminStudentController::class, 'update'])->whereNumber('id');
+            Route::post('/students/{id}/photo', [AdminStudentController::class, 'photo'])->whereNumber('id');
             Route::delete('/students/{id}',  [AdminStudentController::class, 'destroy'])->whereNumber('id');
 
             // Teachers
