@@ -17,6 +17,7 @@ use App\Exports\StudentsExport;
 use App\Support\PdfFonts;
 use App\Support\Credentials;
 use App\Support\StudentNumbers;
+use App\Support\TransportBilling;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Auth;
@@ -1096,6 +1097,11 @@ class Student extends Component
             ->get()
             ->groupBy('student_detail_id');
 
+        // Transport is billed on each student's route (monthly fee × billed
+        // months) and paid into transport_fee_payments — see TransportBilling.
+        $transportTotals = TransportBilling::yearTotals($org, $ids);
+        $transportPaids  = TransportBilling::paidByStudent($org, $ids);
+
         $rows           = [];
         $recordsByClass = [];
 
@@ -1112,24 +1118,24 @@ class Student extends Component
                     && (is_null($st->section_id) || (int) $st->section_id === (int) $s->section_id)
             );
             $academicTotal = (float) $studentStructures->where('fee_type', 'academic')->sum('amount');
-            $transportTotal = $s->transportation_required
-                ? (float) $studentStructures->where('fee_type', 'transport')->sum('amount')
-                : 0.0;
+            $transportTotal = (float) ($transportTotals[$s->id] ?? 0);
 
             $studentPayments = $payments->get($s->id, collect());
             $academicPaid  = (float) $studentPayments->where('fee_type', 'academic')->sum('amount');
-            $transportPaid = (float) $studentPayments->where('fee_type', 'transport')->sum('amount');
+            $transportPaid = (float) ($transportPaids[$s->id] ?? 0);
 
             $money = fn ($v) => number_format((float) $v, 0);
             $academicStr  = ($academicTotal > 0 || $academicPaid > 0)
                 ? '₹' . $money($academicPaid) . ' / ₹' . $money($academicTotal) : '-';
-            $transportStr = $s->transportation_required && ($transportTotal > 0 || $transportPaid > 0)
+            // On a route, not the transportation_required flag, which is not
+            // kept in step with route assignments.
+            $transportStr = ($transportTotal > 0 || $transportPaid > 0)
                 ? '₹' . $money($transportPaid) . ' / ₹' . $money($transportTotal) : '-';
 
             $attPct       = $attTotal > 0 ? round($attPres / $attTotal * 100, 1) . '%' : '-';
             $academicDue  = ($academicTotal > 0 || $academicPaid > 0)
                 ? '₹' . $money(max($academicTotal - $academicPaid, 0)) : '-';
-            $transportDue = $s->transportation_required && ($transportTotal > 0 || $transportPaid > 0)
+            $transportDue = ($transportTotal > 0 || $transportPaid > 0)
                 ? '₹' . $money(max($transportTotal - $transportPaid, 0)) : '-';
 
             $route     = $s->transportations->first();

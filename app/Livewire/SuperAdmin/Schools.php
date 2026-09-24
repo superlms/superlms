@@ -3,12 +3,14 @@
 namespace App\Livewire\SuperAdmin;
 
 use App\Models\Admin\Fee\FeePayment;
+use App\Models\Admin\TransportFeePayment;
 use App\Models\Organization;
 use App\Models\OrganizationPaymentSetting;
 use App\Models\Student\StudentDetail;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\User;
 use App\Services\ZeptoMailService;
+use App\Support\TransportBilling;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -979,46 +981,47 @@ class Schools extends Component
                 ->mapWithKeys(fn($row) => ["{$row->year}-{$row->month}" => (float) $row->total])
                 ->toArray();
 
-            // ── Total to collect, from the school's active fee structures ──
-            // Academic structures apply to every student of the class/section;
-            // transport structures only to students with transport required.
-            // Same logic the admin Fee module / student export uses.
+            // ── Total to collect ──
+            // Academic: the school's active fee structures, applying to every
+            // student of the class/section. Transport: each student's route —
+            // its monthly fee × the months they are billed for, as View Fee
+            // charges it (TransportBilling).
             $structures = \App\Models\Admin\Fee\FeeStructure::where('organization_id', $orgId)
                 ->where('is_active', true)
                 ->get(['standard_id', 'section_id', 'fee_type', 'amount']);
 
             $feeStudents = StudentDetail::where('organization_id', $orgId)
-                ->get(['id', 'standard_id', 'section_id', 'transportation_required']);
+                ->get(['id', 'standard_id', 'section_id']);
 
-            $academicToCollect  = 0.0;
-            $transportToCollect = 0.0;
+            $academicToCollect = 0.0;
             foreach ($feeStudents as $s) {
                 $applicable = $structures->filter(
                     fn($st) => (int) $st->standard_id === (int) $s->standard_id
                         && (is_null($st->section_id) || (int) $st->section_id === (int) $s->section_id)
                 );
                 $academicToCollect += (float) $applicable->where('fee_type', 'academic')->sum('amount');
-                if ($s->transportation_required) {
-                    $transportToCollect += (float) $applicable->where('fee_type', 'transport')->sum('amount');
-                }
             }
+            $transportToCollect = (float) array_sum(TransportBilling::yearTotals($orgId, $feeStudents->pluck('id')->all()));
             $totalToCollect = $academicToCollect + $transportToCollect;
 
+            // Collected in a window: fee_payments plus the bus fees, which live in
+            // transport_fee_payments.
+            $collected = fn (?callable $window = null) => (float) FeePayment::forOrg($orgId)->when($window, $window)->sum('amount')
+                + (float) TransportFeePayment::where('organization_id', $orgId)->when($window, $window)->sum('amount');
+
             $feeStats = [
-                'total_collected'    => FeePayment::forOrg($orgId)->sum('amount'),
-                'this_month'         => FeePayment::forOrg($orgId)
+                'total_collected'    => $collected(),
+                'this_month'         => $collected(fn ($q) => $q
                     ->whereMonth('payment_date', now()->month)
-                    ->whereYear('payment_date', now()->year)
-                    ->sum('amount'),
-                'last_month'         => FeePayment::forOrg($orgId)
+                    ->whereYear('payment_date', now()->year)),
+                'last_month'         => $collected(fn ($q) => $q
                     ->whereMonth('payment_date', now()->subMonth()->month)
-                    ->whereYear('payment_date', now()->subMonth()->year)
-                    ->sum('amount'),
+                    ->whereYear('payment_date', now()->subMonth()->year)),
                 'this_year'          => FeePayment::forOrg($orgId)
                     ->whereYear('payment_date', now()->year)
                     ->sum('amount'),
                 'academic_total'     => FeePayment::forOrg($orgId)->academic()->sum('amount'),
-                'transport_total'    => FeePayment::forOrg($orgId)->transport()->sum('amount'),
+                'transport_total'    => TransportBilling::paidForOrg($orgId),
                 'total_transactions' => FeePayment::forOrg($orgId)->count(),
                 'this_month_count'   => FeePayment::forOrg($orgId)
                     ->whereMonth('payment_date', now()->month)

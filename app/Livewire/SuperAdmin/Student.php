@@ -18,6 +18,7 @@ use App\Services\ZeptoMailService;
 use App\Support\Credentials;
 use App\Support\LoginIdentifier;
 use App\Support\StudentNumbers;
+use App\Support\TransportBilling;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -559,28 +560,24 @@ class Student extends Component
             ->groupBy('student_detail_id')->get()->keyBy('student_detail_id');
 
         // ── Fees paid (academic / transport) ──
+        // Transport payments live in transport_fee_payments — see TransportBilling.
+        $orgId = (int) $this->filterOrganization;
         $academicPaid = FeePayment::whereIn('student_detail_id', $ids)->where('fee_type', 'academic')
             ->selectRaw('student_detail_id, SUM(amount) as paid')->groupBy('student_detail_id')->get()->keyBy('student_detail_id');
-        $transportPaid = FeePayment::whereIn('student_detail_id', $ids)->where('fee_type', 'transport')
-            ->selectRaw('student_detail_id, SUM(amount) as paid')->groupBy('student_detail_id')->get()->keyBy('student_detail_id');
+        $transportPaid = TransportBilling::paidByStudent($orgId, $ids);
 
-        // ── Fee totals per class (memoised so we hit the DB once per class) ──
+        // ── Fee totals: academic per class (memoised so we hit the DB once per
+        // class), transport per student on their route (monthly fee × billed months) ──
         $academicTotals = [];
-        $transportTotals = [];
         $academicTotalFor = function ($stdId, $secId) use (&$academicTotals) {
             if (!$stdId) return 0.0;
             $key = $stdId . '-' . ($secId ?: '0');
             return $academicTotals[$key] ??= (float) FeeStructure::forClass((int) $stdId, $secId ? (int) $secId : null)
                 ->academic()->active()->sum('amount');
         };
-        $transportTotalFor = function ($stdId, $secId) use (&$transportTotals) {
-            if (!$stdId) return 0.0;
-            $key = $stdId . '-' . ($secId ?: '0');
-            return $transportTotals[$key] ??= (float) FeeStructure::forClass((int) $stdId, $secId ? (int) $secId : null)
-                ->transport()->active()->sum('amount');
-        };
+        $transportTotals = TransportBilling::yearTotals($orgId, $ids);
 
-        return response()->streamDownload(function () use ($students, $attendance, $marks, $academicPaid, $transportPaid, $academicTotalFor, $transportTotalFor) {
+        return response()->streamDownload(function () use ($students, $attendance, $marks, $academicPaid, $transportPaid, $academicTotalFor, $transportTotals) {
             $handle = fopen('php://output', 'w');
             fputcsv($handle, [
                 'S.No',
@@ -633,8 +630,8 @@ class Student extends Component
 
                 $acPaid  = (float) ($academicPaid[$s->id]->paid ?? 0);
                 $acTotal = (float) $academicTotalFor($s->standard_id, $s->section_id);
-                $trPaid  = (float) ($transportPaid[$s->id]->paid ?? 0);
-                $trTotal = $s->transportation_required ? (float) $transportTotalFor($s->standard_id, $s->section_id) : 0.0;
+                $trPaid  = (float) ($transportPaid[$s->id] ?? 0);
+                $trTotal = (float) ($transportTotals[$s->id] ?? 0);
 
                 fputcsv($handle, [
                     $index + 1,

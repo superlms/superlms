@@ -13,6 +13,7 @@ use App\Models\Student\AdmitCard;
 use App\Models\Student\StudentAttendance;
 use App\Models\Student\StudentDetail;
 use App\Models\Teacher\TeacherDetail;
+use App\Support\TransportBilling;
 use Illuminate\Support\Carbon;
 
 /**
@@ -366,15 +367,21 @@ class ListReportService
                     ->get()
                     ->groupBy('student_detail_id');
 
-                $records = $students->map(function ($s) use ($structures, $payments) {
+                // Transport: each student's route (monthly fee × billed months)
+                // and what came in against it — see TransportBilling.
+                $studentIds      = $students->pluck('id')->all();
+                $transportTotals = TransportBilling::yearTotals((int) $orgId, $studentIds);
+                $transportPaids  = TransportBilling::paidByStudent((int) $orgId, $studentIds);
+
+                $records = $students->map(function ($s) use ($structures, $payments, $transportTotals, $transportPaids) {
                     // A section's own fee lines plus the class-wide ones it inherits.
                     $applicable = $structures->filter(fn ($f) => is_null($f->section_id) || $f->section_id == $s->section_id);
 
                     $academicFee    = (float) $applicable->where('fee_type', 'academic')->sum('amount');
-                    $transportFee   = $s->transportation_required ? (float) $applicable->where('fee_type', 'transport')->sum('amount') : 0.0;
+                    $transportFee   = (float) ($transportTotals[$s->id] ?? 0);
                     $studentPayments = $payments->get($s->id, collect());
                     $academicPaid   = (float) $studentPayments->where('fee_type', 'academic')->sum('amount');
-                    $transportPaid  = (float) $studentPayments->where('fee_type', 'transport')->sum('amount');
+                    $transportPaid  = (float) ($transportPaids[$s->id] ?? 0);
                     $totalFee       = $academicFee + $transportFee;
                     $totalPaid      = $academicPaid + $transportPaid;
 
