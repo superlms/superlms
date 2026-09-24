@@ -442,6 +442,12 @@
             'half_day' => 'bg-amber-50 text-amber-700 font-medium',
             'holiday'  => 'bg-indigo-50 text-indigo-700 font-medium',
         ];
+        // The remark every row shares, if they share one, for the "Remark for
+        // all" box — a saved holiday opens with its remark in it.
+        $sharedRemark = function (array $rows): string {
+            $remarks = collect($rows)->map(fn ($r) => (string) ($r['remark'] ?? ''))->unique();
+            return $remarks->count() === 1 ? $remarks->first() : '';
+        };
     @endphp
 
     {{-- ══════════ TEACHERS ══════════ --}}
@@ -458,8 +464,10 @@
                  The rows come from the seed below instead. --}}
             x-data="{
                 rows: {},
+                common: '',
                 get total() { return Object.keys(this.rows).length },
                 get marked() { return Object.values(this.rows).filter(v => v !== '').length },
+                get allHoliday() { return this.total > 0 && Object.values(this.rows).every(v => v === 'holiday') },
                 pick(id, v) {
                     this.rows[id] = v;
                     /* Local set: the change rides along with the next request
@@ -467,12 +475,15 @@
                     this.$wire.$set('teacherMark.' + id + '.status', v, false);
                 },
                 all(v) { Object.keys(this.rows).forEach(id => this.pick(id, v)) },
+                /* The one remark of a holiday for everyone, written into every
+                   row — each can still be changed on its own. */
+                remarkAll(text) { Object.keys(this.rows).forEach(id => this.$wire.$set('teacherMark.' + id + '.remark', text, false)) },
             }">
 
             {{-- Seeds the rows when the panel opens, and again for each new date
                  (a new key is a new element, so its x-init runs again). --}}
             <div class="hidden" wire:key="tmark-seed-{{ $tMarkDate }}"
-                x-init="rows = @js(collect($teacherMark)->map(fn ($r) => (string) ($r['status'] ?? ''))->all())"></div>
+                x-init="rows = @js(collect($teacherMark)->map(fn ($r) => (string) ($r['status'] ?? ''))->all()); common = @js($sharedRemark($teacherMark))"></div>
 
             {{-- Header --}}
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -505,6 +516,13 @@
                     <button type="button" x-on:click="all('')" class="px-2.5 py-1.5 text-gray-500 hover:bg-gray-50 border-l border-gray-200">Clear</button>
                 </div>
                 <span class="ml-auto text-xs text-gray-400 tabular-nums" x-text="marked + ' of ' + total + ' marked'"></span>
+            </div>
+
+            {{-- Everyone on Holiday: one remark, typed once, goes on every row. --}}
+            <div x-show="allHoliday" style="display: none" class="px-6 py-2.5 border-b border-gray-100 flex items-center gap-3 flex-shrink-0">
+                <label for="tmark-remark-all" class="text-xs font-medium text-gray-600 flex-shrink-0">Remark for all</label>
+                <input id="tmark-remark-all" type="text" x-model="common" x-on:input="remarkAll(common)" placeholder="e.g. Diwali"
+                    class="flex-1 min-w-0 text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
             </div>
 
             {{-- One quiet line explaining the day --}}
@@ -584,19 +602,23 @@
             wire:key="smark-{{ $sMarkDate }}-{{ $sMarkStandard }}-{{ $sMarkSection }}-{{ count($studentMark) }}"
             x-data="{
                 rows: @js(collect($studentMark)->map(fn ($r) => (string) ($r['status'] ?? ''))->all()),
+                common: @js($sharedRemark($studentMark)),
                 get total() { return Object.keys(this.rows).length },
                 get marked() { return Object.values(this.rows).filter(v => v !== '').length },
+                get allHoliday() { return this.total > 0 && Object.values(this.rows).every(v => v === 'holiday') },
                 pick(id, v) {
                     this.rows[id] = v;
                     this.$wire.$set('studentMark.' + id + '.status', v, false);
                 },
                 all(v) { Object.keys(this.rows).forEach(id => this.pick(id, v)) },
+                /* As for teachers: one holiday remark, written into every row. */
+                remarkAll(text) { Object.keys(this.rows).forEach(id => this.$wire.$set('studentMark.' + id + '.remark', text, false)) },
             }">
 
             {{-- Re-seeds the panel from the server after the class, section or
                  date changes, whether the morph replaced it or not. --}}
             <div class="hidden" wire:key="smark-seed-{{ $sMarkDate }}-{{ $sMarkStandard }}-{{ $sMarkSection }}"
-                x-init="rows = @js(collect($studentMark)->map(fn ($r) => (string) ($r['status'] ?? ''))->all())"></div>
+                x-init="rows = @js(collect($studentMark)->map(fn ($r) => (string) ($r['status'] ?? ''))->all()); common = @js($sharedRemark($studentMark))"></div>
 
             {{-- Header --}}
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -635,6 +657,13 @@
                     </div>
                     <span class="ml-auto text-xs text-gray-400 tabular-nums" x-text="marked + ' of ' + total + ' marked'"></span>
                 @endif
+            </div>
+
+            {{-- Everyone on Holiday: one remark, typed once, goes on every row. --}}
+            <div x-show="allHoliday" style="display: none" class="px-6 py-2.5 border-b border-gray-100 flex items-center gap-3 flex-shrink-0">
+                <label for="smark-remark-all" class="text-xs font-medium text-gray-600 flex-shrink-0">Remark for all</label>
+                <input id="smark-remark-all" type="text" x-model="common" x-on:input="remarkAll(common)" placeholder="e.g. Diwali"
+                    class="flex-1 min-w-0 text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
             </div>
 
             @if ($studentMarkExisting)
