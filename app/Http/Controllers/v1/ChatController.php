@@ -177,7 +177,10 @@ class ChatController extends ApiController
 
         if ($err = $this->validateWith($request, [
             'body' => 'nullable|string|max:5000',
-            'file' => 'nullable|file|max:10240|mimes:jpg,jpeg,png,webp,gif,heic,pdf,doc,docx,xls,xlsx,ppt,pptx,txt',
+            // Photos, videos and documents, up to 50 MB (the server takes 64).
+            'file' => 'nullable|file|max:51200|mimes:jpg,jpeg,png,webp,gif,heic,mp4,mov,3gp,mkv,webm,m4v,pdf,doc,docx,xls,xlsx,ppt,pptx,txt',
+            // One of my messages, forwarded with its file from this phone.
+            'forwarded_from' => 'nullable|integer',
         ])) return $err;
 
         $body = trim((string) $request->input('body', ''));
@@ -213,8 +216,17 @@ class ChatController extends ApiController
             $data['attachment_url']  = Storage::disk('s3')->url($path);
             $data['attachment_path'] = $path;
             $data['attachment_name'] = $file->getClientOriginalName();
-            $data['attachment_type'] = str_starts_with($mime, 'image/') ? 'image' : 'file';
+            $data['attachment_type'] = str_starts_with($mime, 'image/')
+                ? 'image'
+                : (str_starts_with($mime, 'video/') ? 'video' : 'file');
             $data['attachment_size'] = (int) $file->getSize();
+        }
+
+        // A forwarded file whose original has left the server comes again from
+        // the phone; the copy still says Forwarded.
+        if ($request->filled('forwarded_from')
+            && $this->myMessages($me, [(int) $request->input('forwarded_from')])->isNotEmpty()) {
+            $data['forwarded_from_id'] = (int) $request->input('forwarded_from');
         }
 
         $conversation = $this->conversationWith($me, $userId) ?? $this->startConversation($me, $userId);
@@ -291,6 +303,15 @@ class ChatController extends ApiController
         $messages = $this->myMessages($me, $request->ids);
         if ($messages->isEmpty()) {
             return $this->error('Nothing to forward.', 404);
+        }
+
+        // A file that has reached its phone may have left the server; the app
+        // sends such a file again from the phone instead.
+        $gone = $messages->first(fn(Message $m) => $m->attachment_path
+            && $m->attachment_received_at
+            && !$this->fileOnServer($m->attachment_path));
+        if ($gone) {
+            return $this->error('This file is no longer on the server. Update the app to forward it from your phone.', 409);
         }
 
         $targets = collect($request->user_ids)
@@ -394,6 +415,54 @@ class ChatController extends ApiController
         }
 
         return $this->success(['user_ids' => $ids, 'blocked' => $block], $block ? 'Blocked.' : 'Unblocked.');
+    }
+
+    /**
+     * This phone has saved these messages' files — the WhatsApp way, the server
+     * only carries a file across. Only the person a message was sent to can say
+     * so. A file shared by several messages (forwarded copies) is deleted from
+     * S3 once every one of them has reached its phone; a message whose file has
+     * arrived hands out no link either way.
+     */
+    public function attachmentsReceived(Request $request)
+    {
+        [$me, $err] = $this->authUser();
+        if ($err) return $err;
+
+        if ($err = $this->validateWith($request, [
+            'ids'   => 'required|array|min:1',
+            'ids.*' => 'integer',
+        ])) return $err;
+
+        if (!$this->fileReceiptsReady()) {
+            return $this->success(['ids' => []], 'Received.');
+        }
+
+        $messages = Message::whereIn('id', array_map('intval', $request->ids))
+            ->where('sender_id', '!=', $me->id)
+            ->whereNotNull('attachment_path')
+            ->whereNull('attachment_received_at')
+            ->whereHas('conversation.participants', fn($q) => $q->where('user_id', $me->id))
+            ->get();
+
+        if ($messages->isEmpty()) {
+            return $this->success(['ids' => []], 'Received.');
+        }
+
+        Message::whereIn('id', $messages->pluck('id'))->update(['attachment_received_at' => now()]);
+
+        foreach ($messages->pluck('attachment_path')->unique() as $path) {
+            $stillWaiting = Message::where('attachment_path', $path)->whereNull('attachment_received_at')->exists();
+            if (!$stillWaiting) {
+                try {
+                    Storage::disk('s3')->delete(ltrim($path, '/'));
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            }
+        }
+
+        return $this->success(['ids' => $messages->pluck('id')->values()], 'Received.');
     }
 
     public function deleteConversations(Request $request)
@@ -574,6 +643,29 @@ class ChatController extends ApiController
         return $conversation;
     }
 
+    /** attachment_received_at exists once its migration has run. */
+    private ?bool $fileReceiptsReady = null;
+
+    private function fileReceiptsReady(): bool
+    {
+        return $this->fileReceiptsReady ??= Schema::hasColumn('chat_messages', 'attachment_received_at');
+    }
+
+    /** 'image' | 'video' | 'file' */
+    private function attachmentType(Message $m): string
+    {
+        return in_array($m->attachment_type, ['image', 'video'], true) ? $m->attachment_type : 'file';
+    }
+
+    private function fileOnServer(string $path): bool
+    {
+        try {
+            return Storage::disk('s3')->exists(ltrim($path, '/'));
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
     /** chat_blocks exists once its migration has run; until then nobody is blocked. */
     private ?bool $blocksReady = null;
 
@@ -654,10 +746,11 @@ class ChatController extends ApiController
             'pinned'     => $m->pinned_at !== null,
             'forwarded'  => $m->forwarded_from_id !== null,
             'attachment' => $hasFile ? [
-                'type' => $m->attachment_type === 'image' ? 'image' : 'file',
+                'type' => $this->attachmentType($m),
                 'name' => $m->attachment_name,
                 'size' => $m->attachment_size ? (int) $m->attachment_size : null,
-                'url'  => $this->attachmentUrl($m),
+                // No link once the other phone has saved it: each phone opens its own copy.
+                'url'  => $m->attachment_received_at ? null : $this->attachmentUrl($m),
             ] : null,
         ];
     }
@@ -668,7 +761,7 @@ class ChatController extends ApiController
 
         return [
             'body'            => $m->body,
-            'attachment_type' => $hasFile ? ($m->attachment_type === 'image' ? 'image' : 'file') : null,
+            'attachment_type' => $hasFile ? $this->attachmentType($m) : null,
             'mine'            => (int) $m->sender_id === $meId,
             'created_at'      => $m->created_at?->toIso8601String(),
         ];
@@ -705,7 +798,11 @@ class ChatController extends ApiController
 
         $preview = $message->body
             ? Str::limit($message->body, 120)
-            : ($message->attachment_type === 'image' ? 'Sent a photo' : 'Sent a file');
+            : match ($message->attachment_type) {
+                'image' => 'Sent a photo',
+                'video' => 'Sent a video',
+                default => 'Sent a file',
+            };
 
         app()->terminating(function () use ($recipient, $sender, $preview) {
             try {
@@ -716,6 +813,8 @@ class ChatController extends ApiController
                     'params' => [
                         'contact'  => $sender,
                         'userRole' => $recipient->role === 'teacher' ? 'teacher' : 'student',
+                        // Which of the phone's signed-in accounts it is for.
+                        'accountId' => $recipient->id,
                     ],
                 ]);
             } catch (\Throwable $e) {

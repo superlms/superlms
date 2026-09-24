@@ -22,15 +22,17 @@ class Message extends Model
         'attachment_name',
         'attachment_type',
         'attachment_size',
+        'attachment_received_at',
         'read_at',
         'delivered_at',
         'pinned_at',
     ];
 
     protected $casts = [
-        'read_at'      => 'datetime',
-        'delivered_at' => 'datetime',
-        'pinned_at'    => 'datetime',
+        'read_at'                => 'datetime',
+        'delivered_at'           => 'datetime',
+        'pinned_at'              => 'datetime',
+        'attachment_received_at' => 'datetime',
     ];
 
     public function conversation(): BelongsTo
