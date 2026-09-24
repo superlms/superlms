@@ -42,6 +42,7 @@ class AdminAttendanceAppPanelTest extends TestCase
             $t->id();
             $t->string('name');
             $t->string('email')->nullable();
+            $t->string('username', 50)->nullable();
             $t->string('image')->nullable();
             $t->string('role')->nullable();
             $t->unsignedBigInteger('organization_id')->nullable();
@@ -210,10 +211,13 @@ class AdminAttendanceAppPanelTest extends TestCase
 
     public function test_an_unmarked_sunday_reads_as_a_holiday_in_the_day_s_records(): void
     {
-        $this->teacher('Asha');
+        $asha = $this->teacher('Asha');
+        User::whereKey(TeacherDetail::find($asha)->user_id)->update(['username' => 'asha@tds']);
 
         $sun = $this->hit('teacherByDate', ['date' => $this->sunday, 'v' => 2])['data'];
         $this->assertSame('holiday', $sun['rows'][0]['status']);
+        $this->assertSame('asha@tds', $sun['rows'][0]['username']);
+        $this->assertSame('asha@tds', $this->hit('teacherMarkList', ['date' => $this->sunday, 'v' => 2])['data']['rows'][0]['username']);
         $this->assertSame(1, $sun['stats']['holiday']);
 
         $old = $this->hit('teacherByDate', ['date' => $this->sunday])['data'];
@@ -311,8 +315,10 @@ class AdminAttendanceAppPanelTest extends TestCase
         $this->assertSame(422, $res->getStatusCode());
         $this->assertStringContainsString('already a class teacher of Class 1', $res->getData(true)['message']);
 
+        User::whereKey(TeacherDetail::find($asha)->user_id)->update(['username' => 'asha@tds']);
         $list = $this->hit('classTeachers', [])['data'];
         $this->assertNull($list['assignments'][0]['section_id']);
+        $this->assertSame('asha@tds', $list['assignments'][0]['teacher_username']);
         $this->assertSame([['id' => AssignTeacherStandard::first()->id, 'teacher_id' => $asha]], $list['taken']);
     }
 }

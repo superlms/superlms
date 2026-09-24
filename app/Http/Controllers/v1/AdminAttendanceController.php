@@ -97,6 +97,12 @@ class AdminAttendanceController extends ApiController
         return (int) $request->input('v') >= 2;
     }
 
+    /** A teacher's account, with the username v=2 lists them by. */
+    private function teacherUser(Request $request): string
+    {
+        return $this->panel($request) ? 'user:id,name,email,username,image' : 'user:id,name,email,image';
+    }
+
     /** Sundays are a standing holiday — nothing has to be marked for them. */
     private function isSunday($date): bool
     {
@@ -280,7 +286,7 @@ class AdminAttendanceController extends ApiController
         $orgId = $user->organization_id;
         $date  = $request->input('date', now()->toDateString());
 
-        $teachers = TeacherDetail::with('user:id,name,email,image')->where('organization_id', $orgId)->get()
+        $teachers = TeacherDetail::with($this->teacherUser($request))->where('organization_id', $orgId)->get()
             ->sortBy(fn ($t) => $t->user->name ?? '')->values();
 
         $existing = TeacherAttendance::where('organization_id', $orgId)
@@ -298,7 +304,7 @@ class AdminAttendanceController extends ApiController
                 'image'  => $t->user->image ?? null,
                 'status' => $rec ? $this->toLabel($rec->status) : $default,
                 'remark' => $rec->remarks ?? '',
-            ] + ($panel ? ['email' => $t->user->email ?? ''] : []);
+            ] + ($panel ? ['email' => $t->user->email ?? '', 'username' => $t->user->username ?? ''] : []);
         });
 
         return $this->success(
@@ -390,7 +396,7 @@ class AdminAttendanceController extends ApiController
         $orgId = $user->organization_id;
         $date  = $request->input('date', now()->toDateString());
 
-        $teachers = TeacherDetail::with('user:id,name,email,image')->where('organization_id', $orgId)->get()
+        $teachers = TeacherDetail::with($this->teacherUser($request))->where('organization_id', $orgId)->get()
             ->sortBy(fn ($t) => $t->user->name ?? '')->values();
         $recs = TeacherAttendance::where('organization_id', $orgId)
             ->whereDate('attendance_date', $date)->get()->keyBy('teacher_detail_id');
@@ -406,7 +412,7 @@ class AdminAttendanceController extends ApiController
                 'image'  => $t->user->image ?? null,
                 'status' => $rec ? $this->toLabel($rec->status) : $unmarked,
                 'remark' => $rec->remarks ?? '',
-            ] + ($panel ? ['id' => $t->id, 'email' => $t->user->email ?? ''] : []);
+            ] + ($panel ? ['id' => $t->id, 'email' => $t->user->email ?? '', 'username' => $t->user->username ?? ''] : []);
         });
 
         $stats  = $this->tallyLabels($rows->pluck('status'));
@@ -865,7 +871,7 @@ class AdminAttendanceController extends ApiController
         $mode  = $request->input('mode') === 'by_teacher' ? 'by_teacher' : 'by_class';
 
         // In class order, as the Standard page lists the classes.
-        $assignments = AssignTeacherStandard::with(['teacher.user:id,name,email,image', 'standard:id,name,order', 'section:id,name'])
+        $assignments = AssignTeacherStandard::with(['teacher.user:id,name,email,username,image', 'standard:id,name,order', 'section:id,name'])
             ->where('organization_id', $orgId)
             ->when($mode === 'by_class' && $request->filled('standard_id'), fn ($q) => $q->where('standard_id', $request->standard_id))
             ->when($mode === 'by_class' && $request->filled('section_id'),  fn ($q) => $q->where('section_id', $request->section_id))
@@ -877,6 +883,7 @@ class AdminAttendanceController extends ApiController
                 'teacher_id'   => $a->teacher_detail_id,
                 'teacher_name' => $a->teacher?->user?->name ?? '—',
                 'teacher_email'=> $a->teacher?->user?->email ?? '',
+                'teacher_username' => $a->teacher?->user?->username ?? '',
                 'teacher_image'=> $a->teacher?->user?->image ?? null,
                 'standard_id'  => $a->standard_id,
                 // 0 is how a whole-class assignment (no one section) is kept.
