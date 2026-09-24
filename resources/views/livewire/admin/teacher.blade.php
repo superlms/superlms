@@ -673,9 +673,13 @@
          PHOTO VIEWER — the teacher's photo large, with edit and remove
     ══════════════════════════════════════════════════ --}}
     @if ($showViewModal && $showPhotoViewer && !empty($viewData))
-        <div class="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/80" wire:click="closePhotoViewer"></div>
-            <div class="relative flex flex-col items-center max-w-full">
+        {{-- Under the top bar, as the slide-ins are: the page scrolls in its own
+             layer beneath the bar, so a viewer laid over the whole window had its
+             buttons hidden under the bar. It scrolls rather than clips when it is
+             taller than the space (m-auto centres without cutting off the top). --}}
+        <div class="fixed inset-x-0 bottom-0 z-[9999] flex overflow-y-auto p-4 bg-black/80"
+            style="top: var(--lms-nav-h, 65px)" wire:click.self="closePhotoViewer">
+            <div class="relative m-auto flex flex-col items-center max-w-full">
                 {{-- Edit, remove and close --}}
                 <div class="flex items-center gap-2 mb-3 self-end">
                     <label title="{{ ($viewData['user']->image ?? null) ? 'Change photo' : 'Add photo' }}"
@@ -696,8 +700,10 @@
                 </div>
 
                 @if ($viewData['user']->image ?? null)
+                    {{-- Leaves room for the buttons above it within the space under the bar. --}}
                     <img src="{{ $viewData['user']->image }}" alt="{{ $viewData['user']->name ?? '' }}"
-                        class="max-h-[75vh] max-w-[90vw] rounded-lg object-contain shadow-2xl bg-white">
+                        style="max-height: calc(100vh - var(--lms-nav-h, 65px) - 8rem)"
+                        class="max-w-[90vw] rounded-lg object-contain shadow-2xl bg-white">
                 @else
                     <div class="w-64 h-64 rounded-lg bg-teal-100 flex items-center justify-center">
                         <span class="text-7xl font-semibold text-teal-600">{{ strtoupper(substr($viewData['user']->name ?? 'T', 0, 1)) }}</span>

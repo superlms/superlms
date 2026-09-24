@@ -288,6 +288,7 @@ class Student extends Component
         $this->showViewModal = false;
         $this->viewData      = [];
         $this->viewModalTitle = '';
+        $this->closePhotoViewer();
     }
 
     public function onImageClick($id): void
@@ -701,6 +702,90 @@ class Student extends Component
             'organization' => $detail->organization,
         ];
         $this->showViewModal   = true;
+    }
+
+    // ─── Photo, from the View panel ──────────────────────────────────────
+    // As on Teachers: the photo opens large; from there it can be changed or
+    // taken off.
+    public bool $showPhotoViewer    = false;
+    public bool $confirmPhotoRemove = false;
+    public $viewPhotoUpload         = null;
+
+    public function openPhotoViewer(): void
+    {
+        $this->confirmPhotoRemove = false;
+        $this->showPhotoViewer    = true;
+    }
+
+    public function closePhotoViewer(): void
+    {
+        $this->showPhotoViewer    = false;
+        $this->confirmPhotoRemove = false;
+        $this->resetValidation('viewPhotoUpload');
+    }
+
+    /** The student open in the View panel, only if they are of this school. */
+    private function viewedStudent(): ?User
+    {
+        $id = $this->viewData['detail']->id ?? null;
+
+        return $id
+            ? StudentDetail::with('user')->where('id', $id)
+                ->where('organization_id', Auth::user()->organization_id)->first()?->user
+            : null;
+    }
+
+    /** A new photo picked in the viewer is saved at once, in place of the old. */
+    public function updatedViewPhotoUpload(): void
+    {
+        $this->validate(
+            ['viewPhotoUpload' => 'image|max:1024'],
+            ['viewPhotoUpload.max' => 'Image must be 1 MB or smaller.', 'viewPhotoUpload.image' => 'Please pick an image.']
+        );
+
+        $student = $this->viewedStudent();
+        if (!$student) {
+            $this->notification()->error('Student not found!');
+            return;
+        }
+
+        if ($student->image) {
+            Storage::disk('s3')->delete(ltrim((string) parse_url($student->image, PHP_URL_PATH), '/'));
+        }
+        $path = $this->viewPhotoUpload->store('admin/students/images', 's3');
+        Storage::disk('s3')->setVisibility($path, 'public');
+        $student->update(['image' => Storage::disk('s3')->url($path)]);
+
+        $this->viewPhotoUpload = null;
+        $this->refreshViewedPhoto($student);
+        $this->notification()->success('Photo updated', 'The new photo is saved.');
+    }
+
+    public function removeStudentPhoto(): void
+    {
+        $student = $this->viewedStudent();
+        if (!$student) {
+            $this->notification()->error('Student not found!');
+            return;
+        }
+
+        if ($student->image) {
+            Storage::disk('s3')->delete(ltrim((string) parse_url($student->image, PHP_URL_PATH), '/'));
+        }
+        $student->update(['image' => null]);
+
+        $this->refreshViewedPhoto($student);
+        $this->closePhotoViewer();
+        $this->notification()->success('Photo removed', 'The student has no photo now.');
+    }
+
+    private function refreshViewedPhoto(User $student): void
+    {
+        $this->viewData['user'] = $student->fresh();
+        if (isset($this->viewData['detail'])) {
+            $this->viewData['detail']->setRelation('user', $this->viewData['user']);
+        }
+        $this->studentImageUrl = $this->viewData['user']->image;
     }
 
     public function onEditStudent($id): void

@@ -916,6 +916,22 @@
 
                 {{-- Body — one plain label/value row list, same as Exam/Teacher's view panel --}}
                 <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                    {{-- The photo; a click opens it large, to change or take off (as on Teachers) --}}
+                    <div class="flex justify-center pb-2">
+                        @if ($stuUser->image ?? null)
+                            <button type="button" wire:click="openPhotoViewer" title="View photo"
+                                class="rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                                <img src="{{ $stuUser->image }}" alt="{{ $stuUser->name ?? '' }}"
+                                    class="w-24 h-24 rounded-full object-cover border border-gray-200 cursor-zoom-in hover:opacity-90">
+                            </button>
+                        @else
+                            <button type="button" wire:click="openPhotoViewer" title="Add a photo"
+                                class="w-24 h-24 rounded-full bg-indigo-100 flex items-center justify-center">
+                                <span class="text-3xl font-semibold text-indigo-600">{{ strtoupper(substr($stuUser->name ?? 'S', 0, 1)) }}</span>
+                            </button>
+                        @endif
+                    </div>
+
                     @foreach ([
                         'Admission No'      => $stuDet->admission_no ?? 'N/A',
                         'Roll No'           => $stuDet->roll_no ?? 'N/A',
@@ -964,6 +980,58 @@
                     <button type="button" wire:click="closeViewModal"
                         class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
                 </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- ══════════════════════════════════════════════════
+         PHOTO VIEWER — the student's photo large, with edit and remove
+         (Teachers' viewer: under the top bar, scrolling rather than clipping)
+    ══════════════════════════════════════════════════ --}}
+    @if ($showViewModal && $showPhotoViewer && !empty($viewData))
+        <div class="fixed inset-x-0 bottom-0 z-[9999] flex overflow-y-auto p-4 bg-black/80"
+            style="top: var(--lms-nav-h, 65px)" wire:click.self="closePhotoViewer">
+            <div class="relative m-auto flex flex-col items-center max-w-full">
+                {{-- Edit, remove and close --}}
+                <div class="flex items-center gap-2 mb-3 self-end">
+                    <label title="{{ ($viewData['user']->image ?? null) ? 'Change photo' : 'Add photo' }}"
+                        class="w-10 h-10 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 text-white cursor-pointer">
+                        <input type="file" accept="image/*" class="hidden" wire:model="viewPhotoUpload">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                    </label>
+                    @if ($viewData['user']->image ?? null)
+                        <button type="button" wire:click="$set('confirmPhotoRemove', true)" title="Remove photo"
+                            class="w-10 h-10 flex items-center justify-center rounded-full bg-white/15 hover:bg-red-600 text-white">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                    @endif
+                    <button type="button" wire:click="closePhotoViewer" title="Close"
+                        class="w-10 h-10 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 text-white">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                @if ($viewData['user']->image ?? null)
+                    <img src="{{ $viewData['user']->image }}" alt="{{ $viewData['user']->name ?? '' }}"
+                        style="max-height: calc(100vh - var(--lms-nav-h, 65px) - 8rem)"
+                        class="max-w-[90vw] rounded-lg object-contain shadow-2xl bg-white">
+                @else
+                    <div class="w-64 h-64 rounded-lg bg-indigo-100 flex items-center justify-center">
+                        <span class="text-7xl font-semibold text-indigo-600">{{ strtoupper(substr($viewData['user']->name ?? 'S', 0, 1)) }}</span>
+                    </div>
+                @endif
+
+                <p wire:loading wire:target="viewPhotoUpload" class="mt-3 text-sm text-white">Uploading…</p>
+                @error('viewPhotoUpload')<p class="mt-3 text-sm text-red-300">{{ $message }}</p>@enderror
+
+                @if ($confirmPhotoRemove)
+                    <div class="mt-4 bg-white rounded-lg shadow-xl px-4 py-3 flex items-center gap-3">
+                        <span class="text-sm text-gray-800">Remove this photo?</span>
+                        <button type="button" wire:click="$set('confirmPhotoRemove', false)" class="px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                        <button type="button" wire:click="removeStudentPhoto" wire:loading.attr="disabled"
+                            class="px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:opacity-60">Remove</button>
+                    </div>
+                @endif
             </div>
         </div>
     @endif
