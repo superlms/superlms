@@ -476,6 +476,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
             // Students
             Route::get('/students/lookups',  [AdminStudentController::class, 'lookups']);
+            Route::get('/students/export',   [AdminStudentController::class, 'export']);
             Route::get('/students',          [AdminStudentController::class, 'index']);
             Route::get('/students/{id}',     [AdminStudentController::class, 'show'])->whereNumber('id');
             Route::post('/students',         [AdminStudentController::class, 'store']);

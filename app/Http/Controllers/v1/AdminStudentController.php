@@ -158,9 +158,18 @@ class AdminStudentController extends ApiController
         $routes = Transportation::where('organization_id', $orgId)->where('is_active', true)
             ->orderBy('route_name')->get(['id', 'route_name', 'monthly_fee']);
 
+        // How many students each class and section has, for the app's class and
+        // section lists.
+        $counts = $this->restrict(StudentDetail::where('organization_id', $orgId))
+            ->selectRaw('standard_id, section_id, COUNT(*) as n')
+            ->groupBy('standard_id', 'section_id')
+            ->get();
+        $byClass   = $counts->groupBy('standard_id')->map(fn ($g) => (int) $g->sum('n'));
+        $bySection = $counts->groupBy('section_id')->map(fn ($g) => (int) $g->sum('n'));
+
         return $this->success([
-            'classes'   => $classes,
-            'sections'  => $sections,
+            'classes'   => $classes->map(fn ($c) => $c->toArray() + ['students' => $byClass[$c->id] ?? 0])->values(),
+            'sections'  => $sections->map(fn ($x) => $x->toArray() + ['students' => $bySection[$x->id] ?? 0])->values(),
             'routes'    => $routes,
         ], 'Student lookups fetched.');
     }
@@ -440,6 +449,52 @@ class AdminStudentController extends ApiController
                 logger()->error('AdminStudent welcome email failed: ' . $e->getMessage());
             }
         })->afterResponse();
+    }
+
+    // ══════════════════════════ EXPORT ══════════════════════════
+
+    /**
+     * GET /admin/students/export?format=xlsx|pdf&class_id=&section_id= — the
+     * panel's Export: the whole school, or one class (and one section of it),
+     * as an Excel sheet or a PDF of record cards, built as the panel builds
+     * them (App\Support\StudentExport). The file comes back as the download.
+     */
+    public function export(Request $request)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+        if ($err = $this->validateWith($request, [
+            'format'     => 'required|in:xlsx,pdf',
+            'class_id'   => 'nullable|integer',
+            'section_id' => 'nullable|integer',
+        ])) return $err;
+
+        $orgId     = $user->organization_id;
+        $classId   = $request->filled('class_id') ? (int) $request->class_id : null;
+        $sectionId = $classId && $request->filled('section_id') ? (int) $request->section_id : null;
+
+        if ($classId && !Standard::where('organization_id', $orgId)->whereKey($classId)->exists()) {
+            return $this->error('Class not found.', 404);
+        }
+        if ($sectionId && !Section::where('standard_id', $classId)->whereKey($sectionId)->exists()) {
+            return $this->error('Section not found.', 404);
+        }
+
+        [$headings, $rows, $byClass] = \App\Support\StudentExport::data($orgId, $classId, $sectionId);
+        if (!$rows) {
+            return $this->error($classId ? 'No students in this class to export.' : 'No students to export.', 422);
+        }
+
+        $name = 'students_' . \App\Support\StudentExport::slug($classId, $sectionId) . '_' . now()->format('Y-m-d');
+        [$bytes, $type, $name] = $request->format === 'pdf'
+            ? [\App\Support\StudentExport::pdf($orgId, $rows, $byClass), 'application/pdf', $name . '.pdf']
+            : [\App\Support\StudentExport::xlsx($headings, $rows), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $name . '.xlsx'];
+
+        return response($bytes, 200, [
+            'Content-Type'        => $type,
+            'Content-Disposition' => 'attachment; filename="' . $name . '"',
+            'X-Export-Count'      => (string) count($rows),
+        ]);
     }
 
     // ══════════════════════════ PHOTO ══════════════════════════
