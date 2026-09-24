@@ -49,7 +49,12 @@
     {{-- ══════════════════════════════════════════════════
          HEADER
     ══════════════════════════════════════════════════ --}}
-    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 pt-4 sm:pt-5 sticky top-0 z-50">
+    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 sticky top-0 z-50">
+        {{-- The rows above the filter bar carry their own spacing, as on
+             Teachers: the layout slides the header up by the height of these
+             rows, so spacing on the header itself (or a margin on the filter
+             bar) would be left out and a slice of the title stayed in view. --}}
+        <div class="pt-4 sm:pt-5 pb-3 sm:pb-4">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Students</h1>
@@ -90,11 +95,12 @@
             <span>Last Year: <strong class="text-gray-800">{{ $lastYearStudents }}</strong></span>
             <span>This Year: <strong class="text-blue-600">{{ $thisYearStudents }}</strong></span>
         </div>
+        </div>
 
         {{-- ══════════════════════════════════════════════════
              FILTER BAR — exam-style sub-header (attached, gray)
         ══════════════════════════════════════════════════ --}}
-        <div class="border-t border-gray-200 bg-gray-50 -mx-4 sm:-mx-6 mt-3 sm:mt-4 px-4 sm:px-6 py-3">
+        <div class="border-t border-gray-200 bg-gray-50 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3">
             <div class="flex flex-wrap items-center gap-3">
                 <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
                     <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
