@@ -615,6 +615,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/attendance/teacher/mark',      [AdminAttendanceController::class, 'submitTeacherAttendance']);
             Route::get('/attendance/teacher/by-date',    [AdminAttendanceController::class, 'teacherByDate']);
             Route::get('/attendance/teacher/calendar',   [AdminAttendanceController::class, 'teacherCalendar']);
+            Route::get('/attendance/teacher/month-grid', [AdminAttendanceController::class, 'teacherMonthGrid']);
             // Student
             Route::get('/attendance/student/mark',       [AdminAttendanceController::class, 'studentMarkList']);
             Route::post('/attendance/student/mark',      [AdminAttendanceController::class, 'submitStudentAttendance']);
