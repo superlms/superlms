@@ -5,6 +5,7 @@ namespace App\Http\Controllers\v1;
 use App\Models\Admin\Announcement;
 use App\Models\Admin\ContactAdminStudent;
 use App\Models\Admin\ContactAdminTeacher;
+use App\Models\SchoolWebsiteEnquiry;
 use App\Models\Calendar\TimeTable;
 use App\Models\Student\Standard;
 use Carbon\Carbon;
@@ -498,68 +499,131 @@ class AdminContentController extends ApiController
 
     private function enquiryModel(string $tab): string
     {
-        return $tab === 'student' ? ContactAdminStudent::class : ContactAdminTeacher::class;
+        return match ($tab) {
+            'student' => ContactAdminStudent::class,
+            'website' => SchoolWebsiteEnquiry::class,
+            default   => ContactAdminTeacher::class,
+        };
+    }
+
+    /** The tab a request names — teacher when it names none, as older builds expect. */
+    private function enquiryTab($tab): string
+    {
+        return in_array($tab, ['student', 'website'], true) ? $tab : 'teacher';
     }
 
     private function shapeEnquiry($e, string $tab): array
     {
+        // What the school's public website sent: a name, contact, subject and message.
+        if ($tab === 'website') {
+            return [
+                'id'          => $e->id,
+                'topic'       => $e->subject,
+                'query'       => $e->message,
+                'image_url'   => null,
+                'admin_text'  => null,
+                'replied'     => false,
+                'user_name'   => $e->name ?: 'Unknown',
+                'user_email'  => $e->email,
+                'phone'       => $e->phone,
+                'created_at'  => $e->created_at?->toIso8601String(),
+            ];
+        }
+
         return [
-            'id'          => $e->id,
-            'topic'       => $e->topic,
-            'query'       => $tab === 'student' ? $e->student_query : $e->teacher_query,
-            'image_url'   => $this->absUrl($e->image),
-            'admin_text'  => $e->admin_text,
-            'replied'     => (bool) $e->admin_reply,
-            'user_name'   => $e->user->name ?? 'Unknown',
-            'user_email'  => $e->user->email ?? null,
-            'created_at'  => $e->created_at?->toIso8601String(),
+            'id'           => $e->id,
+            'topic'        => $e->topic,
+            'query'        => $tab === 'student' ? $e->student_query : $e->teacher_query,
+            'image_url'    => $this->absUrl($e->image),
+            'admin_text'   => $e->admin_text,
+            'replied'      => (bool) $e->admin_reply,
+            'user_name'    => $e->user->name ?? 'Unknown',
+            'user_email'   => $e->user->email ?? null,
+            'organization' => $e->relationLoaded('organization') ? $e->organization?->name : null,
+            // The panel shows the reply with when it was last saved.
+            'replied_at'   => $e->admin_reply ? $e->updated_at?->toIso8601String() : null,
+            'created_at'   => $e->created_at?->toIso8601String(),
         ];
     }
 
-    /** GET /admin/enquiries?tab=teacher|student&search=&days=&status= */
+    /**
+     * GET /admin/enquiries?tab=student|teacher|website&search=&days=&status=&page=
+     *
+     * The panel's Enquiries: a tab's enquiries newest first, searched, from
+     * the last so many days and — for students' and teachers' — pending or
+     * replied; the three tabs' totals and the tab's pending and replied.
+     * With a page, ten to a page as on the panel; without, the latest 100, as
+     * older builds read it.
+     */
     public function enquiries(Request $request)
     {
         [$user, $err] = $this->guard();
         if ($err) return $err;
 
-        $tab     = $request->input('tab') === 'student' ? 'student' : 'teacher';
+        $tab     = $this->enquiryTab($request->input('tab'));
         $model   = $this->enquiryModel($tab);
         $orgId   = $user->organization_id;
         $queryCol = $tab === 'student' ? 'student_query' : 'teacher_query';
 
-        $q = $model::where('organization_id', $orgId)->with('user:id,name,email');
+        $q = $model::where('organization_id', $orgId);
 
         if ($request->filled('days')) {
             $q->where('created_at', '>=', Carbon::now()->subDays((int) $request->days));
         }
-        if ($request->filled('search')) {
-            $s = $request->search;
-            $q->where(function ($w) use ($s, $queryCol) {
-                $w->where('topic', 'like', "%$s%")
-                    ->orWhere($queryCol, 'like', "%$s%")
-                    ->orWhere('admin_text', 'like', "%$s%")
-                    ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%$s%")->orWhere('email', 'like', "%$s%"));
-            });
+
+        if ($tab === 'website') {
+            if ($request->filled('search')) {
+                $s = $request->search;
+                $q->where(fn ($w) => $w->where('name', 'like', "%$s%")
+                    ->orWhere('email', 'like', "%$s%")
+                    ->orWhere('phone', 'like', "%$s%")
+                    ->orWhere('subject', 'like', "%$s%")
+                    ->orWhere('message', 'like', "%$s%"));
+            }
+        } else {
+            $q->with(['user:id,name,email', 'organization:id,name']);
+            if ($request->filled('search')) {
+                $s = $request->search;
+                $q->where(function ($w) use ($s, $queryCol) {
+                    $w->where('topic', 'like', "%$s%")
+                        ->orWhere($queryCol, 'like', "%$s%")
+                        ->orWhere('admin_text', 'like', "%$s%")
+                        ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%$s%")->orWhere('email', 'like', "%$s%"));
+                });
+            }
+            if ($request->status === 'replied') $q->where('admin_reply', true);
+            if ($request->status === 'pending') $q->where('admin_reply', false);
         }
-        if ($request->status === 'replied') $q->where('admin_reply', true);
-        if ($request->status === 'pending') $q->where('admin_reply', false);
 
-        $items = $q->latest()->limit(100)->get()->map(fn ($e) => $this->shapeEnquiry($e, $tab));
+        $q->latest();
+        $pagination = null;
+        if ($request->filled('page')) {
+            $page       = $q->paginate(10);
+            $items      = collect($page->items())->map(fn ($e) => $this->shapeEnquiry($e, $tab))->values();
+            $pagination = $this->paginationMeta($page);
+        } else {
+            $items = $q->limit(100)->get()->map(fn ($e) => $this->shapeEnquiry($e, $tab));
+        }
 
+        // Pending and replied are for students' and teachers' — the website's have no reply.
         $base  = $model::where('organization_id', $orgId);
-        $stats = [
-            'total'   => (clone $base)->count(),
-            'pending' => (clone $base)->where('admin_reply', false)->count(),
-            'replied' => (clone $base)->where('admin_reply', true)->count(),
-        ];
+        $stats = $tab === 'website'
+            ? ['total' => (clone $base)->count(), 'pending' => 0, 'replied' => 0]
+            : [
+                'total'   => (clone $base)->count(),
+                'pending' => (clone $base)->where('admin_reply', false)->count(),
+                'replied' => (clone $base)->where('admin_reply', true)->count(),
+            ];
 
         return $this->success([
             'tab'         => $tab,
             'enquiries'   => $items,
+            'pagination'  => $pagination,
             'stats'       => $stats,
             'tab_totals'  => [
                 'teacher' => ContactAdminTeacher::where('organization_id', $orgId)->count(),
                 'student' => ContactAdminStudent::where('organization_id', $orgId)->count(),
+                'website' => SchoolWebsiteEnquiry::where('organization_id', $orgId)->count(),
             ],
         ], 'Enquiries fetched.');
     }
@@ -569,16 +633,24 @@ class AdminContentController extends ApiController
     {
         [$user, $err] = $this->guard();
         if ($err) return $err;
-        if ($err = $this->validateWith($request, ['admin_text' => 'required|string|min:2'])) return $err;
 
-        $tab   = $tab === 'student' ? 'student' : 'teacher';
+        $tab = $this->enquiryTab($tab);
+        // The school's website form has no reply — as on the panel.
+        if ($tab === 'website') return $this->error('Website enquiries have no reply.', 422);
+
+        // The panel's rule: at least five characters.
+        if ($err = $this->validateWith($request, ['admin_text' => 'required|string|min:5'], [
+            'admin_text.required' => 'Write your reply.',
+            'admin_text.min'      => 'Your reply must be at least 5 characters.',
+        ])) return $err;
+
         $model = $this->enquiryModel($tab);
         $e     = $model::where('organization_id', $user->organization_id)->with('user:id,name,email')->find($id);
         if (!$e) return $this->error('Enquiry not found.', 404);
 
         $e->update(['admin_text' => $request->admin_text, 'admin_reply' => true]);
 
-        return $this->success($this->shapeEnquiry($e->fresh('user:id,name,email'), $tab), 'Reply sent.');
+        return $this->success($this->shapeEnquiry($e->fresh(['user:id,name,email', 'organization:id,name']), $tab), 'Your reply has been sent successfully.');
     }
 
     /** DELETE /admin/enquiries/{tab}/{id} */
@@ -587,12 +659,12 @@ class AdminContentController extends ApiController
         [$user, $err] = $this->guard();
         if ($err) return $err;
 
-        $tab   = $tab === 'student' ? 'student' : 'teacher';
+        $tab   = $this->enquiryTab($tab);
         $model = $this->enquiryModel($tab);
         $e     = $model::where('organization_id', $user->organization_id)->find($id);
         if (!$e) return $this->error('Enquiry not found.', 404);
 
-        $this->s3Delete($e->image);
+        if ($tab !== 'website') $this->s3Delete($e->image);
         $e->delete();
 
         return $this->success(null, 'Enquiry deleted.');
