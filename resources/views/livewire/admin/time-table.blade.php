@@ -400,10 +400,38 @@
                                                         @endif
                                                     </td>
 
-                                                    {{-- 7. Days (multi-select dropdown; occupied days excluded) --}}
+                                                    {{-- 7. Days (multi-select dropdown; occupied days excluded).
+                                                         The list floats on the screen (position: fixed, placed
+                                                         at the button) rather than inside the table's scroll box,
+                                                         so a lower row's list is seen whole without scrolling —
+                                                         it opens upward when there is no room under the button,
+                                                         and follows the button as the panel scrolls. --}}
                                                     <td class="px-2 py-2">
-                                                        <div x-data="{ open: false }" @click.outside="open = false" class="relative">
-                                                            <button type="button" @click="open = !open"
+                                                        <div x-data="{
+                                                                open: false,
+                                                                pos: {},
+                                                                place() {
+                                                                    const r = this.$refs.btn.getBoundingClientRect();
+                                                                    const h = this.$refs.menu.offsetHeight || 230;
+                                                                    const below = window.innerHeight - r.bottom;
+                                                                    const up = below < h + 12 && r.top > below;
+                                                                    this.pos = {
+                                                                        left: Math.max(8, Math.min(r.left, window.innerWidth - 168)) + 'px',
+                                                                        top: up ? 'auto' : (r.bottom + 4) + 'px',
+                                                                        bottom: up ? (window.innerHeight - r.top + 4) + 'px' : 'auto',
+                                                                    };
+                                                                },
+                                                                toggle() {
+                                                                    this.place();
+                                                                    this.open = !this.open;
+                                                                    if (this.open) this.$nextTick(() => this.place());
+                                                                },
+                                                            }"
+                                                            @click.outside="open = false"
+                                                            @scroll.window.capture="open && place()"
+                                                            @resize.window="open && place()"
+                                                            class="relative">
+                                                            <button type="button" x-ref="btn" @click="toggle()"
                                                                 class="w-full flex items-center justify-between gap-1 px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white hover:bg-gray-50 focus:ring-1 focus:ring-blue-500">
                                                                 <span class="truncate {{ $selectedDays->isEmpty() ? 'text-gray-400' : 'text-gray-800 font-medium' }}">
                                                                     @if ($selectedDays->isEmpty())
@@ -416,8 +444,8 @@
                                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                                                                 </svg>
                                                             </button>
-                                                            <div x-show="open" x-cloak x-transition
-                                                                class="absolute z-20 mt-1 w-40 bg-white border border-gray-200 rounded-md shadow-lg py-1">
+                                                            <div x-ref="menu" x-show="open" x-cloak x-transition :style="pos"
+                                                                class="fixed z-20 w-40 bg-white border border-gray-200 rounded-md shadow-lg py-1">
                                                                 @foreach ($daysOfWeek as $dayNum => $dayName)
                                                                     @if (in_array($dayNum, $availableDays, true))
                                                                         <label class="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 cursor-pointer">
