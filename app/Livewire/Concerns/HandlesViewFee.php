@@ -140,6 +140,9 @@ trait HandlesViewFee
             ->where('is_active', true)
             ->get();
 
+        // Each student's own academic rows (Last Year Dues), summed per student.
+        $ownFees = FeeStructure::ownTotals($orgId, $studentIds->all());
+
         // One query for the whole class, then split per student — a payments
         // query per row turns a 60-student class into 60 round trips.
         $payments = FeePayment::where('organization_id', $orgId)
@@ -164,12 +167,13 @@ trait HandlesViewFee
             ->pluck('paid', 'student_detail_id');
 
         $this->classFeeList = $students->map(function (StudentDetail $student)
-            use ($structures, $payments, $txMonths, $txPaid) {
+            use ($structures, $ownFees, $payments, $txMonths, $txPaid) {
             $own = $structures->filter(
                 fn ($s) => is_null($s->section_id) || $s->section_id == $student->section_id
             );
 
-            $academicFee = (float) $own->where('fee_type', 'academic')->sum('amount');
+            $academicFee = (float) $own->where('fee_type', 'academic')->sum('amount')
+                + ($ownFees[$student->id] ?? 0);
 
             $route        = $student->transportations->sortByDesc('is_active')->first();
             $hasTransport = $route !== null;

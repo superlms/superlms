@@ -170,7 +170,8 @@ class AdminController extends ApiController
         }
 
         // ── Fee summary ──
-        $totalFee  = (float) FeeStructure::where('organization_id', $orgId)->where('is_active', true)->sum('amount');
+        $totalFee  = (float) FeeStructure::where('organization_id', $orgId)->where('is_active', true)->sum('amount')
+            + FeeStructure::ownTotalForSchool($orgId, null); // students' own Last Year Dues
         $collected = (float) FeePayment::where('organization_id', $orgId)->sum('amount');
         $fee = ['total' => $totalFee, 'collected' => $collected, 'remaining' => max(0, $totalFee - $collected)];
 

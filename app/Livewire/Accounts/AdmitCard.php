@@ -323,7 +323,9 @@ class AdmitCard extends Component
             ->where('is_active', true)
             ->where('standard_id', $student->standard_id)
             ->where(fn ($q) => $q->whereNull('section_id')->orWhere('section_id', $student->section_id))
-            ->get();
+            ->get()
+            // …and the student's own — Last Year Dues.
+            ->concat(FeeStructure::ownRows($this->orgId(), [$student->id], null));
 
         $academic  = $structures->where('fee_type', 'academic')->sum('amount');
         $transport = $student->transportation_required

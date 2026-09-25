@@ -112,7 +112,10 @@ trait HandlesFeeSubmission
                 $q->where('section_id', $student->section_id)->orWhereNull('section_id');
             })
             ->where('is_active', true)
-            ->get()->toArray();
+            ->get()
+            // …and the student's own — Last Year Dues.
+            ->concat(FeeStructure::ownRows($orgId, [$student->id], null))
+            ->toArray();
 
         // Concessions for this student — penalty waivers are a different pool
         // (netted by FeeCycleBreakdown), kept out of the base-fee discount here.

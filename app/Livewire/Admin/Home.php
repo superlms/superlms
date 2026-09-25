@@ -220,7 +220,8 @@ class Home extends Component
         $orgId = FacadesAuth::user()->organization_id;
 
         $this->overallFeeCollected = FeePayment::where('organization_id', $orgId)->sum('amount');
-        $totalFeeStructure = FeeStructure::where('organization_id', $orgId)->where('is_active', true)->sum('amount');
+        $totalFeeStructure = FeeStructure::where('organization_id', $orgId)->where('is_active', true)->sum('amount')
+            + FeeStructure::ownTotalForSchool($orgId, null); // students' own Last Year Dues
         $this->totalFee = $totalFeeStructure;
         $this->feeRemaining = max(0, $totalFeeStructure - $this->overallFeeCollected);
 

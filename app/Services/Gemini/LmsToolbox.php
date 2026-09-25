@@ -1027,8 +1027,12 @@ class LmsToolbox
         $rows = [];
         $pendingTotal = 0.0;
 
-        foreach ($q->orderBy('full_name')->get() as $s) {
-            $due = (float) ($expected[$s->standard_id] ?? 0);
+        $students = $q->orderBy('full_name')->get();
+        // Each student's own rows — Last Year Dues — on top of the class's.
+        $ownFees = FeeStructure::ownTotals((int) $orgId, $students->pluck('id')->all(), null);
+
+        foreach ($students as $s) {
+            $due = (float) ($expected[$s->standard_id] ?? 0) + (float) ($ownFees[$s->id] ?? 0);
             if ($due <= 0) {
                 continue;
             }

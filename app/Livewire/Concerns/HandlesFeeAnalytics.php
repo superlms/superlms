@@ -97,6 +97,9 @@ trait HandlesFeeAnalytics
             ->when($sec, fn ($q) => $q->where('section_id', $sec))
             ->get(['id', 'user_id', 'full_name', 'admission_no', 'standard_id', 'section_id']);
 
+        // ── Each student's own academic rows (Last Year Dues) ────────────────
+        $ownAcademic = FeeStructure::ownTotals($orgId, $students->pluck('id')->all());
+
         // ── Each rider's own transport bill: route fee × months billed ───────
         $transportPerStudent = [];
         $riderRows = DB::table('transportation_students as ts')
@@ -138,7 +141,7 @@ trait HandlesFeeAnalytics
         $studentRows = [];
 
         foreach ($students as $s) {
-            $acadBill = $academicFeeFor($s->standard_id, $s->section_id);
+            $acadBill = $academicFeeFor($s->standard_id, $s->section_id) + (float) ($ownAcademic[$s->id] ?? 0);
             $txBill   = (float) ($transportPerStudent[$s->id] ?? 0);
             $paid     = (float) ($feePaidPerStudent[$s->id] ?? 0) + (float) ($txPaidPerStudent[$s->id] ?? 0);
             $billable = $acadBill + $txBill;

@@ -86,7 +86,8 @@ class AccountsController extends ApiController
         $now   = now();
 
         $collected = (float) FeePayment::where('organization_id', $orgId)->sum('amount');
-        $structure = (float) FeeStructure::where('organization_id', $orgId)->where('is_active', true)->sum('amount');
+        $structure = (float) FeeStructure::where('organization_id', $orgId)->where('is_active', true)->sum('amount')
+            + FeeStructure::ownTotalForSchool($orgId, null); // students' own Last Year Dues
 
         $today = (float) FeePayment::where('organization_id', $orgId)
             ->whereDate('payment_date', $now->toDateString())->sum('amount');

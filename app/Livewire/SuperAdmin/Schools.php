@@ -1001,6 +1001,8 @@ class Schools extends Component
                 );
                 $academicToCollect += (float) $applicable->where('fee_type', 'academic')->sum('amount');
             }
+            // …and every student's own Last Year Dues.
+            $academicToCollect += \App\Models\Admin\Fee\FeeStructure::ownTotalForSchool($orgId);
             $transportToCollect = (float) array_sum(TransportBilling::yearTotals($orgId, $feeStudents->pluck('id')->all()));
             $totalToCollect = $academicToCollect + $transportToCollect;
 

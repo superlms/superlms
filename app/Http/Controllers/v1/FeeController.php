@@ -47,7 +47,9 @@ class FeeController extends ApiController
             ->where('standard_id', $stdId)
             ->where(fn($q) => $q->whereNull('section_id')->orWhere('section_id', $secId))
             ->where('is_active', true)
-            ->get();
+            ->get()
+            // …and the student's own — Last Year Dues.
+            ->concat(FeeStructure::ownRows($orgId, [$student->id], null));
 
         $totalDue = $structures->sum('amount');
 
@@ -103,6 +105,8 @@ class FeeController extends ApiController
             ->where('is_active', true)
             ->orderBy('fee_type')
             ->get()
+            // …and the student's own — Last Year Dues.
+            ->concat(FeeStructure::ownRows($user->organization_id, [$student->id], null))
             ->map(fn($s) => [
                 'id'            => $s->id,
                 'fee_name'      => $s->fee_name,
@@ -316,6 +320,8 @@ class FeeController extends ApiController
             ->where('fee_type', 'academic')
             ->orderBy('fee_name')
             ->get()
+            // …and the student's own — Last Year Dues — after them.
+            ->concat(FeeStructure::ownRows($orgId, [$student->id]))
             ->map(fn($s) => [
                 'id'            => $s->id,
                 'fee_name'      => $s->fee_name,
@@ -539,7 +545,9 @@ class FeeController extends ApiController
             ->where('standard_id', $student->standard_id)
             ->where(fn($q) => $q->whereNull('section_id')->orWhere('section_id', $student->section_id))
             ->where('is_active', true)
-            ->get();
+            ->get()
+            // …and the student's own — Last Year Dues.
+            ->concat(FeeStructure::ownRows($orgId, [$student->id], null));
 
         $academicDue  = (float) $structures->where('fee_type', 'academic')->sum('amount');
         // Transport is charged on the student's route (monthly fee × billed

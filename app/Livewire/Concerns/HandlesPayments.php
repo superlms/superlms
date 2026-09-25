@@ -184,13 +184,17 @@ trait HandlesPayments
                     ->where('standard_id', $stdId)->count();
                 $totalAcademicFee += $structures->where('standard_id', $stdId)->sum('amount') * $studentCount;
             }
+            // Every student's own Last Year Dues.
+            $totalAcademicFee += FeeStructure::ownTotalForSchool($orgId);
         } else {
             $studentQuery = StudentDetail::where('organization_id', $orgId)
                 ->where('standard_id', $this->paymentStandardId);
             if ($this->paymentSectionId) {
                 $studentQuery->where('section_id', $this->paymentSectionId);
             }
-            $totalAcademicFee = $structures->sum('amount') * $studentQuery->count();
+            $totalAcademicFee = $structures->sum('amount') * $studentQuery->count()
+                // …and these students' own Last Year Dues.
+                + array_sum(FeeStructure::ownTotals($orgId, (clone $studentQuery)->pluck('id')->all()));
         }
 
         // ── Scheduled transport fee: route.monthly_fee × each student's billed months ──

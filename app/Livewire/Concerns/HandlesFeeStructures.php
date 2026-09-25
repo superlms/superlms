@@ -25,6 +25,9 @@ use App\Support\AccountsNotifier;
  */
 trait HandlesFeeStructures
 {
+    // Add Dues — each student's Last Year Dues, from the header's button.
+    use HandlesFeeDues;
+
     // ─── Tabs ────────────────────────────────────────────────────────────────
     public string $structureTab = 'academic'; // academic | transport
 

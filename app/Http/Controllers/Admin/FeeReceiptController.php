@@ -38,7 +38,9 @@ class FeeReceiptController extends Controller
                 $q->where('section_id', $student->section_id)->orWhereNull('section_id');
             })
             ->where('is_active', true)
-            ->get();
+            ->get()
+            // …and the student's own — Last Year Dues.
+            ->concat(FeeStructure::ownRows($orgId, [$student->id], null));
 
         // Penalty waivers (is_penalty = true) are netted against accrued
         // penalty by FeeCycleBreakdown on its own — kept out of the base-fee

@@ -54,7 +54,9 @@ trait HandlesStudentFeeView
             })
             ->where('is_active', true)
             ->orderBy('id')
-            ->get();
+            ->get()
+            // …and the student's own — Last Year Dues — after them.
+            ->concat(FeeStructure::ownRows($orgId, [$studentId], null));
 
         $payments = FeePayment::where('organization_id', $orgId)
             ->where('student_detail_id', $studentId)

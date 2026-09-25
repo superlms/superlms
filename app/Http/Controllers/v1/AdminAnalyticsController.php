@@ -743,6 +743,8 @@ class AdminAnalyticsController extends DashboardController
         $students = StudentDetail::with('user:id,name')
             ->where('organization_id', $orgId)
             ->get(['id', 'user_id', 'full_name', 'admission_no', 'standard_id', 'section_id']);
+        // Each student's own academic rows — Last Year Dues.
+        $ownFees = FeeStructure::ownTotals($orgId, $students->pluck('id')->all());
         // Each rider's bus for the year: the route's monthly fee for the months they are billed.
         $transport = [];
         $riders = DB::table('transportation_students as ts')
@@ -775,7 +777,7 @@ class AdminAnalyticsController extends DashboardController
         $byClass = [];
         $rows = [];
         foreach ($students as $s) {
-            $a = $academicFor($s->standard_id, $s->section_id);
+            $a = $academicFor($s->standard_id, $s->section_id) + (float) ($ownFees[$s->id] ?? 0);
             $t = (float) ($transport[$s->id] ?? 0);
             $in = (float) ($paid[$s->id] ?? 0);
             $academicBill += $a;

@@ -576,8 +576,10 @@ class Student extends Component
                 ->academic()->active()->sum('amount');
         };
         $transportTotals = TransportBilling::yearTotals($orgId, $ids);
+        // Each student's own academic rows — Last Year Dues.
+        $ownFees = FeeStructure::ownTotals($orgId, $ids);
 
-        return response()->streamDownload(function () use ($students, $attendance, $marks, $academicPaid, $transportPaid, $academicTotalFor, $transportTotals) {
+        return response()->streamDownload(function () use ($students, $attendance, $marks, $academicPaid, $transportPaid, $academicTotalFor, $ownFees, $transportTotals) {
             $handle = fopen('php://output', 'w');
             fputcsv($handle, [
                 'S.No',
@@ -629,7 +631,7 @@ class Student extends Component
                 $perfPct = $maxT > 0 ? round($obt / $maxT * 100, 1) . '%' : '—';
 
                 $acPaid  = (float) ($academicPaid[$s->id]->paid ?? 0);
-                $acTotal = (float) $academicTotalFor($s->standard_id, $s->section_id);
+                $acTotal = (float) $academicTotalFor($s->standard_id, $s->section_id) + (float) ($ownFees[$s->id] ?? 0);
                 $trPaid  = (float) ($transportPaid[$s->id] ?? 0);
                 $trTotal = (float) ($transportTotals[$s->id] ?? 0);
 

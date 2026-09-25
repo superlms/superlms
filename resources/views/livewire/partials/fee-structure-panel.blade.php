@@ -295,6 +295,116 @@
     </div>
 @endif
 
+{{-- ══════════════════════════════════════════════════════════════════
+     ADD DUES — slide-in. A class (and a section, if you want) lists its
+     students; what is typed for one becomes their own "Last Year Dues"
+     fee particular. HandlesFeeDues.
+══════════════════════════════════════════════════════════════════ --}}
+@if ($duesPanelOpen)
+    @php
+        $duesList    = $this->duesStudents;
+        $duesSecs    = $this->duesSections;
+        $duesErrored = collect($errors->keys())->filter(fn ($k) => str_starts_with($k, 'duesAmounts.'))->count();
+    @endphp
+    <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
+        <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeDuesPanel"></div>
+        <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900">Add Dues</h2>
+                    <p class="text-xs text-gray-500 mt-0.5">Each amount is added to that student's fee as <strong class="text-gray-700">{{ \App\Models\Admin\Fee\FeeStructure::DUES_NAME }}</strong>.</p>
+                </div>
+                <button wire:click="closeDuesPanel" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto px-6 py-6 space-y-5">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Class <span class="text-red-500">*</span></label>
+                        <select wire:model.live="duesStandardId"
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm bg-white">
+                            <option value="">Select class…</option>
+                            @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
+                        </select>
+                        @error('duesStandardId')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Section</label>
+                        <select wire:model.live="duesSectionId" @disabled(!$duesStandardId)
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm bg-white disabled:bg-gray-50 disabled:text-gray-500">
+                            <option value="">All Sections</option>
+                            @foreach ($duesSecs as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
+                        </select>
+                    </div>
+                </div>
+
+                @if (!$duesStandardId)
+                    <div class="rounded-lg border border-dashed border-gray-200 px-4 py-12 text-center">
+                        <p class="text-sm font-semibold text-gray-800">Select a class to list its students</p>
+                        <p class="text-xs text-gray-400 mt-1">Pick a section too, to see only that section.</p>
+                    </div>
+                @elseif ($duesList->isEmpty())
+                    <div class="rounded-lg border border-dashed border-gray-200 px-4 py-12 text-center">
+                        <p class="text-sm font-semibold text-gray-800">No students here</p>
+                        <p class="text-xs text-gray-400 mt-1">This {{ $duesSectionId ? 'section' : 'class' }} has no students yet.</p>
+                    </div>
+                @else
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-sm font-medium text-gray-700">Students</label>
+                            <span class="text-xs text-gray-500">{{ $duesList->count() }} student{{ $duesList->count() === 1 ? '' : 's' }} · ₹{{ number_format($this->duesTotal, 2) }}</span>
+                        </div>
+                        <div class="border border-gray-200 rounded-lg overflow-x-auto">
+                            <table class="w-full min-w-[440px]">
+                                <thead class="bg-gray-50 border-b border-gray-200">
+                                    <tr class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                                        <th class="px-3 py-2 text-left w-12">S.No</th>
+                                        <th class="px-3 py-2 text-left">Name</th>
+                                        <th class="px-3 py-2 text-left w-32">Admission No</th>
+                                        <th class="px-3 py-2 text-left w-36">Dues (₹)</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    @foreach ($duesList as $i => $s)
+                                        <tr wire:key="dues-{{ $s->id }}">
+                                            <td class="px-3 py-2 text-xs text-gray-400 tabular-nums">{{ $i + 1 }}</td>
+                                            <td class="px-3 py-2 min-w-0">
+                                                <p class="text-sm text-gray-800 truncate">{{ $s->full_name ?: ($s->user->name ?? '—') }}</p>
+                                                <p class="text-[11px] text-gray-400 truncate">{{ $s->father_name ?: '—' }}</p>
+                                            </td>
+                                            <td class="px-3 py-2 text-xs text-gray-600">{{ $s->admission_no ?: '—' }}</td>
+                                            <td class="px-3 py-2">
+                                                <input type="number" min="0" step="0.01" wire:model.blur="duesAmounts.s{{ $s->id }}" placeholder="0.00"
+                                                    class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500">
+                                                @error('duesAmounts.s' . $s->id)<p class="text-[11px] text-red-500 mt-1">{{ $message }}</p>@enderror
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="text-[11px] text-gray-400 mt-2">Leave a box empty for a student with no dues. Emptying a saved amount takes their dues away.</p>
+                    </div>
+                @endif
+            </div>
+
+            <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                @if ($duesErrored)
+                    <p class="mr-auto text-xs text-red-500">Check the amount{{ $duesErrored === 1 ? '' : 's' }} marked in red{{ $duesSectionId ? ' (in any section)' : '' }}.</p>
+                @endif
+                <button wire:click="closeDuesPanel" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                <button wire:click="saveDues" wire:loading.attr="disabled" @disabled(!$duesStandardId)
+                    class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md disabled:opacity-60">
+                    <span wire:loading.remove wire:target="saveDues">Save Dues</span>
+                    <span wire:loading wire:target="saveDues">Saving…</span>
+                </button>
+            </div>
+        </div>
+    </div>
+@endif
+
 {{-- ══════════ VIEW FEE STRUCTURE — slide-in, edit/delete in its header ══════════ --}}
 @if ($viewGroupOpen && !empty($viewGroupData))
     @php $vSec = $viewGroupData['section_id'] ?? ''; @endphp

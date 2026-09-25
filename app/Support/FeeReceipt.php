@@ -37,6 +37,8 @@ class FeeReceipt
                 ->where('is_active', true)
                 ->where('fee_type', 'academic')
                 ->sum('amount')
+                // …and the student's own — Last Year Dues.
+                + (float) (FeeStructure::ownTotals($orgId, [$student->id])[$student->id] ?? 0)
             : (float) $payment->amount;
 
         $concessions = $student

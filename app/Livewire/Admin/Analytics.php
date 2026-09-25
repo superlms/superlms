@@ -910,7 +910,8 @@ class Analytics extends Component
     protected function loadFeeStatsStatic(): void
     {
         $orgId         = $this->orgId();
-        $totalFee      = FeeStructure::where('organization_id', $orgId)->where('is_active', true)->sum('amount');
+        $totalFee      = FeeStructure::where('organization_id', $orgId)->where('is_active', true)->sum('amount')
+            + FeeStructure::ownTotalForSchool($orgId, null); // students' own Last Year Dues
         $collected     = FeePayment::where('organization_id', $orgId)->sum('amount');
         $transportFee  = FeeStructure::where('organization_id', $orgId)->where('is_active', true)->where('fee_type', 'transport')->sum('amount');
 

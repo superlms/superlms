@@ -576,6 +576,8 @@ class StudentPushNotifier
         $active = User::whereIn('id', $students->pluck('user_id'))->where('role', self::STUDENT)->pluck('id')->flip();
         $structures = FeeStructure::where('organization_id', $orgId)->where('is_active', true)
             ->where('fee_type', 'academic')->get(['standard_id', 'section_id', 'amount']);
+        // Each student's own academic rows — Last Year Dues.
+        $ownFees = FeeStructure::ownTotals($orgId, $students->pluck('id')->all());
         $paid = FeePayment::where('organization_id', $orgId)->where('fee_type', 'academic')
             ->selectRaw('student_detail_id, SUM(amount) as paid')->groupBy('student_detail_id')
             ->pluck('paid', 'student_detail_id');
@@ -589,7 +591,8 @@ class StudentPushNotifier
             }
             $academicDue = (float) $structures->where('standard_id', $student->standard_id)
                 ->filter(fn ($s) => !$s->section_id || (int) $s->section_id === (int) $student->section_id)
-                ->sum('amount');
+                ->sum('amount')
+                + (float) ($ownFees[$student->id] ?? 0);
             if ($academicDue <= 0) {
                 continue;
             }

@@ -65,6 +65,9 @@ class StudentExport
             ->where('is_active', true)
             ->get();
 
+        // Each student's own academic rows — Last Year Dues.
+        $ownFees = FeeStructure::ownTotals($org, $ids);
+
         // All fee payments for these students, grouped by student.
         $payments = FeePayment::where('organization_id', $org)
             ->whereIn('student_detail_id', $ids)
@@ -91,7 +94,8 @@ class StudentExport
                 fn ($st) => (int) $st->standard_id === (int) $s->standard_id
                     && (is_null($st->section_id) || (int) $st->section_id === (int) $s->section_id)
             );
-            $academicTotal = (float) $studentStructures->where('fee_type', 'academic')->sum('amount');
+            $academicTotal = (float) $studentStructures->where('fee_type', 'academic')->sum('amount')
+                + (float) ($ownFees[$s->id] ?? 0);
             $transportTotal = (float) ($transportTotals[$s->id] ?? 0);
 
             $studentPayments = $payments->get($s->id, collect());

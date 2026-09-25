@@ -372,12 +372,15 @@ class ListReportService
                 $studentIds      = $students->pluck('id')->all();
                 $transportTotals = TransportBilling::yearTotals((int) $orgId, $studentIds);
                 $transportPaids  = TransportBilling::paidByStudent((int) $orgId, $studentIds);
+                // Each student's own academic rows — Last Year Dues.
+                $ownFees         = FeeStructure::ownTotals((int) $orgId, $studentIds);
 
-                $records = $students->map(function ($s) use ($structures, $payments, $transportTotals, $transportPaids) {
+                $records = $students->map(function ($s) use ($structures, $ownFees, $payments, $transportTotals, $transportPaids) {
                     // A section's own fee lines plus the class-wide ones it inherits.
                     $applicable = $structures->filter(fn ($f) => is_null($f->section_id) || $f->section_id == $s->section_id);
 
-                    $academicFee    = (float) $applicable->where('fee_type', 'academic')->sum('amount');
+                    $academicFee    = (float) $applicable->where('fee_type', 'academic')->sum('amount')
+                        + (float) ($ownFees[$s->id] ?? 0);
                     $transportFee   = (float) ($transportTotals[$s->id] ?? 0);
                     $studentPayments = $payments->get($s->id, collect());
                     $academicPaid   = (float) $studentPayments->where('fee_type', 'academic')->sum('amount');
