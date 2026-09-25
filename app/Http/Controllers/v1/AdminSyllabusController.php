@@ -259,7 +259,8 @@ class AdminSyllabusController extends ApiController
                     Chapter::create([
                         'organization_id' => $org,
                         'standard_id'     => $request->standard_id,
-                        'section_id'      => $request->section_id ?: null,
+                        // No section = the whole class: 0, the column's default (it takes no NULL).
+                        'section_id'      => $request->section_id ?: 0,
                         'subject_id'      => $request->subject_id,
                         'user_id'         => $user->id,
                         'name'            => trim($row['name']),
@@ -384,7 +385,8 @@ class AdminSyllabusController extends ApiController
                     Chapter::create([
                         'organization_id' => $orgId,
                         'standard_id'     => $request->standard_id,
-                        'section_id'      => $request->section_id ?: null,
+                        // No section = the whole class: 0, the column's default (it takes no NULL).
+                        'section_id'      => $request->section_id ?: 0,
                         'subject_id'      => $request->subject_id,
                         'user_id'         => $user->id,
                         'name'            => $row['name'],

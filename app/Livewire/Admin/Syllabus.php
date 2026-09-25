@@ -318,7 +318,8 @@ class Syllabus extends Component
                     Chapter::create([
                         'organization_id' => $org,
                         'standard_id'     => $this->chapterStandardId,
-                        'section_id'      => $this->chapterSectionId ?: null,
+                        // No section = the whole class: 0, the column's default (it takes no NULL).
+                        'section_id'      => $this->chapterSectionId ?: 0,
                         'subject_id'      => $this->chapterSubjectId,
                         'user_id'         => Auth::id(),
                         'name'            => trim($row['name']),
