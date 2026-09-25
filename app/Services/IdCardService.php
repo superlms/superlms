@@ -9,6 +9,8 @@ use App\Models\Admin\TeacherIdCard;
 use App\Models\Organization;
 use App\Models\Student\StudentDetail;
 use App\Models\Teacher\TeacherDetail;
+use BaconQrCode\Common\ErrorCorrectionLevel;
+use BaconQrCode\Encoder\Encoder;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
@@ -26,26 +28,38 @@ class IdCardService
     public const TYPES = ['student', 'teacher', 'employee'];
 
     /**
+     * How long a Generate click (panel or app) spends drawing QR codes. A QR
+     * takes a few hundred ms, so a whole school's would outlast nginx (a 504);
+     * cards made after this get their QR when first opened — view, print and
+     * both apps draw a missing one — or from the nightly id-cards command.
+     */
+    public const QR_SECONDS_PER_REQUEST = 15;
+
+    /**
      * Generate cards for every person of $type (without an active card) in the
      * organization. For students an optional list of standard (class) ids
-     * narrows the batch.
+     * narrows the batch. With $qrSeconds, QR codes are drawn only for that long;
+     * every card is still created.
      *
      * @return array{generated:int, skipped:int, errors:array<int,string>}
      */
-    public function generateForType(Organization $organization, string $type, string $expiryDate, ?array $standardIds = null, ?int $userId = null): array
+    public function generateForType(Organization $organization, string $type, string $expiryDate, ?array $standardIds = null, ?int $userId = null, ?int $qrSeconds = null): array
     {
         $persons = $this->personsWithoutActiveCard($organization, $type, $standardIds);
 
         $generated = 0;
         $errors = [];
+        $qrUntil = $qrSeconds !== null ? microtime(true) + $qrSeconds : null;
 
         foreach ($persons as $person) {
             try {
                 $card = $this->createCardFor($organization, $type, $person, $expiryDate, $userId);
 
-                $qr = $this->generateQrCode($card, $person, $organization, $type);
-                if ($qr) {
-                    $card->update(['qr_code' => $qr]);
+                if ($qrUntil === null || microtime(true) < $qrUntil) {
+                    $qr = $this->generateQrCode($card, $person, $organization, $type);
+                    if ($qr) {
+                        $card->update(['qr_code' => $qr]);
+                    }
                 }
 
                 $generated++;
@@ -60,6 +74,47 @@ class IdCardService
             'skipped'   => 0,
             'errors'    => $errors,
         ];
+    }
+
+    /**
+     * Draw the QR of every active card of $type that has none — cards a
+     * Generate click made after its QR time ran out. Run by the nightly
+     * id-cards command, which has no time limit.
+     */
+    public function fillMissingQrCodes(Organization $organization, string $type): int
+    {
+        $model = $this->modelClassFor($type);
+        $with = match ($type) {
+            'student' => ['studentDetail.standard', 'studentDetail.section'],
+            'teacher' => ['teacherDetail.user'],
+            default   => ['adminEmployee'],
+        };
+        $personOf = fn ($card) => match ($type) {
+            'student' => $card->studentDetail,
+            'teacher' => $card->teacherDetail,
+            default   => $card->adminEmployee,
+        };
+
+        $filled = 0;
+        $model::with($with)
+            ->where('organization_id', $organization->id)
+            ->where('status', 'active')
+            ->whereNull('qr_code')
+            ->chunkById(100, function ($cards) use ($organization, $type, $personOf, &$filled) {
+                foreach ($cards as $card) {
+                    $person = $personOf($card);
+                    if (!$person) {
+                        continue;
+                    }
+                    $qr = $this->generateQrCode($card, $person, $organization, $type);
+                    if ($qr) {
+                        $card->update(['qr_code' => $qr]);
+                        $filled++;
+                    }
+                }
+            });
+
+        return $filled;
     }
 
     /**
@@ -326,6 +381,12 @@ class IdCardService
 
             $json = json_encode($qrData, JSON_PRETTY_PRINT);
 
+            // Drawn here — no call to another website for every card.
+            $png = $this->localQrPng($json);
+            if ($png !== null) {
+                return base64_encode($png);
+            }
+
             if (class_exists(\SimpleSoftwareIO\QrCode\QrCode::class)) {
                 $png = QrCode::format('png')->size(250)->margin(2)
                     ->errorCorrection('H')->encoding('UTF-8')->generate($json);
@@ -333,13 +394,63 @@ class IdCardService
                 return base64_encode($png);
             }
 
-            $context = stream_context_create(['ssl' => ['verify_peer' => false, 'verify_peer_name' => false]]);
+            // A slow answer must not hold the request up: give it 5 seconds.
+            $context = stream_context_create([
+                'ssl'  => ['verify_peer' => false, 'verify_peer_name' => false],
+                'http' => ['timeout' => 5],
+            ]);
             $url = 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=2&ecc=H&data=' . urlencode($json);
             $image = @file_get_contents($url, false, $context);
 
             return $image !== false ? base64_encode($image) : null;
         } catch (\Throwable $e) {
             Log::error('QR Code Generation Error: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * A QR code as PNG bytes — black on white, error correction H, two modules
+     * of quiet zone, at least 250 px across (as the old image service drew it) —
+     * encoded by bacon/bacon-qr-code and painted with GD. Null without GD or if
+     * encoding fails, so the caller falls back.
+     */
+    private function localQrPng(string $text): ?string
+    {
+        if (!function_exists('imagecreate') || !class_exists(Encoder::class)) {
+            return null;
+        }
+
+        try {
+            $matrix = Encoder::encode($text, ErrorCorrectionLevel::H(), 'UTF-8')->getMatrix();
+            $modules = $matrix->getWidth();
+            $margin = 2;
+            // Whole pixels per module keep every module the same size.
+            $scale = max(2, (int) ceil(250 / ($modules + 2 * $margin)));
+            $size = ($modules + 2 * $margin) * $scale;
+
+            $img = imagecreate($size, $size);
+            imagecolorallocate($img, 255, 255, 255); // the first colour is the background
+            $black = imagecolorallocate($img, 0, 0, 0);
+
+            for ($y = 0; $y < $modules; $y++) {
+                for ($x = 0; $x < $modules; $x++) {
+                    if ($matrix->get($x, $y) === 1) {
+                        $px = ($x + $margin) * $scale;
+                        $py = ($y + $margin) * $scale;
+                        imagefilledrectangle($img, $px, $py, $px + $scale - 1, $py + $scale - 1, $black);
+                    }
+                }
+            }
+
+            ob_start();
+            imagepng($img);
+            $png = ob_get_clean();
+            imagedestroy($img);
+
+            return $png !== false && $png !== '' ? $png : null;
+        } catch (\Throwable $e) {
+            Log::warning('Local QR drawing failed, falling back: ' . $e->getMessage());
             return null;
         }
     }

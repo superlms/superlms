@@ -150,6 +150,8 @@ class IdCard extends Component
                 $this->genExpiryDate,
                 $standardIds,
                 Auth::id(),
+                // QR codes only for so long — the rest are drawn when a card is opened.
+                IdCardService::QR_SECONDS_PER_REQUEST,
             );
 
             // Once any cards are issued for this type, switch on the daily

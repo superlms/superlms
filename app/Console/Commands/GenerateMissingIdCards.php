@@ -64,6 +64,12 @@ class GenerateMissingIdCards extends Command
                 $this->warn("Org #{$organization->id} [{$setting->type}]: {$error}");
             }
 
+            // Cards a Generate click made after its QR time ran out.
+            $filled = $service->fillMissingQrCodes($organization, $setting->type);
+            if ($filled > 0) {
+                $this->info("Org #{$organization->id} [{$setting->type}]: drew {$filled} missing QR code(s).");
+            }
+
             $setting->update(['last_generated_at' => now()]);
         }
 

@@ -188,7 +188,9 @@ class AdminIdCardController extends ApiController
                 : null;
 
             $result = $this->service()->generateForType(
-                $organization, $request->type, $request->expiry_date, $standardIds, $user->id
+                $organization, $request->type, $request->expiry_date, $standardIds, $user->id,
+                // QR codes only for so long — the rest are drawn when a card is opened.
+                IdCardService::QR_SECONDS_PER_REQUEST,
             );
 
             IdCardGenerationSetting::updateOrCreate(
