@@ -724,8 +724,14 @@ class Standard extends Component
             $this->selectedStandardForSubject = $ss->standard_id;
             $this->isMandatory                = $ss->is_mandatory;
             $this->loadSectionsForSelectedStandard();
-            $this->selectedSectionsForSubject = SectionSubject::where('subject_id', $id)
-                ->where('standard_id', $ss->standard_id)->pluck('section_id')->toArray();
+            // Only this class's own sections: a link left behind by a section
+            // since moved to another class (or deleted) has no box to untick,
+            // and would fail the save's "sections of the selected class" check.
+            $this->selectedSectionsForSubject = SubjectMove::sectionsIn(
+                SectionSubject::where('subject_id', $id)
+                    ->where('standard_id', $ss->standard_id)->pluck('section_id')->all(),
+                (int) $ss->standard_id,
+            );
             $this->loadExistingSubjectsForStandard();
         }
         $this->addType  = 'subject';
