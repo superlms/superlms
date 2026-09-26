@@ -682,6 +682,11 @@ Route::middleware('auth:sanctum')->group(function () {
             // ─── Admit Card (web parity) ─────────────────────────────────────
             Route::get('/admit-card/lookups',   [AdminAdmitCardController::class, 'lookups']);
             Route::get('/admit-card/analytics', [AdminAdmitCardController::class, 'analytics']);
+            Route::get('/admit-card/classes',   [AdminAdmitCardController::class, 'classes']);
+            Route::get('/admit-card/printable', [AdminAdmitCardController::class, 'printable']);
+            Route::post('/admit-card/print',    [AdminAdmitCardController::class, 'printCards']);
+            Route::get('/admit-card/sheet',     [AdminAdmitCardController::class, 'sheet']);
+            Route::post('/admit-card/{id}/unprinted', [AdminAdmitCardController::class, 'markUnprinted'])->whereNumber('id');
             Route::get('/admit-card',           [AdminAdmitCardController::class, 'index']);
             Route::post('/admit-card/issue',    [AdminAdmitCardController::class, 'issueOne']);
             Route::post('/admit-card/generate', [AdminAdmitCardController::class, 'generate']);

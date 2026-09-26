@@ -96,6 +96,58 @@ class AdmitCardController extends Controller
     }
 
     /**
+     * The four-up print sheet as a PDF — for the admin app, which has no
+     * browser print: the same sheet Print opens here (admit-card-sheet, four
+     * cards to an A4 landscape page, cut along the dotted lines), drawn by
+     * dompdf with the sheet's own PDF rules. Only the cards in `ids`, in roll
+     * order. Stamping them as printed is the caller's job, as it is here.
+     */
+    public function sheetPdf(Request $request, $organization)
+    {
+        $orgId = Auth::user()->organization_id;
+        $ids   = array_values(array_filter(explode(',', (string) $request->query('ids'))));
+
+        $admitCards = AdmitCard::with(['studentDetail.standard', 'studentDetail.section', 'organization'])
+            ->where('organization_id', $orgId)
+            ->whereIn('id', $ids ?: [0])
+            ->orderByRaw('CAST(roll_number AS UNSIGNED), roll_number')
+            ->get();
+
+        $this->attachSeating($admitCards);
+
+        $organization = Auth::user()->organization;
+        $single       = $admitCards->count() === 1 ? $admitCards->first() : null;
+        $fontCache    = PdfFonts::cacheDir();
+
+        $load = fn (string $fontCss) => Pdf::loadView('admin.admit-card-sheet', [
+            'admitCards'   => $admitCards,
+            'single'       => $single,
+            'organization' => $organization,
+            'isPdf'        => true,
+            'fontCss'      => $fontCss,
+        ])->setPaper('a4', 'landscape')
+            ->setOption('isRemoteEnabled', true)
+            ->setOption('isHtml5ParserEnabled', true)
+            ->setOption('isFontSubsettingEnabled', true)
+            ->setOption('fontDir', $fontCache)
+            ->setOption('fontCache', $fontCache)
+            ->setOption('defaultFont', 'DejaVu Sans');
+
+        try {
+            $pdf = $load(PdfFonts::faceCss());
+        } catch (\Throwable $e) {
+            logger()->warning('Admit card sheet font embedding failed: ' . $e->getMessage());
+            $pdf = $load('');
+        }
+
+        $name = $single
+            ? 'admit_card_sheet_' . str_replace(' ', '_', $single->student_name ?? 'student')
+            : 'admit_cards_' . $admitCards->count();
+
+        return $pdf->stream("{$name}.pdf");
+    }
+
+    /**
      * Delete an admit card from the print/view page, then return to the listing.
      * POST /{organization}/admit-card/{id}/delete
      */

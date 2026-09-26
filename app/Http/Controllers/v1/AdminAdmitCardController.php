@@ -26,6 +26,10 @@ use Illuminate\Support\Carbon;
  * schedule comes from the exam datesheet; seat/room resolve from the seating
  * plan at PDF time. PDF generation delegates to the web controller (same blade),
  * scoped by the authenticated user's organization.
+ *
+ * Printing is the web's too: the Print panel's list (not yet printed, or all
+ * as a reprint), Print stamping the cards as printed and handing back the
+ * four-up sheet as a PDF, and a printed card queued again for the next run.
  */
 class AdminAdmitCardController extends ApiController
 {
@@ -44,19 +48,44 @@ class AdminAdmitCardController extends ApiController
 
     // ══════════════════════════ LOOKUPS ══════════════════════════
 
-    /** GET /admin/admit-card/lookups — exams + classes (with sections). */
+    /**
+     * GET /admin/admit-card/lookups — exams + classes (with sections).
+     *
+     * Each exam also carries what the student app's exam rows read (term, type,
+     * dates, status, marks — as ExamController::formatExam gives them) and how
+     * many cards it has issued, so the admin app can list the exams the way a
+     * student's Admit Card screen does.
+     */
     public function lookups()
     {
         [$user, $err] = $this->guard();
         if ($err) return $err;
         $orgId = $user->organization_id;
 
+        $issuedByExam = ModelAdmitCard::where('organization_id', $orgId)
+            ->selectRaw('exam_id, COUNT(*) AS c')->groupBy('exam_id')
+            ->pluck('c', 'exam_id');
+
+        $now = now();
         $exams = Exam::where('organization_id', $orgId)
-            ->orderByDesc('start_date')->get(['id', 'exam_name', 'academic_year'])
+            ->orderByDesc('start_date')->get()
             ->map(fn ($e) => [
                 'id'            => $e->id,
                 'name'          => $e->exam_name,
                 'academic_year' => $e->academic_year,
+                'exam_name'     => $e->exam_name,
+                'term'          => $e->term,
+                'exam_type'     => $e->exam_type,
+                'start_date'    => $e->start_date?->format('Y-m-d'),
+                'end_date'      => $e->end_date?->format('Y-m-d'),
+                'status'        => match (true) {
+                    $e->start_date > $now => 'upcoming',
+                    $e->end_date   < $now => 'completed',
+                    default               => 'ongoing',
+                },
+                'total_marks'   => $e->total_marks,
+                'passing_marks' => $e->passing_marks,
+                'issued'        => (int) ($issuedByExam[$e->id] ?? 0),
             ]);
 
         $classes = Standard::where('organization_id', $orgId)->inClassOrder()->get(['id', 'name'])
@@ -68,6 +97,74 @@ class AdminAdmitCardController extends ApiController
             ]);
 
         return $this->success(['exams' => $exams, 'classes' => $classes], 'Admit card lookups fetched.');
+    }
+
+    /**
+     * GET /admin/admit-card/classes?exam_id=
+     *
+     * One exam's classes, each with its sections, and for every class and
+     * section how many students it has and how many of them hold this exam's
+     * card — the web page's Total / Issued / Remaining, counted the same way
+     * (students by their class and section now, cards by the class and
+     * section they were issued in), one line per class instead of one filter
+     * at a time.
+     */
+    public function classes(Request $request)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+        $orgId = $user->organization_id;
+
+        if ($err = $this->validateWith($request, [
+            'exam_id' => 'required|integer',
+        ], [
+            'exam_id.required' => 'Select an exam first.',
+        ])) return $err;
+
+        $examId = (int) $request->exam_id;
+        if (!Exam::where('organization_id', $orgId)->whereKey($examId)->exists()) {
+            return $this->error('Exam not found.', 404);
+        }
+
+        $students = StudentDetail::where('organization_id', $orgId)
+            ->selectRaw('standard_id, section_id, COUNT(*) AS c')
+            ->groupBy('standard_id', 'section_id')->get();
+        $cards = ModelAdmitCard::where('organization_id', $orgId)->where('exam_id', $examId)
+            ->selectRaw('standard_id, section_id, COUNT(*) AS c')
+            ->groupBy('standard_id', 'section_id')->get();
+
+        $count = fn ($rows, $std, $sec = false) => (int) $rows
+            ->filter(fn ($r) => (int) $r->standard_id === (int) $std
+                && ($sec === false || (int) $r->section_id === (int) $sec))
+            ->sum('c');
+
+        $classes = Standard::where('organization_id', $orgId)->inClassOrder()->get(['id', 'name'])
+            ->map(fn ($s) => [
+                'id'       => $s->id,
+                'name'     => $s->name,
+                'students' => $count($students, $s->id),
+                'issued'   => $count($cards, $s->id),
+                'sections' => Section::where('standard_id', $s->id)->where('organization_id', $orgId)
+                    ->orderBy('id')->get(['id', 'name'])
+                    ->map(fn ($sec) => [
+                        'id'       => $sec->id,
+                        'name'     => $sec->name,
+                        'students' => $count($students, $s->id, $sec->id),
+                        'issued'   => $count($cards, $s->id, $sec->id),
+                    ])->values(),
+            ])->values();
+
+        $total  = StudentDetail::where('organization_id', $orgId)->count();
+        $issued = ModelAdmitCard::where('organization_id', $orgId)->where('exam_id', $examId)->count();
+
+        return $this->success([
+            'classes' => $classes,
+            'totals'  => [
+                'total'     => $total,
+                'issued'    => $issued,
+                'remaining' => max(0, $total - $issued),
+            ],
+        ], 'Admit card classes fetched.');
     }
 
     // ══════════════════════════ LIST + ANALYTICS ══════════════════════════
@@ -129,6 +226,9 @@ class AdminAdmitCardController extends ApiController
                 'image'        => $student->user?->image ?? null,
                 'issued'       => (bool) $card,
                 'admit_card_id'=> $card?->id,
+                // The web list's Card No. and its Printed / Not printed line.
+                'admit_card_number' => $card?->admit_card_number,
+                'printed_at'   => $card?->printed_at?->format('d M Y, g:i A'),
             ];
         });
 
@@ -210,6 +310,11 @@ class AdminAdmitCardController extends ApiController
                 'logo'    => $org?->logo ?? null,
             ],
             'pdf_url' => url("/api/v1/admin/admit-card/{$card->id}/pdf"),
+            'exam_id'           => $card->exam_id,
+            'student_detail_id' => $card->student_detail_id,
+            'standard_id'       => $card->standard_id,
+            'section_id'        => $card->section_id,
+            'printed_at'        => $card->printed_at?->format('d M Y, g:i A'),
         ]], 'Admit card fetched.');
     }
 
@@ -224,6 +329,112 @@ class AdminAdmitCardController extends ApiController
         }
 
         return app(WebAdmitCardController::class)->download($request, $user->organization_id, $id);
+    }
+
+    // ══════════════════════════ PRINT (web parity) ══════════════════════════
+
+    /**
+     * GET /admin/admit-card/printable?exam_id=&standard_id=&section_id=&include_done=
+     *
+     * The web Print panel's list: the cards issued for the exam + class
+     * (+ section), by default only those never printed — so a second run after
+     * a second batch of issues brings just the new ones — and how many of that
+     * class are already printed (the panel offers them as a reprint).
+     */
+    public function printable(Request $request)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+        $orgId = $user->organization_id;
+
+        if ($err = $this->validateWith($request, [
+            'exam_id'     => 'required|integer',
+            'standard_id' => 'required|integer',
+        ], [
+            'exam_id.required'     => 'Choose the exam you are printing for.',
+            'standard_id.required' => 'Choose the class you are printing for.',
+        ])) return $err;
+
+        $sectionId   = $request->filled('section_id') ? (int) $request->section_id : null;
+        $includeDone = $request->boolean('include_done');
+
+        $base = fn () => ModelAdmitCard::where('organization_id', $orgId)
+            ->where('exam_id', (int) $request->exam_id)
+            ->where('standard_id', (int) $request->standard_id)
+            ->when($sectionId, fn ($q) => $q->where('section_id', $sectionId));
+
+        $cards = $base()
+            ->when(!$includeDone, fn ($q) => $q->unprinted())
+            ->orderByRaw('CAST(roll_number AS UNSIGNED), roll_number')
+            ->get()
+            ->map(fn ($c) => [
+                'id'                => $c->id,
+                'student_name'      => $c->student_name,
+                'roll_number'       => $c->roll_number,
+                'admit_card_number' => $c->admit_card_number,
+                'printed_at'        => $c->printed_at?->format('d M Y, g:i A'),
+            ])->values();
+
+        return $this->success([
+            'cards'           => $cards,
+            'already_printed' => $base()->whereNotNull('printed_at')->count(),
+        ], 'Printable admit cards fetched.');
+    }
+
+    /**
+     * POST /admin/admit-card/print — { ids: [..] }
+     *
+     * The web's Print (a selection) and Print this card (one): the cards are
+     * stamped as printed, so the next run only brings the ones issued since,
+     * and the four-up sheet comes back as a PDF link.
+     */
+    public function printCards(Request $request)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+        $orgId = $user->organization_id;
+
+        $ids = collect((array) $request->input('ids', []))
+            ->map(fn ($id) => (int) $id)->filter()->unique()->values();
+        if ($ids->isEmpty()) {
+            return $this->error('Select at least one student to print.', 422);
+        }
+
+        $ids = ModelAdmitCard::where('organization_id', $orgId)->whereIn('id', $ids)->pluck('id');
+        if ($ids->isEmpty()) {
+            return $this->error('Those admit cards no longer exist.', 404);
+        }
+
+        ModelAdmitCard::where('organization_id', $orgId)->whereIn('id', $ids)
+            ->update(['printed_at' => now()]);
+
+        return $this->success([
+            'count'   => $ids->count(),
+            'ids'     => $ids,
+            'pdf_url' => url('/api/v1/admin/admit-card/sheet') . '?' . http_build_query(['ids' => $ids->implode(',')]),
+        ], $ids->count() === 1 ? 'Admit card ready to print.' : "{$ids->count()} admit cards ready to print.");
+    }
+
+    /** GET /admin/admit-card/sheet?ids= — the four-up print sheet as a PDF (the web's print-all). */
+    public function sheet(Request $request)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+
+        return app(WebAdmitCardController::class)->sheetPdf($request, $user->organization_id);
+    }
+
+    /** POST /admin/admit-card/{id}/unprinted — undo the printed stamp, so it comes out on the next run. */
+    public function markUnprinted($id)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+
+        $card = ModelAdmitCard::where('organization_id', $user->organization_id)->find($id);
+        if (!$card) return $this->error('Admit card not found.', 404);
+
+        $card->update(['printed_at' => null]);
+        return $this->success(null, 'That card will print on the next run.');
     }
 
     // ══════════════════════════ ISSUE ONE ══════════════════════════
