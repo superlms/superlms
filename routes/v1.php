@@ -538,6 +538,14 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/exams/syllabus',         [AdminExamController::class, 'syllabus']);
             Route::post('/exams/syllabus',        [AdminExamController::class, 'storeSyllabus']);
             Route::delete('/exams/syllabus',      [AdminExamController::class, 'deleteSyllabus']);
+            // Exam Papers — a question paper PDF per exam, class, section and subject
+            Route::get('/exams/papers/options',     [AdminExamController::class, 'paperOptions']);
+            Route::get('/exams/papers',             [AdminExamController::class, 'papers']);
+            Route::post('/exams/papers',            [AdminExamController::class, 'storePaper']);
+            Route::post('/exams/papers/{id}',       [AdminExamController::class, 'updatePaper'])->whereNumber('id');
+            Route::delete('/exams/papers/{id}',     [AdminExamController::class, 'destroyPaper'])->whereNumber('id');
+            Route::get('/exams/papers/{id}/file',   [AdminExamController::class, 'paperFile'])->whereNumber('id');
+            Route::get('/exams/{id}',             [AdminExamController::class, 'show'])->whereNumber('id');
             Route::get('/exams',                  [AdminExamController::class, 'index']);
             Route::post('/exams',                 [AdminExamController::class, 'store']);
             Route::put('/exams/{id}',             [AdminExamController::class, 'update'])->whereNumber('id');
