@@ -269,58 +269,67 @@ class IdCardService
 
         if ($type === 'student') {
             $p = $card->studentDetail;
-            $data['photo']    = $this->resolvePhoto($p->image ?? ($p->user->image ?? null));
-            $data['name']     = $p->full_name ?? ($p->user->name ?? '—');
-            $cls = ($p->standard->name ?? '—') . ($p->section ? ' - ' . $p->section->name : '');
-            $data['subtitle'] = trim($cls);
-            $data['front_rows'] = [
-                'Reg No'        => $p->admission_no ?? '—',
-                'Class'         => $p->standard->name ?? '—',
-                'Section'       => $p->section->name ?? '—',
-                'Father Name'   => $p->father_name ?? '—',
-                'Mobile'        => $p->phone ?? '—',
-                'Address'       => $p->local_address ?? ($p->permanent_address ?? '—'),
-            ];
-
-            $transport = method_exists($p, 'activeTransportation') ? $p->activeTransportation() : null;
-            if ($transport) {
-                $driver = $transport->driver;
-                $data['transport'] = [
-                    'Route'    => $transport->route_name ?? '—',
-                    'Pickup'   => $transport->pickup_location ?? '—',
-                    'Drop'     => $transport->drop_location ?? '—',
-                    'Time'     => $transport->pickup_time ?? '—',
-                    'Vehicle'  => $driver?->vehicle_no ?? '—',
-                    'Driver'   => $driver?->user?->name ?? '—',
-                    'Contact'  => $driver?->phone ?? '—',
+            // A card whose person was deleted keeps its defaults ('—').
+            if ($p) {
+                $data['photo']    = $this->resolvePhoto($p->image ?? ($p->user->image ?? null));
+                $data['name']     = $p->full_name ?? ($p->user->name ?? '—');
+                $cls = ($p->standard->name ?? '—') . ($p->section ? ' - ' . $p->section->name : '');
+                $data['subtitle'] = trim($cls);
+                $data['front_rows'] = [
+                    'Reg No'        => $p->admission_no ?? '—',
+                    'Class'         => $p->standard->name ?? '—',
+                    'Section'       => $p->section->name ?? '—',
+                    'Father Name'   => $p->father_name ?? '—',
+                    'Mobile'        => $p->phone ?? '—',
+                    'Address'       => $p->local_address ?? ($p->permanent_address ?? '—'),
                 ];
+
+                $transport = method_exists($p, 'activeTransportation') ? $p->activeTransportation() : null;
+                if ($transport) {
+                    $driver = $transport->driver;
+                    $data['transport'] = [
+                        'Route'    => $transport->route_name ?? '—',
+                        'Pickup'   => $transport->pickup_location ?? '—',
+                        'Drop'     => $transport->drop_location ?? '—',
+                        'Time'     => $transport->pickup_time ?? '—',
+                        'Vehicle'  => $driver?->vehicle_no ?? '—',
+                        'Driver'   => $driver?->user?->name ?? '—',
+                        'Contact'  => $driver?->phone ?? '—',
+                    ];
+                }
             }
         } elseif ($type === 'teacher') {
             $p = $card->teacherDetail;
-            $data['photo']    = $this->resolvePhoto($p->user->image ?? null);
-            $data['name']     = $p->user->name ?? '—';
-            $data['subtitle'] = 'Teacher';
-            $data['front_rows'] = [
-                'Employee ID'  => $p->employee_id ?? '—',
-                'Designation'  => 'Teacher',
-                'Qualification' => $p->qualification ?? '—',
-                'Mobile'       => $p->phone ?? '—',
-                'Joining Date' => $p->date_of_joining ? \Carbon\Carbon::parse($p->date_of_joining)->format('d M Y') : '—',
-                'Address'      => $p->address ?? '—',
-            ];
+            // A card whose person was deleted keeps its defaults ('—').
+            if ($p) {
+                $data['photo']    = $this->resolvePhoto($p->user->image ?? null);
+                $data['name']     = $p->user->name ?? '—';
+                $data['subtitle'] = 'Teacher';
+                $data['front_rows'] = [
+                    'Employee ID'  => $p->employee_id ?? '—',
+                    'Designation'  => 'Teacher',
+                    'Qualification' => $p->qualification ?? '—',
+                    'Mobile'       => $p->phone ?? '—',
+                    'Joining Date' => $p->date_of_joining ? \Carbon\Carbon::parse($p->date_of_joining)->format('d M Y') : '—',
+                    'Address'      => $p->address ?? '—',
+                ];
+            }
         } else {
             $p = $card->adminEmployee;
-            $data['photo']    = $this->resolvePhoto($p->photo ?? null);
-            $data['name']     = $p->name ?? '—';
-            $data['subtitle'] = $p->designation ?? ucfirst($p->type ?? 'Employee');
-            $data['front_rows'] = [
-                'Emp ID'       => 'EMP-' . ($p->id ?? '—'),
-                'Designation'  => $p->designation ?? '—',
-                'Mobile'       => $p->mobile ?? '—',
-                'Email'        => $p->email ?? '—',
-                'Joining Date' => $p->joining_date ? \Carbon\Carbon::parse($p->joining_date)->format('d M Y') : '—',
-                'Address'      => $p->address ?? '—',
-            ];
+            // A card whose person was deleted keeps its defaults ('—').
+            if ($p) {
+                $data['photo']    = $this->resolvePhoto($p->photo ?? null);
+                $data['name']     = $p->name ?? '—';
+                $data['subtitle'] = $p->designation ?? ucfirst($p->type ?? 'Employee');
+                $data['front_rows'] = [
+                    'Emp ID'       => 'EMP-' . ($p->id ?? '—'),
+                    'Designation'  => $p->designation ?? '—',
+                    'Mobile'       => $p->mobile ?? '—',
+                    'Email'        => $p->email ?? '—',
+                    'Joining Date' => $p->joining_date ? \Carbon\Carbon::parse($p->joining_date)->format('d M Y') : '—',
+                    'Address'      => $p->address ?? '—',
+                ];
+            }
         }
 
         return $data;

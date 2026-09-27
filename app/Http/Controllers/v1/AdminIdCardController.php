@@ -65,7 +65,10 @@ class AdminIdCardController extends ApiController
     {
         $sub = null;
         if ($type === 'student') {
-            $sub = trim(($card->studentDetail->standard->name ?? '') . ($card->studentDetail->section ? ' - ' . $card->studentDetail->section->name : ''));
+            // A card outlives its student when the student is deleted (no FK) — the
+            // panel lists it with '—', so the app must not trip over the gap.
+            $p = $card->studentDetail;
+            $sub = trim(($p?->standard?->name ?? '') . ($p?->section ? ' - ' . $p->section->name : ''));
         } elseif ($type === 'teacher') {
             $sub = $card->teacherDetail->employee_id ?? 'Teacher';
         } else {
@@ -75,7 +78,7 @@ class AdminIdCardController extends ApiController
         return [
             'id'          => $card->id,
             'card_number' => $card->card_number,
-            'name'        => $this->personName($card, $type),
+            'name'        => $this->personName($card, $type) ?? '—',
             'subtitle'    => $sub ?: ucfirst($type),
             'issue_date'  => optional($card->issue_date)->format('Y-m-d'),
             'expiry_date' => optional($card->expiry_date)->format('Y-m-d'),
