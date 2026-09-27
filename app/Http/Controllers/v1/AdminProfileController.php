@@ -70,14 +70,38 @@ class AdminProfileController extends ApiController
                 'email' => $user->email,
                 'role'  => $user->role,
                 'image' => $user->image,
+                // The panel's sub-admin card: their own details and the
+                // screens granted to them, by the admin menu's titles.
+                'mobile_number'      => $user->mobile_number,
+                'alternative_mobile' => $user->alternative_mobile,
+                'gender'             => $user->gender,
+                'dob'                => $user->dob,
+                'date_of_joining'    => $user->date_of_joining,
+                'granted_access'     => $user->role === 'sub-admin' ? $this->grantedAccess($user) : [],
             ],
             'organization' => $org ? [
                 'id'          => $org->id,
                 'name'        => $org->name,
                 'logo'        => $org->logo,
                 'school_code' => $org->school_code,
+                // The panel's School Profile tab: every field the super-admin
+                // sets when adding a school, and its bank details.
+                'email'            => $org->email,
+                'mobile_number'    => $org->mobile_number,
+                'state'            => $org->state,
+                'education_board'  => $org->education_board,
+                'affiliation_no'   => $org->affiliation_no,
+                'udise_number'     => $org->udise_number,
+                'serial_number'    => $org->serial_number,
+                'address'          => $org->address,
+                'bank_name'        => $org->bank_name,
+                'bank_account_no'  => $org->bank_account_no,
+                'bank_ifsc'        => $org->bank_ifsc,
+                'bank_branch'      => $org->bank_branch,
+                'bank_holder_name' => $org->bank_holder_name,
             ] : null,
             'school_info' => [
+                'updated_at'           => optional($info->updated_at)->toIso8601String(),
                 'about_school'         => $info->about_school,
                 'website_info'         => $info->website_info,
                 'website_url'          => $info->website_url,
@@ -107,6 +131,18 @@ class AdminProfileController extends ApiController
                 'file_type' => $d->file_type,
             ])->values(),
         ];
+    }
+
+    /** A sub-admin's granted screens, named as the panel's Profile names them. */
+    private function grantedAccess(User $user): array
+    {
+        $catalog = collect(config('menu.admin', []))
+            ->mapWithKeys(fn ($i) => [$i['link'] => $i['title']]);
+
+        return collect((array) $user->permissions)
+            ->map(fn ($p) => $catalog[$p] ?? $p)
+            ->values()
+            ->all();
     }
 
     /** GET /api/v1/admin/profile */
