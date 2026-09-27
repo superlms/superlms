@@ -86,7 +86,9 @@ class AdminPayrollController extends ApiController
             'email'             => $e->email,
             'salary'            => (float) $e->salary,
             'photo'             => $e->photo,
-            'joining_date'      => $e->joining_date?->format('Y-m-d'),
+            // The model keeps joining_date uncast, so it comes back as the
+            // column's string; read it as a date whichever way it arrives.
+            'joining_date'      => $e->joining_date ? Carbon::parse($e->joining_date)->format('Y-m-d') : null,
             'is_teacher'        => $e->isTeacher(),
             'teacher_detail_id' => $e->teacher_detail_id,
             'driver_detail_id'  => $e->driver_detail_id ?? null,
