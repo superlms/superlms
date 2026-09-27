@@ -41,7 +41,17 @@ class AdminArrangementController extends ApiController
 
     // ══════════════════════════ INDEX ══════════════════════════
 
-    /** GET /admin/arrangement?date=YYYY-MM-DD&standard_id= */
+    /**
+     * GET /admin/arrangement?date=YYYY-MM-DD&standard_id=
+     *
+     * Also, as the panel shows it: each slot's period number (the school's
+     * distinct start times that day, in order — P5), the arrangement's
+     * substitute id, and for an arranged slot the teachers it could be changed
+     * to (edit_substitutes, as the panel's Edit lists them). With all=1 every
+     * absent teacher is listed, one with no periods (that day, or in the class
+     * filtered to) too, as the panel lists them; without it, only those with
+     * periods, as before.
+     */
     public function index(Request $request)
     {
         [$user, $err] = $this->guard();
@@ -76,6 +86,12 @@ class AdminArrangementController extends ApiController
             ->when($request->filled('standard_id'), fn ($q) => $q->where('standard_id', $request->standard_id))
             ->orderBy('start_time')->get()->groupBy('teacher_detail_id');
 
+        // The school's periods that day, in order, so a slot says which it is.
+        $periodNumbers = TeacherTimeTable::where('organization_id', $orgId)
+            ->where('day_of_week', $dayOfWeek)
+            ->distinct()->orderBy('start_time')->pluck('start_time')->values()
+            ->mapWithKeys(fn ($time, $i) => [$this->hhmm($time) => $i + 1]);
+
         $arrangements = TeacherArrangement::with(['substituteTeacher.user:id,name', 'timetable'])
             ->where('organization_id', $orgId)->whereDate('date', $date)->get()->keyBy('teacher_time_table_id');
 
@@ -96,8 +112,24 @@ class AdminArrangementController extends ApiController
             ->whereIn('substitute_teacher_id', $candidateIds)->get()->groupBy('substitute_teacher_id');
 
         // Build response per absent teacher.
-        $teachers = $absentTeachers->map(function ($teacher) use ($absentSlots, $arrangements, $activeTeachers, $candidateBusy, $candidateAlreadySub) {
-            $slots = ($absentSlots->get($teacher->id) ?? collect())->map(function ($slot) use ($arrangements, $activeTeachers, $candidateBusy, $candidateAlreadySub) {
+        // The teachers free for a slot: not in a class of their own then, not
+        // already covering another class then. Editing a slot, its own
+        // arrangement doesn't count, or its teacher would drop off its list.
+        $freeFor = function ($slot, ?int $editingSlotId = null) use ($activeTeachers, $candidateBusy, $candidateAlreadySub) {
+            return $activeTeachers->filter(function ($t) use ($slot, $candidateBusy, $candidateAlreadySub, $editingSlotId) {
+                $busy = $candidateBusy->get($t->id, collect())->first(fn ($b) => $b->start_time < $slot->end_time && $b->end_time > $slot->start_time);
+                if ($busy) return false;
+                $sub = $candidateAlreadySub->get($t->id, collect())->first(function ($a) use ($slot, $editingSlotId) {
+                    if ($editingSlotId !== null && (int) $a->teacher_time_table_id === $editingSlotId) return false;
+                    return $a->timetable && $a->timetable->start_time < $slot->end_time && $a->timetable->end_time > $slot->start_time;
+                });
+                if ($sub) return false;
+                return true;
+            })->map(fn ($t) => ['id' => $t->id, 'name' => $t->user->name ?? '—'])->values();
+        };
+
+        $teachers = $absentTeachers->map(function ($teacher) use ($absentSlots, $arrangements, $activeTeachers, $candidateBusy, $candidateAlreadySub, $periodNumbers, $freeFor) {
+            $slots = ($absentSlots->get($teacher->id) ?? collect())->map(function ($slot, $i) use ($arrangements, $activeTeachers, $candidateBusy, $candidateAlreadySub, $periodNumbers, $freeFor) {
                 $arr = $arrangements->get($slot->id);
 
                 $available = [];
@@ -122,8 +154,11 @@ class AdminArrangementController extends ApiController
                         'id'              => $arr->id,
                         'substitute_name' => $arr->substituteTeacher?->user?->name ?? 'Substitute',
                         'reason'          => $arr->reason,
+                        'substitute_id'   => $arr->substitute_teacher_id,
                     ] : null,
                     'available_substitutes' => $available,
+                    'period'           => $periodNumbers[$this->hhmm($slot->start_time)] ?? $i + 1,
+                    'edit_substitutes' => $arr ? $freeFor($slot, (int) $slot->id) : [],
                 ];
             })->values();
 
@@ -132,7 +167,7 @@ class AdminArrangementController extends ApiController
                 'teacher_name' => $teacher->user->name ?? '—',
                 'slots'        => $slots,
             ];
-        })->filter(fn ($t) => count($t['slots']) > 0)->values();
+        })->filter(fn ($t) => $request->boolean('all') || count($t['slots']) > 0)->values();
 
         return $this->success([
             'date'     => $date,
@@ -154,7 +189,8 @@ class AdminArrangementController extends ApiController
             'date'          => 'required|date',
             'slot_id'       => 'required|integer',
             'substitute_id' => 'required|integer',
-            'reason'        => 'required|string|min:2',
+            // Optional, as on the panel (the app used to ask for one itself).
+            'reason'        => 'nullable|string',
         ])) return $err;
 
         $orgId = $user->organization_id;
@@ -176,12 +212,47 @@ class AdminArrangementController extends ApiController
             'substitute_teacher_id' => $request->substitute_id,
             'teacher_time_table_id' => $slot->id,
             'date'                  => $request->date,
-            'reason'                => $request->reason,
+            'reason'                => trim((string) $request->reason),
             'arranged_by'           => $user->id,
             'organization_id'       => $orgId,
         ]);
 
         return $this->success(['id' => $arr->id], 'Substitute assigned.');
+    }
+
+    /**
+     * POST /admin/arrangement/{id}  (substitute_id, reason?)
+     * The panel's Edit: another substitute, or another remark, for an arranged
+     * slot. Availability is checked again only when the substitute changed.
+     */
+    public function update(Request $request, $id)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+        if ($err = $this->validateWith($request, [
+            'substitute_id' => 'required|integer',
+            'reason'        => 'nullable|string',
+        ], ['substitute_id.required' => 'Pick a substitute teacher first.'])) return $err;
+
+        $orgId = $user->organization_id;
+        $arr   = TeacherArrangement::where('organization_id', $orgId)->find($id);
+        if (!$arr) return $this->error('Arrangement not found.', 404);
+
+        $slot = TeacherTimeTable::where('id', $arr->teacher_time_table_id)->where('organization_id', $orgId)->first();
+        if (!$slot) return $this->error('Slot not found.', 404);
+
+        $date = Carbon::parse($arr->date)->toDateString();
+        if ((int) $arr->substitute_teacher_id !== (int) $request->substitute_id
+            && !$this->isSubstituteAvailable((int) $request->substitute_id, $slot, $orgId, $date)) {
+            return $this->error('This teacher is no longer available for this time.', 422);
+        }
+
+        $arr->update([
+            'substitute_teacher_id' => $request->substitute_id,
+            'reason'                => trim((string) $request->reason),
+        ]);
+
+        return $this->success(['id' => $arr->id], 'Arrangement updated.');
     }
 
     private function isSubstituteAvailable(int $substituteId, TeacherTimeTable $slot, int $orgId, string $date): bool

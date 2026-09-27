@@ -631,6 +631,7 @@ Route::middleware('auth:sanctum')->group(function () {
             // Arrangement (substitutions)
             Route::get('/arrangement',         [AdminArrangementController::class, 'index']);
             Route::post('/arrangement',        [AdminArrangementController::class, 'assign']);
+            Route::post('/arrangement/{id}',   [AdminArrangementController::class, 'update'])->whereNumber('id');
             Route::delete('/arrangement/{id}', [AdminArrangementController::class, 'destroy'])->whereNumber('id');
 
             // ─── Homework (web parity) ───────────────────────────────────────
