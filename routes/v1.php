@@ -25,6 +25,7 @@ use App\Http\Controllers\v1\AdminProfileController;
 use App\Http\Controllers\v1\AdminContentController;
 use App\Http\Controllers\v1\AdminContactSuperAdminController;
 use App\Http\Controllers\v1\AdminRulesController;
+use App\Http\Controllers\v1\AdminSeatingController;
 use App\Http\Controllers\v1\AdminStandardController;
 use App\Http\Controllers\v1\AdminStudentController;
 use App\Http\Controllers\v1\AdminTeacherController;
@@ -458,6 +459,29 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/rules-and-regulation',               [AdminRulesController::class, 'show']);
             Route::post('/rules-and-regulation',              [AdminRulesController::class, 'save']);
             Route::post('/rules-and-regulation/files/remove', [AdminRulesController::class, 'removeFile']);
+
+            // Seating Plan — the panel's three tabs: Seating Plans, Rooms, Datesheet
+            Route::prefix('seating')->group(function () {
+                Route::get('/overview',                     [AdminSeatingController::class, 'overview']);
+                Route::get('/lookups',                      [AdminSeatingController::class, 'lookups']);
+                Route::get('/finder',                       [AdminSeatingController::class, 'finder']);
+                Route::get('/plans/{id}',                   [AdminSeatingController::class, 'plan'])->whereNumber('id');
+                Route::post('/plans/{id}/publish',          [AdminSeatingController::class, 'publish'])->whereNumber('id');
+                Route::delete('/plans/{id}',                [AdminSeatingController::class, 'destroyPlan'])->whereNumber('id');
+                Route::get('/plans/{id}/list-pdf',          [AdminSeatingController::class, 'listPdf'])->whereNumber('id');
+                Route::get('/plans/{id}/rooms/{roomId}/pdf', [AdminSeatingController::class, 'roomPdf'])->whereNumber(['id', 'roomId']);
+                Route::get('/generate/options',             [AdminSeatingController::class, 'generateOptions']);
+                Route::post('/generate',                    [AdminSeatingController::class, 'generate']);
+                Route::get('/rooms',                        [AdminSeatingController::class, 'rooms']);
+                Route::post('/rooms',                       [AdminSeatingController::class, 'storeRoom']);
+                Route::post('/rooms/{id}',                  [AdminSeatingController::class, 'updateRoom'])->whereNumber('id');
+                Route::delete('/rooms/{id}',                [AdminSeatingController::class, 'destroyRoom'])->whereNumber('id');
+                Route::get('/datesheet',                    [AdminSeatingController::class, 'datesheet']);
+                Route::get('/datesheet/form',               [AdminSeatingController::class, 'datesheetForm']);
+                Route::post('/datesheet',                   [AdminSeatingController::class, 'saveDatesheet']);
+                Route::delete('/datesheet/{id}',            [AdminSeatingController::class, 'destroyDatesheet'])->whereNumber('id');
+                Route::get('/datesheet/{id}/pdf',           [AdminSeatingController::class, 'datesheetPdf'])->whereNumber('id');
+            });
 
             // Messages — the web panel's chat between admins, sub-admins and accounts
             Route::prefix('chat')->group(function () {
