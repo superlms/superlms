@@ -24,6 +24,7 @@ use App\Http\Controllers\v1\AdminChatController;
 use App\Http\Controllers\v1\AdminProfileController;
 use App\Http\Controllers\v1\AdminContentController;
 use App\Http\Controllers\v1\AdminContactSuperAdminController;
+use App\Http\Controllers\v1\AdminRulesController;
 use App\Http\Controllers\v1\AdminStandardController;
 use App\Http\Controllers\v1\AdminStudentController;
 use App\Http\Controllers\v1\AdminTeacherController;
@@ -451,6 +452,12 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/contact-super-admin',        [AdminContactSuperAdminController::class, 'store']);
             Route::post('/contact-super-admin/{id}',   [AdminContactSuperAdminController::class, 'update'])->whereNumber('id');
             Route::delete('/contact-super-admin/{id}', [AdminContactSuperAdminController::class, 'destroy'])->whereNumber('id');
+
+            // More → Rules & Regulation: the panel's editor (students and
+            // teachers read it at /rules-and-regulation, unchanged)
+            Route::get('/rules-and-regulation',               [AdminRulesController::class, 'show']);
+            Route::post('/rules-and-regulation',              [AdminRulesController::class, 'save']);
+            Route::post('/rules-and-regulation/files/remove', [AdminRulesController::class, 'removeFile']);
 
             // Messages — the web panel's chat between admins, sub-admins and accounts
             Route::prefix('chat')->group(function () {
