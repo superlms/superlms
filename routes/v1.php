@@ -710,6 +710,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/report-card/issue-students', [AdminReportCardController::class, 'issueStudents']);
             Route::post('/report-card/issue',         [AdminReportCardController::class, 'issue']);
             Route::get('/report-card',                [AdminReportCardController::class, 'index']);
+            Route::get('/report-card/{id}',           [AdminReportCardController::class, 'show'])->whereNumber('id');
             Route::get('/report-card/{id}/pdf',       [AdminReportCardController::class, 'pdf'])->whereNumber('id');
             Route::post('/report-card/{id}/revoke',   [AdminReportCardController::class, 'revoke'])->whereNumber('id');
 
