@@ -487,6 +487,8 @@ Route::middleware('auth:sanctum')->group(function () {
             // Teachers
             Route::get('/teachers',          [AdminTeacherController::class, 'index']);
             Route::get('/teachers/username-check', [AdminTeacherController::class, 'usernameCheck']);
+            Route::get('/teachers/lookups',  [AdminTeacherController::class, 'lookups']);
+            Route::get('/teachers/export',   [AdminTeacherController::class, 'export']);
 
             // Ledger — the panel's statement, manual credits and expenses, PDF
             Route::get('/ledger',              [AdminLedgerController::class, 'index']);
@@ -524,6 +526,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/teachers/{id}',     [AdminTeacherController::class, 'show'])->whereNumber('id');
             Route::post('/teachers',         [AdminTeacherController::class, 'store']);
             Route::post('/teachers/{id}',    [AdminTeacherController::class, 'update'])->whereNumber('id');
+            Route::post('/teachers/{id}/photo', [AdminTeacherController::class, 'photo'])->whereNumber('id');
             Route::delete('/teachers/{id}',  [AdminTeacherController::class, 'destroy'])->whereNumber('id');
 
             // ID Cards (student / teacher / employee)

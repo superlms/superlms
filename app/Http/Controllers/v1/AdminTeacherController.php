@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers\v1;
 
+use App\Helpers\CityGetHelper;
 use App\Models\Organization;
 use App\Models\Student\Section;
+use App\Models\Student\Standard;
 use App\Models\Teacher\AssignTeacherStandard;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\User;
 use App\Support\LoginIdentifier;
+use App\Support\TeacherExport;
 use App\Support\Usernames;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -50,6 +53,16 @@ class AdminTeacherController extends ApiController
             'qualification' => $d->qualification,
             'image'       => $d->user->image ?? null,
             'is_active'   => (bool) ($d->user->is_active ?? false),
+            // The panel's list shows these too: when they joined, and the
+            // class (and section) they are class teacher of.
+            'date_of_joining' => optional($d->date_of_joining)->format('Y-m-d'),
+            'class_teacher'   => $d->assignedClasses
+                ->filter(fn ($a) => $a->standard || $a->section)
+                ->map(fn ($a) => [
+                    'class'   => $a->standard->name ?? null,
+                    'section' => $a->section->name ?? null,
+                ])
+                ->values(),
         ];
     }
 
@@ -60,7 +73,7 @@ class AdminTeacherController extends ApiController
         if ($err) return $err;
         $orgId = $user->organization_id;
 
-        $query = TeacherDetail::with('user')
+        $query = TeacherDetail::with(['user', 'assignedClasses'])
             ->where('organization_id', $orgId)
             ->when($request->filled('search'), fn ($q) => $q->where(fn ($q) => $q
                 ->where('employee_id', 'like', "%{$request->search}%")
@@ -96,7 +109,110 @@ class AdminTeacherController extends ApiController
             'inactive'   => User::where('organization_id', $orgId)->where('role', 'teacher')->where('is_active', 0)->count(),
             'last_month' => TeacherDetail::where('organization_id', $orgId)
                 ->where('date_of_joining', '>=', now()->subMonth())->count(),
+            // The panel's "This Year": joined since the academic year began (March).
+            'this_year'  => TeacherDetail::where('organization_id', $orgId)
+                ->where('date_of_joining', '>=', now()->month >= 3
+                    ? now()->startOfYear()->addMonths(2)->startOfMonth()
+                    : now()->subYear()->startOfYear()->addMonths(2)->startOfMonth())
+                ->count(),
         ];
+    }
+
+    /**
+     * GET /admin/teachers/lookups?state=
+     *
+     * What the panel's Teachers page picks from: the classes (in class order)
+     * and their sections for the Class / Section filter, and the states — with
+     * `state`, that state's cities — for the form's State and City.
+     */
+    public function lookups(Request $request)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+        $orgId = $user->organization_id;
+
+        $classes = Standard::where('organization_id', $orgId)->inClassOrder()->get(['id', 'name']);
+        $sections = Section::whereIn('standard_id', $classes->pluck('id'))
+            ->orderBy('id')
+            ->get(['id', 'name', 'standard_id']);
+
+        $cities = new CityGetHelper();
+
+        return $this->success([
+            'classes'  => $classes->map(fn ($c) => ['id' => $c->id, 'name' => $c->name])->values(),
+            'sections' => $sections->map(fn ($s) => ['id' => $s->id, 'name' => $s->name, 'standard_id' => $s->standard_id])->values(),
+            'states'   => array_values($cities->getState()),
+            'cities'   => $request->filled('state') ? array_values($cities->cityGetByState($request->query('state'))) : [],
+        ], 'Teacher lookups fetched.');
+    }
+
+    /**
+     * GET /admin/teachers/export?format=xlsx|pdf — the panel's Export: every
+     * teacher as an Excel sheet, or a PDF of record cards (App\Support\
+     * TeacherExport, built as the panel builds it). The file is the download.
+     */
+    public function export(Request $request)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+        if ($err = $this->validateWith($request, ['format' => 'required|in:xlsx,pdf'])) return $err;
+
+        $orgId = (int) $user->organization_id;
+        [$headings, $rows, $records] = TeacherExport::data($orgId);
+        if (!$rows) {
+            return $this->error('No teachers to export.', 422);
+        }
+
+        $name = 'teachers_' . now()->format('Y-m-d');
+        [$bytes, $type, $name] = $request->format === 'pdf'
+            ? [TeacherExport::pdf($orgId, $rows, $records), 'application/pdf', $name . '.pdf']
+            : [TeacherExport::xlsx($headings, $rows), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $name . '.xlsx'];
+
+        return response($bytes, 200, [
+            'Content-Type'        => $type,
+            'Content-Disposition' => 'attachment; filename="' . $name . '"',
+            'X-Export-Count'      => (string) count($rows),
+        ]);
+    }
+
+    /**
+     * POST /admin/teachers/{id}/photo — the panel's photo viewer: a new photo
+     * (an image of up to 1 MB) in place of the old, or remove=1 to take it
+     * off. The rest of the teacher is left as it is.
+     */
+    public function photo(Request $request, $id)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+
+        $detail = TeacherDetail::where('organization_id', $user->organization_id)->find($id);
+        if (!$detail) return $this->error('Teacher not found.', 404);
+        $teacher = User::where('id', $detail->user_id)->where('role', 'teacher')
+            ->where('organization_id', $user->organization_id)->first();
+        if (!$teacher) return $this->error('Teacher not found.', 404);
+
+        if ($request->boolean('remove')) {
+            if ($teacher->image) $this->safeS3Delete($teacher->image);
+            $teacher->update(['image' => null]);
+
+            return $this->success(['image' => null], 'Photo removed.');
+        }
+
+        if ($err = $this->validateWith($request, ['image' => 'required|image|max:1024'], [
+            'image.max'   => 'Image must be 1 MB or smaller.',
+            'image.image' => 'Please pick an image.',
+        ])) return $err;
+
+        try {
+            if ($teacher->image) $this->safeS3Delete($teacher->image);
+            $path = $request->file('image')->store('admin/teachers/images', 's3');
+            Storage::disk('s3')->setVisibility($path, 'public');
+            $teacher->update(['image' => Storage::disk('s3')->url($path)]);
+        } catch (\Throwable $e) {
+            return $this->error('Could not save the photo: ' . $e->getMessage(), 500);
+        }
+
+        return $this->success(['image' => $teacher->image], 'Photo updated.');
     }
 
     /** GET /admin/teachers/{id} */
@@ -294,6 +410,8 @@ class AdminTeacherController extends ApiController
         }
         // A new number gets the WhatsApp too.
         $oldMobile = $teacher->mobile_number;
+        // And a new email the credentials, as the panel sends them.
+        $oldEmail = $teacher->email;
 
         try {
             $userData = [
@@ -330,6 +448,17 @@ class AdminTeacherController extends ApiController
 
             if (\App\Services\WelcomeWhatsApp::numberChanged($oldMobile, $request->mobile)) {
                 \App\Services\WelcomeWhatsApp::teacher((int) $teacher->id);
+            }
+
+            // Email changed → the credentials go to the new address, as on the
+            // panel. The password is not changed: the stored one when it is
+            // known, otherwise a note to keep using the existing one.
+            if ($oldEmail && strcasecmp($oldEmail, $teacher->email) !== 0) {
+                $this->sendWelcomeEmail(
+                    $teacher,
+                    $orgId,
+                    $teacher->plainPassword() ?? 'Use your existing password (unchanged)'
+                );
             }
 
             return $this->success($this->shapeRow($detail->fresh('user')), 'Teacher Updated Successfully!');
