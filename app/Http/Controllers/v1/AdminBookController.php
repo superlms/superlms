@@ -260,6 +260,100 @@ class AdminBookController extends ApiController
         return $this->success(null, 'Book deleted successfully!');
     }
 
+    // ══════════════════════════ APP: CLASS → SECTION → SUBJECT ══════════════════════════
+    //
+    // The app's Books (from 2026-09-27) opens on the classes, a class on its
+    // sections, a section on its subjects, and a subject on its book's PDF. The
+    // endpoints above stay as they are for older builds.
+
+    /**
+     * GET /admin/books/overview — the panel's counts (total, active, inactive,
+     * with a PDF) and each class with its sections, and how many books the
+     * class, each section and the whole class (no section) hold.
+     */
+    public function overview()
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+        $orgId = $user->organization_id;
+
+        $standards = Standard::where('organization_id', $orgId)->where('is_active', true)
+            ->inClassOrder()->get(['id', 'name']);
+        $sections = Section::whereIn('standard_id', $standards->pluck('id'))->where('is_active', true)
+            ->orderBy('id')->get(['id', 'name', 'standard_id'])->groupBy('standard_id');
+        $books = Book::where('organization_id', $orgId)->get(['id', 'standard_id', 'section_id'])->groupBy('standard_id');
+
+        $classes = $standards->map(function ($s) use ($sections, $books) {
+            $mine = $books[$s->id] ?? collect();
+            return [
+                'id'                => $s->id,
+                'name'              => $s->name,
+                'books'             => $mine->count(),
+                // "Whole class" rows are 0, or null on older data.
+                'whole_class_books' => $mine->filter(fn ($b) => !(int) $b->section_id)->count(),
+                'sections'          => ($sections[$s->id] ?? collect())->map(fn ($sec) => [
+                    'id'    => $sec->id,
+                    'name'  => $sec->name,
+                    'books' => $mine->where('section_id', $sec->id)->count(),
+                ])->values(),
+            ];
+        })->values();
+
+        return $this->success([
+            'stats'   => $this->stats($orgId),
+            'classes' => $classes,
+        ], 'Books overview fetched.');
+    }
+
+    /**
+     * GET /admin/books/subjects?standard_id=&section_id= — a section's subjects
+     * (the panel form's list: the section's mapped subjects, or the class's when
+     * there is no section), each with its books — the section's own and the
+     * whole class's. A subject that already holds a book here is listed even if
+     * it is no longer mapped, so no book is hidden.
+     */
+    public function subjects(Request $request)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+        if ($err = $this->validateWith($request, ['standard_id' => 'required|integer'])) return $err;
+        $orgId = $user->organization_id;
+
+        $standard = Standard::where('organization_id', $orgId)->find($request->standard_id);
+        if (!$standard) return $this->error('Class not found.', 404);
+
+        $sectionId = (int) ($request->section_id ?: 0);
+        $section = null;
+        if ($sectionId) {
+            $section = Section::where('standard_id', $standard->id)->find($sectionId);
+            if (!$section) return $this->error('Section not found.', 404);
+        }
+
+        $books = Book::with(['standard', 'section', 'subject'])
+            ->where('organization_id', $orgId)
+            ->where('standard_id', $standard->id)
+            ->when($sectionId, fn ($q) => $q->where(fn ($w) => $w->where('section_id', $sectionId)
+                ->orWhere('section_id', 0)->orWhereNull('section_id')))
+            ->orderByDesc('created_at')
+            ->get();
+
+        $subjects = $this->subjectsFor($orgId, $standard->id, $sectionId ?: null)
+            ->map(fn ($s) => ['id' => (int) $s->id, 'name' => $s->name]);
+        foreach ($books as $b) {
+            if ($b->subject && !$subjects->contains('id', (int) $b->subject_id)) {
+                $subjects->push(['id' => (int) $b->subject_id, 'name' => $b->subject->name]);
+            }
+        }
+
+        return $this->success([
+            'standard' => ['id' => $standard->id, 'name' => $standard->name],
+            'section'  => $section ? ['id' => $section->id, 'name' => $section->name] : null,
+            'subjects' => $subjects->sortBy(fn ($s) => mb_strtolower($s['name']))->values()->map(fn ($s) => $s + [
+                'books' => $books->where('subject_id', $s['id'])->map(fn ($b) => $this->shape($b))->values(),
+            ]),
+        ], 'Subjects fetched.');
+    }
+
     private function upload(Request $request, string $field, string $dir): string
     {
         $path = $request->file($field)->store($dir, 's3');

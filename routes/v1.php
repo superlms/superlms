@@ -590,6 +590,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
             // Books (library)
             Route::get('/books/options', [AdminBookController::class, 'options']);
+            Route::get('/books/overview', [AdminBookController::class, 'overview']);
+            Route::get('/books/subjects', [AdminBookController::class, 'subjects']);
             Route::get('/books',         [AdminBookController::class, 'index']);
             Route::post('/books',        [AdminBookController::class, 'store']);
             Route::post('/books/{id}',   [AdminBookController::class, 'update'])->whereNumber('id');
