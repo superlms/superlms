@@ -23,6 +23,7 @@ use App\Http\Controllers\v1\AdminAnalyticsController;
 use App\Http\Controllers\v1\AdminChatController;
 use App\Http\Controllers\v1\AdminProfileController;
 use App\Http\Controllers\v1\AdminContentController;
+use App\Http\Controllers\v1\AdminContactSuperAdminController;
 use App\Http\Controllers\v1\AdminStandardController;
 use App\Http\Controllers\v1\AdminStudentController;
 use App\Http\Controllers\v1\AdminTeacherController;
@@ -444,6 +445,12 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/enquiries',                    [AdminContentController::class, 'enquiries']);
             Route::post('/enquiries/{tab}/{id}/reply',  [AdminContentController::class, 'replyEnquiry'])->whereNumber('id');
             Route::delete('/enquiries/{tab}/{id}',      [AdminContentController::class, 'deleteEnquiry'])->whereNumber('id');
+
+            // More → Contact Admin: the school's messages to the Super Admin
+            Route::get('/contact-super-admin',         [AdminContactSuperAdminController::class, 'index']);
+            Route::post('/contact-super-admin',        [AdminContactSuperAdminController::class, 'store']);
+            Route::post('/contact-super-admin/{id}',   [AdminContactSuperAdminController::class, 'update'])->whereNumber('id');
+            Route::delete('/contact-super-admin/{id}', [AdminContactSuperAdminController::class, 'destroy'])->whereNumber('id');
 
             // Messages — the web panel's chat between admins, sub-admins and accounts
             Route::prefix('chat')->group(function () {
