@@ -604,6 +604,13 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/timetable',         [AdminTimetableController::class, 'index']);
             Route::post('/timetable',        [AdminTimetableController::class, 'save']);
             Route::delete('/timetable',      [AdminTimetableController::class, 'destroy']);
+            // The app's class → section → week, and the panel's row form
+            Route::get('/timetable/overview', [AdminTimetableController::class, 'overview']);
+            Route::get('/timetable/section',  [AdminTimetableController::class, 'section']);
+            Route::get('/timetable/form',     [AdminTimetableController::class, 'form']);
+            Route::post('/timetable/schedule',[AdminTimetableController::class, 'saveSchedule']);
+            Route::get('/timetable/pdf',      [AdminTimetableController::class, 'pdf']);
+            Route::get('/timetable/teacher-pdf', [AdminTimetableController::class, 'teacherPdf']);
 
             // Arrangement (substitutions)
             Route::get('/arrangement',         [AdminArrangementController::class, 'index']);
