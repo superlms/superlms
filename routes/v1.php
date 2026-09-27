@@ -638,6 +638,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/homework/subjects', [AdminHomeworkController::class, 'subjects']);
             Route::get('/homework/stats',    [AdminHomeworkController::class, 'stats']);
             Route::get('/homework/status',   [AdminHomeworkController::class, 'status']);
+            Route::get('/homework/days',     [AdminHomeworkController::class, 'days']);
             Route::get('/homework',          [AdminHomeworkController::class, 'index']);
             Route::post('/homework',         [AdminHomeworkController::class, 'store']);
             Route::post('/homework/{id}',    [AdminHomeworkController::class, 'update'])->whereNumber('id');
