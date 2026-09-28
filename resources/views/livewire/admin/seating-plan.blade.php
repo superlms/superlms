@@ -279,43 +279,102 @@
         @if ($activeTab === 'rooms')
             <p class="text-sm text-gray-500 mb-4">{{ $rooms->count() }} room(s) configured</p>
 
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                @forelse ($rooms as $room)
-                    <div class="bg-white rounded-lg border border-gray-200 p-3 hover:border-blue-200 hover:shadow-sm transition-all">
-                        <div class="flex items-start justify-between gap-1.5">
-                            <div class="min-w-0">
-                                <h3 class="text-sm font-semibold text-gray-900 truncate">{{ $room->room_name }}</h3>
-                                @if ($room->building)
-                                    <p class="text-[11px] text-gray-400 truncate">{{ $room->building }}</p>
-                                @endif
-                            </div>
-                            <span class="w-2 h-2 rounded-full flex-shrink-0 mt-1 {{ $room->is_active ? 'bg-emerald-500' : 'bg-gray-300' }}" title="{{ $room->is_active ? 'Active' : 'Inactive' }}"></span>
-                        </div>
-                        @php $perSeat = max(1, (int) ($room->seat_capacity ?? 1)); @endphp
-                        <div class="flex items-center gap-1.5 mt-2 text-xs text-gray-500">
-                            <span>{{ $room->rows }}×{{ $room->columns }} desks</span>
-                            <span class="text-gray-300">•</span>
-                            <span>{{ $perSeat }}/desk</span>
-                            <span class="text-gray-300">•</span>
-                            <span class="font-semibold text-gray-700">{{ $room->capacity }} seats</span>
-                        </div>
-                        <div class="flex items-center gap-1 mt-2.5 pt-2 border-t border-gray-100">
-                            <button wire:click="viewRoom({{ $room->id }})"
-                                class="flex-1 text-[11px] font-medium px-2 py-1 rounded-md border border-gray-200 text-gray-600 hover:bg-blue-50 hover:text-blue-600">View</button>
-                            <button wire:click="openRoomPanel({{ $room->id }})"
-                                class="flex-1 text-[11px] font-medium px-2 py-1 rounded-md border border-gray-200 text-gray-600 hover:bg-amber-50 hover:text-amber-600">Edit</button>
-                            <button wire:click="confirmDeleteRoom({{ $room->id }})"
-                                class="px-1.5 py-1 rounded-md border border-red-200 text-red-500 hover:bg-red-50" title="Delete">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            </button>
-                        </div>
-                    </div>
-                @empty
-                    <div class="col-span-full text-center py-16 bg-white rounded-xl border border-gray-200">
-                        <p class="text-base font-semibold text-gray-800">No rooms yet</p>
-                        <p class="text-sm text-gray-400 mt-1">Add a room with rows &amp; columns — seats are auto-generated.</p>
-                    </div>
-                @endforelse
+            {{-- A list as Students has it, in the order the rooms were added:
+                 the first room at the top, each one added after it below. --}}
+            @php $roomList = $rooms->sortBy('id')->values(); @endphp
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[640px]">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Room</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Desks</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Per Desk</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Seats</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @forelse ($roomList as $index => $room)
+                                @php $perSeat = max(1, (int) ($room->seat_capacity ?? 1)); @endphp
+                                <tr wire:key="room-{{ $room->id }}" class="hover:bg-gray-50/70 transition-colors">
+
+                                    {{-- S.No --}}
+                                    <td class="px-4 py-3">
+                                        <span class="text-sm text-gray-500 font-medium">{{ $index + 1 }}</span>
+                                    </td>
+
+                                    {{-- Room (initial + name, building under it) --}}
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                <span class="text-xs font-semibold text-indigo-600">{{ strtoupper(substr($room->room_name ?? 'R', 0, 1)) }}</span>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <p class="text-sm font-semibold text-gray-900 truncate">{{ $room->room_name }}</p>
+                                                @if ($room->building)
+                                                    <p class="text-xs text-gray-400 truncate">{{ $room->building }}</p>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    {{-- Desks --}}
+                                    <td class="px-4 py-3">
+                                        <span class="text-sm text-gray-700">{{ $room->rows }}×{{ $room->columns }}</span>
+                                    </td>
+
+                                    {{-- Per desk --}}
+                                    <td class="px-4 py-3">
+                                        <span class="text-sm text-gray-700">{{ $perSeat }}</span>
+                                    </td>
+
+                                    {{-- Seats --}}
+                                    <td class="px-4 py-3">
+                                        <span class="text-sm font-semibold text-gray-800">{{ $room->capacity }}</span>
+                                    </td>
+
+                                    {{-- Actions (status dot shown inline) --}}
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <span class="w-2 h-2 rounded-full flex-shrink-0 mr-1 {{ $room->is_active ? 'bg-green-500' : 'bg-red-500' }}"
+                                                title="{{ $room->is_active ? 'Active' : 'Inactive' }}"></span>
+                                            <button wire:click="viewRoom({{ $room->id }})"
+                                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                            </button>
+                                            <button wire:click="openRoomPanel({{ $room->id }})"
+                                                class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
+                                            </button>
+                                            <button wire:click="confirmDeleteRoom({{ $room->id }})"
+                                                class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="6" class="px-6 py-16 text-center">
+                                        <p class="text-base font-semibold text-gray-800">No rooms yet</p>
+                                        <p class="text-sm text-gray-400 mt-1">Add a room with rows &amp; columns — seats are auto-generated.</p>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
             </div>
         @endif
 
