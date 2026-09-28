@@ -95,9 +95,12 @@ class AttendanceController extends Controller
                 $wholeClass = $group->contains(fn ($a) => !$a->section_id);
                 $sectionIds = $group->pluck('section_id')->filter()->map(fn ($id) => (int) $id)->unique()->values();
 
+                // An inactive student is not listed: nobody marks them, and
+                // saving the day records them absent (markInactiveStudents).
                 $students = StudentDetail::with(['user', 'standard', 'section'])
                     ->where('organization_id', $user->organization_id)
-                    ->where('standard_id', $assignment->standard_id);
+                    ->where('standard_id', $assignment->standard_id)
+                    ->whereDoesntHave('user', fn ($q) => $q->where('is_active', false));
 
                 if (!$wholeClass) {
                     $students->whereIn('section_id', $sectionIds->all());
@@ -258,6 +261,8 @@ class AttendanceController extends Controller
                 $user->organization_id
             );
 
+            $this->markInactiveStudents($validated, $user);
+
             // Push a notification to each student whose attendance was marked or changed.
             $userIdByDetail = StudentDetail::whereIn(
                 'id',
@@ -293,6 +298,95 @@ class AttendanceController extends Controller
                 'An error occurred: ' . $e->getMessage(),
                 500
             );
+        }
+    }
+
+    /**
+     * Inactive students are left out of the teacher's list, so nobody marks
+     * them. When a day is saved, each inactive student of the classes in it —
+     * the same classes and sections the list covers — is saved absent, or
+     * holiday when the whole day was saved as a holiday. A mark they already
+     * have (present, say, from before they were made inactive) is kept; only
+     * an absent or holiday follows the day. They are not sent a push.
+     * A failure here is reported and never undoes the teacher's own marks.
+     */
+    private function markInactiveStudents(array $validated, $user): void
+    {
+        try {
+            $date = Carbon::parse($validated['attendance_date'])->toDateString();
+            $code = collect($validated['attendances'])->every(fn ($a) => (int) $a['status'] === 4) ? 4 : 0;
+
+            $submitted = StudentDetail::where('organization_id', $user->organization_id)
+                ->whereIn('id', collect($validated['attendances'])->pluck('student_detail_id'))
+                ->get(['id', 'standard_id', 'section_id']);
+            if ($submitted->isEmpty()) {
+                return;
+            }
+
+            $teacher = TeacherDetail::where('user_id', $user->id)->first();
+            $assignments = $teacher
+                ? AssignTeacherStandard::where('teacher_detail_id', $teacher->id)
+                    ->where('organization_id', $user->organization_id)
+                    ->whereIn('standard_id', $submitted->pluck('standard_id')->unique())
+                    ->get(['standard_id', 'section_id'])
+                    ->groupBy('standard_id')
+                : collect();
+
+            $inactive = collect();
+            foreach ($submitted->groupBy('standard_id') as $standardId => $students) {
+                $group = $assignments->get($standardId);
+                if ($group && $group->contains(fn ($a) => !$a->section_id)) {
+                    $sectionIds = null; // the whole class, as the list shows it
+                } elseif ($group) {
+                    $sectionIds = $group->pluck('section_id')->filter()->unique()->values()->all();
+                } else {
+                    $sectionIds = $students->pluck('section_id')->unique()->values()->all();
+                }
+
+                $inactive = $inactive->merge(
+                    StudentDetail::where('organization_id', $user->organization_id)
+                        ->where('standard_id', $standardId)
+                        ->when($sectionIds !== null, fn ($q) => $q->where(function ($q) use ($sectionIds) {
+                            $ids = array_values(array_filter($sectionIds));
+                            $q->whereIn('section_id', $ids);
+                            if (count($ids) < count($sectionIds)) {
+                                $q->orWhereNull('section_id');
+                            }
+                        }))
+                        ->whereHas('user', fn ($q) => $q->where('is_active', false))
+                        ->get(['id', 'user_id'])
+                );
+            }
+            $inactive = $inactive->unique('id')->values();
+            if ($inactive->isEmpty()) {
+                return;
+            }
+
+            $existing = StudentAttendance::whereDate('attendance_date', $date)
+                ->whereIn('student_detail_id', $inactive->pluck('id'))
+                ->get()
+                ->keyBy('student_detail_id');
+
+            DB::transaction(function () use ($inactive, $existing, $date, $code, $user) {
+                foreach ($inactive as $student) {
+                    $row = $existing->get($student->id);
+                    if (!$row) {
+                        StudentAttendance::create([
+                            'student_detail_id' => $student->id,
+                            'user_id'           => $student->user_id,
+                            'organization_id'   => $user->organization_id,
+                            'attendance_date'   => $date,
+                            'status'            => $code,
+                            'remarks'           => null,
+                            'marked_by'         => $user->id,
+                        ]);
+                    } elseif (in_array((int) $row->status, [0, 4], true) && (int) $row->status !== $code) {
+                        $row->update(['status' => $code, 'marked_by' => $user->id]);
+                    }
+                }
+            });
+        } catch (\Throwable $e) {
+            report($e);
         }
     }
 
