@@ -667,7 +667,8 @@ class AdminSeatingController extends ApiController
         [$user, $err] = $this->guard();
         if ($err) return $err;
 
-        $rooms = SeatingRoom::where('organization_id', $user->organization_id)->orderBy('room_name')->get();
+        // In the order they were added: the first room at the top.
+        $rooms = SeatingRoom::where('organization_id', $user->organization_id)->orderBy('id')->get();
 
         return $this->success($rooms->map(fn ($r) => $this->shapeRoom($r))->values(), 'Rooms fetched.');
     }
