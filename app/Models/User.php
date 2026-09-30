@@ -95,6 +95,29 @@ class User extends Authenticatable
         return (string) preg_replace('/[\s\p{Z}\p{Cf}]+/u', '', (string) $email);
     }
 
+    /**
+     * The Super Admin panel's account (the main super-admin or a sub
+     * super-admin) for an email as typed, already cleaned. The exact match
+     * first, as always; failing that, the account whose saved email differs
+     * from it only by spaces, invisible characters or capitals — one saved
+     * before the Users screen cleaned emails, that the clean-up migration had
+     * to leave as it was because another account holds the clean address.
+     */
+    public static function superPanelByEmail(string $email): ?self
+    {
+        $roles = ['super-admin', 'sub-super-admin'];
+
+        $user = static::where('email', $email)->whereIn('role', $roles)->first();
+        if ($user || $email === '') {
+            return $user;
+        }
+
+        $wanted = mb_strtolower($email);
+
+        return static::whereIn('role', $roles)->orderBy('id')->get()
+            ->first(fn (self $u) => mb_strtolower(static::cleanEmail($u->email)) === $wanted);
+    }
+
     /** The current password in plain text, or null if unknown (legacy account). */
     public function plainPassword(): ?string
     {

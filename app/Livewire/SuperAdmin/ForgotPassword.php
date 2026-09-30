@@ -11,9 +11,6 @@ use Livewire\Component;
 
 class ForgotPassword extends Component
 {
-    /** The main super-admin and the sub super-admins made on the Users screen. */
-    private const ROLES = ['super-admin', 'sub-super-admin'];
-
     public string $step = 'email'; // email | otp | password
 
     public string $email = '';
@@ -51,7 +48,7 @@ class ForgotPassword extends Component
              'email.email'    => 'Please enter a valid email address.']
         );
 
-        $user = User::where('email', $this->email)->whereIn('role', self::ROLES)->first();
+        $user = User::superPanelByEmail($this->email);
 
         if (!$user) {
             $this->addError('email', 'No super admin account found with this email address.');
@@ -63,6 +60,10 @@ class ForgotPassword extends Component
             $this->addError('email', 'Your account is inactive. Please contact the administrator.');
             return;
         }
+
+        // The code goes to the address as it should read — an old save can still
+        // carry invisible characters the mail provider refuses. Not saved.
+        $user->email = User::cleanEmail($user->email);
 
         try {
             $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin Panel', $this->otpChallenge);
@@ -97,7 +98,7 @@ class ForgotPassword extends Component
             return;
         }
 
-        $user = User::where('email', $this->email)->whereIn('role', self::ROLES)->first();
+        $user = User::superPanelByEmail($this->email);
 
         if (!$user) {
             $this->addError('otp', 'Unable to verify. Please start over.');
@@ -127,12 +128,16 @@ class ForgotPassword extends Component
             return;
         }
 
-        $user = User::where('email', $this->email)->whereIn('role', self::ROLES)->first();
+        $user = User::superPanelByEmail($this->email);
 
         if (!$user) {
             $this->addError('otp', 'Unable to resend OTP. Please go back and try again.');
             return;
         }
+
+        // The code goes to the address as it should read — an old save can still
+        // carry invisible characters the mail provider refuses. Not saved.
+        $user->email = User::cleanEmail($user->email);
 
         try {
             $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin Panel', $this->otpChallenge);
@@ -178,7 +183,7 @@ class ForgotPassword extends Component
             return;
         }
 
-        $user = User::where('email', $this->email)->whereIn('role', self::ROLES)->first();
+        $user = User::superPanelByEmail($this->email);
 
         if (!$user) {
             $this->addError('password', 'User not found. Please start the process again.');

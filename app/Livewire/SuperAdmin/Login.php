@@ -47,7 +47,7 @@ class Login extends Component
             'password.required' => 'The password field is required.',
         ]);
 
-        $user = User::where('email', $this->email)->whereIn('role', ['super-admin', 'sub-super-admin'])->first();
+        $user = User::superPanelByEmail($this->email);
 
         if (!$user) {
             $this->addError('email', 'Email does not exist.');
@@ -85,6 +85,10 @@ class Login extends Component
             return redirect()->route('super-admin.quick-links')
                 ->with('success', 'Login successful.');
         }
+
+        // The code goes to the address as it should read — an old save can still
+        // carry invisible characters the mail provider refuses. Not saved.
+        $user->email = User::cleanEmail($user->email);
 
         // The OTP request is opened inside sendOtp BEFORE the email is sent,
         // so even if email delivery fails we can still continue. TEMPORARY: if
@@ -131,7 +135,7 @@ class Login extends Component
             return;
         }
 
-        $user = User::where('email', $this->email)->whereIn('role', ['super-admin', 'sub-super-admin'])->first();
+        $user = User::superPanelByEmail($this->email);
 
         if (!$user) {
             $this->addError('otp', 'Session expired. Please login again.');
@@ -158,12 +162,16 @@ class Login extends Component
             return;
         }
 
-        $user = User::where('email', $this->email)->whereIn('role', ['super-admin', 'sub-super-admin'])->first();
+        $user = User::superPanelByEmail($this->email);
 
         if (!$user) {
             $this->step = 'credentials';
             return;
         }
+
+        // The code goes to the address as it should read — an old save can still
+        // carry invisible characters the mail provider refuses. Not saved.
+        $user->email = User::cleanEmail($user->email);
 
         try {
             $this->otpChallenge = OtpMailService::sendOtp($user, 'Super Admin', $this->otpChallenge);
