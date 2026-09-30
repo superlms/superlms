@@ -82,17 +82,22 @@ class IdCard extends Component
         switch ($this->cardType) {
             case 'student':
                 $total  = StudentDetail::where('organization_id', $orgId)->count();
+                // Only cards of students still here: deleting a student leaves
+                // their card behind, and counting it made Issued exceed Total.
                 $issued = StudentIdCard::where('organization_id', $orgId)->where('status', 'active')
+                    ->whereIn('student_detail_id', StudentDetail::where('organization_id', $orgId)->select('id'))
                     ->distinct('student_detail_id')->count('student_detail_id');
                 break;
             case 'teacher':
                 $total  = TeacherDetail::where('organization_id', $orgId)->count();
                 $issued = TeacherIdCard::where('organization_id', $orgId)->where('status', 'active')
+                    ->whereIn('teacher_detail_id', TeacherDetail::where('organization_id', $orgId)->select('id'))
                     ->distinct('teacher_detail_id')->count('teacher_detail_id');
                 break;
             default:
                 $total  = AdminEmployee::where('organization_id', $orgId)->count();
                 $issued = EmployeeIdCard::where('organization_id', $orgId)->where('status', 'active')
+                    ->whereIn('admin_employee_id', AdminEmployee::where('organization_id', $orgId)->select('id'))
                     ->distinct('admin_employee_id')->count('admin_employee_id');
         }
 

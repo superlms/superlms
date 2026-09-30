@@ -85,17 +85,22 @@ class IdCard extends Component
         switch ($this->cardType) {
             case 'student':
                 $total  = StudentDetail::where('organization_id', $orgId)->count();
+                // Only cards of students still here: deleting a student leaves
+                // their card behind, and counting it made Issued exceed Total.
                 $issued = StudentIdCard::where('organization_id', $orgId)->where('status', 'active')
+                    ->whereIn('student_detail_id', StudentDetail::where('organization_id', $orgId)->select('id'))
                     ->distinct('student_detail_id')->count('student_detail_id');
                 break;
             case 'teacher':
                 $total  = TeacherDetail::where('organization_id', $orgId)->count();
                 $issued = TeacherIdCard::where('organization_id', $orgId)->where('status', 'active')
+                    ->whereIn('teacher_detail_id', TeacherDetail::where('organization_id', $orgId)->select('id'))
                     ->distinct('teacher_detail_id')->count('teacher_detail_id');
                 break;
             default:
                 $total  = AdminEmployee::where('organization_id', $orgId)->count();
                 $issued = EmployeeIdCard::where('organization_id', $orgId)->where('status', 'active')
+                    ->whereIn('admin_employee_id', AdminEmployee::where('organization_id', $orgId)->select('id'))
                     ->distinct('admin_employee_id')->count('admin_employee_id');
         }
 
@@ -474,9 +479,14 @@ class IdCard extends Component
             $query->where('status', $this->statusFilter);
         }
 
-        // Issued: the active cards — one per person the header counts as issued.
+        // Issued: the active cards of people still here — what the header counts.
         if ($this->issueFilter === 'issued') {
             $query->where('status', 'active');
+            match ($this->cardType) {
+                'student' => $query->whereIn('student_detail_id', StudentDetail::where('organization_id', $orgId)->select('id')),
+                'teacher' => $query->whereIn('teacher_detail_id', TeacherDetail::where('organization_id', $orgId)->select('id')),
+                default   => $query->whereIn('admin_employee_id', AdminEmployee::where('organization_id', $orgId)->select('id')),
+            };
         }
 
         $cards = $query->latest()->paginate($this->perPage);
