@@ -7,6 +7,7 @@ use App\Models\Admin\StudentIdCard;
 use App\Models\Admin\Transportation;
 use App\Models\Organization;
 use App\Models\User;
+use App\Support\StudentSection;
 use App\Traits\HasCommonScopes;
 use Illuminate\Database\Eloquent\Model;
 
@@ -46,6 +47,24 @@ class StudentDetail extends Model
         'date_of_admission' => 'date',
         'dob' => 'date'
     ];
+
+    protected static function booted(): void
+    {
+        // Whoever saves a student — the panel, the admin or teacher app, the
+        // Super Admin — the section is one of their class's own: none picked
+        // in a class with a single section puts them in it, and another
+        // class's section becomes this class's of the same name
+        // (StudentSection has the rule).
+        static::saving(function (self $detail) {
+            if (! $detail->standard_id) {
+                return;
+            }
+            if ($detail->exists && ! $detail->isDirty(['standard_id', 'section_id']) && $detail->section_id) {
+                return;
+            }
+            $detail->section_id = StudentSection::resolve($detail->standard_id, $detail->section_id);
+        });
+    }
 
     public function user()
     {

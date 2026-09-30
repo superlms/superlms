@@ -9,6 +9,7 @@ use App\Models\Admin\Transportation;
 use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Student\Section;
+use App\Support\StudentSection;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
 use App\Models\Student\StudentAttendance;
@@ -287,6 +288,11 @@ class Student extends Component
     public function updatedStudentsClass(): void
     {
         $this->loadSections();
+
+        // A section picked for the previous class goes with it: this class's
+        // section of the same name, or its only one, or none to pick again.
+        $section = StudentSection::resolve($this->studentsClass, $this->studentsSection);
+        $this->studentsSection = $section && collect($this->sections)->contains('id', $section) ? (string) $section : '';
     }
 
     public function onAddStudent(): void
@@ -330,6 +336,11 @@ class Student extends Component
     {
         // Clear any save error banner from a previous attempt.
         $this->saveError = '';
+
+        // No section picked in a class with just one: that one.
+        if ($this->studentsClass) {
+            $this->studentsSection = (string) (StudentSection::resolve($this->studentsClass, $this->studentsSection) ?? '');
+        }
 
         $stepStart = microtime(true);
         $stepLog = function (string $step) use (&$stepStart) {

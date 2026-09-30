@@ -264,6 +264,7 @@ class AdminStudentController extends ApiController
         $orgId = $user->organization_id;
 
         $transportRequired = $request->boolean('transportation_required');
+        $this->fillSection($request);
         if ($err = $this->validateWith($request, $this->rules(false, $transportRequired))) return $err;
 
         if (!$this->mayTouch((int) $request->standard_id, (int) $request->section_id)) {
@@ -345,6 +346,7 @@ class AdminStudentController extends ApiController
         $oldMobile = $student->mobile_number;
 
         $transportRequired = $request->boolean('transportation_required');
+        $this->fillSection($request);
         if (!$this->mayTouch((int) $request->standard_id, (int) $request->section_id)) {
             return $this->error('You can only keep students in your own class.', 403);
         }
@@ -382,6 +384,24 @@ class AdminStudentController extends ApiController
             return $this->success($this->shapeRow($detail->fresh(['user', 'standard', 'section'])), 'Student Updated Successfully!');
         } catch (\Throwable $e) {
             return $this->error('Error Saving Student: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * The section, as the class has it: none sent for a class with a single
+     * section is that one, and another class's section is this class's of the
+     * same name (StudentSection). Only when the class is a real one.
+     */
+    private function fillSection(Request $request): void
+    {
+        $standardId = (int) $request->input('standard_id');
+        if ($standardId <= 0 || !Standard::whereKey($standardId)->exists()) {
+            return;
+        }
+
+        $section = \App\Support\StudentSection::resolve($standardId, $request->input('section_id'));
+        if ($section) {
+            $request->merge(['section_id' => $section]);
         }
     }
 
