@@ -61,12 +61,12 @@
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-3 divide-x divide-gray-200">
-                    <span class="pr-4">Total: <strong class="text-gray-800">{{ $totalStudents }}</strong></span>
-                    <span class="px-4">Active: <strong class="text-emerald-600">{{ $activeStudents }}</strong></span>
+                    <span class="pr-4">Total: <strong class="text-gray-800">{{ $headStats['total'] }}</strong></span>
+                    <span class="px-4">Active: <strong class="text-emerald-600">{{ $headStats['active'] }}</strong></span>
                     <span class="px-4">Last Year: <strong
-                            class="text-gray-800">{{ $lastYearStudents }}</strong></span>
+                            class="text-gray-800">{{ $headStats['last_year'] }}</strong></span>
                     <span class="pl-4">This Year: <strong
-                            class="text-blue-600">{{ $thisYearStudents }}</strong></span>
+                            class="text-blue-600">{{ $headStats['this_year'] }}</strong></span>
                 </div>
                 <button wire:click="openExportPicker"
                     class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-gray-100 hover:bg-gray-200
@@ -90,10 +90,10 @@
 
         {{-- Mobile / Tablet stats --}}
         <div class="flex lg:hidden items-center gap-3 sm:gap-4 text-xs text-gray-500 mt-3 flex-wrap">
-            <span>Total: <strong class="text-gray-800">{{ $totalStudents }}</strong></span>
-            <span>Active: <strong class="text-emerald-600">{{ $activeStudents }}</strong></span>
-            <span>Last Year: <strong class="text-gray-800">{{ $lastYearStudents }}</strong></span>
-            <span>This Year: <strong class="text-blue-600">{{ $thisYearStudents }}</strong></span>
+            <span>Total: <strong class="text-gray-800">{{ $headStats['total'] }}</strong></span>
+            <span>Active: <strong class="text-emerald-600">{{ $headStats['active'] }}</strong></span>
+            <span>Last Year: <strong class="text-gray-800">{{ $headStats['last_year'] }}</strong></span>
+            <span>This Year: <strong class="text-blue-600">{{ $headStats['this_year'] }}</strong></span>
         </div>
         </div>
 
@@ -262,14 +262,15 @@
                                         class="text-sm font-mono text-gray-700">{{ $student->admission_no ?? '—' }}</span>
                                 </td>
 
-                                {{-- Class / Section --}}
+                                {{-- Class / Section: the class, then the section's last letter (Nursery-A) --}}
                                 <td class="px-4 py-3">
                                     <div class="flex flex-wrap gap-1.5">
                                         @if ($student->standard)
+                                            @php $secLetter = mb_strtoupper(mb_substr(trim((string) $student->section?->name), -1)); @endphp
                                             <span
                                                 class="text-xs px-2 py-0.5 bg-blue-50 text-blue-700
                                                 rounded-full font-medium border border-blue-100">
-                                                {{ $student->standard->name }}
+                                                {{ $student->standard->name }}{{ $secLetter !== '' ? '-' . $secLetter : '' }}
                                             </span>
                                         @endif
                                     </div>

@@ -1130,9 +1130,41 @@ class Student extends Component
         $this->sections = [];
     }
 
-    public function render()
+    /** Is the list narrowed by the search box or any filter? (Sorting doesn't narrow it.) */
+    private function listIsFiltered(): bool
     {
-        $query = StudentDetail::with(['user', 'standard', 'section'])
+        return $this->search || $this->filterClass || $this->filterSection
+            || $this->filterGender || $this->filterStatus !== '';
+    }
+
+    /**
+     * The header's figures for the list as filtered — the same students the
+     * list shows, counted the way loadStats() counts the whole school.
+     */
+    private function filteredStats(): array
+    {
+        $table = (new StudentDetail())->getTable();
+
+        $row = $this->listQuery()->toBase()
+            ->selectRaw("
+                COUNT(*) as total,
+                SUM(CASE WHEN YEAR({$table}.created_at) = ? THEN 1 ELSE 0 END) as this_year,
+                SUM(CASE WHEN YEAR({$table}.created_at) = ? THEN 1 ELSE 0 END) as last_year
+            ", [now()->year, now()->subYear()->year])
+            ->first();
+
+        return [
+            'total'     => (int) ($row->total ?? 0),
+            'active'    => $this->listQuery()->whereHas('user', fn($q) => $q->where('is_active', true))->count(),
+            'last_year' => (int) ($row->last_year ?? 0),
+            'this_year' => (int) ($row->this_year ?? 0),
+        ];
+    }
+
+    /** The students the list shows: the school's, narrowed by the search and filters. */
+    private function listQuery()
+    {
+        return StudentDetail::with(['user', 'standard', 'section'])
             ->whereHas('user', fn($q) => $q->where('organization_id', Auth::user()->organization_id))
             ->when($this->search, fn($q) => $q->where(
                 fn($q) => $q
@@ -1149,6 +1181,11 @@ class Student extends Component
                 'user',
                 fn($q) => $q->where('is_active', $this->filterStatus)
             ));
+    }
+
+    public function render()
+    {
+        $query = $this->listQuery();
 
         // Sorting — default is name A→Z. admission_no / roll_no use natural-ish
         // numeric ordering by casting to UNSIGNED so "9" sorts before "10".
@@ -1169,6 +1206,15 @@ class Student extends Component
 
         $students = $query->paginate($this->perPage);
 
-        return view('livewire.admin.student', compact('students'));
+        // Header figures: those of the filtered list while a filter is on,
+        // the whole school's (loadStats) otherwise.
+        $headStats = $this->listIsFiltered() ? $this->filteredStats() : [
+            'total'     => $this->totalStudents,
+            'active'    => $this->activeStudents,
+            'last_year' => $this->lastYearStudents,
+            'this_year' => $this->thisYearStudents,
+        ];
+
+        return view('livewire.admin.student', compact('students', 'headStats'));
     }
 }
