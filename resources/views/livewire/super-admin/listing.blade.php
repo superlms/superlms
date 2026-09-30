@@ -454,7 +454,7 @@
 
     {{-- ══════════════════ DELETE CONFIRM ══════════════════ --}}
     @if ($pendingDelete !== null)
-        <div class="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-[9999] px-4">
+        <div class="lms-cover fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-[9999] px-4">
             <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
                 <div class="px-5 py-4 border-b border-gray-100 bg-red-50 flex items-center gap-3">
                     <div class="w-9 h-9 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">

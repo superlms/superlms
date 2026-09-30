@@ -887,7 +887,7 @@
 
     {{-- ══════════ DELETE EMPLOYEE CONFIRM ══════════ --}}
     @if ($pendingDeleteEmpId)
-        <div class="fixed inset-x-0 bottom-0 top-16 z-[60] flex items-center justify-center p-4">
+        <div class="lms-cover fixed inset-x-0 bottom-0 top-16 z-[60] flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="cancelDeleteEmployee"></div>
             <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
                 <div class="flex items-start gap-4">

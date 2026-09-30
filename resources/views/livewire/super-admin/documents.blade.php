@@ -259,7 +259,7 @@
 
     {{-- ══════════ DELETE CONFIRM ══════════ --}}
     @if ($deleteId)
-        <div class="fixed inset-x-0 bottom-0 top-16 z-[60] flex items-center justify-center p-4">
+        <div class="lms-cover fixed inset-x-0 bottom-0 top-16 z-[60] flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/40" wire:click="cancelDelete"></div>
             <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center">
                 <div class="mx-auto w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-3">

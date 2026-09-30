@@ -694,7 +694,7 @@
          bundle, so it came out unstyled. The backdrop is inline for the same
          reason. --}}
     @if ($showDeleteModal)
-        <div class="fixed inset-x-0 bottom-0 top-16 z-[10000] flex items-center justify-center px-4"
+        <div class="lms-cover fixed inset-x-0 bottom-0 top-16 z-[10000] flex items-center justify-center px-4"
             style="background:rgba(0,0,0,0.45);backdrop-filter:blur(4px);">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center" wire:click.stop>
                 <div class="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">

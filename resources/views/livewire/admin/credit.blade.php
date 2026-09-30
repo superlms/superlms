@@ -414,7 +414,7 @@
 
     {{-- ══════════ DELETE CONFIRM ══════════ --}}
     @if ($pendingDeleteId)
-        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <div class="lms-cover fixed inset-x-0 bottom-0 top-16 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
                 <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

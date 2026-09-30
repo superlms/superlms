@@ -238,7 +238,7 @@
                                         <div class="min-w-0">
                                             <p class="text-sm font-semibold text-gray-900 truncate">
                                                 {{ $student->full_name ?? '—' }}</p>
-                                            <p class="text-xs text-gray-400 capitalize">{{ $student->gender ?? '' }}
+                                            <p class="text-xs text-gray-400 truncate">{{ $student->father_name ?? '' }}
                                             </p>
                                         </div>
                                     </div>
@@ -607,7 +607,7 @@
                                         </svg>
                                     </div>
                                 @endif
-                                <input type="file" wire:model="studentImage" accept="image/*" class="flex-1 text-sm">
+                                <x-admin.photo-cropper model="studentImage" class="flex-1 text-sm" />
                             </div>
                             <div wire:loading wire:target="studentImage" class="text-xs text-blue-600 mt-1">Uploading…</div>
                             @error('studentImage')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
@@ -972,6 +972,20 @@
                             <span class="col-span-2 text-gray-800 font-medium">₹{{ number_format($route->monthly_fee, 0) }}/mo · ₹{{ number_format($route->monthly_fee * 11, 0) }}/yr</span>
                         </div>
                     @endif
+
+                    {{-- Attendance, marks and fee, overall — "-" where there is nothing yet --}}
+                    <div class="pt-4 mt-2 border-t border-gray-100 space-y-4">
+                        @foreach ([
+                            'Attendance'    => $viewData['summary']['attendance'] ?? '-',
+                            'Marks'         => $viewData['summary']['marks'] ?? '-',
+                            'Fee Submitted' => $viewData['summary']['fee'] ?? '-',
+                        ] as $label => $value)
+                            <div class="grid grid-cols-3 gap-3 text-sm">
+                                <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
+                                <span class="col-span-2 text-gray-800 font-medium">{{ $value }}</span>
+                            </div>
+                        @endforeach
+                    </div>
                 </div>
 
                 {{-- Footer --}}
@@ -986,18 +1000,19 @@
     @endif
 
     {{-- ══════════════════════════════════════════════════
-         PHOTO VIEWER — the student's photo large, with edit and remove
-         (Teachers' viewer: under the top bar, scrolling rather than clipping)
+         PHOTO VIEWER — the student's photo large, with edit and remove, in
+         the middle of the whole window (lms-cover), scrolling rather than
+         clipping when it is taller than the window
     ══════════════════════════════════════════════════ --}}
     @if ($showViewModal && $showPhotoViewer && !empty($viewData))
-        <div class="fixed inset-x-0 bottom-0 z-[9999] flex overflow-y-auto p-4 bg-black/80"
-            style="top: var(--lms-nav-h, 65px)" wire:click.self="closePhotoViewer">
+        <div class="lms-cover fixed inset-0 z-[9999] flex overflow-y-auto p-4 bg-black/80"
+            wire:click.self="closePhotoViewer">
             <div class="relative m-auto flex flex-col items-center max-w-full">
                 {{-- Edit, remove and close --}}
                 <div class="flex items-center gap-2 mb-3 self-end">
                     <label title="{{ ($viewData['user']->image ?? null) ? 'Change photo' : 'Add photo' }}"
                         class="w-10 h-10 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 text-white cursor-pointer">
-                        <input type="file" accept="image/*" class="hidden" wire:model="viewPhotoUpload">
+                        <x-admin.photo-cropper model="viewPhotoUpload" class="hidden" />
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                     </label>
                     @if ($viewData['user']->image ?? null)
@@ -1015,7 +1030,7 @@
                 @if ($viewData['user']->image ?? null)
                     {{-- One square for every photo, as on Teachers. --}}
                     <img src="{{ $viewData['user']->image }}" alt="{{ $viewData['user']->name ?? '' }}"
-                        style="--photo: min(28rem, 90vw, calc(100vh - var(--lms-nav-h, 65px) - 8rem)); width: var(--photo); height: var(--photo)"
+                        style="--photo: min(28rem, 90vw, calc(100vh - 8rem)); width: var(--photo); height: var(--photo)"
                         class="rounded-lg object-cover shadow-2xl bg-white">
                 @else
                     <div class="w-64 h-64 rounded-lg bg-indigo-100 flex items-center justify-center">
@@ -1039,12 +1054,31 @@
     @endif
 
     {{-- ══════════════════════════════════════════════════
+         LIST PHOTO — a photo in the list, clicked, shown large in the
+         middle of the window (lms-cover)
+    ══════════════════════════════════════════════════ --}}
+    @if ($openImage && $imagePath)
+        <div class="lms-cover fixed inset-0 z-[9999] flex overflow-y-auto p-4 bg-black/80"
+            wire:click.self="closeImage" x-on:keydown.escape.window="$wire.closeImage()">
+            <button type="button" wire:click="closeImage" title="Close"
+                class="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 text-white">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            <div class="relative m-auto flex flex-col items-center max-w-full">
+                <img src="{{ $imagePath }}" alt=""
+                    style="--photo: min(28rem, 90vw, calc(100vh - 8rem)); width: var(--photo); height: var(--photo)"
+                    class="rounded-lg object-cover shadow-2xl bg-white">
+            </div>
+        </div>
+    @endif
+
+    {{-- ══════════════════════════════════════════════════
          DELETE CONFIRM OVERLAY
          (replaces broken WireUI dialog() — same pattern as
           other admin pages: Enquiries, Exams, etc.)
     ══════════════════════════════════════════════════ --}}
     @if ($showDeleteConfirm)
-        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] flex items-center justify-center p-4">
+        <div class="lms-cover fixed inset-x-0 bottom-0 top-16 z-[9999] flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="cancelDelete"></div>
             <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
                 <div class="flex items-start gap-4">

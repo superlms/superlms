@@ -353,7 +353,7 @@
 
     {{-- ══════════════ DELETE MODAL ══════════════ --}}
     @if ($showDeleteModal)
-        <div class="fixed inset-x-0 bottom-0 top-16 z-[10000] flex items-center justify-center px-4" style="background:rgba(0,0,0,0.45);backdrop-filter:blur(4px);">
+        <div class="lms-cover fixed inset-x-0 bottom-0 top-16 z-[10000] flex items-center justify-center px-4" style="background:rgba(0,0,0,0.45);backdrop-filter:blur(4px);">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center" wire:click.stop>
                 <div class="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-red-100 mb-4">
                     <x-icon name="exclamation-triangle" class="h-7 w-7 text-red-500" />

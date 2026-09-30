@@ -73,6 +73,15 @@
             top: var(--lms-hdr-top, 0px);
         }
 
+        /* ─── Popups over the whole window ───
+           A delete confirmation (and a photo shown large) carries `lms-cover`:
+           it sits in the middle of the window, and the top bar and the sidebar
+           are dimmed and blurred with the page behind it. Such a popup lives in
+           #main-scroll, whose layer sits under the top bar (z-40) and the
+           sidebar (z-50) — so while one is open that layer is lifted over both. */
+        #main-scroll:has(.lms-cover) { z-index: 60; }
+        #main-scroll .lms-cover { inset: 0 !important; }
+
         /* Sidebar logo, expanded state. The collapsed rail overrides it below. */
         .lms-logo-img { width: 4.5rem !important; height: 4.5rem !important; }
 
@@ -179,6 +188,9 @@
     @livewireScripts
     @livewireCalendarScripts
     @include('partials.auto-refresh')
+
+    {{-- ─── Photo cropper (x-admin.photo-cropper): pick, fit in the circle, upload ─── --}}
+    @include('partials.photo-cropper-js')
 
     {{-- ─── Follow the super-admin's "Login as school" into this tab ─── --}}
     @if (Auth::user() && in_array(Auth::user()->role, ['admin', 'sub-admin']))

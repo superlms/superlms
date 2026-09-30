@@ -458,7 +458,7 @@
                                 </div>
                             @endif
                         @endif
-                        <input type="file" wire:model="teacherImage" accept="image/*" class="w-full text-sm">
+                        <x-admin.photo-cropper model="teacherImage" class="w-full text-sm" />
                         <div wire:loading wire:target="teacherImage" class="text-xs text-blue-600 mt-1">Uploading...</div>
                         @error('teacherImage')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
@@ -673,18 +673,18 @@
          PHOTO VIEWER — the teacher's photo large, with edit and remove
     ══════════════════════════════════════════════════ --}}
     @if ($showViewModal && $showPhotoViewer && !empty($viewData))
-        {{-- Under the top bar, as the slide-ins are: the page scrolls in its own
-             layer beneath the bar, so a viewer laid over the whole window had its
-             buttons hidden under the bar. It scrolls rather than clips when it is
-             taller than the space (m-auto centres without cutting off the top). --}}
-        <div class="fixed inset-x-0 bottom-0 z-[9999] flex overflow-y-auto p-4 bg-black/80"
-            style="top: var(--lms-nav-h, 65px)" wire:click.self="closePhotoViewer">
+        {{-- In the middle of the whole window: lms-cover lifts the page's layer
+             over the top bar and the sidebar while it is open, so its buttons are
+             no longer hidden under the bar. It scrolls rather than clips when it
+             is taller than the window (m-auto centres without cutting off the top). --}}
+        <div class="lms-cover fixed inset-0 z-[9999] flex overflow-y-auto p-4 bg-black/80"
+            wire:click.self="closePhotoViewer">
             <div class="relative m-auto flex flex-col items-center max-w-full">
                 {{-- Edit, remove and close --}}
                 <div class="flex items-center gap-2 mb-3 self-end">
                     <label title="{{ ($viewData['user']->image ?? null) ? 'Change photo' : 'Add photo' }}"
                         class="w-10 h-10 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 text-white cursor-pointer">
-                        <input type="file" accept="image/*" class="hidden" wire:model="viewPhotoUpload">
+                        <x-admin.photo-cropper model="viewPhotoUpload" class="hidden" />
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                     </label>
                     @if ($viewData['user']->image ?? null)
@@ -703,7 +703,7 @@
                     {{-- Every photo in one square, whatever its own size: filled (as the round
                          avatar is), and small enough to leave room for the buttons above it. --}}
                     <img src="{{ $viewData['user']->image }}" alt="{{ $viewData['user']->name ?? '' }}"
-                        style="--photo: min(28rem, 90vw, calc(100vh - var(--lms-nav-h, 65px) - 8rem)); width: var(--photo); height: var(--photo)"
+                        style="--photo: min(28rem, 90vw, calc(100vh - 8rem)); width: var(--photo); height: var(--photo)"
                         class="rounded-lg object-cover shadow-2xl bg-white">
                 @else
                     <div class="w-64 h-64 rounded-lg bg-teal-100 flex items-center justify-center">
@@ -730,7 +730,7 @@
          DELETE CONFIRM OVERLAY (replaces broken WireUI dialog)
     ══════════════════════════════════════════════════ --}}
     @if ($showDeleteConfirm)
-        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] flex items-center justify-center p-4">
+        <div class="lms-cover fixed inset-x-0 bottom-0 top-16 z-[9999] flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="cancelDelete"></div>
             <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
                 <div class="flex items-start gap-4">

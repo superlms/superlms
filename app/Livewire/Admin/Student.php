@@ -3,6 +3,8 @@
 namespace App\Livewire\Admin;
 
 use App\Helpers\CityGetHelper;
+use App\Livewire\Concerns\HandlesStudentFeeView;
+use App\Models\Admin\ExamCopy;
 use App\Models\Admin\Transportation;
 use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Admin\Fee\FeePayment;
@@ -33,7 +35,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class Student extends Component
 {
-    use WireUiActions, WithFileUploads, WithPagination;
+    use WireUiActions, WithFileUploads, WithPagination, HandlesStudentFeeView;
 
     // ─── Edit state (holds user array during edit) ─────────────────────
     public $studentData = [];
@@ -702,8 +704,74 @@ class Student extends Component
             'user'         => $detail->user,
             'detail'       => $detail,
             'organization' => $detail->organization,
+            'summary'      => $this->studentSummary($detail),
         ];
         $this->showViewModal   = true;
+    }
+
+    /** The school the signed-in admin runs — what HandlesStudentFeeView reads. */
+    protected function orgId(): int
+    {
+        return (int) Auth::user()->organization_id;
+    }
+
+    /**
+     * The foot of the View panel: attendance, marks and fee, each overall as
+     * "done / out of (percent)", or "-" when there is nothing to count yet.
+     * Attendance and marks are counted as the report card and the export count
+     * them (present = status 1; every exam copy with its marks); the fee is the
+     * View Fee screen's own ledger, net of concession. A figure that can't be
+     * worked out shows "-" rather than keeping the panel from opening.
+     */
+    private function studentSummary(StudentDetail $detail): array
+    {
+        $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ','), '0'), '.');
+        $pct = fn ($done, $of) => rtrim(rtrim(number_format($done / $of * 100, 1), '0'), '.') . '%';
+        $out = ['attendance' => '-', 'marks' => '-', 'fee' => '-'];
+
+        try {
+            $att = StudentAttendance::where('student_detail_id', $detail->id)
+                ->selectRaw('COUNT(*) as total, SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) as present')
+                ->first();
+            $total   = (int) ($att->total ?? 0);
+            $present = (int) ($att->present ?? 0);
+            if ($total > 0) {
+                $out['attendance'] = "{$present} / {$total} (" . $pct($present, $total) . ')';
+            }
+        } catch (\Throwable $e) {
+            logger()->warning('Student view attendance summary failed: ' . $e->getMessage());
+        }
+
+        try {
+            $marks = ExamCopy::where('organization_id', $this->orgId())
+                ->where('student_detail_id', $detail->id)
+                ->whereNotNull('marks_obtained')
+                ->whereNotNull('max_marks')
+                ->selectRaw('SUM(marks_obtained) as o, SUM(max_marks) as m')
+                ->first();
+            $max = (float) ($marks->m ?? 0);
+            if ($max > 0) {
+                $obtained = (float) ($marks->o ?? 0);
+                $out['marks'] = $num($obtained) . ' / ' . $num($max) . ' (' . $pct($obtained, $max) . ')';
+            }
+        } catch (\Throwable $e) {
+            logger()->warning('Student view marks summary failed: ' . $e->getMessage());
+        }
+
+        try {
+            $totals = $this->buildStudentFeeView($detail->id)['totals'] ?? null;
+            $net    = (float) ($totals['net'] ?? 0);
+            $paid   = (float) ($totals['paid'] ?? 0);
+            if ($net > 0) {
+                $out['fee'] = '₹' . $num($paid) . ' / ₹' . $num($net) . ' (' . $pct($paid, $net) . ')';
+            } elseif ($paid > 0) {
+                $out['fee'] = '₹' . $num($paid) . ' / ₹0';
+            }
+        } catch (\Throwable $e) {
+            logger()->warning('Student view fee summary failed: ' . $e->getMessage());
+        }
+
+        return $out;
     }
 
     // ─── Photo, from the View panel ──────────────────────────────────────

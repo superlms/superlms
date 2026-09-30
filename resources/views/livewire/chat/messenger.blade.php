@@ -465,7 +465,7 @@
     @if ($showDeleteConfirm)
         @php $count = count($selectedThreads); @endphp
         @teleport('body')
-        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] flex items-center justify-center bg-gray-900/30 backdrop-blur-sm px-4">
+        <div class="lms-cover fixed inset-x-0 bottom-0 top-16 z-[9999] flex items-center justify-center bg-gray-900/30 backdrop-blur-sm px-4">
             <div class="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
                 <h3 class="text-sm font-semibold text-gray-900">Delete {{ $count > 1 ? $count . ' chats' : 'this chat' }}?</h3>
                 <p class="text-sm text-gray-500 mt-2 mb-5">
@@ -489,7 +489,7 @@
     @if ($showMsgDeleteConfirm)
         @php $count = count($selectedMessages); @endphp
         @teleport('body')
-        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] flex items-center justify-center bg-gray-900/30 backdrop-blur-sm px-4">
+        <div class="lms-cover fixed inset-x-0 bottom-0 top-16 z-[9999] flex items-center justify-center bg-gray-900/30 backdrop-blur-sm px-4">
             <div class="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
                 <h3 class="text-sm font-semibold text-gray-900">Delete {{ $count > 1 ? $count . ' messages' : 'this message' }}?</h3>
                 <p class="text-sm text-gray-500 mt-2 mb-5">

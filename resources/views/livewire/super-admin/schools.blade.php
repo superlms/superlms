@@ -1547,7 +1547,7 @@
 
     {{-- ══════════ DELETE CONFIRMATION (OTP-verified) ══════════ --}}
     @if ($showDeleteConfirm)
-        <div class="fixed inset-x-0 bottom-0 top-16 z-50 flex items-center justify-center p-4">
+        <div class="lms-cover fixed inset-x-0 bottom-0 top-16 z-50 flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" wire:click="cancelDelete"></div>
             <div class="relative z-10 bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
 
