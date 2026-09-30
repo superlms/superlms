@@ -35,6 +35,30 @@ class IdCardService
      */
     public const QR_SECONDS_PER_REQUEST = 15;
 
+    /** What the QR on the back of every card opens. */
+    public const QR_URL = 'https://superlms.in';
+
+    /** The QR of QR_URL, drawn once per process (base64 PNG). */
+    private static ?string $siteQr = null;
+
+    /** The QR every card carries: superlms.in, as base64 PNG, or null without a way to draw it. */
+    public function siteQr(): ?string
+    {
+        if (self::$siteQr === null) {
+            $png = $this->localQrPng(self::QR_URL);
+            if ($png === null && class_exists(\SimpleSoftwareIO\QrCode\QrCode::class)) {
+                try {
+                    $png = QrCode::format('png')->size(250)->margin(2)->errorCorrection('H')->generate(self::QR_URL);
+                } catch (\Throwable $e) {
+                    $png = null;
+                }
+            }
+            self::$siteQr = $png !== null ? base64_encode($png) : '';
+        }
+
+        return self::$siteQr !== '' ? self::$siteQr : null;
+    }
+
     /**
      * Generate cards for every person of $type (without an active card) in the
      * organization. For students an optional list of standard (class) ids
@@ -258,7 +282,10 @@ class IdCardService
             'issue_date'  => optional($card->issue_date)->format('d M Y') ?? '—',
             'expiry_date' => optional($card->expiry_date)->format('d M Y') ?? '—',
             'status'      => $card->status,
-            'qr_code'     => $card->qr_code,
+            // Every card's QR opens superlms.in, whatever an older card stored.
+            'qr_code'     => $this->siteQr() ?? $card->qr_code,
+            // The principal's signature, once the school has one saved.
+            'principal_sign' => $this->resolvePhoto($info->principal_signature ?? null),
             'photo'       => null,
             'name'        => '—',
             'subtitle'    => ucfirst($type),
@@ -276,7 +303,7 @@ class IdCardService
                 $cls = ($p->standard->name ?? '—') . ($p->section ? ' - ' . $p->section->name : '');
                 $data['subtitle'] = trim($cls);
                 $data['front_rows'] = [
-                    'Reg No'        => $p->admission_no ?? '—',
+                    'Admission No'  => $p->admission_no ?? '—',
                     'Class'         => $p->standard->name ?? '—',
                     'Section'       => $p->section->name ?? '—',
                     'Father Name'   => $p->father_name ?? '—',
@@ -336,10 +363,15 @@ class IdCardService
     }
 
     /**
-     * Build a verification QR payload. Returns base64 PNG or null on failure.
+     * The QR a card is given: superlms.in (siteQr). The card, person and
+     * school are no longer written into it. Returns base64 PNG or null.
      */
     public function generateQrCode($card, $person, Organization $organization, string $type): ?string
     {
+        if (($site = $this->siteQr()) !== null) {
+            return $site;
+        }
+
         try {
             $qrData = [
                 'card' => [

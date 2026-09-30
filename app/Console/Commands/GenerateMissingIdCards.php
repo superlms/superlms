@@ -40,13 +40,14 @@ class GenerateMissingIdCards extends Command
                 continue;
             }
 
-            // Reuse the stored expiry; if it has already passed, push it a year out.
+            // Reuse the stored expiry; none, or one already passed, is the end
+            // of the running session (31 March).
             $expiry = $setting->expiry_date instanceof Carbon
                 ? $setting->expiry_date
-                : ($setting->expiry_date ? Carbon::parse($setting->expiry_date) : now()->addYear());
+                : ($setting->expiry_date ? Carbon::parse($setting->expiry_date) : \App\Support\AcademicYear::end());
 
             if ($expiry->isPast()) {
-                $expiry = now()->addYear();
+                $expiry = \App\Support\AcademicYear::end();
             }
 
             $result = $service->generateForType(

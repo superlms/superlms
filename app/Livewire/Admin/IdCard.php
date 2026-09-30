@@ -117,7 +117,8 @@ class IdCard extends Component
     {
         $this->genType = $this->cardType;
         $this->genStandardIds = [];
-        $this->genExpiryDate = now()->addYear()->format('Y-m-d');
+        // Cards run to the end of the session: 31 March.
+        $this->genExpiryDate = \App\Support\AcademicYear::end()->format('Y-m-d');
         $this->resetValidation();
         $this->showGenerateModal = true;
     }
@@ -364,10 +365,8 @@ class IdCard extends Component
                     ->orWhere('email', 'like', $like)))
                 ->when($this->standardFilter, fn ($q) => $q->where('standard_id', $this->standardFilter))
                 ->when($this->sectionFilter, fn ($q) => $q->where('section_id', $this->sectionFilter))
-                ->orderBy('standard_id')
-                ->orderBy('section_id')
-                ->orderByRaw('CAST(roll_no AS UNSIGNED)')
-                ->orderBy('full_name');
+                ->orderBy('full_name')
+                ->orderBy('id');
         }
 
         if ($this->cardType === 'teacher') {
@@ -378,7 +377,8 @@ class IdCard extends Component
                     ->where('employee_id', 'like', $like)
                     ->orWhere('phone', 'like', $like)
                     ->orWhereHas('user', fn ($u) => $u->where('name', 'like', $like)->orWhere('email', 'like', $like))))
-                ->orderBy('employee_id');
+                ->orderBy(\App\Models\User::select('name')->whereColumn('users.id', 'teacher_details.user_id')->limit(1))
+                ->orderBy('id');
         }
 
         return AdminEmployee::where('organization_id', $orgId)
@@ -388,7 +388,8 @@ class IdCard extends Component
                 ->orWhere('email', 'like', $like)
                 ->orWhere('mobile', 'like', $like)
                 ->orWhere('designation', 'like', $like)))
-            ->orderBy('name');
+            ->orderBy('name')
+            ->orderBy('id');
     }
 
     public function render()
@@ -489,7 +490,17 @@ class IdCard extends Component
             };
         }
 
-        $cards = $query->latest()->paginate($this->perPage);
+        // A to Z by the holder's name, on every tab.
+        $holderName = match ($this->cardType) {
+            'student' => StudentDetail::select('full_name')
+                ->whereColumn('student_details.id', 'student_id_cards.student_detail_id')->limit(1),
+            'teacher' => \App\Models\User::select('users.name')
+                ->join('teacher_details', 'teacher_details.user_id', '=', 'users.id')
+                ->whereColumn('teacher_details.id', 'teacher_id_cards.teacher_detail_id')->limit(1),
+            default   => AdminEmployee::select('name')
+                ->whereColumn('admin_employees.id', 'employee_id_cards.admin_employee_id')->limit(1),
+        };
+        $cards = $query->orderBy($holderName)->orderBy('id')->paginate($this->perPage);
 
         return view('livewire.admin.id-card', [
             'cards'     => $cards,

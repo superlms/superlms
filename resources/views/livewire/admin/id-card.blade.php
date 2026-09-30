@@ -42,47 +42,47 @@
 
         {{-- Filter bar --}}
         <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
-            <div class="flex flex-wrap items-center gap-3">
-                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+            <div class="flex flex-wrap xl:flex-nowrap items-center gap-3">
+                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 shrink-0">
                     <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
                     Filter by:
                 </div>
                 <input type="text" wire:model.live.debounce.300ms="search"
                     placeholder="Name, card no{{ $cardType === 'student' ? ', admission' : ($cardType === 'teacher' ? ', employee id' : ', mobile') }}…"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-violet-500 focus:border-violet-500" />
+                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 xl:w-auto xl:flex-[1_1_7rem] xl:min-w-0 xl:max-w-56 focus:ring-2 focus:ring-violet-500 focus:border-violet-500" />
                 @if ($cardType === 'student')
-                    <select wire:model.live="standardFilter" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <select wire:model.live="standardFilter" class="shrink-0 text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                         <option value="">All Classes</option>
                         @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
                     </select>
-                    <select wire:model.live="sectionFilter" @disabled($sections->isEmpty()) class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
+                    <select wire:model.live="sectionFilter" @disabled($sections->isEmpty()) class="shrink-0 text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
                         <option value="">All Sections</option>
                         @foreach ($sections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
                     </select>
                 @endif
-                <select wire:model.live="statusFilter" @disabled($this->listingPeople()) class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
+                <select wire:model.live="statusFilter" @disabled($this->listingPeople()) class="shrink-0 text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
                     <option value="">All Status</option>
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                 </select>
-                <select wire:model.live="issueFilter" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                <select wire:model.live="issueFilter" class="shrink-0 text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     <option value="">Issued / Not Issued</option>
                     <option value="issued">Issued</option>
                     <option value="not_issued">Not Issued</option>
                 </select>
-                <select wire:model.live="perPage" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                <select wire:model.live="perPage" class="shrink-0 text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     <option value="50">50 / page</option>
                     <option value="100">100 / page</option>
                     <option value="200">200 / page</option>
                 </select>
                 @if ($search || $standardFilter || $sectionFilter || $statusFilter || $issueFilter)
-                    <button wire:click="resetFilters" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                    <button wire:click="resetFilters" class="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         Clear
                     </button>
                 @endif
                 @unless ($this->awaitingClass())
-                    <span class="ml-auto text-xs text-gray-500">Total: <strong class="text-gray-700">{{ $cards->total() }}</strong> {{ $this->listingPeople() ? $cardType . '(s) without a card' : 'card(s)' }}</span>
+                    <span class="ml-auto shrink-0 whitespace-nowrap text-xs text-gray-500">Total: <strong class="text-gray-700">{{ $cards->total() }}</strong> {{ $this->listingPeople() ? 'without card' : 'card(s)' }}</span>
                 @endunless
             </div>
         </div>

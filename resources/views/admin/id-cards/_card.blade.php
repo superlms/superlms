@@ -146,6 +146,8 @@
     }
 
     .idc-sign { text-align: right; padding-bottom: 10px; }
+    /* The principal's signature, on the line (only when the school has one). */
+    .idc-sign .img { display: block; height: 24px; max-width: 108px; margin: 0 0 1px auto; object-fit: contain; }
     .idc-sign .line { width: 108px; margin-left: auto; border-bottom: 1px solid var(--idc-body); }
     .idc-sign .role { margin-top: 5px; font-size: 8px; font-weight: 600; color: var(--idc-ink); letter-spacing: .6px; }
     .idc-sign .sub { margin-top: 1px; font-size: 7px; color: var(--idc-muted); letter-spacing: .5px; }
@@ -231,7 +233,7 @@
                         <div class="ph">QR</div>
                     @endif
                 </div>
-                <div class="cap">Scan to verify</div>
+                <div class="cap">superlms.in</div>
                 <div class="no">{{ $c['card_number'] }}</div>
             </div>
 
@@ -259,6 +261,9 @@
             </div>
 
             <div class="idc-sign">
+                @if (!empty($c['principal_sign']))
+                    <img src="{{ $c['principal_sign'] }}" class="img" alt="">
+                @endif
                 <div class="line"></div>
                 <div class="role">Principal</div>
                 <div class="sub">Authorised Signatory</div>

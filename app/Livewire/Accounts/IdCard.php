@@ -114,7 +114,8 @@ class IdCard extends Component
     {
         $this->genType = $this->cardType;
         $this->genStandardIds = [];
-        $this->genExpiryDate = now()->addYear()->format('Y-m-d');
+        // Cards run to the end of the session: 31 March.
+        $this->genExpiryDate = \App\Support\AcademicYear::end()->format('Y-m-d');
         $this->resetValidation();
         $this->showGenerateModal = true;
     }
