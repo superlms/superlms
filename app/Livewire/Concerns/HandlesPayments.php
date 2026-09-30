@@ -162,40 +162,40 @@ trait HandlesPayments
     {
         $orgId = $this->orgId();
 
-        // ── Scheduled academic fee: fee-structure amount × matching student count ──
-        $structureQuery = FeeStructure::where('organization_id', $orgId)
-            ->where('is_active', true)->where('fee_type', 'academic');
+        // ── Scheduled academic fee: what each student is billed — their
+        //    class's whole-class heads and their own section's, as View Fee and
+        //    Fee → Analytics read it. A head written for one section is not
+        //    charged to the class's other sections (Add writes a copy per
+        //    section picked, so counting every copy for every student counted
+        //    the class's fee once per section). ──
+        $heads = FeeStructure::where('organization_id', $orgId)
+            ->where('is_active', true)->where('fee_type', 'academic')
+            ->when($this->paymentStandardId, fn ($q) => $q->where('standard_id', $this->paymentStandardId))
+            ->get(['standard_id', 'section_id', 'amount'])
+            ->groupBy('standard_id');
 
-        if ($this->paymentStandardId) {
-            $structureQuery->where('standard_id', $this->paymentStandardId);
-            if ($this->paymentSectionId) {
-                $structureQuery->where(function ($q) {
-                    $q->where('section_id', $this->paymentSectionId)->orWhereNull('section_id');
-                });
-            }
+        $studentQuery = StudentDetail::where('organization_id', $orgId)
+            ->when($this->paymentStandardId, fn ($q) => $q->where('standard_id', $this->paymentStandardId))
+            ->when($this->paymentSectionId, fn ($q) => $q->where('section_id', $this->paymentSectionId));
+
+        // Students per class and section, so each pair's fee is worked out once.
+        $pairs = (clone $studentQuery)
+            ->selectRaw('standard_id, section_id, COUNT(*) as students')
+            ->groupBy('standard_id', 'section_id')
+            ->get();
+
+        $totalAcademicFee = 0.0;
+        foreach ($pairs as $pair) {
+            $fee = ($heads[$pair->standard_id] ?? collect())
+                ->filter(fn ($h) => $h->section_id === null || (int) $h->section_id === (int) $pair->section_id)
+                ->sum('amount');
+            $totalAcademicFee += (float) $fee * (int) $pair->students;
         }
 
-        $structures = $structureQuery->get();
-
-        if (!$this->paymentStandardId) {
-            $totalAcademicFee = 0.0;
-            foreach ($structures->pluck('standard_id')->unique() as $stdId) {
-                $studentCount = StudentDetail::where('organization_id', $orgId)
-                    ->where('standard_id', $stdId)->count();
-                $totalAcademicFee += $structures->where('standard_id', $stdId)->sum('amount') * $studentCount;
-            }
-            // Every student's own Last Year Dues.
-            $totalAcademicFee += FeeStructure::ownTotalForSchool($orgId);
-        } else {
-            $studentQuery = StudentDetail::where('organization_id', $orgId)
-                ->where('standard_id', $this->paymentStandardId);
-            if ($this->paymentSectionId) {
-                $studentQuery->where('section_id', $this->paymentSectionId);
-            }
-            $totalAcademicFee = $structures->sum('amount') * $studentQuery->count()
-                // …and these students' own Last Year Dues.
-                + array_sum(FeeStructure::ownTotals($orgId, (clone $studentQuery)->pluck('id')->all()));
-        }
+        // …and the students' own Last Year Dues.
+        $totalAcademicFee += $this->paymentStandardId || $this->paymentSectionId
+            ? array_sum(FeeStructure::ownTotals($orgId, (clone $studentQuery)->pluck('id')->all()))
+            : FeeStructure::ownTotalForSchool($orgId);
 
         // ── Scheduled transport fee: route.monthly_fee × each student's billed months ──
         $txRows = DB::table('transportation_students as ts')

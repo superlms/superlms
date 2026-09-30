@@ -125,6 +125,10 @@ class Student extends Component
     public string $filterSection  = '';
     public string $filterGender   = '';
     public string $filterStatus   = '';
+    /** '' all, 'yes' on a route, 'no' on none, or one route's id. */
+    public string $filterTransport = '';
+    /** Every route of the school, for the Transport filter. */
+    public $filterRoutes = [];
     /** Sort key — name_asc (A→Z), admission_no (asc), roll_no (asc). */
     public string $sortBy         = 'name_asc';
     public int    $perPage        = 100;
@@ -135,6 +139,7 @@ class Student extends Component
         'filterSection' => ['except' => ''],
         'filterGender'  => ['except' => ''],
         'filterStatus'  => ['except' => ''],
+        'filterTransport' => ['except' => ''],
         'sortBy'        => ['except' => 'name_asc'],
     ];
 
@@ -152,6 +157,9 @@ class Student extends Component
         $this->standards   = Standard::where('organization_id', Auth::user()->organization_id)->inClassOrder()->get();
 
         $this->loadRoutes();
+        $this->filterRoutes = Transportation::where('organization_id', Auth::user()->organization_id)
+            ->orderBy('route_name')
+            ->get(['id', 'route_name']);
         $this->loadSections();
         $this->loadStats();
     }
@@ -236,6 +244,11 @@ class Student extends Component
         $this->resetPage();
     }
 
+    public function updatedFilterTransport(): void
+    {
+        $this->resetPage();
+    }
+
     public function updatedFilterClass(): void
     {
         $this->resetPage();
@@ -252,7 +265,7 @@ class Student extends Component
 
     public function clearFilters(): void
     {
-        $this->reset(['search', 'filterClass', 'filterSection', 'filterGender', 'filterStatus']);
+        $this->reset(['search', 'filterClass', 'filterSection', 'filterGender', 'filterStatus', 'filterTransport']);
         $this->sortBy         = 'name_asc';
         $this->filterSections = [];
         $this->resetPage();
@@ -1206,7 +1219,7 @@ class Student extends Component
     private function listIsFiltered(): bool
     {
         return $this->search || $this->filterClass || $this->filterSection
-            || $this->filterGender || $this->filterStatus !== '';
+            || $this->filterGender || $this->filterStatus !== '' || $this->filterTransport;
     }
 
     /**
@@ -1249,6 +1262,13 @@ class Student extends Component
             ->when($this->filterClass,   fn($q) => $q->where('standard_id', $this->filterClass))
             ->when($this->filterSection, fn($q) => $q->where('section_id', $this->filterSection))
             ->when($this->filterGender,  fn($q) => $q->where('gender', $this->filterGender))
+            // On a route (as transport is billed), on none, or on this one.
+            ->when($this->filterTransport === 'yes', fn($q) => $q->whereHas('transportations'))
+            ->when($this->filterTransport === 'no',  fn($q) => $q->whereDoesntHave('transportations'))
+            ->when(ctype_digit($this->filterTransport), fn($q) => $q->whereHas(
+                'transportations',
+                fn($q) => $q->where('transportations.id', (int) $this->filterTransport)
+            ))
             ->when($this->filterStatus !== '', fn($q) => $q->whereHas(
                 'user',
                 fn($q) => $q->where('is_active', $this->filterStatus)

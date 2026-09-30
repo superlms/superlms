@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\Session;
 use App\Models\Admin\RateLms;
 use App\Models\Admin\TransportFeePayment;
 use App\Livewire\Concerns\CountsBillableMonths;
+use App\Support\AcademicYear;
 
 class Home extends Component
 {
@@ -228,7 +229,9 @@ class Home extends Component
      * academic fee (the active heads of their class — the whole class's and
      * their own section's — plus their own Last Year Dues) and every rider's
      * transport fee (route fee × the months they are billed for). Collected is
-     * academic and transport, from both payment tables.
+     * academic and transport, from both payment tables, taken this session
+     * (1 April) up to today — a payment dated in an earlier session, or one
+     * dated ahead of today, is not this session's collection.
      */
     protected function loadFeeOverview(): void
     {
@@ -265,21 +268,25 @@ class Home extends Component
         }
 
         $this->totalFee            = $academic + $transport;
-        $this->overallFeeCollected = $this->feeCollected($orgId);
+        $today = now()->toDateString();
+
+        $this->overallFeeCollected = $this->feeCollected($orgId, AcademicYear::start()->toDateString(), $today);
         $this->feeRemaining        = max(0, $this->totalFee - $this->overallFeeCollected);
-        $this->feeCollectedToday   = $this->feeCollected($orgId, now()->toDateString());
+        $this->feeCollectedToday   = $this->feeCollected($orgId, $today, $today);
     }
 
-    /** Academic and transport fee taken — on one day, or ever. */
-    private function feeCollected(int $orgId, ?string $day = null): float
+    /** Academic and transport fee taken between two dates, both included. */
+    private function feeCollected(int $orgId, string $from, string $to): float
     {
         $academicAndTransport = FeePayment::where('organization_id', $orgId)
             ->whereIn('fee_type', ['academic', 'transport'])
-            ->when($day, fn ($q) => $q->whereDate('payment_date', $day))
+            ->whereDate('payment_date', '>=', $from)
+            ->whereDate('payment_date', '<=', $to)
             ->sum('amount');
 
         $transportTable = TransportFeePayment::where('organization_id', $orgId)
-            ->when($day, fn ($q) => $q->whereDate('payment_date', $day))
+            ->whereDate('payment_date', '>=', $from)
+            ->whereDate('payment_date', '<=', $to)
             ->sum('amount');
 
         return round((float) $academicAndTransport + (float) $transportTable, 2);

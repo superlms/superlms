@@ -131,12 +131,18 @@
                     @endforeach
                 </select>
 
-                <select wire:model.live="filterGender"
+                <select wire:model.live="filterTransport"
                     class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                    <option value="">All Genders</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
+                    <option value="">All Transport</option>
+                    <option value="yes">With Transport</option>
+                    <option value="no">Without Transport</option>
+                    @if (count($filterRoutes))
+                        <optgroup label="Route">
+                            @foreach ($filterRoutes as $route)
+                                <option value="{{ $route->id }}">{{ $route->route_name }}</option>
+                            @endforeach
+                        </optgroup>
+                    @endif
                 </select>
 
                 <select wire:model.live="filterStatus"
@@ -162,7 +168,7 @@
                     <option value="roll_no">Roll No (asc)</option>
                 </select>
 
-                @if ($search || $filterClass || $filterSection || $filterGender || $filterStatus !== '' || $sortBy !== 'name_asc')
+                @if ($search || $filterClass || $filterSection || $filterGender || $filterStatus !== '' || $filterTransport || $sortBy !== 'name_asc')
                     <button wire:click="clearFilters"
                         class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -325,7 +331,7 @@
                                         </svg>
                                     </div>
                                     <p class="text-gray-500 text-sm">No students found</p>
-                                    @if ($search || $filterClass || $filterGender || $filterStatus !== '')
+                                    @if ($search || $filterClass || $filterGender || $filterStatus !== '' || $filterTransport)
                                         <button wire:click="clearFilters"
                                             class="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium">
                                             Clear filters
@@ -504,7 +510,7 @@
                         </svg>
                     </div>
                     <p class="text-gray-500 text-sm">No students found</p>
-                    @if ($search || $filterClass || $filterGender || $filterStatus !== '')
+                    @if ($search || $filterClass || $filterGender || $filterStatus !== '' || $filterTransport)
                         <button wire:click="clearFilters"
                             class="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium">
                             Clear filters
