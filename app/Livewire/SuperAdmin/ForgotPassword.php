@@ -42,6 +42,9 @@ class ForgotPassword extends Component
 
     public function submitEmail()
     {
+        // Spaces or invisible characters that came with a pasted address.
+        $this->email = User::cleanEmail($this->email);
+
         $this->validate(
             ['email' => 'required|email'],
             ['email.required' => 'The email field is required.',

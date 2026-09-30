@@ -84,6 +84,17 @@ class User extends Authenticatable
             : null;
     }
 
+    /**
+     * An email as typed or pasted, without the spaces and invisible characters
+     * a copy-paste can bring along. A non-breaking space passes the email rule,
+     * so an address saved with one can't be found by typing it at a login and
+     * is refused by the mail provider. No email legitimately contains them.
+     */
+    public static function cleanEmail(?string $email): string
+    {
+        return (string) preg_replace('/[\s\p{Z}\p{Cf}]+/u', '', (string) $email);
+    }
+
     /** The current password in plain text, or null if unknown (legacy account). */
     public function plainPassword(): ?string
     {

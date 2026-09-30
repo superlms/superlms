@@ -35,6 +35,9 @@ class Login extends Component
 
     public function login()
     {
+        // Spaces or invisible characters that came with a pasted address.
+        $this->email = User::cleanEmail($this->email);
+
         $this->validate([
             'email'    => 'required|email',
             'password' => 'required',

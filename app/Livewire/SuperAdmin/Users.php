@@ -126,6 +126,10 @@ class Users extends Component
 
     protected function validateStepOne(): void
     {
+        // A pasted address can carry a non-breaking space the email rule lets
+        // through — saved like that, the login can't find it and no mail goes.
+        $this->email = User::cleanEmail($this->email);
+
         $rules = [
             'fullName'          => 'required|string|max:255',
             'email'             => 'required|email|max:191',
