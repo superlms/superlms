@@ -65,7 +65,7 @@ class AssistantExportController extends Controller
         }
 
         return Pdf::loadView('pdf.assistant-table', [
-            'title'   => $data['title'] ?? 'LMS Assistant',
+            'title'   => $data['title'] ?? 'Super Assist',
             'tables'  => $tables,
             'school'  => $user->organization->name ?? 'SuperLMS',
             'printed' => now(),
@@ -73,6 +73,6 @@ class AssistantExportController extends Controller
             ->setPaper('a4', $widest > 6 ? 'landscape' : 'portrait')
             ->setOption('defaultFont', 'DejaVu Sans')
             ->setOption('isRemoteEnabled', false)
-            ->download('lms-assistant-table.pdf');
+            ->download('super-assist-table.pdf');
     }
 }

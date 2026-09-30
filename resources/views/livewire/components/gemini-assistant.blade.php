@@ -1,14 +1,10 @@
 {{--
-    The Super LMS assistant panel.
+    Super Assist — the Super LMS assistant panel.
 
     It has no launcher of its own — the top bar owns that button (next to the
     notification bell) and flips this open with a `gemini-toggle` browser event,
-    so opening it costs no server round-trip. The panel itself is the house
-    slide-in shell, and it starts at `--lms-nav-h` — the navbar's full height,
-    ITS BOTTOM BORDER INCLUDED. `top-16` is one pixel short of that, which put
-    the panel's white edge and its backdrop-blur over the top bar's border and
-    smeared it across the width of the page. Anchor to the variable, not to a
-    utility class that only nearly fits.
+    so opening it costs no server round-trip. The panel covers the whole
+    window, top bar and sidebar included (fixed, inset 0, above both layers).
 --}}
 <div>
     @if ($enabled)
@@ -127,12 +123,12 @@
                                 'Accept': 'application/pdf',
                                 'X-CSRF-TOKEN': '{{ csrf_token() }}',
                             },
-                            body: JSON.stringify({ title: 'LMS Assistant', tables }),
+                            body: JSON.stringify({ title: 'Super Assist', tables }),
                         });
 
                         if (! response.ok) throw new Error(response.status);
 
-                        this.saveBlob(await response.blob(), 'lms-assistant-table.pdf');
+                        this.saveBlob(await response.blob(), 'super-assist-table.pdf');
                         this.flash('PDF downloaded');
                     } catch (e) {
                         this.flash('PDF failed');
@@ -231,7 +227,18 @@
                         const box = this.$refs.input;
                         if (box) box.value = (finalText + interim).trim();
                     };
-                    recog.onerror = () => this.stopVoice();
+                    recog.onerror = (event) => {
+                        this.stopVoice();
+                        // Say why the mic stopped rather than going quiet.
+                        const why = {
+                            'not-allowed': 'Allow the microphone for this site to speak',
+                            'service-not-allowed': 'Allow the microphone for this site to speak',
+                            'audio-capture': 'No microphone found',
+                            'no-speech': 'Did not hear anything, try again',
+                            'network': 'Voice needs an internet connection',
+                        }[event.error];
+                        if (why) this.flash(why);
+                    };
                     recog.onend = () => {
                         this.listening = false;
                         const box = this.$refs.input;
@@ -292,12 +299,10 @@
 
             {{-- ───────────── Chat panel ───────────── --}}
             @if ($open)
-                {{-- The house slide-in shell: starts under the navbar — below
-                     its bottom border, not on top of it — anchored right, full
-                     height, behind it the same barely-there scrim every other
-                     panel uses. --}}
-                <div class="fixed inset-x-0 bottom-0 z-[9999] overflow-hidden"
-                     style="top: var(--lms-nav-h, 65px);">
+                {{-- Over the whole window, as the lms-cover popups sit: the
+                     panel runs the full height at the right, and the top bar
+                     and the sidebar are dimmed and blurred with the page. --}}
+                <div class="fixed inset-0 z-[9999] overflow-hidden">
                     <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="close"></div>
                     <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col" wire:click.stop>
 
@@ -306,7 +311,7 @@
                         <img src="{{ asset('website-image/Group 11525.png') }}" alt=""
                             width="36" height="36" class="w-9 h-9 object-contain flex-shrink-0">
                         <div class="min-w-0 flex-1">
-                            <h2 class="text-lg font-semibold text-gray-900 leading-tight">LMS Assistant</h2>
+                            <h2 class="text-lg font-semibold text-gray-900 leading-tight">Super Assist</h2>
                             {{-- One line does double duty: what the panel can see, and the
                                  last copy/download result, so a chip never acts silently. --}}
                             <p class="text-xs mt-0.5 truncate">
