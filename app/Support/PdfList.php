@@ -3,13 +3,14 @@
 namespace App\Support;
 
 /**
- * The list PDF the Students and Teachers exports print: A4 landscape, up to
- * ten people a page, one row each — the serial number at the left, the photo
- * in a small circle (or the name's initial), then cells of four fields as
- * plain "Label  value" lines, labels in a column of their own. A value too
- * long for its cell carries on to the next line under itself, so nothing is
- * cut; a row grows to fit, and a page takes fewer than ten only when its rows
- * would not otherwise fit. A thin divider keeps the rows apart.
+ * The list PDF the Students and Teachers exports print: A4 landscape, ten
+ * people a page, one row each — the serial number at the left, the photo in a
+ * small circle (or the name's initial), then cells of four fields as plain
+ * "Label  value" lines, labels in a column of their own. A value too long for
+ * its cell carries on to the next line under itself, so nothing is cut; a row
+ * grows to fit, and a page whose ten rows would then run past the foot is set
+ * in smaller text rather than holding fewer. A thin divider keeps the rows
+ * apart.
  *
  * Drawn straight with TCPDF: laying a whole school out from HTML with dompdf
  * ran past the gateway's minute (a 504).
@@ -27,6 +28,9 @@ class PdfList
     private const PAD    = 1.6;    // above and below a row's text
     private const FONT   = 6.5;    // text size, pt
     private const GAP    = 2.5;    // between cells
+
+    /** Text sizes a page may drop to (× FONT and LINE) so its ten rows fit. */
+    private const SCALES = [1.0, 0.94, 0.88, 0.82, 0.76, 0.7];
 
     private const GREY = [107, 114, 128];
     private const INK  = [17, 24, 39];
@@ -57,24 +61,37 @@ class PdfList
         $pdf->setFontSubsetting(true);
         $pdf->SetFont('dejavusans', '', self::FONT);
 
-        // Each cell's labels share one column: as wide as its widest label.
-        $labelW = [];
-        foreach ($rows as $row) {
-            foreach ($row['cells'] as $c => $fields) {
-                foreach ($fields as [$label]) {
-                    $labelW[$c] = max($labelW[$c] ?? 0, $pdf->GetStringWidth($label . ':') + 1.2);
-                }
-            }
-        }
+        $value = fn ($v) => ($v === null || trim((string) $v) === '') ? '-' : trim((string) $v);
+        $avail = self::BOTTOM - self::TOP;
 
-        // Measure every row, then fill pages: ten at most, and no more than fit.
-        $value  = fn ($v) => ($v === null || trim((string) $v) === '') ? '-' : trim((string) $v);
-        $sized  = [];
-        foreach ($rows as $row) {
+        // Each cell's labels share one column, as wide as its widest label —
+        // at the text size a page is drawn at.
+        $labelCache = [];
+        $labelW = function (float $s) use (&$labelCache, $pdf, $rows): array {
+            $key = (string) $s;
+            if (!isset($labelCache[$key])) {
+                $pdf->SetFont('dejavusans', '', self::FONT * $s);
+                $w = [];
+                foreach ($rows as $row) {
+                    foreach ($row['cells'] as $c => $fields) {
+                        foreach ($fields as [$label]) {
+                            $w[$c] = max($w[$c] ?? 0, $pdf->GetStringWidth($label . ':') + 1.2);
+                        }
+                    }
+                }
+                $labelCache[$key] = $w;
+            }
+            return $labelCache[$key];
+        };
+
+        // A row's height at text scale $s: every value in full, wrapped.
+        $measure = function (array $row, float $s) use ($pdf, $widths, $value, $labelW): array {
+            $lw = $labelW($s);
+            $pdf->SetFont('dejavusans', '', self::FONT * $s);
             $lines = 4;
             $cellLines = [];
             foreach ($row['cells'] as $c => $fields) {
-                $valueW = $widths[$c] - self::GAP - $labelW[$c];
+                $valueW = $widths[$c] - self::GAP - $lw[$c];
                 $n = 0;
                 foreach ($fields as $f => [, $v]) {
                     $cellLines[$c][$f] = max(1, $pdf->getNumLines($value($v), $valueW));
@@ -82,20 +99,48 @@ class PdfList
                 }
                 $lines = max($lines, $n);
             }
-            $sized[] = $row + ['h' => $lines * self::LINE + 2 * self::PAD, 'lines' => $cellLines];
-        }
 
-        $pages = [[]];
-        $used  = 0.0;
-        foreach ($sized as $row) {
-            $page = count($pages) - 1;
-            if ($pages[$page] && (count($pages[$page]) >= 10 || $used + $row['h'] > self::BOTTOM - self::TOP)) {
-                $pages[] = [];
-                $used = 0.0;
-                $page++;
+            return [
+                'h'     => max($lines * self::LINE * $s + 2 * self::PAD * $s, 2 * self::R + 1.6),
+                'lines' => $cellLines,
+                's'     => $s,
+            ];
+        };
+
+        // Ten to a page. A page whose ten rows would run past the foot is set
+        // in smaller text until they fit, so nothing is cut and no page holds
+        // fewer; only if even the smallest text cannot fit them are they split.
+        $pages = [];
+        foreach (array_chunk($rows, 10) as $chunk) {
+            $placed = null;
+            foreach (self::SCALES as $s) {
+                $measured = array_map(fn ($r) => $r + $measure($r, $s), $chunk);
+                if (array_sum(array_column($measured, 'h')) <= $avail) {
+                    $placed = $measured;
+                    break;
+                }
             }
-            $pages[$page][] = $row;
-            $used += $row['h'];
+            if ($placed) {
+                $pages[] = $placed;
+                continue;
+            }
+            $page = [];
+            $used = 0.0;
+            foreach ($measured as $r) {
+                if ($page && $used + $r['h'] > $avail) {
+                    $pages[] = $page;
+                    $page = [];
+                    $used = 0.0;
+                }
+                $page[] = $r;
+                $used += $r['h'];
+            }
+            if ($page) {
+                $pages[] = $page;
+            }
+        }
+        if (!$pages) {
+            $pages[] = [];
         }
 
         $no = 0;
@@ -113,7 +158,11 @@ class PdfList
             $y = self::TOP;
             foreach ($pageRows as $row) {
                 $no++;
-                $h = $row['h'];
+                $h    = $row['h'];
+                $s    = $row['s'];
+                $line = self::LINE * $s;
+                $pad  = self::PAD * $s;
+                $lw   = $labelW($s);
 
                 // Serial number, at the very left
                 $pdf->SetFont('dejavusans', 'B', 7.5);
@@ -123,7 +172,7 @@ class PdfList
 
                 // Photo in a circle, or the initial on a grey one
                 $cx = self::LEFT + self::NO_W + self::PIC_W / 2 - 0.5;
-                $cy = $y + min($h, 4 * self::LINE + 2 * self::PAD) / 2;
+                $cy = $y + max(2 * self::R + 1.6, min($h, 4 * $line + 2 * $pad)) / 2;
                 if (!empty($row['photo'])) {
                     $pdf->StartTransform();
                     $pdf->Circle($cx, $cy, self::R, 0, 360, 'CNZ');
@@ -138,23 +187,23 @@ class PdfList
                 }
 
                 // The field cells: label column, then the value, wrapping under itself
-                $pdf->SetFont('dejavusans', '', self::FONT);
+                $pdf->SetFont('dejavusans', '', self::FONT * $s);
                 $x = self::LEFT + self::NO_W + self::PIC_W;
                 foreach ($row['cells'] as $c => $fields) {
-                    $valueW = $widths[$c] - self::GAP - $labelW[$c];
-                    $ty = $y + self::PAD;
+                    $valueW = $widths[$c] - self::GAP - $lw[$c];
+                    $ty = $y + $pad;
                     foreach ($fields as $f => [$label, $v]) {
                         $lines = $row['lines'][$c][$f];
                         $pdf->SetTextColor(...self::GREY);
                         $pdf->SetXY($x, $ty);
-                        $pdf->Cell($labelW[$c], self::LINE, $label . ':', 0, 0, 'L');
+                        $pdf->Cell($lw[$c], $line, $label . ':', 0, 0, 'L');
                         $pdf->SetTextColor(...self::INK);
                         if ($lines === 1) {
-                            $pdf->Cell($valueW, self::LINE, $value($v), 0, 0, 'L');
+                            $pdf->Cell($valueW, $line, $value($v), 0, 0, 'L');
                         } else {
-                            $pdf->MultiCell($valueW, self::LINE, $value($v), 0, 'L', false, 0, $x + $labelW[$c], $ty, true, 0, false, true, 0, 'T', false);
+                            $pdf->MultiCell($valueW, $line, $value($v), 0, 'L', false, 0, $x + $lw[$c], $ty, true, 0, false, true, 0, 'T', false);
                         }
-                        $ty += $lines * self::LINE;
+                        $ty += $lines * $line;
                     }
                     $x += $widths[$c];
                 }

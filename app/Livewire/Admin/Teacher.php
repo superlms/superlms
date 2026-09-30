@@ -890,6 +890,7 @@ class Teacher extends Component
             $row = [
                 'S.No'                  => $i + 1,
                 'Employee ID'           => $dash($t->employee_id),
+                'Username'              => $dash($u?->username),
                 'Full Name'             => $dash($u?->name),
                 'Email'                 => $dash($u?->email),
                 'Mobile'                => $dash($u?->mobile_number),

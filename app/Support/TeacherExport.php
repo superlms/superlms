@@ -123,6 +123,7 @@ class TeacherExport
             $row = [
                 'S.No'                  => $i + 1,
                 'Employee ID'           => $dash($t->employee_id),
+                'Username'              => $dash($u?->username),
                 'Full Name'             => $dash($u?->name),
                 'Email'                 => $dash($u?->email),
                 'Mobile'                => $dash($u?->mobile_number),
@@ -196,10 +197,11 @@ class TeacherExport
 
     /**
      * The Teachers PDF — the panel's and the admin app's alike, in the
-     * Students PDF's layout (App\Support\PdfList): up to ten teachers to an A4
+     * Students PDF's layout (App\Support\PdfList): ten teachers to an A4
      * landscape page, one row each — serial number, photo in a small circle,
-     * then cells of four fields — without the month-by-month attendance.
-     * Nothing is cut short: a long value carries on to the next line.
+     * then five cells of four fields, the username among them. No status,
+     * attendance or subjects (the sheet keeps them). Nothing is cut short: a
+     * long value carries on to the next line.
      */
     public static function listPdf(int $org): string
     {
@@ -208,30 +210,12 @@ class TeacherExport
             ->orderBy('employee_id')
             ->get();
 
-        $ids     = $teachers->pluck('id')->all();
         $hasBank = Schema::hasColumn('teacher_details', 'bank_name');
-
-        // Lifetime attendance totals, as the sheet has them.
-        $overall = TeacherAttendance::whereIn('teacher_detail_id', $ids)
-            ->selectRaw('teacher_detail_id, COUNT(*) as total, SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) as present')
-            ->groupBy('teacher_detail_id')
-            ->get()
-            ->keyBy('teacher_detail_id');
-
-        $subjectsByTeacher = TeacherSubject::with(['subject:id,name', 'standard:id,name', 'section:id,name'])
-            ->whereIn('teacher_detail_id', $ids)
-            ->get()
-            ->groupBy('teacher_detail_id');
-
-        $photos = PdfPhotos::squares($teachers->map(fn ($t) => $t->user?->image)->all());
+        $photos  = PdfPhotos::squares($teachers->map(fn ($t) => $t->user?->image)->all());
 
         $rows = [];
         foreach ($teachers as $t) {
             $u = $t->user;
-
-            $att      = $overall->get($t->id);
-            $attTotal = (int) ($att->total ?? 0);
-            $attPres  = (int) ($att->present ?? 0);
 
             $classTeacherOf = $t->assignedClasses
                 ->map(function ($a) {
@@ -242,15 +226,6 @@ class TeacherExport
                 ->filter()
                 ->unique()
                 ->implode(', ');
-
-            $subjects = ($subjectsByTeacher->get($t->id) ?? collect())
-                ->map(function ($ts) {
-                    $sub = $ts->subject?->name ?? 'Subject';
-                    $cls = trim(($ts->standard?->name ?? '') . ($ts->section ? ' - ' . $ts->section->name : ''));
-                    return $cls !== '' ? "{$sub} ({$cls})" : $sub;
-                })
-                ->unique()
-                ->implode('; ');
 
             $dob = $u?->dob;
             if ($dob instanceof \Carbon\Carbon) $dob = $dob->format('d-m-Y');
@@ -264,12 +239,11 @@ class TeacherExport
                 'photo'   => $image ? ($photos[$image] ?? null) : null,
                 'initial' => mb_strtoupper(mb_substr(trim($name) ?: '?', 0, 1)),
                 'cells'   => [
-                    [['Name', $name], ['Employee ID', $t->employee_id], ['Gender', $u?->gender ? ucfirst($u->gender) : null], ['Status', $u?->is_active ? 'Active' : 'Inactive']],
-                    [['DOB', $dob], ['Joined', $doj], ['Qualification', $t->qualification], ['Attendance', $attTotal > 0 ? "{$attPres} / {$attTotal}  (" . round($attPres / $attTotal * 100, 1) . '%)' : null]],
-                    [['Mobile', $u?->mobile_number], ['Email', $u?->email], ['Emergency', $t->emergency_contact], ['Class Teacher', $classTeacherOf]],
+                    [['Name', $name], ['Username', $u?->username], ['Employee ID', $t->employee_id], ['Gender', $u?->gender ? ucfirst($u->gender) : null]],
+                    [['DOB', $dob], ['Joined', $doj], ['Qualification', $t->qualification], ['Class Teacher', $classTeacherOf]],
                     [['Address', $t->address], ['City', $t->city], ['State', $t->state], ['Pincode', $t->pincode]],
-                    [['Bank', $hasBank ? $t->bank_name : null], ['Holder', $hasBank ? $t->bank_holder_name : null], ['A/c No', $hasBank ? $t->bank_account_no : null], ['IFSC', $hasBank ? $t->bank_ifsc : null]],
-                    [['Branch', $hasBank ? $t->bank_branch : null], ['Subjects', $subjects]],
+                    [['Mobile', $u?->mobile_number], ['Email', $u?->email], ['Emergency', $t->emergency_contact], ['Bank', $hasBank ? $t->bank_name : null]],
+                    [['Holder', $hasBank ? $t->bank_holder_name : null], ['A/c No', $hasBank ? $t->bank_account_no : null], ['IFSC', $hasBank ? $t->bank_ifsc : null], ['Branch', $hasBank ? $t->bank_branch : null]],
                 ],
             ];
         }
@@ -283,7 +257,7 @@ class TeacherExport
             'title'  => 'Teachers',
             'scope'  => 'All teachers',
             'count'  => $total . ' teacher' . ($total === 1 ? '' : 's'),
-        ], [36, 38, 64, 44, 34, 41.5], $rows);
+        ], [46, 50, 52, 60, 49.5], $rows);
     }
 
     /** The sheet's bytes, as the panel's exportTeachers() streams them. */

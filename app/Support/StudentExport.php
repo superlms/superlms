@@ -271,7 +271,7 @@ class StudentExport
                 'initial' => mb_strtoupper(mb_substr(trim($name) ?: '?', 0, 1)),
                 'cells'   => [
                     [['Name', $name], ['Adm No', $s->admission_no], ['Roll No', $s->roll_no], ['Reg No', $s->registration_number]],
-                    [['Class', $s->standard->name ?? null], ['Section', $s->section->name ?? null], ['Board', $s->board ?? ($s->standard->board ?? null)], ['Status', ($s->user->is_active ?? false) ? 'Active' : 'Inactive']],
+                    [['Class', $s->standard->name ?? null], ['Section', $s->section->name ?? null], ['Status', ($s->user->is_active ?? false) ? 'Active' : 'Inactive']],
                     [['Gender', $s->gender ? ucfirst($s->gender) : null], ['DOB', $s->dob?->format('d-m-Y')], ['Admitted', $s->date_of_admission?->format('d-m-Y')], ['Religion', $s->religion]],
                     [['Father', $s->father_name], ['Mother', $s->mother_name], ['Mobile', $s->phone], ['Email', $s->user->email ?? null]],
                     [['Aadhar', $s->aadhar_no], ['Apaar ID', $s->appar_id], ['Transport', $route ? $route->route_name : 'No'], ['Pincode', $s->pincode]],
