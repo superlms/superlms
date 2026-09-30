@@ -127,7 +127,7 @@ class Student extends Component
     public string $filterStatus   = '';
     /** Sort key — name_asc (A→Z), admission_no (asc), roll_no (asc). */
     public string $sortBy         = 'name_asc';
-    public int    $perPage        = 50;
+    public int    $perPage        = 100;
 
     protected $queryString = [
         'search'        => ['except' => ''],
@@ -332,9 +332,12 @@ class Student extends Component
             return;
         }
 
+        // Email is optional: a student signs in with the admission number.
+        $this->studentsEmail = trim((string) $this->studentsEmail);
+
         $rules = [
             'studentsName'      => 'required|string|max:50',
-            'studentsEmail'     => 'required|email:rfc|max:191',
+            'studentsEmail'     => 'nullable|email:rfc|max:191',
             'studentsMobile'    => 'required|string|digits:10',
             'dob'               => 'required|date|before:today',
             'studentsGender'    => 'required|string|in:male,female,other',
@@ -517,7 +520,7 @@ class Student extends Component
                     'full_name'              => $this->studentsName,
                     'father_name'            => $this->fatherName,
                     'mother_name'            => $this->motherName,
-                    'email'                  => $this->studentsEmail,
+                    'email'                  => $this->studentsEmail !== '' ? $this->studentsEmail : null,
                     'dob'                    => $this->dob,
                     'gender'                 => $this->studentsGender,
                     'religion'               => $this->religion ?? null,
@@ -566,7 +569,7 @@ class Student extends Component
                 // carrying a password the student can actually log in with: the
                 // one they already have when we can recover it, a freshly set
                 // one when we can't.
-                if ($oldStudentEmail && strcasecmp($oldStudentEmail, $student->email) !== 0) {
+                if ($oldStudentEmail && $student->email && strcasecmp($oldStudentEmail, $student->email) !== 0) {
                     $emailTemplateKey = config('services.zeptomail.student_password_template_key');
                     if ($emailTemplateKey) {
                         $schoolName   = Organization::find($orgId)?->name ?? 'School';
@@ -615,7 +618,8 @@ class Student extends Component
                 // 3s connect / 5s total timeout, the FPM worker is freed in ≤8s
                 // either way.
                 $emailTemplateKey = config('services.zeptomail.student_password_template_key');
-                if ($emailTemplateKey && $plainPassword) {
+                // No email given → nothing to send; WhatsApp below still goes.
+                if ($emailTemplateKey && $plainPassword && $student->email) {
                     $schoolName     = Organization::find($orgId)?->name ?? 'School';
                     $emailPayload   = [
                         'template_key' => $emailTemplateKey,
@@ -645,7 +649,7 @@ class Student extends Component
                             logger()->error('Student welcome email failed (after-response) for ' . $emailPayload['to_email'] . ': ' . $e->getMessage());
                         }
                     })->afterResponse();
-                } else {
+                } elseif (!$emailTemplateKey) {
                     logger()->warning('ZEPTOMAIL_STUDENT_PASSWORD_TEMPLATE_KEY not configured — skipping welcome email.');
                 }
 

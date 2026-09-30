@@ -112,7 +112,7 @@
 
                 <input wire:model.live.debounce.300ms="search" type="text"
                     placeholder="Search name, admission, roll, phone, email…"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-64
+                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 flex-[1_1_8rem] min-w-0 max-w-64
                            focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
 
                 <select wire:model.live="filterClass"
@@ -252,7 +252,7 @@
                                 {{-- Email --}}
                                 <td class="px-4 py-3">
                                     <span class="text-sm text-gray-600 truncate block max-w-[200px]">
-                                        {{ $student->user?->email ?? '—' }}
+                                        {{ $student->user?->email ?: '—' }}
                                     </span>
                                 </td>
 
@@ -411,7 +411,7 @@
                         <div class="flex-1 min-w-0">
                             <p class="text-sm font-semibold text-gray-900 truncate">{{ $student->full_name ?? '—' }}
                             </p>
-                            <p class="text-xs text-gray-400">{{ $student->user?->email ?? '—' }}</p>
+                            <p class="text-xs text-gray-400">{{ $student->user?->email ?: '—' }}</p>
                         </div>
                         @if ($student->user?->is_active)
                             <span
@@ -623,7 +623,7 @@
                                 @error('studentsName')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Email <span class="text-red-500">*</span></label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Email <span class="text-gray-400 font-normal text-xs">(optional)</span></label>
                                 <input wire:model.defer="studentsEmail" type="email" placeholder="student@example.com"
                                     class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
                                            @error('studentsEmail') border-red-400 @enderror">
@@ -905,7 +905,7 @@
                     <div class="min-w-0">
                         <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $stuUser->name ?? 'Student Details' }}</h2>
                         <p class="text-xs text-gray-500 mt-0.5 truncate">
-                            {{ $stuUser->email ?? '' }} · {{ ($stuUser->is_active ?? false) ? 'Active' : 'Inactive' }}
+                            {{ ($stuUser->email ?? '') !== '' ? $stuUser->email . ' · ' : '' }}{{ ($stuUser->is_active ?? false) ? 'Active' : 'Inactive' }}
                         </p>
                     </div>
                     <button wire:click="closeViewModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
@@ -1060,14 +1060,14 @@
     @if ($openImage && $imagePath)
         <div class="lms-cover fixed inset-0 z-[9999] flex overflow-y-auto p-4 bg-black/80"
             wire:click.self="closeImage" x-on:keydown.escape.window="$wire.closeImage()">
-            <button type="button" wire:click="closeImage" title="Close"
-                class="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 text-white">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-            <div class="relative m-auto flex flex-col items-center max-w-full">
+            <div class="relative m-auto max-w-full">
                 <img src="{{ $imagePath }}" alt=""
                     style="--photo: min(28rem, 90vw, calc(100vh - 8rem)); width: var(--photo); height: var(--photo)"
                     class="rounded-lg object-cover shadow-2xl bg-white">
+                <button type="button" wire:click="closeImage" title="Close"
+                    class="absolute top-2 right-2 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
             </div>
         </div>
     @endif
