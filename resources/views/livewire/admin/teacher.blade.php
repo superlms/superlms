@@ -49,40 +49,33 @@
             </div>
         </div>
 
-        {{-- Thin attached filter strip (student / exams style) --}}
-        <div class="bg-gray-50 border-t border-gray-200 px-4 sm:px-6 py-2.5">
-            <div class="flex flex-wrap items-center gap-2 sm:gap-3">
-                <div class="flex items-center gap-1.5 text-xs font-medium text-gray-500 mr-1">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        {{-- Filter bar — as the Students list has it: the search box gives up
+             width before Clear drops to a line of its own. --}}
+        <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                     </svg>
                     Filter by:
                 </div>
 
-                <div class="relative flex-1 min-w-[200px] max-w-xs">
-                    <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none"
-                        stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    <input wire:model.live.debounce.300ms="search" type="text"
-                        placeholder="Search name, email, ID, phone..."
-                        class="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-300 rounded-md
-                               focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white" />
-                </div>
+                <input wire:model.live.debounce.300ms="search" type="text"
+                    placeholder="Search name, email, ID, phone…"
+                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 flex-[1_1_8rem] min-w-0 max-w-64
+                           focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
 
                 <select wire:model.live="filterClass"
-                    class="px-2.5 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white">
+                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     <option value="">All Classes</option>
                     @foreach ($standards as $standard)
                         <option value="{{ $standard->id }}">{{ $standard->name }}</option>
                     @endforeach
                 </select>
 
-                <select wire:model.live="filterSection"
-                    class="px-2.5 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white disabled:opacity-50 disabled:cursor-not-allowed"
-                    @disabled(!$filterClass)>
+                <select wire:model.live="filterSection" @disabled(!$filterClass)
+                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
                     <option value="">All Sections</option>
                     @foreach ($filterSections as $section)
                         <option value="{{ $section->id }}">{{ $section->name }}</option>
@@ -90,7 +83,7 @@
                 </select>
 
                 <select wire:model.live="filterGender"
-                    class="px-2.5 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white">
+                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     <option value="">All Genders</option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
@@ -98,7 +91,7 @@
                 </select>
 
                 <select wire:model.live="filterStatus"
-                    class="px-2.5 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 bg-white">
+                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     <option value="">All Status</option>
                     <option value="1">Active</option>
                     <option value="0">Inactive</option>
@@ -106,11 +99,9 @@
 
                 @if ($search || $filterGender || $filterStatus !== '' || $filterClass || $filterSection)
                     <button wire:click="clearFilters" title="Clear all filters"
-                        class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-gray-500 border border-gray-300
-                               rounded-md hover:bg-white transition-colors bg-white">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M6 18L18 6M6 6l12 12" />
+                        class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                         Clear
                     </button>
@@ -189,18 +180,21 @@
                                     <span class="text-sm text-gray-600 truncate block max-w-[200px]"
                                         title="{{ $teacher->user?->email ?? '' }}">{{ $teacher->user?->email ?? '—' }}</span>
                                 </td>
-                                {{-- Class this teacher is class-teacher of; section sits under it. --}}
-                                <td class="px-4 py-3 whitespace-nowrap">
-                                    @forelse ($teacher->assignedClasses as $assigned)
-                                        <div class="{{ !$loop->first ? 'mt-1.5' : '' }}">
-                                            <p class="text-sm text-gray-800 leading-tight">{{ $assigned->standard?->name ?? '—' }}</p>
-                                            @if ($assigned->section?->name)
-                                                <p class="text-[11px] text-gray-400 leading-tight">{{ $assigned->section->name }}</p>
-                                            @endif
-                                        </div>
-                                    @empty
-                                        <span class="text-sm text-gray-400">—</span>
-                                    @endforelse
+                                {{-- Class this teacher is class-teacher of, as the Students list
+                                     shows a class: a pill, the section's last letter after it (Class 8-A). --}}
+                                <td class="px-4 py-3">
+                                    <div class="flex flex-wrap gap-1.5">
+                                        @forelse ($teacher->assignedClasses as $assigned)
+                                            @php $secLetter = mb_strtoupper(mb_substr(trim((string) $assigned->section?->name), -1)); @endphp
+                                            <span
+                                                class="text-xs px-2 py-0.5 bg-blue-50 text-blue-700
+                                                rounded-full font-medium border border-blue-100 whitespace-nowrap">
+                                                {{ $assigned->standard?->name ?? '—' }}{{ $secLetter !== '' ? '-' . $secLetter : '' }}
+                                            </span>
+                                        @empty
+                                            <span class="text-sm text-gray-400">—</span>
+                                        @endforelse
+                                    </div>
                                 </td>
                                 <td class="px-4 py-3">
                                     <span class="text-sm text-gray-700 capitalize">{{ $teacher->user?->gender ?: '—' }}</span>
@@ -312,7 +306,8 @@
                             class="text-xs font-bold text-gray-400 w-6 text-center">{{ $teachers->firstItem() + $index }}</span>
                         @if ($teacher->user?->image)
                             <img src="{{ $teacher->user->image }}"
-                                class="w-10 h-10 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                                class="w-10 h-10 rounded-full object-cover border border-gray-200 flex-shrink-0"
+                                wire:click="onImageClick({{ $teacher->user->id }})">
                         @else
                             <div
                                 class="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
@@ -348,16 +343,18 @@
                             </div>
                             <div class="min-w-0">
                                 <p class="text-xs text-gray-400">Class Teacher</p>
-                                @forelse ($teacher->assignedClasses as $assigned)
-                                    <p class="text-gray-700 font-medium truncate leading-tight">
-                                        {{ $assigned->standard?->name ?? '—' }}
-                                        @if ($assigned->section?->name)
-                                            <span class="text-[11px] font-normal text-gray-400">{{ $assigned->section->name }}</span>
-                                        @endif
-                                    </p>
-                                @empty
-                                    <p class="text-gray-700 font-medium">—</p>
-                                @endforelse
+                                <div class="flex flex-wrap gap-1.5 mt-0.5">
+                                    @forelse ($teacher->assignedClasses as $assigned)
+                                        @php $secLetter = mb_strtoupper(mb_substr(trim((string) $assigned->section?->name), -1)); @endphp
+                                        <span
+                                            class="text-xs px-2 py-0.5 bg-blue-50 text-blue-700
+                                            rounded-full font-medium border border-blue-100 whitespace-nowrap">
+                                            {{ $assigned->standard?->name ?? '—' }}{{ $secLetter !== '' ? '-' . $secLetter : '' }}
+                                        </span>
+                                    @empty
+                                        <p class="text-gray-700 font-medium">—</p>
+                                    @endforelse
+                                </div>
                             </div>
                             <div class="min-w-0">
                                 <p class="text-xs text-gray-400">Gender</p>
@@ -443,22 +440,27 @@
                 {{-- Scrollable body --}}
                 <div class="flex-1 overflow-y-auto px-6 py-6 space-y-5">
 
-                    {{-- Profile image --}}
+                    {{-- Profile image (single inline row, as on Students): the new photo,
+                         else the saved one, else a placeholder — then the picker, which
+                         lets the photo be fitted in its circle before it is uploaded --}}
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Teacher Profile Image <span class="text-gray-400 font-normal">(Optional, max 1 MB)</span></label>
-                        @if ($editId && !$teacherImage)
-                            @php $user = \App\Models\User::find($editId) @endphp
-                            @if ($user?->image)
-                                <div class="flex items-center gap-3 mb-2 border border-gray-200 rounded-md p-3">
-                                    <img src="{{ $user->image }}" class="h-14 w-14 rounded-full object-cover border border-gray-200">
-                                    <div class="flex-1">
-                                        <p class="text-sm text-gray-700">Current photo</p>
-                                        <button wire:click="$set('teacherImage', null)" type="button" class="text-xs text-red-600 hover:text-red-700">Remove</button>
-                                    </div>
+                        <div class="flex items-center gap-3">
+                            @if ($teacherImage)
+                                <img src="{{ $teacherImage->temporaryUrl() }}"
+                                    class="w-12 h-12 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                            @elseif ($editId && $teacherImageUrl)
+                                <img src="{{ $teacherImageUrl }}"
+                                    class="w-12 h-12 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                            @else
+                                <div class="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-6 h-6 text-teal-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                    </svg>
                                 </div>
                             @endif
-                        @endif
-                        <x-admin.photo-cropper model="teacherImage" class="w-full text-sm" />
+                            <x-admin.photo-cropper model="teacherImage" class="flex-1 text-sm" />
+                        </div>
                         <div wire:loading wire:target="teacherImage" class="text-xs text-blue-600 mt-1">Uploading...</div>
                         @error('teacherImage')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
@@ -627,14 +629,28 @@
                         @endif
                     </div>
 
+                    @php
+                        // Dates as the Students panel shows them (12 Sep 2024); whatever
+                        // can't be read as a date is shown as it is.
+                        $viewDate = function ($d) {
+                            if (!$d) {
+                                return 'N/A';
+                            }
+                            try {
+                                return \Carbon\Carbon::parse($d)->format('d M Y');
+                            } catch (\Throwable $e) {
+                                return (string) $d;
+                            }
+                        };
+                    @endphp
                     @foreach ([
                         'Username'           => $viewData['user']->username ?? 'N/A',
                         'Employee ID'        => $viewData['detail']->employee_id ?? 'N/A',
                         'Mobile'             => $viewData['user']->mobile_number ?? 'N/A',
                         'Gender'             => $viewData['user']->gender ? ucfirst($viewData['user']->gender) : 'N/A',
-                        'Date of Birth'      => $viewData['user']->dob ?? 'N/A',
+                        'Date of Birth'      => $viewDate($viewData['user']->dob ?? null),
                         'Emergency Contact'  => $viewData['detail']->emergency_contact ?? 'N/A',
-                        'Date of Joining'    => $viewData['detail']->date_of_joining ?? 'N/A',
+                        'Date of Joining'    => $viewDate($viewData['detail']->date_of_joining ?? null),
                         'Qualification'      => $viewData['detail']->qualification ?? 'N/A',
                         'Address'            => $viewData['detail']->address ?? 'N/A',
                         'City'               => $viewData['detail']->city ?? 'N/A',
@@ -655,15 +671,26 @@
                             </span>
                         </div>
                     @endif
+
+                    {{-- Attendance, overall — "-" where nothing is marked yet --}}
+                    <div class="pt-4 mt-2 border-t border-gray-100 space-y-4">
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">Attendance</span>
+                            <span class="col-span-2 text-gray-800 font-medium">{{ $viewData['attendance'] ?? '-' }}</span>
+                        </div>
+                    </div>
                 </div>
 
                 {{-- Fixed footer --}}
-                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
-                    <button wire:click="closeViewModal" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Close</button>
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
                     @if (!empty($viewData['detail']?->id))
                         <button wire:click="onEditTeacher({{ $viewData['detail']->id }})" type="button"
-                            class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md">Edit Teacher</button>
+                            class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Edit</button>
+                    @else
+                        <span></span>
                     @endif
+                    <button wire:click="closeViewModal" type="button"
+                        class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
                 </div>
             </div>
         </div>
@@ -722,6 +749,25 @@
                             class="px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:opacity-60">Remove</button>
                     </div>
                 @endif
+            </div>
+        </div>
+    @endif
+
+    {{-- ══════════════════════════════════════════════════
+         LIST PHOTO — a photo in the list, clicked, shown large in the
+         middle of the window (lms-cover), its cross in its own corner
+    ══════════════════════════════════════════════════ --}}
+    @if ($openImage && $imagePath)
+        <div class="lms-cover fixed inset-0 z-[9999] flex overflow-y-auto p-4 bg-black/80"
+            wire:click.self="closeImage" x-on:keydown.escape.window="$wire.closeImage()">
+            <div class="relative m-auto max-w-full">
+                <img src="{{ $imagePath }}" alt=""
+                    style="--photo: min(28rem, 90vw, calc(100vh - 8rem)); width: var(--photo); height: var(--photo)"
+                    class="rounded-lg object-cover shadow-2xl bg-white">
+                <button type="button" wire:click="closeImage" title="Close"
+                    class="absolute top-2 right-2 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
             </div>
         </div>
     @endif

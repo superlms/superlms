@@ -96,7 +96,7 @@ class Teacher extends Component
     public string $filterStatus  = '';
     public string $filterClass   = '';
     public string $filterSection = '';
-    public int    $perPage       = 25;
+    public int    $perPage       = 50;
 
     // ─── Filter dependencies ─────────────────────────────────────────────
     public $standards      = [];
@@ -375,44 +375,11 @@ class Teacher extends Component
                 \App\Services\WelcomeWhatsApp::teacher((int) $teacher->id);
             }
 
-            // Send welcome email on creation only — dispatched after-response so
-            // a slow ZeptoMail can never block the user's "Saving…" spinner.
-            // Same pattern as Student.php for consistency.
+            // Welcome email on creation only, after the response: the username
+            // they sign in with and the password — no longer their email as the
+            // login. See sendCredentialsMail().
             if (!$isEdit && $plainPassword) {
-                $emailTemplateKey = config('services.zeptomail.teacher_password_template_key');
-                if ($emailTemplateKey) {
-                    $schoolName   = Organization::find(Auth::user()->organization_id)?->name ?? 'School';
-                    $emailPayload = [
-                        'template_key' => $emailTemplateKey,
-                        'to_email'     => $teacher->email,
-                        'to_name'      => $teacher->name,
-                        'merge'        => [
-                            'password'      => $plainPassword,
-                            'email_address' => $teacher->email,
-                            'school_name'   => $schoolName,
-                            // The name they sign in with, now that they have one.
-                            'username'      => $teacher->username ?: $teacher->name,
-                            'name'          => $teacher->name,
-                            'login_url'     => url('/login'),
-                        ],
-                    ];
-
-                    dispatch(function () use ($emailPayload) {
-                        try {
-                            \App\Services\ZeptoMailService::sendTemplate(
-                                $emailPayload['template_key'],
-                                $emailPayload['to_email'],
-                                $emailPayload['to_name'],
-                                $emailPayload['merge'],
-                            );
-                            logger()->info('Teacher welcome email sent (after-response) to: ' . $emailPayload['to_email']);
-                        } catch (\Throwable $e) {
-                            logger()->error('Teacher welcome email failed (after-response) for ' . $emailPayload['to_email'] . ': ' . $e->getMessage());
-                        }
-                    })->afterResponse();
-                } else {
-                    logger()->warning('ZEPTOMAIL_TEACHER_PASSWORD_TEMPLATE_KEY not configured — skipping welcome email.');
-                }
+                $this->sendCredentialsMail($teacher, $plainPassword, 'welcome');
             }
 
             // Email changed on an edit → send updated credentials to the NEW
@@ -425,38 +392,11 @@ class Teacher extends Component
             }
 
             if ($isEdit && $oldEmail && strcasecmp($oldEmail, $teacher->email) !== 0) {
-                $emailTemplateKey = config('services.zeptomail.teacher_password_template_key');
-                if ($emailTemplateKey) {
-                    $schoolName   = Organization::find(Auth::user()->organization_id)?->name ?? 'School';
-                    $emailPayload = [
-                        'template_key' => $emailTemplateKey,
-                        'to_email'     => $teacher->email,
-                        'to_name'      => $teacher->name,
-                        'merge'        => [
-                            'password'      => $teacher->plainPassword() ?? 'Use your existing password (unchanged)',
-                            'email_address' => $teacher->email,
-                            'school_name'   => $schoolName,
-                            // The name they sign in with, now that they have one.
-                            'username'      => $teacher->username ?: $teacher->name,
-                            'name'          => $teacher->name,
-                            'login_url'     => url('/login'),
-                        ],
-                    ];
-
-                    dispatch(function () use ($emailPayload) {
-                        try {
-                            \App\Services\ZeptoMailService::sendTemplate(
-                                $emailPayload['template_key'],
-                                $emailPayload['to_email'],
-                                $emailPayload['to_name'],
-                                $emailPayload['merge'],
-                            );
-                            logger()->info('Teacher updated-email credentials sent (after-response) to: ' . $emailPayload['to_email']);
-                        } catch (\Throwable $e) {
-                            logger()->error('Teacher updated-email credentials failed (after-response) for ' . $emailPayload['to_email'] . ': ' . $e->getMessage());
-                        }
-                    })->afterResponse();
-                }
+                $this->sendCredentialsMail(
+                    $teacher,
+                    $teacher->plainPassword() ?? 'Use your existing password (unchanged)',
+                    'updated-email'
+                );
             }
 
             $this->notification()->success(
@@ -495,8 +435,100 @@ class Teacher extends Component
             'user'        => $detail->user,
             'detail'      => $detail,
             'assignments' => $assignments,
+            'attendance'  => $this->teacherAttendanceSummary($detail->id),
         ];
         $this->showViewModal = true;
+    }
+
+    /**
+     * The foot of the View panel: days present out of days marked, and the
+     * percentage — counted as the export counts them (present = status 1).
+     * "-" when nothing is marked yet, or when it can't be worked out.
+     */
+    private function teacherAttendanceSummary(int $teacherDetailId): string
+    {
+        try {
+            $row = TeacherAttendance::where('teacher_detail_id', $teacherDetailId)
+                ->selectRaw('COUNT(*) as total, SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) as present')
+                ->first();
+            $total   = (int) ($row->total ?? 0);
+            $present = (int) ($row->present ?? 0);
+            if ($total === 0) {
+                return '-';
+            }
+            $pct = rtrim(rtrim(number_format($present / $total * 100, 1), '0'), '.');
+
+            return "{$present} / {$total} ({$pct}%)";
+        } catch (\Throwable $e) {
+            logger()->warning('Teacher view attendance summary failed: ' . $e->getMessage());
+            return '-';
+        }
+    }
+
+    /**
+     * A teacher's sign-in details by email: their username and the password.
+     * Teachers sign in with their username (the login refuses a teacher's
+     * email), so the email no longer stands in as the login. Sent after the
+     * response, like the WhatsApp. Our own mail (ZeptoMail, no template) goes
+     * first so it says exactly that; should ZeptoMail refuse it, the teacher
+     * password template goes instead, with the username where it had the email.
+     */
+    private function sendCredentialsMail(User $teacher, string $password, string $kind): void
+    {
+        if (!$teacher->email) {
+            return;
+        }
+
+        $schoolName = Organization::find(Auth::user()->organization_id)?->name ?? 'School';
+        $username   = $teacher->username ?: $teacher->name;
+
+        $payload = [
+            'to_email'     => $teacher->email,
+            'to_name'      => $teacher->name,
+            'subject'      => $schoolName . ' - Your SuperLMS login details',
+            'html'         => view('emails.teacher-credentials', [
+                'schoolName' => $schoolName,
+                'name'       => $teacher->name,
+                'username'   => $username,
+                'password'   => $password,
+            ])->render(),
+            'template_key' => config('services.zeptomail.teacher_password_template_key'),
+            'merge'        => [
+                'password'      => $password,
+                'email_address' => $username,
+                'school_name'   => $schoolName,
+                'username'      => $username,
+                'name'          => $teacher->name,
+                'login_url'     => url('/login'),
+            ],
+        ];
+
+        dispatch(function () use ($payload, $kind) {
+            try {
+                \App\Services\ZeptoMailService::sendRaw($payload['subject'], $payload['html'], $payload['to_email'], $payload['to_name']);
+                logger()->info("Teacher {$kind} email sent (after-response) to: " . $payload['to_email']);
+                return;
+            } catch (\Throwable $e) {
+                logger()->warning("Teacher {$kind} email failed for {$payload['to_email']}, trying the template: " . $e->getMessage());
+            }
+
+            if (!$payload['template_key']) {
+                logger()->warning('ZEPTOMAIL_TEACHER_PASSWORD_TEMPLATE_KEY not configured — no ' . $kind . ' email for ' . $payload['to_email']);
+                return;
+            }
+
+            try {
+                \App\Services\ZeptoMailService::sendTemplate(
+                    $payload['template_key'],
+                    $payload['to_email'],
+                    $payload['to_name'],
+                    $payload['merge'],
+                );
+                logger()->info("Teacher {$kind} email (template) sent (after-response) to: " . $payload['to_email']);
+            } catch (\Throwable $e) {
+                logger()->error("Teacher {$kind} email (template) failed for {$payload['to_email']}: " . $e->getMessage());
+            }
+        })->afterResponse();
     }
 
     // ─── Photo, from the View panel ──────────────────────────────────────
