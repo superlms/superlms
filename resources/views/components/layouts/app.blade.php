@@ -78,9 +78,12 @@
            it sits in the middle of the window, and the top bar and the sidebar
            are dimmed and blurred with the page behind it. Such a popup lives in
            #main-scroll, whose layer sits under the top bar (z-40) and the
-           sidebar (z-50) — so while one is open that layer is lifted over both. */
+           sidebar (z-50) — so while one is open that layer is lifted over both.
+           The logout popups live in the top bar, whose layer sits under the
+           sidebar; it is lifted the same way. */
         #main-scroll:has(.lms-cover) { z-index: 60; }
         #main-scroll .lms-cover { inset: 0 !important; }
+        .lms-navbar:has(.lms-cover) { z-index: 60; }
 
         /* Sidebar logo, expanded state. The collapsed rail overrides it below. */
         .lms-logo-img { width: 4.5rem !important; height: 4.5rem !important; }

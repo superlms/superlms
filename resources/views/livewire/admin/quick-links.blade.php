@@ -1,6 +1,6 @@
 <div class="bg-gray-50">
 
-    {{-- ─── Filter bar — Quick Links heading + Sort + static rows/cols info. ─── --}}
+    {{-- ─── Filter bar — Quick Links heading + Sort + the day, date and time. ─── --}}
     <div class="bg-white border-b border-gray-200 px-3 sm:px-6 py-2.5 sm:py-3 sticky top-0 z-30">
         <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
 
@@ -41,29 +41,12 @@
                     }
                  }"
                  x-init="tick(); setInterval(() => tick(), 1000)"
-                 class="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
-                        bg-gray-50 border border-gray-200 text-[11px] font-medium text-gray-600">
-                <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                 class="ml-auto inline-flex items-center gap-1.5 text-sm font-medium text-gray-600">
                 <span class="text-gray-800 font-semibold" x-text="day"></span>
                 <span class="text-gray-300">·</span>
                 <span x-text="date"></span>
                 <span class="text-gray-300">·</span>
                 <span class="tabular-nums text-gray-800 font-semibold" x-text="time"></span>
-            </div>
-
-            {{-- Read-only layout info (no sorting controls). --}}
-            <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
-                        bg-gray-50 border border-gray-200 text-[11px] font-medium text-gray-600">
-                <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-                <span><strong class="text-gray-800">{{ $rows }}</strong> rows</span>
-                <span class="text-gray-300">·</span>
-                <span><strong class="text-gray-800">{{ $columns }}</strong> columns</span>
             </div>
         </div>
     </div>

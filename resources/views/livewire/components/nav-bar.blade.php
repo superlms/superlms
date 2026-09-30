@@ -270,7 +270,7 @@
 
     {{-- ── Super Admin Logout Modal ── --}}
     @if ($showSuperAdminLogoutModal)
-        <div class="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-[9999] px-4">
+        <div class="lms-cover fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-[9999] px-4">
             <div class="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
                 <div class="flex items-center gap-3 mb-4">
                     <div class="w-9 h-9 bg-red-50 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -303,7 +303,7 @@
 
     {{-- ── Admin Logout Modal ── --}}
     @if ($showAdminLogoutModal)
-        <div class="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-[9999] px-4">
+        <div class="lms-cover fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-[9999] px-4">
             <div class="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
                 <div class="flex items-center gap-3 mb-4">
                     <div class="w-9 h-9 bg-red-50 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -336,7 +336,7 @@
 
     {{-- ── Accounts Logout Modal ── --}}
     @if ($showAccountsLogoutModal)
-        <div class="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-[9999] px-4">
+        <div class="lms-cover fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-[9999] px-4">
             <div class="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
                 <div class="flex items-center gap-3 mb-4">
                     <div class="w-9 h-9 bg-red-50 rounded-lg flex items-center justify-center flex-shrink-0">
