@@ -24,9 +24,13 @@ use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Illuminate\Support\Facades\Session;
 use App\Models\Admin\RateLms;
+use App\Models\Admin\TransportFeePayment;
+use App\Livewire\Concerns\CountsBillableMonths;
 
 class Home extends Component
 {
+    use CountsBillableMonths;
+
     public $searchQuery = '';
     public $searchResults = [];
     public $recentSearches = [];
@@ -216,18 +220,69 @@ class Home extends Component
             ->where('status', false)
             ->count();
 
-        // Fee Statistics using new simplified models
+        $this->loadFeeOverview();
+    }
+
+    /**
+     * The school's fee, counted as Fee → Analytics counts it: every student's
+     * academic fee (the active heads of their class — the whole class's and
+     * their own section's — plus their own Last Year Dues) and every rider's
+     * transport fee (route fee × the months they are billed for). Collected is
+     * academic and transport, from both payment tables.
+     */
+    protected function loadFeeOverview(): void
+    {
         $orgId = FacadesAuth::user()->organization_id;
 
-        $this->overallFeeCollected = FeePayment::where('organization_id', $orgId)->sum('amount');
-        $totalFeeStructure = FeeStructure::where('organization_id', $orgId)->where('is_active', true)->sum('amount')
-            + FeeStructure::ownTotalForSchool($orgId, null); // students' own Last Year Dues
-        $this->totalFee = $totalFeeStructure;
-        $this->feeRemaining = max(0, $totalFeeStructure - $this->overallFeeCollected);
+        $heads = FeeStructure::where('organization_id', $orgId)
+            ->where('is_active', true)->where('fee_type', 'academic')
+            ->get(['standard_id', 'section_id', 'amount'])
+            ->groupBy('standard_id');
 
-        $this->feeCollectedToday = FeePayment::where('organization_id', $orgId)
-            ->whereDate('payment_date', $today)
+        // Students per class and section, so each pair's fee is worked out once.
+        $pairs = StudentDetail::where('organization_id', $orgId)
+            ->selectRaw('standard_id, section_id, COUNT(*) as students')
+            ->groupBy('standard_id', 'section_id')
+            ->get();
+
+        $academic = 0.0;
+        foreach ($pairs as $pair) {
+            $fee = ($heads[$pair->standard_id] ?? collect())
+                ->filter(fn ($h) => $h->section_id === null || (int) $h->section_id === (int) $pair->section_id)
+                ->sum('amount');
+            $academic += (float) $fee * (int) $pair->students;
+        }
+        $academic += FeeStructure::ownTotalForSchool($orgId); // students' own Last Year Dues
+
+        $transport = 0.0;
+        $riders = DB::table('transportation_students as ts')
+            ->join('transportations as t', 'ts.transportation_id', '=', 't.id')
+            ->join('student_details as sd', 'ts.student_detail_id', '=', 'sd.id')
+            ->where('ts.organization_id', $orgId)
+            ->get(['ts.billable_months', 't.monthly_fee']);
+        foreach ($riders as $row) {
+            $transport += (float) $row->monthly_fee * $this->billableMonthsCount($row->billable_months);
+        }
+
+        $this->totalFee            = $academic + $transport;
+        $this->overallFeeCollected = $this->feeCollected($orgId);
+        $this->feeRemaining        = max(0, $this->totalFee - $this->overallFeeCollected);
+        $this->feeCollectedToday   = $this->feeCollected($orgId, now()->toDateString());
+    }
+
+    /** Academic and transport fee taken — on one day, or ever. */
+    private function feeCollected(int $orgId, ?string $day = null): float
+    {
+        $academicAndTransport = FeePayment::where('organization_id', $orgId)
+            ->whereIn('fee_type', ['academic', 'transport'])
+            ->when($day, fn ($q) => $q->whereDate('payment_date', $day))
             ->sum('amount');
+
+        $transportTable = TransportFeePayment::where('organization_id', $orgId)
+            ->when($day, fn ($q) => $q->whereDate('payment_date', $day))
+            ->sum('amount');
+
+        return round((float) $academicAndTransport + (float) $transportTable, 2);
     }
 
     protected function loadLast7DaysData()
@@ -378,14 +433,20 @@ class Home extends Component
         $days  = (int) $this->feeRange;
         $start = now()->subDays($days - 1)->startOfDay();
 
-        $payments = FeePayment::where('organization_id', $orgId)
-            ->whereDate('payment_date', '>=', $start->toDateString())
-            ->selectRaw('DATE(payment_date) as d, SUM(amount) as total')
-            ->groupBy('d')->pluck('total', 'd');
-
+        // Academic and transport, from both payment tables.
         $byDate = [];
-        foreach ($payments as $d => $total) {
-            $byDate[(string) $d] = (float) $total;
+        $queries = [
+            FeePayment::where('organization_id', $orgId)->whereIn('fee_type', ['academic', 'transport']),
+            TransportFeePayment::where('organization_id', $orgId),
+        ];
+        foreach ($queries as $query) {
+            $payments = $query->whereDate('payment_date', '>=', $start->toDateString())
+                ->selectRaw('DATE(payment_date) as d, SUM(amount) as total')
+                ->groupBy('d')->pluck('total', 'd');
+
+            foreach ($payments as $d => $total) {
+                $byDate[(string) $d] = ($byDate[(string) $d] ?? 0) + (float) $total;
+            }
         }
 
         // Bucket width in days: 1 (daily), 7 (weekly) or a whole month.

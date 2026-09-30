@@ -95,9 +95,11 @@
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
                 @php
                     $todayCards = [
-                        ['Student Attendance', $studentAttPct . '%', $studentsPresentToday . ' of ' . $totalStudents . ' present', $studentAttPct, 'bg-emerald-500'],
-                        ['Teacher Attendance', $teacherAttPct . '%', $teachersPresentToday . ' of ' . $totalTeachers . ' present', $teacherAttPct, 'bg-blue-500'],
-                        ['Fee Collected', '₹' . number_format($overallFeeCollected, 0), $collectionPct . '% of ₹' . number_format($totalFee, 0) . ' expected', $collectionPct, 'bg-indigo-500'],
+                        ['Student Attendance', $studentAttPct . '%', $studentsPresentToday . ' of ' . $totalStudents . ' present', $studentAttPct, 'bg-gray-800'],
+                        ['Teacher Attendance', $teacherAttPct . '%', $teachersPresentToday . ' of ' . $totalTeachers . ' present', $teacherAttPct, 'bg-gray-800'],
+                        // Today's take, academic and transport; the line is how much of the
+                        // whole school's fee (academic + transport) has come in so far.
+                        ['Fee Collected Today', '₹' . number_format($feeCollectedToday, 0), $collectionPct . '% of ₹' . number_format($totalFee, 0) . ' overall fee collected', $collectionPct, 'bg-gray-800'],
                     ];
                 @endphp
                 @foreach ($todayCards as [$label, $value, $sub, $pct, $bar])
@@ -308,11 +310,11 @@
                     <dl class="space-y-3 text-sm">
                         <div class="flex items-baseline justify-between">
                             <dt class="text-gray-500">Collected</dt>
-                            <dd class="font-semibold text-emerald-600 tabular-nums">₹{{ number_format($overallFeeCollected) }}</dd>
+                            <dd class="font-semibold text-gray-900 tabular-nums">₹{{ number_format($overallFeeCollected) }}</dd>
                         </div>
                         <div class="flex items-baseline justify-between">
                             <dt class="text-gray-500">Pending</dt>
-                            <dd class="font-semibold text-amber-600 tabular-nums">₹{{ number_format($feeRemaining) }}</dd>
+                            <dd class="font-semibold text-gray-900 tabular-nums">₹{{ number_format($feeRemaining) }}</dd>
                         </div>
                         <div class="flex items-baseline justify-between pt-3 border-t border-gray-100">
                             <dt class="text-gray-500">Expected</dt>
@@ -325,7 +327,7 @@
                     </dl>
                     <div class="mt-auto pt-5">
                         <div class="flex justify-between text-xs mb-1.5"><span class="text-gray-400">Progress</span><span class="font-semibold text-gray-700">{{ $collectionPct }}%</span></div>
-                        <div class="w-full bg-gray-100 rounded-full h-1.5"><div class="bg-emerald-500 h-1.5 rounded-full" style="width: {{ min(100, $collectionPct) }}%"></div></div>
+                        <div class="w-full bg-gray-100 rounded-full h-1.5"><div class="bg-gray-800 h-1.5 rounded-full" style="width: {{ min(100, $collectionPct) }}%"></div></div>
                     </div>
                 </div>
             </div>
@@ -356,20 +358,21 @@
                                     </tr>
                                     <tr class="text-[10px]">
                                         <th></th>
-                                        <th class="px-4 pb-2 text-center font-normal text-emerald-500">Present</th>
-                                        <th class="px-4 pb-2 text-center font-normal text-red-400">Absent</th>
-                                        <th class="px-4 pb-2 text-center font-normal text-blue-500">Present</th>
-                                        <th class="px-4 pb-2 text-center font-normal text-red-400">Absent</th>
+                                        <th class="px-4 pb-2 text-center font-normal">Present</th>
+                                        <th class="px-4 pb-2 text-center font-normal">Absent</th>
+                                        <th class="px-4 pb-2 text-center font-normal">Present</th>
+                                        <th class="px-4 pb-2 text-center font-normal">Absent</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100">
-                                    @foreach ($last7DaysData as $data)
+                                    {{-- Today first, then each day before it. --}}
+                                    @foreach (array_reverse($last7DaysData) as $data)
                                         <tr class="hover:bg-gray-50/70">
                                             <td class="px-5 py-2.5 font-medium text-gray-700">{{ $data['day'] }}</td>
-                                            <td class="px-4 py-2.5 text-center text-emerald-600 tabular-nums">{{ $data['student_present'] }}</td>
-                                            <td class="px-4 py-2.5 text-center text-red-500 tabular-nums">{{ $data['student_absent'] }}</td>
-                                            <td class="px-4 py-2.5 text-center text-blue-600 tabular-nums">{{ $data['teacher_present'] }}</td>
-                                            <td class="px-4 py-2.5 text-center text-red-500 tabular-nums">{{ $data['teacher_absent'] }}</td>
+                                            <td class="px-4 py-2.5 text-center text-gray-700 tabular-nums">{{ $data['student_present'] }}</td>
+                                            <td class="px-4 py-2.5 text-center text-gray-700 tabular-nums">{{ $data['student_absent'] }}</td>
+                                            <td class="px-4 py-2.5 text-center text-gray-700 tabular-nums">{{ $data['teacher_present'] }}</td>
+                                            <td class="px-4 py-2.5 text-center text-gray-700 tabular-nums">{{ $data['teacher_absent'] }}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>
