@@ -11,6 +11,9 @@ use Livewire\Component;
 
 class ForgotPassword extends Component
 {
+    /** The main super-admin and the sub super-admins made on the Users screen. */
+    private const ROLES = ['super-admin', 'sub-super-admin'];
+
     public string $step = 'email'; // email | otp | password
 
     public string $email = '';
@@ -45,10 +48,16 @@ class ForgotPassword extends Component
              'email.email'    => 'Please enter a valid email address.']
         );
 
-        $user = User::where('email', $this->email)->where('role', 'super-admin')->first();
+        $user = User::where('email', $this->email)->whereIn('role', self::ROLES)->first();
 
         if (!$user) {
             $this->addError('email', 'No super admin account found with this email address.');
+            return;
+        }
+
+        // Same rule as the login: an inactive sub super-admin can't get in.
+        if ($user->role === 'sub-super-admin' && !$user->is_active) {
+            $this->addError('email', 'Your account is inactive. Please contact the administrator.');
             return;
         }
 
@@ -85,7 +94,7 @@ class ForgotPassword extends Component
             return;
         }
 
-        $user = User::where('email', $this->email)->where('role', 'super-admin')->first();
+        $user = User::where('email', $this->email)->whereIn('role', self::ROLES)->first();
 
         if (!$user) {
             $this->addError('otp', 'Unable to verify. Please start over.');
@@ -115,7 +124,7 @@ class ForgotPassword extends Component
             return;
         }
 
-        $user = User::where('email', $this->email)->where('role', 'super-admin')->first();
+        $user = User::where('email', $this->email)->whereIn('role', self::ROLES)->first();
 
         if (!$user) {
             $this->addError('otp', 'Unable to resend OTP. Please go back and try again.');
@@ -166,7 +175,7 @@ class ForgotPassword extends Component
             return;
         }
 
-        $user = User::where('email', $this->email)->where('role', 'super-admin')->first();
+        $user = User::where('email', $this->email)->whereIn('role', self::ROLES)->first();
 
         if (!$user) {
             $this->addError('password', 'User not found. Please start the process again.');

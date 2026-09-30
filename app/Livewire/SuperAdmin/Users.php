@@ -214,20 +214,29 @@ class Users extends Component
             $user->save();
 
             // Send credentials on creation — never blocks the save
+            $mailed = null;
             if (!$isEdit && $plainPassword) {
-                $this->sendCredentialsEmail($user, $plainPassword);
+                $mailed = $this->sendCredentialsEmail($user, $plainPassword);
             }
 
             // Email changed on an edit → re-send credentials to the NEW address
             // with the SAME (unchanged) password.
             if ($isEdit && $oldEmail && strcasecmp($oldEmail, $user->email) !== 0) {
-                $this->sendCredentialsEmail($user, $user->plainPassword() ?? 'Use your existing password (unchanged)');
+                $mailed = $this->sendCredentialsEmail($user, $user->plainPassword() ?? 'Use your existing password (unchanged)');
             }
 
-            $this->notification()->success(
-                $isEdit ? 'User Updated' : 'User Created',
-                $isEdit ? 'Sub super-admin updated successfully.' : 'Sub super-admin created and credentials emailed.'
-            );
+            if ($mailed === false) {
+                // Saved, but no mail went out — say so rather than claim it did.
+                $this->notification()->warning(
+                    $isEdit ? 'User Updated' : 'User Created',
+                    'The credentials email to ' . $user->email . ' could not be sent. They can set a password with "Forgot password?" on the Super Admin login.'
+                );
+            } else {
+                $this->notification()->success(
+                    $isEdit ? 'User Updated' : 'User Created',
+                    $isEdit ? 'Sub super-admin updated successfully.' : 'Sub super-admin created and credentials emailed.'
+                );
+            }
 
             $this->closePanel();
             // Clear any leftover list filter so the saved user is visible
@@ -240,32 +249,63 @@ class Users extends Component
         }
     }
 
-    protected function sendCredentialsEmail(User $user, string $plainPassword): void
+    /**
+     * Mail the sign-in details. The sub super-admin template goes first; if
+     * ZeptoMail refuses it (template gone, out of credit, …) the shared
+     * password template is tried, and then the app's own mailer when a real
+     * one is configured. True once one of them has sent it.
+     */
+    protected function sendCredentialsEmail(User $user, string $plainPassword): bool
     {
-        try {
-            $templateKey = config('services.zeptomail.sub_super_admin_password_template_key')
-                ?: config('services.zeptomail.teacher_password_template_key');
-            if (!$templateKey) {
-                logger()->warning('No password template key configured — skipping sub super-admin credentials email.');
-                return;
-            }
+        $templateKeys = array_values(array_unique(array_filter([
+            config('services.zeptomail.sub_super_admin_password_template_key'),
+            config('services.zeptomail.teacher_password_template_key'),
+        ])));
 
-            \App\Services\ZeptoMailService::sendTemplate(
-                $templateKey,
-                $user->email,
-                $user->name,
-                [
-                    'password'      => $plainPassword,
-                    'email_address' => $user->email,
-                    'school_name'   => 'SUPERLMS',
-                    'username'      => $user->name,
-                    'name'          => $user->name,
-                    'login_url'     => route('super-admin.login'),
-                ]
-            );
-            logger()->info('Sub super-admin credentials emailed to: ' . $user->email);
+        foreach ($templateKeys as $templateKey) {
+            try {
+                \App\Services\ZeptoMailService::sendTemplate(
+                    $templateKey,
+                    $user->email,
+                    $user->name,
+                    [
+                        'password'      => $plainPassword,
+                        'email_address' => $user->email,
+                        'school_name'   => 'SUPERLMS',
+                        'username'      => $user->name,
+                        'name'          => $user->name,
+                        'login_url'     => route('super-admin.login'),
+                    ]
+                );
+                logger()->info('Sub super-admin credentials emailed to: ' . $user->email);
+                return true;
+            } catch (\Throwable $e) {
+                logger()->error('Sub super-admin credentials email failed for ' . $user->email . ' (template ' . $templateKey . '): ' . $e->getMessage());
+            }
+        }
+
+        if (!$templateKeys) {
+            logger()->warning('No password template key configured — trying the app mailer for the sub super-admin credentials email.');
+        }
+
+        // The 'log'/'array' mailers "succeed" without delivering anything.
+        if (in_array(config('mail.default'), ['log', 'array', null, ''], true)) {
+            return false;
+        }
+
+        try {
+            \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\SubSuperAdminCredentialsMail(
+                (string) $user->name,
+                (string) $user->email,
+                $plainPassword,
+                route('super-admin.login'),
+                route('super-admin.forgot-password'),
+            ));
+            logger()->info('Sub super-admin credentials emailed (app mailer) to: ' . $user->email);
+            return true;
         } catch (\Throwable $e) {
-            logger()->error('Sub super-admin credentials email failed for ' . $user->email . ': ' . $e->getMessage());
+            logger()->error('Sub super-admin credentials email (app mailer) failed for ' . $user->email . ': ' . $e->getMessage());
+            return false;
         }
     }
 
