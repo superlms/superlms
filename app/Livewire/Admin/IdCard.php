@@ -27,6 +27,8 @@ class IdCard extends Component
     public $standardFilter = '';
     public $sectionFilter  = '';
     public $statusFilter   = '';
+    /** '' both, 'issued' (holds an active card) or 'not_issued' (holds none) — as the header counts them. */
+    public $issueFilter    = '';
     public $perPage = 100;
 
     // Generate flow
@@ -52,6 +54,7 @@ class IdCard extends Component
     public function updatedStandardFilter() { $this->sectionFilter = ''; $this->resetPage(); }
     public function updatedSectionFilter()  { $this->resetPage(); }
     public function updatedStatusFilter()   { $this->resetPage(); }
+    public function updatedIssueFilter()    { $this->resetPage(); }
     public function updatedSearch()         { $this->resetPage(); }
 
     public function switchCardType($type)
@@ -315,7 +318,7 @@ class IdCard extends Component
 
     public function resetFilters()
     {
-        $this->reset(['search', 'standardFilter', 'sectionFilter', 'statusFilter']);
+        $this->reset(['search', 'standardFilter', 'sectionFilter', 'statusFilter', 'issueFilter']);
         $this->resetPage();
     }
 
@@ -328,7 +331,59 @@ class IdCard extends Component
      */
     public function awaitingClass(): bool
     {
-        return $this->cardType === 'student' && blank($this->standardFilter);
+        // Issued / Not issued works on its own too: it lists the whole school.
+        return $this->cardType === 'student' && blank($this->standardFilter) && blank($this->issueFilter);
+    }
+
+    /** Not issued lists people (without an active card), not cards. */
+    public function listingPeople(): bool
+    {
+        return $this->issueFilter === 'not_issued';
+    }
+
+    /**
+     * Everyone of this tab's kind who holds no active card — the header's
+     * "Remaining" — narrowed by the search and, for students, class and section.
+     */
+    private function peopleWithoutCard(int $orgId)
+    {
+        $like = '%' . $this->search . '%';
+
+        if ($this->cardType === 'student') {
+            return StudentDetail::with(['user', 'standard', 'section'])
+                ->where('organization_id', $orgId)
+                ->whereNotIn('id', StudentIdCard::where('organization_id', $orgId)->where('status', 'active')->select('student_detail_id'))
+                ->when($this->search, fn ($q) => $q->where(fn ($w) => $w
+                    ->where('full_name', 'like', $like)
+                    ->orWhere('admission_no', 'like', $like)
+                    ->orWhere('email', 'like', $like)))
+                ->when($this->standardFilter, fn ($q) => $q->where('standard_id', $this->standardFilter))
+                ->when($this->sectionFilter, fn ($q) => $q->where('section_id', $this->sectionFilter))
+                ->orderBy('standard_id')
+                ->orderBy('section_id')
+                ->orderByRaw('CAST(roll_no AS UNSIGNED)')
+                ->orderBy('full_name');
+        }
+
+        if ($this->cardType === 'teacher') {
+            return TeacherDetail::with('user')
+                ->where('organization_id', $orgId)
+                ->whereNotIn('id', TeacherIdCard::where('organization_id', $orgId)->where('status', 'active')->select('teacher_detail_id'))
+                ->when($this->search, fn ($q) => $q->where(fn ($w) => $w
+                    ->where('employee_id', 'like', $like)
+                    ->orWhere('phone', 'like', $like)
+                    ->orWhereHas('user', fn ($u) => $u->where('name', 'like', $like)->orWhere('email', 'like', $like))))
+                ->orderBy('employee_id');
+        }
+
+        return AdminEmployee::where('organization_id', $orgId)
+            ->whereNotIn('id', EmployeeIdCard::where('organization_id', $orgId)->where('status', 'active')->select('admin_employee_id'))
+            ->when($this->search, fn ($q) => $q->where(fn ($w) => $w
+                ->where('name', 'like', $like)
+                ->orWhere('email', 'like', $like)
+                ->orWhere('mobile', 'like', $like)
+                ->orWhere('designation', 'like', $like)))
+            ->orderBy('name');
     }
 
     public function render()
@@ -344,6 +399,20 @@ class IdCard extends Component
                 'standards' => \App\Models\Student\Standard::where('organization_id', $orgId)
                     ->where('is_active', true)->inClassOrder()->get(['id', 'name']),
                 'sections'  => collect(),
+            ]);
+        }
+
+        $standards = \App\Models\Student\Standard::where('organization_id', $orgId)
+            ->where('is_active', true)->inClassOrder()->get(['id', 'name']);
+        $sections = $this->standardFilter
+            ? \App\Models\Student\Section::where('standard_id', $this->standardFilter)->orderBy('id')->get(['id', 'name'])
+            : collect();
+
+        if ($this->listingPeople()) {
+            return view('livewire.admin.id-card', [
+                'cards'     => $this->peopleWithoutCard($orgId)->paginate($this->perPage),
+                'standards' => $standards,
+                'sections'  => $sections,
             ]);
         }
 
@@ -405,13 +474,12 @@ class IdCard extends Component
             $query->where('status', $this->statusFilter);
         }
 
-        $cards = $query->latest()->paginate($this->perPage);
+        // Issued: the active cards — one per person the header counts as issued.
+        if ($this->issueFilter === 'issued') {
+            $query->where('status', 'active');
+        }
 
-        $standards = \App\Models\Student\Standard::where('organization_id', $orgId)
-            ->where('is_active', true)->inClassOrder()->get(['id', 'name']);
-        $sections = $this->standardFilter
-            ? \App\Models\Student\Section::where('standard_id', $this->standardFilter)->orderBy('id')->get(['id', 'name'])
-            : collect();
+        $cards = $query->latest()->paginate($this->perPage);
 
         return view('livewire.admin.id-card', [
             'cards'     => $cards,

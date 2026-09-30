@@ -60,24 +60,29 @@
                         @foreach ($sections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
                     </select>
                 @endif
-                <select wire:model.live="statusFilter" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                <select wire:model.live="statusFilter" @disabled($this->listingPeople()) class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
                     <option value="">All Status</option>
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
+                </select>
+                <select wire:model.live="issueFilter" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <option value="">Issued / Not Issued</option>
+                    <option value="issued">Issued</option>
+                    <option value="not_issued">Not Issued</option>
                 </select>
                 <select wire:model.live="perPage" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     <option value="50">50 / page</option>
                     <option value="100">100 / page</option>
                     <option value="200">200 / page</option>
                 </select>
-                @if ($search || $standardFilter || $sectionFilter || $statusFilter)
+                @if ($search || $standardFilter || $sectionFilter || $statusFilter || $issueFilter)
                     <button wire:click="resetFilters" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         Clear
                     </button>
                 @endif
                 @unless ($this->awaitingClass())
-                    <span class="ml-auto text-xs text-gray-500">Total: <strong class="text-gray-700">{{ $cards->total() }}</strong> card(s)</span>
+                    <span class="ml-auto text-xs text-gray-500">Total: <strong class="text-gray-700">{{ $cards->total() }}</strong> {{ $this->listingPeople() ? $cardType . '(s) without a card' : 'card(s)' }}</span>
                 @endunless
             </div>
         </div>
@@ -94,7 +99,7 @@
                     </svg>
                 </div>
                 <p class="text-sm font-semibold text-gray-800">Choose a class to see student ID cards</p>
-                <p class="text-xs text-gray-400 mt-1">Pick a class from the filter above. Teachers and employees list straight away.</p>
+                <p class="text-xs text-gray-400 mt-1">Pick a class, or Issued / Not Issued, from the filter above. Teachers and employees list straight away.</p>
             </div>
         @else
         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -112,6 +117,48 @@
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         @forelse ($cards as $i => $card)
+                            @if ($this->listingPeople())
+                                {{-- Not issued: the person, with no card to show or act on. --}}
+                                @php
+                                    if ($cardType === 'student') {
+                                        $name  = $card->full_name ?: ($card->user?->name ?? '—');
+                                        $img   = $card->image ?? ($card->user?->image ?? null);
+                                        $ident = trim(($card->admission_no ?? '') . ($card->standard ? ' · ' . $card->standard->name . ($card->section ? ' - ' . $card->section->name : '') : ''), ' ·');
+                                    } elseif ($cardType === 'teacher') {
+                                        $name  = $card->user?->name ?? '—';
+                                        $img   = $card->user?->image;
+                                        $ident = $card->employee_id;
+                                    } else {
+                                        $name  = $card->name ?? '—';
+                                        $img   = $card->photo;
+                                        $ident = $card->designation ?? ('EMP-' . $card->id);
+                                    }
+                                    $imgUrl = $img ? (\Illuminate\Support\Str::startsWith($img, ['http://','https://','data:']) ? $img : \Illuminate\Support\Facades\Storage::url($img)) : null;
+                                @endphp
+                                <tr wire:key="person-{{ $cardType }}-{{ $card->id }}" class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-4 py-3 text-sm text-gray-500 tabular-nums">{{ $cards->firstItem() + $i }}</td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-3">
+                                            @if ($imgUrl)
+                                                <img src="{{ $imgUrl }}" class="w-9 h-9 rounded-full object-cover border border-gray-200">
+                                            @else
+                                                <div class="w-9 h-9 rounded-full bg-violet-100 flex items-center justify-center text-violet-600 text-xs font-bold">{{ strtoupper(substr($name, 0, 1)) }}</div>
+                                            @endif
+                                            <div class="min-w-0">
+                                                <p class="font-semibold text-sm text-gray-900 truncate">{{ $name }}</p>
+                                                <p class="text-xs text-gray-400 truncate">{{ $ident ?: '—' }}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 font-mono text-xs text-gray-400">—</td>
+                                    <td class="px-4 py-3 text-center text-sm text-gray-400">—</td>
+                                    <td class="px-4 py-3 text-center">
+                                        <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-amber-50 text-amber-700">Not issued</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-center text-xs text-gray-400">—</td>
+                                </tr>
+                                @continue
+                            @endif
                             @php
                                 if ($cardType === 'student') {
                                     $person = $card->studentDetail;
@@ -175,7 +222,7 @@
                                     <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
                                         <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0z" /></svg>
                                     </div>
-                                    <p class="text-sm font-semibold text-gray-800">No ID cards found</p>
+                                    <p class="text-sm font-semibold text-gray-800">{{ $this->listingPeople() ? 'Everyone here has an ID card' : 'No ID cards found' }}</p>
                                     <button wire:click="openGenerate" class="mt-2 text-xs text-violet-600 hover:underline">Generate ID cards</button>
                                 </td>
                             </tr>
