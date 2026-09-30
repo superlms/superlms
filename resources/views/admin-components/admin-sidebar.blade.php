@@ -19,6 +19,27 @@
     $navItems = \App\Support\ModuleAccess::filterMenu($navItems, $authUser->organization);
 @endphp
 
+{{-- The school panel's own sidebar tweaks, on md+ (this partial is only
+     included for admin and sub-admin, so the other panels keep theirs):
+     - expanded, it is 4px narrower than the shared 253px;
+     - expanded, the logo and the school's name sit up beside the menu button
+       instead of under it (the button stays on top and clickable);
+     - the menu's scrollbar is a hairline. --}}
+<style>
+    @media (min-width: 768px) {
+        html.sidebar-expanded { --lms-sb: 249px; }
+        html.sidebar-expanded .lms-admin-rail .lms-topbar { position: relative; z-index: 1; }
+        html.sidebar-expanded .lms-admin-rail .lms-logo-wrap { margin-top: -2.25rem; padding-top: 0; }
+    }
+    #sidebar-nav::-webkit-scrollbar { width: 3px; }
+    #sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+    #sidebar-nav::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+    #sidebar-nav::-webkit-scrollbar-button { display: none; }
+    @supports not selector(::-webkit-scrollbar) {
+        #sidebar-nav { scrollbar-width: thin; scrollbar-color: #d1d5db transparent; }
+    }
+</style>
+
 <!-- Off-canvas menu for mobile -->
 <div x-show="offcanvas" x-cloak class="fixed inset-0 flex z-[60] md:hidden"
      role="dialog" aria-modal="true"
@@ -100,7 +121,7 @@
 </div>
 
 <!-- Static sidebar for desktop (collapsible icon rail ⇆ full) -->
-<div class="lms-rail hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0">
+<div class="lms-rail lms-admin-rail hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0">
     <div class="flex-1 flex flex-col min-h-0 bg-white border-r border-gray-200">
         <!-- Three-dot toggle -->
         <div class="lms-topbar flex items-center justify-between px-3 pt-3">
