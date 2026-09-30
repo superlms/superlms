@@ -737,31 +737,17 @@ class Teacher extends Component
     }
 
     /**
-     * Export teachers as a PDF of compact record cards - every field the Add
-     * Teacher form collects, plus bank details, class-teacher duty and the
-     * month-by-month attendance for the running session. Four to five teachers
-     * fit on an A4 landscape page.
+     * Export teachers as a PDF in the Students PDF's layout: up to ten to an
+     * A4 landscape page, one row each — serial number, photo in a small
+     * circle, then cells of four fields (every Add Teacher field, bank
+     * details, class-teacher duty, subjects, overall attendance) — without
+     * the month-by-month attendance (App\Support\TeacherExport::listPdf).
      */
     public function exportTeachersPdf(): StreamedResponse
     {
         $this->showExportPicker = false;
 
-        $org = Auth::user()->organization_id;
-        [$headings, $rows, $records] = $this->teacherExportData($org);
-
-        $orgModel = Organization::find($org);
-        $school = [
-            'name' => $orgModel?->name,
-            'logo' => ($orgModel?->logo && \Illuminate\Support\Str::startsWith($orgModel->logo, ['http://', 'https://'])) ? $orgModel->logo : null,
-        ];
-
-        $bytes = $this->renderExportPdf('pdf.record-export', [
-            'title'          => 'Teachers Report',
-            'school'         => $school,
-            'perRow'         => 7,
-            'recordsByGroup' => ['' => $records],
-            'total'          => count($rows),
-        ]);
+        $bytes = \App\Support\TeacherExport::listPdf((int) Auth::user()->organization_id);
 
         $stamp = now()->format('Y-m-d');
         return response()->streamDownload(fn () => print($bytes), "teachers_{$stamp}.pdf", [

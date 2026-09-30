@@ -165,7 +165,7 @@ class AdminTeacherController extends ApiController
 
         $name = 'teachers_' . now()->format('Y-m-d');
         [$bytes, $type, $name] = $request->format === 'pdf'
-            ? [TeacherExport::pdf($orgId, $rows, $records), 'application/pdf', $name . '.pdf']
+            ? [TeacherExport::listPdf($orgId), 'application/pdf', $name . '.pdf']
             : [TeacherExport::xlsx($headings, $rows), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $name . '.xlsx'];
 
         return response($bytes, 200, [

@@ -239,16 +239,11 @@ class StudentExport
     }
 
     /**
-     * The Students PDF: ten students to an A4 landscape page, one row each —
-     * serial number, photo (or the name's initial), then cells of three
-     * fields as plain "Label: value" lines — rows kept apart by a divider, and
-     * no attendance or fees. Same students and order as the sheet.
-     *
-     * Drawn straight with TCPDF rather than laid out from HTML by dompdf: the
-     * record cards took dompdf well over the gateway's minute for a whole
-     * school (a 504), and even a plain table took it most of a minute. Photos
-     * come small and cached (PdfPhotos). A value too long for its cell is cut
-     * short with "…", so every row keeps one height and a page holds ten.
+     * The Students PDF (App\Support\PdfList): up to ten students to an A4
+     * landscape page, one row each — serial number, photo in a small circle,
+     * then six cells of four fields — without attendance or fees. Nothing is
+     * cut short: a long value carries on to the next line. Same students and
+     * order as the sheet.
      */
     public static function listPdf(int $org, ?int $classId = null, ?int $sectionId = null): string
     {
@@ -265,12 +260,25 @@ class StudentExport
 
         $photos = PdfPhotos::squares($students->map(fn ($s) => $s->user->image ?? null)->all());
 
-        $dash = fn ($v) => ($v === null || trim((string) $v) === '') ? '-' : trim((string) $v);
+        $rows = [];
+        foreach ($students as $s) {
+            $name  = $s->full_name ?: ($s->user->name ?? '');
+            $route = $s->transportations->first();
+            $image = $s->user->image ?? null;
 
-        // Column widths in mm (277 across): S.No, photo, then the eight cells.
-        $noW   = 8;
-        $picW  = 17;
-        $cellW = [38, 22, 30, 35, 42, 26, 28, 31];
+            $rows[] = [
+                'photo'   => $image ? ($photos[$image] ?? null) : null,
+                'initial' => mb_strtoupper(mb_substr(trim($name) ?: '?', 0, 1)),
+                'cells'   => [
+                    [['Name', $name], ['Adm No', $s->admission_no], ['Roll No', $s->roll_no], ['Reg No', $s->registration_number]],
+                    [['Class', $s->standard->name ?? null], ['Section', $s->section->name ?? null], ['Board', $s->board ?? ($s->standard->board ?? null)], ['Status', ($s->user->is_active ?? false) ? 'Active' : 'Inactive']],
+                    [['Gender', $s->gender ? ucfirst($s->gender) : null], ['DOB', $s->dob?->format('d-m-Y')], ['Admitted', $s->date_of_admission?->format('d-m-Y')], ['Religion', $s->religion]],
+                    [['Father', $s->father_name], ['Mother', $s->mother_name], ['Mobile', $s->phone], ['Email', $s->user->email ?? null]],
+                    [['Aadhar', $s->aadhar_no], ['Apaar ID', $s->appar_id], ['Transport', $route ? $route->route_name : 'No'], ['Pincode', $s->pincode]],
+                    [['Address', $s->local_address], ['Permanent', $s->permanent_address], ['City', $s->city], ['State', $s->state]],
+                ],
+            ];
+        }
 
         $orgModel = Organization::find($org);
         $scope = 'All students';
@@ -278,181 +286,15 @@ class StudentExport
             $scope = trim((Standard::find($classId)?->name ?? 'Class')
                 . ($sectionId ? ' - ' . (Section::find($sectionId)?->name ?? '') : ''));
         }
-        $total   = $students->count();
-        $pages   = max(1, (int) ceil($total / 10));
-        $printed = now()->format('d M Y, g:i A');
+        $total = count($rows);
 
-        // TCPDF 6.11 flags itself deprecated in favour of tc-lib-pdf once per
-        // process; it still works, so keep that note out of the logs.
-        if (!defined('TCPDF_SILENCE_DEPRECATION')) {
-            define('TCPDF_SILENCE_DEPRECATION', true);
-        }
-        $pdf = new \TCPDF('L', 'mm', 'A4', true, 'UTF-8', false);
-        $pdf->SetCreator('SuperLMS');
-        $pdf->SetTitle('Students');
-        $pdf->setPrintHeader(false);
-        $pdf->setPrintFooter(false);
-        $pdf->SetMargins(10, 9, 10);
-        $pdf->SetAutoPageBreak(false);
-        $pdf->setCellPaddings(0, 0, 0, 0);
-        $pdf->setFontSubsetting(true);
-
-        // Cut a value down to what fits in $width at the current font.
-        $fit = function (string $text, float $width) use ($pdf): string {
-            if ($pdf->GetStringWidth($text) <= $width) {
-                return $text;
-            }
-            $len = mb_strlen($text);
-            while ($len > 1 && $pdf->GetStringWidth(mb_substr($text, 0, $len) . '…') > $width) {
-                $len--;
-            }
-            return mb_substr($text, 0, $len) . '…';
-        };
-
-        $logo = self::logoJpeg($orgModel?->logo);
-        $grey = [107, 114, 128];
-        $ink  = [17, 24, 39];
-
-        $drawHeader = function (int $page) use ($pdf, $orgModel, $scope, $total, $printed, $pages, $logo, $grey, $ink, $fit) {
-            $x = 10;
-            if ($page === 1 && $logo) {
-                $pdf->Image('@' . $logo, 10, 8.5, 0, 6, 'JPG');
-                $x = $pdf->getImageRBX() + 2;
-            }
-            $pdf->SetFont('dejavusans', 'B', 10);
-            $pdf->SetTextColor(...$ink);
-            $name  = $orgModel?->name ?: 'School';
-            $nameW = $pdf->GetStringWidth($name) + 1;
-            $pdf->SetXY($x, 9);
-            $pdf->Cell($nameW, 5, $name, 0, 0, 'L');
-
-            $pdf->SetFont('dejavusans', '', 7.5);
-            $pdf->SetTextColor(...$grey);
-            $rest = 187 - ($x + $nameW);
-            $pdf->Cell($rest, 5, $fit('  ·  Students  ·  ' . $scope . '  ·  ' . $total . ' student' . ($total === 1 ? '' : 's'), $rest), 0, 0, 'L');
-
-            $pdf->SetXY(187, 9);
-            $pdf->Cell(100, 5, $printed . '  ·  Page ' . $page . ' of ' . $pages, 0, 0, 'R');
-
-            $pdf->SetDrawColor(...$ink);
-            $pdf->SetLineWidth(0.3);
-            $pdf->Line(10, 15.5, 287, 15.5);
-        };
-
-        $rowH  = 17.5;
-        $lineH = 3.7;
-        $top   = 16.5;
-
-        $rows = $students->values();
-        for ($page = 1; $page <= $pages; $page++) {
-            $pdf->AddPage();
-            $drawHeader($page);
-
-            if ($total === 0) {
-                $pdf->SetFont('dejavusans', '', 9);
-                $pdf->SetTextColor(...$grey);
-                $pdf->SetXY(10, 30);
-                $pdf->Cell(277, 6, 'No students to export.', 0, 0, 'C');
-            }
-
-            foreach ($rows->slice(($page - 1) * 10, 10)->values() as $k => $s) {
-                $i     = ($page - 1) * 10 + $k;
-                $y     = $top + $k * $rowH;
-                $name  = $s->full_name ?: ($s->user->name ?? '');
-                $route = $s->transportations->first();
-                $image = $s->user->image ?? null;
-
-                // Serial number
-                $pdf->SetFont('dejavusans', 'B', 8);
-                $pdf->SetTextColor(...$ink);
-                $pdf->SetXY(10, $y);
-                $pdf->Cell($noW, $rowH, (string) ($i + 1), 0, 0, 'C', false, '', 0, false, 'T', 'M');
-
-                // Photo, or the name's initial on grey
-                $px    = 10 + $noW + 1.5;
-                $py    = $y + ($rowH - 14) / 2;
-                $photo = $image ? ($photos[$image] ?? null) : null;
-                if ($photo) {
-                    $pdf->Image('@' . $photo, $px, $py, 14, 14, 'JPG');
-                } else {
-                    $pdf->SetFillColor(229, 231, 235);
-                    $pdf->Rect($px, $py, 14, 14, 'F');
-                    $pdf->SetFont('dejavusans', '', 14);
-                    $pdf->SetTextColor(...$grey);
-                    $pdf->SetXY($px, $py);
-                    $pdf->Cell(14, 14, mb_strtoupper(mb_substr(trim($name) ?: '?', 0, 1)), 0, 0, 'C', false, '', 0, false, 'T', 'M');
-                }
-
-                $cells = [
-                    [['Name', $name], ['Adm No', $s->admission_no], ['Roll No', $s->roll_no]],
-                    [['Class', $s->standard->name ?? null], ['Section', $s->section->name ?? null], ['Board', $s->board ?? ($s->standard->board ?? null)]],
-                    [['Gender', $s->gender ? ucfirst($s->gender) : null], ['DOB', $s->dob?->format('d-m-Y')], ['Admitted', $s->date_of_admission?->format('d-m-Y')]],
-                    [['Father', $s->father_name], ['Mother', $s->mother_name], ['Religion', $s->religion]],
-                    [['Mobile', $s->phone], ['Email', $s->user->email ?? null], ['Aadhar', $s->aadhar_no]],
-                    [['Apaar ID', $s->appar_id], ['Reg No', $s->registration_number], ['Status', ($s->user->is_active ?? false) ? 'Active' : 'Inactive']],
-                    [['City', $s->city], ['State', $s->state], ['Pincode', $s->pincode]],
-                    [['Address', $s->local_address], ['Permanent', $s->permanent_address], ['Transport', $route ? $route->route_name : 'No']],
-                ];
-
-                $cx = 10 + $noW + $picW;
-                $ty = $y + ($rowH - 3 * $lineH) / 2;
-                $pdf->SetFont('dejavusans', '', 6.8);
-                foreach ($cells as $c => $fields) {
-                    $w = $cellW[$c] - 1.5;
-                    foreach ($fields as $l => [$label, $value]) {
-                        $label .= ': ';
-                        $lw = $pdf->GetStringWidth($label);
-                        $pdf->SetXY($cx, $ty + $l * $lineH);
-                        $pdf->SetTextColor(...$grey);
-                        $pdf->Cell($lw, $lineH, $label, 0, 0, 'L');
-                        $pdf->SetTextColor(...$ink);
-                        $pdf->Cell($w - $lw, $lineH, $fit($dash($value), $w - $lw), 0, 0, 'L');
-                    }
-                    $cx += $cellW[$c];
-                }
-
-                // Divider under the student
-                $pdf->SetDrawColor(209, 213, 219);
-                $pdf->SetLineWidth(0.2);
-                $pdf->Line(10, $y + $rowH, 287, $y + $rowH);
-            }
-        }
-
-        return $pdf->Output('students.pdf', 'S');
-    }
-
-    /** The school's logo as JPEG bytes on white, 80px high (fetched once), or null. */
-    private static function logoJpeg(?string $logo): ?string
-    {
-        if (!$logo || !Str::startsWith($logo, ['http://', 'https://'])) {
-            return null;
-        }
-
-        try {
-            $response = \Illuminate\Support\Facades\Http::timeout(5)->connectTimeout(3)->get($logo);
-            if (!$response->successful() || strlen($response->body()) > 5_000_000) {
-                return null;
-            }
-            $src = @imagecreatefromstring($response->body());
-            if (!$src) {
-                return null;
-            }
-            $h   = 80;
-            $w   = max(1, (int) round(imagesx($src) * $h / max(1, imagesy($src))));
-            $out = imagecreatetruecolor($w, $h);
-            imagefill($out, 0, 0, imagecolorallocate($out, 255, 255, 255));
-            imagecopyresampled($out, $src, 0, 0, 0, 0, $w, $h, imagesx($src), imagesy($src));
-            ob_start();
-            imagejpeg($out, null, 90);
-            $jpeg = (string) ob_get_clean();
-            imagedestroy($out);
-            imagedestroy($src);
-
-            return $jpeg !== '' ? $jpeg : null;
-        } catch (\Throwable $e) {
-            // No logo is better than no PDF.
-            return null;
-        }
+        return PdfList::render([
+            'school' => $orgModel?->name,
+            'logo'   => PdfList::logo($orgModel?->logo),
+            'title'  => 'Students',
+            'scope'  => $scope,
+            'count'  => $total . ' student' . ($total === 1 ? '' : 's'),
+        ], [42, 29, 30, 62, 34, 60.5], $rows);
     }
 
     /** Filename part saying what was exported: "all" or "class-5-a". */
