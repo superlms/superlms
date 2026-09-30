@@ -507,7 +507,7 @@ class AdminStudentController extends ApiController
 
         $name = 'students_' . \App\Support\StudentExport::slug($classId, $sectionId) . '_' . now()->format('Y-m-d');
         [$bytes, $type, $name] = $request->format === 'pdf'
-            ? [\App\Support\StudentExport::pdf($orgId, $rows, $byClass), 'application/pdf', $name . '.pdf']
+            ? [\App\Support\StudentExport::listPdf($orgId, $classId, $sectionId), 'application/pdf', $name . '.pdf']
             : [\App\Support\StudentExport::xlsx($headings, $rows), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $name . '.xlsx'];
 
         return response($bytes, 200, [

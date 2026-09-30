@@ -21,6 +21,7 @@
         "snowfire/beautymail": "^1.1",
         "symfony/http-client": "^7.3",
         "symfony/mailgun-mailer": "^7.3",
+        "tecnickcom/tcpdf": "^6.7",
         "wireui/heroicons": "^2.9",
         "wireui/wireui": "^2.4"
     },

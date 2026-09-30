@@ -1075,10 +1075,10 @@ class Student extends Component
     }
 
     /**
-     * Export students as a PDF of compact record cards, grouped class by class.
-     * Each card carries every Add Student form field plus overall attendance and
-     * the academic + transport fee position. Four to five students fit on an A4
-     * landscape page.
+     * Export students as a PDF: ten to an A4 landscape page, one row each —
+     * serial number, photo, then cells of three fields — without attendance
+     * or fees (App\Support\StudentExport::listPdf). The record cards it used to
+     * print ran a whole school past the gateway's time limit.
      */
     public function exportStudentsPdf(): ?StreamedResponse
     {
@@ -1088,22 +1088,14 @@ class Student extends Component
 
         $this->showExportPicker = false;
 
-        $org = Auth::user()->organization_id;
-        [$headings, $rows, $recordsByClass] = $this->studentExportData($org);
+        $org       = Auth::user()->organization_id;
+        $classWise = $this->exportScope === 'class' && $this->exportClass;
 
-        $orgModel = Organization::find($org);
-        $school = [
-            'name' => $orgModel?->name,
-            'logo' => ($orgModel?->logo && \Illuminate\Support\Str::startsWith($orgModel->logo, ['http://', 'https://'])) ? $orgModel->logo : null,
-        ];
-
-        $bytes = $this->renderExportPdf('pdf.record-export', [
-            'title'          => 'Students Report',
-            'school'         => $school,
-            'perRow'         => 7,
-            'recordsByGroup' => $recordsByClass,
-            'total'          => count($rows),
-        ]);
+        $bytes = StudentExport::listPdf(
+            $org,
+            $classWise ? (int) $this->exportClass : null,
+            $classWise && $this->exportSection ? (int) $this->exportSection : null,
+        );
 
         $stamp = now()->format('Y-m-d');
         $scope = $this->exportScopeSlug();
