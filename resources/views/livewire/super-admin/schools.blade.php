@@ -1624,31 +1624,23 @@
          tab stays where it is. Every login goes to the same named tab, so that
          tab follows whichever school was logged into last; an admin tab still
          open on an earlier school follows too (partials.school-login-sync). --}}
+    {{-- The Login buttons post this into the school tab from the click itself,
+         so the tab opens on the school's login at once — it no longer opens
+         empty and waits for a Livewire answer (which, when it never came, left
+         the tab on about:blank). SchoolLoginController signs in and lands on
+         the school's home; the other admin tabs follow from there. --}}
+    <form id="lms-school-login" method="POST" target="superlms-school" class="hidden" wire:ignore
+          data-action="{{ route('super-admin.school-login', ['organization' => '999999999']) }}">
+        @csrf
+    </form>
+
     @script
     <script>
         window.lmsLoginAsSchool = function (orgId) {
-            // Take the tab inside the click itself — a tab opened only after the
-            // server answers counts as a popup and gets blocked.
-            let tab = null;
-            try { tab = window.open('', 'superlms-school'); } catch (e) {}
-
-            const isNew = () => {
-                try { return !!tab && !tab.closed && tab.location.href === 'about:blank'; } catch (e) { return false; }
-            };
-
-            $wire.schoolLoginUrl(orgId).then((url) => {
-                if (!url) { if (isNew()) tab.close(); return; }
-
-                try {
-                    localStorage.setItem('superlms-school-login', JSON.stringify({ org: String(orgId), url: url, at: Date.now() }));
-                } catch (e) {}
-
-                // No tab (blocked) → open the school here, as before.
-                if (!tab) { window.location.href = url; return; }
-                if (tab.closed) { window.open(url, 'superlms-school'); return; }
-                tab.location.href = url;
-                try { tab.focus(); } catch (e) {}
-            }).catch(() => { if (isNew()) tab.close(); });
+            const form = document.getElementById('lms-school-login');
+            if (!form) return;
+            form.action = form.dataset.action.replace('999999999', String(parseInt(orgId, 10)));
+            form.submit();
         };
     </script>
     @endscript

@@ -97,3 +97,10 @@ Route::middleware(['auth:superadmin', 'super-admin'])->group(function () {
         return response()->json(['ok' => true]);
     })->name('super-admin.fcm-token');
 });
+
+// Schools → Login: signs the admin guard into the school and opens its home in
+// the school tab. Who may is checked inside (a sub super-admin needs Schools).
+Route::middleware(['auth:superadmin'])
+    ->post('schools/{organization}/login', \App\Http\Controllers\SchoolLoginController::class)
+    ->whereNumber('organization')
+    ->name('super-admin.school-login');

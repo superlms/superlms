@@ -119,6 +119,11 @@ class Schools extends Component
     public function mount(): void
     {
         $this->loadStats();
+
+        // Schools → Login found no admin account (SchoolLoginController).
+        if ($message = session('school-login-error')) {
+            $this->notification()->error($message);
+        }
     }
 
     private function loadStats(): void
