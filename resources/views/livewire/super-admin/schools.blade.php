@@ -183,7 +183,7 @@
                                                 class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                             </button>
-                                            <button wire:click="loginAsSchool({{ $school->id }})" title="Login as school"
+                                            <button type="button" x-on:click="lmsLoginAsSchool({{ $school->id }})" title="Login as school"
                                                 class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
                                             </button>
@@ -244,7 +244,7 @@
                         </div>
                         <div class="flex items-center border-t border-gray-100 divide-x divide-gray-100 mt-3 pt-1 -mb-1">
                             <button wire:click="viewSchoolDetail({{ $school->id }})" class="flex-1 py-2 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">View</button>
-                            <button wire:click="loginAsSchool({{ $school->id }})" class="flex-1 py-2 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">Login</button>
+                            <button type="button" x-on:click="lmsLoginAsSchool({{ $school->id }})" class="flex-1 py-2 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">Login</button>
                             <button wire:click="onEdit({{ $school->id }})" class="flex-1 py-2 text-xs font-medium text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">Edit</button>
                             <button wire:click="onDelete({{ $school->id }})" class="flex-1 py-2 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">Delete</button>
                         </div>
@@ -1619,5 +1619,38 @@
             </div>
         </div>
     @endif
+
+    {{-- Login as school: the school opens in its own tab and this super-admin
+         tab stays where it is. Every login goes to the same named tab, so that
+         tab follows whichever school was logged into last; an admin tab still
+         open on an earlier school follows too (partials.school-login-sync). --}}
+    @script
+    <script>
+        window.lmsLoginAsSchool = function (orgId) {
+            // Take the tab inside the click itself — a tab opened only after the
+            // server answers counts as a popup and gets blocked.
+            let tab = null;
+            try { tab = window.open('', 'superlms-school'); } catch (e) {}
+
+            const isNew = () => {
+                try { return !!tab && !tab.closed && tab.location.href === 'about:blank'; } catch (e) { return false; }
+            };
+
+            $wire.schoolLoginUrl(orgId).then((url) => {
+                if (!url) { if (isNew()) tab.close(); return; }
+
+                try {
+                    localStorage.setItem('superlms-school-login', JSON.stringify({ org: String(orgId), url: url, at: Date.now() }));
+                } catch (e) {}
+
+                // No tab (blocked) → open the school here, as before.
+                if (!tab) { window.location.href = url; return; }
+                if (tab.closed) { window.open(url, 'superlms-school'); return; }
+                tab.location.href = url;
+                try { tab.focus(); } catch (e) {}
+            }).catch(() => { if (isNew()) tab.close(); });
+        };
+    </script>
+    @endscript
 
 </div>

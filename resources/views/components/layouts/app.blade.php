@@ -180,6 +180,11 @@
     @livewireCalendarScripts
     @include('partials.auto-refresh')
 
+    {{-- ─── Follow the super-admin's "Login as school" into this tab ─── --}}
+    @if (Auth::user() && in_array(Auth::user()->role, ['admin', 'sub-admin']))
+        @include('partials.school-login-sync')
+    @endif
+
     {{-- ─── Global toast for Livewire `notify` events ───
          Many components dispatch `$this->dispatch('notify', ['type'=>.., 'message'=>..])`.
          Render them as a lightweight top-end toast so success/error feedback is

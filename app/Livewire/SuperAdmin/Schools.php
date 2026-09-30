@@ -860,6 +860,24 @@ class Schools extends Component
         return redirect()->route('admin.home', ['organization' => $admin->organization_id]);
     }
 
+    // The list's Login button: the same login as loginAsSchool(), but the page
+    // gets the school's URL back and opens it in the school tab (see the
+    // script at the foot of the view), so this super-admin tab stays put.
+    public function schoolLoginUrl($orgId): ?string
+    {
+        $admin = User::where('organization_id', $orgId)
+            ->where('role', 'admin')
+            ->first();
+
+        if (!$admin) {
+            $this->notification()->error('No admin account found for this school.');
+            return null;
+        }
+
+        Auth::guard('admin')->login($admin);
+        return route('admin.home', ['organization' => $admin->organization_id]);
+    }
+
     public function doDelete($id): void
     {
         // Deleting the organization cascades to ALL of its data (students,
