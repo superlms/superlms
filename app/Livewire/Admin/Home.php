@@ -54,10 +54,6 @@ class Home extends Component
 
     // Fee data
     public $totalFee = 0;
-    // What the whole fee is made of: class fee, the students' Last Year Dues, transport.
-    public $feeAcademic = 0;
-    public $feeLastYearDues = 0;
-    public $feeTransport = 0;
     public $feeCollectedToday = 0;
     public $feeRemaining = 0;
     public $overallFeeCollected = 0;
@@ -259,7 +255,7 @@ class Home extends Component
                 ->sum('amount');
             $academic += (float) $fee * (int) $pair->students;
         }
-        $lastYearDues = FeeStructure::ownTotalForSchool($orgId); // students' own Last Year Dues
+        $academic += FeeStructure::ownTotalForSchool($orgId); // students' own Last Year Dues
 
         $transport = 0.0;
         $riders = DB::table('transportation_students as ts')
@@ -271,10 +267,7 @@ class Home extends Component
             $transport += (float) $row->monthly_fee * $this->billableMonthsCount($row->billable_months);
         }
 
-        $this->feeAcademic         = $academic;
-        $this->feeLastYearDues     = $lastYearDues;
-        $this->feeTransport        = $transport;
-        $this->totalFee            = $academic + $lastYearDues + $transport;
+        $this->totalFee            = $academic + $transport;
         $today = now()->toDateString();
 
         $this->overallFeeCollected = $this->feeCollected($orgId, AcademicYear::start()->toDateString(), $today);
