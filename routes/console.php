@@ -21,12 +21,19 @@ Schedule::command('homework:purge-old')
     ->dailyAt('03:20')
     ->withoutOverlapping();
 
-// Every midnight: for any organization + person-type that already had a card
-// batch issued, generate ID cards for newly-added students / teachers /
-// employees that don't have one yet. See App\Console\Commands\GenerateMissingIdCards.
+// Every midnight (IST): in each school that issues ID cards, give a card to the
+// students, teachers and employees added during the day — anyone without one.
+// See App\Console\Commands\GenerateMissingIdCards.
+//
+// It runs again every half hour until 5:30 am. The command only fills gaps, so
+// a second run costs nothing — but a single run at 00:00 was lost whenever that
+// one minute was missed (the scheduler restarts with every deploy), and its
+// day-long overlap lock, left behind by a run that was cut short, then kept the
+// next midnight's run out as well. The lock now lasts 20 minutes.
 Schedule::command('id-cards:generate-missing')
-    ->dailyAt('00:00')
-    ->withoutOverlapping();
+    ->cron('0,30 0-5 * * *')
+    ->timezone('Asia/Kolkata')
+    ->withoutOverlapping(20);
 
 // Every morning at 9am IST: fee reminders to students — an academic
 // installment due in 10, 7, 3 or 1 day or today, or a day late (the late fee
