@@ -15,17 +15,26 @@ use Livewire\Component;
  * What an installed panel app (School Admin, Accounts, Super Admin) opens on —
  * the start_url of its desktop / home-screen shortcut.
  *
- * Opening the app asks for a code mailed to the account that signed in on this
- * device ({@see PanelApp}), and nothing else: no email, no password. While the
- * panel is open in any window or tab, opening it again — as often as wanted —
- * goes straight in. Once every one of them is closed, the next opening asks
- * for a code again. A device nobody has signed in on yet gets the panel's
- * login screen first.
+ * The first time the app is opened on a device it gets the panel's login
+ * screen: email, password and the login's code. After that, opening the app
+ * asks for a code mailed to the account that login was made with
+ * ({@see PanelApp}), and nothing else: no email, no password. While a window
+ * of the app is open, opening it again — as often as wanted — goes straight
+ * in. Once every window of the app is closed, the next opening asks for a code
+ * again.
  *
- * Whether the panel is still open only the browser can tell, so the page asks
- * it first (the "checking" step) and reports back through opened(). An app
- * found closed has its sign-in ended on the spot, so until the code is entered
- * the panel is shut from every window, not just this one.
+ * Being signed in to the panel in a browser tab does not open the app: it
+ * still asks for its login the first time, and for its code every time after.
+ *
+ * Whether the app is still open only the browser can tell, so the page asks
+ * it first (the "checking" step) and reports back through opened():
+ *   'running' — a window of the app has the panel open;
+ *   'tab'     — no window of the app, but a browser tab has;
+ *   'closed'  — the panel is open nowhere.
+ * An app found closed has its sign-in ended on the spot, so until the code is
+ * entered the panel is shut from every window, not just this one — except
+ * when a browser tab is using that sign-in, which is then left alone: the tab
+ * goes on working, and this window still waits for its code.
  *
  * A school's app on a super-admin's own device — installed after Schools →
  * Login, with no school account signed in — opens on the super-admin's code.
@@ -58,6 +67,10 @@ class AppLock extends Component
     #[Locked]
     public string $step = 'checking'; // 'checking' | 'otp'
 
+    /** The code was entered here: this window may go in. */
+    #[Locked]
+    public bool $verified = false;
+
     public string $otpSentTo = '';
     public array  $otp       = ['', '', '', '', '', ''];
 
@@ -89,17 +102,17 @@ class AppLock extends Component
         $this->accountId     = $account?->getKey();
         $this->viaSuperAdmin = $viaSuperAdmin;
 
-        // Nobody signed in, and nobody ever has on this device: the login screen.
+        // Not signed in, and the app has no account on this device: its login.
         if (!$account && !$this->signedIn()) {
-            return redirect()->route($this->loginRoute());
+            return $this->toLogin();
         }
     }
 
     /**
-     * The page's answer to "is the panel open in another window or tab?" —
-     * asked of the browser once, as the page loads.
+     * The page's answer to "is the app open?" — asked of the browser once, as
+     * the page loads: 'running', 'tab' or 'closed' (see the class comment).
      */
-    public function opened(bool $running = false)
+    public function opened(string $state = 'closed')
     {
         if ($this->step !== 'checking') {
             return;
@@ -107,19 +120,22 @@ class AppLock extends Component
 
         $user = $this->signedIn();
 
-        // Still open somewhere and signed in: straight in, as often as wanted.
-        if ($running && $user) {
+        // A window of the app is open and signed in: straight in, as often as wanted.
+        if ($state === 'running' && $user) {
             return $this->enter($user);
         }
 
-        // Closed and opened again: the sign-in ended with the app.
-        if ($user) {
+        $account = $this->account();
+
+        // Closed and opened again: the sign-in ended with the app — unless a
+        // browser tab is using it. The app's first opening on this device ends
+        // it either way: the login screen only shows to someone signed out.
+        if ($user && ($state !== 'tab' || !$account)) {
             PanelApp::signOut($this->panel);
         }
 
-        $account = $this->account();
         if (!$account) {
-            return redirect()->route($this->loginRoute());
+            return $this->toLogin();
         }
 
         // The emergency switch that skips the login OTP skips this one too.
@@ -133,8 +149,8 @@ class AppLock extends Component
 
     public function verifyOtp()
     {
-        // Already let in by another window of the app, or by a doubled request.
-        if ($user = $this->signedIn()) {
+        // A doubled request: the code was already entered here.
+        if ($this->verified && ($user = $this->signedIn())) {
             return $this->enter($user);
         }
 
@@ -151,7 +167,7 @@ class AppLock extends Component
 
         $account = $this->account();
         if (!$account) {
-            return redirect()->route($this->loginRoute());
+            return $this->toLogin();
         }
 
         try {
@@ -174,16 +190,19 @@ class AppLock extends Component
 
         $account = $this->account();
         if (!$account) {
-            return redirect()->route($this->loginRoute());
+            return $this->toLogin();
         }
 
         $this->sendCode($account);
     }
 
-    /** Back at the window: another window of the app may have entered the code. */
-    public function recheck()
+    /**
+     * Back at the window: another window of the app may have entered the code
+     * meanwhile — the page looked, and found the app open.
+     */
+    public function recheck(string $state = 'closed')
     {
-        if ($user = $this->signedIn()) {
+        if ($state === 'running' && ($user = $this->signedIn())) {
             return $this->enter($user);
         }
     }
@@ -193,6 +212,18 @@ class AppLock extends Component
     {
         // Its login screen sends anyone signed in on the guard back inside.
         PanelApp::signOut($this->panel);
+
+        return $this->toLogin();
+    }
+
+    /**
+     * To the panel's login screen, for the app's own login: the account that
+     * signs in there is the one the app opens for from then on. ?password=1
+     * keeps the login screen from handing the window straight back here.
+     */
+    private function toLogin()
+    {
+        PanelApp::expectLogin($this->panel);
 
         return redirect()->route($this->loginRoute(), ['password' => 1]);
     }
@@ -265,6 +296,8 @@ class AppLock extends Component
             PanelApp::remember($this->panel, $user);
         }
 
+        $this->verified = true;
+
         return $this->enter($user);
     }
 
@@ -331,7 +364,7 @@ class AppLock extends Component
     public function render()
     {
         return view('livewire.app-lock', [
-            'openName' => PanelApp::openName($this->panel, $this->school),
+            'openNames' => PanelApp::openNames($this->panel, $this->school),
         ])->layout('components.layouts.fullscreen');
     }
 }

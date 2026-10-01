@@ -29,30 +29,38 @@
     <script>
         window.__superlmsAutoRefresh = window.__superlmsAutoRefresh || true;
 
-        // Is the panel open in this browser — in another window or tab, or in
-        // this very window a moment ago? Every open page of a panel holds a
-        // lock named after it (partials/panel-app-open); the browser lets go of
-        // it the instant the page is closed, so no page holding it means the
-        // app was closed.
-        window.lmsPanelOpen = window.lmsPanelOpen || function (name, done) {
+        // Is the app open? Every open page of a panel holds a lock named after
+        // the panel (partials/panel-app-open) — one name in a window of the
+        // installed app, another in a browser tab — and the browser lets go
+        // of it the instant the page is closed.
+        //   'running' — a window of the app holds its lock (or this very
+        //               window had the panel open a moment ago);
+        //   'tab'     — only a browser tab does: the app was closed, but the
+        //               browser is still using the sign-in;
+        //   'closed'  — nobody does.
+        // A browser that cannot say is read as 'tab': the code is asked for,
+        // and nobody is signed out on a guess.
+        window.lmsPanelOpen = window.lmsPanelOpen || function (names, done) {
             var answered = false;
-            function answer(running) {
+            function answer(state) {
                 if (answered) return;
                 answered = true;
-                done(!!running);
+                done(state);
             }
 
             try {
-                if (window.sessionStorage.getItem(name) === '1') return answer(true);
+                if (window.sessionStorage.getItem(names.app) === '1') return answer('running');
             } catch (e) {}
 
-            if (!navigator.locks || !navigator.locks.query) return answer(false);
+            if (!navigator.locks || !navigator.locks.query) return answer('tab');
 
-            navigator.locks.query().then(function (state) {
-                answer((state.held || []).some(function (lock) { return lock.name === name; }));
-            }, function () { answer(false); });
+            navigator.locks.query().then(function (locks) {
+                var held = (locks.held || []).map(function (lock) { return lock.name; });
+                if (held.indexOf(names.app) !== -1) return answer('running');
+                answer(held.indexOf(names.tab) !== -1 || held.indexOf(names.legacy) !== -1 ? 'tab' : 'closed');
+            }, function () { answer('tab'); });
 
-            setTimeout(function () { answer(false); }, 3000);
+            setTimeout(function () { answer('tab'); }, 3000);
         };
     </script>
 
@@ -72,10 +80,10 @@
                     class="w-full h-full object-contain">
             </div>
 
-            {{-- ── Asking the browser whether the panel is still open ── --}}
+            {{-- ── Asking the browser whether the app is still open ── --}}
             @if ($step === 'checking')
                 <div class="text-center" wire:key="app-lock-checking"
-                    x-data x-init="window.lmsPanelOpen(@js($openName), running => $wire.opened(running))">
+                    x-data x-init="window.lmsPanelOpen(@js($openNames), state => $wire.opened(state))">
                     <div class="mx-auto mb-5 h-9 w-9 rounded-full border-4 {{ $c['spin'] }} animate-spin"></div>
                     <h1 class="text-xl font-bold text-gray-800">Opening SuperLMS…</h1>
                     <p class="text-gray-500 mt-1 text-sm">Just a moment</p>
@@ -85,9 +93,9 @@
             {{-- ── The code ── --}}
             @if ($step === 'otp')
                 <div class="text-center mb-6" wire:key="app-lock-otp-title"
-                    x-data
-                    x-on:focus.window="$wire.recheck()"
-                    x-on:visibilitychange.document="document.hidden || $wire.recheck()">
+                    x-data="{ look() { window.lmsPanelOpen(@js($openNames), state => state === 'running' && $wire.recheck(state)) } }"
+                    x-on:focus.window="look()"
+                    x-on:visibilitychange.document="document.hidden || look()">
                     <h1 class="text-2xl font-bold text-gray-800">Verify OTP</h1>
                     <p class="text-gray-500 mt-1 text-sm">Enter the 6-digit code sent to your email</p>
                     <p class="{{ $c['text'] }} text-sm font-medium mt-1">{{ $otpSentTo }}</p>

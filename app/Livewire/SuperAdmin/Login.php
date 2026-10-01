@@ -83,8 +83,8 @@ class Login extends Component
         // on to restore it.
         if (!OtpMailService::loginOtpEnabled()) {
             Auth::guard('superadmin')->login($user);
-            // From now on this device's installed app opens for this account.
-            PanelApp::remember('superadmin', $user);
+            // A login made in the installed app: from now on it opens for this account.
+            PanelApp::rememberAppLogin('superadmin', $user);
             return redirect()->route('super-admin.quick-links')
                 ->with('success', 'Login successful.');
         }
@@ -151,8 +151,8 @@ class Login extends Component
             // Panel-specific guard: signing in here never touches the admin
             // or accounts sessions in the same browser.
             Auth::guard('superadmin')->login($user);
-            // From now on this device's installed app opens for this account.
-            PanelApp::remember('superadmin', $user);
+            // A login made in the installed app: from now on it opens for this account.
+            PanelApp::rememberAppLogin('superadmin', $user);
             return redirect()->route('super-admin.quick-links');
         } catch (\Exception $e) {
             $this->otp = ['', '', '', '', '', ''];

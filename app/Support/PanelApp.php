@@ -10,12 +10,14 @@ use Illuminate\Support\Facades\Cookie;
  * The installed panel apps — the desktop / home-screen shortcut of the School
  * Admin, the Accounts and the Super Admin panel — and whose each one is.
  *
- * Signing in to a panel with email and password leaves a note on the device
- * (an encrypted cookie) of the account that did. From then on that panel's
- * shortcut opens for that account on a mailed code alone, every time the app
- * is opened afresh ({@see \App\Livewire\AppLock}). Logging out takes the note
- * away, and a changed password stops it working — either way the next opening
- * asks for the email and password again.
+ * The first time an app is opened on a device it asks for the email and
+ * password, on the panel's own login screen. That login — the one made inside
+ * the app, not one made in a browser tab — leaves a note on the device (an
+ * encrypted cookie) of the account that did. From then on the app opens for
+ * that account on a mailed code alone, every time it is opened afresh
+ * ({@see \App\Livewire\AppLock}). Logging out takes the note away, and a
+ * changed password stops it working — either way the next opening asks for
+ * the email and password again.
  *
  * The note only ever names who to mail the code to: it never signs anyone in.
  */
@@ -24,7 +26,14 @@ class PanelApp
     /** The panels that install as an app; each is also its auth guard's name. */
     public const PANELS = ['admin', 'accounts', 'superadmin'];
 
-    public const COOKIE = 'superlms_panel_app';
+    /**
+     * Not the first name it had: under that one every login left a note, a
+     * browser tab's too, and an app never yet opened would skip its login.
+     */
+    public const COOKIE = 'superlms_app_device';
+
+    /** Session mark: the login about to be made is the app's own. */
+    private const LOGIN_MARK = 'panel_app_login.';
 
     /** Browsers keep a cookie 400 days at most; every opening renews it. */
     private const MINUTES = 60 * 24 * 400;
@@ -32,7 +41,25 @@ class PanelApp
     /** Schools one device remembers for the admin app (the latest are kept). */
     private const MAX_SCHOOLS = 20;
 
-    /** Note the account that has just signed in to a panel on this device. */
+    /** The app is sending the device to the panel's login screen. */
+    public static function expectLogin(string $panel): void
+    {
+        session()->put(self::LOGIN_MARK . $panel, true);
+    }
+
+    /**
+     * A login with email and password was just made: note the account, if the
+     * app sent the device to the login screen. A login made in a browser tab
+     * leaves no note — the app still asks for its own login the first time.
+     */
+    public static function rememberAppLogin(string $panel, User $user): void
+    {
+        if (session()->pull(self::LOGIN_MARK . $panel)) {
+            self::remember($panel, $user);
+        }
+    }
+
+    /** Note the account the panel's app opens for on this device. */
     public static function remember(string $panel, User $user): void
     {
         if (!in_array($panel, self::PANELS, true)) {
@@ -192,49 +219,77 @@ class PanelApp
     }
 
     /**
-     * What every open page of a panel holds on to in the browser while it is
-     * open — how the app tells "still open somewhere" from "closed and opened
-     * again" ({@see resources/views/partials/panel-app-open.blade.php}).
+     * What an open page of a panel holds on to in the browser for as long as
+     * it is open ({@see resources/views/partials/panel-app-open.blade.php}):
+     * 'app' in a window of the installed app, 'tab' in a browser tab. The app
+     * is "still open" only while a window of its own is — a browser tab on the
+     * panel is not the app.
      */
-    public static function openName(string $panel, $organization = null): string
+    public static function openName(string $kind, string $panel, $organization = null): string
     {
-        return 'superlms-open-' . $panel . ($panel === 'admin' ? '-' . (int) $organization : '');
+        return 'superlms-' . $kind . '-' . $panel . ($panel === 'admin' ? '-' . (int) $organization : '');
     }
 
-    /** The same, for the page a signed-in user is looking at. */
-    public static function openNameFor(?User $user): ?string
+    /**
+     * The panel a signed-in user is on, and (the admin panel) its school:
+     * [panel, organization]. Null for someone who is on no panel.
+     */
+    public static function panelOf(?User $user): ?array
     {
         return match (true) {
             !$user => null,
-            in_array($user->role, ['admin', 'sub-admin'], true) => self::openName('admin', $user->organization_id),
-            $user->role === 'accounts' => self::openName('accounts'),
-            in_array($user->role, ['super-admin', 'sub-super-admin'], true) => self::openName('superadmin'),
+            in_array($user->role, ['admin', 'sub-admin'], true) => ['admin', $user->organization_id],
+            $user->role === 'accounts' => ['accounts', null],
+            in_array($user->role, ['super-admin', 'sub-super-admin'], true) => ['superadmin', null],
             default => null,
         };
     }
 
-    /**
-     * Where a panel's app opens on this device, for its login screen to hand
-     * over to: one entry per school for the admin app (the latest first), one
-     * for the others — none when the app has no account here.
-     */
-    public static function launches(string $panel): array
+    /** The app's opening page for a panel (the admin panel: for that school). */
+    public static function gate(string $panel, $organization = null): string
     {
-        if ($panel === 'admin') {
-            return array_map(fn (int $school) => [
-                'name' => self::openName('admin', $school),
-                'url'  => route('admin.launch', ['organization' => $school], false),
-            ], self::schools());
+        return match ($panel) {
+            'accounts'   => route('accounts.launch', [], false),
+            'superadmin' => route('pwa.superadmin', [], false),
+            default      => $organization
+                ? route('admin.launch', ['organization' => (int) $organization], false)
+                : route('pwa.admin', [], false),
+        };
+    }
+
+    /**
+     * Every name the app's opening page looks for. 'legacy' is what pages
+     * loaded before the two were told apart still hold, app window and browser
+     * tab alike — read as a browser tab, the side that asks for the code.
+     */
+    public static function openNames(string $panel, $organization = null): array
+    {
+        return [
+            'app'    => self::openName('app', $panel, $organization),
+            'tab'    => self::openName('tab', $panel, $organization),
+            'legacy' => self::openName('open', $panel, $organization),
+        ];
+    }
+
+    /**
+     * Where a panel's login screen, shown inside the installed app, hands over
+     * to: the app's opening page ('url'). For the admin app that is a school's
+     * — the school the window had open, which the window itself remembers
+     * under 'prefix' + the school's id ('pattern' is that school's address,
+     * with __ORG__ for the id); else the school this device signed in to last;
+     * else the app's general opening page.
+     */
+    public static function handover(string $panel): array
+    {
+        if ($panel !== 'admin') {
+            return ['prefix' => null, 'pattern' => null, 'url' => self::gate($panel)];
         }
 
-        if (!self::account($panel)) {
-            return [];
-        }
-
-        return [[
-            'name' => self::openName($panel),
-            'url'  => route($panel === 'accounts' ? 'accounts.launch' : 'pwa.superadmin', [], false),
-        ]];
+        return [
+            'prefix'  => substr(self::openName('app', 'admin', 0), 0, -1),
+            'pattern' => str_replace('987654321', '__ORG__', self::gate('admin', 987654321)),
+            'url'     => self::gate('admin', self::schools()[0] ?? null),
+        ];
     }
 
     /** Changes with the password, so a note written before a change stops working. */

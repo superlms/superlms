@@ -92,8 +92,8 @@ class Login extends Component
         // on to restore it.
         if (!OtpMailService::loginOtpEnabled()) {
             Auth::guard('admin')->login($user);
-            // From now on this device's installed app opens for this account.
-            PanelApp::remember('admin', $user);
+            // A login made in the installed app: from now on it opens for this account.
+            PanelApp::rememberAppLogin('admin', $user);
 
             $landingRoute = 'admin.quick-links';
             if ($user->role === 'sub-admin') {
@@ -171,8 +171,8 @@ class Login extends Component
         // Panel-specific guard: signing in here never touches the super-admin
         // or accounts sessions in the same browser.
         Auth::guard('admin')->login($user);
-        // From now on this device's installed app opens for this account.
-        PanelApp::remember('admin', $user);
+        // A login made in the installed app: from now on it opens for this account.
+        PanelApp::rememberAppLogin('admin', $user);
 
         $landingRoute = 'admin.quick-links';
         if ($user->role === 'sub-admin') {

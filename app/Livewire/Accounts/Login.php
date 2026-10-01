@@ -67,8 +67,8 @@ class Login extends Component
         // on to restore it.
         if (!OtpMailService::loginOtpEnabled()) {
             session(['accounts_otp_verified' => true]);
-            // From now on this device's installed app opens for this account.
-            PanelApp::remember('accounts', $user);
+            // A login made in the installed app: from now on it opens for this account.
+            PanelApp::rememberAppLogin('accounts', $user);
             return redirect()->route('accounts.dashboard', ['organization' => $user->organization_id])
                 ->with('success', 'Login successful.');
         }
