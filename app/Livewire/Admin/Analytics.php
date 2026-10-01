@@ -18,6 +18,7 @@ use App\Models\Admin\TransportFeePayment;
 use App\Models\Teacher\TeacherAttendance;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\WebsiteContact;
+use App\Support\AcademicYear;
 use Illuminate\Support\Facades\DB;
 
 class Analytics extends Component
@@ -64,6 +65,8 @@ class Analytics extends Component
     // ─── Deeper analytics (distinct from the home dashboard) ───────────────────
     public $kpis                 = [];   // headline metrics with period deltas
     public $attendanceTrendPct   = [];   // monthly attendance % (student vs teacher)
+    public $attendanceDailyTrend = [];   // last 30 days, day by day: % with present / absent behind it
+    public $monthlyAttendancePct = [];   // the session so far, month by month: average % (students, teachers)
     public $classAttendanceRank  = [];   // per-class attendance % ranking (30 days)
     public $admissionsTrend      = [];   // new admissions per month (Apr–Mar)
     public $feeClassRate         = [];   // per-class collection % with defaulters
@@ -165,6 +168,8 @@ class Analytics extends Component
         // Deeper, analytics-only widgets
         $this->loadTeacherMonthly();
         $this->loadAttendanceTrendPct();
+        $this->loadAttendanceDailyTrend();
+        $this->loadMonthlyAttendancePct();
         $this->loadClassAttendanceRank();
         $this->loadAdmissionsTrend();
         $this->loadFeeClassRate();
@@ -217,6 +222,10 @@ class Analytics extends Component
             'teacher_rate'     => $rate($tchPresentToday, $tchTotalToday),
             'collect_rate'     => $collectRate,
             'avg_daily'        => round($last30Sum / 30, 0),
+            // What the whole fee is made of (in the Avg / Day tile's place on the page).
+            'academic_fee'     => (float) ($this->feeStats['academicFee'] ?? 0),
+            'transport_fee'    => (float) ($this->feeStats['transportFee'] ?? 0),
+            'last_year_dues'   => (float) ($this->feeStats['lastYearDues'] ?? 0),
             'unpaid_students'  => $unpaidStudents,
             'new_admissions'   => (int) ($this->statsData['newAdmissions'] ?? 0),
         ];
@@ -282,12 +291,119 @@ class Analytics extends Component
         ];
     }
 
-    // ─── Class-wise attendance % ranking (last 30 days) ─────────────────────────
+    // ─── The last 30 days, day by day ────────────────────────────────────────────
 
+    /**
+     * The Attendance Rate Trend: each of the last 30 days, the share of
+     * students and of teachers present, with the present and absent counts
+     * behind every point. A day nobody was marked on (a Sunday, a holiday)
+     * has no point; the line runs on to the next day that has one.
+     */
+    protected function loadAttendanceDailyTrend(): void
+    {
+        $orgId = $this->orgId();
+        $days  = 30;
+        $from  = Carbon::today()->subDays($days - 1)->toDateString();
+
+        $read = function (string $model, int $present, int $absent) use ($orgId, $from) {
+            $by = [];
+            $rows = $model::where('organization_id', $orgId)
+                ->where('attendance_date', '>=', $from)
+                ->whereIn('status', [$present, $absent])
+                ->selectRaw('DATE(attendance_date) as d, status, COUNT(*) as c')
+                ->groupBy('d', 'status')->get();
+            foreach ($rows as $r) {
+                $by[(string) $r->d][(int) $r->status] = (int) $r->c;
+            }
+
+            return $by;
+        };
+
+        $students = $read(StudentAttendance::class, self::STU_PRESENT, self::STU_ABSENT);
+        $teachers = $read(TeacherAttendance::class, self::TCH_PRESENT, self::TCH_ABSENT);
+
+        $pct = fn (int $p, int $a) => $p + $a > 0 ? round($p / ($p + $a) * 100, 1) : null;
+
+        $out = [
+            'labels' => [], 'student' => [], 'teacher' => [],
+            'studentPresent' => [], 'studentAbsent' => [], 'teacherPresent' => [], 'teacherAbsent' => [],
+        ];
+
+        for ($i = $days - 1; $i >= 0; $i--) {
+            $day  = Carbon::today()->subDays($i);
+            $date = $day->toDateString();
+
+            $sp = $students[$date][self::STU_PRESENT] ?? 0;
+            $sa = $students[$date][self::STU_ABSENT] ?? 0;
+            $tp = $teachers[$date][self::TCH_PRESENT] ?? 0;
+            $ta = $teachers[$date][self::TCH_ABSENT] ?? 0;
+
+            $out['labels'][]         = $day->format('d M');
+            $out['student'][]        = $pct($sp, $sa);
+            $out['teacher'][]        = $pct($tp, $ta);
+            $out['studentPresent'][] = $sp;
+            $out['studentAbsent'][]  = $sa;
+            $out['teacherPresent'][] = $tp;
+            $out['teacherAbsent'][]  = $ta;
+        }
+
+        $this->attendanceDailyTrend = $out;
+    }
+
+    // ─── The session so far, month by month ─────────────────────────────────────
+
+    /**
+     * The two Attendance Volume charts: from 1 April of the running session to
+     * this month, each month's average attendance %, the students' and the
+     * teachers', out of the same monthly present / absent counts as before
+     * (they stay behind each bar). The months still to come are left out, and
+     * a month nobody was marked in has no bar.
+     */
+    protected function loadMonthlyAttendancePct(): void
+    {
+        $start = AcademicYear::start();
+        $now   = Carbon::now();
+
+        $pct = fn (int $p, int $a) => $p + $a > 0 ? round($p / ($p + $a) * 100, 1) : null;
+
+        $out = [
+            'from'   => $start->format('j M Y'),
+            'labels' => [], 'student' => [], 'teacher' => [],
+            'studentPresent' => [], 'studentAbsent' => [], 'teacherPresent' => [], 'teacherAbsent' => [],
+        ];
+
+        for ($i = 0; $i < 12; $i++) {
+            $month = $start->copy()->addMonths($i);
+            if ($month->greaterThan($now)) {
+                break;
+            }
+
+            $sp = (int) ($this->studentMonthlyAttendance['present'][$i] ?? 0);
+            $sa = (int) ($this->studentMonthlyAttendance['absent'][$i] ?? 0);
+            $tp = (int) ($this->teacherMonthlyAttendance['present'][$i] ?? 0);
+            $ta = (int) ($this->teacherMonthlyAttendance['absent'][$i] ?? 0);
+
+            $out['labels'][]         = $month->format('M Y');
+            $out['student'][]        = $pct($sp, $sa);
+            $out['teacher'][]        = $pct($tp, $ta);
+            $out['studentPresent'][] = $sp;
+            $out['studentAbsent'][]  = $sa;
+            $out['teacherPresent'][] = $tp;
+            $out['teacherAbsent'][]  = $ta;
+        }
+
+        $this->monthlyAttendancePct = $out;
+    }
+
+    // ─── Class-wise attendance % ranking (overall) ──────────────────────────────
+
+    /**
+     * Each class's attendance % over its students' whole record. It used to
+     * read the last 30 days only.
+     */
     protected function loadClassAttendanceRank(): void
     {
         $orgId = $this->orgId();
-        $from  = Carbon::today()->subDays(29);
         $rows  = [];
 
         foreach (Standard::where('organization_id', $orgId)->inClassOrder()->get() as $std) {
@@ -296,9 +412,8 @@ class Analytics extends Component
             if ($studentIds->isEmpty()) continue;
 
             $present = StudentAttendance::whereIn('student_detail_id', $studentIds)
-                ->where('attendance_date', '>=', $from)->where('status', self::STU_PRESENT)->count();
-            $total = StudentAttendance::whereIn('student_detail_id', $studentIds)
-                ->where('attendance_date', '>=', $from)->count();
+                ->where('status', self::STU_PRESENT)->count();
+            $total = StudentAttendance::whereIn('student_detail_id', $studentIds)->count();
 
             $rows[] = [
                 'name' => $std->name,
@@ -718,7 +833,12 @@ class Analytics extends Component
             ->where('status', self::STU_ABSENT)
             ->count();
 
-        $this->studentPieData = compact('present', 'absent');
+        // The same split as a share: the average attendance % over the window.
+        $marked     = $present + $absent;
+        $presentPct = $marked > 0 ? round($present / $marked * 100, 1) : 0;
+        $absentPct  = $marked > 0 ? round(100 - $presentPct, 1) : 0;
+
+        $this->studentPieData = compact('present', 'absent', 'presentPct', 'absentPct');
     }
 
     // ─── Sections ─────────────────────────────────────────────────────────────
@@ -905,21 +1025,76 @@ class Analytics extends Component
         $this->todayHomework = [];
     }
 
-    // ─── Fee – STATIC (dynamic implementation pending) ───────────────────────
+    // ─── Fee totals ───────────────────────────────────────────────────────────
 
+    /**
+     * The school's whole fee and what has come in, counted as the dashboard
+     * (Livewire\Admin\Home::loadFeeOverview) counts them: change one, change
+     * both. The fee is every student's academic fee (the active heads of their
+     * class: the whole class's and their own section's), their own Last Year
+     * Dues, and every rider's transport fee (route fee x the months they are
+     * billed for). Collected is academic and transport, from both payment
+     * tables, taken this session (1 April) up to today.
+     *
+     * It used to add up the fee heads themselves, not what the students owe
+     * on them, so the collection % read far too high.
+     */
     protected function loadFeeStatsStatic(): void
     {
-        $orgId         = $this->orgId();
-        $totalFee      = FeeStructure::where('organization_id', $orgId)->where('is_active', true)->sum('amount')
-            + FeeStructure::ownTotalForSchool($orgId, null); // students' own Last Year Dues
-        $collected     = FeePayment::where('organization_id', $orgId)->sum('amount');
-        $transportFee  = FeeStructure::where('organization_id', $orgId)->where('is_active', true)->where('fee_type', 'transport')->sum('amount');
+        $orgId = $this->orgId();
+
+        $heads = FeeStructure::where('organization_id', $orgId)
+            ->where('is_active', true)->where('fee_type', 'academic')
+            ->get(['standard_id', 'section_id', 'amount'])
+            ->groupBy('standard_id');
+
+        $pairs = StudentDetail::where('organization_id', $orgId)
+            ->selectRaw('standard_id, section_id, COUNT(*) as students')
+            ->groupBy('standard_id', 'section_id')
+            ->get();
+
+        $academic = 0.0;
+        foreach ($pairs as $pair) {
+            $fee = ($heads[$pair->standard_id] ?? collect())
+                ->filter(fn ($h) => $h->section_id === null || (int) $h->section_id === (int) $pair->section_id)
+                ->sum('amount');
+            $academic += (float) $fee * (int) $pair->students;
+        }
+
+        $lastYearDues = FeeStructure::ownTotalForSchool($orgId); // students' own Last Year Dues
+
+        $transport = 0.0;
+        $riders = DB::table('transportation_students as ts')
+            ->join('transportations as t', 'ts.transportation_id', '=', 't.id')
+            ->join('student_details as sd', 'ts.student_detail_id', '=', 'sd.id')
+            ->where('ts.organization_id', $orgId)
+            ->get(['ts.billable_months', 't.monthly_fee']);
+        foreach ($riders as $row) {
+            $transport += (float) $row->monthly_fee * $this->billableMonthCount($row->billable_months);
+        }
+
+        $from  = AcademicYear::start()->toDateString();
+        $today = Carbon::today()->toDateString();
+
+        $collected = (float) FeePayment::where('organization_id', $orgId)
+                ->whereIn('fee_type', ['academic', 'transport'])
+                ->whereDate('payment_date', '>=', $from)
+                ->whereDate('payment_date', '<=', $today)
+                ->sum('amount')
+            + (float) TransportFeePayment::where('organization_id', $orgId)
+                ->whereDate('payment_date', '>=', $from)
+                ->whereDate('payment_date', '<=', $today)
+                ->sum('amount');
+
+        $totalFee = $academic + $lastYearDues + $transport;
 
         $this->feeStats = [
             'totalFee'     => $totalFee,
-            'collected'    => $collected,
+            'collected'    => round($collected, 2),
             'remaining'    => max(0, $totalFee - $collected),
-            'transportFee' => $transportFee,
+            'transportFee' => $transport,
+            'academicFee'  => $academic,
+            'lastYearDues' => $lastYearDues,
         ];
     }
 

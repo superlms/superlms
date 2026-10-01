@@ -38,22 +38,27 @@
 
         {{-- ═══════════════════════ KEY METRICS ═══════════════════════ --}}
         <section class="space-y-4">
-            <x-admin.section-heading title="Key Metrics" subtitle="Live indicators with day-over-day movement" />
+            <x-admin.section-heading title="Key Metrics" />
 
-            <div class="bg-white rounded-xl border border-gray-200 grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 divide-x divide-y xl:divide-y-0 divide-gray-100">
+            {{-- Eight tiles, four to a row on a wide screen: Fee Collection is the share of the whole fee
+                 (academic + transport + Last Year Dues) that has come in, and the three
+                 tiles after it are what that whole fee is made of. --}}
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden grid grid-cols-2 xl:grid-cols-4">
                 @php
                     $d = $kpis['student_delta'] ?? 0;
                     $metrics = [
                         ['Student Attendance', ($kpis['student_rate'] ?? 0) . '%', null, 'text-gray-900'],
                         ['Teacher Attendance', ($kpis['teacher_rate'] ?? 0) . '%', 'Today', 'text-gray-900'],
-                        ['Fee Collection', ($kpis['collect_rate'] ?? 0) . '%', 'of total expected', 'text-gray-900'],
-                        ['Avg / Day', '₹' . number_format($kpis['avg_daily'] ?? 0, 0), 'last 30 days', 'text-gray-900'],
+                        ['Fee Collection', ($kpis['collect_rate'] ?? 0) . '%', 'of ₹' . number_format($feeStats['totalFee'] ?? 0, 0) . ' total fee', 'text-gray-900'],
+                        ['Academic Fee', '₹' . number_format($kpis['academic_fee'] ?? 0, 0), 'total', 'text-gray-900'],
+                        ['Transport Fee', '₹' . number_format($kpis['transport_fee'] ?? 0, 0), 'total', 'text-gray-900'],
+                        ['Last Year Dues', '₹' . number_format($kpis['last_year_dues'] ?? 0, 0), 'total', 'text-gray-900'],
                         ['Unpaid Students', number_format($kpis['unpaid_students'] ?? 0), 'no payment yet', 'text-red-500'],
                         ['New Admissions', number_format($kpis['new_admissions'] ?? 0), 'last 30 days', 'text-violet-600'],
                     ];
                 @endphp
                 @foreach ($metrics as $i => [$label, $value, $sub, $tone])
-                    <div class="px-5 py-4">
+                    <div class="px-5 py-4 -mr-px -mb-px border-r border-b border-gray-100">
                         <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">{{ $label }}</p>
                         <p class="text-[26px] leading-none font-semibold {{ $tone }} mt-2 tabular-nums">{{ $value }}</p>
                         @if ($i === 0)
@@ -75,7 +80,7 @@
 
         {{-- ═══════════════════════ ATTENDANCE ═══════════════════════ --}}
         <section class="space-y-4">
-            <x-admin.section-heading title="Attendance" subtitle="Year-long rate, daily volume and class-wise standing" />
+            <x-admin.section-heading title="Attendance" />
 
             {{-- Rate trend + student split --}}
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -83,7 +88,7 @@
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <h3 class="text-sm font-semibold text-gray-800">Attendance Rate Trend</h3>
-                            <p class="text-xs text-gray-400 mt-0.5">Monthly % · school year Apr – Mar</p>
+                            <p class="text-xs text-gray-400 mt-0.5">Daily % · last 30 days</p>
                         </div>
                         <div class="flex items-center gap-3 text-[11px] text-gray-400">
                             <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block"></span> Students</span>
@@ -96,17 +101,21 @@
                                 new Chart(this.$el.getContext('2d'), {
                                     type: 'line',
                                     data: {
-                                        labels: @js($attendanceTrendPct['labels'] ?? []),
+                                        labels: @js($attendanceDailyTrend['labels'] ?? []),
                                         datasets: [
-                                            { label: 'Students', data: @js($attendanceTrendPct['student'] ?? []), borderColor: 'rgb(16,185,129)', backgroundColor: 'rgba(16,185,129,0.10)', fill: true, tension: 0.35, borderWidth: 2, pointRadius: 2 },
-                                            { label: 'Teachers', data: @js($attendanceTrendPct['teacher'] ?? []), borderColor: 'rgb(59,130,246)', fill: false, tension: 0.35, borderWidth: 2, pointRadius: 2 }
+                                            { label: 'Students', data: @js($attendanceDailyTrend['student'] ?? []), present: @js($attendanceDailyTrend['studentPresent'] ?? []), absent: @js($attendanceDailyTrend['studentAbsent'] ?? []), borderColor: 'rgb(16,185,129)', backgroundColor: 'rgba(16,185,129,0.10)', fill: true, tension: 0.35, borderWidth: 2, pointRadius: 2, spanGaps: true },
+                                            { label: 'Teachers', data: @js($attendanceDailyTrend['teacher'] ?? []), present: @js($attendanceDailyTrend['teacherPresent'] ?? []), absent: @js($attendanceDailyTrend['teacherAbsent'] ?? []), borderColor: 'rgb(59,130,246)', fill: false, tension: 0.35, borderWidth: 2, pointRadius: 2, spanGaps: true }
                                         ]
                                     },
                                     options: {
                                         responsive: true, maintainAspectRatio: false,
-                                        plugins: { legend: { display: false } },
+                                        interaction: { mode: 'index', intersect: false },
+                                        plugins: {
+                                            legend: { display: false },
+                                            tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + c.raw + '% · Present ' + Number(c.dataset.present[c.dataIndex]).toLocaleString('en-IN') + ' · Absent ' + Number(c.dataset.absent[c.dataIndex]).toLocaleString('en-IN') } }
+                                        },
                                         scales: {
-                                            x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                                            x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 0, autoSkipPadding: 8 } },
                                             y: { beginAtZero: true, max: 100, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 }, callback: (v) => v + '%' } }
                                         }
                                     }
@@ -135,37 +144,39 @@
                                     type: 'doughnut',
                                     data: {
                                         labels: ['Present', 'Absent'],
-                                        datasets: [{ data: [{{ $studentPieData['present'] ?? 0 }}, {{ $studentPieData['absent'] ?? 0 }}], backgroundColor: ['rgba(16,185,129,0.85)', 'rgba(239,68,68,0.7)'], borderWidth: 0, hoverOffset: 6 }]
+                                        datasets: [{ data: [{{ $studentPieData['present'] ?? 0 }}, {{ $studentPieData['absent'] ?? 0 }}], share: [{{ $studentPieData['presentPct'] ?? 0 }}, {{ $studentPieData['absentPct'] ?? 0 }}], backgroundColor: ['rgba(16,185,129,0.85)', 'rgba(239,68,68,0.7)'], borderWidth: 0, hoverOffset: 6 }]
                                     },
-                                    options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 12, boxWidth: 10, usePointStyle: true } } } }
+                                    options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 12, boxWidth: 10, usePointStyle: true } }, tooltip: { callbacks: { label: (c) => c.label + ': ' + c.dataset.share[c.dataIndex] + '% (' + Number(c.raw).toLocaleString('en-IN') + ')' } } } }
                                 });
                             }
                         }"></canvas>
                     </div>
                     <div class="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 gap-2 text-center">
+                        {{-- The average attendance % over the window; the counts it comes from beside the label. --}}
                         <div>
-                            <p class="text-xl font-semibold text-emerald-600 tabular-nums">{{ $studentPieData['present'] ?? 0 }}</p>
-                            <p class="text-[10px] text-gray-400 uppercase tracking-wide">Present</p>
+                            <p class="text-xl font-semibold text-emerald-600 tabular-nums">{{ $studentPieData['presentPct'] ?? 0 }}%</p>
+                            <p class="text-[10px] text-gray-400 uppercase tracking-wide">Present · {{ number_format($studentPieData['present'] ?? 0) }}</p>
                         </div>
                         <div>
-                            <p class="text-xl font-semibold text-red-500 tabular-nums">{{ $studentPieData['absent'] ?? 0 }}</p>
-                            <p class="text-[10px] text-gray-400 uppercase tracking-wide">Absent</p>
+                            <p class="text-xl font-semibold text-red-500 tabular-nums">{{ $studentPieData['absentPct'] ?? 0 }}%</p>
+                            <p class="text-[10px] text-gray-400 uppercase tracking-wide">Absent · {{ number_format($studentPieData['absent'] ?? 0) }}</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {{-- Volume: students by month, teachers by date --}}
+            {{-- Volume: each month's average attendance %, from 1 April of the session
+                 to this month — the students', and the teachers'. The present and
+                 absent counts stay behind each bar. --}}
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 <div class="bg-white rounded-xl border border-gray-200 p-5">
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <h3 class="text-sm font-semibold text-gray-800">Student Attendance Volume</h3>
-                            <p class="text-xs text-gray-400 mt-0.5">Per month · school year Apr – Mar</p>
+                            <p class="text-xs text-gray-400 mt-0.5">Average % per month · from {{ $monthlyAttendancePct['from'] ?? '' }}</p>
                         </div>
                         <div class="flex items-center gap-3 text-[11px] text-gray-400">
-                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block"></span> Present</span>
-                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-red-400 inline-block"></span> Absent</span>
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block"></span> Attendance %</span>
                         </div>
                     </div>
                     <div class="h-56" wire:ignore wire:key="stu-bar">
@@ -174,16 +185,18 @@
                                 new Chart(this.$el.getContext('2d'), {
                                     type: 'bar',
                                     data: {
-                                        labels: @js($attendanceMonths),
+                                        labels: @js($monthlyAttendancePct['labels'] ?? []),
                                         datasets: [
-                                            { label: 'Present', data: @js($studentMonthlyAttendance['present'] ?? []), backgroundColor: 'rgba(16,185,129,0.75)', borderRadius: 3, borderSkipped: false },
-                                            { label: 'Absent', data: @js($studentMonthlyAttendance['absent'] ?? []), backgroundColor: 'rgba(239,68,68,0.6)', borderRadius: 3, borderSkipped: false }
+                                            { label: 'Attendance', data: @js($monthlyAttendancePct['student'] ?? []), present: @js($monthlyAttendancePct['studentPresent'] ?? []), absent: @js($monthlyAttendancePct['studentAbsent'] ?? []), backgroundColor: 'rgba(16,185,129,0.75)', borderRadius: 3, borderSkipped: false, maxBarThickness: 44 }
                                         ]
                                     },
                                     options: {
                                         responsive: true, maintainAspectRatio: false,
-                                        plugins: { legend: { display: false } },
-                                        scales: { x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0, autoSkipPadding: 6 } }, y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 } } } }
+                                        plugins: {
+                                            legend: { display: false },
+                                            tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + c.raw + '% · Present ' + Number(c.dataset.present[c.dataIndex]).toLocaleString('en-IN') + ' · Absent ' + Number(c.dataset.absent[c.dataIndex]).toLocaleString('en-IN') } }
+                                        },
+                                        scales: { x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0, autoSkipPadding: 6 } }, y: { beginAtZero: true, max: 100, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 }, callback: (v) => v + '%' } } }
                                     }
                                 });
                             }
@@ -191,13 +204,14 @@
                     </div>
                 </div>
 
-                {{-- Teacher volume reads day by day: the window sets the bars,
-                     the date dropdown reports one of those days on its own. --}}
+                {{-- Teacher volume: the same monthly average as the students'. The
+                     window and the date dropdown still report one day on its own,
+                     under the chart. --}}
                 <div class="bg-white rounded-xl border border-gray-200 p-5">
                     <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
                         <div>
                             <h3 class="text-sm font-semibold text-gray-800">Teacher Attendance Volume</h3>
-                            <p class="text-xs text-gray-400 mt-0.5">Per day · pick a date for its numbers</p>
+                            <p class="text-xs text-gray-400 mt-0.5">Average % per month · from {{ $monthlyAttendancePct['from'] ?? '' }}</p>
                         </div>
                         <div class="flex items-center gap-2">
                             <select wire:model.live="teacherAttFilter"
@@ -220,16 +234,18 @@
                                 new Chart(this.$el.getContext('2d'), {
                                     type: 'bar',
                                     data: {
-                                        labels: @js($teacherDailyAttendance['labels'] ?? []),
+                                        labels: @js($monthlyAttendancePct['labels'] ?? []),
                                         datasets: [
-                                            { label: 'Present', data: @js($teacherDailyAttendance['present'] ?? []), backgroundColor: 'rgba(59,130,246,0.75)', borderRadius: 3, borderSkipped: false, maxBarThickness: 26 },
-                                            { label: 'Absent', data: @js($teacherDailyAttendance['absent'] ?? []), backgroundColor: 'rgba(245,158,11,0.65)', borderRadius: 3, borderSkipped: false, maxBarThickness: 26 }
+                                            { label: 'Attendance', data: @js($monthlyAttendancePct['teacher'] ?? []), present: @js($monthlyAttendancePct['teacherPresent'] ?? []), absent: @js($monthlyAttendancePct['teacherAbsent'] ?? []), backgroundColor: 'rgba(59,130,246,0.75)', borderRadius: 3, borderSkipped: false, maxBarThickness: 44 }
                                         ]
                                     },
                                     options: {
                                         responsive: true, maintainAspectRatio: false,
-                                        plugins: { legend: { display: false } },
-                                        scales: { x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0, autoSkipPadding: 6 } }, y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 } } } }
+                                        plugins: {
+                                            legend: { display: false },
+                                            tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + c.raw + '% · Present ' + Number(c.dataset.present[c.dataIndex]).toLocaleString('en-IN') + ' · Absent ' + Number(c.dataset.absent[c.dataIndex]).toLocaleString('en-IN') } }
+                                        },
+                                        scales: { x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0, autoSkipPadding: 6 } }, y: { beginAtZero: true, max: 100, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 }, callback: (v) => v + '%' } } }
                                     }
                                 });
                             }
@@ -251,7 +267,7 @@
             <div class="bg-white rounded-xl border border-gray-200 p-5">
                 <div class="mb-4">
                     <h3 class="text-sm font-semibold text-gray-800">Class-wise Attendance Ranking</h3>
-                    <p class="text-xs text-gray-400 mt-0.5">Average attendance % over the last 30 days</p>
+                    <p class="text-xs text-gray-400 mt-0.5">Average attendance % overall</p>
                 </div>
                 @if (count($classAttendanceRank))
                     <div class="space-y-2.5">
@@ -268,14 +284,14 @@
                         @endforeach
                     </div>
                 @else
-                    <div class="text-center py-10 text-gray-400 text-sm">No attendance recorded in the last 30 days.</div>
+                    <div class="text-center py-10 text-gray-400 text-sm">No attendance recorded yet.</div>
                 @endif
             </div>
         </section>
 
         {{-- ═══════════════════════ PERFORMANCE ═══════════════════════ --}}
         <section class="space-y-4">
-            <x-admin.section-heading title="Student Performance" subtitle="Top achievers and students who need attention" />
+            <x-admin.section-heading title="Student Performance" />
 
             <div class="flex flex-wrap items-center gap-2">
                 <span class="text-xs font-medium text-gray-400 uppercase tracking-wide mr-1">Filter</span>
@@ -357,7 +373,7 @@
 
         {{-- ═══════════════════════ ADMISSIONS & ENQUIRIES ═══════════════════════ --}}
         <section class="space-y-4">
-            <x-admin.section-heading title="Admissions &amp; Enquiries" subtitle="Enrolment growth and lead response" />
+            <x-admin.section-heading title="Admissions & Enquiries" />
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 {{-- Admissions trend --}}
@@ -446,7 +462,7 @@
 
         {{-- ═══════════════════════ FEE ═══════════════════════ --}}
         <section class="space-y-4">
-            <x-admin.section-heading title="Fee" subtitle="Collection performance and class-wise recovery" />
+            <x-admin.section-heading title="Fee" />
 
             <div class="bg-white rounded-xl border border-gray-200 grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-gray-100">
                 @php
@@ -644,7 +660,7 @@
 
         {{-- ═══════════════════════ OPERATIONS ═══════════════════════ --}}
         <section class="space-y-4">
-            <x-admin.section-heading title="Operations" subtitle="Substitute arrangements and announcements" />
+            <x-admin.section-heading title="Operations" />
 
             {{-- Arrangement --}}
             <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
