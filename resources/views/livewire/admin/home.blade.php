@@ -92,7 +92,7 @@
             </div>
 
             {{-- Today, as plain numbers with a thin progress rule underneath. --}}
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 items-start">
                 @php
                     $todayCards = [
                         ['Student Attendance', $studentAttPct . '%', $studentsPresentToday . ' of ' . $totalStudents . ' present', $studentAttPct, 'bg-gray-800'],
@@ -112,6 +112,21 @@
                             <div class="{{ $bar }} h-1 rounded-full" style="width: {{ min(100, $pct) }}%"></div>
                         </div>
                         <p class="text-xs text-gray-400 mt-2">{{ $sub }}</p>
+                        {{-- What that whole fee is made of, and its total — the one the % is of. --}}
+                        @if ($label === 'Fee Collected Today')
+                            <dl class="mt-3 pt-3 border-t border-gray-100 space-y-1 text-xs">
+                                @foreach ([['Academic', $feeAcademic], ['Transport', $feeTransport], ['Last Year Dues', $feeLastYearDues]] as [$part, $amount])
+                                    <div class="flex items-baseline justify-between gap-2">
+                                        <dt class="text-gray-400">{{ $part }}</dt>
+                                        <dd class="text-gray-600 tabular-nums">₹{{ number_format($amount, 0) }}</dd>
+                                    </div>
+                                @endforeach
+                                <div class="flex items-baseline justify-between gap-2 pt-1 border-t border-gray-100">
+                                    <dt class="font-medium text-gray-500">Total</dt>
+                                    <dd class="font-semibold text-gray-900 tabular-nums">₹{{ number_format($totalFee, 0) }}</dd>
+                                </div>
+                            </dl>
+                        @endif
                     </div>
                 @endforeach
             </div>
