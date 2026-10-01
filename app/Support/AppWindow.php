@@ -46,7 +46,7 @@ class AppWindow
     public const HEADER = 'X-SuperLMS-Window';
 
     /** A mount: the app's scope, then "~". */
-    private const MOUNT = '(?:/(?:\d+|accounts))?/~';
+    private const MOUNT = '(?:/(?:\d+|accounts|superadmin))?/~';
 
     /** The browser's session cookie name — config is changed per request. */
     private static ?string $baseCookie = null;
@@ -103,6 +103,7 @@ class AppWindow
     {
         return match (true) {
             $panel === 'accounts' => '/accounts/~',
+            $panel === 'superadmin' => '/superadmin/~',
             $panel === 'admin' && ctype_digit((string) $organization) && (int) $organization > 0
                 => '/' . (int) $organization . '/~',
             default => '/~',
@@ -208,7 +209,7 @@ class AppWindow
         $key  = Auth::guard($guard)->getName();
         $mine = self::sessionCookie();
 
-        foreach ([self::sessionCookie(null), self::sessionCookie('/~')] as $cookie) {
+        foreach ([self::sessionCookie(null), self::sessionCookie('/~'), self::sessionCookie('/superadmin/~')] as $cookie) {
             $id = $cookie !== $mine ? request()->cookies->get($cookie) : null;
             if (!is_string($id) || $id === '') {
                 continue;

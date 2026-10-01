@@ -48,12 +48,13 @@ class AppWindowTest extends TestCase
         $names = array_unique([
             AppWindow::sessionCookie(null),
             AppWindow::sessionCookie('/~'),
+            AppWindow::sessionCookie('/superadmin/~'),
             AppWindow::sessionCookie('/9/~'),
             AppWindow::sessionCookie('/10/~'),
             AppWindow::sessionCookie('/accounts/~'),
         ]);
 
-        $this->assertCount(5, $names);
+        $this->assertCount(6, $names);
     }
 
     public function test_a_navigation_from_a_page_of_the_app_is_sent_to_its_mounted_address(): void
@@ -71,7 +72,7 @@ class AppWindowTest extends TestCase
     {
         $this->get('/9/launch', self::NAV)->assertRedirect('/9/~/9/launch');
         $this->get('/accounts/launch', self::NAV)->assertRedirect('/accounts/~/accounts/launch');
-        $this->get('/app/superadmin', self::NAV)->assertRedirect('/~/app/superadmin');
+        $this->get('/app/superadmin', self::NAV)->assertRedirect('/superadmin/~/app/superadmin');
 
         // The opening page, under the mount, sends a device nobody signed in on to the login — inside the app.
         $this->get('/accounts/~/accounts/launch', self::NAV)
