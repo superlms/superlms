@@ -46,25 +46,31 @@
 
                 <div class="flex flex-wrap items-center gap-3">
                     <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200 mr-1">
-                        <span class="pr-4">Net: <strong class="{{ $netBalance >= 0 ? 'text-emerald-600' : 'text-red-600' }}">₹{{ number_format($netBalance, 2) }}</strong></span>
+                        {{-- All four follow the period picked below. --}}
+                        <span class="pr-4">Net: <strong class="{{ $periodNet >= 0 ? 'text-emerald-600' : 'text-red-600' }}">₹{{ number_format($periodNet, 2) }}</strong></span>
                         <span class="px-4">Credit: <strong class="text-emerald-600">₹{{ number_format($periodCredit, 2) }}</strong></span>
                         <span class="px-4">Expense: <strong class="text-red-600">₹{{ number_format($periodExpense, 2) }}</strong></span>
                         <span class="pl-4">Closing: <strong class="text-blue-600">₹{{ number_format($closingBalance, 2) }}</strong></span>
                     </div>
 
-                    <button wire:click="openCredit"
-                        class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
+                    {{-- Export and Add, as the Students header has them. Export opens the
+                         period dialog; Add asks "credit or expense?" first. --}}
+                    <button type="button" @click="openExport()"
+                        class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-gray-100 hover:bg-gray-200
+                               text-gray-700 text-sm font-semibold rounded-lg transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        <span class="hidden sm:inline">Export</span>
+                    </button>
+                    <button wire:click="openAdd"
+                        class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700
+                               text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                         </svg>
-                        Credit
-                    </button>
-                    <button wire:click="openExpense"
-                        class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
-                        </svg>
-                        Expense
+                        <span class="hidden sm:inline">Add</span>
                     </button>
                 </div>
             </div>
@@ -72,7 +78,7 @@
             {{-- Mobile/Tablet stats — inside the same block, so the desktop
                  header stays exactly as tall as Transportation's. --}}
             <div class="flex lg:hidden items-center gap-3 sm:gap-4 text-xs text-gray-500 mt-3 flex-wrap">
-                <span>Net: <strong class="{{ $netBalance >= 0 ? 'text-emerald-600' : 'text-red-600' }}">₹{{ number_format($netBalance, 2) }}</strong></span>
+                <span>Net: <strong class="{{ $periodNet >= 0 ? 'text-emerald-600' : 'text-red-600' }}">₹{{ number_format($periodNet, 2) }}</strong></span>
                 <span>Credit: <strong class="text-emerald-600">₹{{ number_format($periodCredit, 2) }}</strong></span>
                 <span>Expense: <strong class="text-red-600">₹{{ number_format($periodExpense, 2) }}</strong></span>
                 <span>Closing: <strong class="text-blue-600">₹{{ number_format($closingBalance, 2) }}</strong></span>
@@ -86,40 +92,12 @@
                     <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                     </svg>
-                    Period:
-                </div>
-
-                <div class="flex items-center gap-1.5">
-                    <label class="text-xs text-gray-500">From</label>
-                    <input type="date" wire:model.live="startDate" max="{{ $endDate }}"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                </div>
-                <div class="flex items-center gap-1.5">
-                    <label class="text-xs text-gray-500">To</label>
-                    <input type="date" wire:model.live="endDate" min="{{ $startDate }}"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                </div>
-                <div class="flex items-center gap-1.5">
-                    <label class="text-xs text-gray-500">Day</label>
-                    <input type="date" wire:model.live="singleDate"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                </div>
-                <div class="flex items-center gap-1.5">
-                    <label class="text-xs text-gray-500">Month</label>
-                    <select wire:change="setMonth($event.target.value)"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        <option value="">Select month</option>
-                        @foreach ($monthOptions as $opt)
-                            <option value="{{ $opt['value'] }}"
-                                @selected(!$isOverall && $startDate === \Carbon\Carbon::parse($opt['value'].'-01')->startOfMonth()->toDateString() && $endDate === \Carbon\Carbon::parse($opt['value'].'-01')->endOfMonth()->toDateString())>
-                                {{ $opt['label'] }}
-                            </option>
-                        @endforeach
-                    </select>
+                    Filter by:
                 </div>
 
                 <button wire:click="thisMonth"
-                    class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-md hover:bg-gray-100">
+                    class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md border
+                        {{ $isThisMonth ? 'text-white bg-blue-600 border-blue-600 hover:bg-blue-700' : 'text-gray-700 bg-white border-gray-200 hover:bg-gray-100' }}">
                     This Month
                 </button>
                 <button wire:click="overall"
@@ -128,15 +106,18 @@
                     Overall
                 </button>
 
-                {{-- The period is chosen in the export dialog, so a statement is
-                     never downloaded for whatever window happens to be on screen. --}}
-                <button type="button" @click="openExport()"
-                    class="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-blue-600 bg-white border border-blue-200 rounded-md hover:bg-blue-50">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Export PDF
-                </button>
+                <span class="hidden sm:inline-block w-px h-5 bg-gray-200"></span>
+
+                <div class="flex items-center gap-1.5">
+                    <label class="text-xs text-gray-500">Start</label>
+                    <input type="date" wire:model.live="startDate" max="{{ $endDate }}"
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <label class="text-xs text-gray-500">End</label>
+                    <input type="date" wire:model.live="endDate" min="{{ $startDate }}"
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                </div>
             </div>
         </div>
     </div>
@@ -160,14 +141,13 @@
                 <table class="w-full table-fixed">
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            <th class="w-[9%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                            <th class="w-[22%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Particulars</th>
-                            <th class="w-[11%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">From</th>
-                            <th class="w-[11%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">To</th>
+                            <th class="w-[10%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                            <th class="w-[25%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Particulars</th>
+                            <th class="w-[13%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">From</th>
+                            <th class="w-[12%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">To</th>
                             <th class="w-[9%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Mode</th>
-                            <th class="w-[10%] px-3 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Credit</th>
-                            <th class="w-[10%] px-3 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Expense</th>
-                            <th class="w-[10%] px-3 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Balance</th>
+                            <th class="w-[12%] px-3 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
+                            <th class="w-[11%] px-3 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Balance</th>
                             <th class="w-[8%] px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
@@ -204,8 +184,10 @@
                                         @endif
                                     </div>
                                 </td>
-                                <td class="px-3 py-3 text-sm text-gray-600 break-words">{{ $row['from'] ?? '—' }}</td>
-                                <td class="px-3 py-3 text-sm text-gray-600 break-words">{{ $row['to'] ?? '—' }}</td>
+                                {{-- The school's own side reads as whose entry it is — Admin,
+                                     Sub-admin or Accounts — not as the school's name. --}}
+                                <td class="px-3 py-3 text-sm text-gray-600 break-words">{{ $row['from_label'] }}</td>
+                                <td class="px-3 py-3 text-sm text-gray-600 break-words">{{ $row['to_label'] }}</td>
                                 <td class="px-3 py-3 text-sm text-gray-500">
                                     {{-- Payment mode, with how the row got here underneath it. --}}
                                     <div class="break-words">{{ $row['mode'] ?: '—' }}</div>
@@ -215,11 +197,11 @@
                                         <span class="mt-1 inline-block text-[10px] font-medium px-1.5 py-0.5 rounded bg-purple-50 text-purple-600" title="Added by hand in the ledger">Manual</span>
                                     @endif
                                 </td>
-                                <td class="px-3 py-3 text-right text-sm font-semibold text-emerald-600">
-                                    {{ $row['type'] === 'credit' ? '₹' . number_format($row['amount'], 2) : '—' }}
-                                </td>
-                                <td class="px-3 py-3 text-right text-sm font-semibold text-red-600">
-                                    {{ $row['type'] === 'expense' ? '₹' . number_format($row['amount'], 2) : '—' }}
+                                {{-- One amount column: the figure, and under it — small — whether
+                                     it is a credit or an expense. --}}
+                                <td class="px-3 py-3 text-right">
+                                    <span class="block text-sm font-semibold {{ $row['type'] === 'expense' ? 'text-red-600' : 'text-emerald-600' }}">₹{{ number_format($row['amount'], 2) }}</span>
+                                    <span class="block text-[11px] text-gray-400">{{ $row['type'] === 'expense' ? 'Expense' : 'Credit' }}</span>
                                 </td>
                                 <td class="px-3 py-3 text-right text-sm font-semibold {{ $row['balance'] >= 0 ? 'text-gray-800' : 'text-red-600' }}">
                                     ₹{{ number_format($row['balance'], 2) }}
@@ -232,8 +214,8 @@
                                                 time: @js($row['time'] ?? null),
                                                 reason: @js($row['reason']),
                                                 source: @js($row['source']),
-                                                from: @js($row['from'] ?? '—'),
-                                                to: @js($row['to'] ?? '—'),
+                                                from: @js($row['from_label']),
+                                                to: @js($row['to_label']),
                                                 collectedBy: @js($row['collected_by'] ?? null),
                                                 mode: @js($row['mode'] ?: '—'),
                                                 type: @js($row['type']),
@@ -242,10 +224,10 @@
                                                 manual: @js(!empty($row['manual_id'])),
                                                 editable: @js(!empty($row['editable'])),
                                             }; showView = true"
-                                            class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                            class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                             </svg>
                                         </button>
 
@@ -254,9 +236,10 @@
                                              deleted from the ledger. --}}
                                         @if (!empty($row['manual_id']) && ($row['editable'] ?? false))
                                             <button wire:click="openEdit({{ $row['manual_id'] }})" title="Edit entry"
-                                                class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                 </svg>
                                             </button>
                                         @endif
@@ -265,7 +248,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" class="px-4 py-16 text-center">
+                                <td colspan="8" class="px-4 py-16 text-center">
                                     <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
                                         <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m-6 4h6m-6 4h4M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z" />
@@ -295,9 +278,9 @@
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-900">{{ $editingId ? 'Edit' : 'Add' }} {{ $modalType === 'expense' ? 'Expense' : 'Credit' }}</h2>
+                        <h2 class="text-lg font-semibold text-gray-900">{{ $editingId ? 'Edit' : 'Add' }} {{ $modalType === 'expense' ? 'Expense' : ($modalType === 'credit' ? 'Credit' : 'Entry') }}</h2>
                         <p class="text-xs text-gray-500 mt-0.5">
-                            {{ $modalType === 'expense' ? 'Record money going out' : 'Record money coming in' }}
+                            {{ $modalType === 'expense' ? 'Record money going out' : ($modalType === 'credit' ? 'Record money coming in' : 'Choose what you are adding') }}
                         </p>
                     </div>
                     <button wire:click="closeModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
@@ -306,11 +289,32 @@
                 </div>
 
                 <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-                    <div class="rounded-lg px-3.5 py-2.5 text-sm font-medium
-                        {{ $modalType === 'expense' ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700' }}">
-                        This entry is recorded under <strong>{{ $modalType === 'expense' ? 'Expenses' : 'Credits' }}</strong>.
-                    </div>
+                    {{-- Adding: first say which it is; the rest of the form follows.
+                         An entry being edited keeps its type. --}}
+                    @if ($editingId)
+                        <div class="rounded-lg px-3.5 py-2.5 text-sm font-medium
+                            {{ $modalType === 'expense' ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700' }}">
+                            This entry is recorded under <strong>{{ $modalType === 'expense' ? 'Expenses' : 'Credits' }}</strong>.
+                        </div>
+                    @else
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                What are you adding? <span class="text-red-500">*</span>
+                            </label>
+                            <div class="grid grid-cols-2 gap-2">
+                                @foreach (['credit' => ['Credit', 'Money coming in'], 'expense' => ['Expense', 'Money going out']] as $value => [$label, $hint])
+                                    <button type="button" wire:click="chooseType('{{ $value }}')"
+                                        class="px-3.5 py-3 text-left border-2 rounded-md transition-all
+                                            {{ $modalType === $value ? 'border-gray-900 bg-gray-50' : 'border-gray-200 hover:bg-gray-50' }}">
+                                        <span class="block text-sm font-semibold text-gray-900">{{ $label }}</span>
+                                        <span class="block text-xs text-gray-500 mt-0.5">{{ $hint }}</span>
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
 
+                    @if ($modalType === 'credit' || $modalType === 'expense')
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Date <span class="text-red-500">*</span></label>
@@ -367,15 +371,19 @@
                             class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm resize-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
                         @error('mReason')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
+                    @endif
                 </div>
 
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
                     <button wire:click="closeModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                    <button wire:click="saveManual" wire:loading.attr="disabled" wire:target="saveManual"
-                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
-                        <span wire:loading.remove wire:target="saveManual">{{ $editingId ? 'Update' : 'Save' }} {{ $modalType === 'expense' ? 'Expense' : 'Credit' }}</span>
-                        <span wire:loading wire:target="saveManual">Saving...</span>
-                    </button>
+                    {{-- Nothing to save until "credit or expense?" is answered. --}}
+                    @if ($modalType === 'credit' || $modalType === 'expense')
+                        <button wire:click="saveManual" wire:loading.attr="disabled" wire:target="saveManual"
+                            class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                            <span wire:loading.remove wire:target="saveManual">{{ $editingId ? 'Update' : 'Save' }} {{ $modalType === 'expense' ? 'Expense' : 'Credit' }}</span>
+                            <span wire:loading wire:target="saveManual">Saving...</span>
+                        </button>
+                    @endif
                 </div>
             </div>
         </div>

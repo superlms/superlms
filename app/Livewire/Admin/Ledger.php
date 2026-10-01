@@ -104,6 +104,26 @@ class Ledger extends Component
     public function openCredit(): void  { $this->openModal('credit'); }
     public function openExpense(): void { $this->openModal('expense'); }
 
+    /**
+     * The header's Add: the panel opens on the question "a credit or an
+     * expense?", and the rest of the form follows once one is picked.
+     */
+    public function openAdd(): void
+    {
+        $this->openModal('');
+    }
+
+    /** The answer to that question; an entry being edited keeps its type. */
+    public function chooseType(string $type): void
+    {
+        if ($this->editingId || !in_array($type, ['credit', 'expense'], true)) {
+            return;
+        }
+
+        $this->resetValidation();
+        $this->modalType = $type;
+    }
+
     protected function openModal(string $type): void
     {
         $this->resetValidation();
@@ -173,6 +193,11 @@ class Ledger extends Component
 
     public function saveManual(): void
     {
+        // Nothing to save until "credit or expense?" has been answered.
+        if (!in_array($this->modalType, ['credit', 'expense'], true)) {
+            return;
+        }
+
         $this->validate([
             'mDate'        => 'required|date',
             // 0 is a legitimate entry (a waived / nil line), so it must save as 0.
@@ -246,9 +271,18 @@ class Ledger extends Component
         // Running balance starts from the opening balance carried into the window.
         $opening = LedgerService::openingBalance($orgId, $start);
         $balance = $opening;
-        $entries = $entries->map(function ($row) use (&$balance) {
+        $school  = LedgerService::schoolName($orgId);
+        $entries = $entries->map(function ($row) use (&$balance, $school) {
             $balance += $row['type'] === 'credit' ? $row['amount'] : -$row['amount'];
             $row['balance'] = round($balance, 2);
+
+            // On screen the school's own side of a row reads as whose entry it
+            // is — Admin, Sub-admin or Accounts — not as the school's name
+            // (the statement PDF and the app keep 'from' / 'to' as they are).
+            $side = ($row['by'] ?? null) ?: '—';
+            $row['from_label'] = ($row['from'] ?? null) === $school ? $side : ($row['from'] ?? '—');
+            $row['to_label']   = ($row['to'] ?? null) === $school ? $side : ($row['to'] ?? '—');
+
             return $row;
         });
         $closing = round($balance, 2);
@@ -285,6 +319,11 @@ class Ledger extends Component
             'closingBalance' => $closing,
             'periodCredit'   => $periodCredit,
             'periodExpense'  => $periodExpense,
+            // The header's figures follow the window on screen: what came in
+            // less what went out in it (all time, when the window is Overall).
+            'periodNet'      => round($periodCredit - $periodExpense, 2),
+            'isThisMonth'    => $this->startDate === now()->startOfMonth()->toDateString()
+                && in_array($this->endDate, [now()->toDateString(), now()->endOfMonth()->toDateString()], true),
             'monthOptions'   => $monthOptions,
             'isOverall'      => $this->startDate === '' && $this->endDate === '',
         ]);

@@ -8,6 +8,7 @@ use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\LedgerTransaction;
 use App\Models\Admin\TransportFeePayment;
 use App\Models\Organization;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -26,12 +27,61 @@ use Illuminate\Support\Facades\Schema;
  * Each statement row is shaped like a bank line:
  *   ['date'=>Carbon, 'time'=>?string, 'sort_at'=>Carbon, 'type'=>'credit'|'expense',
  *    'amount'=>float, 'source'=>string, 'from'=>string, 'to'=>string,
- *    'mode'=>?string, 'party'=>string, 'reason'=>string, 'manual_id'=>?int]
+ *    'mode'=>?string, 'party'=>string, 'reason'=>string, 'manual_id'=>?int,
+ *    'by'=>?string]
+ *
+ * 'by' is whose entry it is — "Admin", "Sub-admin" or "Accounts", the role of
+ * the school's user who recorded it — or null when the row does not say.
  */
 class LedgerService
 {
     /** @var array<int,string> cache of org name by id, for From/To labels. */
     protected static array $orgNames = [];
+
+    /** @var array<int,array{id: array<int,string>, name: array<string,string>}> the school's panel users, by id and by name. */
+    protected static array $panelUsers = [];
+
+    private const ROLE_LABELS = ['admin' => 'Admin', 'sub-admin' => 'Sub-admin', 'accounts' => 'Accounts'];
+
+    /** The school's name as the rows carry it in From / To. */
+    public static function schoolName(int $orgId): string
+    {
+        return self::orgName($orgId);
+    }
+
+    /**
+     * Whose entry a row is: "Admin", "Sub-admin" or "Accounts". The tables keep
+     * the recorder differently — a user id (transport fees, manual entries,
+     * fees taken in the app) or the name typed into "Submitted by" / "Collected
+     * by" / "Paid by", which the panels fill in with the signed-in user's own
+     * name. Either is looked up among the school's panel users; anything else
+     * (an online payment, a name nobody has) is left unsaid.
+     */
+    protected static function recordedBy(int $orgId, $who): ?string
+    {
+        if (!isset(self::$panelUsers[$orgId])) {
+            $byId = $byName = [];
+            foreach (User::where('organization_id', $orgId)->whereIn('role', array_keys(self::ROLE_LABELS))->get(['id', 'name', 'role']) as $user) {
+                $label = self::ROLE_LABELS[$user->role];
+                $byId[(int) $user->id] = $label;
+                $name = mb_strtolower(trim((string) $user->name));
+                // Two users of one name in different roles: the name alone does not say which.
+                $byName[$name] = isset($byName[$name]) && $byName[$name] !== $label ? '' : $label;
+            }
+            self::$panelUsers[$orgId] = ['id' => $byId, 'name' => $byName];
+        }
+
+        $who = trim((string) $who);
+        if ($who === '') {
+            return null;
+        }
+
+        $label = ctype_digit($who)
+            ? (self::$panelUsers[$orgId]['id'][(int) $who] ?? null)
+            : (self::$panelUsers[$orgId]['name'][mb_strtolower($who)] ?? null);
+
+        return $label ?: null;
+    }
 
     /** Net balance across all time = total credits − total expenses. */
     public static function netBalance(int $orgId): float
@@ -104,7 +154,7 @@ class LedgerService
             ->with('studentDetail:id,full_name,admission_no')
             ->orderBy('payment_date')
             ->get()
-            ->each(function ($p) use ($rows, $school) {
+            ->each(function ($p) use ($rows, $school, $orgId) {
                 $penalty = (float) ($p->penalty_amount ?? 0);
                 // fee_type is academic|transport; an older blank row reads as academic.
                 $label   = ucfirst((string) ($p->fee_type ?: 'academic')) . ' Fee';
@@ -123,6 +173,7 @@ class LedgerService
                     'reason'  => trim($label . ' collection'
                         . ($penalty > 0 ? ' (incl. penalty Rs. ' . number_format($penalty, 2) . ')' : '')
                         . ($p->receipt_number ? ' · ' . $p->receipt_number : '')),
+                    'by'      => self::recordedBy($orgId, $p->submitted_by),
                 ]);
             });
 
@@ -132,7 +183,7 @@ class LedgerService
                 ->with('studentDetail:id,full_name,admission_no')
                 ->orderBy('payment_date')
                 ->get()
-                ->each(function ($p) use ($rows, $school) {
+                ->each(function ($p) use ($rows, $school, $orgId) {
                     $student = self::studentLabel($p->studentDetail);
                     $rows->push([
                         'date'    => Carbon::parse($p->payment_date),
@@ -147,13 +198,14 @@ class LedgerService
                         'party'   => $student,
                         'reason'  => 'Transport fee collection'
                             . ($p->receipt_number ? ' · ' . $p->receipt_number : ''),
+                        'by'      => self::recordedBy($orgId, $p->submitted_by),
                     ]);
                 });
         }
 
         // ── Admission fees (credit) ────────────────────────────────────────
         if (self::hasAdmissionFees()) {
-            self::admissionQuery($orgId, $start, $end)->get()->each(function ($a) use ($rows, $school) {
+            self::admissionQuery($orgId, $start, $end)->get()->each(function ($a) use ($rows, $school, $orgId) {
                 $when = $a->fee_collected_at ?: $a->created_at;
                 $rows->push([
                     'date'    => Carbon::parse($when),
@@ -168,6 +220,7 @@ class LedgerService
                     'party'   => $a->student_name ?: 'Applicant',
                     'reason'  => 'Admission fee collection'
                         . ($a->student_name ? ' · ' . $a->student_name : ''),
+                    'by'      => self::recordedBy($orgId, $a->collected_by),
                 ]);
             });
         }
@@ -178,7 +231,7 @@ class LedgerService
             ->where('status', 'paid');
         self::salaryDateScoped($salaryQ, $start, $end)
             ->get()
-            ->each(function ($s) use ($rows, $school) {
+            ->each(function ($s) use ($rows, $school, $orgId) {
                 $when     = $s->payment_date ?: $s->created_at;
                 $employee = $s->employee->name ?? 'Staff';
                 $rows->push([
@@ -193,6 +246,7 @@ class LedgerService
                     'mode'    => $s->payment_mode,
                     'party'   => $employee,
                     'reason'  => 'Salary' . ($s->month ? ' · ' . $s->month : ''),
+                    'by'      => self::recordedBy($orgId, $s->paid_by),
                 ]);
             });
 
@@ -200,7 +254,7 @@ class LedgerService
         self::dateScoped(LedgerTransaction::where('organization_id', $orgId), 'txn_date', $start, $end)
             ->orderBy('txn_date')
             ->get()
-            ->each(function ($m) use ($rows, $school) {
+            ->each(function ($m) use ($rows, $school, $orgId) {
                 if ($m->type === 'credit') {
                     $from = $m->party ?: '—';
                     $to   = $school;
@@ -225,6 +279,7 @@ class LedgerService
                     'editable'  => $m->isEditable(),
                     // For credits, party_to carries the "Collected by" staff name.
                     'collected_by' => $m->type === 'credit' ? ($m->party_to ?: null) : null,
+                    'by'           => self::recordedBy($orgId, $m->created_by),
                 ]);
             });
 
