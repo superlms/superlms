@@ -106,8 +106,9 @@
     <div class="p-4 sm:p-6">
         {{-- The list, in the Students list's style: one table — S.No, the
              announcement (its icon, the title, and under it the content on one
-             line, cut short with … when it is long) and the actions. Who it is
-             for, who posted it, when, and its attachment are on its View. --}}
+             line, cut short with … when it is long; then, small, who it went to,
+             the day, date and time, and the kind of attachment) and the actions.
+             Who posted it and the attachment itself are on its View. --}}
         @if ($announcements->count())
             <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
                 <div class="overflow-x-auto">
@@ -129,17 +130,38 @@
                                         <span class="text-sm text-gray-500 font-medium">{{ $announcements->firstItem() + $index }}</span>
                                     </td>
 
-                                    {{-- Icon, title, and the content on one line --}}
+                                    {{-- Icon, title, the content on one line, and under it — small
+                                         and plain — who it went to, when, and the kind of attachment. --}}
+                                    @php
+                                        $rowAudience = match ($announcement->type) {
+                                            'user'    => 'Students' . ($announcement->standard ? ' · ' . $announcement->standard->name : ''),
+                                            'teacher' => 'Teachers',
+                                            default   => ucfirst((string) $announcement->type),
+                                        };
+                                        $rowAttachment = implode(', ', array_filter([
+                                            $announcement->announcement_image ? 'Image' : null,
+                                            $announcement->announcement_pdf ? 'PDF' : null,
+                                        ]));
+                                    @endphp
                                     <td class="px-4 py-3">
                                         <div class="flex items-center gap-3 min-w-0">
-                                            <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                                                <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                            <div class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
                                                 </svg>
                                             </div>
                                             <div class="min-w-0">
                                                 <p class="text-sm font-semibold text-gray-900 truncate">{{ $announcement->announcement_name }}</p>
                                                 <p class="text-xs text-gray-400 truncate">{{ $announcement->announcement_content }}</p>
+                                                <p class="text-[11px] text-gray-400 truncate mt-0.5">
+                                                    {{ $rowAudience }}
+                                                    <span class="mx-1 text-gray-300">·</span>
+                                                    {{ $announcement->created_at->format('D, d M Y · g:i A') }}
+                                                    @if ($rowAttachment !== '')
+                                                        <span class="mx-1 text-gray-300">·</span>
+                                                        {{ $rowAttachment }}
+                                                    @endif
+                                                </p>
                                             </div>
                                         </div>
                                     </td>
