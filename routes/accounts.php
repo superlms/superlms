@@ -25,19 +25,20 @@ use App\Livewire\Accounts\ReportCard;
 use App\Livewire\Accounts\TcCertificate;
 use App\Livewire\Accounts\Profile;
 use App\Livewire\Accounts\Notification;
+use App\Livewire\AppLock;
 use App\Livewire\Chat\Messenger;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('accounts')->group(function () {
 
     // Public PWA launch entry — inside the /accounts scope so the installed
-    // accounts app stays independent. Logged in → dashboard; expired → login.
-    Route::get('/launch', function () {
-        $u = auth('accounts')->user();
-        return ($u && $u->organization_id)
-            ? redirect()->route('accounts.dashboard', ['organization' => $u->organization_id])
-            : redirect()->route('accounts.login');
-    })->name('accounts.launch');
+    // accounts app stays independent. The panel still open in some window or
+    // tab → dashboard. Opened afresh → a code mailed to the account that signed
+    // in on this device, then the dashboard; nobody has → login
+    // (App\Livewire\AppLock).
+    Route::get('/launch', AppLock::class)
+        ->defaults('panel', 'accounts')
+        ->name('accounts.launch');
 
     // Guest routes
     Route::middleware(['guest:accounts'])->group(function () {

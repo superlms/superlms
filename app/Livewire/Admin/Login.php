@@ -4,6 +4,7 @@ namespace App\Livewire\Admin;
 
 use App\Models\User;
 use App\Services\OtpMailService;
+use App\Support\PanelApp;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Attributes\Locked;
@@ -91,6 +92,8 @@ class Login extends Component
         // on to restore it.
         if (!OtpMailService::loginOtpEnabled()) {
             Auth::guard('admin')->login($user);
+            // From now on this device's installed app opens for this account.
+            PanelApp::remember('admin', $user);
 
             $landingRoute = 'admin.quick-links';
             if ($user->role === 'sub-admin') {
@@ -168,6 +171,8 @@ class Login extends Component
         // Panel-specific guard: signing in here never touches the super-admin
         // or accounts sessions in the same browser.
         Auth::guard('admin')->login($user);
+        // From now on this device's installed app opens for this account.
+        PanelApp::remember('admin', $user);
 
         $landingRoute = 'admin.quick-links';
         if ($user->role === 'sub-admin') {

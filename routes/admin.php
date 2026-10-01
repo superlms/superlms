@@ -52,12 +52,11 @@ use App\Livewire\Admin\Ledger;
 use App\Livewire\Admin\Lists;
 use App\Livewire\Admin\More;
 use App\Livewire\Admin\Users;
+use App\Livewire\AppLock;
 use App\Livewire\Chat\Messenger;
 use App\Livewire\Components\Notification;
 use App\Livewire\Components\Profile;
 use App\Livewire\ResetPassword;
-use App\Models\User;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['guest:admin'])->group(function () {
@@ -66,30 +65,29 @@ Route::middleware(['guest:admin'])->group(function () {
 });
 
 // Public PWA launch entry — lives inside the admin app's /{organization}/ scope
-// so the installed admin app doesn't claim super-admin/accounts URLs. Logged in
-// → the school home; session expired → the admin login screen.
+// so the installed admin app doesn't claim super-admin/accounts URLs. The
+// school's panel still open in some window or tab → the school home. Opened
+// afresh → a code mailed to the account that signed in to this school on this
+// device, and then the school home; nobody has → the admin login screen
+// (App\Livewire\AppLock).
 //
 // The admin guard's session cookie is shared across every browser tab/installed
 // shortcut, so a super-admin using "login as school" in one tab would silently
-// flip every other installed admin shortcut to that school too. To keep an
-// installed shortcut pinned to the school it was installed for, its start_url
-// carries a permanent signature (see pwa.manifest in web.php) — when present and
-// valid, we force the admin guard back onto that school regardless of whatever
-// session state the browser side is currently in.
-Route::get('/{organization}/launch', function (Request $request, $organization) {
-    if ($request->hasValidSignature(false)) {
-        $admin = User::where('organization_id', $organization)->where('role', 'admin')->first();
-        if ($admin) {
-            auth('admin')->login($admin);
-            return redirect()->route('admin.home', ['organization' => $organization]);
-        }
-    }
-
-    $u = auth('admin')->user();
-    return ($u && $u->organization_id)
-        ? redirect()->route('admin.home', ['organization' => $u->organization_id])
-        : redirect()->route('admin.login');
-})->name('admin.launch');
+// flip every other installed admin shortcut to that school too. An installed
+// shortcut stays pinned to the school it was installed for: its start_url names
+// the school (see pwa.manifest in web.php), and the code it asks for signs the
+// admin guard back onto that school regardless of whatever session state the
+// browser side is currently in. The start_url's permanent signature used to
+// sign the school's admin in by itself; it is no longer looked at — the code is
+// what opens the app now.
+//
+// A school's id only: left open to any word, this route also took
+// /accounts/launch — registered further down — and the accounts app opened the
+// admin panel.
+Route::get('/{organization}/launch', AppLock::class)
+    ->whereNumber('organization')
+    ->defaults('panel', 'admin')
+    ->name('admin.launch');
 
 Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
     Route::prefix('/{organization}')->group(function () {

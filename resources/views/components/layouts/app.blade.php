@@ -195,6 +195,9 @@
     {{-- ─── Photo cropper (x-admin.photo-cropper): pick, fit in the circle, upload ─── --}}
     @include('partials.photo-cropper-js')
 
+    {{-- ─── Tell the installed app the panel is open (it then opens without a code) ─── --}}
+    @include('partials.panel-app-open')
+
     {{-- ─── Follow the super-admin's "Login as school" into this tab ─── --}}
     @if (Auth::user() && in_array(Auth::user()->role, ['admin', 'sub-admin']))
         @include('partials.school-login-sync')

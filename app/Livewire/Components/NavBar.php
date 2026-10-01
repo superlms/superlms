@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Components;
 
+use App\Support\PanelApp;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -139,20 +140,25 @@ class NavBar extends Component
 
     // Each panel signs out of ITS guard only, so logging out of (say) the
     // super-admin panel never kills an admin/accounts session open elsewhere.
+    // Logging out also ends the panel's installed app opening on a code alone
+    // on this device: its next opening asks for the email and password.
     public function superAdminLogout(): mixed
     {
+        PanelApp::forget('superadmin');
         Auth::guard('superadmin')->logout();
         return redirect()->route('super-admin.login');
     }
 
     public function adminLogout(): mixed
     {
+        PanelApp::forget('admin', Auth::guard('admin')->user()?->organization_id);
         Auth::guard('admin')->logout();
         return redirect()->route('admin.login');
     }
 
     public function accountsLogout(): mixed
     {
+        PanelApp::forget('accounts');
         session()->forget('accounts_otp_verified');
         Auth::guard('accounts')->logout();
         return redirect()->route('accounts.login');

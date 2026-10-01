@@ -4,6 +4,7 @@ namespace App\Livewire\Accounts;
 
 use App\Models\User;
 use App\Services\OtpMailService;
+use App\Support\PanelApp;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
@@ -66,6 +67,8 @@ class Login extends Component
         // on to restore it.
         if (!OtpMailService::loginOtpEnabled()) {
             session(['accounts_otp_verified' => true]);
+            // From now on this device's installed app opens for this account.
+            PanelApp::remember('accounts', $user);
             return redirect()->route('accounts.dashboard', ['organization' => $user->organization_id])
                 ->with('success', 'Login successful.');
         }

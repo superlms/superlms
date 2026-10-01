@@ -1,4 +1,7 @@
 <div class="min-h-screen flex items-center justify-center bg-slate-50 p-4 sm:p-6">
+    {{-- Inside the installed app: over to its code screen --}}
+    @include('partials.panel-app-login', ['panel' => 'accounts'])
+
     <!-- Split Screen Container -->
     <div class="flex flex-col md:flex-row w-full max-w-5xl md:h-[600px] rounded-3xl overflow-hidden bg-white border border-slate-100 shadow-xl shadow-slate-200/60">
 

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\PhonePeController;
+use App\Livewire\AppLock;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\URL;
 
@@ -11,28 +12,22 @@ Route::get('/payment/return/{merchantOrderId}', [PhonePeController::class, 'paym
 
 // ── Installable PWA entry points ──────────────────────────────────────────
 // Each installed app (admin / super-admin / accounts) opens at its own
-// start_url below. Logged in → straight to that role's area; session expired
-// → that role's login screen. Registered before website.php so the
-// {organization} wildcard doesn't swallow them.
-Route::get('/app/admin', function () {
-    $u = auth('admin')->user();
-    return ($u && $u->organization_id)
-        ? redirect()->route('admin.home', ['organization' => $u->organization_id])
-        : redirect()->route('admin.login');
-})->name('pwa.admin');
+// start_url below. The panel still open in some window or tab → straight to
+// that role's area. Opened afresh → a code mailed to the account that signed
+// in on this device, and then in; a device nobody has signed in on → that
+// role's login screen (see App\Livewire\AppLock). Registered before
+// website.php so the {organization} wildcard doesn't swallow them.
+Route::get('/app/admin', AppLock::class)
+    ->defaults('panel', 'admin')
+    ->name('pwa.admin');
 
-Route::get('/app/superadmin', function () {
-    return auth('superadmin')->check()
-        ? redirect()->route('super-admin.dashboard')
-        : redirect()->route('super-admin.login');
-})->name('pwa.superadmin');
+Route::get('/app/superadmin', AppLock::class)
+    ->defaults('panel', 'superadmin')
+    ->name('pwa.superadmin');
 
-Route::get('/app/accounts', function () {
-    $u = auth('accounts')->user();
-    return ($u && $u->organization_id)
-        ? redirect()->route('accounts.dashboard', ['organization' => $u->organization_id])
-        : redirect()->route('accounts.login');
-})->name('pwa.accounts');
+Route::get('/app/accounts', AppLock::class)
+    ->defaults('panel', 'accounts')
+    ->name('pwa.accounts');
 
 // Role-specific web-app manifests (correct MIME). Each role installs as its own
 // separate app with its OWN scope, so installing one (e.g. admin) doesn't make
@@ -54,9 +49,11 @@ Route::get('/pwa/manifest/{role}', function (string $role) {
             $name     = 'SuperLMS Admin';
             $short    = 'Admin';
             $id       = '/pwa/admin-' . $org;
-            // Permanently signed so this shortcut stays pinned to this school even if
-            // the shared admin-guard session later gets flipped to another school
-            // (e.g. via super-admin "login as school" in a browser tab) — see admin.launch.
+            // This school's own opening page, so the shortcut stays pinned to this
+            // school even if the shared admin-guard session later gets flipped to
+            // another school (e.g. via super-admin "login as school" in a browser
+            // tab) — see admin.launch. Still signed, as the shortcuts already
+            // installed are; the signature itself no longer opens anything.
             $start    = URL::signedRoute('admin.launch', ['organization' => $org], null, false);
             $scope    = '/' . $org . '/';
         } else {

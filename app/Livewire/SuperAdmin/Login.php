@@ -5,6 +5,7 @@ namespace App\Livewire\SuperAdmin;
 use App\Exceptions\OtpDeliveryException;
 use App\Models\User;
 use App\Services\OtpMailService;
+use App\Support\PanelApp;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Attributes\Locked;
@@ -82,6 +83,8 @@ class Login extends Component
         // on to restore it.
         if (!OtpMailService::loginOtpEnabled()) {
             Auth::guard('superadmin')->login($user);
+            // From now on this device's installed app opens for this account.
+            PanelApp::remember('superadmin', $user);
             return redirect()->route('super-admin.quick-links')
                 ->with('success', 'Login successful.');
         }
@@ -148,6 +151,8 @@ class Login extends Component
             // Panel-specific guard: signing in here never touches the admin
             // or accounts sessions in the same browser.
             Auth::guard('superadmin')->login($user);
+            // From now on this device's installed app opens for this account.
+            PanelApp::remember('superadmin', $user);
             return redirect()->route('super-admin.quick-links');
         } catch (\Exception $e) {
             $this->otp = ['', '', '', '', '', ''];
