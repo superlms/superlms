@@ -194,24 +194,33 @@
         </div>
 
     @elseif ($activeTab === 'payments')
+        {{-- A type, then one of its people, then the month. Nothing picked: every payment. --}}
         <div class="bg-gray-50 border-b border-gray-200 px-4 sm:px-6 py-3">
             <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
                     <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $filterIcon }}" /></svg>
                     Filter by:
                 </div>
-                <input wire:model.live.debounce.300ms="paymentSearch" type="text" placeholder="Search employee…"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                <select wire:model.live="filterPaymentEmpId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[160px]">
-                    <option value="">All Employees</option>
-                    @foreach ($allEmployeesForFilter as $emp)<option value="{{ $emp->id }}">{{ $emp->name }}</option>@endforeach
+                <select wire:model.live="filterPaymentType" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <option value="">All types</option>
+                    <option value="management">Management</option>
+                    <option value="teacher">Teacher</option>
+                    <option value="driver">Driver</option>
+                    <option value="employee">Employee</option>
+                </select>
+                <select wire:model.live="filterPaymentEmpId" @disabled(!$filterPaymentType)
+                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[170px] disabled:opacity-50 disabled:cursor-not-allowed">
+                    <option value="">{{ $filterPaymentType ? 'All ' . $filterPaymentType . 's' : 'Select a type first' }}</option>
+                    @foreach ($paymentPeople as $emp)
+                        <option value="{{ $emp->id }}">{{ $emp->name }}{{ count($emp->types()) > 1 ? ' (' . implode(', ', array_map('ucfirst', $emp->types())) . ')' : '' }}</option>
+                    @endforeach
                 </select>
                 <div class="flex items-center gap-1.5">
                     <label class="text-xs text-gray-500">Month</label>
                     <input type="month" wire:model.live="filterPaymentMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" />
                 </div>
-                @if ($paymentSearch || $filterPaymentEmpId || $filterPaymentMonth)
-                    <button wire:click="clearPaymentFilters" class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                @if ($filterPaymentType || $filterPaymentEmpId || $filterPaymentMonth)
+                    <button wire:click="clearPaymentFilters" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         Clear
                     </button>
@@ -276,7 +285,7 @@
                                     <td class="px-4 py-3 text-sm text-gray-600">{{ $emp->mobile ?? '—' }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-600 tabular-nums whitespace-nowrap">
                                         @if ($att && $att['working'] > 0)
-                                            <span title="Present {{ $days }} of {{ $att['working'] }} working days this month — absent {{ $att['absent'] }}, half day {{ $att['half'] }}, leave {{ $att['leave'] }}">
+                                            <span title="Present {{ $days }} of {{ $att['working'] }} working days this month — absent {{ $att['absent'] }}, half day {{ $att['half'] }}">
                                                 <span class="font-semibold text-gray-800">{{ $days }}</span> / {{ $att['working'] }}
                                             </span>
                                         @else
@@ -409,7 +418,7 @@
             @elseif ($attView === 'date')
                 {{-- ─── DATE VIEW: everyone's status on the chosen date — a plain list ─── --}}
                 @php
-                    $dayText = ['present' => 'Present', 'absent' => 'Absent', 'half_day' => 'Half day', 'leave' => 'Leave', 'holiday' => 'Holiday'];
+                    $dayText = ['present' => 'Present', 'absent' => 'Absent', 'half_day' => 'Half day', 'holiday' => 'Holiday'];
                     $dayTone = ['present' => 'text-emerald-600', 'absent' => 'text-red-500', 'half_day' => 'text-amber-600', 'leave' => 'text-blue-600', 'holiday' => 'text-indigo-500'];
                     $dayDot  = ['present' => 'bg-emerald-500', 'absent' => 'bg-red-500', 'half_day' => 'bg-amber-500', 'leave' => 'bg-blue-500', 'holiday' => 'bg-indigo-400'];
                     $dayCount = collect($dayMarks)->countBy(fn ($m) => $m['status'] ?: 'not_marked');
@@ -439,7 +448,7 @@
                                 <span class="w-24 flex-shrink-0 inline-flex items-center justify-end gap-1.5 text-xs font-medium {{ $dayTone[$mark['status']] ?? 'text-gray-300' }}">
                                     @if ($mark['status'])
                                         <span class="w-1.5 h-1.5 rounded-full {{ $dayDot[$mark['status']] ?? 'bg-gray-300' }}"></span>
-                                        {{ $dayText[$mark['status']] ?? ucfirst(str_replace('_', ' ', $mark['status'])) }}
+                                        {{ $dayText[$mark['status']] ?? ucfirst(str_replace('_', ' ', $mark['status'])) }}{{-- e.g. a Leave marked from the app --}}
                                     @else
                                         Not marked
                                     @endif
@@ -468,11 +477,15 @@
                         <h3 class="text-sm font-semibold text-gray-800 truncate">{{ $attEmp->name }}</h3>
                         <p class="text-xs text-gray-400">{{ implode(', ', array_map('ucfirst', $attEmp->types())) }} · {{ $attPeriodLabel }}</p>
                     </div>
+                    {{-- Working days are the days the person was marked on (holidays apart). --}}
                     <p class="text-xs text-gray-400 tabular-nums">
+                        Working days <span class="text-gray-700 font-medium">{{ $attCounts['marked'] ?? 0 }}</span><span class="text-gray-300"> · </span>
                         Present <span class="text-gray-700 font-medium">{{ $attCounts['present'] ?? 0 }}</span><span class="text-gray-300"> · </span>
                         Absent <span class="text-gray-700 font-medium">{{ $attCounts['absent'] ?? 0 }}</span><span class="text-gray-300"> · </span>
-                        Half day <span class="text-gray-700 font-medium">{{ $attCounts['half_day'] ?? 0 }}</span><span class="text-gray-300"> · </span>
-                        Leave <span class="text-gray-700 font-medium">{{ $attCounts['leave'] ?? 0 }}</span>
+                        @if (($attCounts['half_day'] ?? 0) > 0)
+                            Half day <span class="text-gray-700 font-medium">{{ $attCounts['half_day'] }}</span><span class="text-gray-300"> · </span>
+                        @endif
+                        Holiday <span class="text-gray-700 font-medium">{{ $attCounts['holiday'] ?? 0 }}</span>
                     </p>
                 </div>
 
@@ -480,9 +493,19 @@
                     @forelse ($attMonths as $ym => $m)
                         @php $mc = $m['counts']; @endphp
                         <div class="bg-white rounded-xl border border-gray-200 p-4" wire:key="cal-{{ $ym }}">
-                            <div class="flex items-baseline justify-between mb-3">
-                                <p class="text-xs font-medium text-gray-700">{{ $m['label'] }}</p>
-                                <span class="text-xs text-gray-400 tabular-nums">{{ $mc['marked'] > 0 ? $m['pct'] . '%' : '—' }}</span>
+                            {{-- Beside the month, in short: working days, present, absent and
+                                 holidays (a half day only when there is one). --}}
+                            <div class="flex items-baseline justify-between gap-2 mb-3">
+                                <p class="text-xs font-medium text-gray-700 whitespace-nowrap">{{ $m['label'] }}</p>
+                                <p class="text-[10px] text-gray-400 tabular-nums whitespace-nowrap">
+                                    <span title="Working days">W <span class="text-gray-700 font-medium">{{ $mc['marked'] }}</span></span><span class="text-gray-300"> · </span>
+                                    <span title="Present">P <span class="text-gray-700 font-medium">{{ $mc['present'] }}</span></span><span class="text-gray-300"> · </span>
+                                    <span title="Absent">A <span class="text-gray-700 font-medium">{{ $mc['absent'] }}</span></span><span class="text-gray-300"> · </span>
+                                    @if ($mc['half_day'] > 0)
+                                        <span title="Half day">½ <span class="text-gray-700 font-medium">{{ $mc['half_day'] }}</span></span><span class="text-gray-300"> · </span>
+                                    @endif
+                                    <span title="Holiday / not marked">H <span class="text-gray-700 font-medium">{{ $mc['holiday'] }}</span></span>
+                                </p>
                             </div>
 
                             {{-- Sunday-first weekday header --}}
@@ -510,13 +533,6 @@
                                 @endforeach
                             </div>
 
-                            {{-- That month's figures, on one plain line --}}
-                            <p class="mt-3 pt-2.5 border-t border-gray-100 text-[10px] text-gray-400 tabular-nums">
-                                P <span class="text-gray-700 font-medium">{{ $mc['present'] }}</span><span class="text-gray-300"> · </span>
-                                A <span class="text-gray-700 font-medium">{{ $mc['absent'] }}</span><span class="text-gray-300"> · </span>
-                                H <span class="text-gray-700 font-medium">{{ $mc['half_day'] }}</span><span class="text-gray-300"> · </span>
-                                L <span class="text-gray-700 font-medium">{{ $mc['leave'] }}</span>
-                            </p>
                         </div>
                     @empty
                         <p class="sm:col-span-2 lg:col-span-3 text-sm text-gray-400 text-center py-6">Nothing to show for this period.</p>
@@ -527,8 +543,9 @@
                     <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-100 align-middle"></span> Present</span>
                     <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-red-100 align-middle"></span> Absent</span>
                     <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-amber-100 align-middle"></span> Half day</span>
-                    <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-blue-100 align-middle"></span> Leave</span>
                     <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-white border border-gray-200 align-middle"></span> Holiday / not marked</span>
+                    <span class="text-gray-300">·</span>
+                    <span>W working days · P present · A absent · H holiday</span>
                 </div>
             @else
                 {{-- ─── PROMPT (nothing selected yet) ─── --}}
@@ -628,8 +645,8 @@
                                             @if ($m['present'] + $m['absent'] + $m['half'] + $m['leave'] > 0)
                                                 Present <span class="text-gray-700 font-medium">{{ $m['present'] }}</span><span class="text-gray-300"> · </span>
                                                 Absent <span class="text-gray-700 font-medium">{{ $m['absent'] }}</span><span class="text-gray-300"> · </span>
-                                                Half <span class="text-gray-700 font-medium">{{ $m['half'] }}</span><span class="text-gray-300"> · </span>
-                                                Leave <span class="text-gray-700 font-medium">{{ $m['leave'] }}</span>
+                                                Half <span class="text-gray-700 font-medium">{{ $m['half'] }}</span>@if ($m['leave'] > 0)<span class="text-gray-300"> · </span>
+                                                Leave <span class="text-gray-700 font-medium">{{ $m['leave'] }}</span>@endif
                                             @else
                                                 Not marked
                                             @endif
@@ -1170,16 +1187,12 @@
          on it at once — teachers first, then management, drivers and employees,
          A to Z within each. Picking a status is handled by Alpine and only
          synced to the component (no request per click); it all saves together.
-         A teacher's row offers what the Attendance module marks a teacher with
-         and is saved to its records; everyone else has Leave where a teacher
-         has Holiday. --}}
+         Every row offers Present, Absent, Half and Holiday; a teacher's is saved
+         to the Attendance module's records, everyone else's to payroll's. --}}
     @php
-        // Holiday on every row, so a holiday can be given to everyone at once; a
-        // teacher's row has no Leave (the Attendance module keeps none for them).
-        $markOpts = [
-            'staff'   => ['present' => 'Present', 'absent' => 'Absent', 'half_day' => 'Half', 'leave' => 'Leave', 'holiday' => 'Holiday'],
-            'teacher' => ['present' => 'Present', 'absent' => 'Absent', 'half_day' => 'Half', 'holiday' => 'Holiday'],
-        ];
+        // The same four on every row — teacher or not. (Leave used to be offered
+        // to everyone but teachers; it is off the panel.)
+        $markOpts = ['present' => 'Present', 'absent' => 'Absent', 'half_day' => 'Half', 'holiday' => 'Holiday'];
         // The remark every row shares, if they share one, for the "Remark for
         // all" box — a saved holiday opens with its remark in it.
         $panelRemarks = collect($panelRows)->map(fn ($r) => (string) ($r['remark'] ?? ''))->unique();
@@ -1189,7 +1202,6 @@
             'absent'   => 'bg-red-50 text-red-600 font-medium',
             'half_day' => 'bg-amber-50 text-amber-700 font-medium',
             'holiday'  => 'bg-indigo-50 text-indigo-700 font-medium',
-            'leave'    => 'bg-blue-50 text-blue-700 font-medium',
         ];
     @endphp
     @if ($showMarkPanel)
@@ -1292,7 +1304,6 @@
             <div class="flex-1 overflow-y-auto divide-y divide-gray-100">
                 @forelse ($markPeople as $i => $emp)
                     @php
-                        $asTeacher = $emp->isTeacher() && $emp->teacher_detail_id;
                         $typeLine  = implode(', ', array_map('ucfirst', $emp->types()));
                         $subLine   = $emp->designation && strcasecmp((string) $emp->designation, $typeLine) !== 0
                             ? $typeLine . ' · ' . $emp->designation
@@ -1312,12 +1323,9 @@
                         </div>
                         <input type="text" wire:model="panelRows.{{ $emp->id }}.remark" x-on:input="remarks[{{ $emp->id }}] = $event.target.value" placeholder="Remark" maxlength="255"
                             class="w-28 sm:w-36 text-xs border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                        {{-- A fixed place for the statuses, the group at its right edge: a
-                             teacher's row has four of them and anyone else's five, and
-                             the remark boxes still line up down the list. --}}
-                        <div class="flex justify-end flex-shrink-0" style="width: 19.5rem">
+                        {{-- One width for every status, so the rows line up down the list. --}}
                         <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-[11px] flex-shrink-0">
-                            @foreach ($markOpts[$asTeacher ? 'teacher' : 'staff'] as $st => $label)
+                            @foreach ($markOpts as $st => $label)
                                 <button type="button" x-on:click="pick({{ $emp->id }}, '{{ $st }}')"
                                     class="w-14 py-1.5 text-center {{ $loop->first ? '' : 'border-l border-gray-200' }}"
                                     :class="{ '{{ $markSel[$st] }}': rows[{{ $emp->id }}] === '{{ $st }}', 'text-gray-500 hover:bg-gray-50': rows[{{ $emp->id }}] !== '{{ $st }}' }">{{ $label }}</button>
@@ -1327,7 +1335,6 @@
                             <button type="button" x-on:click="pick({{ $emp->id }}, '')" title="Leave unmarked"
                                 class="px-2 py-1.5 border-l border-gray-200"
                                 :class="{ 'bg-gray-100 text-gray-500': rows[{{ $emp->id }}] === '', 'text-gray-300 hover:text-gray-600 hover:bg-gray-50': rows[{{ $emp->id }}] !== '' }">&times;</button>
-                        </div>
                         </div>
                     </div>
                 @empty

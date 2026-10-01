@@ -330,21 +330,21 @@ class PayrollPanelTest extends TestCase
 
         $ids = AdminEmployee::pluck('id', 'name');
 
-        // Every row offers Holiday; Leave is everyone's but a teacher's.
+        // Every row offers the same four — Holiday among them, Leave no longer.
         $html = $page->html();
         $this->assertStringContainsString("pick({$ids['Bina']}, 'holiday')", $html);
-        $this->assertStringNotContainsString("pick({$ids['Bina']}, 'leave')", $html);
-        $this->assertStringContainsString("pick({$ids['Zoya']}, 'leave')", $html);
         $this->assertStringContainsString("pick({$ids['Zoya']}, 'holiday')", $html);
+        $this->assertStringContainsString("pick({$ids['Zoya']}, 'half_day')", $html);
+        $this->assertStringNotContainsString("'leave')", $html);
         $this->assertStringContainsString("all('holiday')", $html);
 
         $page->set("panelRows.{$ids['Bina']}.status", 'present')
             ->set("panelRows.{$ids['Xavier']}.status", 'half_day')
             ->set("panelRows.{$ids['Xavier']}.remark", 'Left at noon')
             ->set("panelRows.{$ids['Wasim']}.status", 'absent')
-            ->set("panelRows.{$ids['Yash']}.status", 'leave')
-            // Not a status any row offers: not written.
-            ->set("panelRows.{$ids['Zoya']}.status", 'late')
+            ->set("panelRows.{$ids['Yash']}.status", 'half_day')
+            // Not a status the panel offers any more: not written.
+            ->set("panelRows.{$ids['Zoya']}.status", 'leave')
             ->call('saveMarkPanel')
             ->assertSet('showMarkPanel', false)
             ->assertSet('attendanceDate', $today);
@@ -358,7 +358,7 @@ class PayrollPanelTest extends TestCase
 
         // Everyone else: payroll's records.
         $a = AdminAttendance::get()->keyBy('admin_employee_id');
-        $this->assertSame(['absent', 'leave'], [$a[$wasim->id]->status, $a[$yash->id]->status]);
+        $this->assertSame(['absent', 'half_day'], [$a[$wasim->id]->status, $a[$yash->id]->status]);
         $this->assertFalse($a->has($zoya->id));
         $this->assertFalse($a->has($ids['Bina']));
 
@@ -368,7 +368,7 @@ class PayrollPanelTest extends TestCase
         $page->call('openMarkPanel')
             ->assertSet('panelExisting', true)
             ->assertSet("panelRows.{$ids['Xavier']}", ['status' => 'half_day', 'remark' => 'Left at noon'])
-            ->assertSet("panelRows.{$ids['Yash']}.status", 'leave')
+            ->assertSet("panelRows.{$ids['Yash']}.status", 'half_day')
             ->assertSee('Update Attendance')
             ->set("panelRows.{$ids['Xavier']}.status", 'holiday')
             ->set("panelRows.{$ids['Wasim']}.status", '')
@@ -378,7 +378,89 @@ class PayrollPanelTest extends TestCase
         $this->assertEquals($stamp, TeacherAttendance::where('teacher_detail_id', $bina->id)->first()->updated_at);
         $this->assertSame(2, TeacherAttendance::count());
         $this->assertNull(AdminAttendance::where('admin_employee_id', $wasim->id)->first());
-        $this->assertSame('leave', AdminAttendance::where('admin_employee_id', $yash->id)->value('status'));
+        $this->assertSame('half_day', AdminAttendance::where('admin_employee_id', $yash->id)->value('status'));
+    }
+
+    public function test_leave_already_marked_becomes_absent(): void
+    {
+        $emp = $this->staff('Zoya', 'employee');
+        foreach (['2026-09-01' => 'leave', '2026-09-02' => 'present', '2026-09-03' => 'leave', '2026-09-04' => 'holiday'] as $date => $st) {
+            AdminAttendance::create(['organization_id' => $this->org, 'admin_employee_id' => $emp->id, 'date' => $date, 'status' => $st, 'note' => 'kept']);
+        }
+
+        (require database_path('migrations/2026_10_02_010000_turn_staff_leave_into_absent.php'))->up();
+
+        $this->assertSame(['absent', 'present', 'absent', 'holiday'], AdminAttendance::orderBy('date')->pluck('status')->all());
+        $this->assertSame(['kept'], AdminAttendance::pluck('note')->unique()->values()->all());
+    }
+
+    public function test_a_months_card_says_working_days_present_absent_and_holidays_in_short(): void
+    {
+        \Illuminate\Support\Carbon::setTestNow('2026-10-15 11:00:00');
+        try {
+            $emp = $this->staff('Zoya', 'employee');
+            // September: 3 present, 1 absent, 1 half day, 1 holiday marked; the other 24 days unmarked.
+            foreach (['01' => 'present', '02' => 'present', '03' => 'present', '04' => 'absent', '05' => 'half_day', '07' => 'holiday'] as $day => $st) {
+                AdminAttendance::create(['organization_id' => $this->org, 'admin_employee_id' => $emp->id, 'date' => "2026-09-$day", 'status' => $st]);
+            }
+
+            $html = Livewire::test(PayrollPage::class)
+                ->set('activeTab', 'attendance')
+                ->set('filterAttendanceType', 'employee')
+                ->set('attEmpId', (string) $emp->id)
+                ->assertViewHas('attMonths', fn ($m) => $m['2026-09']['counts']['marked'] === 5 && $m['2026-09']['counts']['holiday'] === 25)
+                ->html();
+            $html = preg_replace('/<!--.*?-->/s', '', $html);
+            $card = substr($html, strpos($html, 'September 2026'));
+            $card = strip_tags(substr($card, 0, strpos($card, 'grid grid-cols-7')));
+            $card = trim(preg_replace('/\s+/', ' ', $card));
+
+            // No percentage: W working days, P present, A absent, ½ half day (there is one), H holiday.
+            $this->assertStringContainsString('September 2026 W 5 · P 3 · A 1 · ½ 1 · H 25', $card);
+            $this->assertStringNotContainsString('%', $card);
+        } finally {
+            \Illuminate\Support\Carbon::setTestNow();
+        }
+    }
+
+    public function test_payments_are_filtered_by_a_type_one_of_its_people_and_a_month(): void
+    {
+        $ravi = $this->staff('Ravi', 'driver');
+        $yash = $this->staff('Yash', 'driver');
+        $zoya = $this->staff('Zoya', 'employee');
+        $pay = fn ($emp, string $month, float $amount) => \App\Models\Admin\AdminSalaryPayment::create([
+            'organization_id' => $this->org, 'admin_employee_id' => $emp->id, 'month' => $month, 'amount' => $amount,
+            'status' => 'paid', 'payment_date' => $month . '-05', 'paid_by' => 'Head']);
+        $pay($ravi, '2026-08', 100);
+        $pay($ravi, '2026-09', 200);
+        $pay($yash, '2026-09', 300);
+        $pay($zoya, '2026-09', 400);
+
+        $amounts = fn ($list) => $list->pluck('amount')->map(fn ($a) => (int) $a)->sort()->values()->all();
+
+        Livewire::test(PayrollPage::class)
+            ->set('activeTab', 'payments')
+            // Only a type, its people and the month — no search box.
+            ->assertSeeHtml('wire:model.live="filterPaymentType"')
+            ->assertSeeHtml('wire:model.live="filterPaymentMonth"')
+            ->assertDontSeeHtml('paymentSearch')
+            ->assertSee('Select a type first')
+            ->assertViewHas('payments', fn ($list) => $amounts($list) === [100, 200, 300, 400])
+            ->set('filterPaymentType', 'driver')
+            ->assertViewHas('paymentPeople', fn ($list) => $list->pluck('name')->all() === ['Ravi', 'Yash'])
+            ->assertViewHas('payments', fn ($list) => $amounts($list) === [100, 200, 300])
+            ->set('filterPaymentEmpId', (string) $ravi->id)
+            ->assertViewHas('payments', fn ($list) => $amounts($list) === [100, 200])
+            ->set('filterPaymentMonth', '2026-09')
+            ->assertViewHas('payments', fn ($list) => $amounts($list) === [200])
+            // Another type starts over on its people; the month stays.
+            ->set('filterPaymentType', 'employee')
+            ->assertSet('filterPaymentEmpId', '')
+            ->assertViewHas('payments', fn ($list) => $amounts($list) === [400])
+            ->call('clearPaymentFilters')
+            ->assertSet('filterPaymentType', '')
+            ->assertSet('filterPaymentMonth', '')
+            ->assertViewHas('payments', fn ($list) => $amounts($list) === [100, 200, 300, 400]);
     }
 
     public function test_a_holiday_for_everyone_needs_its_remark_and_is_saved_on_every_row(): void

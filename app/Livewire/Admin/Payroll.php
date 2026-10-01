@@ -46,12 +46,12 @@ class Payroll extends Component
     public const MARK_ORDER = ['teacher' => 1, 'management' => 2, 'driver' => 3, 'employee' => 4];
 
     /**
-     * What a row may be marked in that panel: a teacher as the Attendance module
-     * marks one; staff as before, and on Holiday too (so a holiday can be given
-     * to everyone at once — admin_attendances.status takes it since the
-     * 2026_10_02 migration).
+     * What a row may be marked in that panel — the same four for everyone:
+     * present, absent, half day, holiday. Staff could be put on Leave as well;
+     * the school does not use it, so it is off the panel, and the leave already
+     * marked was turned into absent (2026_10_02_010000 migration).
      */
-    private const STAFF_MARKS   = ['present', 'absent', 'half_day', 'leave', 'holiday'];
+    private const STAFF_MARKS   = ['present', 'absent', 'half_day', 'holiday'];
     private const TEACHER_MARKS = ['present', 'absent', 'half_day', 'holiday'];
     /** teacher_attendances.status, as the Attendance module writes it. */
     private const TEACHER_CODES = ['present' => 1, 'absent' => 0, 'half_day' => 2, 'holiday' => 3];
@@ -163,6 +163,8 @@ class Payroll extends Component
     public string $spRemark           = '';
 
     // ─── Payments History ─────────────────────────────────────────────────────
+    // Filter: a type, then one of its people, then a month (the search box is off the page).
+    public string $filterPaymentType  = '';
     public string $filterPaymentEmpId = '';
     public string $filterPaymentMonth = '';
     public string $paymentSearch      = '';
@@ -1334,7 +1336,13 @@ class Payroll extends Component
 
     public function clearPaymentFilters(): void
     {
-        $this->reset(['paymentSearch', 'filterPaymentEmpId', 'filterPaymentMonth']);
+        $this->reset(['paymentSearch', 'filterPaymentType', 'filterPaymentEmpId', 'filterPaymentMonth']);
+    }
+
+    /** Another type starts over on its people. */
+    public function updatedFilterPaymentType(): void
+    {
+        $this->filterPaymentEmpId = '';
     }
 
     // ─── Salary ───────────────────────────────────────────────────────────────
@@ -1804,8 +1812,15 @@ class Payroll extends Component
         $totalPaidAmount     = (float) ($monthSalaryPayments->where('status', 'paid')->sum('amount'));
 
         // ── Payments History ──────────────────────────────────────────────────
+        // The people of the type picked on the Payments tab: the person dropdown's
+        // options, and — until one of them is picked — whose payments are listed.
+        $paymentPeople = $this->filterPaymentType !== ''
+            ? $allEmployees->filter(fn ($e) => $e->hasType($this->filterPaymentType))->sortBy(fn ($e) => mb_strtolower((string) $e->name))->values()
+            : collect();
+
         $payments = AdminSalaryPayment::forOrganization($orgId)
             ->with('employee')
+            ->when($this->filterPaymentType !== '' && !$this->filterPaymentEmpId, fn ($q) => $q->whereIn('admin_employee_id', $paymentPeople->pluck('id')))
             ->when($this->filterPaymentEmpId, fn($q) => $q->where('admin_employee_id', $this->filterPaymentEmpId))
             ->when($this->filterPaymentMonth,  fn($q) => $q->forMonth($this->filterPaymentMonth))
             ->latest()->get()
@@ -1826,6 +1841,7 @@ class Payroll extends Component
             'salaryPeople',
             'salaryPerson',
             'salaryAccount',
+            'paymentPeople',
             'salaryEmployees',
             'empStats',
             'attView',
