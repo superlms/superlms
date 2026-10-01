@@ -181,20 +181,16 @@
                                         title="{{ $teacher->user?->email ?? '' }}">{{ $teacher->user?->email ?? '—' }}</span>
                                 </td>
                                 {{-- Class this teacher is class-teacher of, as the Students list
-                                     shows a class: a pill, the section's last letter after it (Class 8-A). --}}
+                                     shows a class: plain text, the section's last letter after it (Class 8-A). --}}
                                 <td class="px-4 py-3">
-                                    <div class="flex flex-wrap gap-1.5">
-                                        @forelse ($teacher->assignedClasses as $assigned)
-                                            @php $secLetter = mb_strtoupper(mb_substr(trim((string) $assigned->section?->name), -1)); @endphp
-                                            <span
-                                                class="text-xs px-2 py-0.5 bg-blue-50 text-blue-700
-                                                rounded-full font-medium border border-blue-100 whitespace-nowrap">
-                                                {{ $assigned->standard?->name ?? '—' }}{{ $secLetter !== '' ? '-' . $secLetter : '' }}
-                                            </span>
-                                        @empty
-                                            <span class="text-sm text-gray-400">—</span>
-                                        @endforelse
-                                    </div>
+                                    @php
+                                        $classTeacherOf = $teacher->assignedClasses->map(function ($assigned) {
+                                            $secLetter = mb_strtoupper(mb_substr(trim((string) $assigned->section?->name), -1));
+
+                                            return ($assigned->standard?->name ?? '—') . ($secLetter !== '' ? '-' . $secLetter : '');
+                                        })->implode(', ');
+                                    @endphp
+                                    <span class="text-sm {{ $classTeacherOf !== '' ? 'text-gray-700' : 'text-gray-400' }}">{{ $classTeacherOf !== '' ? $classTeacherOf : '—' }}</span>
                                 </td>
                                 <td class="px-4 py-3">
                                     <span class="text-sm text-gray-700 capitalize">{{ $teacher->user?->gender ?: '—' }}</span>

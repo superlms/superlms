@@ -270,16 +270,10 @@
 
                                 {{-- Class / Section: the class, then the section's last letter (Nursery-A) --}}
                                 <td class="px-4 py-3">
-                                    <div class="flex flex-wrap gap-1.5">
-                                        @if ($student->standard)
-                                            @php $secLetter = mb_strtoupper(mb_substr(trim((string) $student->section?->name), -1)); @endphp
-                                            <span
-                                                class="text-xs px-2 py-0.5 bg-blue-50 text-blue-700
-                                                rounded-full font-medium border border-blue-100">
-                                                {{ $student->standard->name }}{{ $secLetter !== '' ? '-' . $secLetter : '' }}
-                                            </span>
-                                        @endif
-                                    </div>
+                                    @if ($student->standard)
+                                        @php $secLetter = mb_strtoupper(mb_substr(trim((string) $student->section?->name), -1)); @endphp
+                                        <span class="text-sm text-gray-700 whitespace-nowrap">{{ $student->standard->name }}{{ $secLetter !== '' ? '-' . $secLetter : '' }}</span>
+                                    @endif
                                 </td>
 
                                 {{-- Actions (status dot shown inline) --}}

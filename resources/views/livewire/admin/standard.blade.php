@@ -159,44 +159,34 @@
                 @if ($filteredStandards->count())
                     <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden">
                         <div class="grid grid-cols-12 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                            <div class="col-span-1">#</div>
-                            <div class="col-span-3">Class</div>
-                            <div class="col-span-4">Sections</div>
-                            <div class="col-span-1">Board</div>
+                            <div class="col-span-1">S.No</div>
+                            <div class="col-span-3">Class Name</div>
+                            <div class="col-span-1">Code</div>
+                            <div class="col-span-1">Order</div>
+                            <div class="col-span-3">Sections</div>
                             <div class="col-span-1 text-center">Status</div>
                             <div class="col-span-2 text-right">Actions</div>
                         </div>
                         @foreach ($filteredStandards as $idx => $std)
                             @php
-                                $sectionNames = $std->sections->pluck('name')->all();
-                                $sectionShow  = array_slice($sectionNames, 0, 3);
-                                $sectionMore  = max(0, count($sectionNames) - count($sectionShow));
+                                // The first section in full, the others by their last letter: "Section A & B & C".
+                                $sectionText = \App\Support\SectionNames::joined($std->sections->pluck('name'));
                             @endphp
                             <div class="grid grid-cols-12 items-center px-4 py-3 border-b border-gray-100 last:border-0 hover:bg-purple-50/40 transition-colors cursor-pointer"
                                 wire:click="drillIntoClass({{ $std->id }})">
                                 <div class="col-span-1 text-sm text-gray-500">{{ $filteredStandards->firstItem() + $idx }}</div>
                                 <div class="col-span-3">
-                                    <p class="font-semibold text-gray-900 text-sm truncate">{{ $std->name }}
-                                        @if ($std->code)
-                                            <span class="text-xs font-normal text-gray-400">({{ $std->code }})</span>
-                                        @endif
-                                    </p>
+                                    <p class="font-semibold text-gray-900 text-sm truncate">{{ $std->name }}</p>
                                 </div>
-                                <div class="col-span-4 text-sm text-gray-600">
-                                    @if (count($sectionShow))
-                                        <div class="flex flex-wrap items-center gap-1">
-                                            @foreach ($sectionShow as $name)
-                                                <span class="inline-block px-1.5 py-0.5 text-xs bg-blue-50 text-blue-700 rounded font-medium">{{ $name }}</span>
-                                            @endforeach
-                                            @if ($sectionMore > 0)
-                                                <span class="text-xs text-gray-400" title="+{{ $sectionMore }} more">...</span>
-                                            @endif
-                                        </div>
+                                <div class="col-span-1 text-sm text-gray-700 truncate">{{ $std->code ?: '—' }}</div>
+                                <div class="col-span-1 text-sm text-gray-700">{{ $std->order ?? '—' }}</div>
+                                <div class="col-span-3 text-sm text-gray-700 truncate" title="{{ $sectionText }}">
+                                    @if ($sectionText !== '')
+                                        {{ $sectionText }}
                                     @else
-                                        <span class="text-xs text-gray-400">No sections</span>
+                                        <span class="text-gray-400">No sections</span>
                                     @endif
                                 </div>
-                                <div class="col-span-1 text-sm text-gray-500 truncate">{{ $std->board }}</div>
                                 <div class="col-span-1 text-center">
                                     <span class="inline-block px-2 py-0.5 text-xs rounded-full font-medium
                                         {{ $std->is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600' }}">
@@ -338,8 +328,9 @@
                                 <div class="col-span-2 text-sm text-gray-700">{{ $subject->code }}</div>
                                 <div class="col-span-3 text-sm text-gray-600 truncate">
                                     {{ $subject->standards->pluck('name')->implode(', ') ?: '—' }}
+                                    {{-- In several sections: the first in full, the others by their last letter. --}}
                                     @if ($subject->sections->count())
-                                        <span class="text-gray-400">· {{ $subject->sectionNames() }}</span>
+                                        <span class="text-gray-400">· {{ \App\Support\SectionNames::joined($subject->sections->pluck('name')) }}</span>
                                     @endif
                                 </div>
                                 <div class="col-span-1 text-center">
