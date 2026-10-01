@@ -77,7 +77,7 @@
         {{ $datesheet->exam->exam_name ?? 'Exam' }} ·
         {{ $datesheet->standard->name ?? '' }}{{ $sectionName ? ' — ' . $sectionName : '' }}
     </span>
-    <button type="button" onclick="window.opener ? window.close() : history.back()">Close</button>
+    <button type="button" onclick="window.parent !== window ? window.parent.postMessage({ lmsViewer: 'close' }, window.location.origin) : (window.opener ? window.close() : history.back())">Close</button>
     <button type="button" class="go" onclick="window.print()">Print</button>
 </div>
 

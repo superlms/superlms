@@ -232,7 +232,7 @@
         @else
             <span class="count">{{ $cards->count() }} card(s) · 4 to an A4 landscape sheet · cut along the dotted lines</span>
         @endif
-        <button type="button" onclick="window.opener ? window.close() : history.back()">Close</button>
+        <button type="button" onclick="window.parent !== window ? window.parent.postMessage({ lmsViewer: 'close' }, window.location.origin) : (window.opener ? window.close() : history.back())">Close</button>
         <button type="button" class="go" onclick="window.print()">Print</button>
     </div>
 @endunless

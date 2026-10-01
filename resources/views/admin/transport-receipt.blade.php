@@ -172,6 +172,8 @@
     <script>
         window.addEventListener('load', function () { window.focus(); window.print(); });
         window.addEventListener('afterprint', function () { window.close(); });
+        // Shown inside the installed app's viewer: that is what closes.
+        window.addEventListener('afterprint', function () { if (window.parent !== window) window.parent.postMessage({ lmsViewer: 'close' }, window.location.origin); });
     </script>
 @endif
 </body>

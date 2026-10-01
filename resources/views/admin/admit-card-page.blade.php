@@ -157,7 +157,7 @@
     <span class="who">{{ $admitCard->student_name }}</span>
     <a href="{{ route($isAccounts ? 'accounts.admit-card.download' : 'admin.admit-card.download', [$admitCard->organization_id, $admitCard->id]) }}">Download</a>
     <a href="{{ route($isAccounts ? 'accounts.admit-card.print-all' : 'admin.admit-card.print-all', [$admitCard->organization_id]) }}?ids={{ $admitCard->id }}">Print sheet</a>
-    <button type="button" onclick="window.opener ? window.close() : history.back()">Back</button>
+    <button type="button" onclick="window.parent !== window ? window.parent.postMessage({ lmsViewer: 'close' }, window.location.origin) : (window.opener ? window.close() : history.back())">Back</button>
     @unless($isAccounts)
         <form method="POST" action="{{ route('admin.admit-card.destroy', [$admitCard->organization_id, $admitCard->id]) }}"
               onsubmit="return confirm('Delete this admit card? The student will move back to the not-issued list.');">

@@ -108,7 +108,7 @@
 @unless($isPdf ?? false)
     <div class="toolbar no-print">
         <span class="who">{{ $heading }}</span>
-        <button type="button" onclick="window.opener ? window.close() : history.back()">Close</button>
+        <button type="button" onclick="window.parent !== window ? window.parent.postMessage({ lmsViewer: 'close' }, window.location.origin) : (window.opener ? window.close() : history.back())">Close</button>
         <button type="button" class="go" onclick="window.print()">Print</button>
     </div>
 @endunless

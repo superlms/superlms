@@ -86,6 +86,8 @@
             });
             window.addEventListener('afterprint', function () {
                 window.close();
+                // Shown inside the installed app's viewer: that is what closes.
+                if (window.parent !== window) window.parent.postMessage({ lmsViewer: 'close' }, window.location.origin);
             });
         </script>
     @endif
