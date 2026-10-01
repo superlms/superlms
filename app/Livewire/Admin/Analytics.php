@@ -10,6 +10,7 @@ use App\Models\Student\Standard;
 use App\Models\Student\Section;
 use App\Models\Student\StudentAttendance;
 use App\Models\Admin\Announcement;
+use App\Models\Admin\ExamCopy;
 // use App\Models\Admin\Homework;
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\Fee\FeeStructure;
@@ -39,6 +40,9 @@ class Analytics extends Component
     public $admissionYear = '';
     public $admissionYears = [];
     public $admissionsTotal = 0;
+
+    /** [date => admissions], read once a request. */
+    private ?array $admissionDates = null;
 
     // ─── Arrangement ─────────────────────────────────────────────────────────
     public $selectedTeachers  = [];
@@ -74,6 +78,8 @@ class Analytics extends Component
     public $transportRouteData   = [];   // transport fee: collected vs remaining per route
     public $transportFeeStats    = [];   // transport totals: expected / collected / remaining
     public $lowPerformers        = [];   // lowest-attendance students (needs attention)
+    public $topRankers           = [];   // Student Performance: the 10 best by exam marks
+    public $bottomRankers        = [];   // …and the 10 at the foot of the same ranking
     public $enquiryStats         = [];   // enquiry funnel counts
 
     protected $queryString = ['attendanceFilter', 'performerClass', 'performerSection'];
@@ -95,6 +101,9 @@ class Analytics extends Component
         $thisAy = $now->month >= 4 ? (int) $now->year : (int) $now->year - 1;
         $this->admissionYears = range($thisAy, $thisAy - 5);
         $this->admissionYear  = (string) $thisAy;
+        // The school years that hold admissions, and the latest of them when
+        // the running one holds none (see pickAdmissionYear()).
+        $this->pickAdmissionYear($thisAy);
 
         $this->teacherAttDate = $now->toDateString();
 
@@ -127,14 +136,12 @@ class Analytics extends Component
     {
         $this->loadSections();
         $this->performerSection = '';
-        $this->loadTopStudents();
-        $this->loadLowPerformers();
+        $this->loadExamRankers();
     }
 
     public function updatedPerformerSection(): void
     {
-        $this->loadTopStudents();
-        $this->loadLowPerformers();
+        $this->loadExamRankers();
     }
 
     public function saveArrangement(int $arrangementId): void
@@ -158,7 +165,9 @@ class Analytics extends Component
         $this->loadStudentPie();
         $this->loadTeacherDaily();
         $this->loadSections();
-        $this->loadTopStudents();
+        // Student Performance ranks on exam marks now. The attendance-based
+        // loadTopStudents() / loadLowPerformers() are kept below, uncalled.
+        $this->loadExamRankers();
         $this->loadAdminEnquiries();
         $this->loadArrangements();
         $this->loadAnnouncements();
@@ -174,7 +183,6 @@ class Analytics extends Component
         $this->loadAdmissionsTrend();
         $this->loadFeeClassRate();
         $this->loadTransportFeeData();
-        $this->loadLowPerformers();
         $this->loadEnquiryStats();
         $this->loadKpis();
     }
@@ -427,34 +435,67 @@ class Analytics extends Component
         $this->classAttendanceRank = $rows;
     }
 
-    // ─── Admissions trend (new students per month, Apr–Mar) ─────────────────────
+    // ─── Admissions, date by date ─────────────────────────────────────────────────
+
+    /** [date => admissions] for the school: the admission date, else the day the record was made. */
+    private function admissionsByDate(): array
+    {
+        return $this->admissionDates ??= StudentDetail::where('organization_id', $this->orgId())
+            ->selectRaw('DATE(COALESCE(date_of_admission, created_at)) as d, COUNT(*) as c')
+            ->groupBy('d')->orderBy('d')
+            ->pluck('c', 'd')
+            ->filter(fn ($count, $date) => $date)
+            ->all();
+    }
+
+    /** The school year (its starting year: 2026 = Apr 2026 – Mar 2027) a date falls in. */
+    private function schoolYearOf(string $date): int
+    {
+        $day = Carbon::parse($date);
+
+        return $day->month >= 4 ? (int) $day->year : (int) $day->year - 1;
+    }
 
     /**
-     * New admissions per month across the selected school year (April → March).
+     * The year dropdown lists the school years that hold admissions (and the
+     * running one), the latest first. It used to list the last six years
+     * whatever they held, and opened on the running year: a school whose
+     * students were all admitted in earlier years saw an empty graph.
+     */
+    private function pickAdmissionYear(int $thisAy): void
+    {
+        $held = [];
+        foreach (array_keys($this->admissionsByDate()) as $date) {
+            $held[$this->schoolYearOf((string) $date)] = true;
+        }
+
+        $years = array_keys($held + [$thisAy => true]);
+        rsort($years);
+        $this->admissionYears = $years;
+
+        // Open on the running year when it has admissions, else the latest that has.
+        $this->admissionYear = (string) (isset($held[$thisAy]) || !$held ? $thisAy : max(array_keys($held)));
+    }
+
+    /**
+     * The Admissions Trend of the selected school year (April → March): one bar
+     * for each date students were admitted on, with how many. It used to be
+     * twelve monthly bars.
      *
-     * Counts on the admission date the school actually recorded, falling back to
-     * when the record was created. Counting created_at alone read as empty for
-     * any school whose students were imported in one go — every admission
-     * landed in a single month and the other eleven showed nothing.
+     * Counts on the admission date the school recorded, falling back to when
+     * the record was created.
      */
     protected function loadAdmissionsTrend(): void
     {
-        $orgId     = $this->orgId();
-        $year      = (int) ($this->admissionYear ?: Carbon::now()->year);
-        $yearStart = Carbon::create($year, 4, 1)->startOfDay();
-        $yearEnd   = Carbon::create($year + 1, 3, 31)->endOfDay();
-
-        // One grouped query rather than twelve counts.
-        $rows = StudentDetail::where('organization_id', $orgId)
-            ->whereRaw('COALESCE(date_of_admission, created_at) BETWEEN ? AND ?', [$yearStart, $yearEnd])
-            ->selectRaw("DATE_FORMAT(COALESCE(date_of_admission, created_at), '%Y-%m') as ym, COUNT(*) as c")
-            ->groupBy('ym')->pluck('c', 'ym');
+        $year = (int) ($this->admissionYear ?: Carbon::now()->year);
 
         $labels = $data = [];
-        for ($i = 0; $i < 12; $i++) {
-            $month    = $yearStart->copy()->addMonths($i);
-            $labels[] = $month->format('M y');
-            $data[]   = (int) ($rows[$month->format('Y-m')] ?? 0);
+        foreach ($this->admissionsByDate() as $date => $count) {
+            if ($this->schoolYearOf((string) $date) !== $year) {
+                continue;
+            }
+            $labels[] = Carbon::parse($date)->format('d M Y');
+            $data[]   = (int) $count;
         }
 
         $this->admissionsTrend  = ['labels' => $labels, 'data' => $data];
@@ -692,6 +733,65 @@ class Analytics extends Component
         }
 
         return $count;
+    }
+
+    // ─── Student Performance: the exam ranking ──────────────────────────────────
+
+    /**
+     * Students ranked on their exam marks — every paper they have marks for,
+     * added up, as a percentage — for the whole school or the class (and
+     * section) picked: the first ten, and the last ten of the same ranking.
+     * A student in the top ten is not listed again at the foot.
+     */
+    protected function loadExamRankers(): void
+    {
+        $orgId = $this->orgId();
+
+        $rows = ExamCopy::join('student_details as sd', 'sd.id', '=', 'exam_copies.student_detail_id')
+            ->where('exam_copies.organization_id', $orgId)
+            ->where('sd.organization_id', $orgId)
+            ->when($this->performerClass, fn ($q) => $q->where('sd.standard_id', $this->performerClass))
+            ->when($this->performerSection, fn ($q) => $q->where('sd.section_id', $this->performerSection))
+            ->selectRaw('exam_copies.student_detail_id as id, SUM(exam_copies.marks_obtained) as obtained, SUM(exam_copies.max_marks) as max_marks')
+            ->groupBy('exam_copies.student_detail_id')
+            ->havingRaw('SUM(exam_copies.max_marks) > 0')
+            ->get()
+            ->map(fn ($r) => [
+                'id'       => (int) $r->id,
+                'obtained' => (float) $r->obtained,
+                'max'      => (float) $r->max_marks,
+                'score'    => round((float) $r->obtained / (float) $r->max_marks * 100, 1),
+            ])
+            // Best percentage first; more marks breaks a tie.
+            ->sort(fn ($a, $b) => [$b['score'], $b['obtained']] <=> [$a['score'], $a['obtained']])
+            ->values();
+
+        $ranked = $rows->map(fn ($r, $i) => $r + ['rank' => $i + 1]);
+
+        $top    = $ranked->take(10);
+        $bottom = $ranked->slice(10)->reverse()->take(10)->values();
+
+        $students = StudentDetail::with(['user', 'standard', 'section'])
+            ->whereIn('id', $top->pluck('id')->merge($bottom->pluck('id'))->all())
+            ->get()->keyBy('id');
+
+        $card = function (array $r) use ($students) {
+            $s = $students[$r['id']] ?? null;
+
+            return [
+                'rank'     => $r['rank'],
+                'name'     => $s?->user?->name ?? $s?->full_name ?? 'N/A',
+                'class'    => $s?->standard?->name ?? '—',
+                'section'  => $s?->section?->name ?? '—',
+                'photo'    => $s?->user?->profile_photo_url ?? null,
+                'score'    => $r['score'],
+                'obtained' => $r['obtained'],
+                'max'      => $r['max'],
+            ];
+        };
+
+        $this->topRankers    = $top->map($card)->values()->toArray();
+        $this->bottomRankers = $bottom->map($card)->values()->toArray();
     }
 
     // ─── Lowest-attendance students (needs attention) ───────────────────────────
@@ -1098,23 +1198,74 @@ class Analytics extends Component
         ];
     }
 
+    /**
+     * Fee Collection by Class (and, out of it, Recovery Rate by Class): each
+     * class's academic fee is what its students owe — the class's active heads
+     * (the whole class's and each student's own section's) for every student
+     * in it, plus those students' own Last Year Dues — and collected is the
+     * academic fee those students have paid this session, up to today.
+     *
+     * It used to set the fee heads of the class, counted once, against every
+     * payment made in the class.
+     */
     protected function loadFeeClassDataStatic(): void
     {
         $orgId     = $this->orgId();
         $standards = Standard::where('organization_id', $orgId)->inClassOrder()->get();
         $labels    = $standards->pluck('name')->toArray();
 
+        $heads = FeeStructure::where('organization_id', $orgId)
+            ->where('is_active', true)->where('fee_type', 'academic')
+            ->get(['standard_id', 'section_id', 'amount'])
+            ->groupBy('standard_id');
+
+        $students = StudentDetail::where('organization_id', $orgId)
+            ->get(['id', 'standard_id', 'section_id']);
+
+        // Each class's bill: its heads for every student in it…
+        $billable = [];
+        foreach ($students->groupBy(fn ($s) => $s->standard_id . ':' . $s->section_id) as $group) {
+            $first = $group->first();
+            $fee = ($heads[$first->standard_id] ?? collect())
+                ->filter(fn ($h) => $h->section_id === null || (int) $h->section_id === (int) $first->section_id)
+                ->sum('amount');
+            $billable[$first->standard_id] = ($billable[$first->standard_id] ?? 0) + (float) $fee * $group->count();
+        }
+
+        // …and the students' own Last Year Dues, with the class they are in now.
+        $classOf = $students->pluck('standard_id', 'id');
+        foreach (FeeStructure::ownRows($orgId, [], 'academic', true) as $row) {
+            $class = $classOf[$row->student_detail_id] ?? null;
+            if ($class !== null) {
+                $billable[$class] = ($billable[$class] ?? 0) + (float) $row->amount;
+            }
+        }
+
+        // Academic fee paid this session, by the class the student is in now.
+        $paid = [];
+        $payments = FeePayment::where('organization_id', $orgId)
+            ->where('fee_type', 'academic')
+            ->whereDate('payment_date', '>=', AcademicYear::start()->toDateString())
+            ->whereDate('payment_date', '<=', Carbon::today()->toDateString())
+            ->selectRaw('student_detail_id, SUM(amount) as total')
+            ->groupBy('student_detail_id')
+            ->pluck('total', 'student_detail_id');
+        foreach ($payments as $studentId => $total) {
+            $class = $classOf[$studentId] ?? null;
+            if ($class !== null) {
+                $paid[$class] = ($paid[$class] ?? 0) + (float) $total;
+            }
+        }
+
         $collected = [];
         $remaining = [];
 
         foreach ($standards as $std) {
-            $classFeeTotal = FeeStructure::where('organization_id', $orgId)
-                ->where('standard_id', $std->id)->where('is_active', true)->sum('amount');
-            $classCollected = FeePayment::where('organization_id', $orgId)
-                ->where('standard_id', $std->id)->sum('amount');
+            $classFeeTotal  = (float) ($billable[$std->id] ?? 0);
+            $classCollected = (float) ($paid[$std->id] ?? 0);
 
-            $collected[] = (float) $classCollected;
-            $remaining[] = (float) max(0, $classFeeTotal - $classCollected);
+            $collected[] = round($classCollected, 2);
+            $remaining[] = round(max(0, $classFeeTotal - $classCollected), 2);
         }
 
         $this->feeClassData = [

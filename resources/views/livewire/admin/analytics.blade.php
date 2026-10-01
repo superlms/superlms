@@ -293,7 +293,7 @@
         <section class="space-y-4">
             <x-admin.section-heading title="Student Performance" />
 
-            <div class="flex flex-wrap items-center gap-2">
+            <div class="flex flex-wrap items-center justify-end gap-2">
                 <span class="text-xs font-medium text-gray-400 uppercase tracking-wide mr-1">Filter</span>
                 <select wire:model.live="performerClass"
                     class="text-xs bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-indigo-400">
@@ -313,61 +313,44 @@
                 @endif
             </div>
 
+            {{-- Ranked on exam marks (every paper added up, as a %): the first ten and
+                 the last ten of the school, or of the class and section picked. --}}
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                {{-- Top performers --}}
-                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    <div class="px-5 py-3 border-b border-gray-100">
-                        <h3 class="text-sm font-semibold text-gray-800">Top Performers</h3>
-                    </div>
-                    @if (count($topStudents))
-                        <div class="divide-y divide-gray-100">
-                            @foreach ($topStudents as $student)
-                                <div class="flex items-center gap-3 px-5 py-3">
-                                    <span class="w-5 text-xs text-gray-300 tabular-nums flex-shrink-0">{{ $student['rank'] }}</span>
-                                    <div class="w-9 h-9 rounded-full overflow-hidden bg-gray-100 flex-shrink-0">
-                                        @if ($student['photo'])
-                                            <img src="{{ $student['photo'] }}" alt="{{ $student['name'] }}" class="w-full h-full object-cover">
-                                        @else
-                                            <div class="w-full h-full flex items-center justify-center text-gray-500 text-xs font-bold">{{ strtoupper(substr($student['name'], 0, 1)) }}</div>
-                                        @endif
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-medium text-gray-800 truncate">{{ $student['name'] }}</p>
-                                        <p class="text-xs text-gray-400">{{ $student['class'] }} · {{ $student['section'] }}</p>
-                                    </div>
-                                    <span class="text-sm font-semibold text-emerald-600 flex-shrink-0 tabular-nums">{{ $student['score'] }}%</span>
-                                </div>
-                            @endforeach
+                @foreach ([['Top 10 Rankers', $topRankers, 'text-emerald-600'], ['Bottom 10 Rankers', $bottomRankers, 'text-red-500']] as [$heading, $list, $tone])
+                    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                        <div class="px-5 py-3 border-b border-gray-100">
+                            <h3 class="text-sm font-semibold text-gray-800">{{ $heading }}</h3>
                         </div>
-                    @else
-                        <div class="text-center py-10 text-gray-400 text-sm">No student data for the selected filters.</div>
-                    @endif
-                </div>
-
-                {{-- Needs attention --}}
-                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    <div class="px-5 py-3 border-b border-gray-100">
-                        <h3 class="text-sm font-semibold text-gray-800">Needs Attention</h3>
+                        @if (count($list))
+                            <div class="divide-y divide-gray-100">
+                                @foreach ($list as $student)
+                                    <div class="flex items-center gap-3 px-5 py-3">
+                                        <span class="w-7 text-xs text-gray-300 tabular-nums flex-shrink-0">{{ $student['rank'] }}</span>
+                                        <div class="w-9 h-9 rounded-full overflow-hidden bg-gray-100 flex-shrink-0">
+                                            @if ($student['photo'])
+                                                <img src="{{ $student['photo'] }}" alt="{{ $student['name'] }}" class="w-full h-full object-cover">
+                                            @else
+                                                <div class="w-full h-full flex items-center justify-center text-gray-500 text-xs font-bold">{{ strtoupper(substr($student['name'], 0, 1)) }}</div>
+                                            @endif
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-sm font-medium text-gray-800 truncate">{{ $student['name'] }}</p>
+                                            <p class="text-xs text-gray-400">{{ $student['class'] }} · {{ $student['section'] }}</p>
+                                        </div>
+                                        <div class="text-right flex-shrink-0">
+                                            <p class="text-sm font-semibold {{ $tone }} tabular-nums">{{ $student['score'] }}%</p>
+                                            <p class="text-[10px] text-gray-400 tabular-nums">{{ $student['obtained'] + 0 }} / {{ $student['max'] + 0 }}</p>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <div class="text-center py-10 text-gray-400 text-sm">
+                                {{ count($topRankers) ? 'Everyone with exam marks is in the top 10.' : 'No exam marks for the selected filters.' }}
+                            </div>
+                        @endif
                     </div>
-                    @if (count($lowPerformers))
-                        <div class="divide-y divide-gray-100">
-                            @foreach ($lowPerformers as $student)
-                                <div class="flex items-center gap-3 px-5 py-3">
-                                    <div class="w-9 h-9 rounded-full bg-red-50 text-red-500 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                                        {{ strtoupper(substr($student['name'], 0, 1)) }}
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-medium text-gray-800 truncate">{{ $student['name'] }}</p>
-                                        <p class="text-xs text-gray-400">{{ $student['class'] }} · {{ $student['section'] }}</p>
-                                    </div>
-                                    <span class="text-sm font-semibold text-red-500 flex-shrink-0 tabular-nums">{{ $student['score'] }}%</span>
-                                </div>
-                            @endforeach
-                        </div>
-                    @else
-                        <div class="text-center py-10 text-gray-400 text-sm">No low-attendance students for the selected filters.</div>
-                    @endif
-                </div>
+                @endforeach
             </div>
         </section>
 
@@ -393,23 +376,42 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="h-56" wire:key="adm-trend-{{ $admissionYear }}">
-                        <canvas x-data="{
-                            init() {
-                                new Chart(this.$el.getContext('2d'), {
-                                    type: 'bar',
-                                    data: {
-                                        labels: @js($admissionsTrend['labels'] ?? []),
-                                        datasets: [{ label: 'Admissions', data: @js($admissionsTrend['data'] ?? []), backgroundColor: 'rgba(139,92,246,0.7)', borderRadius: 3, borderSkipped: false, maxBarThickness: 30 }]
-                                    },
-                                    options: {
-                                        responsive: true, maintainAspectRatio: false,
-                                        plugins: { legend: { display: false } },
-                                        scales: { x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0 } }, y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 }, precision: 0 } } }
-                                    }
-                                });
-                            }
-                        }"></canvas>
+                    {{-- One bar for each date students were admitted on, its number over it.
+                         A year with many such dates scrolls sideways rather than squeeze. --}}
+                    <div class="overflow-x-auto" wire:key="adm-trend-{{ $admissionYear }}">
+                        <div class="h-56" style="min-width: {{ count($admissionsTrend['labels'] ?? []) * 46 }}px">
+                            <canvas x-data="{
+                                init() {
+                                    new Chart(this.$el.getContext('2d'), {
+                                        type: 'bar',
+                                        data: {
+                                            labels: @js($admissionsTrend['labels'] ?? []),
+                                            datasets: [{ label: 'Admissions', data: @js($admissionsTrend['data'] ?? []), backgroundColor: 'rgba(139,92,246,0.7)', borderRadius: 3, borderSkipped: false, maxBarThickness: 30 }]
+                                        },
+                                        options: {
+                                            responsive: true, maintainAspectRatio: false,
+                                            layout: { padding: { top: 18 } },
+                                            plugins: { legend: { display: false } },
+                                            scales: { x: { grid: { display: false }, ticks: { font: { size: 9 }, autoSkip: false, maxRotation: 60 } }, y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 }, precision: 0 } } }
+                                        },
+                                        plugins: [{
+                                            id: 'barValues',
+                                            afterDatasetsDraw(chart) {
+                                                const ctx = chart.ctx;
+                                                chart.getDatasetMeta(0).data.forEach((bar, i) => {
+                                                    ctx.save();
+                                                    ctx.font = '600 10px sans-serif';
+                                                    ctx.fillStyle = '#374151';
+                                                    ctx.textAlign = 'center';
+                                                    ctx.fillText(Number(chart.data.datasets[0].data[i]).toLocaleString('en-IN'), bar.x, bar.y - 5);
+                                                    ctx.restore();
+                                                });
+                                            }
+                                        }]
+                                    });
+                                }
+                            }"></canvas>
+                        </div>
                     </div>
                     @if ($admissionsTotal === 0)
                         <p class="mt-3 text-xs text-gray-400">
