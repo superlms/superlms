@@ -603,15 +603,19 @@
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <h3 class="text-sm font-semibold text-gray-800">Transport Fee by Route</h3>
-                            <p class="text-xs text-gray-400 mt-0.5">Collected vs remaining</p>
+                            <p class="text-xs text-gray-400 mt-0.5">Collected vs remaining · fare × each student's months</p>
                         </div>
                         <div class="flex items-center gap-3 text-[11px] text-gray-400">
                             <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-sky-500 inline-block"></span> Collected</span>
                             <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-orange-400 inline-block"></span> Remaining</span>
                         </div>
                     </div>
+                    {{-- Every route has a bar. The card keeps its size however many there
+                         are: the chart is as tall as its routes need and scrolls inside
+                         this fixed box. --}}
                     @if (count($transportRouteData['labels'] ?? []))
-                        <div class="h-64" wire:ignore wire:key="transport-route-chart">
+                        <div class="h-64 overflow-y-auto" wire:ignore wire:key="transport-route-chart">
+                            <div style="height: {{ max(256, count($transportRouteData['labels']) * 34 + 30) }}px">
                             <canvas x-data="{
                                 init() {
                                     new Chart(this.$el.getContext('2d'), {
@@ -632,15 +636,16 @@
                                             },
                                             scales: {
                                                 x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 9 }, callback: (v) => '₹' + Number(v).toLocaleString('en-IN') } },
-                                                y: { grid: { display: false }, ticks: { font: { size: 10 } } }
+                                                y: { grid: { display: false }, ticks: { font: { size: 10 }, autoSkip: false } }
                                             }
                                         }
                                     });
                                 }
                             }"></canvas>
+                            </div>
                         </div>
                     @else
-                        <div class="text-center py-16 text-gray-400 text-sm">No transport routes with riders yet.</div>
+                        <div class="text-center py-16 text-gray-400 text-sm">No transport routes yet.</div>
                     @endif
                 </div>
             </div>
@@ -704,41 +709,6 @@
                     </div>
                 @else
                     <div class="text-center py-10 text-gray-400 text-sm">All teachers are present today — no arrangements needed.</div>
-                @endif
-            </div>
-
-            {{-- Announcements --}}
-            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div class="px-5 py-3 border-b border-gray-100">
-                    <h3 class="text-sm font-semibold text-gray-800">Recent Announcements</h3>
-                </div>
-                @if (count($announcements))
-                    <div class="divide-y divide-gray-100">
-                        @foreach ($announcements as $ann)
-                            @php
-                                $tone = [
-                                    'general' => 'bg-blue-50 text-blue-700',
-                                    'urgent'  => 'bg-red-50 text-red-700',
-                                    'event'   => 'bg-purple-50 text-purple-700',
-                                ][$ann['type']] ?? 'bg-gray-100 text-gray-600';
-                            @endphp
-                            <div class="px-5 py-3.5">
-                                <div class="flex items-center gap-2 flex-wrap">
-                                    @if ($ann['pinned'])
-                                        <span class="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Pinned</span>
-                                    @endif
-                                    <p class="font-medium text-sm text-gray-800">{{ $ann['title'] }}</p>
-                                    <span class="px-2 py-0.5 text-[10px] rounded-full {{ $tone }} font-medium capitalize">{{ $ann['type'] }}</span>
-                                </div>
-                                @if ($ann['body'])
-                                    <p class="text-xs text-gray-500 mt-1 leading-relaxed">{{ Str::limit($ann['body'], 120) }}</p>
-                                @endif
-                                <p class="text-xs text-gray-400 mt-1.5">{{ $ann['time'] }}</p>
-                            </div>
-                        @endforeach
-                    </div>
-                @else
-                    <div class="text-center py-10 text-gray-400 text-sm">No announcements yet.</div>
                 @endif
             </div>
         </section>

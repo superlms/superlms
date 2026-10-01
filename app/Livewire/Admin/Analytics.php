@@ -171,7 +171,7 @@ class Analytics extends Component
         $this->loadExamRankers();
         $this->loadAdminEnquiries();
         $this->loadArrangements();
-        $this->loadAnnouncements();
+        // The Recent Announcements card is off the page; loadAnnouncements() is kept below, uncalled.
         $this->loadFeeStatsStatic();
         $this->loadFeeClassDataStatic();
 
@@ -682,10 +682,17 @@ class Analytics extends Component
 
     /**
      * Transport fee has no FeeStructure rows behind it — what a student owes is
-     * their route's monthly fee times the months they are billed for (June is
-     * off by default, and the pivot row can turn any month on or off). So the
-     * expected side is built student by student here, then folded up two ways:
-     * by class, to sit under the main fee chart, and by route.
+     * their route's monthly fee times the months they use the bus, i.e. the
+     * months they are billed for (June is off by default, and the pivot row
+     * can turn any month on or off). So the expected side is built student by
+     * student here — a route's fee is its fare × each of its students' months,
+     * added up — then folded two ways: by class, to sit under the main fee
+     * chart, and by route.
+     *
+     * Every route is on the route chart, one with no riders too (it used to
+     * stop at the twelve heaviest). A route the school runs with several
+     * vehicle types is several rows underneath and one route here, as the
+     * Transport page lists it.
      */
     protected function loadTransportFeeData(): void
     {
@@ -704,6 +711,17 @@ class Analytics extends Component
                 'sd.standard_id',
             ]);
 
+        // Every route of the school, riders or not; a route's vehicle-type rows
+        // share one key (their group), so they read as the one route they are.
+        $grouped  = \Illuminate\Support\Facades\Schema::hasColumn('transportations', 'route_group');
+        $routeKey = [];   // transportation id => the route's key
+        $byRoute  = [];   // route key => ['name' =>, 'expected' =>, 'collected' =>, 'riders' => ]
+        foreach (DB::table('transportations')->where('organization_id', $orgId)->orderBy('route_name')->orderBy('id')->get() as $t) {
+            $key = $grouped && filled($t->route_group) ? 'g:' . $t->route_group : 'r:' . $t->id;
+            $routeKey[(int) $t->id] = $key;
+            $byRoute[$key] ??= ['name' => $t->route_name ?: 'Route #' . $t->id, 'expected' => 0.0, 'collected' => 0.0, 'riders' => 0];
+        }
+
         $paid = TransportFeePayment::where('organization_id', $orgId)
             ->selectRaw('student_detail_id, SUM(amount) as paid')
             ->groupBy('student_detail_id')
@@ -714,7 +732,6 @@ class Analytics extends Component
         $paidClaimed = [];
 
         $byClass = [];   // standard_id => ['expected' => , 'collected' => ]
-        $byRoute = [];   // route_id    => ['name' =>, 'expected' =>, 'collected' => ]
         $totalExpected = 0.0;
 
         foreach ($riders as $r) {
@@ -730,10 +747,11 @@ class Analytics extends Component
             $byClass[$std]['expected']  = ($byClass[$std]['expected']  ?? 0) + $expected;
             $byClass[$std]['collected'] = ($byClass[$std]['collected'] ?? 0) + $collected;
 
-            $route = (int) $r->route_id;
-            $byRoute[$route]['name']      = $r->route_name ?: 'Route #' . $route;
-            $byRoute[$route]['expected']  = ($byRoute[$route]['expected']  ?? 0) + $expected;
-            $byRoute[$route]['collected'] = ($byRoute[$route]['collected'] ?? 0) + $collected;
+            $route = $routeKey[(int) $r->route_id] ?? 'r:' . (int) $r->route_id;
+            $byRoute[$route] ??= ['name' => $r->route_name ?: 'Route #' . (int) $r->route_id, 'expected' => 0.0, 'collected' => 0.0, 'riders' => 0];
+            $byRoute[$route]['expected']  += $expected;
+            $byRoute[$route]['collected'] += $collected;
+            $byRoute[$route]['riders']++;
 
             $totalExpected += $expected;
         }
@@ -757,9 +775,9 @@ class Analytics extends Component
             'remaining' => $remainingSeries,
         ];
 
-        // Routes, heaviest expected first, capped so the axis stays readable.
-        uasort($byRoute, fn ($a, $b) => $b['expected'] <=> $a['expected']);
-        $byRoute = array_slice($byRoute, 0, 12, true);
+        // Routes, heaviest expected first (then by name) — all of them: the card
+        // keeps its size and the chart scrolls inside it.
+        uasort($byRoute, fn ($a, $b) => [$b['expected'], $a['name']] <=> [$a['expected'], $b['name']]);
 
         $rLabels = $rCollected = $rRemaining = [];
         foreach ($byRoute as $row) {

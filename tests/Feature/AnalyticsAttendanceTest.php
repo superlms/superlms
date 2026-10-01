@@ -175,6 +175,53 @@ class AnalyticsAttendanceTest extends TestCase
         $this->assertSame([90.0, 30.0], [$kpis['student_rate'], $kpis['student_delta']]);
     }
 
+    public function test_every_route_is_on_the_transport_chart_at_fare_times_each_students_months(): void
+    {
+        Schema::create('transportations', function (Blueprint $t) {
+            $t->id(); $t->unsignedBigInteger('organization_id'); $t->string('route_name'); $t->string('vehicle_type')->nullable();
+            $t->string('route_group')->nullable(); $t->decimal('monthly_fee', 10, 2)->default(0); $t->timestamps();
+        });
+        Schema::create('transportation_students', function (Blueprint $t) {
+            $t->id(); $t->unsignedBigInteger('organization_id'); $t->unsignedBigInteger('transportation_id');
+            $t->unsignedBigInteger('student_detail_id'); $t->text('billable_months')->nullable(); $t->timestamps();
+        });
+        Schema::create('transport_fee_payments', function (Blueprint $t) {
+            $t->id(); $t->unsignedBigInteger('organization_id'); $t->unsignedBigInteger('student_detail_id');
+            $t->decimal('amount', 10, 2)->default(0); $t->timestamps();
+        });
+
+        [$a, $b, $c] = $this->klass('Class 5', 3);
+        $route = fn (string $name, float $fee, ?string $group = null, ?string $type = null) => DB::table('transportations')->insertGetId(
+            ['organization_id' => $this->org, 'route_name' => $name, 'monthly_fee' => $fee, 'route_group' => $group, 'vehicle_type' => $type]);
+        // North runs a bus and a van: two rows underneath, one route.
+        $northBus = $route('North', 1000, 'north', 'Bus');
+        $northVan = $route('North', 1200, 'north', 'Van');
+        $south    = $route('South', 800);
+        $route('East', 900);                                    // no riders yet
+        for ($i = 1; $i <= 12; $i++) { $route('Lane ' . str_pad((string) $i, 2, '0', STR_PAD_LEFT), 500); } // more than the old cap of twelve
+
+        $ride = fn (int $routeId, int $student, ?array $months = null) => DB::table('transportation_students')->insert(
+            ['organization_id' => $this->org, 'transportation_id' => $routeId, 'student_detail_id' => $student,
+                'billable_months' => $months === null ? null : json_encode($months)]);
+        $ride($northBus, $a);                                    // every month but June: 11 × 1,000
+        $ride($northVan, $b, ['apr' => false, 'may' => false]);  // used from July on: 9 × 1,200
+        $ride($south, $c);                                       // 11 × 800
+        DB::table('transport_fee_payments')->insert(['organization_id' => $this->org, 'student_detail_id' => $a, 'amount' => 5000]);
+
+        $page = new Analytics();
+        $page->standards = \App\Models\Student\Standard::where('organization_id', $this->org)->get();
+        $this->load('loadTransportFeeData', $page);
+        $routes = $page->transportRouteData;
+
+        // All fifteen routes, the heaviest first, the rest by name.
+        $this->assertCount(15, $routes['labels']);
+        $this->assertSame(['North', 'South', 'East', 'Lane 01'], array_slice($routes['labels'], 0, 4));
+        // North: 11,000 + 10,800 expected, 5,000 of it in. South: 8,800. East: nothing yet.
+        $this->assertSame([5000.0, 0.0, 0.0], array_slice($routes['collected'], 0, 3));
+        $this->assertSame([16800.0, 8800.0, 0.0], array_slice($routes['remaining'], 0, 3));
+        $this->assertSame([30600.0, 5000.0, 15], [$page->transportFeeStats['expected'], $page->transportFeeStats['collected'], $page->transportFeeStats['routes']]);
+    }
+
     public function test_the_admissions_trend_draws_the_last_fifteen_admission_dates(): void
     {
         $std = DB::table('standards')->insertGetId(['organization_id' => $this->org, 'name' => 'Class 5']);

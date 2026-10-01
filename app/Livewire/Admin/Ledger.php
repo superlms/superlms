@@ -352,9 +352,9 @@ class Ledger extends Component
             return ['value' => $m->format('Y-m'), 'label' => $m->format('F Y')];
         });
 
-        // Paginate the in-memory collection.
+        // Paginate the in-memory collection: fifty rows a page.
         $page    = $this->getPage();
-        $perPage = 15;
+        $perPage = 50;
         $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
             $entries->forPage($page, $perPage)->values(),
             $entries->count(),

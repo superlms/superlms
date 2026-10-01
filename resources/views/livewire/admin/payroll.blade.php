@@ -36,6 +36,16 @@
                     </button>
                 @endif
 
+                {{-- Mark Salary tab: once a person is picked, a payment can be added to them --}}
+                @if ($activeTab === 'salary' && $salaryPerson)
+                    <button wire:click="openSalaryPayment"
+                        class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700
+                               text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                        Add Payment
+                    </button>
+                @endif
+
                 {{-- Attendance tab: the Add Student button's look; it opens the mark
                      panel on today, for everyone at once (view mode only) --}}
                 @if ($activeTab === 'attendance' && $attendanceMode === 'view')
@@ -153,37 +163,33 @@
         </div>
 
     @elseif ($activeTab === 'salary')
+        {{-- A type, then one of its people: the tab is that person's salary account. --}}
         <div class="bg-gray-50 border-b border-gray-200 px-4 sm:px-6 py-3">
             <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
                     <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $filterIcon }}" /></svg>
                     Filter by:
                 </div>
-                <input wire:model.live.debounce.300ms="salarySearch" type="text" placeholder="Search employee…"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                <div class="flex items-center gap-1.5">
-                    <label class="text-xs text-gray-500">Month</label>
-                    <input type="month" wire:model.live="salaryMonth" max="{{ now()->format('Y-m') }}" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" />
-                </div>
-                <select wire:model.live="filterSalaryType" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                    <option value="">All Types</option>
-                    <option value="teacher">Teacher</option>
+                <select wire:model.live="salaryType" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <option value="">Select type</option>
                     <option value="management">Management</option>
-                    <option value="employee">Employee</option>
+                    <option value="teacher">Teacher</option>
                     <option value="driver">Driver</option>
+                    <option value="employee">Employee</option>
                 </select>
-                @if ($salarySearch || $filterSalaryType)
-                    <button wire:click="clearSalaryFilters" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                <select wire:model.live="salaryEmpId" @disabled(!$salaryType)
+                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[170px] disabled:opacity-50 disabled:cursor-not-allowed">
+                    <option value="">{{ $salaryType ? 'Select ' . $salaryType : 'Select a type first' }}</option>
+                    @foreach ($salaryPeople as $emp)
+                        <option value="{{ $emp->id }}">{{ $emp->name }}{{ count($emp->types()) > 1 ? ' (' . implode(', ', array_map('ucfirst', $emp->types())) . ')' : '' }}</option>
+                    @endforeach
+                </select>
+                @if ($salaryType || $salaryEmpId)
+                    <button wire:click="clearSalaryPerson" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         Clear
                     </button>
                 @endif
-                @unless ($canPaySalaryMonth)
-                    <span class="ml-auto inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        {{ \Carbon\Carbon::parse($salaryMonth . '-01')->format('M Y') }} payable after month ends
-                    </span>
-                @endunless
             </div>
         </div>
 
@@ -536,108 +542,132 @@
             @endif
         @endif
 
-        {{-- ══════════ SALARY TAB ══════════ --}}
+        {{-- ══════════ SALARY TAB ══════════
+             One person's salary account. Their details first; then every month
+             from 1 April of the session to this one — what they are paid a month,
+             the attendance marked, the salary it works out to and what was paid —
+             with the totals under it. Payments are added from the header. --}}
         @if ($activeTab === 'salary')
+            @if ($salaryPerson && $salaryAccount)
+                @php
+                    $money = fn ($v) => '₹' . number_format((float) $v, 0);
+                    $personTypes = array_map('ucfirst', $salaryPerson->types());
+                    $personLine  = implode(', ', $personTypes);
+                    $says = trim((string) $salaryPerson->designation);
+                    if ($says !== '' && !in_array(mb_strtolower($says), array_map('mb_strtolower', $personTypes), true)) {
+                        $personLine .= ' · ' . $says;
+                    }
+                    $personFacts = [
+                        'Mobile'         => $salaryPerson->mobile ?: '—',
+                        'Email'          => $salaryPerson->email ?: '—',
+                        'Monthly salary' => $money($salaryPerson->salary),
+                        'Joining date'   => $salaryPerson->joining_date ? \Carbon\Carbon::parse($salaryPerson->joining_date)->format('d M Y') : '—',
+                        'Bank'           => $salaryPerson->bank_name ?: '—',
+                        'Account no.'    => $salaryPerson->bank_account_no ?: '—',
+                        'IFSC'           => $salaryPerson->bank_ifsc ?: '—',
+                        'Account holder' => $salaryPerson->bank_holder_name ?: '—',
+                    ];
+                @endphp
 
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                <div class="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-teal-50 flex items-center justify-between">
-                    <h3 class="text-sm font-semibold text-gray-700">Salary — {{ \Carbon\Carbon::parse($salaryMonth . '-01')->format('M Y') }} <span class="text-xs font-normal text-gray-400">(calculated from attendance)</span></h3>
+                {{-- The person --}}
+                <div class="bg-white rounded-xl border border-gray-200 p-5">
+                    <div class="flex items-center gap-3">
+                        @if ($salaryPerson->photo)
+                            <img src="{{ $salaryPerson->photo }}" class="w-11 h-11 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                        @else
+                            <div class="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                <span class="text-sm font-bold text-gray-600">{{ strtoupper(substr($salaryPerson->name, 0, 1)) }}</span>
+                            </div>
+                        @endif
+                        <div class="min-w-0">
+                            <p class="text-base font-semibold text-gray-900 truncate">{{ $salaryPerson->name }}</p>
+                            <p class="text-xs text-gray-400 truncate">{{ $personLine }}</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3 mt-4 pt-4 border-t border-gray-100">
+                        @foreach ($personFacts as $label => $value)
+                            <div class="min-w-0">
+                                <p class="text-[10px] font-medium text-gray-400 uppercase tracking-wide">{{ $label }}</p>
+                                <p class="text-sm text-gray-800 truncate" title="{{ $value }}">{{ $value }}</p>
+                            </div>
+                        @endforeach
+                    </div>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full">
-                        <thead class="bg-gray-50 border-b border-gray-200">
-                            <tr>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 w-10">#</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Employee</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Type</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Base</th>
-                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500">P / A / H</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Payable</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Marked</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Status</th>
-                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            @forelse ($salaryEmployees as $i => $emp)
-                                @php
-                                    $b = $salaryBreakdowns[$emp->id] ?? ['present' => 0, 'absent' => 0, 'halfDay' => 0, 'payable' => $emp->salary];
-                                    $payment = $monthSalaryPayments->get($emp->id);
-                                    $isPaid = $payment && $payment->status === 'paid';
-                                @endphp
-                                <tr class="hover:bg-gray-50/50 transition-colors {{ $isPaid ? 'bg-green-50/20' : '' }}" wire:key="sal-{{ $emp->id }}">
-                                    <td class="px-4 py-3 text-xs text-gray-400">{{ $i + 1 }}</td>
-                                    <td class="px-4 py-3">
-                                        <div class="flex items-center gap-2.5">
-                                            @if ($emp->photo)
-                                                <img src="{{ $emp->photo }}" class="w-8 h-8 rounded-full object-cover border border-gray-200 flex-shrink-0">
-                                            @else
-                                                <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"><span class="text-xs font-bold text-gray-600">{{ strtoupper(substr($emp->name, 0, 1)) }}</span></div>
-                                            @endif
-                                            <div><p class="text-sm font-medium text-gray-800">{{ $emp->name }}</p><p class="text-xs text-gray-400">{{ $emp->designation ?? '' }}</p></div>
-                                        </div>
-                                    </td>
-                                    <td class="px-4 py-3"><span class="inline-flex flex-wrap gap-1">@foreach ($emp->types() as $t)<span class="text-xs px-2 py-0.5 rounded-full font-medium border capitalize {{ $typeChip[$t] ?? 'bg-gray-50 text-gray-600 border-gray-200' }}">{{ $t }}</span>@endforeach</span></td>
-                                    <td class="px-4 py-3 text-sm text-gray-700">₹{{ number_format($emp->salary, 0) }}</td>
-                                    <td class="px-4 py-3 text-center text-xs">
-                                        <span class="text-emerald-600 font-semibold">{{ $b['present'] }}</span> /
-                                        <span class="text-red-500 font-semibold">{{ $b['absent'] }}</span> /
-                                        <span class="text-amber-500 font-semibold">{{ $b['halfDay'] }}</span>
-                                    </td>
-                                    <td class="px-4 py-3 text-sm font-bold text-gray-900">₹{{ number_format($b['payable'], 0) }}</td>
-                                    {{-- What was actually marked against this month,
-                                         which can differ from the calculated payable. --}}
-                                    <td class="px-4 py-3">
-                                        @if ($payment)
-                                            <span class="text-sm font-semibold {{ $isPaid ? 'text-emerald-700' : 'text-gray-700' }}">₹{{ number_format($payment->amount, 0) }}</span>
-                                            @if ($isPaid && (float) $payment->amount !== (float) $b['payable'])
-                                                <span class="block text-[10px] text-amber-600">
-                                                    {{ (float) $payment->amount > (float) $b['payable'] ? '+' : '−' }}₹{{ number_format(abs((float) $payment->amount - (float) $b['payable']), 0) }} vs payable
-                                                </span>
-                                            @endif
-                                        @else
-                                            <span class="text-xs text-gray-400">—</span>
-                                        @endif
-                                    </td>
-                                    <td class="px-4 py-3">
-                                        @if ($isPaid)
-                                            <span class="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium bg-green-50 text-green-700 border border-green-100"><span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Paid</span>
-                                        @else
-                                            <span class="text-xs text-gray-400">Not paid</span>
-                                        @endif
-                                    </td>
-                                    <td class="px-4 py-3 text-center">
-                                        @if ($canPaySalaryMonth)
-                                            <button wire:click="openPayModal({{ $emp->id }})"
-                                                class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors {{ $isPaid ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100' : 'bg-emerald-600 hover:bg-emerald-700 text-white' }}">
-                                                {{ $isPaid ? 'Update' : 'Pay' }}
-                                            </button>
-                                        @else
-                                            <button disabled title="Payable after the month ends"
-                                                class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed">
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                                                Locked
-                                            </button>
-                                        @endif
-                                    </td>
+
+                {{-- Their months --}}
+                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div class="px-5 py-3.5 border-b border-gray-100 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                        <h3 class="text-sm font-semibold text-gray-800">Salary by month</h3>
+                        <p class="text-xs text-gray-400 tabular-nums">
+                            Salary <span class="text-gray-700 font-medium">{{ $money($salaryAccount['payable']) }}</span><span class="text-gray-300"> · </span>
+                            Paid <span class="text-emerald-600 font-medium">{{ $money($salaryAccount['paid']) }}</span><span class="text-gray-300"> · </span>
+                            Balance <span class="font-medium {{ $salaryAccount['balance'] > 0 ? 'text-red-500' : 'text-gray-700' }}">{{ $money($salaryAccount['balance']) }}</span>
+                        </p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500">Month</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Attendance</th>
+                                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500">Monthly salary</th>
+                                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500">Salary by attendance</th>
+                                    <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500">Payment</th>
                                 </tr>
-                            @empty
-                                <tr><td colspan="9" class="px-4 py-8 text-center text-sm text-gray-400">No employees found</td></tr>
-                            @endforelse
-                        </tbody>
-                        @if ($salaryEmployees->count())
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach ($salaryAccount['months'] as $m)
+                                    <tr class="hover:bg-gray-50/60 transition-colors" wire:key="sal-month-{{ $m['ym'] }}">
+                                        <td class="px-5 py-3 align-top">
+                                            <p class="text-sm font-medium text-gray-800">{{ $m['label'] }}</p>
+                                            @if ($m['running'])
+                                                <p class="text-[11px] text-gray-400">Running month — so far</p>
+                                            @endif
+                                        </td>
+                                        <td class="px-4 py-3 align-top text-xs text-gray-400 tabular-nums whitespace-nowrap">
+                                            @if ($m['present'] + $m['absent'] + $m['half'] + $m['leave'] > 0)
+                                                Present <span class="text-gray-700 font-medium">{{ $m['present'] }}</span><span class="text-gray-300"> · </span>
+                                                Absent <span class="text-gray-700 font-medium">{{ $m['absent'] }}</span><span class="text-gray-300"> · </span>
+                                                Half <span class="text-gray-700 font-medium">{{ $m['half'] }}</span><span class="text-gray-300"> · </span>
+                                                Leave <span class="text-gray-700 font-medium">{{ $m['leave'] }}</span>
+                                            @else
+                                                Not marked
+                                            @endif
+                                        </td>
+                                        <td class="px-4 py-3 align-top text-right text-sm text-gray-600 tabular-nums">{{ $money($m['base']) }}</td>
+                                        <td class="px-4 py-3 align-top text-right text-sm font-semibold text-gray-900 tabular-nums">{{ $money($m['payable']) }}</td>
+                                        <td class="px-5 py-3 align-top text-right">
+                                            @if ($m['payments'])
+                                                <p class="text-sm font-semibold text-emerald-600 tabular-nums">{{ $money($m['paid']) }}</p>
+                                                @foreach ($m['payments'] as $pay)
+                                                    <p class="text-[11px] text-gray-400 tabular-nums" title="{{ $pay['remark'] }}">
+                                                        {{ $pay['date'] }}@if (count($m['payments']) > 1) · {{ $money($pay['amount']) }}@endif{{ $pay['from'] ? ' · ' . $pay['from'] : '' }}
+                                                    </p>
+                                                @endforeach
+                                            @else
+                                                <span class="text-sm text-gray-300">—</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
                             <tfoot class="bg-gray-50 border-t border-gray-200">
                                 <tr>
-                                    <td colspan="5" class="px-4 py-2.5 text-xs font-semibold text-gray-600">Total ({{ $salaryEmployees->count() }} employees)</td>
-                                    <td class="px-4 py-2.5 text-sm font-bold text-gray-800">₹{{ number_format($totalPayable, 0) }}</td>
-                                    <td class="px-4 py-2.5 text-sm font-bold text-emerald-700">₹{{ number_format($totalPaidAmount, 0) }}</td>
-                                    <td colspan="2" class="px-4 py-2.5 text-xs text-gray-500">Paid this month</td>
+                                    <td colspan="3" class="px-5 py-3 text-xs font-semibold text-gray-600">Total · {{ count($salaryAccount['months']) }} month{{ count($salaryAccount['months']) === 1 ? '' : 's' }}</td>
+                                    <td class="px-4 py-3 text-right text-sm font-bold text-gray-900 tabular-nums">{{ $money($salaryAccount['payable']) }}</td>
+                                    <td class="px-5 py-3 text-right text-sm font-bold text-emerald-600 tabular-nums">{{ $money($salaryAccount['paid']) }}</td>
                                 </tr>
                             </tfoot>
-                        @endif
-                    </table>
+                        </table>
+                    </div>
                 </div>
-            </div>
+            @else
+                {{-- ─── PROMPT (nobody picked yet) ─── --}}
+                <div class="bg-white rounded-xl border border-gray-200 p-10 sm:p-12 text-center">
+                    <p class="text-sm text-gray-600 font-medium">Use the filter above to open someone's salary.</p>
+                    <p class="text-xs text-gray-400 mt-2">Pick a <strong class="font-medium text-gray-500">type</strong>, then a person — their months since April and an Add Payment button follow.</p>
+                </div>
+            @endif
         @endif
 
         {{-- ══════════ PAYMENTS TAB ══════════ --}}
@@ -994,6 +1024,70 @@
 
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
                     <button wire:click="closeEmpDetailModal" class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- ══════════ ADD PAYMENT SLIDE-IN PANEL ══════════
+         A payment to the person the Mark Salary tab is on: amount, date, from
+         and a remark. (The month-by-month pay panel below is the earlier one,
+         kept; this page no longer opens it.) --}}
+    @if ($showSalaryPayPanel && $salaryPerson)
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeSalaryPayment"></div>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900">Add Payment</h2>
+                        <p class="text-xs text-gray-500 mt-0.5 truncate">{{ $salaryPerson->name }} · balance ₹{{ number_format((float) ($salaryAccount['balance'] ?? 0), 0) }}</p>
+                    </div>
+                    <button wire:click="closeSalaryPayment" type="button"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Amount (₹) <span class="text-red-500">*</span></label>
+                            <input wire:model.defer="spAmount" type="number" step="1" min="1" placeholder="0"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                       @error('spAmount') border-red-400 @enderror">
+                            @error('spAmount')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Date <span class="text-red-500">*</span></label>
+                            <input wire:model.defer="spDate" type="date" max="{{ now()->format('Y-m-d') }}"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                       @error('spDate') border-red-400 @enderror">
+                            @error('spDate')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">From <span class="text-red-500">*</span></label>
+                        <input wire:model.defer="spFrom" type="text" maxlength="255" placeholder="Who is making this payment"
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                   @error('spFrom') border-red-400 @enderror">
+                        @error('spFrom')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Remark</label>
+                        <textarea wire:model.defer="spRemark" rows="3" maxlength="500" placeholder="What is this payment for?"
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none
+                                   @error('spRemark') border-red-400 @enderror"></textarea>
+                        @error('spRemark')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+                </div>
+
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                    <button wire:click="closeSalaryPayment" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                    <button wire:click="saveSalaryPayment" type="button" wire:loading.attr="disabled" wire:target="saveSalaryPayment"
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                        <span wire:loading.remove wire:target="saveSalaryPayment">Save Payment</span>
+                        <span wire:loading wire:target="saveSalaryPayment">Saving...</span>
+                    </button>
                 </div>
             </div>
         </div>

@@ -247,10 +247,11 @@
                                 <td class="px-3 py-3 text-sm text-gray-500">
                                     {{-- Payment mode, with how the row got here underneath it. --}}
                                     <div class="break-words">{{ $row['mode'] ?: '—' }}</div>
+                                    {{-- Plain text, small and grey — no coloured tag. --}}
                                     @if (empty($row['manual_id']))
-                                        <span class="mt-1 inline-block text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-500" title="Recorded automatically — view only">Auto</span>
+                                        <span class="block text-[11px] text-gray-400" title="Recorded automatically — view only">Auto</span>
                                     @else
-                                        <span class="mt-1 inline-block text-[10px] font-medium px-1.5 py-0.5 rounded bg-purple-50 text-purple-600" title="Added by hand in the ledger">Manual</span>
+                                        <span class="block text-[11px] text-gray-400" title="Added by hand in the ledger">Manual</span>
                                     @endif
                                 </td>
                                 {{-- One amount column: the figure, and under it — small — whether
@@ -360,12 +361,12 @@
                                 What are you adding? <span class="text-red-500">*</span>
                             </label>
                             <div class="grid grid-cols-2 gap-2">
-                                @foreach (['credit' => ['Credit', 'Money coming in'], 'expense' => ['Expense', 'Money going out']] as $value => [$label, $hint])
+                                {{-- The two kinds, by name alone. --}}
+                                @foreach (['credit' => 'Credit', 'expense' => 'Expense'] as $value => $label)
                                     <button type="button" wire:click="chooseType('{{ $value }}')"
                                         class="px-3.5 py-3 text-left border-2 rounded-md transition-all
                                             {{ $modalType === $value ? 'border-gray-900 bg-gray-50' : 'border-gray-200 hover:bg-gray-50' }}">
                                         <span class="block text-sm font-semibold text-gray-900">{{ $label }}</span>
-                                        <span class="block text-xs text-gray-500 mt-0.5">{{ $hint }}</span>
                                     </button>
                                 @endforeach
                             </div>

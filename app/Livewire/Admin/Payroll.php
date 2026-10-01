@@ -149,6 +149,19 @@ class Payroll extends Component
     public string $payRemark          = '';
     public        $payExistingId      = null;
 
+    // ─── Mark Salary: one person's account ────────────────────────────────────
+    // The tab opens on a type and then one of its people. Their months since
+    // 1 April of the session are listed — attendance, the salary it works out
+    // to, what was paid — and Add Payment (in the header) records a payment:
+    // amount, date, from, remark.
+    public string $salaryType         = '';
+    public string $salaryEmpId        = '';
+    public bool   $showSalaryPayPanel = false;
+    public        $spAmount           = '';
+    public string $spDate             = '';
+    public string $spFrom             = '';
+    public string $spRemark           = '';
+
     // ─── Payments History ─────────────────────────────────────────────────────
     public string $filterPaymentEmpId = '';
     public string $filterPaymentMonth = '';
@@ -330,7 +343,9 @@ class Payroll extends Component
             $this->empHolderName      = $emp->bank_holder_name ?? '';
             $this->empBranch          = $emp->bank_branch ?? '';
             $this->empIfsc            = $emp->bank_ifsc ?? '';
-            $this->empJoiningDate     = $emp->joining_date?->format('Y-m-d') ?? '';
+            // The model keeps joining_date as the column's string (no date cast):
+            // calling ->format() on it broke Edit for anyone who had a joining date.
+            $this->empJoiningDate     = $emp->joining_date ? Carbon::parse($emp->joining_date)->format('Y-m-d') : '';
             $this->empExistingPhoto   = $emp->photo;
             $this->empTeacherDetailId = $emp->teacher_detail_id;
             // An entry being edited already has its type.
@@ -706,7 +721,7 @@ class Payroll extends Component
             'Mobile'       => $employee->mobile ?? 'N/A',
             'Email'        => $employee->email ?? 'N/A',
             'Salary'       => '₹' . number_format($employee->salary, 0),
-            'Joining Date' => $employee->joining_date?->format('d M Y') ?? 'N/A',
+            'Joining Date' => $employee->joining_date ? Carbon::parse($employee->joining_date)->format('d M Y') : 'N/A',
         ];
 
         if ($employee->address) {
@@ -784,6 +799,7 @@ class Payroll extends Component
         $this->attendanceMode  = 'view';
         $this->attendanceDraft = [];
         $this->closeMarkPanel();
+        $this->showSalaryPayPanel = false;
     }
 
     // ─── Mark Attendance panel: everyone at once ──────────────────────────────
@@ -1334,10 +1350,11 @@ class Payroll extends Component
      * Present / leave / unmarked days are paid in full; each absent is a full
      * per-day cut and each half day a half cut.
      */
-    private function salaryBreakdown(AdminEmployee $emp, $adminGrouped, $teacherGrouped): array
+    private function salaryBreakdown(AdminEmployee $emp, $adminGrouped, $teacherGrouped, ?string $month = null): array
     {
         $base = (float) $emp->salary;
-        $daysInMonth = (int) Carbon::parse($this->salaryMonth . '-01')->daysInMonth;
+        // The month being worked out: the one named, else the salary tab's.
+        $daysInMonth = (int) Carbon::parse(($month ?: $this->salaryMonth) . '-01')->daysInMonth;
 
         if ($emp->isTeacher() && isset($teacherGrouped[$emp->id])) {
             $records = $teacherGrouped[$emp->id];
@@ -1360,6 +1377,174 @@ class Payroll extends Component
         $payable   = max(0, round($base - $deduction));
 
         return compact('present', 'absent', 'halfDay', 'leave', 'payable') + ['base' => $base];
+    }
+
+    /** Another type starts over on its people. */
+    public function updatedSalaryType(): void
+    {
+        $this->salaryEmpId = '';
+        $this->closeSalaryPayment();
+    }
+
+    public function clearSalaryPerson(): void
+    {
+        $this->salaryType  = '';
+        $this->salaryEmpId = '';
+        $this->closeSalaryPayment();
+    }
+
+    /** The person the Mark Salary tab is on, if one is picked (and is this school's). */
+    private function salaryPerson(): ?AdminEmployee
+    {
+        return $this->salaryEmpId !== ''
+            ? AdminEmployee::forOrganization($this->orgId())->find((int) $this->salaryEmpId)
+            : null;
+    }
+
+    /**
+     * One person's salary account: every month from 1 April of the running
+     * session (or the month they joined, when that is later) to this month —
+     * the attendance marked in it, the salary it works out to (the same sum as
+     * everywhere else: absent a day's cut, a half day half of one), and what
+     * was paid in it — with the totals. The running month is worked out on
+     * what is marked so far.
+     */
+    private function salaryAccount(AdminEmployee $emp): array
+    {
+        $start = \App\Support\AcademicYear::start()->startOfMonth();
+        if ($emp->joining_date) {
+            $joined = Carbon::parse($emp->joining_date)->startOfMonth();
+            if ($joined->gt($start) && $joined->lte(now())) {
+                $start = $joined;
+            }
+        }
+        $now = now()->startOfMonth();
+
+        // The period's attendance, by month.
+        $staff = AdminAttendance::forOrganization($this->orgId())
+            ->where('admin_employee_id', $emp->id)
+            ->where('date', '>=', $start->toDateString())
+            ->get()->groupBy(fn ($r) => Carbon::parse($r->date)->format('Y-m'));
+        $teacher = $this->marksAsTeacher($emp)
+            ? TeacherAttendance::where('teacher_detail_id', $emp->teacher_detail_id)
+                ->where('attendance_date', '>=', $start->toDateString())
+                ->get()->groupBy(fn ($r) => Carbon::parse($r->attendance_date)->format('Y-m'))
+            : collect();
+
+        // What was paid, by the month it is recorded against.
+        $payments = AdminSalaryPayment::forOrganization($this->orgId())
+            ->where('admin_employee_id', $emp->id)
+            ->where('status', 'paid')
+            ->orderBy('payment_date')->orderBy('id')
+            ->get()->groupBy('month');
+
+        $months = [];
+        $totalPayable = $totalPaid = 0.0;
+        for ($m = $start->copy(); $m->lte($now); $m->addMonthNoOverflow()) {
+            $ym = $m->format('Y-m');
+
+            $b = $this->salaryBreakdown(
+                $emp,
+                collect([$emp->id => $staff->get($ym, collect())]),
+                $teacher->has($ym) ? [$emp->id => $teacher->get($ym)] : [],
+                $ym
+            );
+            $paid = $payments->get($ym, collect());
+
+            $months[] = [
+                'ym'       => $ym,
+                'label'    => $m->format('F Y'),
+                'running'  => $m->equalTo($now),
+                'base'     => $b['base'],
+                'present'  => $b['present'],
+                'absent'   => $b['absent'],
+                'half'     => $b['halfDay'],
+                'leave'    => $b['leave'],
+                'payable'  => (float) $b['payable'],
+                'paid'     => (float) $paid->sum('amount'),
+                'payments' => $paid->map(fn ($p) => [
+                    'amount' => (float) $p->amount,
+                    'date'   => $p->payment_date?->format('d M Y') ?? '—',
+                    'from'   => $p->paid_by,
+                    'remark' => $p->remark,
+                ])->values()->all(),
+            ];
+
+            $totalPayable += (float) $b['payable'];
+            $totalPaid    += (float) $paid->sum('amount');
+        }
+
+        return [
+            'months'  => array_reverse($months),   // this month on top
+            'payable' => $totalPayable,
+            'paid'    => $totalPaid,
+            'balance' => $totalPayable - $totalPaid,
+        ];
+    }
+
+    /** The header's Add Payment: a blank form on today, from the person signed in. */
+    public function openSalaryPayment(): void
+    {
+        if (!$this->salaryPerson()) {
+            return;
+        }
+
+        $this->resetValidation();
+        $this->spAmount = '';
+        $this->spDate   = now()->toDateString();
+        $this->spFrom   = (string) (Auth::user()->name ?? '');
+        $this->spRemark = '';
+        $this->showSalaryPayPanel = true;
+    }
+
+    public function closeSalaryPayment(): void
+    {
+        $this->showSalaryPayPanel = false;
+        $this->resetValidation(['spAmount', 'spDate', 'spFrom', 'spRemark']);
+    }
+
+    /**
+     * Record a payment to the person the tab is on: an amount, the day it was
+     * paid, who it came from and a remark. It is kept against the month of its
+     * date — a person can be paid more than once in a month — and reaches the
+     * Payments tab and the Ledger like every salary payment.
+     */
+    public function saveSalaryPayment(): void
+    {
+        $emp = $this->salaryPerson();
+        if (!$emp) {
+            $this->closeSalaryPayment();
+            return;
+        }
+
+        $this->validate([
+            'spAmount' => 'required|numeric|min:1|max:99999999',
+            'spDate'   => 'required|date|before_or_equal:today',
+            'spFrom'   => 'required|string|max:255',
+            'spRemark' => 'nullable|string|max:500',
+        ], [
+            'spDate.before_or_equal' => 'The date cannot be after today.',
+        ], [
+            'spAmount' => 'amount',
+            'spDate'   => 'date',
+            'spFrom'   => 'from',
+            'spRemark' => 'remark',
+        ]);
+
+        AdminSalaryPayment::create([
+            'admin_employee_id' => $emp->id,
+            'organization_id'   => $this->orgId(),
+            'month'             => Carbon::parse($this->spDate)->format('Y-m'),
+            'amount'            => $this->spAmount,
+            'payment_mode'      => 'cash',
+            'paid_by'           => $this->spFrom,
+            'status'            => 'paid',
+            'payment_date'      => $this->spDate,
+            'remark'            => $this->spRemark !== '' ? $this->spRemark : null,
+        ]);
+
+        $this->closeSalaryPayment();
+        $this->notification()->success('Payment added', '₹' . number_format((float) $this->spAmount, 0) . ' to ' . $emp->name . '.');
     }
 
     public function openPayModal($empId): void
@@ -1536,6 +1721,15 @@ class Payroll extends Component
 
         $allEmployeesForFilter = $allEmployees;
 
+        // Mark Salary tab: the people of the type picked, and the one picked's account.
+        $salaryPeople  = $this->salaryType !== ''
+            ? $allEmployees->filter(fn ($e) => $e->hasType($this->salaryType))->sortBy(fn ($e) => mb_strtolower((string) $e->name))->values()
+            : collect();
+        $salaryPerson  = $this->activeTab === 'salary' && $this->salaryEmpId !== ''
+            ? $allEmployees->firstWhere('id', (int) $this->salaryEmpId)
+            : null;
+        $salaryAccount = $salaryPerson ? $this->salaryAccount($salaryPerson) : null;
+
         // Employees tab: this month's present / working days beside each person.
         $monthAttendance = $this->activeTab === 'employees' ? $this->monthAttendanceSummary($allEmployees) : [];
 
@@ -1629,6 +1823,9 @@ class Payroll extends Component
             'monthAttendance',
             'dayEmployees',
             'dayMarks',
+            'salaryPeople',
+            'salaryPerson',
+            'salaryAccount',
             'salaryEmployees',
             'empStats',
             'attView',

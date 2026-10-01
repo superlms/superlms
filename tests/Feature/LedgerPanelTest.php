@@ -136,6 +136,31 @@ class LedgerPanelTest extends TestCase
         $this->assertMatchesRegularExpression('/wire:click="clearFilters"\s*class="inline-flex/', $html);
     }
 
+    public function test_the_list_is_fifty_a_page_with_auto_and_manual_as_plain_text(): void
+    {
+        for ($i = 0; $i < 60; $i++) {
+            DB::table('fee_payments')->insert(['organization_id' => $this->org, 'amount' => 100 + $i,
+                'payment_date' => now()->toDateString(), 'fee_type' => 'academic', 'payment_mode' => 'cash']);
+        }
+        LedgerTransaction::create(['organization_id' => $this->org, 'type' => 'expense', 'amount' => 10,
+            'txn_date' => now()->toDateString(), 'party' => 'Cash box', 'party_to' => 'Shop', 'mode' => 'Cash', 'reason' => 'Chalk']);
+
+        $page = Livewire::test(Ledger::class)
+            ->assertViewHas('entries', fn ($rows) => $rows->perPage() === 50 && $rows->count() === 50 && $rows->total() === 61);
+
+        // Auto / Manual under the mode: small grey text, no coloured tag.
+        $html = $page->html();
+        $this->assertStringContainsString('<span class="block text-[11px] text-gray-400" title="Added by hand in the ledger">Manual</span>', $html);
+        $this->assertStringContainsString('<span class="block text-[11px] text-gray-400" title="Recorded automatically — view only">Auto</span>', $html);
+        $this->assertStringNotContainsString('bg-purple-50 text-purple-600', $html);
+
+        // "What are you adding?": the two kinds by name alone.
+        $page->call('openAdd')
+            ->assertSee('What are you adding?')
+            ->assertDontSee('Money coming in')
+            ->assertDontSee('Money going out');
+    }
+
     public function test_a_new_entry_needs_every_field(): void
     {
         Livewire::test(Ledger::class)

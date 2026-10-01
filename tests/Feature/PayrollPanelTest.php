@@ -519,6 +519,108 @@ class PayrollPanelTest extends TestCase
             ->assertSee('Not marked');
     }
 
+    public function test_mark_salary_is_one_persons_account_from_april_with_add_payment(): void
+    {
+        \Illuminate\Support\Carbon::setTestNow('2026-10-15 11:00:00');
+        try {
+            $ravi = $this->staff('Ravi Kumar', 'driver', ['mobile' => '9811111111', 'bank_name' => 'SBI']);
+            $ravi->update(['salary' => 30000]);
+            $this->staff('Zoya', 'employee');
+            // September (30 days, ₹1,000 a day): an absent and a half day.
+            AdminAttendance::create(['organization_id' => $this->org, 'admin_employee_id' => $ravi->id, 'date' => '2026-09-03', 'status' => 'absent']);
+            AdminAttendance::create(['organization_id' => $this->org, 'admin_employee_id' => $ravi->id, 'date' => '2026-09-04', 'status' => 'half_day']);
+            AdminAttendance::create(['organization_id' => $this->org, 'admin_employee_id' => $ravi->id, 'date' => '2026-09-05', 'status' => 'present']);
+
+            $page = Livewire::test(PayrollPage::class)
+                ->set('activeTab', 'salary')
+                // A type first, then one of its people; no payment button until then.
+                ->assertSee('Select a type first')
+                ->assertDontSeeHtml('wire:click="openSalaryPayment"')
+                ->assertViewHas('salaryPerson', null)
+                ->set('salaryType', 'driver')
+                ->assertViewHas('salaryPeople', fn ($list) => $list->pluck('name')->all() === ['Ravi Kumar'])
+                ->set('salaryEmpId', (string) $ravi->id)
+                ->assertSeeHtml('wire:click="openSalaryPayment"')
+                ->assertSee('Add Payment')
+                // Their details, then every month from April to this one.
+                ->assertSee('Ravi Kumar')
+                ->assertSee('SBI')
+                ->assertViewHas('salaryAccount', function ($acc) {
+                    $months = collect($acc['months'])->keyBy('ym');
+
+                    return $months->keys()->all() === ['2026-10', '2026-09', '2026-08', '2026-07', '2026-06', '2026-05', '2026-04']
+                        && $months['2026-09']['payable'] === 28500.0
+                        && [$months['2026-09']['present'], $months['2026-09']['absent'], $months['2026-09']['half']] === [1, 1, 1]
+                        && $months['2026-08']['payable'] === 30000.0
+                        && $months['2026-10']['running'] === true
+                        && $acc['payable'] === 208500.0 && $acc['paid'] === 0.0 && $acc['balance'] === 208500.0;
+                });
+
+            // Add Payment: amount, date, from and a remark.
+            $page->call('openSalaryPayment')
+                ->assertSet('showSalaryPayPanel', true)
+                ->assertSet('spDate', '2026-10-15')
+                ->assertSet('spFrom', 'Admin')
+                ->assertSeeHtml('wire:model.defer="spAmount"')
+                ->assertSeeHtml('wire:model.defer="spRemark"')
+                ->set('spFrom', '')
+                ->call('saveSalaryPayment')
+                ->assertHasErrors(['spAmount', 'spFrom'])
+                ->set('spAmount', '28500')->set('spDate', '2026-10-20')->set('spFrom', 'Head')
+                ->call('saveSalaryPayment')
+                ->assertHasErrors(['spDate'])            // not a day still to come
+                ->set('spDate', '2026-10-05')->set('spRemark', 'September salary')
+                ->call('saveSalaryPayment')
+                ->assertHasNoErrors()
+                ->assertSet('showSalaryPayPanel', false);
+
+            $paid = \App\Models\Admin\AdminSalaryPayment::first();
+            $this->assertSame(['2026-10', 'paid', 'Head', 'September salary', '2026-10-05'],
+                [$paid->month, $paid->status, $paid->paid_by, $paid->remark, $paid->payment_date->toDateString()]);
+            $this->assertEquals(28500, $paid->amount);
+
+            // A second payment in the same month is another payment, not a replacement.
+            $page->call('openSalaryPayment')->set('spAmount', '1500')->set('spDate', '2026-10-10')->call('saveSalaryPayment')
+                ->assertHasNoErrors()
+                ->assertViewHas('salaryAccount', function ($acc) {
+                    $oct = collect($acc['months'])->firstWhere('ym', '2026-10');
+
+                    return $oct['paid'] === 30000.0 && count($oct['payments']) === 2
+                        && $acc['paid'] === 30000.0 && $acc['balance'] === 178500.0;
+                });
+            $this->assertSame(2, \App\Models\Admin\AdminSalaryPayment::count());
+
+            // Another type starts over on its people.
+            $page->set('salaryType', 'employee')->assertSet('salaryEmpId', '')->assertViewHas('salaryPerson', null);
+        } finally {
+            \Illuminate\Support\Carbon::setTestNow();
+        }
+    }
+
+    public function test_someone_who_joined_mid_session_is_counted_from_then_and_can_be_viewed_and_edited(): void
+    {
+        \Illuminate\Support\Carbon::setTestNow('2026-10-15 11:00:00');
+        try {
+            $emp = $this->staff('Aman Gupta', 'employee', ['salary' => 16000, 'joining_date' => '2026-08-10']);
+
+            Livewire::test(PayrollPage::class)
+                ->set('activeTab', 'salary')->set('salaryType', 'employee')->set('salaryEmpId', (string) $emp->id)
+                ->assertViewHas('salaryAccount', fn ($acc) => array_column($acc['months'], 'ym') === ['2026-10', '2026-09', '2026-08'])
+                ->assertSee('10 Aug 2026');
+
+            // View and Edit used to break on a joining date (it is kept as a string).
+            Livewire::test(PayrollPage::class)
+                ->call('viewEmployee', $emp->id)
+                ->assertSet('showEmpDetailModal', true)
+                ->assertSee('10 Aug 2026')
+                ->call('closeEmpDetailModal')
+                ->call('openEmpModal', $emp->id)
+                ->assertSet('empJoiningDate', '2026-08-10');
+        } finally {
+            \Illuminate\Support\Carbon::setTestNow();
+        }
+    }
+
     public function test_the_mark_panel_takes_an_earlier_day_but_not_one_to_come_and_needs_a_mark(): void
     {
         $emp = $this->staff('Zoya', 'employee');
