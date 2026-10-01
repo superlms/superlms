@@ -532,37 +532,55 @@ class Home extends Component
         $orgId = FacadesAuth::user()->organization_id;
         $pass  = app(GradingService::class)->passPercentage();
 
-        $rows = ExamCopy::query()
+        // The latest eight exams that have marks.
+        $exams = ExamCopy::query()
             ->join('exams', 'exams.id', '=', 'exam_copies.exam_id')
             ->where('exam_copies.organization_id', $orgId)
-            ->where('exam_copies.is_absent', false)
-            ->whereNotNull('exam_copies.percentage')
-            ->selectRaw(
-                'exams.id as exam_id, exams.exam_name, exams.start_date, exams.end_date,'
-                . ' AVG(exam_copies.percentage) as avg_pct,'
-                . ' SUM(CASE WHEN exam_copies.percentage >= ? THEN 1 ELSE 0 END) as passed,'
-                . ' COUNT(*) as papers,'
-                . ' COUNT(DISTINCT exam_copies.student_detail_id) as students',
-                [$pass]
-            )
+            ->selectRaw('exams.id as exam_id, exams.exam_name, exams.start_date, exams.end_date')
             ->groupBy('exams.id', 'exams.exam_name', 'exams.start_date', 'exams.end_date')
             ->orderByRaw('COALESCE(exams.end_date, exams.start_date) DESC, exams.id DESC')
             ->limit(8)
             ->get();
 
-        $trend = $rows->reverse()->values()->map(function ($r) {
-            $when   = $r->end_date ?: $r->start_date;
-            $name   = $r->exam_name ?: 'Exam #' . $r->exam_id;
-            $papers = (int) $r->papers;
+        // Each student's overall marks in each of those exams: every paper of
+        // theirs added up. A paper they were absent for counts as nought out of
+        // its full marks — it is marks they did not score.
+        $perStudent = ExamCopy::query()
+            ->where('organization_id', $orgId)
+            ->whereIn('exam_id', $exams->pluck('exam_id'))
+            ->selectRaw(
+                'exam_id, student_detail_id,'
+                . ' SUM(CASE WHEN is_absent = 1 THEN 0 ELSE COALESCE(marks_obtained, 0) END) as obtained,'
+                . ' SUM(COALESCE(max_marks, 0)) as max_marks,'
+                . ' COUNT(*) as papers'
+            )
+            ->groupBy('exam_id', 'student_detail_id')
+            ->get()
+            ->groupBy('exam_id');
+
+        $trend = $exams->reverse()->values()->map(function ($r) use ($perStudent, $pass) {
+            $when = $r->end_date ?: $r->start_date;
+            $name = $r->exam_name ?: 'Exam #' . $r->exam_id;
+
+            // Students with marks to their name in this exam, each as a percentage.
+            $scores = ($perStudent[$r->exam_id] ?? collect())
+                ->filter(fn ($s) => (float) $s->max_marks > 0)
+                ->map(fn ($s) => (float) $s->obtained / (float) $s->max_marks * 100);
+
+            $students = $scores->count();
+            $passed   = $scores->filter(fn ($pct) => $pct >= $pass)->count();
 
             return [
                 'exam'     => $name,
                 'label'    => \Illuminate\Support\Str::limit($name, 16),
                 'date'     => $when ? \Carbon\Carbon::parse($when)->format('d M y') : '--',
-                'avg'      => round((float) $r->avg_pct, 1),
-                'pass_pct' => $papers > 0 ? round((int) $r->passed / $papers * 100, 1) : 0,
-                'papers'   => $papers,
-                'students' => (int) $r->students,
+                // The exam's overall average: every student's overall percentage, averaged.
+                'avg'      => $students > 0 ? round($scores->avg(), 1) : 0,
+                // The share of those students who passed on their overall marks.
+                'pass_pct' => $students > 0 ? round($passed / $students * 100, 1) : 0,
+                'passed'   => $passed,
+                'papers'   => (int) ($perStudent[$r->exam_id] ?? collect())->sum('papers'),
+                'students' => $students,
             ];
         })->toArray();
 
@@ -580,7 +598,8 @@ class Home extends Component
             ->where('is_cancelled', false)
             ->orderBy('date', 'asc')
             ->orderBy('start_time', 'asc')
-            ->take(6)
+            // Two at a time: the next two on the calendar.
+            ->take(2)
             ->get()
             ->map(function ($event) {
                 return [

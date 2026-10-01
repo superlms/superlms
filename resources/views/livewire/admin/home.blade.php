@@ -371,14 +371,16 @@
                     </div>
 
                     {{-- ── Exam performance trend ─────────────────────────────
-                         One point per exam, average percentage across every
-                         paper marked for it, so results read as a line rather
-                         than a pile of numbers. --}}
+                         One point per exam: every student's overall marks in
+                         it as a percentage, averaged over all of them, and the
+                         share of those students who passed on their overall
+                         marks — so results read as a line rather than a pile of
+                         numbers. --}}
                     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
                         <div class="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
                             <div>
                                 <h3 class="text-sm font-semibold text-gray-800">Exam Performance Trend</h3>
-                                <p class="text-[11px] text-gray-400 mt-0.5">Average percentage @if (count($examTrend) > 0)· last {{ count($examTrend) }} exam{{ count($examTrend) === 1 ? '' : 's' }}@endif</p>
+                                <p class="text-[11px] text-gray-400 mt-0.5">Students' overall average, exam by exam @if (count($examTrend) > 0)· last {{ count($examTrend) }} exam{{ count($examTrend) === 1 ? '' : 's' }}@endif</p>
                             </div>
                             <a href="{{ route('admin.performance', ['organization' => $organization]) }}" class="text-xs font-medium text-blue-600 hover:text-blue-800">Open →</a>
                         </div>
@@ -429,7 +431,7 @@
                                                             label: (c) => c.dataset.label + ': ' + c.raw + '%',
                                                             afterBody: (items) => {
                                                                 const m = meta[items[0].dataIndex];
-                                                                return m.date + ' · ' + m.papers + ' papers · ' + m.students + ' students';
+                                                                return m.date + ' · ' + m.passed + ' of ' + m.students + ' students passed · ' + m.papers + ' papers';
                                                             }
                                                         }
                                                     }
