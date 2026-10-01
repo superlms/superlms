@@ -229,13 +229,30 @@ class PayrollPanelTest extends TestCase
     {
         $page = Livewire::test(PayrollPage::class)
             ->call('openEmpModal')
+            // The four kinds, with no line of description under them.
+            ->assertSee('Who are you adding?')
+            ->assertDontSee('Opens the teacher form')
+            ->assertDontSee('Listed in Transport too')
             ->call('chooseEmpType', 'teacher')
             ->assertSet('showEmpModal', false)
             ->assertSet('showTeacherForm', true)
-            // The Teachers page's form, as that page shows it.
+            // The Teachers page's form, as that page shows it …
             ->assertSee('New Teacher')
             ->assertSeeHtml('wire:model.blur="teacherUsername"')
-            ->assertSee('Create Teacher');
+            ->assertSee('Create Teacher')
+            // … with the question still on top of it, calling back to Payroll.
+            ->assertSee('Who are you adding?')
+            ->assertSeeHtml('wire:click="$parent.chooseEmpType(\'driver\')"');
+
+        // Another kind picked there: back to Payroll's own form for it.
+        $page->call('chooseEmpType', 'driver')
+            ->assertSet('showTeacherForm', false)
+            ->assertSet('showEmpModal', true)
+            ->assertSet('empType', 'driver')
+            ->assertSee('New Driver')
+            ->assertDontSee('New Teacher')
+            ->call('chooseEmpType', 'teacher')
+            ->assertSet('showTeacherForm', true);
 
         // Closed without saving …
         $page->dispatch('teacherFormClosed')->assertSet('showTeacherForm', false)->assertDontSee('New Teacher');
@@ -271,6 +288,7 @@ class PayrollPanelTest extends TestCase
             ->assertDontSee('New Teacher')
             ->call('onAddTeacher')
             ->assertSee('New Teacher')
+            ->assertDontSee('Who are you adding?')
             ->call('closeModal')
             ->assertNotDispatched('teacherFormClosed');
     }
@@ -312,20 +330,21 @@ class PayrollPanelTest extends TestCase
 
         $ids = AdminEmployee::pluck('id', 'name');
 
-        // A teacher's row offers Holiday; everyone else's, Leave.
+        // Every row offers Holiday; Leave is everyone's but a teacher's.
         $html = $page->html();
         $this->assertStringContainsString("pick({$ids['Bina']}, 'holiday')", $html);
         $this->assertStringNotContainsString("pick({$ids['Bina']}, 'leave')", $html);
         $this->assertStringContainsString("pick({$ids['Zoya']}, 'leave')", $html);
-        $this->assertStringNotContainsString("pick({$ids['Zoya']}, 'holiday')", $html);
+        $this->assertStringContainsString("pick({$ids['Zoya']}, 'holiday')", $html);
+        $this->assertStringContainsString("all('holiday')", $html);
 
         $page->set("panelRows.{$ids['Bina']}.status", 'present')
             ->set("panelRows.{$ids['Xavier']}.status", 'half_day')
             ->set("panelRows.{$ids['Xavier']}.remark", 'Left at noon')
             ->set("panelRows.{$ids['Wasim']}.status", 'absent')
             ->set("panelRows.{$ids['Yash']}.status", 'leave')
-            // Not a status a driver's row offers: not written.
-            ->set("panelRows.{$ids['Zoya']}.status", 'holiday')
+            // Not a status any row offers: not written.
+            ->set("panelRows.{$ids['Zoya']}.status", 'late')
             ->call('saveMarkPanel')
             ->assertSet('showMarkPanel', false)
             ->assertSet('attendanceDate', $today);
@@ -360,6 +379,144 @@ class PayrollPanelTest extends TestCase
         $this->assertSame(2, TeacherAttendance::count());
         $this->assertNull(AdminAttendance::where('admin_employee_id', $wasim->id)->first());
         $this->assertSame('leave', AdminAttendance::where('admin_employee_id', $yash->id)->value('status'));
+    }
+
+    public function test_a_holiday_for_everyone_needs_its_remark_and_is_saved_on_every_row(): void
+    {
+        $zoya   = $this->staff('Zoya', 'employee');
+        $xavier = $this->teacher('Xavier', '9000000001');
+        $today  = now()->toDateString();
+
+        $page = Livewire::test(PayrollPage::class)->call('openMarkPanel')->assertSee('Remark for all');
+        $ids  = AdminEmployee::pluck('id', 'name');
+
+        // All holiday, no remark: refused, the panel stays.
+        $page->set("panelRows.{$ids['Zoya']}.status", 'holiday')
+            ->set("panelRows.{$ids['Xavier']}.status", 'holiday')
+            ->call('saveMarkPanel')
+            ->assertSet('showMarkPanel', true);
+        $this->assertSame(0, AdminAttendance::count() + TeacherAttendance::count());
+
+        // One row left without it is still refused.
+        $page->set("panelRows.{$ids['Zoya']}.remark", 'Diwali')->call('saveMarkPanel')->assertSet('showMarkPanel', true);
+        $this->assertSame(0, AdminAttendance::count() + TeacherAttendance::count());
+
+        $page->set("panelRows.{$ids['Xavier']}.remark", 'Diwali')
+            ->call('saveMarkPanel')
+            ->assertSet('showMarkPanel', false)
+            // The day's list: everyone on Holiday, with the remark.
+            ->assertSet('attendanceDate', $today)
+            ->assertViewHas('dayMarks', fn ($marks) => $marks[$ids['Zoya']] === ['status' => 'holiday', 'remark' => 'Diwali']
+                && $marks[$ids['Xavier']] === ['status' => 'holiday', 'remark' => 'Diwali']);
+
+        $this->assertSame(['holiday', 'Diwali'], [AdminAttendance::first()->status, AdminAttendance::first()->note]);
+        $this->assertSame([3, 'Diwali'], [(int) TeacherAttendance::first()->status, TeacherAttendance::first()->remarks]);
+
+        // Not everyone on Holiday: no remark is asked for.
+        $page->call('openMarkPanel')
+            ->set("panelRows.{$ids['Zoya']}.status", 'present')
+            ->set("panelRows.{$ids['Zoya']}.remark", '')
+            ->call('saveMarkPanel')
+            ->assertSet('showMarkPanel', false);
+        $this->assertSame('present', AdminAttendance::first()->status);
+    }
+
+    public function test_a_teachers_holiday_is_a_holiday_and_costs_no_pay(): void
+    {
+        $teacher = $this->teacher('Xavier', '9000000001');
+        (new PayrollPage())->mount();
+        $row = AdminEmployee::first();
+        $month = now()->subMonthNoOverflow()->format('Y-m');
+        $days  = \Illuminate\Support\Carbon::parse($month . '-01')->daysInMonth;
+        $row->update(['salary' => $days * 1000]);   // ₹1,000 a day
+
+        // Present, absent, a half day and two holidays (the panel's 3 and the app's 4).
+        foreach (['05' => 1, '06' => 0, '07' => 2, '08' => 3, '09' => 4] as $day => $code) {
+            TeacherAttendance::create(['teacher_detail_id' => $teacher->id, 'organization_id' => $this->org, 'attendance_date' => "$month-$day", 'status' => $code]);
+        }
+
+        Livewire::test(PayrollPage::class)
+            ->set('activeTab', 'salary')
+            ->set('salaryMonth', $month)
+            ->assertViewHas('salaryBreakdowns', function ($b) use ($row, $days) {
+                $r = $b[$row->id];
+
+                // One absent (₹1,000) and one half day (₹500) cut — the holidays cost nothing.
+                return $r['present'] === 1 && $r['absent'] === 1 && $r['halfDay'] === 1
+                    && (float) $r['payable'] === (float) ($days * 1000 - 1500);
+            });
+
+        // And the month's calendar reads them as holidays.
+        $built = (fn () => $this->buildEmployeeDays($row))->call(tap(new PayrollPage(), fn ($p) => $p->attMonth = $month));
+        $this->assertSame(['present' => 1, 'absent' => 1, 'half_day' => 1], array_intersect_key($built['counts'], ['present' => 1, 'absent' => 1, 'half_day' => 1]));
+        $byDay = collect($built['months'][$month]['cells'])->pluck('status', 'day');
+        $this->assertSame(['half_day', 'holiday', 'holiday'], [$byDay[7], $byDay[8], $byDay[9]]);
+    }
+
+    public function test_the_list_shows_the_type_under_the_name_and_this_months_attendance(): void
+    {
+        $mohan   = $this->staff('Mohan Lal', 'management', ['designation' => 'Principal', 'mobile' => '9811111111']);
+        $teacher = $this->teacher('Xavier', '9000000001');
+        $month   = now()->format('Y-m');
+
+        // Mohan: two presents, a half day, an absent, a leave and a holiday so far this month.
+        foreach (['present', 'present', 'half_day', 'absent', 'leave', 'holiday'] as $i => $st) {
+            AdminAttendance::create(['organization_id' => $this->org, 'admin_employee_id' => $mohan->id, 'date' => $month . '-0' . ($i + 1), 'status' => $st]);
+        }
+        // The teacher: present on the 1st, on holiday on the 2nd.
+        TeacherAttendance::create(['teacher_detail_id' => $teacher->id, 'organization_id' => $this->org, 'attendance_date' => "$month-01", 'status' => 1]);
+        TeacherAttendance::create(['teacher_detail_id' => $teacher->id, 'organization_id' => $this->org, 'attendance_date' => "$month-02", 'status' => 3]);
+
+        $page = Livewire::test(PayrollPage::class);
+        $ids  = AdminEmployee::pluck('id', 'name');
+        $html = preg_replace('/<!--.*?-->/s', '', $page->html());
+        $table = substr($html, strpos($html, '<table'), strpos($html, '</table>') - strpos($html, '<table'));
+
+        // No Type column; the type (and what the designation adds) under the name.
+        $this->assertMatchesRegularExpression('/Employee<\/th>\s*<th[^>]*>Mobile<\/th>\s*<th[^>]*>Attendance · ' . now()->format('M') . '<\/th>\s*<th[^>]*>Salary<\/th>/', $table);
+        $this->assertStringNotContainsString('>Type</th>', $table);
+        $this->assertStringContainsString('<p class="text-xs text-gray-400 truncate">Management · Principal</p>', $table);
+        $this->assertStringContainsString('<p class="text-xs text-gray-400 truncate">Teacher</p>', $table);
+
+        // Present days out of working days: holidays are not working days, a half day is half.
+        $page->assertViewHas('monthAttendance', fn ($m) => $m[$ids['Mohan Lal']]['present'] === 2.5 && $m[$ids['Mohan Lal']]['working'] === 5
+            && $m[$ids['Xavier']]['present'] === 1.0 && $m[$ids['Xavier']]['working'] === 1);
+        $this->assertMatchesRegularExpression('/<span class="font-semibold text-gray-800">2\.5<\/span> \/ 5/', $table);
+        $this->assertMatchesRegularExpression('/<span class="font-semibold text-gray-800">1<\/span> \/ 1/', $table);
+    }
+
+    public function test_the_attendance_filter_is_a_type_and_its_people_or_a_date_for_everyone(): void
+    {
+        $this->staff('Zoya', 'employee');
+        $this->staff('Yash', 'driver');
+        $this->staff('Wasim', 'management');
+        $today = now()->toDateString();
+
+        $page = Livewire::test(PayrollPage::class)
+            ->set('activeTab', 'attendance')
+            // Only the type, its people, and a date.
+            ->assertDontSeeHtml('wire:model.live="attMonth"')
+            ->assertDontSeeHtml('wire:model.live="attYear"')
+            ->assertDontSeeHtml('wire:model.live="attStatus"')
+            ->assertSee('Select a type first')
+            ->set('filterAttendanceType', 'driver')
+            ->assertViewHas('attEmployees', fn ($list) => $list->pluck('name')->all() === ['Yash']);
+
+        $yash = AdminEmployee::where('name', 'Yash')->value('id');
+        $page->set('attEmpId', (string) $yash)
+            ->assertViewHas('attView', 'employee')
+            ->assertSee('Yash')
+            // Another type starts over on its people.
+            ->set('filterAttendanceType', 'employee')
+            ->assertSet('attEmpId', '')
+            ->assertViewHas('attView', null);
+
+        // A date: everyone that day, whatever type was picked.
+        $page->set('attendanceDate', $today)
+            ->assertSet('filterAttendanceType', '')
+            ->assertViewHas('attView', 'date')
+            ->assertViewHas('dayEmployees', fn ($list) => $list->pluck('name')->all() === ['Wasim', 'Yash', 'Zoya'])
+            ->assertSee('Not marked');
     }
 
     public function test_the_mark_panel_takes_an_earlier_day_but_not_one_to_come_and_needs_a_mark(): void

@@ -45,8 +45,13 @@ class Payroll extends Component
     /** The Mark Attendance panel's own order: teachers first; A to Z within a type. */
     public const MARK_ORDER = ['teacher' => 1, 'management' => 2, 'driver' => 3, 'employee' => 4];
 
-    /** What a row may be marked in that panel: staff as before, a teacher as the Attendance module marks one. */
-    private const STAFF_MARKS   = ['present', 'absent', 'half_day', 'leave'];
+    /**
+     * What a row may be marked in that panel: a teacher as the Attendance module
+     * marks one; staff as before, and on Holiday too (so a holiday can be given
+     * to everyone at once — admin_attendances.status takes it since the
+     * 2026_10_02 migration).
+     */
+    private const STAFF_MARKS   = ['present', 'absent', 'half_day', 'leave', 'holiday'];
     private const TEACHER_MARKS = ['present', 'absent', 'half_day', 'holiday'];
     /** teacher_attendances.status, as the Attendance module writes it. */
     private const TEACHER_CODES = ['present' => 1, 'absent' => 0, 'half_day' => 2, 'holiday' => 3];
@@ -355,6 +360,13 @@ class Payroll extends Component
             $this->resetEmpForm();
             $this->showTeacherForm = true;
             return;
+        }
+
+        // Picked from the teacher form (the question stays on top of it too):
+        // back to this panel, on the form of the type picked.
+        if ($this->showTeacherForm) {
+            $this->showTeacherForm = false;
+            $this->showEmpModal    = true;
         }
 
         $this->empType       = $type;
@@ -893,6 +905,15 @@ class Payroll extends Component
             return;
         }
 
+        // A holiday for everyone has to say what it is for: the one remark the
+        // panel asks for goes on every row, and none may be left blank.
+        $statuses = array_map(fn ($r) => (string) ($r['status'] ?? ''), $this->panelRows);
+        if (array_values(array_unique($statuses)) === ['holiday']
+            && array_filter($this->panelRows, fn ($r) => trim((string) ($r['remark'] ?? '')) === '')) {
+            $this->notification()->error('Remark needed', 'Say what the holiday is for — the remark is compulsory when everyone is on Holiday.');
+            return;
+        }
+
         // The statuses are set in the browser, so the rows arrive as client
         // data: only this school's people, and only what their row offers.
         $employees = AdminEmployee::forOrganization($org)
@@ -902,6 +923,7 @@ class Payroll extends Component
         $wasEdit = $staff->isNotEmpty() || $teachers->isNotEmpty();
         $markedBy = Auth::id();
 
+        try {
         DB::transaction(function () use ($org, $date, $employees, $staff, $teachers, $markedBy) {
             foreach ($this->panelRows as $empId => $row) {
                 $emp = $employees->get($empId);
@@ -951,6 +973,11 @@ class Payroll extends Component
                 );
             }
         });
+        } catch (\Throwable $e) {
+            logger()->error('Payroll attendance save error: ' . $e->getMessage());
+            $this->notification()->error('Could not save', 'The attendance was not saved. Please try again.');
+            return;
+        }
 
         // Straight to that date's attendance, whatever was being viewed before.
         $this->closeMarkPanel();
@@ -1003,12 +1030,22 @@ class Payroll extends Component
         $this->attendanceDraft = [];
     }
 
-    /** Clear the draft when the date changes; picking a date switches to date-mode. */
+    /** Clear the draft when the date changes; picking a date switches to date-mode: everyone, that day. */
     public function updatedAttendanceDate(): void
     {
         $this->attendanceDraft = [];
         if ($this->attendanceDate !== '') {
-            $this->attEmpId = '';
+            $this->attEmpId             = '';
+            $this->filterAttendanceType = '';
+        }
+    }
+
+    /** Picking a type starts over on that type's people (and leaves the date view). */
+    public function updatedFilterAttendanceType(): void
+    {
+        $this->attEmpId = '';
+        if ($this->filterAttendanceType !== '') {
+            $this->attendanceDate = '';
         }
     }
 
@@ -1083,6 +1120,72 @@ class Payroll extends Component
         return $emp->getAttendanceStatusForDate($this->attendanceDate);
     }
 
+    /**
+     * The Employees list's attendance column: for the running month, the days
+     * each person was present out of their working days — the days they were
+     * marked on, holidays left out; a half day counts as half. A teacher's come
+     * from the Attendance module's records, everyone else's from payroll's.
+     *
+     * @return array<int, array{present: float, working: int, absent: int, half: int, leave: int}>
+     */
+    private function monthAttendanceSummary($employees): array
+    {
+        $month = now()->format('Y-m');
+
+        $staff = AdminAttendance::forOrganization($this->orgId())->forMonth($month)->get()->groupBy('admin_employee_id');
+
+        $teacherIds = $employees->filter(fn ($e) => $this->marksAsTeacher($e))->pluck('teacher_detail_id')->all();
+        $teachers = $teacherIds
+            ? TeacherAttendance::whereIn('teacher_detail_id', $teacherIds)
+                ->whereRaw("DATE_FORMAT(attendance_date, '%Y-%m') = ?", [$month])
+                ->get()->groupBy('teacher_detail_id')
+            : collect();
+
+        $out = [];
+        foreach ($employees as $emp) {
+            if ($this->marksAsTeacher($emp)) {
+                $labels = $teachers->get($emp->teacher_detail_id, collect())->map(fn ($r) => $this->teacherMarkLabel($r->status));
+            } else {
+                $labels = $staff->get($emp->id, collect())->map(fn ($r) => (string) $r->status);
+            }
+            $n = $labels->countBy();
+
+            $present = (int) ($n['present'] ?? 0);
+            $half    = (int) ($n['half_day'] ?? 0);
+            $absent  = (int) ($n['absent'] ?? 0);
+            $leave   = (int) ($n['leave'] ?? 0);
+
+            $out[$emp->id] = [
+                'present' => $present + 0.5 * $half,
+                'working' => $present + $half + $absent + $leave,
+                'absent'  => $absent,
+                'half'    => $half,
+                'leave'   => $leave,
+            ];
+        }
+
+        return $out;
+    }
+
+    /** Everyone's status and remark on one date (null where unmarked), keyed by employee id. */
+    private function dayMarks(string $date, $employees): array
+    {
+        [$staff, $teachers] = $this->savedMarks($date, $employees);
+
+        $out = [];
+        foreach ($employees as $emp) {
+            if ($this->marksAsTeacher($emp)) {
+                $rec = $teachers->get($emp->teacher_detail_id);
+                $out[$emp->id] = ['status' => $rec ? ($this->teacherMarkLabel($rec->status) ?: null) : null, 'remark' => (string) ($rec->remarks ?? '')];
+            } else {
+                $rec = $staff->get($emp->id);
+                $out[$emp->id] = ['status' => $rec ? (string) $rec->status : null, 'remark' => (string) ($rec->note ?? '')];
+            }
+        }
+
+        return $out;
+    }
+
     // ─── Filter clears (student-style bars) ────────────────────────────────────
     public function clearEmpFilters(): void
     {
@@ -1133,8 +1236,10 @@ class Payroll extends Component
             TeacherAttendance::where('teacher_detail_id', $emp->teacher_detail_id)
                 ->whereBetween('attendance_date', [$start->toDateString(), $end->toDateString()])
                 ->get()->each(function ($r) use (&$map) {
+                    // The Attendance module's codes: 2 is a half day, 3 a holiday
+                    // (4 is the app's holiday). 3 used to be read as a half day here.
                     $map[Carbon::parse($r->attendance_date)->format('Y-m-d')] =
-                        ['0' => 'absent', '1' => 'present', '2' => 'half_day', '3' => 'half_day'][(string) $r->status] ?? null;
+                        ['0' => 'absent', '1' => 'present', '2' => 'half_day', '3' => 'holiday', '4' => 'holiday'][(string) $r->status] ?? null;
                 });
         } else {
             AdminAttendance::forOrganization($this->orgId())->where('admin_employee_id', $emp->id)
@@ -1238,7 +1343,9 @@ class Payroll extends Component
             $records = $teacherGrouped[$emp->id];
             $present = $records->where('status', 1)->count();
             $absent  = $records->where('status', 0)->count();
-            $halfDay = $records->whereIn('status', [2, 3])->count();
+            // Only 2 is a half day. 3 is the Attendance module's Holiday: it used
+            // to be counted here too, and cost the teacher half a day's pay.
+            $halfDay = $records->where('status', 2)->count();
             $leave   = 0;
         } else {
             $records = $adminGrouped->get($emp->id, collect());
@@ -1429,6 +1536,9 @@ class Payroll extends Component
 
         $allEmployeesForFilter = $allEmployees;
 
+        // Employees tab: this month's present / working days beside each person.
+        $monthAttendance = $this->activeTab === 'employees' ? $this->monthAttendanceSummary($allEmployees) : [];
+
         // ── Stats (for employees tab header) ───────────────────────────────────
         // Someone with two types (teacher and driver) counts under both.
         $empStats = ['total' => $allEmployees->count()];
@@ -1469,6 +1579,10 @@ class Payroll extends Component
                 $attPeriodLabel = Carbon::parse($this->attendanceDate)->format('d M Y');
             }
         }
+
+        // The date view lists everyone that day, whatever type was last picked.
+        $dayEmployees = $attView === 'date' ? $this->sortByType($allEmployees) : collect();
+        $dayMarks     = $attView === 'date' ? $this->dayMarks($this->attendanceDate, $allEmployees) : [];
 
         // ── Salary month attendance → breakdowns ───────────────────────────────
         $salaryAdminGrouped = AdminAttendance::forOrganization($orgId)
@@ -1512,6 +1626,9 @@ class Payroll extends Component
             'markEmployees',
             'markPeople',
             'driverRouteOptions',
+            'monthAttendance',
+            'dayEmployees',
+            'dayMarks',
             'salaryEmployees',
             'empStats',
             'attView',

@@ -113,56 +113,38 @@
         </div>
 
     @elseif ($activeTab === 'attendance' && $attendanceMode === 'view')
+        {{-- Two ways in, and nothing else: a type and then one of its people (that
+             person's months), or a date (everyone, that day). --}}
         <div class="bg-gray-50 border-b border-gray-200 px-4 sm:px-6 py-3">
             <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
                     <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $filterIcon }}" /></svg>
                     Filter by:
                 </div>
+                <select wire:model.live="filterAttendanceType" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <option value="">Select type</option>
+                    <option value="management">Management</option>
+                    <option value="teacher">Teacher</option>
+                    <option value="driver">Driver</option>
+                    <option value="employee">Employee</option>
+                </select>
+                <select wire:model.live="attEmpId" @disabled(!$filterAttendanceType)
+                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[170px] disabled:opacity-50 disabled:cursor-not-allowed">
+                    <option value="">{{ $filterAttendanceType ? 'Select ' . $filterAttendanceType : 'Select a type first' }}</option>
+                    @if ($filterAttendanceType)
+                        @foreach ($attEmployees as $emp)
+                            <option value="{{ $emp->id }}">{{ $emp->name }}{{ count($emp->types()) > 1 ? ' (' . implode(', ', array_map('ucfirst', $emp->types())) . ')' : '' }}</option>
+                        @endforeach
+                    @endif
+                </select>
+                <span class="text-gray-300 text-xs">or</span>
                 <div class="flex items-center gap-1.5">
                     <label class="text-xs text-gray-500">Date</label>
                     <input type="date" wire:model.live="attendanceDate" max="{{ now()->format('Y-m-d') }}"
                         class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 </div>
-                <span class="text-gray-300 text-xs">or</span>
-                <select wire:model.live="filterAttendanceType" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                    <option value="">Employee type</option>
-                    <option value="teacher">Teacher</option>
-                    <option value="management">Management</option>
-                    <option value="employee">Employee</option>
-                    <option value="driver">Driver</option>
-                </select>
-                <select wire:model.live="attEmpId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[170px]">
-                    <option value="">Select employee</option>
-                    @foreach ($attEmployees as $emp)
-                        <option value="{{ $emp->id }}">{{ $emp->name }} ({{ implode(', ', array_map('ucfirst', $emp->types())) }})</option>
-                    @endforeach
-                </select>
-                @if ($attEmpId)
-                    <div class="flex items-center gap-1.5">
-                        <label class="text-xs text-gray-500">Month</label>
-                        <input type="month" wire:model.live="attMonth" max="{{ now()->format('Y-m') }}"
-                            class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" />
-                    </div>
-                    @unless ($attMonth)
-                        @php $acadStart = now()->month >= 4 ? now()->year : now()->year - 1; @endphp
-                        <select wire:model.live="attYear" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" title="Academic year (Apr–Mar)">
-                            @for ($y = $acadStart; $y >= $acadStart - 5; $y--)
-                                <option value="{{ $y }}">{{ $y }}–{{ substr($y + 1, 2) }}</option>
-                            @endfor
-                        </select>
-                    @endunless
-                    <select wire:model.live="attStatus" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                        <option value="">All status</option>
-                        <option value="present">Present</option>
-                        <option value="absent">Absent</option>
-                        <option value="half_day">Half day</option>
-                        <option value="leave">Leave</option>
-                        <option value="holiday">Holiday</option>
-                    </select>
-                @endif
-                @if ($attendanceDate || $filterAttendanceType || $attEmpId || $attMonth || $attStatus)
-                    <button wire:click="clearAttFilters" class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                @if ($attendanceDate || $filterAttendanceType || $attEmpId)
+                    <button wire:click="clearAttFilters" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         Clear
                     </button>
@@ -238,7 +220,11 @@
         {{-- ══════════ EMPLOYEES TAB ══════════ --}}
         @if ($activeTab === 'employees')
 
-            {{-- Employee list (table) --}}
+            {{-- Employee list (table). Under the name: the person's type — both, for
+                 a teacher or a manager who also drives (they are still one row, kept
+                 as a teacher or as management: one attendance, one salary) — and the
+                 designation when it says more. After the mobile: this month's
+                 attendance so far, present days out of working days. --}}
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full">
@@ -246,14 +232,24 @@
                             <tr>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 w-10">#</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Employee</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Type</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Mobile</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Attendance · {{ now()->format('M') }}</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Salary</th>
                                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @forelse ($employeesList as $i => $emp)
+                                @php
+                                    $typeLabels = array_map('ucfirst', $emp->types());
+                                    $subLine    = implode(', ', $typeLabels);
+                                    $says = trim((string) $emp->designation);
+                                    if ($says !== '' && !in_array(mb_strtolower($says), array_map('mb_strtolower', $typeLabels), true)) {
+                                        $subLine .= ' · ' . $says;
+                                    }
+                                    $att  = $monthAttendance[$emp->id] ?? null;
+                                    $days = $att ? rtrim(rtrim(number_format($att['present'], 1), '0'), '.') : null;
+                                @endphp
                                 <tr class="hover:bg-gray-50/60 transition-colors" wire:key="emp-{{ $emp->id }}">
                                     <td class="px-4 py-3 text-xs text-gray-400">{{ $i + 1 }}</td>
                                     <td class="px-4 py-3">
@@ -267,14 +263,20 @@
                                             @endif
                                             <div class="min-w-0">
                                                 <p class="text-sm font-medium text-gray-800 truncate">{{ $emp->name }}</p>
-                                                <p class="text-xs text-gray-400 truncate">{{ $emp->designation ?? '—' }}</p>
+                                                <p class="text-xs text-gray-400 truncate">{{ $subLine }}</p>
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="px-4 py-3">
-                                        <span class="inline-flex flex-wrap gap-1">@foreach ($emp->types() as $t)<span class="text-xs px-2 py-0.5 rounded-full font-medium border capitalize {{ $typeChip[$t] ?? 'bg-gray-50 text-gray-600 border-gray-200' }}">{{ $t }}</span>@endforeach</span>
-                                    </td>
                                     <td class="px-4 py-3 text-sm text-gray-600">{{ $emp->mobile ?? '—' }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600 tabular-nums whitespace-nowrap">
+                                        @if ($att && $att['working'] > 0)
+                                            <span title="Present {{ $days }} of {{ $att['working'] }} working days this month — absent {{ $att['absent'] }}, half day {{ $att['half'] }}, leave {{ $att['leave'] }}">
+                                                <span class="font-semibold text-gray-800">{{ $days }}</span> / {{ $att['working'] }}
+                                            </span>
+                                        @else
+                                            <span class="text-gray-400" title="Not marked yet this month">—</span>
+                                        @endif
+                                    </td>
                                     <td class="px-4 py-3 text-sm font-bold text-emerald-700">₹{{ number_format($emp->salary, 0) }}</td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-center gap-1">
@@ -399,145 +401,136 @@
                     </div>
                 </div>
             @elseif ($attView === 'date')
-                {{-- ─── DATE VIEW: everyone's status on the chosen date ─── --}}
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div class="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
-                        <h3 class="text-sm font-semibold text-gray-700">Attendance — {{ \Carbon\Carbon::parse($attendanceDate)->format('d M Y') }}</h3>
+                {{-- ─── DATE VIEW: everyone's status on the chosen date — a plain list ─── --}}
+                @php
+                    $dayText = ['present' => 'Present', 'absent' => 'Absent', 'half_day' => 'Half day', 'leave' => 'Leave', 'holiday' => 'Holiday'];
+                    $dayTone = ['present' => 'text-emerald-600', 'absent' => 'text-red-500', 'half_day' => 'text-amber-600', 'leave' => 'text-blue-600', 'holiday' => 'text-indigo-500'];
+                    $dayDot  = ['present' => 'bg-emerald-500', 'absent' => 'bg-red-500', 'half_day' => 'bg-amber-500', 'leave' => 'bg-blue-500', 'holiday' => 'bg-indigo-400'];
+                    $dayCount = collect($dayMarks)->countBy(fn ($m) => $m['status'] ?: 'not_marked');
+                @endphp
+                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div class="px-5 py-3.5 border-b border-gray-100 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                        <h3 class="text-sm font-semibold text-gray-800">{{ \Carbon\Carbon::parse($attendanceDate)->format('l, d M Y') }}</h3>
+                        <p class="text-xs text-gray-400 tabular-nums">
+                            @foreach ($dayText as $st => $label)
+                                {{ $label }} <span class="text-gray-700 font-medium">{{ $dayCount[$st] ?? 0 }}</span><span class="text-gray-300"> · </span>
+                            @endforeach
+                            Not marked <span class="text-gray-700 font-medium">{{ $dayCount['not_marked'] ?? 0 }}</span>
+                        </p>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full">
-                            <thead class="bg-gray-50 border-b border-gray-200">
-                                <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 w-10">#</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Employee</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Type</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100">
-                                @forelse ($attEmployees as $i => $emp)
-                                    @php $status = $this->getAttendanceStatus($emp->id); @endphp
-                                    <tr class="hover:bg-gray-50/50 transition-colors" wire:key="view-{{ $emp->id }}">
-                                        <td class="px-4 py-3 text-xs text-gray-400">{{ $i + 1 }}</td>
-                                        <td class="px-4 py-3">
-                                            <div class="flex items-center gap-2.5">
-                                                @if ($emp->photo)
-                                                    <img src="{{ $emp->photo }}" class="w-8 h-8 rounded-full object-cover border border-gray-200 flex-shrink-0">
-                                                @else
-                                                    <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"><span class="text-xs font-bold text-gray-600">{{ strtoupper(substr($emp->name, 0, 1)) }}</span></div>
-                                                @endif
-                                                <div><p class="text-sm font-medium text-gray-800">{{ $emp->name }}</p><p class="text-xs text-gray-400">{{ $emp->designation ?? '' }}</p></div>
-                                            </div>
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <span class="inline-flex flex-wrap gap-1">@foreach ($emp->types() as $t)<span class="text-xs px-2 py-0.5 rounded-full font-medium border capitalize {{ $typeChip[$t] ?? 'bg-gray-50 text-gray-600 border-gray-200' }}">{{ $t }}</span>@endforeach</span>
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            @if ($status)
-                                                <span class="text-xs px-2 py-1 rounded-full font-medium capitalize {{ ['present' => 'bg-green-50 text-green-700 border border-green-100', 'absent' => 'bg-red-50 text-red-700 border border-red-100', 'half_day' => 'bg-amber-50 text-amber-700 border border-amber-100', 'leave' => 'bg-blue-50 text-blue-700 border border-blue-100'][$status] ?? 'bg-gray-50 text-gray-600' }}">{{ str_replace('_', ' ', $status) }}</span>
-                                                @if ($emp->isTeacher())<span class="ml-1 text-[10px] text-gray-400 italic">teacher</span>@endif
-                                            @else
-                                                <span class="text-xs text-gray-400">Not marked</span>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr><td colspan="4" class="px-4 py-8 text-center text-sm text-gray-400">No employees found</td></tr>
-                                @endforelse
-                            </tbody>
-                        </table>
+                    <div class="divide-y divide-gray-100">
+                        @forelse ($dayEmployees as $i => $emp)
+                            @php $mark = $dayMarks[$emp->id] ?? ['status' => null, 'remark' => '']; @endphp
+                            <div class="flex items-center gap-3 px-5 py-2.5" wire:key="view-{{ $emp->id }}">
+                                <span class="w-5 text-[11px] text-gray-300 tabular-nums flex-shrink-0">{{ $i + 1 }}</span>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm text-gray-800 truncate">{{ $emp->name }}</p>
+                                    <p class="text-[11px] text-gray-400 truncate">{{ implode(', ', array_map('ucfirst', $emp->types())) }}</p>
+                                </div>
+                                @if ($mark['remark'] !== '')
+                                    <span class="hidden sm:block text-xs text-gray-400 truncate max-w-[14rem]" title="{{ $mark['remark'] }}">{{ $mark['remark'] }}</span>
+                                @endif
+                                <span class="w-24 flex-shrink-0 inline-flex items-center justify-end gap-1.5 text-xs font-medium {{ $dayTone[$mark['status']] ?? 'text-gray-300' }}">
+                                    @if ($mark['status'])
+                                        <span class="w-1.5 h-1.5 rounded-full {{ $dayDot[$mark['status']] ?? 'bg-gray-300' }}"></span>
+                                        {{ $dayText[$mark['status']] ?? ucfirst(str_replace('_', ' ', $mark['status'])) }}
+                                    @else
+                                        Not marked
+                                    @endif
+                                </span>
+                            </div>
+                        @empty
+                            <p class="py-12 text-center text-sm text-gray-400">No employees found.</p>
+                        @endforelse
                     </div>
                 </div>
 
             @elseif ($attView === 'employee' && $attEmp)
-                {{-- ─── EMPLOYEE VIEW: a card per month, three to a row ─── --}}
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div class="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-indigo-50">
-                        <h3 class="text-sm font-semibold text-gray-700">{{ $attEmp->name }} <span class="font-normal text-gray-400">· {{ $attPeriodLabel }}</span></h3>
-                        <p class="text-[11px] text-gray-400 capitalize">{{ implode(', ', $attEmp->types()) }}{{ $attEmp->designation ? ' · ' . $attEmp->designation : '' }}</p>
+                {{-- ─── EMPLOYEE VIEW: the session's months, a quiet card each ─── --}}
+                @php
+                    // Soft tints and plain numbers: a day says what it was without shouting.
+                    $dayCell = [
+                        'present'  => 'bg-emerald-50 text-emerald-700',
+                        'absent'   => 'bg-red-50 text-red-600',
+                        'half_day' => 'bg-amber-50 text-amber-700',
+                        'leave'    => 'bg-blue-50 text-blue-700',
+                        'holiday'  => 'text-gray-300',
+                    ];
+                @endphp
+                <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-1">
+                    <div class="min-w-0">
+                        <h3 class="text-sm font-semibold text-gray-800 truncate">{{ $attEmp->name }}</h3>
+                        <p class="text-xs text-gray-400">{{ implode(', ', array_map('ucfirst', $attEmp->types())) }} · {{ $attPeriodLabel }}</p>
                     </div>
-                    <div class="p-4">
-                        {{-- Each month is its own small calendar carrying its own
-                             numbers: green present, red absent, yellow half day,
-                             white holiday. Twelve months land as 3 × 4. --}}
-                        @php
-                            $dayCell = [
-                                'present'  => 'bg-emerald-500 text-white',
-                                'absent'   => 'bg-red-500 text-white',
-                                'half_day' => 'bg-yellow-300 text-yellow-900',
-                                'leave'    => 'bg-blue-500 text-white',
-                                'holiday'  => 'bg-white text-gray-600 border border-gray-200',
-                            ];
-                        @endphp
+                    <p class="text-xs text-gray-400 tabular-nums">
+                        Present <span class="text-gray-700 font-medium">{{ $attCounts['present'] ?? 0 }}</span><span class="text-gray-300"> · </span>
+                        Absent <span class="text-gray-700 font-medium">{{ $attCounts['absent'] ?? 0 }}</span><span class="text-gray-300"> · </span>
+                        Half day <span class="text-gray-700 font-medium">{{ $attCounts['half_day'] ?? 0 }}</span><span class="text-gray-300"> · </span>
+                        Leave <span class="text-gray-700 font-medium">{{ $attCounts['leave'] ?? 0 }}</span>
+                    </p>
+                </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            @forelse ($attMonths as $ym => $m)
-                                @php $mc = $m['counts']; @endphp
-                                <div class="rounded-lg border border-gray-200 p-3" wire:key="cal-{{ $ym }}">
-                                    <div class="flex items-baseline justify-between mb-2">
-                                        <p class="text-xs font-semibold text-gray-800">{{ $m['label'] }}</p>
-                                        <span class="text-[11px] font-semibold text-indigo-600">{{ $m['pct'] }}%</span>
-                                    </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    @forelse ($attMonths as $ym => $m)
+                        @php $mc = $m['counts']; @endphp
+                        <div class="bg-white rounded-xl border border-gray-200 p-4" wire:key="cal-{{ $ym }}">
+                            <div class="flex items-baseline justify-between mb-3">
+                                <p class="text-xs font-medium text-gray-700">{{ $m['label'] }}</p>
+                                <span class="text-xs text-gray-400 tabular-nums">{{ $mc['marked'] > 0 ? $m['pct'] . '%' : '—' }}</span>
+                            </div>
 
-                                    {{-- Sunday-first weekday header --}}
-                                    <div class="grid grid-cols-7 gap-1 mb-1">
-                                        @foreach (['S', 'M', 'T', 'W', 'T', 'F', 'S'] as $dow)
-                                            <div class="text-center text-[9px] font-semibold text-gray-400">{{ $dow }}</div>
-                                        @endforeach
-                                    </div>
+                            {{-- Sunday-first weekday header --}}
+                            <div class="grid grid-cols-7 gap-1 mb-1">
+                                @foreach (['S', 'M', 'T', 'W', 'T', 'F', 'S'] as $dow)
+                                    <div class="text-center text-[9px] text-gray-300">{{ $dow }}</div>
+                                @endforeach
+                            </div>
 
-                                    <div class="grid grid-cols-7 gap-1">
-                                        {{-- Blanks before the 1st so the weekdays line up --}}
-                                        @for ($b = 0; $b < $m['lead']; $b++)
-                                            <div></div>
-                                        @endfor
+                            <div class="grid grid-cols-7 gap-1">
+                                {{-- Blanks before the 1st so the weekdays line up --}}
+                                @for ($b = 0; $b < $m['lead']; $b++)
+                                    <div></div>
+                                @endfor
 
-                                        @foreach ($m['cells'] as $d)
-                                            @if (!$d['in_period'])
-                                                <div class="rounded py-1 text-center text-[10px] text-gray-300">{{ $d['day'] }}</div>
-                                            @else
-                                                <div class="rounded py-1 text-center text-[10px] font-semibold leading-none {{ $dayCell[$d['status']] ?? $dayCell['holiday'] }} {{ $d['dim'] ? 'opacity-30' : '' }}"
-                                                    title="{{ \Carbon\Carbon::parse($d['date'])->format('D, d M Y') }} · {{ ucfirst(str_replace('_', ' ', $d['status'])) }}">
-                                                    {{ $d['day'] }}
-                                                </div>
-                                            @endif
-                                        @endforeach
-                                    </div>
+                                @foreach ($m['cells'] as $d)
+                                    @if (!$d['in_period'])
+                                        <div class="py-1 text-center text-[10px] leading-none text-gray-200 tabular-nums">{{ $d['day'] }}</div>
+                                    @else
+                                        <div class="rounded py-1 text-center text-[10px] leading-none tabular-nums {{ $dayCell[$d['status']] ?? $dayCell['holiday'] }} {{ $d['dim'] ? 'opacity-30' : '' }}"
+                                            title="{{ \Carbon\Carbon::parse($d['date'])->format('D, d M Y') }} · {{ ucfirst(str_replace('_', ' ', $d['status'])) }}">
+                                            {{ $d['day'] }}
+                                        </div>
+                                    @endif
+                                @endforeach
+                            </div>
 
-                                    {{-- That month's analytics --}}
-                                    <div class="flex flex-wrap gap-x-2 gap-y-0.5 mt-2.5 pt-2 border-t border-gray-100 text-[10px]">
-                                        <span class="text-emerald-700">P <strong>{{ $mc['present'] }}</strong></span>
-                                        <span class="text-red-700">A <strong>{{ $mc['absent'] }}</strong></span>
-                                        <span class="text-yellow-700">H <strong>{{ $mc['half_day'] }}</strong></span>
-                                        <span class="text-blue-700">L <strong>{{ $mc['leave'] }}</strong></span>
-                                        <span class="text-gray-500">Hol <strong>{{ $mc['holiday'] }}</strong></span>
-                                    </div>
-                                </div>
-                            @empty
-                                <p class="sm:col-span-2 lg:col-span-3 text-sm text-gray-400 text-center py-6">Nothing to show for this period.</p>
-                            @endforelse
+                            {{-- That month's figures, on one plain line --}}
+                            <p class="mt-3 pt-2.5 border-t border-gray-100 text-[10px] text-gray-400 tabular-nums">
+                                P <span class="text-gray-700 font-medium">{{ $mc['present'] }}</span><span class="text-gray-300"> · </span>
+                                A <span class="text-gray-700 font-medium">{{ $mc['absent'] }}</span><span class="text-gray-300"> · </span>
+                                H <span class="text-gray-700 font-medium">{{ $mc['half_day'] }}</span><span class="text-gray-300"> · </span>
+                                L <span class="text-gray-700 font-medium">{{ $mc['leave'] }}</span>
+                            </p>
                         </div>
+                    @empty
+                        <p class="sm:col-span-2 lg:col-span-3 text-sm text-gray-400 text-center py-6">Nothing to show for this period.</p>
+                    @endforelse
+                </div>
 
-                        <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500 mt-3">
-                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-500 align-middle"></span> Present</span>
-                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-red-500 align-middle"></span> Absent</span>
-                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-yellow-300 align-middle"></span> Half day</span>
-                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-blue-500 align-middle"></span> Leave</span>
-                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-white border border-gray-300 align-middle"></span> Holiday / not marked</span>
-                        </div>
-                    </div>
+                <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-400 px-1">
+                    <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-100 align-middle"></span> Present</span>
+                    <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-red-100 align-middle"></span> Absent</span>
+                    <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-amber-100 align-middle"></span> Half day</span>
+                    <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-blue-100 align-middle"></span> Leave</span>
+                    <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-white border border-gray-200 align-middle"></span> Holiday / not marked</span>
                 </div>
             @else
                 {{-- ─── PROMPT (nothing selected yet) ─── --}}
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-10 sm:p-12 text-center">
-                    <div class="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <svg class="w-7 h-7 text-blue-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                    </div>
-                    <p class="text-sm text-gray-600 font-medium">Use the filters above to view attendance.</p>
+                <div class="bg-white rounded-xl border border-gray-200 p-10 sm:p-12 text-center">
+                    <p class="text-sm text-gray-600 font-medium">Use the filter above to view attendance.</p>
                     <div class="text-xs text-gray-400 mt-2 space-y-0.5">
-                        <p>• Pick a <strong>Date</strong> to see everyone's status that day.</p>
-                        <p>• Pick <strong>Type → Employee → Month</strong> for that employee's chosen month.</p>
-                        <p>• Pick <strong>Type → Employee</strong> (no month) for their whole year, then narrow by month or status.</p>
+                        <p>Pick a <strong class="font-medium text-gray-500">type</strong>, then a person, to see their months.</p>
+                        <p>Or pick a <strong class="font-medium text-gray-500">date</strong> to see everyone's attendance that day.</p>
                     </div>
                 </div>
             @endif
@@ -744,23 +737,11 @@
                 <div class="flex-1 overflow-y-auto overflow-x-hidden">
                     <div class="px-6 py-6 space-y-5">
 
-                        {{-- Adding: first say who it is; the form follows the answer. --}}
+                        {{-- Adding: first say who it is; the form follows the answer. The
+                             row is in a file of its own — it sits on top of the teacher
+                             form as well. --}}
                         @unless ($editEmpId)
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    Who are you adding? <span class="text-red-500">*</span>
-                                </label>
-                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                    @foreach (['management' => ['Management', 'Principal, office heads'], 'teacher' => ['Teacher', 'Opens the teacher form'], 'driver' => ['Driver', 'Listed in Transport too'], 'employee' => ['Employee', 'All other staff']] as $value => [$label, $hint])
-                                        <button type="button" wire:click="chooseEmpType('{{ $value }}')"
-                                            class="px-3.5 py-3 text-left border-2 rounded-md transition-all
-                                                {{ $empTypeChosen && $empType === $value ? 'border-gray-900 bg-gray-50' : 'border-gray-200 hover:bg-gray-50' }}">
-                                            <span class="block text-sm font-semibold text-gray-900">{{ $label }}</span>
-                                            <span class="block text-xs text-gray-500 mt-0.5">{{ $hint }}</span>
-                                        </button>
-                                    @endforeach
-                                </div>
-                            </div>
+                            @include('livewire.partials.payroll-add-chooser', ['selected' => $empTypeChosen ? $empType : '', 'call' => 'chooseEmpType'])
                         @endunless
 
                         @if ($empTypeChosen)
@@ -1099,10 +1080,16 @@
          and is saved to its records; everyone else has Leave where a teacher
          has Holiday. --}}
     @php
+        // Holiday on every row, so a holiday can be given to everyone at once; a
+        // teacher's row has no Leave (the Attendance module keeps none for them).
         $markOpts = [
-            'staff'   => ['present' => 'Present', 'absent' => 'Absent', 'half_day' => 'Half', 'leave' => 'Leave'],
+            'staff'   => ['present' => 'Present', 'absent' => 'Absent', 'half_day' => 'Half', 'leave' => 'Leave', 'holiday' => 'Holiday'],
             'teacher' => ['present' => 'Present', 'absent' => 'Absent', 'half_day' => 'Half', 'holiday' => 'Holiday'],
         ];
+        // The remark every row shares, if they share one, for the "Remark for
+        // all" box — a saved holiday opens with its remark in it.
+        $panelRemarks = collect($panelRows)->map(fn ($r) => (string) ($r['remark'] ?? ''))->unique();
+        $panelCommon  = $panelRemarks->count() === 1 ? $panelRemarks->first() : '';
         $markSel = [
             'present'  => 'bg-emerald-50 text-emerald-700 font-medium',
             'absent'   => 'bg-red-50 text-red-600 font-medium',
@@ -1121,8 +1108,26 @@
                  come from the seed below. --}}
             x-data="{
                 rows: {},
+                remarks: {},
+                common: '',
                 get total() { return Object.keys(this.rows).length },
                 get marked() { return Object.values(this.rows).filter(v => v !== '').length },
+                get allHoliday() { return this.total > 0 && Object.values(this.rows).every(v => v === 'holiday') },
+                /* Everyone on Holiday: the day has to say what it is for, so no
+                   row may go without a remark. */
+                get remarkMissing() {
+                    return this.allHoliday && Object.keys(this.rows).some(id => ! String(this.remarks[id] || '').trim());
+                },
+                /* The one remark of a holiday for everyone, written into every
+                   row — each can still be changed on its own. (The remarks are
+                   kept here as well as on the component, so the check above
+                   follows every keystroke.) */
+                remarkAll(text) {
+                    Object.keys(this.rows).forEach(id => {
+                        this.remarks[id] = text;
+                        this.$wire.$set('panelRows.' + id + '.remark', text, false);
+                    });
+                },
                 pick(id, v) {
                     this.rows[id] = v;
                     /* Local set: the change rides along with the next request
@@ -1135,7 +1140,7 @@
             {{-- Seeds the rows when the panel opens, and again for each new date
                  (a new key is a new element, so its x-init runs again). --}}
             <div class="hidden" wire:key="pmark-seed-{{ $panelDate }}"
-                x-init="rows = @js(collect($panelRows)->map(fn ($r) => (string) ($r['status'] ?? ''))->all())"></div>
+                x-init="rows = @js(collect($panelRows)->map(fn ($r) => (string) ($r['status'] ?? ''))->all()); remarks = @js(collect($panelRows)->map(fn ($r) => (string) ($r['remark'] ?? ''))->all()); common = @js($panelCommon)"></div>
 
             {{-- Header --}}
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -1162,9 +1167,22 @@
                 <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-xs">
                     <button type="button" x-on:click="all('present')" class="px-2.5 py-1.5 text-gray-600 hover:bg-gray-50">All present</button>
                     <button type="button" x-on:click="all('absent')" class="px-2.5 py-1.5 text-gray-600 hover:bg-gray-50 border-l border-gray-200">All absent</button>
+                    <button type="button" x-on:click="all('holiday')" class="px-2.5 py-1.5 text-gray-600 hover:bg-gray-50 border-l border-gray-200">All holiday</button>
                     <button type="button" x-on:click="all('')" class="px-2.5 py-1.5 text-gray-500 hover:bg-gray-50 border-l border-gray-200">Clear</button>
                 </div>
                 <span class="ml-auto text-xs text-gray-400 tabular-nums" x-text="marked + ' of ' + total + ' marked'"></span>
+            </div>
+
+            {{-- Everyone on Holiday: one remark, typed once, goes on every row —
+                 and it is compulsory. --}}
+            <div x-show="allHoliday" style="display: none" class="px-6 py-2.5 border-b border-gray-100 flex-shrink-0">
+                <div class="flex items-center gap-3">
+                    <label for="pmark-remark-all" class="text-xs font-medium text-gray-600 flex-shrink-0">Remark for all <span class="text-red-500">*</span></label>
+                    <input id="pmark-remark-all" type="text" x-model="common" x-on:input="remarkAll(common)" maxlength="255" placeholder="e.g. Diwali"
+                        class="flex-1 min-w-0 text-sm border rounded-md px-3 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                        :class="remarkMissing ? 'border-red-300' : 'border-gray-300'">
+                </div>
+                <p x-show="remarkMissing" class="mt-1 text-xs text-red-500">Say what the holiday is for — it is needed before saving.</p>
             </div>
 
             {{-- One quiet line explaining the day --}}
@@ -1198,11 +1216,13 @@
                             <p class="text-sm text-gray-800 truncate">{{ $emp->name }}</p>
                             <p class="text-[11px] text-gray-400 truncate">{{ $subLine }}</p>
                         </div>
-                        <input type="text" wire:model="panelRows.{{ $emp->id }}.remark" placeholder="Remark" maxlength="255"
+                        <input type="text" wire:model="panelRows.{{ $emp->id }}.remark" x-on:input="remarks[{{ $emp->id }}] = $event.target.value" placeholder="Remark" maxlength="255"
                             class="w-28 sm:w-36 text-xs border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        {{-- A fixed place for the statuses, the group at its right edge: a
+                             teacher's row has four of them and anyone else's five, and
+                             the remark boxes still line up down the list. --}}
+                        <div class="flex justify-end flex-shrink-0" style="width: 19.5rem">
                         <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-[11px] flex-shrink-0">
-                            {{-- One width for every status, so a teacher's row (Holiday)
-                                 and anyone else's (Leave) line up down the list. --}}
                             @foreach ($markOpts[$asTeacher ? 'teacher' : 'staff'] as $st => $label)
                                 <button type="button" x-on:click="pick({{ $emp->id }}, '{{ $st }}')"
                                     class="w-14 py-1.5 text-center {{ $loop->first ? '' : 'border-l border-gray-200' }}"
@@ -1214,6 +1234,7 @@
                                 class="px-2 py-1.5 border-l border-gray-200"
                                 :class="{ 'bg-gray-100 text-gray-500': rows[{{ $emp->id }}] === '', 'text-gray-300 hover:text-gray-600 hover:bg-gray-50': rows[{{ $emp->id }}] !== '' }">&times;</button>
                         </div>
+                        </div>
                     </div>
                 @empty
                     <p class="py-16 text-center text-sm text-gray-400">No employees found.</p>
@@ -1224,7 +1245,7 @@
             <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
                 <button type="button" wire:click="closeMarkPanel" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
                 <button type="button" wire:click="saveMarkPanel" wire:loading.attr="disabled" wire:target="saveMarkPanel"
-                    :disabled="marked === 0"
+                    :disabled="marked === 0 || remarkMissing"
                     class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
                     <span wire:loading.remove wire:target="saveMarkPanel">{{ $panelExisting ? 'Update Attendance' : 'Save Attendance' }}</span>
                     <span wire:loading wire:target="saveMarkPanel">Saving...</span>

@@ -20,6 +20,14 @@
             {{-- Scrollable body --}}
             <div class="flex-1 overflow-y-auto px-6 py-6 space-y-5">
 
+                {{-- Inside Payroll's Add (the form-only mode): "who are you adding?"
+                     stays on top of this form too, Teacher picked — another kind
+                     picked there goes back to Payroll's own form. The Teachers page
+                     itself has no such row. --}}
+                @if (!empty($formOnly))
+                    @include('livewire.partials.payroll-add-chooser', ['selected' => 'teacher', 'call' => '$parent.chooseEmpType'])
+                @endif
+
                 {{-- Profile image (single inline row, as on Students): the new photo,
                      else the saved one, else a placeholder — then the picker, which
                      lets the photo be fitted in its circle before it is uploaded --}}

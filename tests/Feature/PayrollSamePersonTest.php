@@ -306,7 +306,7 @@ class PayrollSamePersonTest extends TestCase
             ->set('empTypeFilter', 'driver')
             ->assertViewHas('employeesList', fn ($list) => $list->pluck('name')->all() === ['Ramesh Kumar'])
             ->assertViewHas('empStats', fn ($s) => $s['total'] === 2 && $s['teacher'] === 2 && $s['driver'] === 1)
-            // Both chips on the one row.
-            ->assertSeeHtml('>teacher</span><span class="text-xs px-2 py-0.5 rounded-full font-medium border capitalize bg-amber-50');
+            // Both types under the name, on the one row.
+            ->assertSeeHtml('<p class="text-xs text-gray-400 truncate">Teacher, Driver</p>');
     }
 }
