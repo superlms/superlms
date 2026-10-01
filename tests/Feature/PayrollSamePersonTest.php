@@ -54,7 +54,12 @@ class PayrollSamePersonTest extends TestCase
             $t->id();
             $t->unsignedBigInteger('user_id');
             $t->unsignedBigInteger('organization_id');
+            $t->string('image')->nullable();
+            $t->string('license_no')->nullable();
+            $t->string('vehicle_no')->nullable();
             $t->string('phone')->nullable();
+            $t->text('address')->nullable();
+            $t->integer('experience_years')->default(0);
             $t->boolean('is_active')->default(true);
             $t->timestamps();
         });
@@ -241,10 +246,16 @@ class PayrollSamePersonTest extends TestCase
         $this->assertEquals(18000, $rows[0]->salary);
     }
 
-    public function test_adding_a_teacher_by_hand_as_a_driver_is_refused(): void
+    /**
+     * It used to be refused ("add them under Transport → Drivers"): a driver
+     * added in Payroll was a payroll row only. Add → Driver now makes the
+     * Transport driver itself, so the teacher's row simply gains the driver.
+     */
+    public function test_adding_a_teacher_as_a_driver_joins_the_teachers_row(): void
     {
-        $this->teacher('Ramesh Kumar', '9876543210');
+        $teacher = $this->teacher('Ramesh Kumar', '9876543210');
         $this->openPage();
+        AdminEmployee::first()->update(['salary' => 12000]);
 
         Livewire::test(PayrollPage::class)
             ->set('empName', 'Ramesh')
@@ -252,9 +263,14 @@ class PayrollSamePersonTest extends TestCase
             ->set('empType', 'driver')
             ->set('empSalary', 3000)
             ->call('saveEmployee')
-            ->assertHasErrors('empMobile');
+            ->assertHasNoErrors();
 
-        $this->assertSame(1, AdminEmployee::count());
+        $rows = AdminEmployee::all();
+        $this->assertCount(1, $rows);
+        $this->assertSame($teacher->id, $rows[0]->teacher_detail_id);
+        $this->assertSame(['teacher', 'driver'], $rows[0]->types());
+        $this->assertSame(DriverDetail::first()->id, $rows[0]->driver_detail_id);
+        $this->assertEquals(15000, $rows[0]->salary);
     }
 
     public function test_deleting_an_employee_asks_first_in_the_pages_own_modal(): void

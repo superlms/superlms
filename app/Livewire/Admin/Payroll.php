@@ -7,13 +7,17 @@ use App\Models\Admin\AdminEmployee;
 use App\Models\Admin\AdminSalaryPayment;
 use App\Models\Admin\DriverDetail;
 use App\Models\Admin\EmployeeIdCard;
+use App\Models\Admin\Transportation;
 use App\Models\Teacher\TeacherAttendance;
 use App\Models\Teacher\TeacherDetail;
+use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use WireUi\Traits\WireUiActions;
@@ -33,10 +37,19 @@ class Payroll extends Component
 
     /**
      * The order staff are listed in across every tab: management first, then
-     * drivers, then the rest of the employees, with teachers last (their
-     * attendance lives in the Teacher module, so they read as an appendix here).
+     * teachers, then drivers, then the rest of the employees. (The app's
+     * payroll API sorts by this same constant.)
      */
-    public const TYPE_ORDER = ['management' => 1, 'driver' => 2, 'employee' => 3, 'teacher' => 4];
+    public const TYPE_ORDER = ['management' => 1, 'teacher' => 2, 'driver' => 3, 'employee' => 4];
+
+    /** The Mark Attendance panel's own order: teachers first; A to Z within a type. */
+    public const MARK_ORDER = ['teacher' => 1, 'management' => 2, 'driver' => 3, 'employee' => 4];
+
+    /** What a row may be marked in that panel: staff as before, a teacher as the Attendance module marks one. */
+    private const STAFF_MARKS   = ['present', 'absent', 'half_day', 'leave'];
+    private const TEACHER_MARKS = ['present', 'absent', 'half_day', 'holiday'];
+    /** teacher_attendances.status, as the Attendance module writes it. */
+    private const TEACHER_CODES = ['present' => 1, 'absent' => 0, 'half_day' => 2, 'holiday' => 3];
 
     /** Apply that order, then name, to any employee collection. */
     private function sortByType($employees)
@@ -67,6 +80,20 @@ class Payroll extends Component
     public        $empTeacherDetailId = null;
     public ?int   $pendingDeleteEmpId = null; // employee waiting on the delete confirm
 
+    // ─── Add flow ─────────────────────────────────────────────────────────────
+    // Add opens on "who are you adding?". Management and Employee carry on in
+    // the form below; Driver gets the driver's own form (and becomes a
+    // Transport driver too); Teacher opens the Teachers page's own form.
+    public bool $empTypeChosen   = false; // adding: has that question been answered
+    public bool $showTeacherForm = false; // Add → Teacher: the Teacher component, form only
+
+    // Add → Driver: the Transport driver's fields, beside the payroll ones above.
+    public string $drvLicenseNo  = '';
+    public string $drvVehicleNo  = '';
+    public        $drvExperience = '';
+    public bool   $drvActive     = true;
+    public array  $drvRoutes     = []; // route ids this driver covers
+
     // ─── Employee list filters ────────────────────────────────────────────────
     public string $empSearch     = '';
     public string $empTypeFilter = '';
@@ -94,6 +121,14 @@ class Payroll extends Component
     // 'mark' → step 2: mark everyone (teachers excluded, they come from their own module)
     public string $attendanceMode       = 'view';
     public string $markDate             = ''; // the date chosen in step 1
+
+    // ─── Mark Attendance slide-in panel (everyone at once, teachers too) ──────
+    // Its date and rows live here, apart from the filters above, so every open
+    // starts clean on today — as the Attendance page's panel does.
+    public bool   $showMarkPanel = false;
+    public string $panelDate     = '';
+    public array  $panelRows     = [];    // admin_employee_id => ['status', 'remark']
+    public bool   $panelExisting = false; // this date already has marks → editing
 
     // ─── Salary ───────────────────────────────────────────────────────────────
     public string $salaryMonth        = '';
@@ -293,13 +328,66 @@ class Payroll extends Component
             $this->empJoiningDate     = $emp->joining_date?->format('Y-m-d') ?? '';
             $this->empExistingPhoto   = $emp->photo;
             $this->empTeacherDetailId = $emp->teacher_detail_id;
+            // An entry being edited already has its type.
+            $this->empTypeChosen      = true;
         }
 
-        $this->showEmpModal = true;
+        $this->showTeacherForm = false;
+        $this->showEmpModal    = true;
+    }
+
+    /**
+     * The answer to "who are you adding?". Management, Employee and Driver
+     * carry on in this panel; Teacher hands over to the Teachers page's own
+     * form (App\Livewire\Admin\Teacher in its form-only mode), so a teacher
+     * added here is added exactly as there.
+     */
+    public function chooseEmpType(string $type): void
+    {
+        if ($this->editEmpId || !in_array($type, ['management', 'teacher', 'driver', 'employee'], true)) {
+            return;
+        }
+
+        $this->resetValidation();
+
+        if ($type === 'teacher') {
+            $this->showEmpModal = false;
+            $this->resetEmpForm();
+            $this->showTeacherForm = true;
+            return;
+        }
+
+        $this->empType       = $type;
+        $this->empTypeChosen = true;
+    }
+
+    /** The teacher form was closed without saving. */
+    #[On('teacherFormClosed')]
+    public function closeTeacherForm(): void
+    {
+        $this->showTeacherForm = false;
+    }
+
+    /** The teacher form saved: render() gives the new teacher their payroll row. */
+    #[On('onTeacherAddUpdate')]
+    public function teacherAdded(): void
+    {
+        if (!$this->showTeacherForm) {
+            return;
+        }
+
+        $this->showTeacherForm = false;
+        $this->notification()->info('Added to Payroll', 'Set the salary from Edit.');
     }
 
     public function saveEmployee(): void
     {
+        // A new driver is saved with the driver's own form, as a Transport driver too.
+        if (!$this->editEmpId && $this->empType === 'driver') {
+            $this->saveNewDriver();
+            return;
+        }
+
         $this->validate([
             'empName'        => 'required|string|max:255',
             'empEmail'       => 'nullable|email|max:255',
@@ -319,6 +407,19 @@ class Payroll extends Component
             'empAccountNo.regex' => 'Account number must be 6–20 digits.',
             'empIfsc.regex'      => 'Enter a valid IFSC code (e.g. HDFC0001234).',
             'empPhoto.max'       => 'Photo must be 1 MB or smaller.',
+        ], [
+            // So a message under a field reads "The name field is required."
+            'empName'        => 'name',
+            'empEmail'       => 'email',
+            'empMobile'      => 'mobile',
+            'empType'        => 'type',
+            'empSalary'      => 'salary',
+            'empDesignation' => 'designation',
+            'empAddress'     => 'address',
+            'empBankName'    => 'bank name',
+            'empHolderName'  => 'account holder',
+            'empBranch'      => 'branch',
+            'empPhoto'       => 'photo',
         ]);
 
         $data = [
@@ -372,6 +473,148 @@ class Payroll extends Component
 
         $this->showEmpModal = false;
         $this->resetEmpForm();
+    }
+
+    /**
+     * Add → Driver. The driver is made as Transport → Add Driver makes one — a
+     * login (default password 123456), the driver record, the routes picked —
+     * so they are listed there as well, and their payroll row is made with it,
+     * carrying the salary and bank details from this form. (The steps are
+     * Transport::saveDriver's, copied: change one, change both.) Someone who is
+     * already on payroll as a teacher, manager or employee is joined into that
+     * row, which then reads with both types.
+     */
+    private function saveNewDriver(): void
+    {
+        $this->validate([
+            'empName'        => 'required|string|max:255',
+            'empEmail'       => 'nullable|email|max:255|unique:users,email',
+            'empMobile'      => 'required|regex:/^[6-9]\d{9}$/',
+            'drvLicenseNo'   => 'nullable|string|max:50',
+            'drvVehicleNo'   => 'nullable|string|max:30',
+            'drvExperience'  => 'nullable|integer|min:0|max:50',
+            'empSalary'      => 'required|numeric|min:0|max:99999999',
+            'empJoiningDate' => 'nullable|date',
+            'empAddress'     => 'nullable|string|max:500',
+            'empBankName'    => 'nullable|string|max:100',
+            'empHolderName'  => 'nullable|string|max:100',
+            'empAccountNo'   => 'nullable|regex:/^\d{6,20}$/',
+            'empBranch'      => 'nullable|string|max:100',
+            'empIfsc'        => 'nullable|regex:/^[A-Za-z]{4}0[A-Za-z0-9]{6}$/',
+            'empPhoto'       => 'nullable|image|max:1024', // 1 MB
+        ], [
+            'empMobile.required' => 'Mobile number is required.',
+            'empMobile.regex'    => 'Enter a valid 10-digit mobile number.',
+            'empAccountNo.regex' => 'Account number must be 6–20 digits.',
+            'empIfsc.regex'      => 'Enter a valid IFSC code (e.g. HDFC0001234).',
+            'empPhoto.max'       => 'Photo must be 1 MB or smaller.',
+        ], [
+            'empName'        => 'name',
+            'empEmail'       => 'email',
+            'empMobile'      => 'mobile',
+            'drvLicenseNo'   => 'license no.',
+            'drvVehicleNo'   => 'vehicle no.',
+            'drvExperience'  => 'experience',
+            'empSalary'      => 'salary',
+            'empJoiningDate' => 'joining date',
+            'empAddress'     => 'address',
+        ]);
+
+        $org = $this->orgId();
+
+        try {
+            // The photo is kept twice, once for each record, so replacing it on
+            // one screen never takes it off the other.
+            $driverPhoto = $payrollPhoto = null;
+            if ($this->empPhoto) {
+                $path = $this->empPhoto->store('admin/drivers/photos', 's3');
+                Storage::disk('s3')->setVisibility($path, 'public');
+                $driverPhoto = Storage::disk('s3')->url($path);
+
+                $path = $this->empPhoto->store('admin/payroll/photos', 's3');
+                Storage::disk('s3')->setVisibility($path, 'public');
+                $payrollPhoto = Storage::disk('s3')->url($path);
+            }
+
+            DB::transaction(function () use ($org, $driverPhoto, $payrollPhoto) {
+                $user = User::create([
+                    'name'            => $this->empName,
+                    // users.email cannot be empty: a driver saved without one
+                    // gets Transport's stand-in address.
+                    'email'           => $this->empEmail !== '' ? $this->empEmail : $this->placeholderDriverEmail($this->empMobile),
+                    'mobile_number'   => $this->empMobile,
+                    'password'        => Hash::make('123456'),
+                    'role'            => 'driver',
+                    'organization_id' => $org,
+                    'is_active'       => $this->drvActive,
+                ]);
+
+                $driver = DriverDetail::create([
+                    'user_id'          => $user->id,
+                    'organization_id'  => $org,
+                    'image'            => $driverPhoto,
+                    'phone'            => $this->empMobile,
+                    'license_no'       => $this->drvLicenseNo,
+                    'vehicle_no'       => $this->drvVehicleNo,
+                    'address'          => $this->empAddress,
+                    'experience_years' => (int) ($this->drvExperience ?: 0),
+                    'is_active'        => $this->drvActive,
+                ]);
+
+                // The routes picked now run with this driver.
+                $routes = array_values(array_filter(array_map('intval', $this->drvRoutes)));
+                if ($routes) {
+                    Transportation::where('organization_id', $org)
+                        ->whereIn('id', $routes)
+                        ->update(['driver_detail_id' => $driver->id]);
+                }
+
+                AdminEmployee::create([
+                    'organization_id'  => $org,
+                    'driver_detail_id' => $driver->id,
+                    'name'             => $this->empName,
+                    'email'            => $this->empEmail ?: null,
+                    'mobile'           => $this->empMobile,
+                    'designation'      => $this->empDesignation ?: 'Driver',
+                    'type'             => 'driver',
+                    'salary'           => $this->empSalary,
+                    'address'          => $this->empAddress,
+                    'bank_name'        => $this->empBankName,
+                    'bank_account_no'  => $this->empAccountNo,
+                    'bank_holder_name' => $this->empHolderName,
+                    'bank_branch'      => $this->empBranch,
+                    'bank_ifsc'        => $this->empIfsc ? strtoupper($this->empIfsc) : null,
+                    'photo'            => $payrollPhoto,
+                    'joining_date'     => $this->empJoiningDate ?: null,
+                ]);
+            });
+        } catch (\Throwable $e) {
+            logger()->error('Payroll driver save error: ' . $e->getMessage());
+            $this->notification()->error('Error!', 'Failed to save driver: ' . $e->getMessage());
+            return;
+        }
+
+        $joined = $this->mergeSamePersonRows() > 0;
+        $this->notification()->success(
+            'Driver added!',
+            $joined ? 'Already on payroll, so listed once with both types.' : 'Also listed under Transport → Drivers.'
+        );
+
+        $this->showEmpModal = false;
+        $this->resetEmpForm();
+    }
+
+    /** Transport's stand-in address for a driver saved without an email (users.email cannot be empty). */
+    private function placeholderDriverEmail(string $phone): string
+    {
+        $base  = 'driver' . ($phone !== '' ? '.' . $phone : '') . '.' . $this->orgId();
+        $email = $base . Transport::DRIVER_EMAIL_DOMAIN;
+        $i     = 1;
+        while (User::where('email', $email)->exists()) {
+            $email = $base . '-' . $i++ . Transport::DRIVER_EMAIL_DOMAIN;
+        }
+
+        return $email;
     }
 
     /**
@@ -504,6 +747,12 @@ class Payroll extends Component
             'empPhoto',
             'empExistingPhoto',
             'empTeacherDetailId',
+            'empTypeChosen',
+            'drvLicenseNo',
+            'drvVehicleNo',
+            'drvExperience',
+            'drvActive',
+            'drvRoutes',
         ]);
         $this->empType = 'employee';
     }
@@ -512,6 +761,7 @@ class Payroll extends Component
     {
         $this->showEmpModal = false;
         $this->resetEmpForm();
+        $this->resetValidation();
     }
 
     // ─── Attendance ───────────────────────────────────────────────────────────
@@ -521,6 +771,201 @@ class Payroll extends Component
     {
         $this->attendanceMode  = 'view';
         $this->attendanceDraft = [];
+        $this->closeMarkPanel();
+    }
+
+    // ─── Mark Attendance panel: everyone at once ──────────────────────────────
+
+    /** A teacher whose days are the Attendance module's (teacher_attendances); everyone else is marked in admin_attendances. */
+    private function marksAsTeacher(AdminEmployee $emp): bool
+    {
+        return $emp->isTeacher() && (bool) $emp->teacher_detail_id;
+    }
+
+    /** teacher_attendances.status as the panel names it (the app's 4 is a holiday too). */
+    private function teacherMarkLabel($code): string
+    {
+        return match ((int) $code) {
+            1       => 'present',
+            0       => 'absent',
+            2       => 'half_day',
+            3, 4    => 'holiday',
+            default => '',
+        };
+    }
+
+    /**
+     * Header "Mark Attendance" — always a fresh flow: the panel opens on today
+     * and reads what is saved for it, with nothing carried in from the filters
+     * or from an earlier marking run.
+     */
+    public function openMarkPanel(): void
+    {
+        $this->resetValidation();
+        $this->attendanceMode = 'view';
+        $this->panelDate      = now()->toDateString();
+        $this->loadMarkPanel();
+        $this->showMarkPanel  = true;
+    }
+
+    public function closeMarkPanel(): void
+    {
+        $this->showMarkPanel = false;
+        $this->panelRows     = [];
+        $this->panelExisting = false;
+    }
+
+    public function updatedPanelDate(): void
+    {
+        // Only a real calendar day, and not one still to come, is loaded.
+        $d = \DateTime::createFromFormat('!Y-m-d', (string) $this->panelDate);
+        if (!$d || $d->format('Y-m-d') !== $this->panelDate || $this->panelDate > now()->toDateString()) {
+            $this->panelDate = now()->toDateString();
+        }
+
+        $this->loadMarkPanel();
+    }
+
+    /** What is saved for a day: staff rows by employee id, teachers' by teacher id. */
+    private function savedMarks(string $date, $employees): array
+    {
+        $staff = AdminAttendance::forOrganization($this->orgId())
+            ->where('date', $date)
+            ->get()->keyBy('admin_employee_id');
+
+        $teacherIds = $employees->filter(fn ($e) => $this->marksAsTeacher($e))->pluck('teacher_detail_id')->all();
+        $teachers = $teacherIds
+            ? TeacherAttendance::whereIn('teacher_detail_id', $teacherIds)
+                ->whereDate('attendance_date', $date)
+                ->get()->keyBy('teacher_detail_id')
+            : collect();
+
+        return [$staff, $teachers];
+    }
+
+    /**
+     * Load the panel's rows for $panelDate: a row that is already marked comes
+     * back with its status and remark, so the day can simply be corrected and
+     * saved again; every other row starts blank.
+     */
+    public function loadMarkPanel(): void
+    {
+        $employees = AdminEmployee::forOrganization($this->orgId())->get();
+        [$staff, $teachers] = $this->savedMarks($this->panelDate, $employees);
+
+        $this->panelRows     = [];
+        $this->panelExisting = false;
+
+        foreach ($employees as $emp) {
+            if ($this->marksAsTeacher($emp)) {
+                $rec = $teachers->get($emp->teacher_detail_id);
+                $row = ['status' => $rec ? $this->teacherMarkLabel($rec->status) : '', 'remark' => (string) ($rec->remarks ?? '')];
+            } else {
+                $rec = $staff->get($emp->id);
+                $row = ['status' => $rec ? (string) $rec->status : '', 'remark' => (string) ($rec->note ?? '')];
+            }
+
+            $this->panelExisting  = $this->panelExisting || (bool) $rec;
+            $this->panelRows[$emp->id] = $row;
+        }
+    }
+
+    /**
+     * Save the panel against $panelDate, everyone in one go. A teacher's row
+     * goes to the Attendance module's own records (so it reads the same
+     * there), everyone else's to payroll's. A row left blank is written as
+     * nothing at all — and an earlier mark for it is removed — so the day stays
+     * open; a row still showing exactly what is saved is left as it is.
+     */
+    public function saveMarkPanel(): void
+    {
+        $org  = $this->orgId();
+        $date = $this->panelDate;
+
+        $d = \DateTime::createFromFormat('!Y-m-d', (string) $date);
+        if (!$d || $d->format('Y-m-d') !== $date || $date > now()->toDateString()) {
+            $this->notification()->error('Pick a valid date', 'Attendance can be marked for today or an earlier day.');
+            return;
+        }
+
+        if (count(array_filter($this->panelRows, fn ($r) => ($r['status'] ?? '') !== '')) === 0) {
+            $this->notification()->error('Nothing to save', 'Mark at least one person first.');
+            return;
+        }
+
+        // The statuses are set in the browser, so the rows arrive as client
+        // data: only this school's people, and only what their row offers.
+        $employees = AdminEmployee::forOrganization($org)
+            ->whereIn('id', array_keys($this->panelRows))
+            ->get()->keyBy('id');
+        [$staff, $teachers] = $this->savedMarks($date, $employees);
+        $wasEdit = $staff->isNotEmpty() || $teachers->isNotEmpty();
+        $markedBy = Auth::id();
+
+        DB::transaction(function () use ($org, $date, $employees, $staff, $teachers, $markedBy) {
+            foreach ($this->panelRows as $empId => $row) {
+                $emp = $employees->get($empId);
+                if (!$emp) {
+                    continue;
+                }
+                $status = (string) ($row['status'] ?? '');
+                $remark = trim((string) ($row['remark'] ?? ''));
+
+                if ($this->marksAsTeacher($emp)) {
+                    $rec = $teachers->get($emp->teacher_detail_id);
+                    if ($status === '') {
+                        $rec?->delete();
+                        continue;
+                    }
+                    if (!in_array($status, self::TEACHER_MARKS, true)) {
+                        continue;
+                    }
+                    if ($rec && $this->teacherMarkLabel($rec->status) === $status && (string) $rec->remarks === $remark) {
+                        continue;
+                    }
+                    $values = ['status' => self::TEACHER_CODES[$status], 'remarks' => $remark, 'marked_by' => $markedBy];
+                    $rec
+                        ? $rec->update($values)
+                        : TeacherAttendance::create($values + [
+                            'teacher_detail_id' => $emp->teacher_detail_id,
+                            'organization_id'   => $org,
+                            'attendance_date'   => $date,
+                        ]);
+                    continue;
+                }
+
+                $rec = $staff->get($emp->id);
+                if ($status === '') {
+                    $rec?->delete();
+                    continue;
+                }
+                if (!in_array($status, self::STAFF_MARKS, true)) {
+                    continue;
+                }
+                if ($rec && (string) $rec->status === $status && (string) $rec->note === $remark) {
+                    continue;
+                }
+                AdminAttendance::updateOrCreate(
+                    ['admin_employee_id' => $emp->id, 'date' => $date],
+                    ['organization_id' => $org, 'status' => $status, 'note' => $remark !== '' ? $remark : null]
+                );
+            }
+        });
+
+        // Straight to that date's attendance, whatever was being viewed before.
+        $this->closeMarkPanel();
+        $this->attendanceDraft      = [];
+        $this->attendanceMode       = 'view';
+        $this->attendanceDate       = $date;
+        $this->attEmpId             = '';
+        $this->attMonth             = '';
+        $this->attStatus            = '';
+        $this->filterAttendanceType = '';
+
+        $this->notification()->success(
+            $wasEdit ? 'Attendance updated' : 'Attendance saved',
+            'Attendance ' . ($wasEdit ? 'updated' : 'saved') . ' for ' . Carbon::parse($date)->format('d M Y') . '.'
+        );
     }
 
     /** Step 1 of marking: ask which date is being marked. */
@@ -938,7 +1383,7 @@ class Payroll extends Component
                     || str_contains(mb_strtolower((string) $e->designation), $t)
                     || str_contains(mb_strtolower((string) $e->mobile), $t));
             });
-        // Default order is management → driver → employee → teacher.
+        // Default order is management → teacher → driver → employee.
         $employeesList = match ($this->empSort) {
             'name_asc'    => $employeesList->sortBy('name')->values(),
             'name_desc'   => $employeesList->sortByDesc('name')->values(),
@@ -956,6 +1401,21 @@ class Payroll extends Component
         // Marking list: teachers are never marked here — their attendance comes
         // from the Teacher Attendance module.
         $markEmployees = $attEmployees->where('type', '!=', 'teacher')->values();
+
+        // The Mark Attendance panel: everyone, teachers included — teachers
+        // first, then management, drivers and employees, A to Z within each.
+        $markPeople = $this->showMarkPanel
+            ? $allEmployees
+                ->sortBy(fn ($e) => [self::MARK_ORDER[$e->type] ?? 9, mb_strtolower((string) $e->name)])
+                ->values()
+            : collect();
+
+        // Add → Driver: the routes a driver can be put on, as Transport lists them.
+        $driverRouteOptions = $this->showEmpModal && !$this->editEmpId && $this->empTypeChosen && $this->empType === 'driver'
+            ? Transportation::where('organization_id', $orgId)
+                ->orderBy('route_name')->orderBy('vehicle_type')
+                ->get(['id', 'route_name', 'vehicle_type'])
+            : collect();
 
         // Salary tab list: search + type, same order again
         $salaryEmployees = $this->sortByType(
@@ -1050,6 +1510,8 @@ class Payroll extends Component
             'employeesList',
             'attEmployees',
             'markEmployees',
+            'markPeople',
+            'driverRouteOptions',
             'salaryEmployees',
             'empStats',
             'attView',

@@ -36,10 +36,12 @@
                     </button>
                 @endif
 
-                {{-- Attendance tab: header button opens the marking screen (view mode only) --}}
+                {{-- Attendance tab: the Add Student button's look; it opens the mark
+                     panel on today, for everyone at once (view mode only) --}}
                 @if ($activeTab === 'attendance' && $attendanceMode === 'view')
-                    <button wire:click="startMarking"
-                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
+                    <button wire:click="openMarkPanel"
+                        class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700
+                               text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
                         Mark Attendance
                     </button>
@@ -95,7 +97,7 @@
                     Sort:
                 </div>
                 <select wire:model.live="empSort" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                    <option value="type_order">Type (Mgmt → Driver → Employee → Teacher)</option>
+                    <option value="type_order">Type (Mgmt → Teacher → Driver → Employee)</option>
                     <option value="name_asc">Name (A–Z)</option>
                     <option value="name_desc">Name (Z–A)</option>
                     <option value="salary_asc">Salary (Low–High)</option>
@@ -694,124 +696,295 @@
         @endif
     </div>
 
-    {{-- ══════════ ADD/EDIT EMPLOYEE SLIDE-IN PANEL ══════════ --}}
+    {{-- ══════════ ADD/EDIT EMPLOYEE SLIDE-IN PANEL ══════════
+         The Students form's look: a wide panel, the photo row, one flat
+         two-column grid, the actions in the footer.
+
+         Adding opens on "who are you adding?". Management and Employee carry on
+         in the form below; Driver gets the driver's own form (Transport's
+         fields beside the salary and bank details) and becomes a Transport
+         driver too; Teacher opens the Teachers page's own form (further down).
+         An entry being edited keeps the form it always had, type included. --}}
     @if ($showEmpModal)
+        @php
+            $addingDriver = !$editEmpId && $empTypeChosen && $empType === 'driver';
+            $kindLabel    = ['management' => 'Management', 'teacher' => 'Teacher', 'driver' => 'Driver', 'employee' => 'Employee'];
+        @endphp
         <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeEmpModal"></div>
-            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
+
+                {{-- Fixed header --}}
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                    <div>
-                        <h2 class="text-lg font-semibold text-gray-900">{{ $editEmpId ? 'Edit Employee' : 'Add Employee' }}</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">For type <strong>Teacher</strong>, attendance syncs with the Attendance module.</p>
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900">
+                            {{ $editEmpId ? 'Edit Employee' : ($empTypeChosen ? 'New ' . ($kindLabel[$empType] ?? 'Employee') : 'Add Employee') }}
+                        </h2>
+                        <p class="text-xs text-gray-500 mt-0.5">
+                            @if ($editEmpId)
+                                Update the details below
+                            @elseif (!$empTypeChosen)
+                                Choose who you are adding
+                            @elseif ($addingDriver)
+                                Also added under Transport → Drivers, with a login on the default password 123456
+                            @else
+                                Fill in the details below
+                            @endif
+                        </p>
                     </div>
-                    <button wire:click="closeEmpModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    <button wire:click="closeEmpModal" type="button"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
                     </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto overflow-x-hidden px-6 py-6 space-y-4">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Photo</label>
-                        @if ($editEmpId && $empExistingPhoto && !$empPhoto)
-                            <div class="flex items-center gap-3 mb-2">
-                                <img src="{{ $empExistingPhoto }}" class="w-12 h-12 rounded-full object-cover border border-gray-200">
-                                <span class="text-xs text-gray-400">Current photo</span>
+                {{-- Scrollable body --}}
+                <div class="flex-1 overflow-y-auto overflow-x-hidden">
+                    <div class="px-6 py-6 space-y-5">
+
+                        {{-- Adding: first say who it is; the form follows the answer. --}}
+                        @unless ($editEmpId)
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Who are you adding? <span class="text-red-500">*</span>
+                                </label>
+                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                    @foreach (['management' => ['Management', 'Principal, office heads'], 'teacher' => ['Teacher', 'Opens the teacher form'], 'driver' => ['Driver', 'Listed in Transport too'], 'employee' => ['Employee', 'All other staff']] as $value => [$label, $hint])
+                                        <button type="button" wire:click="chooseEmpType('{{ $value }}')"
+                                            class="px-3.5 py-3 text-left border-2 rounded-md transition-all
+                                                {{ $empTypeChosen && $empType === $value ? 'border-gray-900 bg-gray-50' : 'border-gray-200 hover:bg-gray-50' }}">
+                                            <span class="block text-sm font-semibold text-gray-900">{{ $label }}</span>
+                                            <span class="block text-xs text-gray-500 mt-0.5">{{ $hint }}</span>
+                                        </button>
+                                    @endforeach
+                                </div>
                             </div>
-                        @endif
-                        <input type="file" wire:model="empPhoto" accept="image/*"
-                            class="block w-full min-w-0 text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors">
-                        <p class="text-[11px] text-gray-400 mt-0.5">JPG/PNG · max 1 MB</p>
-                        @error('empPhoto')<p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>@enderror
-                    </div>
+                        @endunless
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        @if ($empTypeChosen)
+                        {{-- Photo (single inline row, as on Students) --}}
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Name *</label>
-                            <input type="text" wire:model.defer="empName" placeholder="Full name" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
-                            @error('empName')<p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>@enderror
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                                {{ $addingDriver ? 'Driver' : 'Employee' }} Photo <span class="text-gray-400 font-normal">(Optional, max 1 MB)</span>
+                            </label>
+                            <div class="flex items-center gap-3">
+                                @if ($empPhoto)
+                                    <img src="{{ $empPhoto->temporaryUrl() }}"
+                                        class="w-12 h-12 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                                @elseif ($empExistingPhoto)
+                                    <img src="{{ $empExistingPhoto }}"
+                                        class="w-12 h-12 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                                @else
+                                    <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        </svg>
+                                    </div>
+                                @endif
+                                <x-admin.photo-cropper model="empPhoto" class="flex-1 text-sm" />
+                            </div>
+                            <div wire:loading wire:target="empPhoto" class="text-xs text-blue-600 mt-1">Uploading…</div>
+                            @error('empPhoto')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Email</label>
-                            <input type="email" wire:model.defer="empEmail" placeholder="Email address" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Mobile</label>
-                            <input type="text" wire:model.defer="empMobile" placeholder="Mobile number" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
-                            @error('empMobile')<p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Designation</label>
-                            <input type="text" wire:model.defer="empDesignation" placeholder="e.g. Manager" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Type *</label>
-                            <select wire:model.live="empType" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 bg-white">
-                                <option value="teacher">Teacher</option>
-                                <option value="management">Management</option>
-                                <option value="employee">Employee</option>
-                                <option value="driver">Driver</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Salary (₹) *</label>
-                            <input type="number" wire:model.defer="empSalary" placeholder="Monthly salary" min="0" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
-                            @error('empSalary')<p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Joining Date</label>
-                            <input type="date" wire:model.defer="empJoiningDate" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Address</label>
-                            <input type="text" wire:model.defer="empAddress" placeholder="Address" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
-                        </div>
-                    </div>
 
-                    @if ($empType === 'teacher')
-                        <div class="bg-blue-50 rounded-xl border border-blue-100 p-3">
-                            <label class="block text-xs font-medium text-blue-700 mb-1">Link to Teacher Detail <span class="text-blue-400 font-normal">(optional — links attendance to teacher records)</span></label>
-                            <select wire:model.defer="empTeacherDetailId" class="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-400">
-                                <option value="">— Don't link —</option>
-                                @foreach (\App\Models\Teacher\TeacherDetail::with('user')->where('organization_id', auth()->user()->organization_id)->get() as $td)
-                                    <option value="{{ $td->id }}">{{ $td->user?->name ?? 'Teacher #' . $td->id }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                    @endif
-
-                    <div class="border border-gray-200 rounded-xl p-4 space-y-3 bg-gray-50">
-                        <h4 class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Bank Details</h4>
+                        {{-- One flat two-column grid --}}
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Bank Name</label>
-                                <input type="text" wire:model.defer="empBankName" placeholder="Bank name" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Full Name <span class="text-red-500">*</span></label>
+                                <input wire:model.defer="empName" type="text" maxlength="255" placeholder="Enter full name"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                           @error('empName') border-red-400 @enderror">
+                                @error('empName')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Account Holder</label>
-                                <input type="text" wire:model.defer="empHolderName" placeholder="Account holder name" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Email <span class="text-gray-400 font-normal text-xs">(optional)</span></label>
+                                <input wire:model.defer="empEmail" type="email" placeholder="name@example.com"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                           @error('empEmail') border-red-400 @enderror">
+                                @error('empEmail')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Account Number</label>
-                                <input type="text" wire:model.defer="empAccountNo" placeholder="Account number" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Mobile @if ($addingDriver)<span class="text-red-500">*</span>@endif</label>
+                                <input wire:model.defer="empMobile" type="tel" maxlength="10" inputmode="numeric"
+                                    oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)" placeholder="10-digit mobile"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                           @error('empMobile') border-red-400 @enderror">
+                                @error('empMobile')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            @if ($addingDriver)
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">License No.</label>
+                                <input wire:model.defer="drvLicenseNo" type="text" maxlength="50" placeholder="Driving license number"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                           @error('drvLicenseNo') border-red-400 @enderror">
+                                @error('drvLicenseNo')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">IFSC Code</label>
-                                <input type="text" wire:model.defer="empIfsc" placeholder="IFSC code" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Vehicle No.</label>
+                                <input wire:model.defer="drvVehicleNo" type="text" maxlength="30" placeholder="e.g. RJ14 AB 1234"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                           @error('drvVehicleNo') border-red-400 @enderror">
+                                @error('drvVehicleNo')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                             </div>
-                            <div class="sm:col-span-2">
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Branch</label>
-                                <input type="text" wire:model.defer="empBranch" placeholder="Branch name" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Experience (yrs)</label>
+                                <input wire:model.defer="drvExperience" type="number" min="0" max="50" placeholder="0"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                           @error('drvExperience') border-red-400 @enderror">
+                                @error('drvExperience')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            @else
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Designation</label>
+                                <input wire:model.defer="empDesignation" type="text" maxlength="100" placeholder="e.g. Manager"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                           @error('empDesignation') border-red-400 @enderror">
+                                @error('empDesignation')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            @endif
+                            {{-- An entry being edited can still be moved to another type, as before. --}}
+                            @if ($editEmpId)
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Type <span class="text-red-500">*</span></label>
+                                    <select wire:model.live="empType"
+                                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="teacher">Teacher</option>
+                                        <option value="management">Management</option>
+                                        <option value="employee">Employee</option>
+                                        <option value="driver">Driver</option>
+                                    </select>
+                                    @error('empType')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                </div>
+                            @endif
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Salary (₹) <span class="text-red-500">*</span></label>
+                                <input wire:model.defer="empSalary" type="number" min="0" placeholder="Monthly salary"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                           @error('empSalary') border-red-400 @enderror">
+                                @error('empSalary')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Joining Date</label>
+                                <input wire:model.defer="empJoiningDate" type="date"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                           @error('empJoiningDate') border-red-400 @enderror">
+                                @error('empJoiningDate')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            @if ($editEmpId && $empType === 'teacher')
+                                <div class="sm:col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Link to Teacher Detail <span class="text-gray-400 font-normal text-xs">(optional — links attendance to teacher records)</span></label>
+                                    <select wire:model.defer="empTeacherDetailId"
+                                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="">— Don't link —</option>
+                                        @foreach (\App\Models\Teacher\TeacherDetail::with('user')->where('organization_id', auth()->user()->organization_id)->get() as $td)
+                                            <option value="{{ $td->id }}">{{ $td->user?->name ?? 'Teacher #' . $td->id }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            @endif
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Bank Name</label>
+                                <input wire:model.defer="empBankName" type="text" maxlength="100" placeholder="Bank name"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                           @error('empBankName') border-red-400 @enderror">
+                                @error('empBankName')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Account Holder</label>
+                                <input wire:model.defer="empHolderName" type="text" maxlength="100" placeholder="Account holder name"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                           @error('empHolderName') border-red-400 @enderror">
+                                @error('empHolderName')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Account Number</label>
+                                <input wire:model.defer="empAccountNo" type="text" maxlength="20" inputmode="numeric" placeholder="Account number"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                           @error('empAccountNo') border-red-400 @enderror">
+                                @error('empAccountNo')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">IFSC Code</label>
+                                <input wire:model.defer="empIfsc" type="text" maxlength="11" placeholder="e.g. HDFC0001234"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                           @error('empIfsc') border-red-400 @enderror">
+                                @error('empIfsc')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Branch</label>
+                                <input wire:model.defer="empBranch" type="text" maxlength="100" placeholder="Branch name"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                           @error('empBranch') border-red-400 @enderror">
+                                @error('empBranch')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                             </div>
                         </div>
+
+                        {{-- Full-width address --}}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Address</label>
+                            <textarea wire:model.defer="empAddress" rows="2" maxlength="500" placeholder="Address"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none
+                                       @error('empAddress') border-red-400 @enderror"></textarea>
+                            @error('empAddress')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+
+                        @if ($addingDriver)
+                            {{-- The routes this driver runs, as Transport's driver form assigns them --}}
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Assign Routes <span class="text-gray-400 font-normal text-xs">(select one or more)</span></label>
+                                @if (count($driverRouteOptions) === 0)
+                                    <p class="text-xs text-gray-400 border border-dashed border-gray-200 rounded-md p-3">No routes yet. Create them under Transport, then assign them to this driver there.</p>
+                                @else
+                                    <div class="border border-gray-300 rounded-md divide-y divide-gray-100 max-h-56 overflow-y-auto">
+                                        @foreach ($driverRouteOptions as $r)
+                                            <label class="flex items-center gap-2.5 px-3 py-2.5 hover:bg-gray-50 cursor-pointer">
+                                                <input type="checkbox" wire:model.defer="drvRoutes" value="{{ $r->id }}" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                                <span class="text-sm text-gray-700">
+                                                    {{ $r->route_name }}
+                                                    @if ($r->vehicle_type)
+                                                        <span class="text-xs text-gray-400">· {{ $r->vehicle_type }}</span>
+                                                    @endif
+                                                </span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+
+                            {{-- Active toggle --}}
+                            <label class="inline-flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" wire:model.defer="drvActive" class="rounded">
+                                <span class="text-sm text-gray-700">Active (can log in)</span>
+                            </label>
+                        @endif
+                        @endif
                     </div>
                 </div>
 
+                {{-- Fixed footer --}}
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
-                    <button wire:click="closeEmpModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                    <button wire:click="saveEmployee" class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md">{{ $editEmpId ? 'Update Employee' : 'Add Employee' }}</button>
+                    <button wire:click="closeEmpModal" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                    {{-- Nothing to save until "who are you adding?" is answered. --}}
+                    @if ($empTypeChosen)
+                        <button wire:click="saveEmployee" type="button" wire:loading.attr="disabled" wire:target="saveEmployee, empPhoto"
+                            class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                            <span wire:loading.remove wire:target="saveEmployee">{{ $editEmpId ? 'Update Employee' : 'Save ' . ($kindLabel[$empType] ?? 'Employee') }}</span>
+                            <span wire:loading wire:target="saveEmployee">Saving...</span>
+                        </button>
+                    @endif
                 </div>
             </div>
         </div>
+    @endif
+
+    {{-- ══════════ ADD → TEACHER ══════════
+         The Teachers page's own add form — the same component, in its form-only
+         mode — so a teacher added from here is added exactly as there (username,
+         welcome mail and all) and then has a payroll row like every teacher. --}}
+    @if ($showTeacherForm)
+        @livewire(\App\Livewire\Admin\Teacher::class, ['formOnly' => true], key('payroll-add-teacher'))
     @endif
 
     {{-- ══════════ EMPLOYEE DETAIL SLIDE-IN PANEL ══════════ --}}
@@ -914,6 +1087,151 @@
                 </div>
             </div>
         </div>
+    @endif
+
+    {{-- ══════════ MARK ATTENDANCE SLIDE-IN ══════════
+         The Attendance page's mark panel: light scrim, plain header, one quiet
+         toolbar, a flat list of rows and the actions in the footer. Everyone is
+         on it at once — teachers first, then management, drivers and employees,
+         A to Z within each. Picking a status is handled by Alpine and only
+         synced to the component (no request per click); it all saves together.
+         A teacher's row offers what the Attendance module marks a teacher with
+         and is saved to its records; everyone else has Leave where a teacher
+         has Holiday. --}}
+    @php
+        $markOpts = [
+            'staff'   => ['present' => 'Present', 'absent' => 'Absent', 'half_day' => 'Half', 'leave' => 'Leave'],
+            'teacher' => ['present' => 'Present', 'absent' => 'Absent', 'half_day' => 'Half', 'holiday' => 'Holiday'],
+        ];
+        $markSel = [
+            'present'  => 'bg-emerald-50 text-emerald-700 font-medium',
+            'absent'   => 'bg-red-50 text-red-600 font-medium',
+            'half_day' => 'bg-amber-50 text-amber-700 font-medium',
+            'holiday'  => 'bg-indigo-50 text-indigo-700 font-medium',
+            'leave'    => 'bg-blue-50 text-blue-700 font-medium',
+        ];
+    @endphp
+    @if ($showMarkPanel)
+    <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
+        <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeMarkPanel"></div>
+        <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col"
+            wire:key="pmark-{{ count($panelRows) }}"
+            {{-- x-data carries no server data, so it reads the same on every
+                 render and a date change updates the panel in place; the rows
+                 come from the seed below. --}}
+            x-data="{
+                rows: {},
+                get total() { return Object.keys(this.rows).length },
+                get marked() { return Object.values(this.rows).filter(v => v !== '').length },
+                pick(id, v) {
+                    this.rows[id] = v;
+                    /* Local set: the change rides along with the next request
+                       (Save) instead of costing a round trip per click. */
+                    this.$wire.$set('panelRows.' + id + '.status', v, false);
+                },
+                all(v) { Object.keys(this.rows).forEach(id => this.pick(id, v)) },
+            }">
+
+            {{-- Seeds the rows when the panel opens, and again for each new date
+                 (a new key is a new element, so its x-init runs again). --}}
+            <div class="hidden" wire:key="pmark-seed-{{ $panelDate }}"
+                x-init="rows = @js(collect($panelRows)->map(fn ($r) => (string) ($r['status'] ?? ''))->all())"></div>
+
+            {{-- Header --}}
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                <div class="min-w-0">
+                    <h2 class="text-lg font-semibold text-gray-900">Mark Attendance</h2>
+                    <p class="text-xs text-gray-500 mt-0.5">{{ \Carbon\Carbon::parse($panelDate)->format('l, d M Y') }}</p>
+                </div>
+                <button wire:click="closeMarkPanel" type="button"
+                    class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            {{-- Toolbar --}}
+            <div class="px-6 py-3 border-b border-gray-100 flex flex-wrap items-center gap-2 flex-shrink-0">
+                {{-- Left alone by re-renders, so the calendar and a date being
+                     typed are never torn down mid-way; only a whole date is
+                     sent, once the typing pauses. --}}
+                <input type="date" wire:ignore value="{{ $panelDate }}" max="{{ now()->toDateString() }}"
+                    x-on:input.debounce.400ms="if (/^(19|20)\d{2}-\d{2}-\d{2}$/.test($el.value) && $el.value !== $wire.panelDate) $wire.$set('panelDate', $el.value)"
+                    class="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-xs">
+                    <button type="button" x-on:click="all('present')" class="px-2.5 py-1.5 text-gray-600 hover:bg-gray-50">All present</button>
+                    <button type="button" x-on:click="all('absent')" class="px-2.5 py-1.5 text-gray-600 hover:bg-gray-50 border-l border-gray-200">All absent</button>
+                    <button type="button" x-on:click="all('')" class="px-2.5 py-1.5 text-gray-500 hover:bg-gray-50 border-l border-gray-200">Clear</button>
+                </div>
+                <span class="ml-auto text-xs text-gray-400 tabular-nums" x-text="marked + ' of ' + total + ' marked'"></span>
+            </div>
+
+            {{-- One quiet line explaining the day --}}
+            @if ($panelExisting)
+                <p class="px-6 py-2 text-xs text-amber-700 border-b border-gray-100 flex-shrink-0">Already marked for this date — change what you need and save to update it.</p>
+            @else
+                <p class="px-6 py-2 text-xs text-gray-500 border-b border-gray-100 flex-shrink-0">Only the rows you set are saved — an unmarked day stays open.</p>
+            @endif
+
+            {{-- Rows. The status classes are bound as objects, so a date change
+                 (which updates these rows in place) takes the old day's
+                 colours off again. --}}
+            <div class="flex-1 overflow-y-auto divide-y divide-gray-100">
+                @forelse ($markPeople as $i => $emp)
+                    @php
+                        $asTeacher = $emp->isTeacher() && $emp->teacher_detail_id;
+                        $typeLine  = implode(', ', array_map('ucfirst', $emp->types()));
+                        $subLine   = $emp->designation && strcasecmp((string) $emp->designation, $typeLine) !== 0
+                            ? $typeLine . ' · ' . $emp->designation
+                            : $typeLine;
+                    @endphp
+                    <div wire:key="pmark-row-{{ $emp->id }}" class="flex flex-wrap items-center gap-x-3 gap-y-2 px-6 py-2.5"
+                        :class="{ 'bg-gray-50/60': rows[{{ $emp->id }}] === '' }">
+                        <span class="w-5 text-[11px] text-gray-300 tabular-nums flex-shrink-0">{{ $i + 1 }}</span>
+                        @if ($emp->photo)
+                            <img src="{{ $emp->photo }}" class="w-8 h-8 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                        @else
+                            <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-[11px] font-medium flex-shrink-0">{{ strtoupper(substr($emp->name, 0, 1)) }}</div>
+                        @endif
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm text-gray-800 truncate">{{ $emp->name }}</p>
+                            <p class="text-[11px] text-gray-400 truncate">{{ $subLine }}</p>
+                        </div>
+                        <input type="text" wire:model="panelRows.{{ $emp->id }}.remark" placeholder="Remark" maxlength="255"
+                            class="w-28 sm:w-36 text-xs border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-[11px] flex-shrink-0">
+                            {{-- One width for every status, so a teacher's row (Holiday)
+                                 and anyone else's (Leave) line up down the list. --}}
+                            @foreach ($markOpts[$asTeacher ? 'teacher' : 'staff'] as $st => $label)
+                                <button type="button" x-on:click="pick({{ $emp->id }}, '{{ $st }}')"
+                                    class="w-14 py-1.5 text-center {{ $loop->first ? '' : 'border-l border-gray-200' }}"
+                                    :class="{ '{{ $markSel[$st] }}': rows[{{ $emp->id }}] === '{{ $st }}', 'text-gray-500 hover:bg-gray-50': rows[{{ $emp->id }}] !== '{{ $st }}' }">{{ $label }}</button>
+                            @endforeach
+                            {{-- Leave a row blank and it saves nothing at all, so the
+                                 day stays open to be marked later. --}}
+                            <button type="button" x-on:click="pick({{ $emp->id }}, '')" title="Leave unmarked"
+                                class="px-2 py-1.5 border-l border-gray-200"
+                                :class="{ 'bg-gray-100 text-gray-500': rows[{{ $emp->id }}] === '', 'text-gray-300 hover:text-gray-600 hover:bg-gray-50': rows[{{ $emp->id }}] !== '' }">&times;</button>
+                        </div>
+                    </div>
+                @empty
+                    <p class="py-16 text-center text-sm text-gray-400">No employees found.</p>
+                @endforelse
+            </div>
+
+            {{-- Footer --}}
+            <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                <button type="button" wire:click="closeMarkPanel" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                <button type="button" wire:click="saveMarkPanel" wire:loading.attr="disabled" wire:target="saveMarkPanel"
+                    :disabled="marked === 0"
+                    class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                    <span wire:loading.remove wire:target="saveMarkPanel">{{ $panelExisting ? 'Update Attendance' : 'Save Attendance' }}</span>
+                    <span wire:loading wire:target="saveMarkPanel">Saving...</span>
+                </button>
+            </div>
+        </div>
+    </div>
     @endif
 
     {{-- ══════════ DELETE EMPLOYEE CONFIRM ══════════

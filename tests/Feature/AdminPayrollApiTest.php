@@ -83,7 +83,7 @@ class AdminPayrollApiTest extends TestCase
 
         $d = $this->api()->employees(new Request())->getData(true)['data'];
 
-        // Management first, the teacher last — the panel's order.
+        // Management first, then the teacher — the panel's order.
         $this->assertSame(['Ravi', 'Meera'], array_column($d['employees'], 'name'));
         $this->assertSame(1, $d['stats']['teacher']);
     }

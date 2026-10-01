@@ -34,6 +34,15 @@ class Teacher extends Component
 {
     use WireUiActions, WithFileUploads, WithPagination;
 
+    /**
+     * Shown inside another page — Payroll's Add → Teacher: only this page's
+     * add form, open from the start, with no list behind it. The form, its
+     * rules and what saving does are this component's own, so a teacher added
+     * there is added exactly as here. Closing it tells the page that holds it
+     * (teacherFormClosed); a save already announces itself (onTeacherAddUpdate).
+     */
+    public bool $formOnly = false;
+
     // ─── Edit state ──────────────────────────────────────────────────────
     public $teacherData = [];
 
@@ -117,12 +126,17 @@ class Teacher extends Component
         'onImageClick',
     ];
 
-    public function mount(): void
+    public function mount(bool $formOnly = false): void
     {
         $cityHelper       = new CityGetHelper();
         $this->states     = $cityHelper->getState();
         $this->standards  = Standard::where('organization_id', Auth::user()->organization_id)->inClassOrder()->get();
         $this->loadTeacherDashboardData();
+
+        $this->formOnly = $formOnly;
+        if ($formOnly) {
+            $this->open = true;
+        }
     }
 
     public function loadTeacherDashboardData(): void
@@ -201,6 +215,10 @@ class Teacher extends Component
         $this->open = false;
         $this->resetForm();
         $this->dispatch('onUserAddUpdate');
+
+        if ($this->formOnly) {
+            $this->dispatch('teacherFormClosed');
+        }
     }
 
     public function closeViewModal(): void
@@ -999,6 +1017,11 @@ class Teacher extends Component
     // ─── Render ──────────────────────────────────────────────────────────
     public function render()
     {
+        // Inside Payroll: the form alone, no list to load.
+        if ($this->formOnly) {
+            return view('livewire.admin.teacher-form-only');
+        }
+
         $org = Auth::user()->organization_id;
 
         $teachers = TeacherDetail::with(['user', 'assignedClasses'])
