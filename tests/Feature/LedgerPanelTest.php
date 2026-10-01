@@ -90,6 +90,52 @@ class LedgerPanelTest extends TestCase
         $this->assertStringNotContainsString('Aarav Sharma (26DPS150001)', strip_tags($table));
     }
 
+    public function test_an_admission_fee_and_a_salary_read_as_the_name_over_the_type(): void
+    {
+        Schema::create('admission_enquiries', function (Blueprint $t) {
+            $t->id(); $t->unsignedBigInteger('organization_id'); $t->string('student_name')->nullable();
+            $t->decimal('collected_amount', 10, 2)->nullable(); $t->string('payment_mode')->nullable();
+            $t->string('collected_by')->nullable(); $t->date('fee_collected_at')->nullable(); $t->timestamps();
+        });
+        DB::table('admission_enquiries')->insert(['organization_id' => $this->org, 'student_name' => 'Kiran Bedi',
+            'collected_amount' => 1500, 'payment_mode' => 'cash', 'fee_collected_at' => now()->toDateString(), 'created_at' => now()]);
+        $emp = DB::table('admin_employees')->insertGetId(['name' => 'Meera Nair']);
+        DB::table('admin_salary_payments')->insert(['organization_id' => $this->org, 'admin_employee_id' => $emp, 'amount' => 20000,
+            'status' => 'paid', 'payment_date' => now()->toDateString(), 'month' => '2026-09', 'created_at' => now()]);
+
+        $html  = Livewire::test(Ledger::class)->html();
+        $table = preg_replace('/<!--.*?-->/s', '', substr($html, 0, strpos($html, '</table>')));
+
+        // The name, the type small under it — plain text, no coloured tag, no month.
+        $this->assertMatchesRegularExpression('/<p class="text-sm font-medium text-gray-900 break-words">Kiran Bedi<\/p>\s*<p class="text-xs text-gray-400">Admission<\/p>/', $table);
+        $this->assertMatchesRegularExpression('/<p class="text-sm font-medium text-gray-900 break-words">Meera Nair<\/p>\s*<p class="text-xs text-gray-400">Salary<\/p>/', $table);
+        $this->assertStringNotContainsString('Admission fee collection', strip_tags($table));
+        $this->assertStringNotContainsString('2026-09', strip_tags($table));
+        $this->assertStringNotContainsString('bg-teal-50', $table);
+        $this->assertStringNotContainsString('bg-orange-50', $table);
+
+        // View still carries the whole line, month included (its dot is escaped in the page's script).
+        $this->assertMatchesRegularExpression("/reason: 'Salary .{1,8} 2026-09'/", $html);
+    }
+
+    public function test_the_export_popup_opens_on_all_time_with_download_on_the_right(): void
+    {
+        $html = Livewire::test(Ledger::class)->call('overall')->html();
+
+        $this->assertStringContainsString("expMode: 'all'", $html);
+
+        // All time, then Single day, then Date range.
+        $popup = substr($html, strpos($html, 'Export Statement'));
+        $this->assertTrue(strpos($popup, 'All time') < strpos($popup, 'Single day'));
+        $this->assertTrue(strpos($popup, 'Single day') < strpos($popup, 'Date range'));
+
+        // Cancel first, Download PDF after it (the right-hand side).
+        $this->assertTrue(strpos($popup, 'Cancel') < strpos($popup, 'Download PDF'));
+
+        // Clear sits straight after the End date, not pushed to the far side.
+        $this->assertMatchesRegularExpression('/wire:click="clearFilters"\s*class="inline-flex/', $html);
+    }
+
     public function test_a_new_entry_needs_every_field(): void
     {
         Livewire::test(Ledger::class)

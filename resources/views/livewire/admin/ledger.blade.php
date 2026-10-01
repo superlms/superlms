@@ -4,7 +4,7 @@
         viewRow: {},
 
         showExport: false,
-        expMode: 'range',
+        expMode: 'all',
         expFrom: @js($startDate ?: now()->startOfMonth()->toDateString()),
         expTo: @js($endDate ?: now()->toDateString()),
         expDay: @js(now()->toDateString()),
@@ -133,11 +133,11 @@
                         class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 </div>
 
-                {{-- Clear, as the Students filter bar has it: shown once the window is
-                     anything but the one the page opens on. --}}
+                {{-- Clear: shown once the window is anything but the one the page
+                     opens on, right after the End date (not pushed to the far side). --}}
                 @unless ($isThisMonth)
                     <button wire:click="clearFilters"
-                        class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                        class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                         </svg>
@@ -195,6 +195,14 @@
                                 <td class="px-3 py-3">
                                     <p class="text-sm font-medium text-gray-900">{{ $row['kind'] }}</p>
                                     <p class="text-xs text-gray-400 break-words">{{ $row['admission_no'] ?? '—' }}</p>
+                                </td>
+                                @elseif (in_array($row['source'], ['Admission Fee', 'Salary'], true))
+                                {{-- An admission fee or a salary: only whose it is — the student,
+                                     the employee — and under it the type, as plain text. The
+                                     month and the rest are on View. --}}
+                                <td class="px-3 py-3">
+                                    <p class="text-sm font-medium text-gray-900 break-words">{{ $row['party'] ?? '—' }}</p>
+                                    <p class="text-xs text-gray-400">{{ $row['source'] === 'Salary' ? 'Salary' : 'Admission' }}</p>
                                 </td>
                                 @else
                                 <td class="px-3 py-3">
@@ -462,21 +470,23 @@
             </div>
 
             <div class="space-y-4 mb-5">
+                {{-- All time first, and the one the popup opens on; then a single
+                     day, then a date range. --}}
                 <div class="flex items-center gap-1 p-1 bg-gray-100 rounded-lg">
-                    <button type="button" @click="expMode = 'range'"
+                    <button type="button" @click="expMode = 'all'"
                         class="flex-1 px-3 py-1.5 text-xs font-medium rounded-md"
-                        :class="expMode === 'range' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'">
-                        Date range
+                        :class="expMode === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'">
+                        All time
                     </button>
                     <button type="button" @click="expMode = 'day'"
                         class="flex-1 px-3 py-1.5 text-xs font-medium rounded-md"
                         :class="expMode === 'day' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'">
                         Single day
                     </button>
-                    <button type="button" @click="expMode = 'all'"
+                    <button type="button" @click="expMode = 'range'"
                         class="flex-1 px-3 py-1.5 text-xs font-medium rounded-md"
-                        :class="expMode === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'">
-                        All time
+                        :class="expMode === 'range' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'">
+                        Date range
                     </button>
                 </div>
 
@@ -504,17 +514,18 @@
                 </p>
             </div>
 
+            {{-- Cancel on the left, Download on the right. --}}
             <div class="flex items-center gap-2">
+                <button type="button" @click="showExport = false" :disabled="exporting"
+                    class="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm
+                           font-medium rounded-lg transition-colors disabled:opacity-50">
+                    Cancel
+                </button>
                 <button type="button" @click="download()" :disabled="! canExport() || exporting"
                     class="flex-1 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm
                            font-medium rounded-lg transition-colors disabled:opacity-50"
                     x-text="exporting ? 'Preparing…' : 'Download PDF'">
                     Download PDF
-                </button>
-                <button type="button" @click="showExport = false" :disabled="exporting"
-                    class="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm
-                           font-medium rounded-lg transition-colors disabled:opacity-50">
-                    Cancel
                 </button>
             </div>
         </div>
