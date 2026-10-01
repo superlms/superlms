@@ -9,7 +9,9 @@ use App\Models\Admin\TransportFeePayment;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
+use App\Support\AcademicYear;
 use App\Support\TransportBilling;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -50,6 +52,13 @@ trait HandlesFeeSubmission
     public $submitDate        = '';
     public $submitRemark      = '';
     public $submittedBy       = '';
+
+    // Edit a payment's date — the popup the ledger's Payments list opens
+    public bool $showPaymentDateEdit = false;
+    public string $editPaymentKind   = '';   // 'academic' (fee_payments) | 'transport' (transport_fee_payments)
+    public $editPaymentId            = null;
+    public $editPaymentDate          = '';
+    public array $editPaymentInfo    = [];
 
     public function updatedSubmissionStandardId(): void
     {
@@ -200,8 +209,11 @@ trait HandlesFeeSubmission
             'submitAmount'      => 'required|numeric|min:1',
             'submitFeeType'     => 'required|in:academic,transport,penalty',
             'submitPaymentMode' => 'required|in:cash,online,cheque,bank_transfer',
-            'submitDate'        => 'required|date',
+            // Never before the running session — 1 April.
+            'submitDate'        => 'required|date|after_or_equal:' . $this->feeMinDate(),
             'submittedBy'       => 'required|string|max:255',
+        ], [
+            'submitDate.after_or_equal' => $this->feeMinDateMessage(),
         ]);
 
         // Can't collect more than what's actually due — the remaining
@@ -276,6 +288,94 @@ trait HandlesFeeSubmission
         }
     }
 
+    // ── A payment's date, corrected from the ledger's Payments list ───────────
+
+    /** The earliest date a fee may carry: 1 April of the running session. */
+    protected function feeMinDate(): string
+    {
+        return AcademicYear::start()->toDateString();
+    }
+
+    private function feeMinDateMessage(): string
+    {
+        return 'The date cannot be before ' . Carbon::parse($this->feeMinDate())->format('d M Y') . '.';
+    }
+
+    /**
+     * The selected student's payment behind a ledger row — a bus fee lives in
+     * transport_fee_payments, everything else (academic, penalty) in fee_payments.
+     */
+    private function ledgerPayment(string $kind, $id): FeePayment|TransportFeePayment|null
+    {
+        if (!$this->selectedStudentId || !$id) {
+            return null;
+        }
+
+        $model = $kind === 'transport' ? TransportFeePayment::class : FeePayment::class;
+
+        return $model::where('organization_id', $this->orgId())
+            ->where('student_detail_id', $this->selectedStudentId)
+            ->find($id);
+    }
+
+    public function openPaymentDateEdit(string $kind, $id): void
+    {
+        $payment = $this->ledgerPayment($kind, $id);
+        if (!$payment) {
+            $this->notification()->error('Payment not found.');
+            return;
+        }
+
+        $this->editPaymentKind = $kind === 'transport' ? 'transport' : 'academic';
+        $this->editPaymentId   = $payment->id;
+        $this->editPaymentDate = $payment->payment_date?->toDateString() ?? '';
+        $this->editPaymentInfo = [
+            'receipt_number' => $payment->receipt_number,
+            'amount'         => (float) $payment->amount,
+            'fee_type'       => $kind === 'transport' ? 'transport' : $payment->fee_type,
+        ];
+        $this->resetValidation('editPaymentDate');
+        $this->showPaymentDateEdit = true;
+    }
+
+    public function closePaymentDateEdit(): void
+    {
+        $this->showPaymentDateEdit = false;
+        $this->resetValidation('editPaymentDate');
+    }
+
+    /** Only the date moves — amount, mode, receipt number and the rest stay as booked. */
+    public function savePaymentDate(): void
+    {
+        $this->validate([
+            'editPaymentDate' => 'required|date|after_or_equal:' . $this->feeMinDate(),
+        ], [
+            'editPaymentDate.required'       => 'Choose a date.',
+            'editPaymentDate.date'           => 'Choose a valid date.',
+            'editPaymentDate.after_or_equal' => $this->feeMinDateMessage(),
+        ]);
+
+        $payment = $this->ledgerPayment($this->editPaymentKind, $this->editPaymentId);
+        if (!$payment) {
+            $this->showPaymentDateEdit = false;
+            $this->notification()->error('Payment not found.');
+            return;
+        }
+
+        try {
+            $payment->update(['payment_date' => $this->editPaymentDate]);
+
+            $this->notification()->success('Payment date updated.');
+            $this->showPaymentDateEdit = false;
+            $this->reset(['editPaymentKind', 'editPaymentId', 'editPaymentDate', 'editPaymentInfo']);
+
+            // Refresh the ledger — the Payments list is ordered by date.
+            $this->updatedSelectedStudentId();
+        } catch (\Exception $e) {
+            $this->notification()->error('Error updating the date', $e->getMessage());
+        }
+    }
+
     /** How much can currently be submitted for the selected fee type. */
     private function submitFeeTypeCap(): float
     {
@@ -341,6 +441,8 @@ trait HandlesFeeSubmission
             'fsSections'   => $fsSections,
             'fsStudents'   => $fsStudents,
             'feeTypeCaps'  => $this->feeTypeCaps(),
+            // The date fields' `min` — Collect Fee and the payment date edit.
+            'feeMinDate'   => $this->feeMinDate(),
         ];
     }
 }

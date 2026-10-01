@@ -328,7 +328,16 @@
                     <tr wire:key="sv-pay-{{ $p['kind'] }}-{{ $p['id'] }}" class="hover:bg-gray-50/70">
                         <td class="px-4 py-2.5 text-[11px] text-gray-300 tabular-nums">{{ $n + 1 }}</td>
                         <td class="px-4 py-2.5 font-mono text-xs text-gray-700">{{ $p['receipt_number'] }}</td>
-                        <td class="px-4 py-2.5 text-gray-600 whitespace-nowrap">{{ $p['payment_date'] ?? '—' }}</td>
+                        <td class="px-4 py-2.5 text-gray-600 whitespace-nowrap">
+                            {{ $p['payment_date'] ?? '—' }}
+                            {{-- Fee Submission passes `editDates`; View Fee does not, and stays read-only. --}}
+                            @if (!empty($editDates) && !empty($p['id']))
+                                <button type="button" wire:click="openPaymentDateEdit('{{ $p['kind'] }}', {{ (int) $p['id'] }})" title="Edit date"
+                                    class="inline-flex items-center justify-center w-6 h-6 ml-1 align-middle rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                                </button>
+                            @endif
+                        </td>
                         <td class="px-4 py-2.5 text-gray-600 capitalize">{{ $p['fee_type'] }}</td>
                         <td class="px-4 py-2.5 capitalize {{ $p['is_concession'] ? 'text-emerald-600' : 'text-gray-600' }}">
                             {{ str_replace('_', ' ', $p['payment_mode']) }}
