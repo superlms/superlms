@@ -79,7 +79,8 @@ class Home extends Component
     // 7 / 15 / 30 / 60 / 90 days, or 180 for the last six months. Short ranges
     // bucket by day, longer ones by week and the six-month one by month, so the
     // bars stay readable whatever is picked.
-    public string $feeRange = '7';
+    // The Fee Collection chart is the last 30 days; its range picker is off the page.
+    public string $feeRange = '30';
     public $feeSeries = [];
     public $feeRangeTotal = 0;
 
@@ -353,17 +354,24 @@ class Home extends Component
      * Fifteen days of attendance, oldest first — one bucket per day carrying the
      * student and teacher counts separately so each trend chart reads on its own.
      */
+    /**
+     * The Attendance Trend's days, the oldest first. It covers the last 30 days
+     * now (the name is from when it was 15); with no date picker on the page
+     * any more, the figures under each chart are today's.
+     */
+    private const TREND_DAYS = 30;
+
     protected function loadLast15DaysData(): void
     {
         $orgId = FacadesAuth::user()->organization_id;
 
         $stu = StudentAttendance::where('organization_id', $orgId)
-            ->whereDate('attendance_date', '>=', now()->subDays(14)->toDateString())
+            ->whereDate('attendance_date', '>=', now()->subDays(self::TREND_DAYS - 1)->toDateString())
             ->selectRaw('DATE(attendance_date) as d, status, COUNT(*) as c')
             ->groupBy('d', 'status')->get();
 
         $tch = TeacherAttendance::where('organization_id', $orgId)
-            ->whereDate('attendance_date', '>=', now()->subDays(14)->toDateString())
+            ->whereDate('attendance_date', '>=', now()->subDays(self::TREND_DAYS - 1)->toDateString())
             ->selectRaw('DATE(attendance_date) as d, status, COUNT(*) as c')
             ->groupBy('d', 'status')->get();
 
@@ -379,7 +387,7 @@ class Home extends Component
         $tchBy = $bucket($tch);
 
         $this->last15DaysData = [];
-        for ($i = 14; $i >= 0; $i--) {
+        for ($i = self::TREND_DAYS - 1; $i >= 0; $i--) {
             $day  = now()->subDays($i);
             $date = $day->toDateString();
             $s    = $stuBy[$date] ?? [];

@@ -187,11 +187,8 @@
                                         <span class="text-gray-400">No sections</span>
                                     @endif
                                 </div>
-                                <div class="col-span-1 text-center">
-                                    <span class="inline-block px-2 py-0.5 text-xs rounded-full font-medium
-                                        {{ $std->is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600' }}">
-                                        {{ $std->is_active ? 'Active' : 'Inactive' }}
-                                    </span>
+                                <div class="col-span-1 text-center text-sm {{ $std->is_active ? 'text-gray-700' : 'text-gray-400' }}">
+                                    {{ $std->is_active ? 'Active' : 'Inactive' }}
                                 </div>
                                 <div class="col-span-2 flex items-center justify-end gap-1" wire:click.stop>
                                     <button wire:click.stop="onViewStandardAdmin({{ $std->id }})"
@@ -257,11 +254,8 @@
                                     <p class="font-semibold text-gray-900 text-sm truncate">{{ $section->name }}</p>
                                 </div>
                                 <div class="col-span-4 text-sm text-gray-600">{{ $section->standard->name ?? '—' }}</div>
-                                <div class="col-span-1 text-center">
-                                    <span class="inline-block px-2 py-0.5 text-xs rounded-full font-medium
-                                        {{ $section->is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600' }}">
-                                        {{ $section->is_active ? 'Active' : 'Inactive' }}
-                                    </span>
+                                <div class="col-span-1 text-center text-sm {{ $section->is_active ? 'text-gray-700' : 'text-gray-400' }}">
+                                    {{ $section->is_active ? 'Active' : 'Inactive' }}
                                 </div>
                                 <div class="col-span-2 flex items-center justify-end gap-1" wire:click.stop>
                                     <button wire:click.stop="onViewSectionAdmin({{ $section->id }})"
@@ -333,11 +327,8 @@
                                         <span class="text-gray-400">· {{ \App\Support\SectionNames::joined($subject->sections->pluck('name')) }}</span>
                                     @endif
                                 </div>
-                                <div class="col-span-1 text-center">
-                                    <span class="inline-block px-2 py-0.5 text-xs rounded-full font-medium
-                                        {{ $subject->is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600' }}">
-                                        {{ $subject->is_active ? 'Active' : 'Inactive' }}
-                                    </span>
+                                <div class="col-span-1 text-center text-sm {{ $subject->is_active ? 'text-gray-700' : 'text-gray-400' }}">
+                                    {{ $subject->is_active ? 'Active' : 'Inactive' }}
                                 </div>
                                 <div class="col-span-2 flex items-center justify-end gap-1" wire:click.stop>
                                     <button wire:click.stop="onViewSubjectAdmin({{ $subject->id }})"

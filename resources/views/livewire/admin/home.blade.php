@@ -6,14 +6,14 @@
         $teacherAttPct = $totalTeachers > 0 ? round(($teachersPresentToday / $totalTeachers) * 100, 1) : 0;
         $collectionPct = $totalFee > 0 ? round(($overallFeeCollected / $totalFee) * 100, 1) : 0;
 
-        // Fifteen-day series, split so student and teacher each get their own chart.
+        // Thirty-day series, split so student and teacher each get their own chart.
         $trendLabels   = array_column($last15DaysData, 'label');
         $trendStuPres  = array_column($last15DaysData, 'student_present');
         $trendStuAbs   = array_column($last15DaysData, 'student_absent');
         $trendTchPres  = array_column($last15DaysData, 'teacher_present');
         $trendTchAbs   = array_column($last15DaysData, 'teacher_absent');
 
-        // The day the trend dropdown is pointing at.
+        // The day the figures under the trend charts are for: today.
         $pick = $this->trendDay();
 
         // Exam performance: one point per exam, average percentage across every
@@ -121,20 +121,24 @@
         <section>
             <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Quick Access</h2>
             <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                {{-- One quiet style for every tile: a plain outline icon in a soft
+                     grey square, which turns dark under the pointer. No colour per tile. --}}
                 @php
                     $quick = [
-                        ['label' => 'Attendance',   'route' => 'admin.attendance',   'ic' => 'text-blue-600',    'icon' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'],
-                        ['label' => 'Announcement', 'route' => 'admin.announcement', 'ic' => 'text-purple-600',  'icon' => 'M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z'],
-                        ['label' => 'Arrangements', 'route' => 'admin.arrangement',  'ic' => 'text-indigo-600',  'icon' => 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'],
-                        ['label' => 'Fee',          'route' => 'admin.fee',          'ic' => 'text-emerald-600', 'icon' => 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'],
-                        ['label' => 'Homework',     'route' => 'admin.homework',     'ic' => 'text-amber-600',   'icon' => 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253'],
-                        ['label' => 'Analytics',    'route' => 'admin.analytics',    'ic' => 'text-rose-600',    'icon' => 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'],
+                        ['label' => 'Attendance',   'route' => 'admin.attendance',   'icon' => 'clipboard-document-check'],
+                        ['label' => 'Announcement', 'route' => 'admin.announcement', 'icon' => 'megaphone'],
+                        ['label' => 'Arrangements', 'route' => 'admin.arrangement',  'icon' => 'arrows-right-left'],
+                        ['label' => 'Fee',          'route' => 'admin.fee',          'icon' => 'currency-rupee'],
+                        ['label' => 'Homework',     'route' => 'admin.homework',     'icon' => 'book-open'],
+                        ['label' => 'Analytics',    'route' => 'admin.analytics',    'icon' => 'chart-bar'],
                     ];
                 @endphp
                 @foreach ($quick as $q)
                     <a href="{{ route($q['route'], ['organization' => $organization]) }}"
-                        class="group bg-white rounded-xl border border-gray-200 px-3 py-4 flex flex-col items-center text-center gap-2 hover:border-gray-300 hover:shadow-sm transition-all">
-                        <svg class="w-5 h-5 {{ $q['ic'] }}" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $q['icon'] }}" /></svg>
+                        class="group bg-white rounded-xl border border-gray-200 px-3 py-4 flex flex-col items-center text-center gap-2.5 hover:border-gray-300 transition-colors">
+                        <span class="w-10 h-10 rounded-lg bg-gray-100 text-gray-600 flex items-center justify-center transition-colors group-hover:bg-gray-900 group-hover:text-white">
+                            <x-icon name="{{ $q['icon'] }}" class="w-5 h-5" />
+                        </span>
                         <span class="text-xs font-medium text-gray-600 group-hover:text-gray-900">{{ $q['label'] }}</span>
                     </a>
                 @endforeach
@@ -142,22 +146,16 @@
         </section>
 
         {{-- ══════════════════════════════════════════════════════════════════
-             ATTENDANCE TREND — students and teachers get a chart each. The
-             shared dropdown picks one of the last 15 days and both cards
-             report that day underneath their own chart.
+             ATTENDANCE TREND — students and teachers get a chart each, over
+             the last 30 days. Both cards report today underneath their own
+             chart (the date dropdown that picked another day is taken off).
         ══════════════════════════════════════════════════════════════════ --}}
         <section>
             <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div>
                     <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest">Attendance Trend</h2>
-                    <p class="text-xs text-gray-400 mt-0.5">Last 15 days</p>
+                    <p class="text-xs text-gray-400 mt-0.5">Last 30 days</p>
                 </div>
-                <select wire:model.live="attTrendDate"
-                    class="text-xs bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-400">
-                    @foreach (array_reverse($last15DaysData) as $d)
-                        <option value="{{ $d['date'] }}">{{ \Carbon\Carbon::parse($d['date'])->format('D, d M Y') }}</option>
-                    @endforeach
-                </select>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -253,7 +251,7 @@
 
         {{-- ══════════════════════════════════════════════════════════════════
              FEE COLLECTION — the bars come from the payments actually recorded
-             in the selected range, bucketed by day / week / month to suit it.
+             over the last 30 days, one bar a day (the range picker is taken off).
         ══════════════════════════════════════════════════════════════════ --}}
         <section>
             <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Fee Collection</h2>
@@ -265,15 +263,6 @@
                             <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Collected · {{ $this->feeRangeLabel() }}</p>
                             <p class="text-2xl font-semibold text-gray-900 mt-1 tabular-nums">₹{{ number_format($feeRangeTotal, 0) }}</p>
                         </div>
-                        <select wire:model.live="feeRange"
-                            class="text-xs bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-indigo-400">
-                            <option value="7">Last 7 days</option>
-                            <option value="15">Last 15 days</option>
-                            <option value="30">Last 30 days</option>
-                            <option value="60">Last 60 days</option>
-                            <option value="90">Last 90 days</option>
-                            <option value="180">Last 6 months</option>
-                        </select>
                     </div>
                     <div class="h-56" wire:key="home-fee-{{ $feeRange }}">
                         <canvas x-data="{
@@ -354,13 +343,14 @@
                                     <tr>
                                         <th class="px-5 py-2.5 text-left font-medium">Day</th>
                                         <th class="px-4 py-2.5 text-center font-medium" colspan="2">Students</th>
-                                        <th class="px-4 py-2.5 text-center font-medium" colspan="2">Teachers</th>
+                                        {{-- A rule down the middle, between the students' columns and the teachers'. --}}
+                                        <th class="px-4 py-2.5 text-center font-medium border-l border-gray-200" colspan="2">Teachers</th>
                                     </tr>
                                     <tr class="text-[10px]">
                                         <th></th>
                                         <th class="px-4 pb-2 text-center font-normal">Present</th>
                                         <th class="px-4 pb-2 text-center font-normal">Absent</th>
-                                        <th class="px-4 pb-2 text-center font-normal">Present</th>
+                                        <th class="px-4 pb-2 text-center font-normal border-l border-gray-200">Present</th>
                                         <th class="px-4 pb-2 text-center font-normal">Absent</th>
                                     </tr>
                                 </thead>
@@ -371,7 +361,7 @@
                                             <td class="px-5 py-2.5 font-medium text-gray-700">{{ $data['day'] }}</td>
                                             <td class="px-4 py-2.5 text-center text-gray-700 tabular-nums">{{ $data['student_present'] }}</td>
                                             <td class="px-4 py-2.5 text-center text-gray-700 tabular-nums">{{ $data['student_absent'] }}</td>
-                                            <td class="px-4 py-2.5 text-center text-gray-700 tabular-nums">{{ $data['teacher_present'] }}</td>
+                                            <td class="px-4 py-2.5 text-center text-gray-700 tabular-nums border-l border-gray-200">{{ $data['teacher_present'] }}</td>
                                             <td class="px-4 py-2.5 text-center text-gray-700 tabular-nums">{{ $data['teacher_absent'] }}</td>
                                         </tr>
                                     @endforeach
