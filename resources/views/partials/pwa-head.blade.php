@@ -2,6 +2,7 @@
      A role-specific manifest is served so installing from the admin / super-admin
      / accounts area produces a separate app that opens straight into that role
      (and shows that role's login when the session has expired). --}}
+@include('partials.app-window')
 @php
     $pwaRole = 'site';
     if (request()->routeIs('super-admin.*') || request()->routeIs('pwa.superadmin')) {

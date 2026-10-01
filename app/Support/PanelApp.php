@@ -158,6 +158,11 @@ class PanelApp
         if (!$user || !self::allowed('superadmin', $user)) {
             $user = self::account('superadmin');
         }
+        // The super-admin signed in in the browser, seen from the app's window.
+        if (!$user && AppWindow::isApp() && ($other = AppWindow::signedInElsewhere('superadmin'))
+            && self::allowed('superadmin', $other)) {
+            $user = $other;
+        }
         if (!$user) {
             return null;
         }

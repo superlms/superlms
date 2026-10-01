@@ -25,6 +25,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // after TrustProxies — getHost() then reflects the real forwarded host.
         $middleware->append(ServeSchoolSite::class);
 
+        // An installed panel app and the browser keep their own sign-ins (App\Support\AppWindow).
+        $middleware->append(\App\Http\Middleware\UseAppWindow::class);
+
         $middleware->alias([
             'admin' => EnsureIsAdmin::class,
             'super-admin' => EnsureIsSuperAdmin::class,

@@ -48,6 +48,9 @@ class AppWindow
     /** A mount: the app's scope, then "~". */
     private const MOUNT = '(?:/(?:\d+|accounts))?/~';
 
+    /** The browser's session cookie name — config is changed per request. */
+    private static ?string $baseCookie = null;
+
     /** The mount of the request being served — null in the browser. */
     private static ?string $mount = null;
 
@@ -173,7 +176,7 @@ class AppWindow
     /** The browser's session cookie, or the app's own. */
     public static function sessionCookie(?string $mount = null): string
     {
-        $name  = (string) config('session.cookie');
+        $name  = self::$baseCookie ??= (string) config('session.cookie');
         $mount = func_num_args() ? $mount : self::$mount;
 
         if (!$mount) {
