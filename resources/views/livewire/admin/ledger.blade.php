@@ -9,11 +9,25 @@
         expTo: @js($endDate ?: now()->toDateString()),
         expDay: @js(now()->toDateString()),
 
+        exporting: false,
+
         openExport() { this.showExport = true },
         canExport() {
             if (this.expMode === 'all') return true;
             if (this.expMode === 'day') return !! this.expDay;
             return !! (this.expFrom && this.expTo);
+        },
+        {{-- The PDF comes down as a file, as the Students export does; the popup
+             waits on it and then closes. --}}
+        async download() {
+            if (! this.canExport() || this.exporting) return;
+            this.exporting = true;
+            try {
+                await this.$wire.exportStatement(this.expMode, this.expFrom, this.expTo, this.expDay);
+            } finally {
+                this.exporting = false;
+                this.showExport = false;
+            }
         },
         exportUrl() {
             const params = new URLSearchParams();
@@ -118,6 +132,18 @@
                     <input type="date" wire:model.live="endDate" min="{{ $startDate }}"
                         class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 </div>
+
+                {{-- Clear, as the Students filter bar has it: shown once the window is
+                     anything but the one the page opens on. --}}
+                @unless ($isThisMonth)
+                    <button wire:click="clearFilters"
+                        class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Clear
+                    </button>
+                @endunless
             </div>
         </div>
     </div>
@@ -142,8 +168,10 @@
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
                             <th class="w-[10%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                            <th class="w-[25%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Particulars</th>
-                            <th class="w-[13%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">From</th>
+                            {{-- A fee row's particulars are two short lines now and its From
+                                 two as well, so From takes some of the width. --}}
+                            <th class="w-[20%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Particulars</th>
+                            <th class="w-[18%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">From</th>
                             <th class="w-[12%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">To</th>
                             <th class="w-[9%] px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Mode</th>
                             <th class="w-[12%] px-3 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
@@ -160,6 +188,15 @@
                                         <span class="block text-[11px] text-gray-400">{{ $row['time'] }}</span>
                                     @endif
                                 </td>
+                                @if (!empty($row['kind']))
+                                {{-- A fee: only its kind — Academic, Transport or Penalty — and
+                                     under it the student's admission number. The receipt and the
+                                     rest are on View. --}}
+                                <td class="px-3 py-3">
+                                    <p class="text-sm font-medium text-gray-900">{{ $row['kind'] }}</p>
+                                    <p class="text-xs text-gray-400 break-words">{{ $row['admission_no'] ?? '—' }}</p>
+                                </td>
+                                @else
                                 <td class="px-3 py-3">
                                     @php
                                         // Every automatic source gets its own colour so the credits
@@ -184,9 +221,20 @@
                                         @endif
                                     </div>
                                 </td>
+                                @endif
                                 {{-- The school's own side reads as whose entry it is — Admin,
-                                     Sub-admin or Accounts — not as the school's name. --}}
-                                <td class="px-3 py-3 text-sm text-gray-600 break-words">{{ $row['from_label'] }}</td>
+                                     Sub-admin or Accounts — not as the school's name. A student
+                                     reads as their name, the father's name small under it. --}}
+                                <td class="px-3 py-3 text-sm text-gray-600 break-words">
+                                    @if (!empty($row['student_name']))
+                                        {{ $row['student_name'] }}
+                                        @if (!empty($row['father_name']))
+                                            <span class="block text-xs text-gray-400">{{ $row['father_name'] }}</span>
+                                        @endif
+                                    @else
+                                        {{ $row['from_label'] }}
+                                    @endif
+                                </td>
                                 <td class="px-3 py-3 text-sm text-gray-600 break-words">{{ $row['to_label'] }}</td>
                                 <td class="px-3 py-3 text-sm text-gray-500">
                                     {{-- Payment mode, with how the row got here underneath it. --}}
@@ -289,12 +337,14 @@
                 </div>
 
                 <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-                    {{-- Adding: first say which it is; the rest of the form follows.
-                         An entry being edited keeps its type. --}}
+                    {{-- Adding: first say which it is; the rest of the form follows, every
+                         field of it compulsory. An entry being edited keeps its type and
+                         everything else but its date: the other fields are shown, locked. --}}
                     @if ($editingId)
                         <div class="rounded-lg px-3.5 py-2.5 text-sm font-medium
                             {{ $modalType === 'expense' ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700' }}">
                             This entry is recorded under <strong>{{ $modalType === 'expense' ? 'Expenses' : 'Credits' }}</strong>.
+                            Only its date can be changed.
                         </div>
                     @else
                         <div>
@@ -323,24 +373,24 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Amount (₹) <span class="text-red-500">*</span></label>
-                            <input wire:model.defer="mAmount" type="number" step="0.01" min="0" placeholder="0.00"
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            <input wire:model.defer="mAmount" type="number" step="0.01" min="0" placeholder="0.00" @disabled($editingId)
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed">
                             @error('mAmount')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">From</label>
-                            <input wire:model.defer="mParty" type="text"
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">From <span class="text-red-500">*</span></label>
+                            <input wire:model.defer="mParty" type="text" @disabled($editingId)
                                 placeholder="{{ $modalType === 'expense' ? 'Paid from (source / account)' : 'Received from (payer)' }}"
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed">
                             @error('mParty')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Mode</label>
-                            <select wire:model.defer="mMode"
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Mode <span class="text-red-500">*</span></label>
+                            <select wire:model.defer="mMode" @disabled($editingId)
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed">
                                 @foreach ($modes as $mode)
                                     <option value="{{ $mode }}">{{ $mode }}</option>
                                 @endforeach
@@ -351,24 +401,24 @@
 
                     @if ($modalType === 'credit')
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Collected by</label>
-                            <input wire:model.defer="mCollectedBy" type="text" placeholder="Staff member who collected the money"
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Collected by <span class="text-red-500">*</span></label>
+                            <input wire:model.defer="mCollectedBy" type="text" placeholder="Staff member who collected the money" @disabled($editingId)
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed">
                             @error('mCollectedBy')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                     @else
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">To</label>
-                            <input wire:model.defer="mPartyTo" type="text" placeholder="Paid to (payee / vendor)"
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">To <span class="text-red-500">*</span></label>
+                            <input wire:model.defer="mPartyTo" type="text" placeholder="Paid to (payee / vendor)" @disabled($editingId)
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed">
                             @error('mPartyTo')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                     @endif
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Remark <span class="text-red-500">*</span></label>
-                        <textarea wire:model.defer="mReason" rows="3" placeholder="What is this for?"
-                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm resize-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                        <textarea wire:model.defer="mReason" rows="3" placeholder="What is this for?" @disabled($editingId)
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm resize-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed"></textarea>
                         @error('mReason')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                     @endif
@@ -380,7 +430,7 @@
                     @if ($modalType === 'credit' || $modalType === 'expense')
                         <button wire:click="saveManual" wire:loading.attr="disabled" wire:target="saveManual"
                             class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
-                            <span wire:loading.remove wire:target="saveManual">{{ $editingId ? 'Update' : 'Save' }} {{ $modalType === 'expense' ? 'Expense' : 'Credit' }}</span>
+                            <span wire:loading.remove wire:target="saveManual">{{ $editingId ? 'Update Date' : 'Save ' . ($modalType === 'expense' ? 'Expense' : 'Credit') }}</span>
                             <span wire:loading wire:target="saveManual">Saving...</span>
                         </button>
                     @endif
@@ -389,16 +439,29 @@
         </div>
     @endif
 
-    {{-- EXPORT STATEMENT DIALOG — pick the period before the PDF is built --}}
-    <div x-cloak x-show="showExport" class="fixed inset-x-0 bottom-0 top-16 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" @click="showExport = false"></div>
-        <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-md">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-base font-semibold text-gray-900">Export Statement</h3>
-                <p class="text-xs text-gray-500 mt-0.5">Choose the period the PDF should cover.</p>
+    {{-- EXPORT STATEMENT POPUP — pick the period before the PDF is built. The
+         logout popup's card: in the middle of the window, everything behind it
+         (top bar and sidebar too, hence `lms-cover` while it is open) dimmed and
+         blurred. --}}
+    <div x-cloak x-show="showExport" :class="showExport && 'lms-cover'"
+        @click.self="exporting || (showExport = false)"
+        @keydown.escape.window="exporting || (showExport = false)"
+        class="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-[9999] px-4">
+        <div class="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-9 h-9 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-900">Export Statement</h3>
+                    <p class="text-xs text-gray-400">Choose the period the PDF should cover.</p>
+                </div>
             </div>
 
-            <div class="px-6 py-5 space-y-4">
+            <div class="space-y-4 mb-5">
                 <div class="flex items-center gap-1 p-1 bg-gray-100 rounded-lg">
                     <button type="button" @click="expMode = 'range'"
                         class="flex-1 px-3 py-1.5 text-xs font-medium rounded-md"
@@ -441,16 +504,18 @@
                 </p>
             </div>
 
-            <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2">
-                <button type="button" @click="showExport = false" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                <a :href="exportUrl()" target="_blank" @click="showExport = false"
-                    class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md inline-flex items-center gap-1.5"
-                    :class="canExport() ? '' : 'opacity-50 pointer-events-none'">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
+            <div class="flex items-center gap-2">
+                <button type="button" @click="download()" :disabled="! canExport() || exporting"
+                    class="flex-1 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm
+                           font-medium rounded-lg transition-colors disabled:opacity-50"
+                    x-text="exporting ? 'Preparing…' : 'Download PDF'">
                     Download PDF
-                </a>
+                </button>
+                <button type="button" @click="showExport = false" :disabled="exporting"
+                    class="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm
+                           font-medium rounded-lg transition-colors disabled:opacity-50">
+                    Cancel
+                </button>
             </div>
         </div>
     </div>

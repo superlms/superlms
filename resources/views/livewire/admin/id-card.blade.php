@@ -70,11 +70,7 @@
                     <option value="issued">Issued</option>
                     <option value="not_issued">Not Issued</option>
                 </select>
-                <select wire:model.live="perPage" class="shrink-0 text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                    <option value="50">50 / page</option>
-                    <option value="100">100 / page</option>
-                    <option value="200">200 / page</option>
-                </select>
+                {{-- The list is 100 a page; there is no page-size choice. --}}
                 @if ($search || $standardFilter || $sectionFilter || $statusFilter || $issueFilter)
                     <button wire:click="resetFilters" class="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -105,80 +101,58 @@
         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full">
+                    {{-- The columns follow the tab. Students: the card number, then the
+                         class with the section small under it. Teachers: the username
+                         under the name, then the mobile. Employees: mobile and email.
+                         The card's status is the dot before the actions, as on Students. --}}
+                    @php $columns = ['student' => 6, 'teacher' => 6, 'employee' => 7][$cardType] ?? 6; @endphp
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{{ ucfirst($cardType) }}</th>
+                            @if ($cardType !== 'student')
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Mobile</th>
+                            @endif
+                            @if ($cardType === 'employee')
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
+                            @endif
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Card No.</th>
+                            @if ($cardType === 'student')
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Class</th>
+                            @endif
                             <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Expiry</th>
-                            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                             <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         @forelse ($cards as $i => $card)
-                            @if ($this->listingPeople())
-                                {{-- Not issued: the person, with no card to show or act on. --}}
-                                @php
-                                    if ($cardType === 'student') {
-                                        $name  = $card->full_name ?: ($card->user?->name ?? '—');
-                                        $img   = $card->image ?? ($card->user?->image ?? null);
-                                        $ident = trim(($card->admission_no ?? '') . ($card->standard ? ' · ' . $card->standard->name . ($card->section ? ' - ' . $card->section->name : '') : ''), ' ·');
-                                    } elseif ($cardType === 'teacher') {
-                                        $name  = $card->user?->name ?? '—';
-                                        $img   = $card->user?->image;
-                                        $ident = $card->employee_id;
-                                    } else {
-                                        $name  = $card->name ?? '—';
-                                        $img   = $card->photo;
-                                        $ident = $card->designation ?? ('EMP-' . $card->id);
-                                    }
-                                    $imgUrl = $img ? (\Illuminate\Support\Str::startsWith($img, ['http://','https://','data:']) ? $img : \Illuminate\Support\Facades\Storage::url($img)) : null;
-                                @endphp
-                                <tr wire:key="person-{{ $cardType }}-{{ $card->id }}" class="hover:bg-gray-50 transition-colors">
-                                    <td class="px-4 py-3 text-sm text-gray-500 tabular-nums">{{ $cards->firstItem() + $i }}</td>
-                                    <td class="px-4 py-3">
-                                        <div class="flex items-center gap-3">
-                                            @if ($imgUrl)
-                                                <img src="{{ $imgUrl }}" class="w-9 h-9 rounded-full object-cover border border-gray-200">
-                                            @else
-                                                <div class="w-9 h-9 rounded-full bg-violet-100 flex items-center justify-center text-violet-600 text-xs font-bold">{{ strtoupper(substr($name, 0, 1)) }}</div>
-                                            @endif
-                                            <div class="min-w-0">
-                                                <p class="font-semibold text-sm text-gray-900 truncate">{{ $name }}</p>
-                                                <p class="text-xs text-gray-400 truncate">{{ $ident ?: '—' }}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-4 py-3 font-mono text-xs text-gray-400">—</td>
-                                    <td class="px-4 py-3 text-center text-sm text-gray-400">—</td>
-                                    <td class="px-4 py-3 text-center">
-                                        <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-amber-50 text-amber-700">Not issued</span>
-                                    </td>
-                                    <td class="px-4 py-3 text-center text-xs text-gray-400">—</td>
-                                </tr>
-                                @continue
-                            @endif
                             @php
+                                // The holder: the row itself when people are listed (Not
+                                // issued), otherwise the person the card belongs to.
+                                $issued = !$this->listingPeople();
                                 if ($cardType === 'student') {
-                                    $person = $card->studentDetail;
-                                    $name   = $person?->full_name ?? ($person?->user?->name ?? '—');
+                                    $person = $issued ? $card->studentDetail : $card;
+                                    $name   = $person?->full_name ?: ($person?->user?->name ?? '—');
                                     $img    = $person?->image ?? ($person?->user?->image ?? null);
                                     $ident  = $person?->admission_no;
                                 } elseif ($cardType === 'teacher') {
-                                    $person = $card->teacherDetail;
+                                    $person = $issued ? $card->teacherDetail : $card;
                                     $name   = $person?->user?->name ?? '—';
                                     $img    = $person?->user?->image;
-                                    $ident  = $person?->employee_id;
+                                    // What they sign in with; the employee id where there is none.
+                                    $ident  = $person?->user?->username ?: $person?->employee_id;
+                                    $mobile = $person?->phone;
                                 } else {
-                                    $person = $card->adminEmployee;
+                                    $person = $issued ? $card->adminEmployee : $card;
                                     $name   = $person?->name ?? '—';
                                     $img    = $person?->photo;
                                     $ident  = $person?->designation ?? ('EMP-' . ($person?->id ?? ''));
+                                    $mobile = $person?->mobile;
+                                    $email  = $person?->email;
                                 }
                                 $imgUrl = $img ? (\Illuminate\Support\Str::startsWith($img, ['http://','https://','data:']) ? $img : \Illuminate\Support\Facades\Storage::url($img)) : null;
                             @endphp
-                            <tr wire:key="card-{{ $cardType }}-{{ $card->id }}" class="hover:bg-gray-50 transition-colors">
+                            <tr wire:key="{{ $issued ? 'card' : 'person' }}-{{ $cardType }}-{{ $card->id }}" class="hover:bg-gray-50 transition-colors">
                                 <td class="px-4 py-3 text-sm text-gray-500 tabular-nums">{{ $cards->firstItem() + $i }}</td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-3">
@@ -189,36 +163,72 @@
                                         @endif
                                         <div class="min-w-0">
                                             <p class="font-semibold text-sm text-gray-900 truncate">{{ $name }}</p>
-                                            <p class="text-xs text-gray-400 truncate">{{ $ident ?? '—' }}</p>
+                                            <p class="text-xs text-gray-400 truncate">{{ $ident ?: '—' }}</p>
                                         </div>
                                     </div>
                                 </td>
-                                <td class="px-4 py-3 font-mono text-xs text-gray-600">{{ $card->card_number }}</td>
-                                <td class="px-4 py-3 text-center text-sm text-gray-600">{{ $card->expiry_date?->format('d M Y') ?? '—' }}</td>
-                                <td class="px-4 py-3 text-center">
-                                    <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide {{ $card->status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500' }}">{{ $card->status }}</span>
-                                </td>
-                                <td class="px-4 py-3">
-                                    <div class="flex items-center justify-center gap-1">
-                                        <button wire:click="showCard({{ $card->id }})" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-violet-50 hover:text-violet-600 hover:border-violet-200" title="View">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                        </button>
-                                        <a href="{{ route('admin.id-card.print', ['organization' => auth()->user()->organization_id, 'type' => $cardType, 'id' => $card->id]) }}" target="_blank"
-                                            class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200" title="Download / Print">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                                        </a>
-                                        <button wire:click="editCard({{ $card->id }})" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200" title="Edit">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                        </button>
-                                        <button wire:click="confirmDelete({{ $card->id }})" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200" title="Delete">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                        </button>
-                                    </div>
-                                </td>
+                                @if ($cardType !== 'student')
+                                    <td class="px-4 py-3">
+                                        <span class="text-sm text-gray-700">{{ $mobile ?: '—' }}</span>
+                                    </td>
+                                @endif
+                                @if ($cardType === 'employee')
+                                    <td class="px-4 py-3">
+                                        <span class="text-sm text-gray-600 truncate block max-w-[200px]" title="{{ $email ?? '' }}">{{ $email ?: '—' }}</span>
+                                    </td>
+                                @endif
+                                <td class="px-4 py-3 font-mono text-xs {{ $issued ? 'text-gray-600' : 'text-gray-400' }}">{{ $issued ? $card->card_number : '—' }}</td>
+                                @if ($cardType === 'student')
+                                    {{-- The class, and the section small under it. --}}
+                                    <td class="px-4 py-3">
+                                        <span class="text-sm text-gray-700 whitespace-nowrap">{{ $person?->standard?->name ?? '—' }}</span>
+                                        @if ($person?->section)
+                                            <span class="block text-xs text-gray-400">{{ $person->section->name }}</span>
+                                        @endif
+                                    </td>
+                                @endif
+                                @if ($issued)
+                                    <td class="px-4 py-3 text-center text-sm text-gray-600">{{ $card->expiry_date?->format('d M Y') ?? '—' }}</td>
+                                    {{-- Actions, in the Students list's style: the status dot, then
+                                         View / Edit / Delete (Download / Print is on View). --}}
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <span class="w-2 h-2 rounded-full flex-shrink-0 mr-1 {{ $card->status === 'active' ? 'bg-green-500' : 'bg-red-500' }}"
+                                                title="{{ $card->status === 'active' ? 'Active' : 'Inactive' }}"></span>
+                                            <button wire:click="showCard({{ $card->id }})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                            </button>
+                                            <button wire:click="editCard({{ $card->id }})" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
+                                            </button>
+                                            <button wire:click="confirmDelete({{ $card->id }})" class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </td>
+                                @else
+                                    {{-- Not issued: the person, with no card to show or act on. --}}
+                                    <td class="px-4 py-3 text-center text-sm text-gray-400">—</td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center justify-center gap-1.5 text-xs text-gray-500 whitespace-nowrap">
+                                            <span class="w-2 h-2 rounded-full flex-shrink-0 bg-amber-400"></span>
+                                            Not issued
+                                        </div>
+                                    </td>
+                                @endif
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-4 py-16 text-center">
+                                <td colspan="{{ $columns }}" class="px-4 py-16 text-center">
                                     <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
                                         <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0z" /></svg>
                                     </div>
@@ -256,7 +266,13 @@
                 </div>
 
                 <div class="flex-1 overflow-y-auto bg-gray-50">
-                    <div class="px-6 py-6">
+                    {{-- Front and back side by side, a little smaller than they print
+                         (the print page keeps the card's own size). --}}
+                    <style>
+                        .idc-view .idc-wrap { zoom: .85; gap: 20px; }
+                        @media (min-width: 640px) { .idc-view .idc-wrap { flex-wrap: nowrap; } }
+                    </style>
+                    <div class="idc-view px-6 py-6">
                         @include('admin.id-cards._card', ['c' => $c])
                     </div>
                 </div>

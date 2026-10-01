@@ -32,6 +32,11 @@ use Illuminate\Support\Facades\Schema;
  *
  * 'by' is whose entry it is — "Admin", "Sub-admin" or "Accounts", the role of
  * the school's user who recorded it — or null when the row does not say.
+ *
+ * A fee row also says what the panel's list shows of it: 'kind' (Academic,
+ * Transport or Penalty) and the payer apart — 'student_name', 'father_name',
+ * 'admission_no'. 'from' / 'party' / 'reason' stay as they were for the
+ * statement PDF and the app.
  */
 class LedgerService
 {
@@ -151,7 +156,7 @@ class LedgerService
 
         // ── Fee payments (credit) ──────────────────────────────────────────
         self::dateScoped(FeePayment::where('organization_id', $orgId), 'payment_date', $start, $end)
-            ->with('studentDetail:id,full_name,admission_no')
+            ->with('studentDetail:id,full_name,admission_no,father_name')
             ->orderBy('payment_date')
             ->get()
             ->each(function ($p) use ($rows, $school, $orgId) {
@@ -174,13 +179,13 @@ class LedgerService
                         . ($penalty > 0 ? ' (incl. penalty Rs. ' . number_format($penalty, 2) . ')' : '')
                         . ($p->receipt_number ? ' · ' . $p->receipt_number : '')),
                     'by'      => self::recordedBy($orgId, $p->submitted_by),
-                ]);
+                ] + self::payer($p->studentDetail, ucfirst((string) ($p->fee_type ?: 'academic'))));
             });
 
         // ── Transport fee payments (credit) ────────────────────────────────
         if (Schema::hasTable('transport_fee_payments')) {
             self::dateScoped(TransportFeePayment::where('organization_id', $orgId), 'payment_date', $start, $end)
-                ->with('studentDetail:id,full_name,admission_no')
+                ->with('studentDetail:id,full_name,admission_no,father_name')
                 ->orderBy('payment_date')
                 ->get()
                 ->each(function ($p) use ($rows, $school, $orgId) {
@@ -199,7 +204,7 @@ class LedgerService
                         'reason'  => 'Transport fee collection'
                             . ($p->receipt_number ? ' · ' . $p->receipt_number : ''),
                         'by'      => self::recordedBy($orgId, $p->submitted_by),
-                    ]);
+                    ] + self::payer($p->studentDetail, 'Transport'));
                 });
         }
 
@@ -352,6 +357,23 @@ class LedgerService
         $admission = trim((string) ($student->admission_no ?? ''));
 
         return $admission !== '' ? $name . ' (' . $admission . ')' : $name;
+    }
+
+    /**
+     * What the panel's list shows of a fee row: the kind of fee and the payer's
+     * name, father's name and admission number, each on its own (null when the
+     * student is gone or the field is blank).
+     */
+    protected static function payer($student, string $kind): array
+    {
+        $text = fn ($value) => trim((string) $value) !== '' ? trim((string) $value) : null;
+
+        return [
+            'kind'         => $kind,
+            'student_name' => $text($student->full_name ?? null),
+            'father_name'  => $text($student->father_name ?? null),
+            'admission_no' => $text($student->admission_no ?? null),
+        ];
     }
 
     /** School name for the From/To labels, cached per request. */

@@ -34,7 +34,7 @@ class AdminLedgerApiTest extends TestCase
             $t->id(); $t->string('name'); $t->timestamps();
         });
         Schema::create('student_details', function (Blueprint $t) {
-            $t->id(); $t->string('full_name')->nullable(); $t->string('admission_no')->nullable(); $t->timestamps();
+            $t->id(); $t->string('full_name')->nullable(); $t->string('admission_no')->nullable(); $t->string('father_name')->nullable(); $t->timestamps();
         });
         Schema::create('fee_payments', function (Blueprint $t) {
             $t->id(); $t->unsignedBigInteger('organization_id'); $t->unsignedBigInteger('student_detail_id')->nullable();

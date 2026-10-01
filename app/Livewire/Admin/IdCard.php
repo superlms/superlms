@@ -29,6 +29,7 @@ class IdCard extends Component
     public $statusFilter   = '';
     /** '' both, 'issued' (holds an active card) or 'not_issued' (holds none) — as the header counts them. */
     public $issueFilter    = '';
+    /** Rows a page: fixed at 100 (the filter bar no longer offers a choice). */
     public $perPage = 100;
 
     // Generate flow
@@ -76,6 +77,16 @@ class IdCard extends Component
         return $this->service()->modelClassFor($type);
     }
 
+    /**
+     * The Employees tab's people: the staff who are not teachers — management,
+     * employees and drivers. A teacher has a staff (payroll) row as well, but
+     * teachers have a tab and a card of their own, so they are left out here.
+     */
+    private function staff(int $orgId)
+    {
+        return AdminEmployee::where('organization_id', $orgId)->where('type', '!=', 'teacher');
+    }
+
     /* ───────────────────────── Analytics ───────────────────────── */
 
     public function getAnalyticsProperty(): array
@@ -98,9 +109,9 @@ class IdCard extends Component
                     ->distinct('teacher_detail_id')->count('teacher_detail_id');
                 break;
             default:
-                $total  = AdminEmployee::where('organization_id', $orgId)->count();
+                $total  = $this->staff($orgId)->count();
                 $issued = EmployeeIdCard::where('organization_id', $orgId)->where('status', 'active')
-                    ->whereIn('admin_employee_id', AdminEmployee::where('organization_id', $orgId)->select('id'))
+                    ->whereIn('admin_employee_id', $this->staff($orgId)->select('id'))
                     ->distinct('admin_employee_id')->count('admin_employee_id');
         }
 
@@ -381,7 +392,7 @@ class IdCard extends Component
                 ->orderBy('id');
         }
 
-        return AdminEmployee::where('organization_id', $orgId)
+        return $this->staff($orgId)
             ->whereNotIn('id', EmployeeIdCard::where('organization_id', $orgId)->where('status', 'active')->select('admin_employee_id'))
             ->when($this->search, fn ($q) => $q->where(fn ($w) => $w
                 ->where('name', 'like', $like)
@@ -460,8 +471,11 @@ class IdCard extends Component
                 });
             }
         } else {
+            // Teachers' staff rows carry employee cards too; those are not listed
+            // here (a card whose holder was deleted still is, as on the other tabs).
             $query = EmployeeIdCard::with(['adminEmployee', 'organization'])
-                ->where('organization_id', $orgId);
+                ->where('organization_id', $orgId)
+                ->whereNotIn('admin_employee_id', AdminEmployee::where('organization_id', $orgId)->where('type', 'teacher')->select('id'));
 
             if ($this->search) {
                 $query->where(function ($q) {
@@ -486,7 +500,7 @@ class IdCard extends Component
             match ($this->cardType) {
                 'student' => $query->whereIn('student_detail_id', StudentDetail::where('organization_id', $orgId)->select('id')),
                 'teacher' => $query->whereIn('teacher_detail_id', TeacherDetail::where('organization_id', $orgId)->select('id')),
-                default   => $query->whereIn('admin_employee_id', AdminEmployee::where('organization_id', $orgId)->select('id')),
+                default   => $query->whereIn('admin_employee_id', $this->staff($orgId)->select('id')),
             };
         }
 

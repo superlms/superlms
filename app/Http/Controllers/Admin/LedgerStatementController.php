@@ -54,6 +54,35 @@ class LedgerStatementController extends Controller
             [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
         }
 
+        [$data, $fileName] = $this->statement($orgId, $start, $end, $overall);
+
+        return $this->render($data)->stream($fileName);
+    }
+
+    /**
+     * The same statement as a file — its PDF bytes and its name — for the
+     * panel's Export, which downloads it as the Students export does.
+     *
+     * @return array{0: string, 1: string}
+     */
+    public function file(int $orgId, ?Carbon $start, ?Carbon $end, bool $overall): array
+    {
+        if ($start && $end && $start->gt($end)) {
+            [$start, $end] = [$end->copy()->startOfDay(), $start->copy()->endOfDay()];
+        }
+
+        [$data, $fileName] = $this->statement($orgId, $start, $end, $overall);
+
+        return [$this->render($data)->output(), $fileName];
+    }
+
+    /**
+     * What the statement view needs for a window, and the file's name.
+     *
+     * @return array{0: array, 1: string}
+     */
+    protected function statement(int $orgId, ?Carbon $start, ?Carbon $end, bool $overall): array
+    {
         $org      = Organization::find($orgId);
         $entries  = LedgerService::entries($orgId, $start, $end);
         $opening  = LedgerService::openingBalance($orgId, $start);
@@ -104,7 +133,7 @@ class LedgerStatementController extends Controller
             ? 'ledger_statement_all_' . now()->format('Ymd') . '.pdf'
             : 'ledger_statement_' . $start->format('Ymd') . '_' . $end->format('Ymd') . '.pdf';
 
-        return $this->render($data)->stream($fileName);
+        return [$data, $fileName];
     }
 
     /**

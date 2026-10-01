@@ -2,12 +2,14 @@
 
 namespace App\Livewire\Admin;
 
+use App\Http\Controllers\Admin\LedgerStatementController;
 use App\Models\Admin\LedgerTransaction;
 use App\Services\LedgerService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class Ledger extends Component
 {
@@ -97,6 +99,48 @@ class Ledger extends Component
         $this->endDate    = '';
         $this->singleDate = '';
         $this->resetPage();
+    }
+
+    /** The filter bar's Clear: back to the window the page opens on (this month → today). */
+    public function clearFilters(): void
+    {
+        $this->startDate  = now()->startOfMonth()->toDateString();
+        $this->endDate    = now()->toDateString();
+        $this->singleDate = '';
+        $this->resetPage();
+    }
+
+    // ─── Export ───────────────────────────────────────────────────────────────
+
+    /**
+     * The statement PDF for the period picked in the Export popup, handed over
+     * as a download the way the Students export is (the statement route, which
+     * opens it in a tab, is still there). $mode is 'range', 'day' or 'all'.
+     */
+    public function exportStatement(string $mode = 'range', string $from = '', string $to = '', string $day = ''): ?StreamedResponse
+    {
+        try {
+            if ($mode === 'all') {
+                $start = $end = null;
+            } elseif ($mode === 'day') {
+                if ($day === '') return null;
+                $start = Carbon::parse($day)->startOfDay();
+                $end   = Carbon::parse($day)->endOfDay();
+            } else {
+                if ($from === '' || $to === '') return null;
+                $start = Carbon::parse($from)->startOfDay();
+                $end   = Carbon::parse($to)->endOfDay();
+            }
+        } catch (\Throwable $e) {
+            return null; // not a date
+        }
+
+        [$bytes, $fileName] = app(LedgerStatementController::class)
+            ->file((int) Auth::user()->organization_id, $start, $end, $mode === 'all');
+
+        return response()->streamDownload(fn () => print($bytes), $fileName, [
+            'Content-Type' => 'application/pdf',
+        ]);
     }
 
     // ─── Manual entry ─────────────────────────────────────────────────────────
@@ -198,39 +242,12 @@ class Ledger extends Component
             return;
         }
 
-        $this->validate([
-            'mDate'        => 'required|date',
-            // 0 is a legitimate entry (a waived / nil line), so it must save as 0.
-            'mAmount'      => 'required|numeric|min:0',
-            'mParty'       => 'nullable|string|max:255',
-            'mPartyTo'     => 'nullable|string|max:255',
-            'mCollectedBy' => 'nullable|string|max:255',
-            'mMode'        => 'nullable|string|max:50',
-            'mReason'      => 'required|string|max:1000',
-        ], [], [
-            'mDate'        => 'date',
-            'mAmount'      => 'amount',
-            'mParty'       => 'from',
-            'mPartyTo'     => 'to',
-            'mCollectedBy' => 'collected by',
-            'mMode'        => 'mode',
-            'mReason'      => 'remark',
-        ]);
-
         $isExpense = $this->modalType === 'expense';
 
-        // party_to stores the payee "To" for expenses, or "Collected by" for credits.
-        $payload = [
-            'type'     => $isExpense ? 'expense' : 'credit',
-            'amount'   => (float) $this->mAmount,
-            'txn_date' => $this->mDate,
-            'party'    => $this->mParty ?: null,
-            'party_to' => $isExpense ? ($this->mPartyTo ?: null) : ($this->mCollectedBy ?: null),
-            'mode'     => $this->mMode ?: null,
-            'reason'   => $this->mReason,
-        ];
-
+        // An entry already in the ledger can have its date changed, nothing else.
         if ($this->editingId) {
+            $this->validate(['mDate' => 'required|date'], [], ['mDate' => 'date']);
+
             $txn = LedgerTransaction::where('organization_id', Auth::user()->organization_id)
                 ->find($this->editingId);
 
@@ -243,19 +260,54 @@ class Ledger extends Component
                 return;
             }
 
-            $txn->update($payload);
-            $msg = ($isExpense ? 'Expense' : 'Credit') . ' updated successfully.';
-        } else {
-            LedgerTransaction::create($payload + [
-                'organization_id' => Auth::user()->organization_id,
-                'created_by'      => Auth::id(),
-            ]);
-            $msg = ($isExpense ? 'Expense' : 'Credit') . ' added successfully.';
+            $txn->update(['txn_date' => $this->mDate]);
+
+            $this->showModal = false;
+            $this->editingId = null;
+            session()->flash('ledger_msg', ($isExpense ? 'Expense' : 'Credit') . ' date updated successfully.');
+            return;
         }
+
+        // A new entry: every field is compulsory, for a credit and an expense alike
+        // ("To" is an expense's field, "Collected by" a credit's).
+        $this->validate([
+            'mDate'        => 'required|date',
+            // 0 is a legitimate entry (a waived / nil line), so it must save as 0.
+            'mAmount'      => 'required|numeric|min:0',
+            'mParty'       => 'required|string|max:255',
+            'mPartyTo'     => ($isExpense ? 'required' : 'nullable') . '|string|max:255',
+            'mCollectedBy' => ($isExpense ? 'nullable' : 'required') . '|string|max:255',
+            'mMode'        => 'required|string|max:50',
+            'mReason'      => 'required|string|max:1000',
+        ], [], [
+            'mDate'        => 'date',
+            'mAmount'      => 'amount',
+            'mParty'       => 'from',
+            'mPartyTo'     => 'to',
+            'mCollectedBy' => 'collected by',
+            'mMode'        => 'mode',
+            'mReason'      => 'remark',
+        ]);
+
+        // party_to stores the payee "To" for expenses, or "Collected by" for credits.
+        $payload = [
+            'type'     => $isExpense ? 'expense' : 'credit',
+            'amount'   => (float) $this->mAmount,
+            'txn_date' => $this->mDate,
+            'party'    => $this->mParty ?: null,
+            'party_to' => $isExpense ? ($this->mPartyTo ?: null) : ($this->mCollectedBy ?: null),
+            'mode'     => $this->mMode ?: null,
+            'reason'   => $this->mReason,
+        ];
+
+        LedgerTransaction::create($payload + [
+            'organization_id' => Auth::user()->organization_id,
+            'created_by'      => Auth::id(),
+        ]);
 
         $this->showModal = false;
         $this->editingId = null;
-        session()->flash('ledger_msg', $msg);
+        session()->flash('ledger_msg', ($isExpense ? 'Expense' : 'Credit') . ' added successfully.');
     }
 
     // ─── Render ───────────────────────────────────────────────────────────────
