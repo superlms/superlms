@@ -366,57 +366,71 @@
                 @endif
             </div>
 
-            {{-- Assigned listing --}}
-            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            {{-- Assigned listing, in the Students list's style: a row for each teacher
+                 and the class they hold. The class and its sections read as plain
+                 text ("5 · Section A & B"); then the active students of what they
+                 hold — one number for one section, each section by its last letter
+                 for several ("A - 32 / B - 30"); the status is the dot before the
+                 actions. --}}
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="w-full text-sm min-w-[640px]">
-                        <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+                    <table class="w-full min-w-[640px]">
+                        <thead class="bg-gray-50 border-b border-gray-200">
                             <tr>
-                                <th class="px-4 py-3 text-left w-12">#</th>
-                                <th class="px-4 py-3 text-left">Class Teacher</th>
-                                <th class="px-4 py-3 text-left">Assigned Class &amp; Section</th>
-                                <th class="px-4 py-3 text-center w-28">Status</th>
-                                <th class="px-4 py-3 text-center w-28">Actions</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Class Teacher</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Class &amp; Section</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Active Students</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
-                            @forelse ($assignments as $i => $a)
-                                <tr class="hover:bg-gray-50/70">
-                                    <td class="px-4 py-3 text-gray-400">{{ $i + 1 }}</td>
+                            @forelse ($ctRows as $i => $row)
+                                <tr class="hover:bg-gray-50/70 transition-colors" wire:key="ct-{{ $row->id }}">
+                                    <td class="px-4 py-3"><span class="text-sm text-gray-500 font-medium">{{ $i + 1 }}</span></td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center gap-3">
-                                            @if ($a->teacher?->user?->image)
-                                                <img src="{{ $a->teacher->user->image }}" class="w-9 h-9 rounded-full object-cover border border-gray-200">
+                                            @if ($row->teacher?->user?->image)
+                                                <img src="{{ $row->teacher->user->image }}" class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0">
                                             @else
-                                                <div class="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-xs">{{ strtoupper(substr($a->teacher?->user?->name ?? 'T', 0, 1)) }}</div>
+                                                <div class="w-9 h-9 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
+                                                    <span class="text-xs font-semibold text-teal-600">{{ strtoupper(substr($row->teacher?->user?->name ?? 'T', 0, 1)) }}</span>
+                                                </div>
                                             @endif
                                             <div class="min-w-0">
-                                                <p class="font-medium text-gray-800 truncate">{{ $a->teacher?->user?->name ?? '—' }}</p>
-                                                <p class="text-xs text-gray-400 truncate">{{ $a->teacher?->user?->email ?? '' }}</p>
+                                                <p class="text-sm font-semibold text-gray-900 truncate">{{ $row->teacher?->user?->name ?? '—' }}</p>
+                                                <p class="text-xs text-gray-400 truncate">{{ $row->teacher?->user?->email ?? '' }}</p>
                                             </div>
                                         </div>
                                     </td>
                                     <td class="px-4 py-3">
-                                        <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
-                                            {{ $a->standard->name ?? '—' }}@if ($a->section)<span class="text-blue-400">·</span> {{ $a->section->name }}@endif
-                                        </span>
-                                    </td>
-                                    <td class="px-4 py-3 text-center">
-                                        <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700">Assigned</span>
+                                        <span class="text-sm text-gray-700">{{ $row->class }}{{ $row->sections !== '' ? ' · ' . $row->sections : '' }}</span>
                                     </td>
                                     <td class="px-4 py-3">
-                                        <div class="flex items-center justify-center gap-1.5">
-                                            <button wire:click="editAssign({{ $a->id }})" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-amber-50 hover:text-amber-600" title="Edit">
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                        <span class="text-sm text-gray-700 tabular-nums whitespace-nowrap">{{ $row->students }}</span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <span class="w-2 h-2 rounded-full flex-shrink-0 mr-1 bg-green-500" title="Assigned"></span>
+                                            <button wire:click="editAssign({{ $row->id }})"
+                                                class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
                                             </button>
-                                            <button wire:click="confirmDeleteAssign({{ $a->id }})" class="p-1.5 rounded-md border border-red-200 text-red-500 hover:bg-red-50" title="Remove">
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            <button wire:click="confirmDeleteAssign({{ $row->id }})"
+                                                class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Remove">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
                                             </button>
                                         </div>
                                     </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="5" class="px-4 py-12 text-center text-gray-400">
+                                <tr><td colspan="5" class="px-4 py-12 text-center text-sm text-gray-400">
                                     No class teachers assigned{{ ($ctFilterStandard || $ctFilterSection || $ctFilterTeacher) ? ' for this filter' : '' }}.
                                     <button wire:click="openAssignPanel" class="block mx-auto mt-2 text-sm text-blue-600 hover:text-blue-800 font-medium">Assign a class teacher →</button>
                                 </td></tr>
@@ -698,7 +712,7 @@
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div>
                         <h2 class="text-lg font-semibold text-gray-900">{{ $assignEditId ? 'Edit Assignment' : 'Assign Class Teacher' }}</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">Map a teacher to a class &amp; section.</p>
+                        <p class="text-xs text-gray-500 mt-0.5">Map a teacher to a class and one or more of its sections.</p>
                     </div>
                     <button wire:click="closeAssignPanel" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -707,7 +721,7 @@
                 <div class="flex-1 overflow-y-auto px-6 py-6 space-y-5">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">Teacher <span class="text-red-500">*</span></label>
-                        {{-- Teachers already assigned as class teacher are left out. --}}
+                        {{-- A to Z. Teachers already assigned as class teacher are left out. --}}
                         <select wire:model="assignTeacherId" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm bg-white">
                             <option value="">Select teacher…</option>
                             @foreach ($assignTeachers as $t)<option value="{{ $t->id }}">{{ $t->user->name ?? '—' }}</option>@endforeach
@@ -715,27 +729,41 @@
                         @if ($assignTeachers->isEmpty())<p class="text-xs text-gray-500 mt-1">Every teacher is already a class teacher.</p>@endif
                         @error('assignTeacherId')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                     </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Class <span class="text-red-500">*</span></label>
-                            <select wire:model.live="assignStandardId" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm bg-white">
-                                <option value="">Select…</option>
-                                @foreach ($standards as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
-                            </select>
-                            @error('assignStandardId')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Section</label>
-                            <select wire:model="assignSectionId" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm bg-white">
-                                <option value="">All / none</option>
-                                @if ($assignStandardId)
-                                    @foreach (\App\Models\Student\Section::where('standard_id', $assignStandardId)->get() as $sec)
-                                        <option value="{{ $sec->id }}">{{ $sec->name }}</option>
-                                    @endforeach
-                                @endif
-                            </select>
-                        </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Class <span class="text-red-500">*</span></label>
+                        {{-- Only classes that still have a section (or, with no sections,
+                             the class itself) without a class teacher. --}}
+                        <select wire:model.live="assignStandardId" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm bg-white">
+                            <option value="">Select…</option>
+                            @foreach ($assignStandards as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
+                        </select>
+                        @if ($assignStandards->isEmpty())<p class="text-xs text-gray-500 mt-1">Every class already has its class teacher.</p>@endif
+                        @error('assignStandardId')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                     </div>
+                    @if ($assignStandardId)
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                                Sections <span class="text-red-500">*</span>
+                                <span class="text-gray-400 font-normal">(one or more of this class)</span>
+                            </label>
+                            @if ($assignSections->isEmpty())
+                                <p class="text-xs text-gray-500 border border-dashed border-gray-200 rounded-md p-3">This class has no sections — the teacher is assigned to the class as a whole.</p>
+                            @else
+                                {{-- Sections that already have a class teacher are left out. --}}
+                                <div class="border border-gray-300 rounded-md divide-y divide-gray-100 max-h-56 overflow-y-auto">
+                                    @foreach ($assignSections as $sec)
+                                        <label class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-gray-50" wire:key="assign-sec-{{ $sec->id }}">
+                                            <input type="checkbox" wire:model="assignSectionIds" value="{{ $sec->id }}"
+                                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                            <span class="text-sm text-gray-700">{{ $sec->name }}</span>
+                                        </label>
+                                    @endforeach
+                                </div>
+                                <p class="text-[11px] text-gray-400 mt-1">Tick more than one and the teacher marks them together in the app — the first section's students first, then the next.</p>
+                            @endif
+                            @error('assignSectionIds')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                        </div>
+                    @endif
 
                     <div class="flex justify-end">
                         <button wire:click="saveAssign" class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md">{{ $assignEditId ? 'Update Assignment' : 'Assign' }}</button>

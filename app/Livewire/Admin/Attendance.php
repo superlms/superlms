@@ -72,7 +72,9 @@ class Attendance extends Component
     public ?int $assignEditId = null;
     public $assignTeacherId = '';
     public $assignStandardId = '';
-    public $assignSectionId = '';
+    public $assignSectionId = '';          // the form's old single-section box; no longer on the page
+    /** The sections ticked in the form: a teacher can be class teacher of several sections of one class. */
+    public array $assignSectionIds = [];
     public ?int $pendingDeleteAssignId = null;
 
     // ── Class Teachers tab filters ───────────────────────────────────────────
@@ -597,17 +599,26 @@ class Attendance extends Component
         $this->assignTeacherId = '';
         $this->assignStandardId = '';
         $this->assignSectionId = '';
+        $this->assignSectionIds = [];
         $this->showAssignPanel = true;
     }
 
+    /**
+     * Edit opens on the whole of what the teacher holds in that class: every
+     * section of it they are class teacher of, ticked — so a section can be
+     * added or taken off in one place.
+     */
     public function editAssign(int $id): void
     {
-        $a = AssignTeacherStandard::find($id);
+        $a = AssignTeacherStandard::where('organization_id', Auth::user()->organization_id)->find($id);
         if ($a) {
+            $this->resetErrorBag();
             $this->assignEditId = $id;
             $this->assignTeacherId = $a->teacher_detail_id;
             $this->assignStandardId = $a->standard_id;
             $this->assignSectionId = $a->section_id ?: '';
+            $this->assignSectionIds = $this->assignmentGroup($a)
+                ->pluck('section_id')->filter()->map(fn ($s) => (string) $s)->values()->all();
             $this->showAssignPanel = true;
         }
     }
@@ -617,59 +628,128 @@ class Attendance extends Component
         $this->showAssignPanel = false;
     }
 
+    /** Another class: its own sections to choose from. */
+    public function updatedAssignStandardId(): void
+    {
+        $this->assignSectionIds = [];
+        $this->resetErrorBag('assignSectionIds');
+    }
+
+    /** Everything a teacher holds in one class: one row per section (or one row with no section). */
+    private function assignmentGroup(AssignTeacherStandard $a)
+    {
+        return AssignTeacherStandard::where('organization_id', $a->organization_id)
+            ->where('teacher_detail_id', $a->teacher_detail_id)
+            ->where('standard_id', $a->standard_id)
+            ->orderBy('id')->get();
+    }
+
+    /**
+     * Save the form: the teacher becomes class teacher of the class's ticked
+     * sections — one or several, kept as a row each in the sections' own
+     * order (the order the app lists their students in) — or of the class
+     * itself when it has no sections.
+     *
+     * A teacher is class teacher of one class only, and a section (or a class
+     * without sections) has one class teacher: one already taken is refused.
+     * Rows that stay as they are are left alone; an edit moves the others.
+     */
     public function saveAssign(): void
     {
         $this->validate([
             'assignTeacherId'  => 'required|exists:teacher_details,id',
             'assignStandardId' => 'required|exists:standards,id',
-            'assignSectionId'  => 'nullable|exists:sections,id',
+            'assignSectionIds' => 'array',
         ]);
 
-        $orgId = Auth::user()->organization_id;
+        $orgId     = Auth::user()->organization_id;
+        $teacherId = (int) $this->assignTeacherId;
+        $classId   = (int) $this->assignStandardId;
 
-        // A teacher is class teacher of one class only — though of as many of
-        // its sections as the school gives them. An assignment being edited
-        // may keep its own teacher.
         $editing = $this->assignEditId
             ? AssignTeacherStandard::where('organization_id', $orgId)->find($this->assignEditId)
             : null;
-        if (!$editing || (int) $editing->teacher_detail_id !== (int) $this->assignTeacherId) {
-            $taken = AssignTeacherStandard::with(['standard:id,name', 'section:id,name'])
-                ->where('organization_id', $orgId)
-                ->where('teacher_detail_id', $this->assignTeacherId)
-                ->where('standard_id', '!=', $this->assignStandardId)
-                ->when($this->assignEditId, fn($q) => $q->where('id', '!=', $this->assignEditId))
-                ->first();
-            if ($taken) {
-                $class = trim(($taken->standard->name ?? '') . ($taken->section ? ' · ' . $taken->section->name : ''));
-                $this->notification()->error('This teacher is already a class teacher' . ($class !== '' ? ' of ' . $class : '') . '.');
-                return;
-            }
+        // The rows being edited: all the edited teacher holds in the edited class.
+        $group    = $editing ? $this->assignmentGroup($editing) : collect();
+        $groupIds = $group->pluck('id')->all();
+
+        // The sections ticked, in the class's own order; a class without
+        // sections is assigned as a whole (section 0).
+        $classSections = Section::where('standard_id', $classId)->orderBy('id')->pluck('name', 'id');
+        $ticked  = array_map('intval', (array) $this->assignSectionIds);
+        $wanted  = $classSections->keys()->filter(fn ($id) => in_array((int) $id, $ticked, true))->map(fn ($id) => (int) $id)->values()->all();
+        if ($classSections->isNotEmpty() && !$wanted) {
+            $this->addError('assignSectionIds', 'Pick at least one section.');
+            return;
+        }
+        if ($classSections->isEmpty()) {
+            $wanted = [0];
         }
 
-        $dup = AssignTeacherStandard::where('organization_id', $orgId)
-            ->where('teacher_detail_id', $this->assignTeacherId)
-            ->where('standard_id', $this->assignStandardId)
-            ->when($this->assignSectionId, fn($q) => $q->where('section_id', $this->assignSectionId))
-            ->when($this->assignEditId, fn($q) => $q->where('id', '!=', $this->assignEditId))
-            ->exists();
-
-        if ($dup) {
-            $this->notification()->error('This teacher is already assigned to this class/section.');
+        // One class per teacher.
+        $elsewhere = AssignTeacherStandard::with(['standard:id,name', 'section:id,name'])
+            ->where('organization_id', $orgId)
+            ->where('teacher_detail_id', $teacherId)
+            ->where('standard_id', '!=', $classId)
+            ->whereNotIn('id', $groupIds)
+            ->first();
+        if ($elsewhere) {
+            $class = trim(($elsewhere->standard->name ?? '') . ($elsewhere->section ? ' · ' . $elsewhere->section->name : ''));
+            $this->notification()->error('This teacher is already a class teacher' . ($class !== '' ? ' of ' . $class : '') . '.');
             return;
         }
 
-        AssignTeacherStandard::updateOrCreate(
-            ['id' => $this->assignEditId],
-            [
-                'organization_id'   => $orgId,
-                'teacher_detail_id' => $this->assignTeacherId,
-                'standard_id'       => $this->assignStandardId,
-                // section_id is NOT NULL default 0 (foreignIdFor ->default(0));
-                // writing null 500s, so use 0 for "no section".
-                'section_id'        => $this->assignSectionId ?: 0,
-            ]
-        );
+        // One class teacher per section (or per class without sections).
+        $taken = AssignTeacherStandard::with(['teacher.user:id,name', 'section:id,name'])
+            ->where('organization_id', $orgId)
+            ->where('standard_id', $classId)
+            ->where('teacher_detail_id', '!=', $teacherId)
+            ->whereNotIn('id', $groupIds)
+            ->when($wanted !== [0], fn ($q) => $q->whereIn('section_id', array_merge($wanted, [0])))
+            ->first();
+        if ($taken) {
+            $what = $taken->section ? $taken->section->name : 'This class';
+            $who  = $taken->teacher?->user?->name;
+            $this->notification()->error($what . ' already has a class teacher' . ($who ? ': ' . $who : '') . '.');
+            return;
+        }
+
+        DB::transaction(function () use ($orgId, $teacherId, $classId, $wanted, $group) {
+            // What the teacher already holds in this class besides the rows being edited.
+            $own = AssignTeacherStandard::where('organization_id', $orgId)
+                ->where('teacher_detail_id', $teacherId)
+                ->where('standard_id', $classId)
+                ->whereNotIn('id', $group->pluck('id')->all())
+                ->pluck('section_id')->map(fn ($s) => (int) $s)->all();
+
+            // Rows of the edit that already say the right thing stay untouched.
+            $spare = collect();
+            foreach ($group as $row) {
+                $same = (int) $row->teacher_detail_id === $teacherId && (int) $row->standard_id === $classId
+                    && in_array((int) $row->section_id, $wanted, true) && !in_array((int) $row->section_id, $own, true);
+                $same ? $own[] = (int) $row->section_id : $spare->push($row);
+            }
+
+            foreach ($wanted as $sectionId) {
+                if (in_array($sectionId, $own, true)) {
+                    continue;
+                }
+                $values = [
+                    'organization_id'   => $orgId,
+                    'teacher_detail_id' => $teacherId,
+                    'standard_id'       => $classId,
+                    // section_id is NOT NULL default 0 (foreignIdFor ->default(0)):
+                    // 0 stands for "no section".
+                    'section_id'        => $sectionId,
+                ];
+                // An edit moves a row it no longer needs; otherwise a new one.
+                ($row = $spare->shift()) ? $row->update($values) : AssignTeacherStandard::create($values);
+                $own[] = $sectionId;
+            }
+
+            // What the edit unticked.
+            $spare->each->delete();
+        });
 
         $this->notification()->success($this->assignEditId ? 'Assignment updated.' : 'Class teacher assigned.');
         $this->closeAssignPanel();
@@ -677,11 +757,16 @@ class Attendance extends Component
 
     public function confirmDeleteAssign(int $id): void { $this->pendingDeleteAssignId = $id; }
     public function cancelDeleteAssign(): void { $this->pendingDeleteAssignId = null; }
+
+    /** Remove takes the teacher off the class: every section of it they hold (Edit unticks just one). */
     public function executeDeleteAssign(): void
     {
         if ($this->pendingDeleteAssignId) {
-            AssignTeacherStandard::where('id', $this->pendingDeleteAssignId)
-                ->where('organization_id', Auth::user()->organization_id)->delete();
+            $a = AssignTeacherStandard::where('id', $this->pendingDeleteAssignId)
+                ->where('organization_id', Auth::user()->organization_id)->first();
+            if ($a) {
+                $this->assignmentGroup($a)->each->delete();
+            }
             $this->notification()->success('Assignment removed.');
         }
         $this->pendingDeleteAssignId = null;
@@ -895,8 +980,9 @@ class Attendance extends Component
         $orgId = Auth::user()->organization_id;
 
         $standards = Standard::where('organization_id', $orgId)->inClassOrder()->get(['id', 'name']);
+        // A to Z, whatever the case the name was typed in.
         $teachers  = TeacherDetail::with('user:id,name,email,image')->where('organization_id', $orgId)->get()
-            ->sortBy(fn($t) => $t->user->name ?? '')->values();
+            ->sortBy(fn($t) => mb_strtolower((string) ($t->user->name ?? '')))->values();
 
         // School years to choose from, newest first — each runs April → March.
         $thisAy = self::academicYearOf(now());
@@ -915,14 +1001,105 @@ class Attendance extends Component
         $assignments = AssignTeacherStandard::sortInClassOrder($assignments);
         $ctSections = $this->ctFilterStandard ? Section::where('standard_id', $this->ctFilterStandard)->orderBy('id')->get(['id', 'name']) : collect();
 
+        // The listing: one row for each teacher and the class they hold — its
+        // sections together, and how many active students each has.
+        $ctRows = collect();
+        if ($this->mainTab === 'class_teachers') {
+            $active = StudentDetail::query()
+                ->join('users', 'users.id', '=', 'student_details.user_id')
+                ->where('student_details.organization_id', $orgId)
+                ->where('users.is_active', 1)
+                ->selectRaw('student_details.standard_id as std, student_details.section_id as sec, COUNT(*) as c')
+                ->groupBy('std', 'sec')->get();
+            $bySection = [];
+            $byClass   = [];
+            foreach ($active as $row) {
+                $bySection[(int) $row->std][(int) $row->sec] = (int) $row->c;
+                $byClass[(int) $row->std] = ($byClass[(int) $row->std] ?? 0) + (int) $row->c;
+            }
+
+            // Grouped from everything assigned, then narrowed by the filter, so
+            // a teacher found through one section still shows all they hold.
+            $everything = ($this->ctFilterStandard || $this->ctFilterSection || $this->ctFilterTeacher)
+                ? AssignTeacherStandard::sortInClassOrder(
+                    AssignTeacherStandard::with(['teacher.user:id,name,email,image', 'standard:id,name,order', 'section:id,name'])
+                        ->where('organization_id', $orgId)->get())
+                : $assignments;
+            $shown = $assignments->map(fn ($a) => $a->teacher_detail_id . ':' . $a->standard_id)->flip();
+
+            $ctRows = $everything
+                ->groupBy(fn ($a) => $a->teacher_detail_id . ':' . $a->standard_id)
+                ->filter(fn ($rows, $key) => $shown->has($key))
+                ->map(function ($rows) use ($bySection, $byClass) {
+                    $first    = $rows->first();
+                    $sections = $rows->filter(fn ($a) => $a->section)->sortBy('id')->values();
+                    $std      = (int) $first->standard_id;
+
+                    // One section (or the class as a whole): just the number.
+                    // Several: each by its name's last letter — "A - 32 / B - 30".
+                    $counts = $sections->map(fn ($a) => [
+                        'letter' => mb_strtoupper(mb_substr(trim((string) $a->section->name), -1)),
+                        'count'  => $bySection[$std][(int) $a->section_id] ?? 0,
+                    ]);
+                    $students = match (true) {
+                        $sections->isEmpty()    => (string) ($byClass[$std] ?? 0),
+                        $sections->count() === 1 => (string) $counts[0]['count'],
+                        default                  => $counts->map(fn ($c) => $c['letter'] . ' - ' . $c['count'])->implode(' / '),
+                    };
+
+                    return (object) [
+                        'id'       => $first->id,
+                        'teacher'  => $first->teacher,
+                        'class'    => $first->standard->name ?? '—',
+                        'sections' => \App\Support\SectionNames::joined($sections->map(fn ($a) => $a->section->name)),
+                        'students' => $students,
+                    ];
+                })->values();
+        }
+
         // Assign panel: only teachers who are not a class teacher yet, plus the
         // teacher of the assignment being edited.
         $assignTeachers = collect();
+        // …and only what is still free: a class is offered while it has a section
+        // without a class teacher (or, with no sections, has none itself), and
+        // of its sections only those. An edit keeps its own.
+        $assignStandards = collect();
+        $assignSections  = collect();
         if ($this->showAssignPanel) {
-            $taken = AssignTeacherStandard::where('organization_id', $orgId)->get(['id', 'teacher_detail_id']);
-            $keep = $this->assignEditId ? (int) optional($taken->firstWhere('id', $this->assignEditId))->teacher_detail_id : 0;
+            $taken = AssignTeacherStandard::where('organization_id', $orgId)->get(['id', 'teacher_detail_id', 'standard_id', 'section_id']);
+            $editRow = $this->assignEditId ? $taken->firstWhere('id', $this->assignEditId) : null;
+            $keep = (int) optional($editRow)->teacher_detail_id;
             $takenIds = $taken->pluck('teacher_detail_id')->map(fn($id) => (int) $id)->flip();
             $assignTeachers = $teachers->reject(fn($t) => (int) $t->id !== $keep && $takenIds->has((int) $t->id))->values();
+
+            // What others hold (the rows being edited do not count against the form).
+            $others = $taken->reject(fn ($a) => $editRow
+                && (int) $a->teacher_detail_id === (int) $editRow->teacher_detail_id
+                && (int) $a->standard_id === (int) $editRow->standard_id);
+            $heldSections = $others->groupBy(fn ($a) => (int) $a->standard_id)
+                ->map(fn ($rows) => $rows->pluck('section_id')->map(fn ($s) => (int) $s)->all());
+
+            $allSections = Section::whereIn('standard_id', $standards->pluck('id'))->orderBy('id')->get(['id', 'name', 'standard_id'])
+                ->groupBy(fn ($s) => (int) $s->standard_id);
+            $free = function (int $classId) use ($allSections, $heldSections) {
+                $held = $heldSections->get($classId, []);
+                // Someone holds the class as a whole: nothing of it is free.
+                if (in_array(0, $held, true)) {
+                    return null;
+                }
+                $sections = $allSections->get($classId, collect());
+
+                return $sections->isEmpty() ? collect() : $sections->reject(fn ($s) => in_array((int) $s->id, $held, true))->values();
+            };
+
+            $assignStandards = $standards->filter(function ($std) use ($free, $allSections) {
+                $open = $free((int) $std->id);
+
+                // No sections at all: free while nobody holds the class. With
+                // sections: free while one of them is.
+                return $open !== null && ($allSections->get((int) $std->id, collect())->isEmpty() || $open->isNotEmpty());
+            })->values();
+            $assignSections = $this->assignStandardId ? ($free((int) $this->assignStandardId) ?? collect()) : collect();
         }
 
         // ── Teacher mark list (the slide-in panel) ──
@@ -1033,7 +1210,7 @@ class Attendance extends Component
         }
 
         return view('livewire.admin.attendance', compact(
-            'standards', 'teachers', 'assignTeachers', 'assignments', 'ctSections', 'markTeachers', 'academicYears',
+            'standards', 'teachers', 'assignTeachers', 'assignStandards', 'assignSections', 'assignments', 'ctRows', 'ctSections', 'markTeachers', 'academicYears',
             'tByDateRows', 'tByDateStats', 'tCards', 'tCardsTitle', 'tCardsPerson', 'tMonthGrid',
             'stSections', 'stStudents', 'markStudents', 'sMarkSections',
             'sByDateRows', 'sByDateStats', 'sCards', 'sCardsTitle', 'sCardsPerson'
