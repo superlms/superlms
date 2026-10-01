@@ -163,7 +163,8 @@ class Analytics extends Component
         $this->buildAttendanceMonths();
         $this->loadStudentAttendance();
         $this->loadStudentPie();
-        $this->loadTeacherDaily();
+        // The teacher card's window, date dropdown and day figures are off the
+        // page; loadTeacherDaily() / teacherDay() are kept below, uncalled.
         $this->loadSections();
         // Student Performance ranks on exam marks now. The attendance-based
         // loadTopStudents() / loadLowPerformers() are kept below, uncalled.
@@ -227,6 +228,9 @@ class Analytics extends Component
         $this->kpis = [
             'student_rate'     => $stuRateToday,
             'student_delta'    => round($stuRateToday - $stuRateYest, 1),
+            // Until today is marked there is nothing to set against yesterday:
+            // the page leaves the "vs yesterday" line out.
+            'student_marked'   => $stuTotalToday > 0,
             'teacher_rate'     => $rate($tchPresentToday, $tchTotalToday),
             'collect_rate'     => $collectRate,
             'avg_daily'        => round($last30Sum / 30, 0),
@@ -361,23 +365,72 @@ class Analytics extends Component
     // ─── The session so far, month by month ─────────────────────────────────────
 
     /**
+     * [Y-m-d => % present] for every day from $from to today that has marks:
+     * present / (present + absent) of that one day.
+     */
+    private function dailyAttendancePct(string $model, int $present, int $absent, Carbon $from): array
+    {
+        $counts = [];
+        $rows = $model::where('organization_id', $this->orgId())
+            ->where('attendance_date', '>=', $from->toDateString())
+            ->where('attendance_date', '<=', Carbon::today()->endOfDay())
+            ->whereIn('status', [$present, $absent])
+            ->selectRaw('DATE(attendance_date) as d, status, COUNT(*) as c')
+            ->groupBy('d', 'status')->get();
+        foreach ($rows as $r) {
+            $counts[(string) $r->d][(int) $r->status] = (int) $r->c;
+        }
+
+        $pct = [];
+        foreach ($counts as $date => $byStatus) {
+            $p = $byStatus[$present] ?? 0;
+            $a = $byStatus[$absent] ?? 0;
+            if ($p + $a > 0) {
+                $pct[$date] = $p / ($p + $a) * 100;
+            }
+        }
+
+        return $pct;
+    }
+
+    /**
      * The two Attendance Volume charts: from 1 April of the running session to
-     * this month, each month's average attendance %, the students' and the
-     * teachers', out of the same monthly present / absent counts as before
-     * (they stay behind each bar). The months still to come are left out, and
-     * a month nobody was marked in has no bar.
+     * this month, each month's average attendance % — the students', and the
+     * teachers'. A month's figure is the average of its days: every marked
+     * day's own % (68% on the 1st, 70% on the 2nd, 50% on the 3rd …) added up
+     * and divided by the number of those days. It used to be the month's
+     * present over its present + absent, which lets a full-strength day weigh
+     * more than a thin one. A day nobody was marked on is not a day of 0%: it
+     * is left out. The months still to come are left out too, and a month
+     * nobody was marked in has no bar.
      */
     protected function loadMonthlyAttendancePct(): void
     {
         $start = AcademicYear::start();
         $now   = Carbon::now();
 
-        $pct = fn (int $p, int $a) => $p + $a > 0 ? round($p / ($p + $a) * 100, 1) : null;
+        $students = $this->dailyAttendancePct(StudentAttendance::class, self::STU_PRESENT, self::STU_ABSENT, $start);
+        $teachers = $this->dailyAttendancePct(TeacherAttendance::class, self::TCH_PRESENT, self::TCH_ABSENT, $start);
+
+        // [Y-m => [the days' percentages]]
+        $byMonth = function (array $daily): array {
+            $months = [];
+            foreach ($daily as $date => $pct) {
+                $months[substr((string) $date, 0, 7)][] = $pct;
+            }
+
+            return $months;
+        };
+        $studentMonths = $byMonth($students);
+        $teacherMonths = $byMonth($teachers);
+
+        $avg = fn (array $days) => $days ? round(array_sum($days) / count($days), 1) : null;
 
         $out = [
             'from'   => $start->format('j M Y'),
             'labels' => [], 'student' => [], 'teacher' => [],
-            'studentPresent' => [], 'studentAbsent' => [], 'teacherPresent' => [], 'teacherAbsent' => [],
+            // How many days each average is taken over.
+            'studentDays' => [], 'teacherDays' => [],
         ];
 
         for ($i = 0; $i < 12; $i++) {
@@ -385,19 +438,13 @@ class Analytics extends Component
             if ($month->greaterThan($now)) {
                 break;
             }
+            $ym = $month->format('Y-m');
 
-            $sp = (int) ($this->studentMonthlyAttendance['present'][$i] ?? 0);
-            $sa = (int) ($this->studentMonthlyAttendance['absent'][$i] ?? 0);
-            $tp = (int) ($this->teacherMonthlyAttendance['present'][$i] ?? 0);
-            $ta = (int) ($this->teacherMonthlyAttendance['absent'][$i] ?? 0);
-
-            $out['labels'][]         = $month->format('M Y');
-            $out['student'][]        = $pct($sp, $sa);
-            $out['teacher'][]        = $pct($tp, $ta);
-            $out['studentPresent'][] = $sp;
-            $out['studentAbsent'][]  = $sa;
-            $out['teacherPresent'][] = $tp;
-            $out['teacherAbsent'][]  = $ta;
+            $out['labels'][]      = $month->format('M Y');
+            $out['student'][]     = $avg($studentMonths[$ym] ?? []);
+            $out['teacher'][]     = $avg($teacherMonths[$ym] ?? []);
+            $out['studentDays'][] = count($studentMonths[$ym] ?? []);
+            $out['teacherDays'][] = count($teacherMonths[$ym] ?? []);
         }
 
         $this->monthlyAttendancePct = $out;
@@ -406,28 +453,51 @@ class Analytics extends Component
     // ─── Class-wise attendance % ranking (overall) ──────────────────────────────
 
     /**
-     * Each class's attendance % over its students' whole record. It used to
-     * read the last 30 days only.
+     * Each class's attendance % over its students' whole record, counted the
+     * way the volume charts are: the class's own % on each day it was marked
+     * (present / present + absent), averaged over those days. It used to be
+     * all the class's presents over all its marks, holidays included.
      */
     protected function loadClassAttendanceRank(): void
     {
         $orgId = $this->orgId();
-        $rows  = [];
 
+        $strength = StudentDetail::where('organization_id', $orgId)
+            ->whereNotNull('standard_id')
+            ->selectRaw('standard_id, COUNT(*) as c')
+            ->groupBy('standard_id')->pluck('c', 'standard_id');
+
+        // One row per class per day: how many were present, how many marked.
+        $days = [];
+        $present = [];
+        $total = [];
+        $marks = StudentAttendance::query()
+            ->join('student_details', 'student_details.id', '=', 'student_attendances.student_detail_id')
+            ->where('student_details.organization_id', $orgId)
+            ->whereIn('student_attendances.status', [self::STU_PRESENT, self::STU_ABSENT])
+            ->selectRaw('student_details.standard_id as sid, DATE(student_attendances.attendance_date) as d, '
+                . 'SUM(CASE WHEN student_attendances.status = ' . self::STU_PRESENT . ' THEN 1 ELSE 0 END) as p, COUNT(*) as t')
+            ->groupBy('sid', 'd')->get();
+        foreach ($marks as $m) {
+            if ((int) $m->t === 0) {
+                continue;
+            }
+            $days[(int) $m->sid][]  = (int) $m->p / (int) $m->t * 100;
+            $present[(int) $m->sid] = ($present[(int) $m->sid] ?? 0) + (int) $m->p;
+            $total[(int) $m->sid]   = ($total[(int) $m->sid] ?? 0) + (int) $m->t;
+        }
+
+        $rows = [];
         foreach (Standard::where('organization_id', $orgId)->inClassOrder()->get() as $std) {
-            $studentIds = StudentDetail::where('organization_id', $orgId)
-                ->where('standard_id', $std->id)->pluck('id');
-            if ($studentIds->isEmpty()) continue;
+            if (empty($strength[$std->id])) continue;
 
-            $present = StudentAttendance::whereIn('student_detail_id', $studentIds)
-                ->where('status', self::STU_PRESENT)->count();
-            $total = StudentAttendance::whereIn('student_detail_id', $studentIds)->count();
-
+            $classDays = $days[$std->id] ?? [];
             $rows[] = [
-                'name' => $std->name,
-                'pct'  => $total > 0 ? round(($present / $total) * 100, 1) : 0,
-                'present' => $present,
-                'total'   => $total,
+                'name'    => $std->name,
+                'pct'     => $classDays ? round(array_sum($classDays) / count($classDays), 1) : 0,
+                'days'    => count($classDays),
+                'present' => $present[$std->id] ?? 0,
+                'total'   => $total[$std->id] ?? 0,
             ];
         }
 
@@ -477,10 +547,15 @@ class Analytics extends Component
         $this->admissionYear = (string) (isset($held[$thisAy]) || !$held ? $thisAy : max(array_keys($held)));
     }
 
+    /** How many admission dates the Admissions Trend draws: the latest ones, so the graph never scrolls sideways. */
+    public const ADMISSION_DATES_SHOWN = 15;
+
     /**
      * The Admissions Trend of the selected school year (April → March): one bar
-     * for each date students were admitted on, with how many. It used to be
-     * twelve monthly bars.
+     * for each date students were admitted on, with how many — the last
+     * fifteen such dates, so the bars always fit the card (a year with many
+     * dates used to scroll sideways). The total over the graph is still the
+     * whole year's.
      *
      * Counts on the admission date the school recorded, falling back to when
      * the record was created.
@@ -498,8 +573,13 @@ class Analytics extends Component
             $data[]   = (int) $count;
         }
 
-        $this->admissionsTrend  = ['labels' => $labels, 'data' => $data];
         $this->admissionsTotal  = array_sum($data);
+        $this->admissionsTrend  = [
+            'labels' => array_slice($labels, -self::ADMISSION_DATES_SHOWN),
+            'data'   => array_slice($data, -self::ADMISSION_DATES_SHOWN),
+            // How many dates the year holds in all (the graph shows the latest of them).
+            'dates'  => count($labels),
+        ];
     }
 
     // ─── Teacher attendance, day by day ─────────────────────────────────────────
@@ -918,22 +998,27 @@ class Analytics extends Component
 
     // ─── Student Pie ──────────────────────────────────────────────────────────
 
+    /**
+     * The Student Split: today's students, present against absent. It used to
+     * cover a window picked from a dropdown (today, or the last 7, 14 or 30
+     * days — $attendanceFilter, which the page no longer offers).
+     */
     protected function loadStudentPie(): void
     {
         $orgId = $this->orgId();
-        $from  = Carbon::now()->subDays((int) $this->attendanceFilter - 1)->startOfDay();
+        $today = Carbon::today();
 
         $present = StudentAttendance::where('organization_id', $orgId)
-            ->where('attendance_date', '>=', $from)
+            ->whereDate('attendance_date', $today)
             ->where('status', self::STU_PRESENT)
             ->count();
 
         $absent = StudentAttendance::where('organization_id', $orgId)
-            ->where('attendance_date', '>=', $from)
+            ->whereDate('attendance_date', $today)
             ->where('status', self::STU_ABSENT)
             ->count();
 
-        // The same split as a share: the average attendance % over the window.
+        // The same split as a share of the students marked today.
         $marked     = $present + $absent;
         $presentPct = $marked > 0 ? round($present / $marked * 100, 1) : 0;
         $absentPct  = $marked > 0 ? round(100 - $presentPct, 1) : 0;

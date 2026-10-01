@@ -1,11 +1,5 @@
 <div class="min-h-screen bg-gray-50">
 
-    @php
-        // The day the teacher-volume dropdown is pointing at.
-        $tDay = $this->teacherDay();
-        $teacherDays = $teacherDailyAttendance['days'] ?? [];
-    @endphp
-
     {{-- ══════════════════════════════════════════════════════════
          HEADER — title, date, and the three numbers worth carrying
          at the top of every screen.
@@ -61,7 +55,10 @@
                     <div class="px-5 py-4 -mr-px -mb-px border-r border-b border-gray-100">
                         <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">{{ $label }}</p>
                         <p class="text-[26px] leading-none font-semibold {{ $tone }} mt-2 tabular-nums">{{ $value }}</p>
-                        @if ($i === 0)
+                        @if ($i === 0 && empty($kpis['student_marked']))
+                            {{-- Nothing to set against yesterday until today is marked. --}}
+                            <p class="mt-2 text-xs text-gray-400">Not marked yet today</p>
+                        @elseif ($i === 0)
                             <p class="mt-2 inline-flex items-center gap-1 text-xs font-medium {{ $d > 0 ? 'text-emerald-600' : ($d < 0 ? 'text-red-500' : 'text-gray-400') }}">
                                 @if ($d > 0)
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" /></svg>
@@ -125,34 +122,33 @@
                     </div>
                 </div>
 
-                {{-- Student split --}}
+                {{-- Student split: today's students, present against absent --}}
+                @php $splitMarked = ($studentPieData['present'] ?? 0) + ($studentPieData['absent'] ?? 0); @endphp
                 <div class="bg-white rounded-xl border border-gray-200 p-5">
-                    <div class="flex items-center justify-between mb-4">
+                    <div class="mb-4">
                         <h3 class="text-sm font-semibold text-gray-800">Student Split</h3>
-                        <select wire:model.live="attendanceFilter"
-                            class="text-xs bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-indigo-400">
-                            <option value="1">Today</option>
-                            <option value="7">Last 7 days</option>
-                            <option value="14">Last 14 days</option>
-                            <option value="30">Last 30 days</option>
-                        </select>
+                        <p class="text-xs text-gray-400 mt-0.5">Today · {{ now()->format('d M Y') }}</p>
                     </div>
-                    <div class="h-40" wire:key="stu-pie-{{ $attendanceFilter }}">
-                        <canvas x-data="{
-                            init() {
-                                new Chart(this.$el.getContext('2d'), {
-                                    type: 'doughnut',
-                                    data: {
-                                        labels: ['Present', 'Absent'],
-                                        datasets: [{ data: [{{ $studentPieData['present'] ?? 0 }}, {{ $studentPieData['absent'] ?? 0 }}], share: [{{ $studentPieData['presentPct'] ?? 0 }}, {{ $studentPieData['absentPct'] ?? 0 }}], backgroundColor: ['rgba(16,185,129,0.85)', 'rgba(239,68,68,0.7)'], borderWidth: 0, hoverOffset: 6 }]
-                                    },
-                                    options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 12, boxWidth: 10, usePointStyle: true } }, tooltip: { callbacks: { label: (c) => c.label + ': ' + c.dataset.share[c.dataIndex] + '% (' + Number(c.raw).toLocaleString('en-IN') + ')' } } } }
-                                });
-                            }
-                        }"></canvas>
-                    </div>
+                    @if ($splitMarked > 0)
+                        <div class="h-40" wire:ignore wire:key="stu-pie">
+                            <canvas x-data="{
+                                init() {
+                                    new Chart(this.$el.getContext('2d'), {
+                                        type: 'doughnut',
+                                        data: {
+                                            labels: ['Present', 'Absent'],
+                                            datasets: [{ data: [{{ $studentPieData['present'] ?? 0 }}, {{ $studentPieData['absent'] ?? 0 }}], share: [{{ $studentPieData['presentPct'] ?? 0 }}, {{ $studentPieData['absentPct'] ?? 0 }}], backgroundColor: ['rgba(16,185,129,0.85)', 'rgba(239,68,68,0.7)'], borderWidth: 0, hoverOffset: 6 }]
+                                        },
+                                        options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 12, boxWidth: 10, usePointStyle: true } }, tooltip: { callbacks: { label: (c) => c.label + ': ' + c.dataset.share[c.dataIndex] + '% (' + Number(c.raw).toLocaleString('en-IN') + ')' } } } }
+                                    });
+                                }
+                            }"></canvas>
+                        </div>
+                    @else
+                        <div class="h-40 flex items-center justify-center text-center text-sm text-gray-400">Student attendance is not marked yet today.</div>
+                    @endif
                     <div class="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 gap-2 text-center">
-                        {{-- The average attendance % over the window; the counts it comes from beside the label. --}}
+                        {{-- The share of the students marked today; the counts beside the label. --}}
                         <div>
                             <p class="text-xl font-semibold text-emerald-600 tabular-nums">{{ $studentPieData['presentPct'] ?? 0 }}%</p>
                             <p class="text-[10px] text-gray-400 uppercase tracking-wide">Present · {{ number_format($studentPieData['present'] ?? 0) }}</p>
@@ -166,14 +162,15 @@
             </div>
 
             {{-- Volume: each month's average attendance %, from 1 April of the session
-                 to this month — the students', and the teachers'. The present and
-                 absent counts stay behind each bar. --}}
+                 to this month — the students', and the teachers'. A month's figure
+                 is the average of its days' percentages, and it is all a bar says
+                 when the pointer is on it. --}}
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 <div class="bg-white rounded-xl border border-gray-200 p-5">
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <h3 class="text-sm font-semibold text-gray-800">Student Attendance Volume</h3>
-                            <p class="text-xs text-gray-400 mt-0.5">Average % per month · from {{ $monthlyAttendancePct['from'] ?? '' }}</p>
+                            <p class="text-xs text-gray-400 mt-0.5">Average of the days' % per month · from {{ $monthlyAttendancePct['from'] ?? '' }}</p>
                         </div>
                         <div class="flex items-center gap-3 text-[11px] text-gray-400">
                             <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block"></span> Attendance %</span>
@@ -187,14 +184,14 @@
                                     data: {
                                         labels: @js($monthlyAttendancePct['labels'] ?? []),
                                         datasets: [
-                                            { label: 'Attendance', data: @js($monthlyAttendancePct['student'] ?? []), present: @js($monthlyAttendancePct['studentPresent'] ?? []), absent: @js($monthlyAttendancePct['studentAbsent'] ?? []), backgroundColor: 'rgba(16,185,129,0.75)', borderRadius: 3, borderSkipped: false, maxBarThickness: 44 }
+                                            { label: 'Attendance', data: @js($monthlyAttendancePct['student'] ?? []), backgroundColor: 'rgba(16,185,129,0.75)', borderRadius: 3, borderSkipped: false, maxBarThickness: 44 }
                                         ]
                                     },
                                     options: {
                                         responsive: true, maintainAspectRatio: false,
                                         plugins: {
                                             legend: { display: false },
-                                            tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + c.raw + '% · Present ' + Number(c.dataset.present[c.dataIndex]).toLocaleString('en-IN') + ' · Absent ' + Number(c.dataset.absent[c.dataIndex]).toLocaleString('en-IN') } }
+                                            tooltip: { displayColors: false, callbacks: { title: () => null, label: (c) => c.raw + '%' } }
                                         },
                                         scales: { x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0, autoSkipPadding: 6 } }, y: { beginAtZero: true, max: 100, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 }, callback: (v) => v + '%' } } }
                                     }
@@ -204,31 +201,19 @@
                     </div>
                 </div>
 
-                {{-- Teacher volume: the same monthly average as the students'. The
-                     window and the date dropdown still report one day on its own,
-                     under the chart. --}}
+                {{-- Teacher volume: the same monthly average as the students', and
+                     nothing else on the card. --}}
                 <div class="bg-white rounded-xl border border-gray-200 p-5">
-                    <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                    <div class="flex items-center justify-between mb-4">
                         <div>
                             <h3 class="text-sm font-semibold text-gray-800">Teacher Attendance Volume</h3>
-                            <p class="text-xs text-gray-400 mt-0.5">Average % per month · from {{ $monthlyAttendancePct['from'] ?? '' }}</p>
+                            <p class="text-xs text-gray-400 mt-0.5">Average of the days' % per month · from {{ $monthlyAttendancePct['from'] ?? '' }}</p>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <select wire:model.live="teacherAttFilter"
-                                class="text-xs bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-400">
-                                <option value="7">Last 7 days</option>
-                                <option value="14">Last 14 days</option>
-                                <option value="30">Last 30 days</option>
-                            </select>
-                            <select wire:model.live="teacherAttDate"
-                                class="text-xs bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-400">
-                                @foreach (array_reverse($teacherDays) as $day)
-                                    <option value="{{ $day['date'] }}">{{ $day['label'] }}</option>
-                                @endforeach
-                            </select>
+                        <div class="flex items-center gap-3 text-[11px] text-gray-400">
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-blue-500 inline-block"></span> Attendance %</span>
                         </div>
                     </div>
-                    <div class="h-56" wire:key="tch-bar-{{ $teacherAttFilter }}">
+                    <div class="h-56" wire:ignore wire:key="tch-bar">
                         <canvas x-data="{
                             init() {
                                 new Chart(this.$el.getContext('2d'), {
@@ -236,29 +221,20 @@
                                     data: {
                                         labels: @js($monthlyAttendancePct['labels'] ?? []),
                                         datasets: [
-                                            { label: 'Attendance', data: @js($monthlyAttendancePct['teacher'] ?? []), present: @js($monthlyAttendancePct['teacherPresent'] ?? []), absent: @js($monthlyAttendancePct['teacherAbsent'] ?? []), backgroundColor: 'rgba(59,130,246,0.75)', borderRadius: 3, borderSkipped: false, maxBarThickness: 44 }
+                                            { label: 'Attendance', data: @js($monthlyAttendancePct['teacher'] ?? []), backgroundColor: 'rgba(59,130,246,0.75)', borderRadius: 3, borderSkipped: false, maxBarThickness: 44 }
                                         ]
                                     },
                                     options: {
                                         responsive: true, maintainAspectRatio: false,
                                         plugins: {
                                             legend: { display: false },
-                                            tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + c.raw + '% · Present ' + Number(c.dataset.present[c.dataIndex]).toLocaleString('en-IN') + ' · Absent ' + Number(c.dataset.absent[c.dataIndex]).toLocaleString('en-IN') } }
+                                            tooltip: { displayColors: false, callbacks: { title: () => null, label: (c) => c.raw + '%' } }
                                         },
                                         scales: { x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0, autoSkipPadding: 6 } }, y: { beginAtZero: true, max: 100, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 }, callback: (v) => v + '%' } } }
                                     }
                                 });
                             }
                         }"></canvas>
-                    </div>
-                    <div class="mt-4 pt-4 border-t border-gray-100">
-                        <p class="text-[11px] text-gray-400 mb-2">{{ $tDay['label'] ?? '—' }}</p>
-                        <div class="grid grid-cols-4 gap-2 text-center">
-                            <div><p class="text-base font-semibold text-blue-600 tabular-nums">{{ $tDay['present'] ?? 0 }}</p><p class="text-[10px] text-gray-400 uppercase">Present</p></div>
-                            <div><p class="text-base font-semibold text-red-500 tabular-nums">{{ $tDay['absent'] ?? 0 }}</p><p class="text-[10px] text-gray-400 uppercase">Absent</p></div>
-                            <div><p class="text-base font-semibold text-amber-500 tabular-nums">{{ $tDay['half'] ?? 0 }}</p><p class="text-[10px] text-gray-400 uppercase">Half</p></div>
-                            <div><p class="text-base font-semibold text-gray-800 tabular-nums">{{ $tDay['pct'] ?? 0 }}%</p><p class="text-[10px] text-gray-400 uppercase">Rate</p></div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -267,7 +243,7 @@
             <div class="bg-white rounded-xl border border-gray-200 p-5">
                 <div class="mb-4">
                     <h3 class="text-sm font-semibold text-gray-800">Class-wise Attendance Ranking</h3>
-                    <p class="text-xs text-gray-400 mt-0.5">Average attendance % overall</p>
+                    <p class="text-xs text-gray-400 mt-0.5">Average of each day's attendance % · overall</p>
                 </div>
                 @if (count($classAttendanceRank))
                     <div class="space-y-2.5">
@@ -366,7 +342,10 @@
                             <h3 class="text-sm font-semibold text-gray-800">Admissions Trend</h3>
                             <p class="text-xs text-gray-400 mt-0.5">
                                 <span class="font-medium text-gray-600 tabular-nums">{{ number_format($admissionsTotal) }}</span>
-                                admission{{ $admissionsTotal === 1 ? '' : 's' }} · counted on admission date
+                                admission{{ $admissionsTotal === 1 ? '' : 's' }} ·
+                                {{ ($admissionsTrend['dates'] ?? 0) > count($admissionsTrend['labels'] ?? [])
+                                    ? 'the last ' . count($admissionsTrend['labels'] ?? []) . ' admission dates'
+                                    : 'counted on admission date' }}
                             </p>
                         </div>
                         <select wire:model.live="admissionYear"
@@ -376,10 +355,11 @@
                             @endforeach
                         </select>
                     </div>
-                    {{-- One bar for each date students were admitted on, its number over it.
-                         A year with many such dates scrolls sideways rather than squeeze. --}}
-                    <div class="overflow-x-auto" wire:key="adm-trend-{{ $admissionYear }}">
-                        <div class="h-56" style="min-width: {{ count($admissionsTrend['labels'] ?? []) * 46 }}px">
+                    {{-- One bar for each date students were admitted on, its number over it:
+                         the last fifteen such dates of the year, so they fit the card and
+                         nothing scrolls sideways. --}}
+                    <div wire:key="adm-trend-{{ $admissionYear }}">
+                        <div class="h-56">
                             <canvas x-data="{
                                 init() {
                                     new Chart(this.$el.getContext('2d'), {
@@ -420,10 +400,15 @@
                     @endif
                 </div>
 
-                {{-- Enquiry funnel + recent --}}
-                <div class="bg-white rounded-xl border border-gray-200 p-5">
-                    <h3 class="text-sm font-semibold text-gray-800 mb-4">Enquiry Funnel</h3>
-                    <div class="grid grid-cols-3 gap-2 text-center">
+                {{-- Enquiry funnel + recent. The card keeps its size however many
+                     enquiries there are: beside the Admissions card it is exactly as
+                     tall as that one (it is laid over its own grid cell, so it cannot
+                     stretch the row), on a narrow screen it has a height of its own,
+                     and the latest enquiries scroll inside it. --}}
+                <div class="relative h-80 lg:h-auto">
+                <div class="absolute inset-0 bg-white rounded-xl border border-gray-200 p-5 flex flex-col overflow-hidden">
+                    <h3 class="text-sm font-semibold text-gray-800 mb-4 flex-shrink-0">Enquiry Funnel</h3>
+                    <div class="grid grid-cols-3 gap-2 text-center flex-shrink-0">
                         <div>
                             <p class="text-xl font-semibold text-gray-900 tabular-nums">{{ $enquiryStats['total'] ?? 0 }}</p>
                             <p class="text-[10px] text-gray-400 uppercase tracking-wide">Total</p>
@@ -437,12 +422,12 @@
                             <p class="text-[10px] text-gray-400 uppercase tracking-wide">Pending</p>
                         </div>
                     </div>
-                    <div class="mt-4">
+                    <div class="mt-4 flex-shrink-0">
                         <div class="flex justify-between text-xs mb-1.5"><span class="text-gray-400">Response rate</span><span class="font-semibold text-gray-700">{{ $enquiryStats['rate'] ?? 0 }}%</span></div>
                         <div class="w-full bg-gray-100 rounded-full h-1.5"><div class="h-1.5 rounded-full bg-emerald-500" style="width: {{ $enquiryStats['rate'] ?? 0 }}%"></div></div>
                     </div>
-                    <p class="text-[10px] font-medium text-gray-400 uppercase tracking-wide mt-5 mb-1">Latest enquiries</p>
-                    <div class="divide-y divide-gray-100">
+                    <p class="text-[10px] font-medium text-gray-400 uppercase tracking-wide mt-5 mb-1 flex-shrink-0">Latest enquiries</p>
+                    <div class="divide-y divide-gray-100 flex-1 min-h-0 overflow-y-auto">
                         @forelse($adminEnquiries as $enq)
                             <div class="flex items-center gap-2.5 py-2.5">
                                 <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 font-bold text-gray-500 text-xs">
@@ -458,6 +443,7 @@
                             <p class="text-center text-gray-400 text-sm py-4">No enquiries yet.</p>
                         @endforelse
                     </div>
+                </div>
                 </div>
             </div>
         </section>
