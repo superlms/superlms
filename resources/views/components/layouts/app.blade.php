@@ -109,6 +109,14 @@
             .lms-navbar { left: var(--lms-sb) !important; padding-left: 0 !important; transition: left .2s ease; }
             .lms-main   { left: var(--lms-sb) !important; transition: left .2s ease; }
 
+            /* A slide-in panel's overlay is `fixed inset-x-0`, so its blurred
+               backdrop ran on under the sidebar. The page behind it stops at
+               the sidebar's edge, and the blur, reaching past that edge into
+               nothing, drew a dark line down the side of the sidebar while a
+               panel was open. The overlay starts where the page does. (Popups
+               that cover the whole window carry `lms-cover` and are left alone.) */
+            #main-scroll .fixed.inset-x-0.top-16.overflow-hidden:not(.lms-cover) { left: var(--lms-sb) !important; }
+
             /* Collapsed state: hide labels/section titles/logo text, center icons. */
             html:not(.sidebar-expanded) .lms-label,
             html:not(.sidebar-expanded) .lms-section-title,

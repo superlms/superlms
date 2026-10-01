@@ -104,62 +104,97 @@
          ANNOUNCEMENT LIST
     ══════════════════════════════════════════════════ --}}
     <div class="p-4 sm:p-6">
-        <div class="space-y-3">
-            @forelse ($announcements as $announcement)
-                {{-- A slim row: the title and when it was posted. Who it is for,
-                     what it says, who posted it and its attachment are on its View. --}}
-                <div wire:click="viewAnnouncement({{ $announcement->id }})"
-                    class="group bg-white rounded-xl border border-gray-200 hover:border-gray-300 transition-colors cursor-pointer">
-                    <div class="flex items-center justify-between gap-4 px-4 sm:px-5 py-2.5">
-                        <div class="min-w-0">
-                            <h3 class="text-sm font-semibold text-gray-900 truncate">{{ $announcement->announcement_name }}</h3>
-                            <p class="text-xs text-gray-400 mt-0.5">{{ $announcement->created_at->format('M j, Y · g:i A') }}</p>
-                        </div>
+        {{-- The list, in the Students list's style: one table — S.No, the
+             announcement (its icon, the title, and under it the content on one
+             line, cut short with … when it is long) and the actions. Who it is
+             for, who posted it, when, and its attachment are on its View. --}}
+        @if ($announcements->count())
+            <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full table-fixed">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-16">S.No</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Announcement</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-36">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @foreach ($announcements as $index => $announcement)
+                                <tr wire:click="viewAnnouncement({{ $announcement->id }})"
+                                    class="hover:bg-gray-50/70 transition-colors cursor-pointer">
 
-                        {{-- Action Buttons --}}
-                        <div class="flex items-center gap-1 flex-shrink-0" onclick="event.stopPropagation()">
-                            <button wire:click="viewAnnouncement({{ $announcement->id }})" title="View"
-                                class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                </svg>
-                            </button>
-                            <button wire:click="edit({{ $announcement->id }})" title="Edit"
-                                class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                            </button>
-                            <button wire:click="onDelete({{ $announcement->id }})" title="Delete"
-                                class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-red-600 transition-colors">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
+                                    {{-- S.No --}}
+                                    <td class="px-4 py-3">
+                                        <span class="text-sm text-gray-500 font-medium">{{ $announcements->firstItem() + $index }}</span>
+                                    </td>
+
+                                    {{-- Icon, title, and the content on one line --}}
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-3 min-w-0">
+                                            <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                                                </svg>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <p class="text-sm font-semibold text-gray-900 truncate">{{ $announcement->announcement_name }}</p>
+                                                <p class="text-xs text-gray-400 truncate">{{ $announcement->announcement_content }}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    {{-- Actions --}}
+                                    <td class="px-4 py-3" onclick="event.stopPropagation()">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <button wire:click="viewAnnouncement({{ $announcement->id }})" title="View"
+                                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                            </button>
+                                            <button wire:click="edit({{ $announcement->id }})" title="Edit"
+                                                class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
+                                            </button>
+                                            <button wire:click="onDelete({{ $announcement->id }})" title="Delete"
+                                                class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
-            @empty
-                <div class="text-center py-20 bg-white rounded-xl border border-gray-200">
-                    <div class="w-14 h-14 mx-auto mb-3 bg-blue-50 rounded-full flex items-center justify-center">
-                        <svg class="w-7 h-7 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-                        </svg>
-                    </div>
-                    <h3 class="text-base font-semibold text-gray-800 mb-1">No announcements yet</h3>
-                    <p class="text-sm text-gray-400 mb-4">Create your first announcement to share important information.</p>
-                    <button wire:click="openModal"
-                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                        </svg>
-                        Create Announcement
-                    </button>
+            </div>
+        @else
+            <div class="text-center py-20 bg-white rounded-xl border border-gray-200">
+                <div class="w-14 h-14 mx-auto mb-3 bg-blue-50 rounded-full flex items-center justify-center">
+                    <svg class="w-7 h-7 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                    </svg>
                 </div>
-            @endforelse
-        </div>
+                <h3 class="text-base font-semibold text-gray-800 mb-1">No announcements yet</h3>
+                <p class="text-sm text-gray-400 mb-4">Create your first announcement to share important information.</p>
+                <button wire:click="openModal"
+                    class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Create Announcement
+                </button>
+            </div>
+        @endif
 
         {{-- Pagination --}}
         @if ($announcements->hasPages())
