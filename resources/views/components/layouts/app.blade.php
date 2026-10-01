@@ -29,7 +29,15 @@
     @livewireStyles
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <title>{{ $title ?? 'SuperLMS' }}</title>
+    {{-- A window of the installed School Admin app reads "SuperLMS Admin - <this
+         title>" in its title bar: the school's name goes there. --}}
+    @php
+        $lmsAppTitle = \App\Support\AppWindow::isApp()
+            && (\App\Support\PanelApp::panelOf(Auth::user())[0] ?? null) === 'admin'
+                ? (Auth::user()->organization?->name ?: null)
+                : null;
+    @endphp
+    <title>{{ $title ?? $lmsAppTitle ?? 'SuperLMS' }}</title>
 
     {{-- Rich Text --}}
     <link rel="stylesheet" type="text/css" href="https://unpkg.com/trix@2.0.8/dist/trix.css">
