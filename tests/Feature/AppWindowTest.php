@@ -78,4 +78,26 @@ class AppWindowTest extends TestCase
         $this->get('/accounts/~/accounts/launch', self::NAV)
             ->assertRedirect('/accounts/~/accounts?password=1');
     }
+
+    public function test_no_two_apps_share_a_scope_and_each_starts_inside_its_own(): void
+    {
+        $seen = [];
+        foreach (['admin' => '/~/', 'accounts' => '/accounts/~/', 'superadmin' => '/superadmin/~/'] as $role => $scope) {
+            $manifest = $this->get('/pwa/manifest/' . $role)->assertOk()->json();
+
+            $this->assertSame($scope, $manifest['scope']);
+            $this->assertStringStartsWith($scope, $manifest['start_url']);
+            $seen[] = $manifest['id'];
+
+            // The app opens on its opening page, under its own mount.
+            $this->get($manifest['start_url'], self::NAV)->assertRedirect();
+            $this->assertSame(rtrim($scope, '/'), AppWindow::mount());
+        }
+        $this->assertCount(3, array_unique($seen));
+
+        // Asked from a school's app, the manifest is that school's.
+        $school = $this->get('/pwa/manifest/admin', ['Referer' => 'http://localhost/9/~/9/home'])->json();
+        $this->assertSame('/9/~/', $school['scope']);
+        $this->assertStringStartsWith('/9/~/9/launch', $school['start_url']);
+    }
 }

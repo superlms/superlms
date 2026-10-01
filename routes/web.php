@@ -33,19 +33,31 @@ Route::get('/app/accounts', AppLock::class)
 // separate app with its OWN scope, so installing one (e.g. admin) doesn't make
 // the browser treat the whole site as that app — the other roles stay usable in
 // the browser and installable on their own.
-//   - admin    → scope /{org}/  (needs the logged-in org; manifest is fetched
-//                 with credentials so we can read it). Falls back to a broad
-//                 scope only while logged out.
-//   - accounts → scope /accounts
-//   - superadmin/site → scope / (their routes live at the site root)
+//   - admin      → scope /{org}/~/ (needs the logged-in org; manifest is fetched
+//                   with credentials so we can read it), /~/ while logged out
+//   - accounts   → scope /accounts/~/
+//   - superadmin → scope /superadmin/~/
+//   - site       → scope /
 // Bump $idVersion if an install ever gets "stuck" on a device.
 Route::get('/pwa/manifest/{role}', function (string $role) {
     $idVersion = 'v4';
     $u = auth('admin')->user();
 
+    // Asked from a window of an installed School Admin app: that app's own
+    // manifest — its school's, or the one installed from the login screen —
+    // whoever is signed in there now.
+    $org = $u?->organization_id;
+    if ($role === 'admin' && ($appMount = \App\Support\AppWindow::mount()) !== null) {
+        $org = preg_match('#^/(\d+)/~$#', $appMount, $m) ? (int) $m[1] : null;
+    }
+
+    // Each app lives under a mount of its own (App\Support\AppWindow), and that
+    // is its scope: no two apps share a scope, so the browser never takes one
+    // for another, and none of them covers the pages of a browser tab.
+    $mount = null;
+
     if ($role === 'admin') {
-        if ($u && $u->organization_id) {
-            $org      = $u->organization_id;
+        if ($org) {
             $name     = 'SuperLMS Admin';
             $short    = 'Admin';
             $id       = '/pwa/admin-' . $org;
@@ -55,32 +67,37 @@ Route::get('/pwa/manifest/{role}', function (string $role) {
             // tab) — see admin.launch. Still signed, as the shortcuts already
             // installed are; the signature itself no longer opens anything.
             $start    = URL::signedRoute('admin.launch', ['organization' => $org], null, false);
-            $scope    = '/' . $org . '/';
+            $mount    = \App\Support\AppWindow::launchMount('admin', $org);
         } else {
             $name  = 'SuperLMS Admin';
             $short = 'Admin';
             $id    = '/pwa/admin';
             $start = route('pwa.admin', [], false);
-            $scope = '/';
+            $mount = \App\Support\AppWindow::launchMount('admin');
         }
     } elseif ($role === 'accounts') {
         $name  = 'SuperLMS Accounts';
         $short = 'Accounts';
         $id    = '/pwa/accounts';
         $start = route('accounts.launch', [], false);
-        $scope = '/accounts';
+        $mount = \App\Support\AppWindow::launchMount('accounts');
     } elseif ($role === 'superadmin') {
         $name  = 'SuperLMS Super Admin';
         $short = 'Super';
         $id    = '/pwa/superadmin';
         $start = route('pwa.superadmin', [], false);
-        $scope = '/';
+        $mount = \App\Support\AppWindow::launchMount('superadmin');
     } else {
         $name  = 'SuperLMS';
         $short = 'SuperLMS';
         $id    = '/pwa/site';
         $start = '/';
         $scope = '/';
+    }
+
+    if ($mount) {
+        $start = \App\Support\AppWindow::mounted($start, $mount);
+        $scope = $mount . '/';
     }
 
     $manifest = [
