@@ -75,12 +75,6 @@
                         <option value="revoked">Inactive</option>
                     </select>
 
-                    <select wire:model.live="perPage" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                        <option value="10">10 / page</option>
-                        <option value="25">25 / page</option>
-                        <option value="50">50 / page</option>
-                    </select>
-
                     @if ($search || $filterStandard || $filterSection || $filterStatus)
                         <button wire:click="resetFilters"
                             class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
@@ -117,9 +111,8 @@
                  section small under the class, the status is plain text, and the
                  actions are the Students list's plain buttons — View (the card in a
                  slide-in, as a transfer certificate is viewed) and Download (the
-                 file, straight away) — then Active / Inactive: the one the card is
-                 on is lit, a click on the other switches it. An inactive card can
-                 only be made active again. --}}
+                 file, straight away) — then one icon for active / inactive, which a
+                 click switches. An inactive card can only be made active again. --}}
             <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full">
@@ -131,7 +124,7 @@
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Academic Year</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Issued On</th>
-                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-56">Actions</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-36">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
@@ -180,12 +173,19 @@
                                                     </svg>
                                                 </a>
                                             @endif
-                                            <div class="inline-flex ml-1 rounded-lg border border-gray-200 overflow-hidden text-[11px] font-semibold">
-                                                <button type="button" wire:click="setCardStatus({{ $card->id }}, 'issued')" @disabled($active) title="{{ $active ? 'This card is active' : 'Make active' }}"
-                                                    class="px-2 py-1 transition-colors {{ $active ? 'bg-emerald-50 text-emerald-700' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600' }}">Active</button>
-                                                <button type="button" wire:click="setCardStatus({{ $card->id }}, 'revoked')" @disabled(!$active) title="{{ $active ? 'Make inactive' : 'This card is inactive' }}"
-                                                    class="px-2 py-1 border-l border-gray-200 transition-colors {{ $active ? 'text-gray-400 hover:bg-gray-50 hover:text-gray-600' : 'bg-red-50 text-red-600' }}">Inactive</button>
-                                            </div>
+                                            {{-- One icon for active / inactive: a green tick while the card
+                                                 is active, a red cross while it is not; a click switches it. --}}
+                                            <button type="button" wire:click="setCardStatus({{ $card->id }}, '{{ $active ? 'revoked' : 'issued' }}')"
+                                                title="{{ $active ? 'Active — click to make inactive' : 'Inactive — click to make active' }}"
+                                                class="p-1.5 rounded-lg transition-colors {{ $active ? 'text-emerald-600 hover:bg-emerald-50' : 'text-red-600 hover:bg-red-50' }}">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    @if ($active)
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    @else
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    @endif
+                                                </svg>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -222,8 +222,9 @@
      1. Pick the class and its section; the students come up, and the ones to
         issue for are ticked. Continue.
      2. A row for each: number, name over admission number, the remark to
-        enter and the co-scholastic grades to choose (with the registration
-        number and the result, as before). Submit issues them.
+        enter (the registration number beside it) and the co-scholastic
+        grades to choose. Submit issues them. The result is no longer asked:
+        the card works it out from the marks.
 ══════════════════════════════════════════════════ --}}
 @if ($showIssuePanel)
     <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
@@ -385,36 +386,38 @@
                 {{-- ─────────── Step 2: each student's details ─────────── --}}
                 <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5" wire:key="issue-step-2">
 
-                    <div class="max-w-xs">
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Issue Date <span class="text-red-500">*</span></label>
-                        <input wire:model.defer="issueDate" type="date"
-                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm @error('issueDate') border-red-400 @enderror">
-                        @error('issueDate')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                        <p class="mt-1 text-xs text-gray-500">Prints as "Issue Date" on every card in this batch.</p>
-                    </div>
-
-                    {{-- One grade for everyone at once; each student's can still be changed below. --}}
-                    @if (count($issueRows) > 1)
-                        <div class="border border-gray-200 rounded-xl px-4 py-3" x-data>
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-2">Set a grade for all students</p>
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                @foreach ($coAreas as $ai => $area)
-                                    <div wire:key="co-all-{{ $ai }}">
-                                        <p class="text-xs font-medium text-gray-700 mb-1 truncate" title="{{ $area }}">{{ $area }}</p>
-                                        <div class="grid grid-cols-2 gap-2">
-                                            @foreach (['term1' => 'Term 1', 'term2' => 'Term 2'] as $termKey => $termLabel)
-                                                <select x-on:change="$wire.setAllCoGrade('{{ $termKey }}', {{ $ai }}, $event.target.value); $event.target.value = ''"
-                                                    class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs text-gray-600">
-                                                    <option value="">{{ $termLabel }}</option>
-                                                    @foreach ($coGrades as $g)<option value="{{ $g }}">{{ $g }}</option>@endforeach
-                                                </select>
-                                            @endforeach
-                                        </div>
-                                    </div>
-                                @endforeach
-                            </div>
+                    {{-- The issue date, and beside it in the same row the grades that can
+                         be set for every student at once (each can still be changed below). --}}
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-x-4 gap-y-3 items-start">
+                        <div class="lg:col-span-3">
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Issue Date <span class="text-red-500">*</span></label>
+                            <input wire:model.defer="issueDate" type="date"
+                                class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm @error('issueDate') border-red-400 @enderror">
+                            @error('issueDate')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
-                    @endif
+
+                        @if (count($issueRows) > 1)
+                            <div class="lg:col-span-9" x-data>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">Set a grade for all students</label>
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    @foreach ($coAreas as $ai => $area)
+                                        <div wire:key="co-all-{{ $ai }}">
+                                            <div class="grid grid-cols-2 gap-2">
+                                                @foreach (['term1' => 'Term 1', 'term2' => 'Term 2'] as $termKey => $termLabel)
+                                                    <select x-on:change="$wire.setAllCoGrade('{{ $termKey }}', {{ $ai }}, $event.target.value); $event.target.value = ''" title="{{ $area }} — {{ $termLabel }}, for all students"
+                                                        class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm text-gray-600">
+                                                        <option value="">{{ $termLabel }}</option>
+                                                        @foreach ($coGrades as $g)<option value="{{ $g }}">{{ $g }}</option>@endforeach
+                                                    </select>
+                                                @endforeach
+                                            </div>
+                                            <p class="text-xs text-gray-500 mt-1 truncate" title="{{ $area }}">{{ $area }}</p>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+                    </div>
 
                     <div class="border border-gray-200 rounded-xl divide-y divide-gray-100">
                         @foreach ($issueRows as $studentId => $row)
@@ -428,11 +431,20 @@
                                 </div>
 
                                 <div class="col-span-12 md:col-span-9 space-y-3">
-                                    <div>
-                                        <label class="block text-xs font-medium text-gray-700 mb-1">Remark <span class="text-red-500">*</span></label>
-                                        <input wire:model.defer="issueRows.{{ $studentId }}.remark" type="text" maxlength="500" placeholder="e.g. Very good progress. Keep it up."
-                                            class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm @error('issueRows.' . $studentId . '.remark') border-red-400 @enderror">
-                                        @error('issueRows.' . $studentId . '.remark')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                    {{-- The remark, with the registration number beside it --}}
+                                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                                        <div class="sm:col-span-3">
+                                            <label class="block text-xs font-medium text-gray-700 mb-1">Remark <span class="text-red-500">*</span></label>
+                                            <input wire:model.defer="issueRows.{{ $studentId }}.remark" type="text" maxlength="500" placeholder="e.g. Very good progress. Keep it up."
+                                                class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm @error('issueRows.' . $studentId . '.remark') border-red-400 @enderror">
+                                            @error('issueRows.' . $studentId . '.remark')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700 mb-1">Regd. No</label>
+                                            <input wire:model.defer="issueRows.{{ $studentId }}.regd_no" type="text" maxlength="50" placeholder="—"
+                                                class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm">
+                                            @error('issueRows.' . $studentId . '.regd_no')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                        </div>
                                     </div>
 
                                     <div>
@@ -457,32 +469,14 @@
                                             <p class="mt-1 text-xs text-red-500">Choose every co-scholastic grade.</p>
                                         @endif
                                     </div>
-
-                                    <div class="grid grid-cols-2 gap-3 max-w-md">
-                                        <div>
-                                            <label class="block text-xs font-medium text-gray-700 mb-1">Regd. No</label>
-                                            <input wire:model.defer="issueRows.{{ $studentId }}.regd_no" type="text" maxlength="50" placeholder="—"
-                                                class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm">
-                                            @error('issueRows.' . $studentId . '.regd_no')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                                        </div>
-                                        <div>
-                                            <label class="block text-xs font-medium text-gray-700 mb-1">Result</label>
-                                            <select wire:model.defer="issueRows.{{ $studentId }}.result"
-                                                class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm">
-                                                <option value="">Auto</option>
-                                                <option value="PASSED">PASSED</option>
-                                                <option value="FAILED">FAILED</option>
-                                            </select>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         @endforeach
                     </div>
 
                     <p class="text-xs text-gray-500">
-                        Regd. No is prefilled from the student's registration number. Leave Result on Auto and the card
-                        passes anyone above 33% in every subject.
+                        The issue date prints as "Issue Date" on every card in this batch. Regd. No is prefilled from the
+                        student's registration number.
                     </p>
                 </div>
 
@@ -490,7 +484,7 @@
                     <button wire:click="closeIssueForm" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Back</button>
                     <button wire:click="issueReportCards" type="button" wire:loading.attr="disabled" wire:target="issueReportCards"
                         class="px-5 py-2 bg-gray-900 hover:bg-gray-800 disabled:opacity-60 text-white text-sm font-medium rounded-md">
-                        <span wire:loading.remove wire:target="issueReportCards">Submit — Issue {{ count($issueRows) }} Report Card(s)</span>
+                        <span wire:loading.remove wire:target="issueReportCards">Submit</span>
                         <span wire:loading wire:target="issueReportCards">Issuing…</span>
                     </button>
                 </div>

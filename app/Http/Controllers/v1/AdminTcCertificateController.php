@@ -354,8 +354,9 @@ class AdminTcCertificateController extends ApiController
         $tc = TransferCertificate::where('organization_id', $user->organization_id)->find($id);
         if (!$tc) return $this->error('Transfer Certificate not found.', 404);
 
-        $tc->delete();
-        return $this->success(null, 'TC removed.');
+        // An issued transfer certificate is not deleted — the panel has no
+        // Delete for one either.
+        return $this->error('An issued transfer certificate cannot be deleted.', 422);
     }
 
     private function tcRules(Request $request): ?\Illuminate\Http\JsonResponse

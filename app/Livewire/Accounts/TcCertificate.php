@@ -633,18 +633,20 @@ class TcCertificate extends Component
         }
     }
 
+    /**
+     * An issued transfer certificate is not deleted: its row has no Delete, and
+     * a call that asks for it is refused. It can still be viewed, downloaded
+     * and edited.
+     */
     public function deleteTc(int $id): void
     {
-        $this->pendingDeleteCertId = null;
-        $this->pendingDeleteTcId   = $id;
+        $this->cancelDelete();
+        $this->notification()->warning(title: 'Not allowed', description: 'An issued transfer certificate cannot be deleted.');
     }
 
     public function confirmDeleteTc(int $id): void
     {
-        $this->cancelDelete();
-        TransferCertificate::where('organization_id', $this->organizationId)->findOrFail($id)->delete();
-        unset($this->statistics, $this->analytics);
-        $this->notification()->success(title: 'Deleted!', description: 'TC removed.');
+        $this->deleteTc($id);
     }
 
     public function closeTcModal(): void

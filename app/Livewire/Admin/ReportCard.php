@@ -31,7 +31,8 @@ class ReportCard extends Component
     public $filterStandard = '';
     public $filterSection = '';
     public $filterStatus = '';
-    public $perPage = 10;
+    /** A hundred a page; the filter bar no longer has a box to change it. */
+    public $perPage = 100;
 
     // Issue report card screen
     public $issueStandard = '';

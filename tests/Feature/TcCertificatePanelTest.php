@@ -256,6 +256,10 @@ class TcCertificatePanelTest extends TestCase
 
         $this->assertStringContainsString('wire:click="showStudentPhoto(' . $asha . ')"', $table);
         $this->assertStringContainsString('previewTc(' . $tc->id . ')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg', $table);
+        $this->assertStringContainsString('editTc(' . $tc->id . ')"', $table);
+
+        // An issued TC has no Delete.
+        $this->assertStringNotContainsString('deleteTc', $table);
     }
 
     #[DataProvider('pages')]
@@ -392,12 +396,11 @@ class TcCertificatePanelTest extends TestCase
         $page->call('deleteCert', $cert->id)->call('confirmDeleteCert', $cert->id)->assertSet('pendingDeleteCertId', null);
         $this->assertNull(Certificate::find($cert->id));
 
-        // The same for a transfer certificate.
-        $html = $page->set('activeTab', 'tc')->call('deleteTc', $tc->id)->assertSet('pendingDeleteTcId', $tc->id)->html();
-        $this->assertStringContainsString('Delete Transfer Certificate', $html);
-        $this->assertStringContainsString('wire:click="confirmDeleteTc(' . $tc->id . ')"', $html);
-        $page->call('confirmDeleteTc', $tc->id)->assertSet('pendingDeleteTcId', null);
-        $this->assertNull(TransferCertificate::find($tc->id));
+        // An issued transfer certificate is not deleted, whatever asks for it.
+        $html = $page->set('activeTab', 'tc')->call('deleteTc', $tc->id)->assertSet('pendingDeleteTcId', null)->html();
+        $this->assertStringNotContainsString('lms-cover', $html);
+        $page->call('confirmDeleteTc', $tc->id);
+        $this->assertNotNull(TransferCertificate::find($tc->id));
     }
 
     // ───────────────────────── issue certificate ─────────────────────────

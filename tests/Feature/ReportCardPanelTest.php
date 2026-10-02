@@ -178,33 +178,50 @@ class ReportCardPanelTest extends TestCase
         preg_match_all('/<th\s[^>]*>(.*?)<\/th>/s', $table, $m);
         $this->assertSame(['S.No', 'Student Name', 'Class', 'Academic Year', 'Status', 'Issued On', 'Actions'], array_map('trim', $m[1]));
 
-        // Name over admission number, class over section, the status as plain text; then the two buttons.
-        $this->assertSame('1 Asha ADM-ASH Class 5 Section A 2026-2027 Active 16 Sep 2026 Active Inactive', $this->text($this->row($table, $on)));
-        $this->assertSame('2 B Bina ADM-BIN Class 5 Section A 2026-2027 Inactive 16 Sep 2026 Active Inactive', $this->text($this->row($table, $off)));
+        // Name over admission number, class over section, the status as plain text; the actions are icons.
+        $this->assertSame('1 Asha ADM-ASH Class 5 Section A 2026-2027 Active 16 Sep 2026', $this->text($this->row($table, $on)));
+        $this->assertSame('2 B Bina ADM-BIN Class 5 Section A 2026-2027 Inactive 16 Sep 2026', $this->text($this->row($table, $off)));
         $this->assertMatchesRegularExpression('/text-red-600 font-medium">Inactive</', $table);
         $this->assertStringContainsString('wire:click="showStudentPhoto(' . $asha . ')"', $table);
 
-        // An active card: View, Download, then Active (lit, not to be clicked) and Inactive.
+        // An active card: View, Download, then one icon — green while active, a click makes it inactive.
         $row = $this->row($table, $on);
         $view = strpos($row, 'wire:click="openCardView(' . $on . ')"');
         $download = strpos($row, '/report-card/' . $on . '/download" download title="Download"');
-        $buttons = strpos($row, 'wire:click="setCardStatus(' . $on . ', \'issued\')"');
-        $this->assertTrue($view !== false && $download !== false && $buttons !== false && $view < $download && $download < $buttons);
-        $this->assertMatchesRegularExpression('/setCardStatus\(' . $on . ', \'issued\'\)" disabled[^>]*class="[^"]*bg-emerald-50 text-emerald-700/s', $row);
-        $this->assertMatchesRegularExpression('/setCardStatus\(' . $on . ', \'revoked\'\)"\s+title="Make inactive"/', $row);
+        $icon = strpos($row, 'wire:click="setCardStatus(' . $on . ', \'revoked\')"');
+        $this->assertTrue($view !== false && $download !== false && $icon !== false && $view < $download && $download < $icon);
+        $this->assertSame(1, substr_count($row, 'setCardStatus('));
+        $this->assertMatchesRegularExpression('/title="Active — click to make inactive"\s+class="p-1\.5 rounded-lg transition-colors text-emerald-600 hover:bg-emerald-50"/u', $row);
 
-        // An inactive card: nothing to view or download, Inactive lit, Active to click.
+        // An inactive card: nothing to view or download, and the one icon — red, a click makes it active.
         $row = $this->row($table, $off);
         $this->assertStringNotContainsString('openCardView', $row);
         $this->assertStringNotContainsString('/download', $row);
-        $this->assertMatchesRegularExpression('/setCardStatus\(' . $off . ', \'issued\'\)"\s+title="Make active"/', $row);
-        $this->assertMatchesRegularExpression('/setCardStatus\(' . $off . ', \'revoked\'\)" disabled[^>]*class="[^"]*bg-red-50 text-red-600/s', $row);
+        $this->assertSame(1, substr_count($row, 'setCardStatus('));
+        $this->assertStringContainsString('wire:click="setCardStatus(' . $off . ', \'issued\')"', $row);
+        $this->assertMatchesRegularExpression('/title="Inactive — click to make active"\s+class="p-1\.5 rounded-lg transition-colors text-red-600 hover:bg-red-50"/u', $row);
+
+        // A hundred a page, and no page-size box.
+        $this->assertStringNotContainsString('wire:model.live="perPage"', $html);
+        $this->assertStringNotContainsString('/ page', $html);
 
         // No Revoke, no Print, no new tab; the filter speaks of active and inactive.
         $this->assertStringNotContainsString('revokeReportCard', $table);
         $this->assertStringNotContainsString('/print', $table);
         $this->assertStringNotContainsString('target="_blank"', $html);
         $this->assertMatchesRegularExpression('/<option value="issued">Active<\/option>\s*<option value="revoked">Inactive<\/option>/', $html);
+    }
+
+    #[DataProvider('pages')]
+    public function test_a_hundred_cards_a_page(string $pageClass, string $panel): void
+    {
+        $asha = $this->student('Asha');
+        foreach (range(1, 105) as $i) {
+            $this->card($asha);
+        }
+
+        $page = Livewire::test($pageClass)->assertSet('perPage', 100)->set('filterStandard', '1');
+        $this->assertSame(100, substr_count($page->html(), 'wire:key="rc-'));
     }
 
     #[DataProvider('pages')]
@@ -333,7 +350,17 @@ class ReportCardPanelTest extends TestCase
         foreach (ReportCardService::CO_SCHOLASTIC_AREAS as $area) {
             $this->assertStringContainsString(e($area), $first);
         }
-        $this->assertStringContainsString('Submit — Issue 2 Report Card(s)', $this->text($issue));
+
+        // The registration number sits beside the remark; the result is not asked; the button says Submit.
+        $this->assertStringContainsString('wire:model.defer="issueRows.' . $asha . '.regd_no"', $first);
+        $this->assertStringStartsWith('1 Asha ADM-ASH Remark * Regd. No Co-Scholastic Grades *', $this->text(substr($first, strpos($first, '>') + 1)));
+        $this->assertStringNotContainsString('.result"', $issue);
+        $this->assertStringNotContainsString('PASSED', $issue);
+        $this->assertMatchesRegularExpression('/wire:target="issueReportCards">Submit<\/span>/', $issue);
+        $this->assertStringNotContainsString('Report Card(s)', $issue);
+
+        // The issue date and the grades-for-all are one row.
+        $this->assertMatchesRegularExpression('/lg:grid-cols-12.*?wire:model\.defer="issueDate".*?Set a grade for all students/s', $issue);
 
         // Nothing is chosen to begin with, and nothing is issued until it is.
         $page->call('issueReportCards')->assertHasErrors([
@@ -363,7 +390,7 @@ class ReportCardPanelTest extends TestCase
             ->assertHasNoErrors()->assertSet('showIssuePanel', false)->assertSet('showIssueForm', false);
 
         $card = ReportCard::where('student_detail_id', $asha)->first();
-        $this->assertSame(['issued', 'Very good', 'REG-ASH', '2026-10-02'], [$card->status, $card->remark, $card->regd_no, $card->issued_at->toDateString()]);
+        $this->assertSame(['issued', 'Very good', 'REG-ASH', null, '2026-10-02'], [$card->status, $card->remark, $card->regd_no, $card->result, $card->issued_at->toDateString()]);
         $this->assertSame([
             'term1' => ['General Studies' => 'A', 'Health & Physical Education' => 'A', 'Work Behaviour' => 'A'],
             'term2' => ['General Studies' => 'A', 'Health & Physical Education' => 'A', 'Work Behaviour' => 'C'],
