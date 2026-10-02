@@ -195,60 +195,55 @@
     </div>
 @endif
 
-{{-- ═══════════════════════ DRIVERS TAB ═══════════════════════ --}}
+{{-- ═══════════════════════ DRIVERS TAB ═══════════════════════
+     Number, photo (a click shows it large), name with the vehicle number small
+     under it, mobile, licence, the driver's routes as small plain text; whether
+     the driver is on is the dot before the actions, as the Students list has
+     it — a click on it still turns the driver on or off. --}}
 @if ($activeTab === 'drivers')
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
                     <tr>
+                        <th class="px-4 py-3 text-left w-12">S.No</th>
                         <th class="px-4 py-3 text-left">Driver</th>
-                        <th class="px-4 py-3 text-left">Phone</th>
+                        <th class="px-4 py-3 text-left">Mobile</th>
                         <th class="px-4 py-3 text-left">License</th>
-                        <th class="px-4 py-3 text-left">Vehicle</th>
-                        <th class="px-4 py-3 text-center w-20">Exp</th>
                         <th class="px-4 py-3 text-left">Routes</th>
-                        <th class="px-4 py-3 text-center w-24">Status</th>
-                        <th class="px-4 py-3 text-center w-28">Actions</th>
+                        <th class="px-4 py-3 text-center w-36">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     @forelse ($drivers as $d)
                         <tr wire:key="driver-{{ $d->id }}" class="hover:bg-gray-50">
+                            <td class="px-4 py-3 text-gray-500 font-medium">{{ $drivers->firstItem() + $loop->index }}</td>
                             <td class="px-4 py-3">
                                 <div class="flex items-center gap-3">
                                     @if ($d->image)
-                                        <img src="{{ $d->image }}" class="w-9 h-9 rounded-full object-cover border border-gray-200">
+                                        <img src="{{ $d->image }}" wire:click="showDriverPhoto({{ $d->id }})" title="View photo"
+                                            class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0 cursor-zoom-in hover:opacity-90">
                                     @else
-                                        <div class="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-sm">{{ strtoupper(substr($d->user->name ?? 'D', 0, 1)) }}</div>
+                                        <div class="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-sm flex-shrink-0">{{ strtoupper(substr($d->user->name ?? 'D', 0, 1)) }}</div>
                                     @endif
                                     <div class="min-w-0">
                                         <p class="font-medium text-gray-900 truncate">{{ $d->user->name ?? '—' }}</p>
-                                        <p class="text-xs text-gray-400 truncate">{{ str_ends_with($d->user->email ?? '', \App\Livewire\Admin\Transport::DRIVER_EMAIL_DOMAIN) ? '' : ($d->user->email ?? '') }}</p>
+                                        @if ($d->vehicle_no)
+                                            <p class="text-xs text-gray-400 truncate">{{ $d->vehicle_no }}</p>
+                                        @endif
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-4 py-3 text-gray-700">{{ $d->phone ?: '—' }}</td>
+                            <td class="px-4 py-3 text-gray-700 whitespace-nowrap">{{ $d->phone ?: '—' }}</td>
                             <td class="px-4 py-3 text-gray-600 font-mono text-xs">{{ $d->license_no ?: '—' }}</td>
-                            <td class="px-4 py-3 text-gray-700">{{ $d->vehicle_no ?: '—' }}</td>
-                            <td class="px-4 py-3 text-center text-gray-600">{{ $d->experience_years ?: 0 }}y</td>
-                            <td class="px-4 py-3">
-                                <div class="flex flex-wrap gap-1">
-                                    @forelse ($d->transportations as $r)
-                                        <span class="inline-block bg-blue-50 text-blue-700 rounded px-1.5 py-0.5 text-xs">{{ $r->route_name }}@if ($r->vehicle_type) · {{ $r->vehicle_type }}@endif</span>
-                                    @empty
-                                        <span class="text-xs text-gray-400">—</span>
-                                    @endforelse
-                                </div>
-                            </td>
-                            <td class="px-4 py-3 text-center">
-                                <button wire:click="toggleDriverStatus({{ $d->id }})"
-                                    class="text-[11px] font-semibold px-2 py-0.5 rounded-full {{ $d->is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500' }}">
-                                    {{ $d->is_active ? 'Active' : 'Inactive' }}
-                                </button>
+                            <td class="px-4 py-3 text-xs text-gray-500">
+                                {{ $d->transportations->map(fn ($r) => $r->route_name . ($r->vehicle_type ? ' · ' . $r->vehicle_type : ''))->implode(', ') ?: '—' }}
                             </td>
                             <td class="px-4 py-3">
                                 <div class="flex items-center justify-center gap-1">
+                                    <button wire:click="toggleDriverStatus({{ $d->id }})" class="p-1 mr-0.5 rounded-full hover:bg-gray-100" title="{{ $d->is_active ? 'Active' : 'Inactive' }}">
+                                        <span class="block w-2 h-2 rounded-full {{ $d->is_active ? 'bg-green-500' : 'bg-red-500' }}"></span>
+                                    </button>
                                     <button wire:click="viewDriver({{ $d->id }})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md" title="View">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                     </button>
@@ -262,7 +257,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="8" class="px-4 py-12 text-center text-gray-400">No drivers found. <button wire:click="createDriver" class="text-blue-600 hover:underline ml-1">Add the first driver →</button></td></tr>
+                        <tr><td colspan="6" class="px-4 py-12 text-center text-gray-400">No drivers found. <button wire:click="createDriver" class="text-blue-600 hover:underline ml-1">Add the first driver →</button></td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -785,6 +780,23 @@
         </div>
     @endif
 @endforeach
+
+{{-- A driver's photo in the list, clicked: shown large in the middle of the
+     window (lms-cover), its cross in its own corner — as the Teachers list. --}}
+@if ($driverPhoto)
+    <div class="lms-cover fixed inset-0 z-[9999] flex overflow-y-auto p-4 bg-black/80"
+        wire:click.self="closeDriverPhoto" x-on:keydown.escape.window="$wire.closeDriverPhoto()">
+        <div class="relative m-auto max-w-full">
+            <img src="{{ $driverPhoto }}" alt=""
+                style="--photo: min(28rem, 90vw, calc(100vh - 8rem)); width: var(--photo); height: var(--photo)"
+                class="rounded-lg object-cover shadow-2xl bg-white">
+            <button type="button" wire:click="closeDriverPhoto" title="Close"
+                class="absolute top-2 right-2 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+        </div>
+    </div>
+@endif
 
 {{-- Transport fee payment panel + delete confirm (shared) --}}
 @include('livewire.partials.transport-payment-panel')

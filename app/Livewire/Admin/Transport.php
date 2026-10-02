@@ -92,6 +92,9 @@ class Transport extends Component
     /** Routes a page. The other tabs keep $perPage. */
     public int $routesPerPage = 25;
 
+    /** The driver's photo being shown large, if one is. */
+    public ?string $driverPhoto = null;
+
     // ─── Delete confirm ────────────────────────────────────
     public ?int $pendingDeleteDriverId = null;
     /** Route group key pending deletion (a group is one row per vehicle type). */
@@ -209,6 +212,17 @@ class Transport extends Component
     {
         $this->showDriverView    = false;
         $this->driverViewDetails = [];
+    }
+
+    /** A driver's photo in the list, clicked: shown large. */
+    public function showDriverPhoto(int $id): void
+    {
+        $this->driverPhoto = DriverDetail::where('organization_id', $this->organizationId)->find($id)?->image ?: null;
+    }
+
+    public function closeDriverPhoto(): void
+    {
+        $this->driverPhoto = null;
     }
 
     public function saveDriver(): void
