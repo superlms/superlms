@@ -339,6 +339,8 @@ trait HandlesTransportFees
             ->sum('amount');
 
         $this->viewTxStudentData = [
+            'student_id'   => $student->id,
+            'route_id'     => $route->id,
             'name'         => $student->full_name,
             'admission'    => $student->admission_no,
             'class'        => ($student->standard->name ?? '') . ($student->section ? '-' . $student->section->name : ''),
@@ -363,6 +365,17 @@ trait HandlesTransportFees
     {
         $this->viewTxStudentModal = false;
         $this->viewTxStudentData  = null;
+    }
+
+    /** The detail panel's Edit: closes it and opens the months of the student it showed. */
+    public function editViewedTransportStudent(): void
+    {
+        $studentId = (int) ($this->viewTxStudentData['student_id'] ?? 0);
+        $routeId   = (int) ($this->viewTxStudentData['route_id'] ?? 0);
+        if (!$studentId || !$routeId) return;
+
+        $this->closeViewTxStudent();
+        $this->editTransportStudent($studentId, $routeId);
     }
 
     // ── Tab 4: Fee Summary for a single student ─────────────────────────────────

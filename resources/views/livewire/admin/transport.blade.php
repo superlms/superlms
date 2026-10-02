@@ -268,7 +268,10 @@
     </div>
 @endif
 
-{{-- ═══════════════════════ TRANSPORT STUDENTS TAB ═══════════════════════ --}}
+{{-- ═══════════════════════ TRANSPORT STUDENTS TAB ═══════════════════════
+     A number first; the year's fee sits small under the monthly fee with the
+     months it is counted over ("₹11,000 · 11 months") in place of the Months
+     and Annual columns. --}}
 @if ($activeTab === 'students')
     @if (empty($filterRoute))
         {{-- Empty state: must pick a route --}}
@@ -286,11 +289,10 @@
                 <table class="w-full text-sm">
                     <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
                         <tr>
+                            <th class="px-4 py-3 text-left w-12">S.No</th>
                             <th class="px-4 py-3 text-left">Student</th>
                             <th class="px-4 py-3 text-left">Driver</th>
-                            <th class="px-4 py-3 text-right w-28">Monthly Fee</th>
-                            <th class="px-4 py-3 text-center w-24">Months</th>
-                            <th class="px-4 py-3 text-right w-28">Annual</th>
+                            <th class="px-4 py-3 text-right w-40">Monthly Fee</th>
                             <th class="px-4 py-3 text-right w-24">Paid</th>
                             <th class="px-4 py-3 text-right w-28">Remaining</th>
                             <th class="px-4 py-3 text-center w-32">Actions</th>
@@ -299,12 +301,13 @@
                     <tbody class="divide-y divide-gray-100">
                         @forelse ($txStudents as $s)
                             <tr wire:key="txs-{{ $s->id }}" class="hover:bg-gray-50">
+                                <td class="px-4 py-3 text-gray-500 font-medium">{{ $txStudents->firstItem() + $loop->index }}</td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-3">
                                         @if ($s->user?->image)
-                                            <img src="{{ $s->user->image }}" class="w-9 h-9 rounded-full object-cover border border-gray-200">
+                                            <img src="{{ $s->user->image }}" class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0">
                                         @else
-                                            <div class="w-9 h-9 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 text-xs font-bold">{{ strtoupper(substr($s->full_name ?? 'S', 0, 1)) }}</div>
+                                            <div class="w-9 h-9 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 text-xs font-bold flex-shrink-0">{{ strtoupper(substr($s->full_name ?? 'S', 0, 1)) }}</div>
                                         @endif
                                         <div class="min-w-0">
                                             <p class="font-medium text-gray-800 truncate">{{ $s->full_name }}</p>
@@ -313,9 +316,10 @@
                                     </div>
                                 </td>
                                 <td class="px-4 py-3 text-gray-700">{{ $s->_driverName }}</td>
-                                <td class="px-4 py-3 text-right text-blue-700 font-semibold">₹{{ number_format($s->_monthly, 0) }}</td>
-                                <td class="px-4 py-3 text-center text-gray-600">{{ $s->_monthsCount }}/12</td>
-                                <td class="px-4 py-3 text-right text-gray-800 font-semibold">₹{{ number_format($s->_annual, 0) }}</td>
+                                <td class="px-4 py-3 text-right whitespace-nowrap">
+                                    <p class="text-blue-700 font-semibold">₹{{ number_format($s->_monthly, 0) }}</p>
+                                    <p class="text-xs text-gray-400">₹{{ number_format($s->_annual, 0) }} · {{ $s->_monthsCount }} {{ $s->_monthsCount === 1 ? 'month' : 'months' }}</p>
+                                </td>
                                 <td class="px-4 py-3 text-right text-emerald-700 font-semibold">₹{{ number_format($s->_paid, 0) }}</td>
                                 <td class="px-4 py-3 text-right font-semibold {{ $s->_remaining > 0 ? 'text-red-600' : 'text-gray-400' }}">₹{{ number_format($s->_remaining, 0) }}</td>
                                 <td class="px-4 py-3">
@@ -332,7 +336,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="8" class="px-4 py-12 text-center text-gray-400">No students assigned to this route yet.</td></tr>
+                            <tr><td colspan="7" class="px-4 py-12 text-center text-gray-400">No students assigned to this route yet.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -607,48 +611,47 @@
     </div>
 @endif
 
-{{-- ══════════ TRANSPORT STUDENT MONTHLY-TOGGLES SLIDE-IN ══════════ --}}
+{{-- ══════════ TRANSPORT STUDENT MONTHS SLIDE-IN ══════════
+     The months the student is charged for, as a plain grid of the twelve: a
+     month that is on is dark, one that is off is an outline, and a click
+     switches it. The fee they add up to is the line above them. --}}
 @if ($editTxStudentModal)
+    @php $activeCount = collect($editTxBillableMonths)->filter()->count(); @endphp
     <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
         <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeEditTransportStudent"></div>
         <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                <div>
+                <div class="min-w-0">
                     <h2 class="text-lg font-semibold text-gray-900">Monthly Fee Schedule</h2>
                     <p class="text-xs text-gray-500 mt-0.5 truncate">{{ $editTxStudentName }}</p>
                 </div>
-                <button wire:click="closeEditTransportStudent" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                <button wire:click="closeEditTransportStudent" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>
             <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-                <p class="text-sm text-gray-600">
-                    Toggle on each month the student is charged transport fee for. Annual fee = monthly × active months.
-                </p>
-
-                <div class="space-y-1.5">
-                    @foreach ($monthsOrder as $key => $label)
-                        @php $on = $editTxBillableMonths[$key] ?? false; @endphp
-                        <button type="button" wire:click="toggleTxMonth('{{ $key }}')"
-                            class="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg border transition-colors
-                                {{ $on ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200' }}">
-                            <span class="text-sm font-medium {{ $on ? 'text-emerald-800' : 'text-gray-600' }}">{{ $label }}</span>
-                            <span class="relative inline-flex items-center w-10 h-6 rounded-full transition-colors {{ $on ? 'bg-emerald-500' : 'bg-gray-300' }}">
-                                <span class="absolute left-0.5 inline-block w-5 h-5 bg-white rounded-full shadow transform transition-transform {{ $on ? 'translate-x-4' : 'translate-x-0' }}"></span>
-                            </span>
-                        </button>
-                    @endforeach
+                <div class="grid grid-cols-3 gap-3 text-sm">
+                    <span class="text-xs text-gray-400 uppercase tracking-wider">Monthly Fee</span>
+                    <span class="col-span-2 text-gray-800 font-medium">₹{{ number_format($editTxMonthly, 0) }}</span>
+                </div>
+                <div class="grid grid-cols-3 gap-3 text-sm">
+                    <span class="text-xs text-gray-400 uppercase tracking-wider">Annual Fee</span>
+                    <span class="col-span-2 text-gray-800 font-medium">₹{{ number_format($editTxMonthly * $activeCount, 0) }} · {{ $activeCount }} {{ $activeCount === 1 ? 'month' : 'months' }}</span>
                 </div>
 
-                @php $activeCount = collect($editTxBillableMonths)->filter()->count(); @endphp
-                <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 space-y-1.5">
-                    <div class="flex items-center justify-between text-xs text-blue-700">
-                        <span><strong>{{ $activeCount }}</strong> month(s) active out of 12 · By default June is off (vacation).</span>
+                <div class="pt-4 mt-2 border-t border-gray-100">
+                    <p class="text-xs text-gray-400 uppercase tracking-wider mb-3">Months Charged</p>
+                    <div class="grid grid-cols-4 gap-2">
+                        @foreach ($monthsOrder as $key => $label)
+                            @php $on = $editTxBillableMonths[$key] ?? false; @endphp
+                            <button type="button" wire:key="txm-{{ $key }}" wire:click="toggleTxMonth('{{ $key }}')" title="{{ $label }}"
+                                class="py-2 text-sm rounded-md border transition-colors
+                                    {{ $on ? 'bg-gray-900 border-gray-900 text-white font-medium' : 'bg-white border-gray-200 text-gray-400 hover:bg-gray-50' }}">
+                                {{ substr($label, 0, 3) }}
+                            </button>
+                        @endforeach
                     </div>
-                    <div class="flex items-center justify-between border-t border-blue-100 pt-1.5">
-                        <span class="text-xs text-blue-600">Monthly ₹{{ number_format($editTxMonthly, 0) }} × {{ $activeCount }}</span>
-                        <span class="text-sm font-bold text-blue-800">Annual: ₹{{ number_format($editTxMonthly * $activeCount, 0) }}</span>
-                    </div>
+                    <p class="text-xs text-gray-400 mt-3">Click a month to turn it on or off.</p>
                 </div>
             </div>
             <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
@@ -663,88 +666,84 @@
     </div>
 @endif
 
-{{-- ══════════ TRANSPORT STUDENT DETAIL SLIDE-IN ══════════ --}}
+{{-- ══════════ TRANSPORT STUDENT DETAIL SLIDE-IN ══════════
+     Laid out as the Students page's View: the photo, then one plain list of
+     label and value — the student, the route, the fee — and under a line the
+     twelve months with what each stands at. Edit opens the months. --}}
 @if ($viewTxStudentModal && $viewTxStudentData)
-    @php $v = $viewTxStudentData; @endphp
+    @php
+        $v = $viewTxStudentData;
+        $vMonths = (int) $v['months_count'];
+        $monthLine = fn (array $m) => match ($m['status']) {
+            'paid'     => 'Paid · ₹' . number_format($m['amount'], 0),
+            'partial'  => 'Partial · ₹' . number_format($m['paid'], 0) . ' of ₹' . number_format($m['amount'], 0),
+            'unpaid'   => 'Unpaid · ₹' . number_format($m['amount'], 0),
+            'upcoming' => 'Upcoming · ₹' . number_format($m['amount'], 0),
+            default    => 'Not used',
+        };
+    @endphp
     <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
         <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeViewTxStudent"></div>
         <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                <div>
-                    <h2 class="text-lg font-semibold text-gray-900">Transport Detail</h2>
-                    <p class="text-xs text-gray-500 mt-0.5 truncate">{{ $v['name'] }}</p>
+                <div class="min-w-0">
+                    <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $v['name'] }}</h2>
+                    <p class="text-xs text-gray-500 mt-0.5 truncate">Transport Details</p>
                 </div>
-                <button wire:click="closeViewTxStudent" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                <button wire:click="closeViewTxStudent" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>
+
             <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-                {{-- Student --}}
-                <div class="flex items-center gap-4">
+                <div class="flex justify-center pb-2">
                     @if ($v['image'])
-                        <img src="{{ $v['image'] }}" class="w-14 h-14 rounded-full object-cover border-2 border-white shadow flex-shrink-0">
+                        <img src="{{ $v['image'] }}" alt="{{ $v['name'] }}" class="w-24 h-24 rounded-full object-cover border border-gray-200">
                     @else
-                        <div class="w-14 h-14 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 text-lg font-bold flex-shrink-0">{{ strtoupper(substr($v['name'], 0, 1)) }}</div>
-                    @endif
-                    <div class="min-w-0">
-                        <h3 class="text-base font-bold text-gray-900 truncate">{{ $v['name'] }}</h3>
-                        <p class="text-sm text-gray-500 truncate">{{ $v['admission'] }} · {{ $v['class'] ?: '—' }}</p>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-3">
-                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-100"><p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Email</p><p class="text-sm font-medium text-gray-800 truncate">{{ $v['email'] }}</p></div>
-                    <div class="bg-gray-50 rounded-lg p-3 border border-gray-100"><p class="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Mobile</p><p class="text-sm font-medium text-gray-800">{{ $v['mobile'] }}</p></div>
-                </div>
-
-                {{-- Transport detail --}}
-                <div class="border border-gray-200 rounded-xl p-4 bg-gray-50/60">
-                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Transport</p>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div><p class="text-xs text-gray-400">Route</p><p class="text-sm font-semibold text-gray-800">{{ $v['route'] }}</p></div>
-                        <div><p class="text-xs text-gray-400">Driver</p><p class="text-sm font-semibold text-gray-800">{{ $v['driver'] }}</p></div>
-                        <div><p class="text-xs text-gray-400">Pickup Time</p><p class="text-sm font-semibold text-gray-800">{{ $v['pickup_time'] }}</p></div>
-                        <div><p class="text-xs text-gray-400">Drop Time</p><p class="text-sm font-semibold text-gray-800">{{ $v['drop_time'] }}</p></div>
-                    </div>
-                </div>
-
-                {{-- Fee figures --}}
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div class="bg-white rounded-lg border border-gray-200 p-3"><p class="text-[10px] text-gray-400 uppercase">Monthly</p><p class="text-base font-bold text-gray-800">₹{{ number_format($v['monthly'], 0) }}</p></div>
-                    <div class="bg-white rounded-lg border border-gray-200 p-3"><p class="text-[10px] text-blue-500 uppercase">Annual ×{{ $v['months_count'] }}</p><p class="text-base font-bold text-blue-600">₹{{ number_format($v['annual'], 0) }}</p></div>
-                    <div class="bg-white rounded-lg border border-gray-200 p-3"><p class="text-[10px] text-emerald-500 uppercase">Paid</p><p class="text-base font-bold text-emerald-600">₹{{ number_format($v['paid'], 0) }}</p></div>
-                    <div class="bg-white rounded-lg border border-gray-200 p-3"><p class="text-[10px] {{ $v['remaining'] > 0 ? 'text-red-500' : 'text-gray-400' }} uppercase">Remaining</p><p class="text-base font-bold {{ $v['remaining'] > 0 ? 'text-red-600' : 'text-gray-400' }}">₹{{ number_format($v['remaining'], 0) }}</p></div>
-                </div>
-
-                {{-- Month status --}}
-                <div>
-                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Monthly Fee Status <span class="font-normal text-gray-400">(up to current month)</span></p>
-                    @if (!empty($v['month_status']))
-                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            @foreach ($v['month_status'] as $m)
-                                @php
-                                    $chip = match ($m['status']) {
-                                        'paid'    => ['bg-emerald-50 border-emerald-200', 'text-emerald-700', 'Paid'],
-                                        'partial' => ['bg-amber-50 border-amber-200', 'text-amber-700', 'Partial'],
-                                        default   => ['bg-red-50 border-red-200', 'text-red-700', 'Unpaid'],
-                                    };
-                                @endphp
-                                <div class="rounded-lg border p-2.5 {{ $chip[0] }}">
-                                    <div class="flex items-center justify-between mb-0.5">
-                                        <p class="text-sm font-bold text-gray-800">{{ substr($m['label'], 0, 3) }}</p>
-                                        <span class="text-[10px] font-semibold {{ $chip[1] }}">{{ $chip[2] }}</span>
-                                    </div>
-                                    <p class="text-xs {{ $chip[1] }}">₹{{ number_format($m['paid'], 0) }} / ₹{{ number_format($m['amount'], 0) }}</p>
-                                </div>
-                            @endforeach
+                        <div class="w-24 h-24 rounded-full bg-indigo-100 flex items-center justify-center">
+                            <span class="text-3xl font-semibold text-indigo-600">{{ strtoupper(substr($v['name'], 0, 1)) }}</span>
                         </div>
-                    @else
-                        <p class="text-sm text-gray-400">No billable months have started yet.</p>
                     @endif
                 </div>
+
+                @foreach ([
+                    'Admission No' => $v['admission'] ?: '—',
+                    'Class'        => $v['class'] ?: '—',
+                    'Email'        => $v['email'],
+                    'Mobile'       => $v['mobile'],
+                    'Route'        => $v['route'],
+                    'Driver'       => $v['driver'],
+                    'Pickup Time'  => $v['pickup_time'],
+                    'Drop Time'    => $v['drop_time'],
+                    'Monthly Fee'  => '₹' . number_format($v['monthly'], 0),
+                    'Annual Fee'   => '₹' . number_format($v['annual'], 0) . ' · ' . $vMonths . ($vMonths === 1 ? ' month' : ' months'),
+                    'Paid'         => '₹' . number_format($v['paid'], 0),
+                    'Remaining'    => '₹' . number_format($v['remaining'], 0),
+                ] as $label => $value)
+                    <div class="grid grid-cols-3 gap-3 text-sm">
+                        <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
+                        <span class="col-span-2 text-gray-800 font-medium">{{ $value }}</span>
+                    </div>
+                @endforeach
+
+                {{-- The months of the school year, each with what it stands at --}}
+                @if (!empty($v['month_status']))
+                    <div class="pt-4 mt-2 border-t border-gray-100 space-y-4">
+                        @foreach ($v['month_status'] as $m)
+                            <div class="grid grid-cols-3 gap-3 text-sm">
+                                <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $m['label'] }}</span>
+                                <span class="col-span-2 font-medium {{ $m['status'] === 'not_used' ? 'text-gray-400' : 'text-gray-800' }}">{{ $monthLine($m) }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
             </div>
-            <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
-                <button wire:click="closeViewTxStudent" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Close</button>
+
+            <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
+                <button type="button" wire:click="editViewedTransportStudent"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Edit</button>
+                <button type="button" wire:click="closeViewTxStudent"
+                    class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
             </div>
         </div>
     </div>
