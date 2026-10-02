@@ -110,7 +110,12 @@
 
 <div class="p-4 sm:p-6">
 
-{{-- ═══════════════════════ ROUTES TAB ═══════════════════════ --}}
+{{-- ═══════════════════════ ROUTES TAB ═══════════════════════
+     One row per route. The vehicle types sit under the route's name and the
+     vehicle numbers under the driver's, both small and plain; the monthly fare
+     has its 11-month total under it; whether the route is on is the dot before
+     the actions, as the Students list has it — a click on it still turns the
+     route on or off. --}}
 @if ($activeTab === 'transportation')
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
@@ -118,57 +123,54 @@
                 <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
                     <tr>
                         <th class="px-4 py-3 text-left">Route</th>
-                        <th class="px-4 py-3 text-left">Vehicle Type</th>
                         <th class="px-4 py-3 text-left">Driver</th>
-                        <th class="px-4 py-3 text-left">Vehicle No.</th>
                         <th class="px-4 py-3 text-left">Pickup</th>
-                        <th class="px-4 py-3 text-right w-24">Monthly</th>
-                        <th class="px-4 py-3 text-right w-24">Annual×11</th>
-                        <th class="px-4 py-3 text-center w-20">Seats</th>
+                        <th class="px-4 py-3 text-left">Drop</th>
+                        <th class="px-4 py-3 text-right w-36">Monthly</th>
                         <th class="px-4 py-3 text-center w-20">Students</th>
-                        <th class="px-4 py-3 text-center w-24">Status</th>
-                        <th class="px-4 py-3 text-center w-28">Actions</th>
+                        <th class="px-4 py-3 text-center w-36">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     @forelse ($transportations as $t)
                         <tr wire:key="route-{{ $t->key }}" class="hover:bg-gray-50">
-                            <td class="px-4 py-3 font-medium text-gray-900">{{ $t->route_name }}</td>
                             <td class="px-4 py-3">
-                                @forelse ($t->vehicle_types as $vt)
-                                    <span class="inline-block bg-indigo-50 text-indigo-700 rounded px-1.5 py-0.5 text-xs font-medium mr-1">{{ $vt }}</span>
-                                @empty
-                                    <span class="text-gray-400">—</span>
-                                @endforelse
+                                <p class="font-medium text-gray-900">{{ $t->route_name }}</p>
+                                @if (count($t->vehicle_types))
+                                    <p class="text-xs text-gray-400">{{ implode(', ', $t->vehicle_types) }}</p>
+                                @endif
                             </td>
                             <td class="px-4 py-3">
                                 @if (count($t->driver_names))
                                     <div class="flex items-center gap-2">
                                         @if ($t->driver?->image)
-                                            <img src="{{ $t->driver->image }}" class="w-7 h-7 rounded-full object-cover border border-gray-200">
+                                            <img src="{{ $t->driver->image }}" class="w-7 h-7 rounded-full object-cover border border-gray-200 flex-shrink-0">
                                         @else
-                                            <div class="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 text-xs font-bold">{{ strtoupper(substr($t->driver_names[0], 0, 1)) }}</div>
+                                            <div class="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 text-xs font-bold flex-shrink-0">{{ strtoupper(substr($t->driver_names[0], 0, 1)) }}</div>
                                         @endif
-                                        <span class="text-gray-700">{{ implode(', ', $t->driver_names) }}</span>
+                                        <div class="min-w-0">
+                                            <p class="text-gray-700">{{ implode(', ', $t->driver_names) }}</p>
+                                            @if (count($t->vehicle_nos))
+                                                <p class="text-xs text-gray-400">{{ implode(', ', $t->vehicle_nos) }}</p>
+                                            @endif
+                                        </div>
                                     </div>
                                 @else
                                     <span class="text-gray-400">—</span>
                                 @endif
                             </td>
-                            <td class="px-4 py-3 text-gray-600">{{ count($t->vehicle_nos) ? implode(', ', $t->vehicle_nos) : '—' }}</td>
-                            <td class="px-4 py-3 text-gray-600">{{ $t->pickup_time ?: '—' }}</td>
-                            <td class="px-4 py-3 text-right text-blue-700 font-semibold">₹{{ number_format($t->monthly_fee, 0) }}</td>
-                            <td class="px-4 py-3 text-right text-emerald-700 font-semibold">₹{{ number_format($this->annualFee($t->monthly_fee), 0) }}</td>
-                            <td class="px-4 py-3 text-center text-gray-600">{{ $t->capacity ?: '—' }}</td>
-                            <td class="px-4 py-3 text-center text-gray-600">{{ $t->students }}</td>
-                            <td class="px-4 py-3 text-center">
-                                <button wire:click="toggleTransportStatus('{{ $t->key }}')"
-                                    class="text-[11px] font-semibold px-2 py-0.5 rounded-full {{ $t->is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500' }}">
-                                    {{ $t->is_active ? 'Active' : 'Inactive' }}
-                                </button>
+                            <td class="px-4 py-3 text-gray-600 whitespace-nowrap">{{ $t->pickup_time ?: '—' }}</td>
+                            <td class="px-4 py-3 text-gray-600 whitespace-nowrap">{{ $t->drop_time ?: '—' }}</td>
+                            <td class="px-4 py-3 text-right whitespace-nowrap">
+                                <p class="text-blue-700 font-semibold">₹{{ number_format($t->monthly_fee, 0) }}</p>
+                                <p class="text-xs text-gray-400">₹{{ number_format($this->annualFee($t->monthly_fee), 0) }} · {{ $billableMonths }} months</p>
                             </td>
+                            <td class="px-4 py-3 text-center text-gray-600">{{ $t->students }}</td>
                             <td class="px-4 py-3">
                                 <div class="flex items-center justify-center gap-1">
+                                    <button wire:click="toggleTransportStatus('{{ $t->key }}')" class="p-1 mr-0.5 rounded-full hover:bg-gray-100" title="{{ $t->is_active ? 'Active' : 'Inactive' }}">
+                                        <span class="block w-2 h-2 rounded-full {{ $t->is_active ? 'bg-green-500' : 'bg-red-500' }}"></span>
+                                    </button>
                                     <button wire:click="viewRoute('{{ $t->key }}')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md" title="View">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                     </button>
@@ -182,7 +184,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="11" class="px-4 py-12 text-center text-gray-400">No routes found. <button wire:click="createTransport" class="text-blue-600 hover:underline ml-1">Add the first route →</button></td></tr>
+                        <tr><td colspan="7" class="px-4 py-12 text-center text-gray-400">No routes found. <button wire:click="createTransport" class="text-blue-600 hover:underline ml-1">Add the first route →</button></td></tr>
                     @endforelse
                 </tbody>
             </table>

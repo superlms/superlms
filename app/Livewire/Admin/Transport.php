@@ -89,6 +89,8 @@ class Transport extends Component
     public string $filterDriver = '';    // routes tab → filter by driver
     #[Url(keep: true)]
     public int $perPage = 10;
+    /** Routes a page. The other tabs keep $perPage. */
+    public int $routesPerPage = 25;
 
     // ─── Delete confirm ────────────────────────────────────
     public ?int $pendingDeleteDriverId = null;
@@ -675,7 +677,7 @@ class Transport extends Component
     private function getTransportations()
     {
         if (!$this->organizationId) {
-            return new LengthAwarePaginator([], 0, $this->perPage);
+            return new LengthAwarePaginator([], 0, $this->routesPerPage);
         }
 
         $query = Transportation::with(['driver.user', 'students'])
@@ -722,9 +724,9 @@ class Transport extends Component
         $page = $this->getPage();
 
         return new LengthAwarePaginator(
-            $groups->forPage($page, $this->perPage)->values(),
+            $groups->forPage($page, $this->routesPerPage)->values(),
             $groups->count(),
-            $this->perPage,
+            $this->routesPerPage,
             $page,
             ['path' => Paginator::resolveCurrentPath()]
         );
