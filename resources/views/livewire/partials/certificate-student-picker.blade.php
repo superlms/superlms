@@ -1,18 +1,22 @@
 {{--
-    Shared class → section → student picker for the Certificate / TC issue panels.
+    Shared class → student picker for the Certificate / TC issue panels.
 
-    Collapses to a single selected-student card once a student is chosen, so the
-    panel stays short. Locked (no "Change") while editing, because an issued
-    certificate always stays with the student it was issued to.
+    Pick the class and its students are listed, each with the father's name
+    small under the name; there is no section to pick. Collapses to a single
+    selected-student card once a student is chosen, so the panel stays short.
+    Locked (no "Change") while editing, because an issued certificate always
+    stays with the student it was issued to.
 
     Params:
-      $classProp, $sectionProp, $searchProp  property names to wire:model
-      $classValue, $sectionsList, $students  current class + option/row data
+      $classProp, $searchProp                property names to wire:model
+      $classValue, $students                 current class + its students
       $standards                             class options
       $selected                              StudentDetail|null (chosen student)
       $selectMethod, $clearMethod            component methods
       $errorKey                              validation key for the student id
       $locked                                true in edit mode (hide "Change")
+      ($sectionProp and $sectionsList are still passed by the panels; the
+       picker no longer offers a section.)
 --}}
 <div>
     <label class="block text-sm font-medium text-gray-700 mb-1.5">
@@ -38,22 +42,13 @@
             @endunless
         </div>
     @else
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <select wire:model.live="{{ $classProp }}"
-                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                <option value="">Select Class</option>
-                @foreach ($standards as $std)
-                    <option value="{{ $std->id }}">{{ $std->name }}</option>
-                @endforeach
-            </select>
-            <select wire:model.live="{{ $sectionProp }}" @disabled($sectionsList->isEmpty())
-                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50">
-                <option value="">All Sections</option>
-                @foreach ($sectionsList as $sec)
-                    <option value="{{ $sec->id }}">{{ $sec->name }}</option>
-                @endforeach
-            </select>
-        </div>
+        <select wire:model.live="{{ $classProp }}"
+            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+            <option value="">Select Class</option>
+            @foreach ($standards as $std)
+                <option value="{{ $std->id }}">{{ $std->name }}</option>
+            @endforeach
+        </select>
 
         <input wire:model.live.debounce.300ms="{{ $searchProp }}" type="text" @disabled(!$classValue)
             placeholder="Search by name or admission no."
@@ -67,11 +62,16 @@
                     @forelse ($students as $stu)
                         <button type="button" wire:key="pick-{{ $errorKey }}-{{ $stu->id }}"
                             wire:click="{{ $selectMethod }}({{ $stu->id }})"
-                            class="w-full flex items-center gap-3 px-3.5 py-2.5 text-left hover:bg-gray-50">
+                            class="w-full flex items-center gap-3 px-3.5 py-2 text-left hover:bg-gray-50">
                             <div class="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-[11px] font-semibold text-gray-600 flex-shrink-0">
                                 {{ strtoupper(substr($stu->full_name ?? 'S', 0, 1)) }}
                             </div>
-                            <span class="flex-1 min-w-0 text-sm text-gray-800 truncate">{{ $stu->full_name }}</span>
+                            <span class="flex-1 min-w-0">
+                                <span class="block text-sm text-gray-800 truncate">{{ $stu->full_name }}</span>
+                                @if ($stu->father_name)
+                                    <span class="block text-xs text-gray-400 truncate">{{ $stu->father_name }}</span>
+                                @endif
+                            </span>
                             <span class="text-xs text-gray-400 flex-shrink-0">{{ $stu->admission_no }}</span>
                         </button>
                     @empty

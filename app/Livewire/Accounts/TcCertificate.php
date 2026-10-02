@@ -88,6 +88,9 @@ class TcCertificate extends Component
     public array $nccOptions     = ['No', 'NCC Cadet', 'Boy Scout', 'Girl Guide'];
     public $organization;
 
+    /** A student's photo from the list, being shown large, if one is. */
+    public ?string $studentPhoto = null;
+
     public function mount(): void
     {
         $this->issued_date      = now()->format('Y-m-d');
@@ -253,6 +256,32 @@ class TcCertificate extends Component
         $this->tc_student_id = null;
     }
 
+    /** A student's photo in the list, clicked: shown large. */
+    public function showStudentPhoto(int $studentDetailId): void
+    {
+        $this->studentPhoto = StudentDetail::with('user')
+            ->where('organization_id', $this->organizationId)
+            ->find($studentDetailId)?->user?->image ?: null;
+    }
+
+    public function closeStudentPhoto(): void
+    {
+        $this->studentPhoto = null;
+    }
+
+    /**
+     * The filter bar's Clear. It was a string of $set calls on the button, of
+     * which only the first ran — so only the search box was cleared.
+     */
+    public function clearFilters(): void
+    {
+        $this->search        = '';
+        $this->filterMonth   = '';
+        $this->filterClass   = '';
+        $this->filterSection = '';
+        $this->resetPage();
+    }
+
     public function updatedFilterClass(): void   { $this->filterSection = ''; $this->resetPage(); }
     public function updatedFilterSection(): void  { $this->resetPage(); }
     public function updatedFilterMonth(): void    { $this->resetPage(); }
@@ -325,9 +354,13 @@ class TcCertificate extends Component
             'student_detail_id'     => 'required|exists:student_details,id',
             'event_name'            => 'required|string|max:255',
             'issued_by'             => 'required|string|max:255',
-            'issued_by_designation' => 'nullable|string|max:100',
-            'description'           => 'nullable|string|max:1000',
+            // Every field of a certificate is needed.
+            'issued_by_designation' => 'required|string|max:100',
+            'description'           => 'required|string|max:1000',
             'issued_date'           => 'required|date',
+        ], [
+            'student_detail_id.required'     => 'Pick the student.',
+            'issued_by_designation.required' => 'The designation is required.',
         ]);
 
         $data = [
@@ -554,7 +587,7 @@ class TcCertificate extends Component
         $tcList       = collect();
 
         if ($this->activeTab === 'tc') {
-            $q = TransferCertificate::with('student')
+            $q = TransferCertificate::with('student.user')
                 ->where('organization_id', $this->organizationId);
 
             if ($this->search) {
@@ -580,7 +613,7 @@ class TcCertificate extends Component
             }
             $tcList = $q->orderByDesc('issue_date')->paginate($this->perPage);
         } else {
-            $q = Certificate::with('student')
+            $q = Certificate::with('student.user')
                 ->where('organization_id', $this->organizationId)
                 ->where('type', $this->activeTab);
 

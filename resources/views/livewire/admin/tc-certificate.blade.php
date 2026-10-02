@@ -86,7 +86,7 @@
                     <option value="50">50 / page</option>
                 </select>
                 @if ($search || $filterMonth || $filterClass || $filterSection)
-                    <button wire:click="$set('search','');$set('filterMonth','');$set('filterClass','');$set('filterSection','')"
+                    <button wire:click="clearFilters"
                         class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         Clear
@@ -99,58 +99,65 @@
     {{-- ══════════════ BODY ══════════════ --}}
     <div class="p-4 sm:p-6">
 
-        {{-- Achievement / Participation listing (student-style table) --}}
+        {{-- Achievement / Participation listing, in the Students list's style: a
+             number, the student's photo (a click shows it large) with the name
+             over the admission number, the event with its type small under it,
+             who issued it with the date small under that, and the Students
+             list's plain action buttons. --}}
         @if (in_array($activeTab, ['achievement', 'participation']))
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
                             <tr>
-                                <th class="px-4 py-3 text-left w-10">#</th>
+                                <th class="px-4 py-3 text-left w-12">S.No</th>
                                 <th class="px-4 py-3 text-left">Student</th>
-                                <th class="px-4 py-3 text-left">Type</th>
                                 <th class="px-4 py-3 text-left">Event / Activity</th>
-                                <th class="px-4 py-3 text-left">Certificate No</th>
                                 <th class="px-4 py-3 text-left">Issued By</th>
-                                <th class="px-4 py-3 text-left">Date</th>
-                                <th class="px-4 py-3 text-center w-32">Actions</th>
+                                <th class="px-4 py-3 text-center w-40">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @forelse ($certificates as $cert)
-                                <tr wire:key="cert-{{ $cert->id }}" class="hover:bg-gray-50">
-                                    <td class="px-4 py-3 text-xs text-gray-400">{{ $certificates->firstItem() + $loop->index }}</td>
+                                <tr wire:key="cert-{{ $cert->id }}" class="hover:bg-gray-50/70 transition-colors">
+                                    <td class="px-4 py-3"><span class="text-sm text-gray-500 font-medium">{{ $certificates->firstItem() + $loop->index }}</span></td>
                                     <td class="px-4 py-3">
-                                        <div class="flex items-center gap-2.5">
-                                            <div class="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-xs text-white {{ $cert->type === 'achievement' ? 'bg-amber-500' : 'bg-blue-500' }}">
-                                                {{ strtoupper(substr($cert->student->full_name ?? 'S', 0, 1)) }}
-                                            </div>
+                                        <div class="flex items-center gap-3">
+                                            @if ($cert->student?->user?->image)
+                                                <img src="{{ $cert->student->user->image }}" wire:click="showStudentPhoto({{ $cert->student->id }})" title="View photo"
+                                                    class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0 cursor-zoom-in hover:opacity-90">
+                                            @else
+                                                <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                    <span class="text-xs font-semibold text-indigo-600">{{ strtoupper(substr($cert->student->full_name ?? 'S', 0, 1)) }}</span>
+                                                </div>
+                                            @endif
                                             <div class="min-w-0">
-                                                <p class="font-medium text-gray-900 truncate">{{ $cert->student->full_name ?? '—' }}</p>
-                                                <p class="text-xs text-gray-400 truncate">Adm: {{ $cert->student->admission_no ?? '—' }}</p>
+                                                <p class="text-sm font-semibold text-gray-900 truncate">{{ $cert->student->full_name ?? '—' }}</p>
+                                                <p class="text-xs text-gray-400 truncate">{{ $cert->student->admission_no ?? '' }}</p>
                                             </div>
                                         </div>
                                     </td>
                                     <td class="px-4 py-3">
-                                        <span class="px-2 py-0.5 text-xs font-semibold rounded-full {{ $cert->type === 'achievement' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800' }}">{{ ucfirst($cert->type) }}</span>
+                                        <p class="text-gray-800 max-w-[360px] truncate" title="{{ $cert->event_name }}">{{ $cert->event_name }}</p>
+                                        <p class="text-xs text-gray-400">{{ ucfirst($cert->type) }}</p>
                                     </td>
-                                    <td class="px-4 py-3 text-gray-800 max-w-[220px] truncate">{{ $cert->event_name }}</td>
-                                    <td class="px-4 py-3 font-mono text-xs text-gray-500">{{ $cert->certificate_no }}</td>
-                                    <td class="px-4 py-3 text-gray-600">{{ $cert->issued_by }}</td>
-                                    <td class="px-4 py-3 text-gray-600 whitespace-nowrap">{{ $cert->issued_date->format('d M Y') }}</td>
+                                    <td class="px-4 py-3">
+                                        <p class="text-gray-700">{{ $cert->issued_by }}</p>
+                                        <p class="text-xs text-gray-400 whitespace-nowrap">{{ $cert->issued_date->format('d M Y') }}</p>
+                                    </td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-center gap-1">
-                                            <button wire:click="previewCert({{ $cert->id }})" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200" title="View">
+                                            <button wire:click="previewCert({{ $cert->id }})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                             </button>
                                             <a href="{{ route('admin.cert.download', ['organization' => auth()->user()->organization_id, 'id' => $cert->id]) }}" target="_blank"
-                                                class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-green-50 hover:text-green-600 hover:border-green-200" title="Download PDF">
+                                                class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Download PDF">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                                             </a>
-                                            <button wire:click="editCert({{ $cert->id }})" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200" title="Edit">
+                                            <button wire:click="editCert({{ $cert->id }})" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                                             </button>
-                                            <button wire:click="deleteCert({{ $cert->id }})" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200" title="Delete">
+                                            <button wire:click="deleteCert({{ $cert->id }})" class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                             </button>
                                         </div>
@@ -158,7 +165,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="8" class="px-4 py-12 text-center text-gray-400">
+                                    <td colspan="5" class="px-4 py-12 text-center text-gray-400">
                                         No {{ $activeTab }} certificates yet.
                                         <button wire:click="createCert" class="text-blue-600 hover:underline ml-1">Issue your first →</button>
                                     </td>
@@ -173,35 +180,40 @@
             </div>
         @endif
 
-        {{-- TC listing (student-style table) --}}
+        {{-- TC listing: the student and the action buttons as the certificates' above --}}
         @if ($activeTab === 'tc')
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
                             <tr>
-                                <th class="px-4 py-3 text-left w-10">#</th>
+                                <th class="px-4 py-3 text-left w-12">S.No</th>
                                 <th class="px-4 py-3 text-left">Student</th>
                                 <th class="px-4 py-3 text-left">TC No</th>
                                 <th class="px-4 py-3 text-left">Book No</th>
                                 <th class="px-4 py-3 text-left">Last Class</th>
                                 <th class="px-4 py-3 text-left">Conduct</th>
                                 <th class="px-4 py-3 text-left">Issue Date</th>
-                                <th class="px-4 py-3 text-center w-32">Actions</th>
+                                <th class="px-4 py-3 text-center w-40">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @forelse ($tcList as $tc)
-                                <tr wire:key="tc-{{ $tc->id }}" class="hover:bg-gray-50">
-                                    <td class="px-4 py-3 text-xs text-gray-400">{{ $tcList->firstItem() + $loop->index }}</td>
+                                <tr wire:key="tc-{{ $tc->id }}" class="hover:bg-gray-50/70 transition-colors">
+                                    <td class="px-4 py-3"><span class="text-sm text-gray-500 font-medium">{{ $tcList->firstItem() + $loop->index }}</span></td>
                                     <td class="px-4 py-3">
-                                        <div class="flex items-center gap-2.5">
-                                            <div class="w-9 h-9 rounded-full bg-rose-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                                                {{ strtoupper(substr($tc->student->full_name ?? 'S', 0, 1)) }}
-                                            </div>
+                                        <div class="flex items-center gap-3">
+                                            @if ($tc->student?->user?->image)
+                                                <img src="{{ $tc->student->user->image }}" wire:click="showStudentPhoto({{ $tc->student->id }})" title="View photo"
+                                                    class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0 cursor-zoom-in hover:opacity-90">
+                                            @else
+                                                <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                    <span class="text-xs font-semibold text-indigo-600">{{ strtoupper(substr($tc->student->full_name ?? 'S', 0, 1)) }}</span>
+                                                </div>
+                                            @endif
                                             <div class="min-w-0">
-                                                <p class="font-medium text-gray-900 truncate">{{ $tc->student->full_name ?? '—' }}</p>
-                                                <p class="text-xs text-gray-400 truncate">Adm: {{ $tc->student->admission_no ?? '—' }}</p>
+                                                <p class="text-sm font-semibold text-gray-900 truncate">{{ $tc->student->full_name ?? '—' }}</p>
+                                                <p class="text-xs text-gray-400 truncate">{{ $tc->student->admission_no ?? '' }}</p>
                                             </div>
                                         </div>
                                     </td>
@@ -212,17 +224,17 @@
                                     <td class="px-4 py-3 text-gray-600 whitespace-nowrap">{{ $tc->issue_date->format('d M Y') }}</td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-center gap-1">
-                                            <button wire:click="previewTc({{ $tc->id }})" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200" title="View">
+                                            <button wire:click="previewTc({{ $tc->id }})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                             </button>
                                             <a href="{{ route('admin.tc.download', ['organization' => auth()->user()->organization_id, 'id' => $tc->id]) }}" target="_blank"
-                                                class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-green-50 hover:text-green-600 hover:border-green-200" title="Download PDF">
+                                                class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Download PDF">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                                             </a>
-                                            <button wire:click="editTc({{ $tc->id }})" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200" title="Edit">
+                                            <button wire:click="editTc({{ $tc->id }})" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                                             </button>
-                                            <button wire:click="deleteTc({{ $tc->id }})" class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200" title="Delete">
+                                            <button wire:click="deleteTc({{ $tc->id }})" class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                             </button>
                                         </div>
@@ -256,7 +268,7 @@
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                 <div class="min-w-0">
                     <h2 class="text-lg font-semibold text-gray-900">{{ $editCertId ? 'Edit Certificate' : 'Issue Certificate' }}</h2>
-                    <p class="text-xs text-gray-500 mt-0.5">Pick the student, then fill the certificate details</p>
+                    <p class="text-xs text-gray-500 mt-0.5">Pick the class and the student, then fill the certificate details — every field is needed</p>
                 </div>
                 <button wire:click="closeCertModal" type="button"
                     class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
@@ -307,9 +319,7 @@
                         @error('event_name')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                     <div class="sm:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">
-                            Description <span class="text-gray-400 font-normal text-xs">(optional)</span>
-                        </label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Description <span class="text-red-500">*</span></label>
                         <textarea wire:model.defer="description" rows="3" maxlength="1000"
                             placeholder="{{ $type === 'achievement' ? 'For securing First Position in…' : 'For actively participating in…' }}"
                             class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm resize-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 @error('description') border-red-400 @enderror"></textarea>
@@ -322,9 +332,7 @@
                         @error('issued_by')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">
-                            Designation <span class="text-gray-400 font-normal text-xs">(optional)</span>
-                        </label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Designation <span class="text-red-500">*</span></label>
                         <input type="text" wire:model.defer="issued_by_designation" maxlength="100" placeholder="e.g. Principal"
                             class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 @error('issued_by_designation') border-red-400 @enderror">
                         @error('issued_by_designation')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
@@ -584,6 +592,23 @@
                     <button type="button" wire:click="closePreview"
                         class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
                 </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- A student's photo in the list, clicked: shown large in the middle of the
+         window (lms-cover), its cross in its own corner — as the Students list. --}}
+    @if ($studentPhoto)
+        <div class="lms-cover fixed inset-0 z-[9999] flex overflow-y-auto p-4 bg-black/80"
+            wire:click.self="closeStudentPhoto" x-on:keydown.escape.window="$wire.closeStudentPhoto()">
+            <div class="relative m-auto max-w-full">
+                <img src="{{ $studentPhoto }}" alt=""
+                    style="--photo: min(28rem, 90vw, calc(100vh - 8rem)); width: var(--photo); height: var(--photo)"
+                    class="rounded-lg object-cover shadow-2xl bg-white">
+                <button type="button" wire:click="closeStudentPhoto" title="Close"
+                    class="absolute top-2 right-2 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
             </div>
         </div>
     @endif
