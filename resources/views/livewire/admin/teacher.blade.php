@@ -181,14 +181,11 @@
                                         title="{{ $teacher->user?->email ?? '' }}">{{ $teacher->user?->email ?? '—' }}</span>
                                 </td>
                                 {{-- Class this teacher is class-teacher of, as the Students list
-                                     shows a class: plain text, the section's last letter after it (Class 8-A). --}}
+                                     shows a class: plain text, the section's last letter after it (Class 8-A).
+                                     Two or more sections of one class share its line: Class 6 A & B. --}}
                                 <td class="px-4 py-3">
                                     @php
-                                        $classTeacherOf = $teacher->assignedClasses->map(function ($assigned) {
-                                            $secLetter = mb_strtoupper(mb_substr(trim((string) $assigned->section?->name), -1));
-
-                                            return ($assigned->standard?->name ?? '—') . ($secLetter !== '' ? '-' . $secLetter : '');
-                                        })->implode(', ');
+                                        $classTeacherOf = implode(', ', \App\Support\SectionNames::classLines($teacher->assignedClasses));
                                     @endphp
                                     <span class="text-sm {{ $classTeacherOf !== '' ? 'text-gray-700' : 'text-gray-400' }}">{{ $classTeacherOf !== '' ? $classTeacherOf : '—' }}</span>
                                 </td>
@@ -340,12 +337,11 @@
                             <div class="min-w-0">
                                 <p class="text-xs text-gray-400">Class Teacher</p>
                                 <div class="flex flex-wrap gap-1.5 mt-0.5">
-                                    @forelse ($teacher->assignedClasses as $assigned)
-                                        @php $secLetter = mb_strtoupper(mb_substr(trim((string) $assigned->section?->name), -1)); @endphp
+                                    @forelse (\App\Support\SectionNames::classLines($teacher->assignedClasses) as $classLine)
                                         <span
                                             class="text-xs px-2 py-0.5 bg-blue-50 text-blue-700
                                             rounded-full font-medium border border-blue-100 whitespace-nowrap">
-                                            {{ $assigned->standard?->name ?? '—' }}{{ $secLetter !== '' ? '-' . $secLetter : '' }}
+                                            {{ $classLine }}
                                         </span>
                                     @empty
                                         <p class="text-gray-700 font-medium">—</p>
