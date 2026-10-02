@@ -9,6 +9,7 @@ use App\Models\Student\Section;
 use App\Models\Student\SectionSubject;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
+use App\Services\ReportCardService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -18,8 +19,12 @@ class ReportCard extends Component
 {
     use WithPagination, WireUiActions;
 
-    // View mode: 'list' or 'issue'
+    // View mode. It was 'list' or 'issue' while issuing was a screen of its
+    // own; issuing is a slide-in over the list now, so it stays 'list'.
     public $viewMode = 'list';
+
+    /** The Issue slide-in: pick the class, section and students, then their details. */
+    public bool $showIssuePanel = false;
 
     // Filters for list view
     public $search = '';
@@ -37,7 +42,11 @@ class ReportCard extends Component
     // Issue details slide-in — what actually gets printed on the card.
     public bool   $showIssueForm = false;
     public string $issueDate     = '';
-    /** student_detail_id => ['name', 'admission_no', 'regd_no', 'remark', 'result'] */
+    /**
+     * student_detail_id => ['name', 'admission_no', 'regd_no', 'remark', 'result',
+     * 'co' => ['term1' => [grade per area], 'term2' => [grade per area]]] — the
+     * co-scholastic grades are listed in ReportCardService::CO_SCHOLASTIC_AREAS' order.
+     */
     public array  $issueRows     = [];
 
     /** The card open on the View screen, if one is. */
@@ -56,7 +65,8 @@ class ReportCard extends Component
      */
     public function openIssueScreen()
     {
-        $this->viewMode = 'issue';
+        $this->showIssuePanel = true;
+        $this->closeIssueForm();
         $this->issueStandard = '';
         $this->issueSection = '';
         $this->selectedStudents = [];
@@ -69,6 +79,7 @@ class ReportCard extends Component
     public function backToList()
     {
         $this->viewMode = 'list';
+        $this->showIssuePanel = false;
         $this->issueStandard = '';
         $this->issueSection = '';
         $this->selectedStudents = [];
@@ -92,7 +103,8 @@ class ReportCard extends Component
     public function updatedIssueSection()
     {
         $this->selectedStudents = [];
-        $this->issueStudentsLoaded = false;
+        // The students come up as soon as the class and its section are picked.
+        $this->issueStudentsLoaded = (bool) ($this->issueStandard && $this->issueSection);
     }
 
     /**
@@ -253,6 +265,9 @@ class ReportCard extends Component
             ->orderBy('full_name')
             ->get();
 
+        // No grade is chosen to begin with: each is to be picked.
+        $blank = array_fill(0, count(ReportCardService::CO_SCHOLASTIC_AREAS), '');
+
         $this->issueRows = [];
         foreach ($students as $student) {
             $this->issueRows[$student->id] = [
@@ -261,6 +276,7 @@ class ReportCard extends Component
                 'regd_no'      => (string) ($student->registration_number ?? ''),
                 'remark'       => '',
                 'result'       => '',
+                'co'           => ['term1' => $blank, 'term2' => $blank],
             ];
         }
 
@@ -273,6 +289,25 @@ class ReportCard extends Component
         $this->showIssueForm = false;
         $this->issueRows     = [];
         $this->issueDate     = '';
+        $this->resetValidation();
+    }
+
+    /**
+     * One co-scholastic grade for every student on the details list at once —
+     * a class of forty need not be picked one by one. Each can still be changed.
+     */
+    public function setAllCoGrade($term, $area, $grade)
+    {
+        $area = (int) $area;
+        if (! in_array($term, ['term1', 'term2'], true)
+            || ! array_key_exists($area, ReportCardService::CO_SCHOLASTIC_AREAS)
+            || ! in_array($grade, ReportCardService::CO_SCHOLASTIC_GRADES, true)) {
+            return;
+        }
+
+        foreach (array_keys($this->issueRows) as $studentId) {
+            $this->issueRows[$studentId]['co'][$term][$area] = $grade;
+        }
     }
 
     /**
@@ -290,14 +325,25 @@ class ReportCard extends Component
             return;
         }
 
+        $grades = implode(',', ReportCardService::CO_SCHOLASTIC_GRADES);
+
         $this->validate([
             'issueDate'            => 'required|date',
             'issueRows.*.regd_no'  => 'nullable|string|max:50',
-            'issueRows.*.remark'   => 'nullable|string|max:500',
+            // A remark is to be entered and every co-scholastic grade chosen
+            // before a card is issued.
+            'issueRows.*.remark'   => 'required|string|max:500',
             'issueRows.*.result'   => 'nullable|in:PASSED,FAILED',
+            'issueRows.*.co.term1.*' => 'required|in:' . $grades,
+            'issueRows.*.co.term2.*' => 'required|in:' . $grades,
         ], [
             'issueDate.required'   => 'Please pick an issue date.',
+            'issueRows.*.remark.required' => 'Enter a remark.',
             'issueRows.*.remark.max' => 'A remark may not be longer than 500 characters.',
+            'issueRows.*.co.term1.*.required' => 'Choose every co-scholastic grade.',
+            'issueRows.*.co.term2.*.required' => 'Choose every co-scholastic grade.',
+            'issueRows.*.co.term1.*.in' => 'Choose every co-scholastic grade.',
+            'issueRows.*.co.term2.*.in' => 'Choose every co-scholastic grade.',
         ]);
 
         try {
@@ -333,6 +379,10 @@ class ReportCard extends Component
                     'regd_no' => trim((string) ($row['regd_no'] ?? '')) ?: null,
                     'remark' => trim((string) ($row['remark'] ?? '')) ?: null,
                     'result' => ($row['result'] ?? '') ?: null,
+                    'co_scholastic' => [
+                        'term1' => array_combine(ReportCardService::CO_SCHOLASTIC_AREAS, array_values($row['co']['term1'])),
+                        'term2' => array_combine(ReportCardService::CO_SCHOLASTIC_AREAS, array_values($row['co']['term2'])),
+                    ],
                     'issued_at' => $issuedAt,
                     'issued_by' => Auth::id(),
                     'status' => 'issued',
@@ -411,21 +461,9 @@ class ReportCard extends Component
                 return;
             }
 
-            $another = ReportCardModel::where('organization_id', $orgId)
-                ->where('student_detail_id', $reportCard->student_detail_id)
-                ->where('standard_id', $reportCard->standard_id)
-                ->where('section_id', $reportCard->section_id)
-                ->where('status', 'issued')
-                ->exists();
-
-            if ($another) {
-                $this->notification()->warning(
-                    $title = 'Already issued',
-                    $description = 'This student already has an issued report card for this class.'
-                );
-                return;
-            }
-
+            // It used to be refused when the student had another issued card
+            // for the class ("Already issued"); a card is simply switched back
+            // on now, whatever else the student holds.
             $reportCard->update(['status' => 'issued']);
             $this->notification()->success(
                 $title = 'Issued!',
@@ -439,7 +477,38 @@ class ReportCard extends Component
         }
     }
 
-    /** View: the card on a screen of its own, to look at and nothing else. */
+    /**
+     * The Active / Inactive buttons of the list: an active card is an issued
+     * one, an inactive card a revoked one — the statuses the student's app and
+     * the PDFs already go by.
+     */
+    public function setCardStatus($id, $status)
+    {
+        if (! in_array($status, ['issued', 'revoked'], true)) {
+            return;
+        }
+
+        $reportCard = ReportCardModel::where('id', $id)
+            ->where('organization_id', Auth::user()->organization_id)
+            ->first();
+
+        if (! $reportCard || $reportCard->status === $status) {
+            return;
+        }
+
+        $reportCard->update(['status' => $status]);
+
+        if ($status === 'revoked' && $this->viewCardId === (int) $id) {
+            $this->viewCardId = null;
+        }
+
+        $this->notification()->success(
+            $title = 'Updated!',
+            $description = $status === 'issued' ? 'Report card is active.' : 'Report card is inactive.'
+        );
+    }
+
+    /** View: the card in a slide-in panel, as a transfer certificate is viewed. */
     public function openCardView($id)
     {
         $exists = ReportCardModel::where('id', $id)
@@ -654,6 +723,8 @@ class ReportCard extends Component
             : null;
 
         return view($this->viewName(), [
+            'coAreas'       => ReportCardService::CO_SCHOLASTIC_AREAS,
+            'coGrades'      => ReportCardService::CO_SCHOLASTIC_GRADES,
             'downloadRoute' => $this->downloadRouteName(),
             'printRoute'    => $this->printRouteName(),
             'viewRoute'     => $this->viewRouteName(),

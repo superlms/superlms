@@ -20,6 +20,7 @@ class ReportCard extends Model
         'regd_no',
         'remark',
         'result',
+        'co_scholastic',
         'issued_at',
         'issued_by',
         'status',
@@ -27,6 +28,7 @@ class ReportCard extends Model
 
     protected $casts = [
         'issued_at' => 'datetime',
+        'co_scholastic' => 'array',
     ];
 
     public function organization()

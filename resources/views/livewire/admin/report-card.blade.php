@@ -71,8 +71,8 @@
 
                     <select wire:model.live="filterStatus" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                         <option value="">All Status</option>
-                        <option value="issued">Issued</option>
-                        <option value="revoked">Revoked</option>
+                        <option value="issued">Active</option>
+                        <option value="revoked">Inactive</option>
                     </select>
 
                     <select wire:model.live="perPage" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
@@ -115,9 +115,11 @@
             {{-- The listing, in the Students list's style: the photo opens large on a
                  click, the admission number sits small under the name and the
                  section small under the class, the status is plain text, and the
-                 actions are the Students list's plain buttons — View (the card on
-                 a screen of its own), Download (the file, straight away) and
-                 Revoke; a revoked card has Issue, which issues it again. --}}
+                 actions are the Students list's plain buttons — View (the card in a
+                 slide-in, as a transfer certificate is viewed) and Download (the
+                 file, straight away) — then Active / Inactive: the one the card is
+                 on is lit, a click on the other switches it. An inactive card can
+                 only be made active again. --}}
             <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full">
@@ -129,11 +131,12 @@
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Academic Year</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Issued On</th>
-                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-36">Actions</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-56">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @forelse ($reportCards as $index => $card)
+                                @php $active = $card->status === 'issued'; @endphp
                                 <tr wire:key="rc-{{ $card->id }}" class="hover:bg-gray-50/70 transition-colors">
                                     <td class="px-4 py-3"><span class="text-sm text-gray-500 font-medium">{{ $reportCards->firstItem() + $index }}</span></td>
                                     <td class="px-4 py-3">
@@ -157,11 +160,11 @@
                                         <p class="text-xs text-gray-400">{{ $card->studentDetail?->section?->name ?? '' }}</p>
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-600">{{ $card->academic_year ?? 'N/A' }}</td>
-                                    <td class="px-4 py-3 text-sm {{ $card->status === 'issued' ? 'text-gray-700' : 'text-red-600 font-medium' }}">{{ $card->status === 'issued' ? 'Issued' : 'Revoked' }}</td>
+                                    <td class="px-4 py-3 text-sm {{ $active ? 'text-gray-700' : 'text-red-600 font-medium' }}">{{ $active ? 'Active' : 'Inactive' }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{{ $card->issued_at ? $card->issued_at->format('d M Y') : 'N/A' }}</td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-center gap-1">
-                                            @if ($card->status === 'issued')
+                                            @if ($active)
                                                 <button wire:click="openCardView({{ $card->id }})" title="View"
                                                     class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -176,22 +179,13 @@
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                                     </svg>
                                                 </a>
-                                                <button wire:click="revokeReportCard({{ $card->id }})"
-                                                    wire:confirm="Are you sure you want to revoke this report card?" title="Revoke"
-                                                    class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                                                    </svg>
-                                                </button>
-                                            @else
-                                                <button wire:click="reissueReportCard({{ $card->id }})" title="Issue again"
-                                                    class="inline-flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                    </svg>
-                                                    Issue
-                                                </button>
                                             @endif
+                                            <div class="inline-flex ml-1 rounded-lg border border-gray-200 overflow-hidden text-[11px] font-semibold">
+                                                <button type="button" wire:click="setCardStatus({{ $card->id }}, 'issued')" @disabled($active) title="{{ $active ? 'This card is active' : 'Make active' }}"
+                                                    class="px-2 py-1 transition-colors {{ $active ? 'bg-emerald-50 text-emerald-700' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600' }}">Active</button>
+                                                <button type="button" wire:click="setCardStatus({{ $card->id }}, 'revoked')" @disabled(!$active) title="{{ $active ? 'Make inactive' : 'This card is inactive' }}"
+                                                    class="px-2 py-1 border-l border-gray-200 transition-colors {{ $active ? 'text-gray-400 hover:bg-gray-50 hover:text-gray-600' : 'bg-red-50 text-red-600' }}">Inactive</button>
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>
@@ -221,332 +215,324 @@
             @endif
         </div>
 
-    @else
-        {{-- ══════════════════════════════════════════════════
-             ISSUE REPORT CARD SCREEN
-        ══════════════════════════════════════════════════ --}}
-        <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-            <div class="px-4 sm:px-6 py-3">
-                <div class="flex items-center gap-3">
-                    <button wire:click="backToList"
-                        class="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-                        </svg>
-                    </button>
-                    <div>
-                        <h1 class="text-lg sm:text-xl font-bold text-gray-900">Issue Report Cards</h1>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Class / Section selector bar --}}
-            <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
-                <div class="flex flex-wrap items-center gap-3">
-                    <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                        <span class="w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-[11px] font-bold">1</span>
-                        Select Class &amp; Section:
-                    </div>
-
-                    <select wire:model.live="issueStandard" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                        <option value="">-- Select Class --</option>
-                        @foreach ($this->standards as $standard)
-                            <option value="{{ $standard->id }}">{{ $standard->name }}</option>
-                        @endforeach
-                    </select>
-
-                    <span class="text-gray-300">→</span>
-
-                    <select wire:model.live="issueSection" @disabled(!$issueStandard)
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
-                        <option value="">-- Select Section --</option>
-                        @foreach ($this->issueSections as $section)
-                            <option value="{{ $section->id }}">{{ $section->name }}</option>
-                        @endforeach
-                    </select>
-
-                    <button wire:click="loadStudents" @disabled(!$issueStandard || !$issueSection)
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-md shadow-sm transition-colors">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                        Load Students
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        {{-- BODY: student list --}}
-        <div class="p-4 sm:p-6">
-            @if ($issueStudentsLoaded)
-                @php
-                    $eligibleCount = $this->issueStudents->filter(fn($s) => $s['marks_complete'] && !$s['already_issued'])->count();
-                @endphp
-                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    {{-- Sub-header --}}
-                    <div class="px-5 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <div class="flex items-center gap-2">
-                            <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">2</span>
-                            <h3 class="text-base font-semibold text-gray-900">Select Students</h3>
-                        </div>
-                        <div class="flex flex-wrap items-center gap-4">
-                            {{-- Legend --}}
-                            <div class="flex flex-wrap items-center gap-3 text-[11px]">
-                                <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span><span class="text-gray-500">Eligible</span></span>
-                                <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-gray-300"></span><span class="text-gray-500">Incomplete</span></span>
-                                <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-400"></span><span class="text-gray-500">Issued</span></span>
-                            </div>
-                            @if ($eligibleCount > 0)
-                                <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="checkbox" wire:click="toggleAllEligible($event.target.checked)"
-                                        {{ count($selectedStudents) === $eligibleCount && $eligibleCount > 0 ? 'checked' : '' }}
-                                        class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                                    <span class="text-xs font-medium text-gray-700">Select all eligible ({{ count($selectedStudents) }}/{{ $eligibleCount }})</span>
-                                </label>
-                            @endif
-                        </div>
-                    </div>
-
-                    <div class="overflow-x-auto">
-                        <table class="w-full">
-                            <thead class="bg-gray-50 border-b border-gray-200">
-                                <tr>
-                                    <th class="px-4 py-3 w-10"></th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">S.No</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Student Name</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Admission No.</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Roll No.</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Marks Status</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Report Card</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100">
-                                @forelse ($this->issueStudents as $index => $student)
-                                    @php
-                                        $isEligible = $student['marks_complete'] && !$student['already_issued'];
-                                        $rowClass = !$student['marks_complete'] ? 'opacity-50 bg-gray-50/60' : ($student['already_issued'] ? 'bg-blue-50/40' : '');
-                                    @endphp
-                                    <tr class="{{ $rowClass }} hover:bg-gray-50 transition-colors">
-                                        <td class="px-4 py-3">
-                                            @if ($isEligible)
-                                                <input type="checkbox" wire:model.live="selectedStudents" value="{{ $student['id'] }}"
-                                                    class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                                            @else
-                                                <input type="checkbox" disabled class="w-4 h-4 rounded border-gray-200 text-gray-300 cursor-not-allowed">
-                                            @endif
-                                        </td>
-                                        <td class="px-4 py-3 text-sm text-gray-500 tabular-nums">{{ $index + 1 }}</td>
-                                        <td class="px-4 py-3">
-                                            <div class="flex items-center gap-3">
-                                                <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 {{ $student['marks_complete'] ? 'bg-blue-100' : 'bg-gray-200' }}">
-                                                    <span class="{{ $student['marks_complete'] ? 'text-blue-700' : 'text-gray-500' }} font-semibold text-xs">{{ strtoupper(substr($student['full_name'], 0, 1)) }}</span>
-                                                </div>
-                                                <span class="text-sm font-semibold text-gray-900">{{ $student['full_name'] }}</span>
-                                            </div>
-                                        </td>
-                                        <td class="px-4 py-3 text-sm text-gray-600 font-mono">{{ $student['admission_no'] ?? 'N/A' }}</td>
-                                        <td class="px-4 py-3 text-sm text-gray-600">{{ $student['roll_no'] }}</td>
-                                        <td class="px-4 py-3">
-                                            @if ($student['marks_complete'])
-                                                <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-emerald-100 text-emerald-700">Complete</span>
-                                            @else
-                                                <div>
-                                                    <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-amber-100 text-amber-700">Incomplete</span>
-                                                    @if ($student['missing_info'])
-                                                        <p class="text-[11px] text-gray-400 mt-1">{{ $student['missing_info'] }}</p>
-                                                    @endif
-                                                </div>
-                                            @endif
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            @if ($student['already_issued'])
-                                                <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-blue-100 text-blue-700">Already Issued</span>
-                                            @elseif ($student['marks_complete'])
-                                                <span class="text-xs text-gray-500">Ready to issue</span>
-                                            @else
-                                                <span class="text-xs text-gray-400">--</span>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="7" class="px-4 py-16 text-center">
-                                            <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
-                                                <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4z" />
-                                                </svg>
-                                            </div>
-                                            <p class="text-sm font-semibold text-gray-800">No students found</p>
-                                            <p class="text-xs text-gray-400 mt-1">No students are enrolled in this class and section.</p>
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {{-- Issue button footer --}}
-                    @if ($this->issueStudents->isNotEmpty())
-                        <div class="px-5 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
-                            <div class="text-sm text-gray-600"><strong class="text-gray-900">{{ count($selectedStudents) }}</strong> student(s) selected</div>
-                            <button wire:click="openIssueForm" @disabled(empty($selectedStudents)) wire:loading.attr="disabled"
-                                class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
-                                <svg wire:loading.remove wire:target="openIssueForm" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <svg wire:loading wire:target="openIssueForm" class="animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                                </svg>
-                                Continue
-                            </button>
-                        </div>
-                    @endif
-                </div>
-            @else
-                {{-- Prompt before loading --}}
-                <div class="bg-white rounded-xl border border-gray-200 px-6 py-16 text-center">
-                    <div class="w-12 h-12 mx-auto mb-3 bg-blue-50 rounded-full flex items-center justify-center">
-                        <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l7-3 7 3z" />
-                        </svg>
-                    </div>
-                    <p class="text-sm font-semibold text-gray-800">Select a class and section</p>
-                    <p class="text-xs text-gray-400 mt-1">Choose a class and section above, then click "Load Students".</p>
-                </div>
-            @endif
-        </div>
     @endif
 
 {{-- ══════════════════════════════════════════════════
-     ISSUE DETAILS SLIDE-IN
-     What gets printed on the card: registration number, remark and result,
-     one row per selected student, plus a shared issue date.
+     ISSUE REPORT CARDS — a slide-in over the list, in two steps.
+     1. Pick the class and its section; the students come up, and the ones to
+        issue for are ticked. Continue.
+     2. A row for each: number, name over admission number, the remark to
+        enter and the co-scholastic grades to choose (with the registration
+        number and the result, as before). Submit issues them.
 ══════════════════════════════════════════════════ --}}
-@if ($showIssueForm)
+@if ($showIssuePanel)
     <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
-        <div class="absolute inset-0 bg-black/[0.08] backdrop-blur-[1.5px]" wire:click="closeIssueForm"></div>
-        <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
+        <div class="absolute inset-0 bg-black/[0.08] backdrop-blur-[1.5px]" wire:click="backToList"></div>
+        <div class="absolute top-0 right-0 bottom-0 w-full max-w-5xl bg-white shadow-2xl flex flex-col">
 
             {{-- Header --}}
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                <div>
+                <div class="min-w-0">
                     <h2 class="text-lg font-semibold text-gray-900">Issue Report Cards</h2>
                     <p class="text-xs text-gray-500 mt-0.5">
-                        {{ count($issueRows) }} student(s) — these details print on the card
+                        @if ($showIssueForm)
+                            {{ count($issueRows) }} student(s) — enter the remark and choose the co-scholastic grades for each
+                        @else
+                            Pick the class and section, tick the students, then Continue
+                        @endif
                     </p>
                 </div>
-                <button wire:click="closeIssueForm"
-                    class="w-9 h-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                <button wire:click="backToList" type="button"
+                    class="w-9 h-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
 
-            {{-- Body --}}
-            <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-
-                <div class="max-w-xs">
-                    <label class="block text-sm font-medium text-gray-700 mb-1.5">
-                        Issue Date <span class="text-red-500">*</span>
-                    </label>
-                    <input wire:model.defer="issueDate" type="date"
-                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
-                    @error('issueDate')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                    <p class="mt-1 text-xs text-gray-500">Prints as "Issue Date" on every card in this batch.</p>
-                </div>
-
-                <div class="border border-gray-200 rounded-xl overflow-hidden">
-                    <div class="grid grid-cols-12 gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        <div class="col-span-3">Student</div>
-                        <div class="col-span-2">Regd. No</div>
-                        <div class="col-span-5">Remark</div>
-                        <div class="col-span-2">Result</div>
+            @if (! $showIssueForm)
+                {{-- ─────────── Step 1: class, section, students ─────────── --}}
+                <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5" wire:key="issue-step-1">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Class <span class="text-red-500">*</span></label>
+                            <select wire:model.live="issueStandard"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">Select Class</option>
+                                @foreach ($this->standards as $standard)
+                                    <option value="{{ $standard->id }}">{{ $standard->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Section <span class="text-red-500">*</span></label>
+                            <select wire:model.live="issueSection" wire:key="issue-section-{{ $issueStandard ?: 'none' }}" @disabled(!$issueStandard)
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:opacity-60">
+                                <option value="">{{ $issueStandard ? 'Select Section' : 'Select a class first' }}</option>
+                                @foreach ($this->issueSections as $section)
+                                    <option value="{{ $section->id }}">{{ $section->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                     </div>
 
-                    @foreach ($issueRows as $studentId => $row)
-                        <div class="grid grid-cols-12 gap-2 px-4 py-3 border-b border-gray-100 last:border-0 items-start">
-                            <div class="col-span-3 min-w-0">
-                                <p class="text-sm font-medium text-gray-900 truncate">{{ $row['name'] ?: '—' }}</p>
-                                <p class="text-xs text-gray-400 truncate">{{ $row['admission_no'] ?: '—' }}</p>
+                    @if ($issueStudentsLoaded)
+                        @php
+                            $eligibleCount = $this->issueStudents->filter(fn($s) => $s['marks_complete'] && !$s['already_issued'])->count();
+                        @endphp
+                        <div class="border border-gray-200 rounded-xl overflow-hidden">
+                            <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
+                                <h3 class="text-sm font-semibold text-gray-900">Select Students</h3>
+                                <div class="flex flex-wrap items-center gap-4">
+                                    <div class="flex flex-wrap items-center gap-3 text-[11px]">
+                                        <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span><span class="text-gray-500">Eligible</span></span>
+                                        <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-gray-300"></span><span class="text-gray-500">Incomplete</span></span>
+                                        <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-400"></span><span class="text-gray-500">Issued</span></span>
+                                    </div>
+                                    @if ($eligibleCount > 0)
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" wire:click="toggleAllEligible($event.target.checked)"
+                                                {{ count($selectedStudents) === $eligibleCount && $eligibleCount > 0 ? 'checked' : '' }}
+                                                class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                            <span class="text-xs font-medium text-gray-700">Select all eligible ({{ count($selectedStudents) }}/{{ $eligibleCount }})</span>
+                                        </label>
+                                    @endif
+                                </div>
                             </div>
-                            <div class="col-span-2">
-                                <input wire:model.defer="issueRows.{{ $studentId }}.regd_no" type="text"
-                                    maxlength="50" placeholder="—"
-                                    class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm">
-                                @error('issueRows.' . $studentId . '.regd_no')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                            </div>
-                            <div class="col-span-5">
-                                <input wire:model.defer="issueRows.{{ $studentId }}.remark" type="text"
-                                    maxlength="500" placeholder="Leave blank to use the marks-based remark"
-                                    class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm">
-                                @error('issueRows.' . $studentId . '.remark')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                            </div>
-                            <div class="col-span-2">
-                                <select wire:model.defer="issueRows.{{ $studentId }}.result"
-                                    class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm">
-                                    <option value="">Auto</option>
-                                    <option value="PASSED">PASSED</option>
-                                    <option value="FAILED">FAILED</option>
-                                </select>
+
+                            <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead class="bg-gray-50 border-b border-gray-200">
+                                        <tr>
+                                            <th class="px-4 py-3 w-10"></th>
+                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
+                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Student Name</th>
+                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Roll No.</th>
+                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Marks Status</th>
+                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Report Card</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        @forelse ($this->issueStudents as $index => $student)
+                                            @php
+                                                $isEligible = $student['marks_complete'] && !$student['already_issued'];
+                                                $rowClass = !$student['marks_complete'] ? 'opacity-50 bg-gray-50/60' : ($student['already_issued'] ? 'bg-blue-50/40' : '');
+                                            @endphp
+                                            <tr wire:key="issue-pick-{{ $student['id'] }}" class="{{ $rowClass }} hover:bg-gray-50 transition-colors">
+                                                <td class="px-4 py-3">
+                                                    @if ($isEligible)
+                                                        <input type="checkbox" wire:model.live="selectedStudents" value="{{ $student['id'] }}"
+                                                            class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                                    @else
+                                                        <input type="checkbox" disabled class="w-4 h-4 rounded border-gray-200 text-gray-300 cursor-not-allowed">
+                                                    @endif
+                                                </td>
+                                                <td class="px-4 py-3"><span class="text-sm text-gray-500 font-medium">{{ $index + 1 }}</span></td>
+                                                <td class="px-4 py-3">
+                                                    <p class="text-sm font-semibold text-gray-900">{{ $student['full_name'] }}</p>
+                                                    <p class="text-xs text-gray-400">{{ $student['admission_no'] ?? '' }}</p>
+                                                </td>
+                                                <td class="px-4 py-3 text-sm text-gray-600">{{ $student['roll_no'] }}</td>
+                                                <td class="px-4 py-3">
+                                                    @if ($student['marks_complete'])
+                                                        <span class="text-sm text-gray-700">Complete</span>
+                                                    @else
+                                                        <span class="text-sm text-amber-700">Incomplete</span>
+                                                        @if ($student['missing_info'])
+                                                            <p class="text-[11px] text-gray-400 mt-0.5">{{ $student['missing_info'] }}</p>
+                                                        @endif
+                                                    @endif
+                                                </td>
+                                                <td class="px-4 py-3">
+                                                    @if ($student['already_issued'])
+                                                        <span class="text-sm text-blue-700">Already issued</span>
+                                                    @elseif ($student['marks_complete'])
+                                                        <span class="text-sm text-gray-500">Ready to issue</span>
+                                                    @else
+                                                        <span class="text-sm text-gray-400">—</span>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="6" class="px-4 py-12 text-center">
+                                                    <p class="text-sm font-semibold text-gray-800">No students found</p>
+                                                    <p class="text-xs text-gray-400 mt-1">No students are enrolled in this class and section.</p>
+                                                </td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
-                    @endforeach
+                    @else
+                        <div class="border border-gray-200 rounded-xl px-6 py-14 text-center">
+                            <p class="text-sm font-semibold text-gray-800">Select a class and section</p>
+                            <p class="text-xs text-gray-400 mt-1">The students of the section come up here to pick from.</p>
+                        </div>
+                    @endif
                 </div>
 
-                <p class="text-xs text-gray-500">
-                    Regd. No is prefilled from the student's registration number. Leave a remark blank
-                    and the card writes one from the percentage; leave Result on Auto and it passes
-                    anyone above 33% in every subject.
-                </p>
-            </div>
+                <div class="flex items-center justify-between gap-2 px-6 py-3.5 border-t border-gray-200 flex-shrink-0">
+                    <div class="text-sm text-gray-600"><strong class="text-gray-900">{{ count($selectedStudents) }}</strong> student(s) selected</div>
+                    <div class="flex items-center gap-2">
+                        <button wire:click="backToList" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                        <button wire:click="openIssueForm" type="button" @disabled(empty($selectedStudents)) wire:loading.attr="disabled" wire:target="openIssueForm"
+                            class="px-5 py-2 bg-gray-900 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md">Continue</button>
+                    </div>
+                </div>
+            @else
+                {{-- ─────────── Step 2: each student's details ─────────── --}}
+                <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5" wire:key="issue-step-2">
 
-            {{-- Footer --}}
-            <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
-                <button wire:click="closeIssueForm" type="button"
-                    class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900">Cancel</button>
-                <button wire:click="issueReportCards" wire:loading.attr="disabled" wire:target="issueReportCards"
-                    class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
-                    <svg wire:loading.remove wire:target="issueReportCards" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <svg wire:loading wire:target="issueReportCards" class="animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
-                    Issue {{ count($issueRows) }} Report Card(s)
-                </button>
-            </div>
+                    <div class="max-w-xs">
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Issue Date <span class="text-red-500">*</span></label>
+                        <input wire:model.defer="issueDate" type="date"
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm @error('issueDate') border-red-400 @enderror">
+                        @error('issueDate')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        <p class="mt-1 text-xs text-gray-500">Prints as "Issue Date" on every card in this batch.</p>
+                    </div>
+
+                    {{-- One grade for everyone at once; each student's can still be changed below. --}}
+                    @if (count($issueRows) > 1)
+                        <div class="border border-gray-200 rounded-xl px-4 py-3" x-data>
+                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-2">Set a grade for all students</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                @foreach ($coAreas as $ai => $area)
+                                    <div wire:key="co-all-{{ $ai }}">
+                                        <p class="text-xs font-medium text-gray-700 mb-1 truncate" title="{{ $area }}">{{ $area }}</p>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            @foreach (['term1' => 'Term 1', 'term2' => 'Term 2'] as $termKey => $termLabel)
+                                                <select x-on:change="$wire.setAllCoGrade('{{ $termKey }}', {{ $ai }}, $event.target.value); $event.target.value = ''"
+                                                    class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs text-gray-600">
+                                                    <option value="">{{ $termLabel }}</option>
+                                                    @foreach ($coGrades as $g)<option value="{{ $g }}">{{ $g }}</option>@endforeach
+                                                </select>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
+                    <div class="border border-gray-200 rounded-xl divide-y divide-gray-100">
+                        @foreach ($issueRows as $studentId => $row)
+                            <div class="px-4 py-4 grid grid-cols-12 gap-x-4 gap-y-3" wire:key="issue-row-{{ $studentId }}">
+                                <div class="col-span-12 md:col-span-3 flex gap-3">
+                                    <span class="text-sm text-gray-500 font-medium w-6 flex-shrink-0">{{ $loop->iteration }}</span>
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-semibold text-gray-900 truncate">{{ $row['name'] ?: '—' }}</p>
+                                        <p class="text-xs text-gray-400 truncate">{{ $row['admission_no'] ?: '' }}</p>
+                                    </div>
+                                </div>
+
+                                <div class="col-span-12 md:col-span-9 space-y-3">
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700 mb-1">Remark <span class="text-red-500">*</span></label>
+                                        <input wire:model.defer="issueRows.{{ $studentId }}.remark" type="text" maxlength="500" placeholder="e.g. Very good progress. Keep it up."
+                                            class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm @error('issueRows.' . $studentId . '.remark') border-red-400 @enderror">
+                                        @error('issueRows.' . $studentId . '.remark')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700 mb-1">Co-Scholastic Grades <span class="text-red-500">*</span></label>
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                            @foreach ($coAreas as $ai => $area)
+                                                <div>
+                                                    <p class="text-xs text-gray-500 mb-1 truncate" title="{{ $area }}">{{ $area }}</p>
+                                                    <div class="grid grid-cols-2 gap-2">
+                                                        @foreach (['term1' => 'Term 1', 'term2' => 'Term 2'] as $termKey => $termLabel)
+                                                            <select wire:model.defer="issueRows.{{ $studentId }}.co.{{ $termKey }}.{{ $ai }}" title="{{ $area }} — {{ $termLabel }}"
+                                                                class="w-full px-2 py-1.5 border rounded-md text-sm @error('issueRows.' . $studentId . '.co.' . $termKey . '.' . $ai) border-red-400 @else border-gray-300 @enderror">
+                                                                <option value="">{{ $termLabel }}</option>
+                                                                @foreach ($coGrades as $g)<option value="{{ $g }}">{{ $g }}</option>@endforeach
+                                                            </select>
+                                                        @endforeach
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                        @if ($errors->has('issueRows.' . $studentId . '.co.*'))
+                                            <p class="mt-1 text-xs text-red-500">Choose every co-scholastic grade.</p>
+                                        @endif
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-3 max-w-md">
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700 mb-1">Regd. No</label>
+                                            <input wire:model.defer="issueRows.{{ $studentId }}.regd_no" type="text" maxlength="50" placeholder="—"
+                                                class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm">
+                                            @error('issueRows.' . $studentId . '.regd_no')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700 mb-1">Result</label>
+                                            <select wire:model.defer="issueRows.{{ $studentId }}.result"
+                                                class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm">
+                                                <option value="">Auto</option>
+                                                <option value="PASSED">PASSED</option>
+                                                <option value="FAILED">FAILED</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    <p class="text-xs text-gray-500">
+                        Regd. No is prefilled from the student's registration number. Leave Result on Auto and the card
+                        passes anyone above 33% in every subject.
+                    </p>
+                </div>
+
+                <div class="flex items-center justify-between gap-2 px-6 py-3.5 border-t border-gray-200 flex-shrink-0">
+                    <button wire:click="closeIssueForm" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Back</button>
+                    <button wire:click="issueReportCards" type="button" wire:loading.attr="disabled" wire:target="issueReportCards"
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 disabled:opacity-60 text-white text-sm font-medium rounded-md">
+                        <span wire:loading.remove wire:target="issueReportCards">Submit — Issue {{ count($issueRows) }} Report Card(s)</span>
+                        <span wire:loading wire:target="issueReportCards">Issuing…</span>
+                    </button>
+                </div>
+            @endif
         </div>
     </div>
 @endif
+
 {{-- ══════════════════════════════════════════════════
-     VIEW — the card on a screen of its own, over the whole window, with Back
-     and Exit. It is there to be looked at: the printed page in a frame, with
-     no download or print on it (Download is in the list).
+     VIEW — the card in a slide-in panel, as a transfer certificate is viewed:
+     the printed page in a frame, Download PDF and Close at the foot.
 ══════════════════════════════════════════════════ --}}
 @if ($viewCard)
-    <div class="lms-cover fixed inset-0 z-[9999] bg-white flex flex-col" x-on:keydown.escape.window="$wire.closeCardView()">
-        <div class="flex-none flex items-center gap-3 h-14 px-4 border-b border-gray-200 bg-white">
-            <button type="button" wire:click="closeCardView"
-                class="inline-flex items-center gap-1.5 h-9 px-3.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                Back
-            </button>
-            <div class="flex-1 min-w-0 text-center">
-                <p class="text-sm font-semibold text-gray-900 truncate">{{ $viewCard->studentDetail->full_name ?? 'Report Card' }}</p>
-                <p class="text-xs text-gray-400 truncate">Report Card{{ $viewCard->academic_year ? ' · ' . $viewCard->academic_year : '' }}</p>
+    <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
+        <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeCardView"></div>
+        <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col" wire:click.stop>
+
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                <div class="min-w-0">
+                    <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $viewCard->studentDetail->full_name ?? 'Report Card' }}</h2>
+                    <p class="text-xs text-gray-500 mt-0.5 truncate">Report Card{{ $viewCard->academic_year ? ' · ' . $viewCard->academic_year : '' }}</p>
+                </div>
+                <button wire:click="closeCardView" type="button"
+                    class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
             </div>
-            <button type="button" wire:click="closeCardView"
-                class="inline-flex items-center gap-1.5 h-9 px-3.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">
-                Exit
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-        </div>
-        <div class="flex-1 min-h-0 bg-gray-100">
-            <iframe src="{{ route($viewRoute, ['organization' => auth()->user()->organization_id, 'id' => $viewCard->id]) }}#toolbar=0&amp;navpanes=0&amp;view=FitH"
-                class="w-full h-full border-0" title="Report Card"></iframe>
+
+            <div class="flex-1 overflow-hidden bg-gray-100">
+                <iframe src="{{ route($viewRoute, ['organization' => auth()->user()->organization_id, 'id' => $viewCard->id]) }}#toolbar=0&amp;navpanes=0&amp;view=FitH"
+                    class="w-full h-full border-0" title="Report Card"></iframe>
+            </div>
+
+            <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
+                <a href="{{ route($downloadRoute, ['organization' => auth()->user()->organization_id, 'id' => $viewCard->id]) }}" download
+                    class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md inline-flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    Download PDF
+                </a>
+                <button type="button" wire:click="closeCardView"
+                    class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
+            </div>
         </div>
     </div>
 @endif

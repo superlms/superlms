@@ -184,13 +184,9 @@ class ReportCardController extends Controller
             $term2Present = $term2->where('status', 1)->count();
         }
 
-        // Co-Scholastic Areas — fixed default subjects, default grade "A" for everyone.
-        // Per spec: same set shown for Term 1 and Term 2, both default to A.
-        $coScholasticSubjects = ['General Studies', 'Health & Physical Education', 'Work Behaviour'];
-        $coScholastic = [
-            'term1' => array_map(fn($s) => ['subject' => $s, 'grade' => 'A'], $coScholasticSubjects),
-            'term2' => array_map(fn($s) => ['subject' => $s, 'grade' => 'A'], $coScholasticSubjects),
-        ];
+        // Co-Scholastic Areas — the same fixed areas for Term 1 and Term 2, with
+        // the grades chosen when the card was issued ("A" where none was saved).
+        $coScholastic = \App\Services\ReportCardService::coScholasticFor($reportCard);
 
         return [
             'reportCard'   => $reportCard,

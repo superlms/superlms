@@ -116,11 +116,7 @@ class ReportCardService
             $term2Present = $term2->where('status', 1)->count();
         }
 
-        $coScholasticSubjects = ['General Studies', 'Health & Physical Education', 'Work Behaviour'];
-        $coScholastic = [
-            'term1' => array_map(fn($s) => ['subject' => $s, 'grade' => 'A'], $coScholasticSubjects),
-            'term2' => array_map(fn($s) => ['subject' => $s, 'grade' => 'A'], $coScholasticSubjects),
-        ];
+        $coScholastic = self::coScholasticFor($reportCard);
 
         return [
             'reportCard'   => $reportCard,
@@ -140,6 +136,35 @@ class ReportCardService
             ],
             'coScholastic' => $coScholastic,
         ];
+    }
+
+    /** The co-scholastic areas the card lists, in each term. */
+    public const CO_SCHOLASTIC_AREAS = ['General Studies', 'Health & Physical Education', 'Work Behaviour'];
+
+    /** The grades an area can be given (the card's "A-E"). */
+    public const CO_SCHOLASTIC_GRADES = ['A', 'B', 'C', 'D', 'E'];
+
+    /**
+     * The co-scholastic block of a card: each area with its grade, per term —
+     * the grades chosen when the card was issued, or "A" where none was saved
+     * (every card issued before the grades could be chosen).
+     *
+     * @return array{term1: array<int, array{subject: string, grade: string}>, term2: array<int, array{subject: string, grade: string}>}
+     */
+    public static function coScholasticFor(ReportCard $reportCard): array
+    {
+        $saved = (array) ($reportCard->co_scholastic ?? []);
+
+        $term = fn (string $key) => array_map(function (string $area) use ($saved, $key) {
+            $grade = strtoupper(trim((string) ($saved[$key][$area] ?? '')));
+
+            return [
+                'subject' => $area,
+                'grade'   => in_array($grade, self::CO_SCHOLASTIC_GRADES, true) ? $grade : 'A',
+            ];
+        }, self::CO_SCHOLASTIC_AREAS);
+
+        return ['term1' => $term('term1'), 'term2' => $term('term2')];
     }
 
     /** How many tighter layouts the PDF sheet has (see report-card-pdf.blade.php). */
