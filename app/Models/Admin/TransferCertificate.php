@@ -16,6 +16,7 @@ class TransferCertificate extends Model
     protected $fillable = [
         'organization_id', 'student_detail_id', 'tc_no', 'book_no',
         'nationality', 'is_sc_st', 'last_class_studied', 'exam_last_taken',
+        'previous_school_name', 'previous_school_class',
         'whether_failed', 'subjects_studied', 'qualified_for_promotion',
         'fees_paid_upto', 'fee_concession', 'total_working_days', 'days_present',
         'is_ncc_scout', 'extra_activities', 'general_conduct',

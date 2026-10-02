@@ -14,26 +14,30 @@
         {{-- No width here: dompdf ignores box-sizing, so `width: 210mm` plus the side
              padding lays the sheet out 240mm wide and the right edge falls off the
              paper. Width auto fills the page and the padding insets inside it. --}}
-        .page { padding: 10mm 14mm; }
-        .sheet { border: 0.8px solid #e5e7eb; padding: 8mm 9mm 6mm; }
+        {{-- The spacing below is a little closer than it first was: the two lines
+             for the school last attended and the second rule under the heading
+             took about 15mm, and this gives it back so the certificate still
+             sits on one page with a logo and long answers. --}}
+        .page { padding: 7mm 14mm; }
+        .sheet { border: 0.8px solid #e5e7eb; padding: 7mm 9mm 5mm; }
 
         /* ── Masthead ── */
         .head { text-align: center; }
-        .logo { height: 16mm; margin: 0 0 3mm; }
+        .logo { height: 15mm; margin: 0 0 2.5mm; }
         .school-name { font-family: "DejaVu Serif", Georgia, serif; font-size: 16pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #111827; }
         .affil { font-size: 8pt; color: #6b7280; margin-top: 1mm; }
         .addr { font-size: 8pt; color: #6b7280; margin-top: 1mm; }
         {{-- Same masthead contact line as the achievement certificate. --}}
         .contact { font-size: 8pt; color: #9ca3af; margin-top: 1mm; }
 
-        .rule { border-top: 0.8px solid #e5e7eb; margin: 4mm 0 0; }
+        .rule { border-top: 0.8px solid #e5e7eb; margin: 3.5mm 0 0; }
 
         /* ── Title ── */
         .title { text-align: center; font-family: "DejaVu Serif", Georgia, serif; font-size: 12pt; font-weight: bold;
-                 text-transform: uppercase; letter-spacing: 5px; color: #111827; margin: 4mm 0 0; }
+                 text-transform: uppercase; letter-spacing: 5px; color: #111827; margin: 3.5mm 0 0; }
 
         /* ── Identifier strip: label above value, no boxes ── */
-        .meta { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 4mm; }
+        .meta { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 3.5mm; }
         .meta td { width: 25%; vertical-align: top; }
         .meta-label { font-size: 6.5pt; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; }
         .meta-value { font-size: 9pt; font-weight: bold; color: #111827; margin-top: 0.8mm; }
@@ -41,8 +45,8 @@
         /* ── The statutory questions ── */
         {{-- `table-layout: fixed` or dompdf hands the long labels two thirds of the row
              and squeezes the answers; percentages (not mm) are what survive it. --}}
-        .data { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 4mm; }
-        .data td { vertical-align: top; padding: 0.7mm 0; border-bottom: 0.5px solid #f3f4f6; line-height: 1.25; }
+        .data { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 3.5mm; }
+        .data td { vertical-align: top; padding: 0.5mm 0; border-bottom: 0.5px solid #f3f4f6; line-height: 1.25; }
         .data td.num { width: 6%; font-size: 8pt; color: #9ca3af; }
         .data td.label { width: 54%; font-size: 8.5pt; color: #6b7280; padding-right: 4mm; }
         {{-- The answers carry the weight of the page by being darker, not bolder — a
@@ -51,7 +55,7 @@
         .data tr.last td { border-bottom: 0; }
 
         /* ── Signatures ── */
-        .sig { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 7mm; }
+        .sig { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 5.5mm; }
         .sig td { width: 33.33%; text-align: center; padding: 0 6mm; }
         .sig-line { border-top: 0.8px solid #d1d5db; padding-top: 2mm; font-size: 8pt; text-transform: uppercase;
                     letter-spacing: 1px; color: #6b7280; }
@@ -121,6 +125,8 @@
         'Nationality'                                            => $tc->nationality,
         'Belongs to Schedule Caste / Schedule Tribe'             => $tc->is_sc_st ? 'Yes' : 'No',
         'Date of first admission in the school with class'       => $admissionWith,
+        'Name of the school last attended before this'           => $tc->previous_school_name ?: '—',
+        'Class studied in that school'                           => $tc->previous_school_class ?: '—',
         'Date of birth as per admission register (in figures)'   => $tc->student->dob?->format('d/m/Y') ?? '—',
         'Date of birth (in words)'                               => $dobWords,
         'Class in which the pupil last studied'                  => trim(($tc->last_class_studied ?: '—') . ($lastClassWords ? '  ·  ' . $lastClassWords : '')),
@@ -164,6 +170,8 @@
 
         <div class="rule"></div>
         <div class="title">Transfer Certificate</div>
+        {{-- A second line under the heading, so it sits between two. --}}
+        <div class="rule"></div>
 
         {{-- ── Identifiers ── --}}
         <table class="meta">

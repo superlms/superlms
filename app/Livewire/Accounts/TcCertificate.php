@@ -45,6 +45,9 @@ class TcCertificate extends Component
     public string $nationality              = 'Indian';
     public bool   $is_sc_st                 = false;
     public string $last_class_studied       = '';
+    /** The school the pupil came from, and the class they were in there. */
+    public string $previous_school_name     = '';
+    public string $previous_school_class    = '';
     public string $exam_last_taken          = '';
     public string $whether_failed           = 'No';
     public string $subjects_studied         = '';
@@ -64,8 +67,8 @@ class TcCertificate extends Component
     // ─── Filters ──────────────────────────────────────────────
     #[Url(keep: true)]
     public string $search  = '';
-    #[Url(keep: true)]
-    public int    $perPage = 10;
+    /** Fifty a page; there is no box to change it, and old links' perPage is not read. */
+    public int    $perPage = 50;
     #[Url(keep: true)]
     public string $filterMonth   = '';   // YYYY-MM
     #[Url(keep: true)]
@@ -90,6 +93,25 @@ class TcCertificate extends Component
 
     /** A student's photo from the list, being shown large, if one is. */
     public ?string $studentPhoto = null;
+
+    /** The certificate / TC whose delete is waiting for a yes. */
+    public ?int $pendingDeleteCertId = null;
+    public ?int $pendingDeleteTcId   = null;
+
+    /**
+     * What a transfer certificate prints from the student's own record. Where
+     * the record has one blank, the Issue TC form asks for it and saves it to
+     * the record.
+     */
+    public const TC_STUDENT_FIELDS = [
+        'mother_name'       => "Mother's Name",
+        'father_name'       => "Father's / Guardian Name",
+        'dob'               => 'Date of Birth',
+        'date_of_admission' => 'Date of First Admission',
+    ];
+
+    /** What was typed for those blanks, by field. */
+    public array $tcStudentFill = [];
 
     public function mount(): void
     {
@@ -232,6 +254,29 @@ class TcCertificate extends Component
         return $this->tc_student_id
             ? StudentDetail::with(['standard', 'section'])->find($this->tc_student_id)
             : null;
+    }
+
+    /** The record's blanks among what the TC prints, for the student picked: field => label. */
+    #[Computed]
+    public function tcMissingFields(): array
+    {
+        $student = $this->selectedTcStudent;
+        if (! $student) {
+            return [];
+        }
+
+        return array_filter(
+            self::TC_STUDENT_FIELDS,
+            fn ($label, $key) => blank($student->{$key}),
+            ARRAY_FILTER_USE_BOTH
+        );
+    }
+
+    /** Another student: what was typed for the last one's blanks goes. */
+    public function updatedTcStudentId(): void
+    {
+        $this->tcStudentFill = [];
+        $this->resetValidation();
     }
 
     public function selectCertStudent(int $id): void
@@ -390,19 +435,23 @@ class TcCertificate extends Component
         }
     }
 
+    /** Asks before deleting, with the page's own popup (the Logout one's look). */
     public function deleteCert(int $id): void
     {
-        $this->dialog()->confirm([
-            'title'  => 'Delete Certificate?',
-            'icon'   => 'error',
-            'accept' => ['label' => 'Yes, Delete', 'method' => 'confirmDeleteCert', 'params' => $id],
-            'reject' => ['label' => 'Cancel'],
-        ]);
+        $this->pendingDeleteTcId   = null;
+        $this->pendingDeleteCertId = $id;
+    }
+
+    public function cancelDelete(): void
+    {
+        $this->pendingDeleteCertId = null;
+        $this->pendingDeleteTcId   = null;
     }
 
     public function confirmDeleteCert(int $id): void
     {
-        Certificate::findOrFail($id)->delete();
+        $this->cancelDelete();
+        Certificate::where('organization_id', $this->organizationId)->findOrFail($id)->delete();
         unset($this->statistics, $this->analytics);
         $this->notification()->success(title: 'Deleted!', description: 'Certificate removed.');
     }
@@ -440,6 +489,9 @@ class TcCertificate extends Component
         $this->nationality             = $tc->nationality;
         $this->is_sc_st                = $tc->is_sc_st;
         $this->last_class_studied      = $tc->last_class_studied ?? '';
+        $this->previous_school_name    = $tc->previous_school_name ?? '';
+        $this->previous_school_class   = $tc->previous_school_class ?? '';
+        $this->tcStudentFill           = [];
         $this->exam_last_taken         = $tc->exam_last_taken ?? '';
         $this->whether_failed          = $tc->whether_failed;
         $this->subjects_studied        = $tc->subjects_studied ?? '';
@@ -465,6 +517,19 @@ class TcCertificate extends Component
             'application_date' => 'required|date',
             'tc_issue_date'    => 'required|date',
             'general_conduct'  => 'required|string',
+            'previous_school_name'            => 'nullable|string|max:255',
+            'previous_school_class'           => 'nullable|string|max:50',
+            'tcStudentFill.mother_name'       => 'nullable|string|max:255',
+            'tcStudentFill.father_name'       => 'nullable|string|max:255',
+            'tcStudentFill.dob'               => 'nullable|date',
+            'tcStudentFill.date_of_admission' => 'nullable|date',
+        ], [
+            'tc_student_id.required' => 'Pick the student.',
+        ], [
+            'tcStudentFill.mother_name'       => "mother's name",
+            'tcStudentFill.father_name'       => "father's name",
+            'tcStudentFill.dob'               => 'date of birth',
+            'tcStudentFill.date_of_admission' => 'date of admission',
         ]);
 
         $data = [
@@ -474,6 +539,8 @@ class TcCertificate extends Component
             'nationality'            => $this->nationality,
             'is_sc_st'               => $this->is_sc_st,
             'last_class_studied'     => $this->last_class_studied ?: null,
+            'previous_school_name'   => trim($this->previous_school_name) ?: null,
+            'previous_school_class'  => trim($this->previous_school_class) ?: null,
             'exam_last_taken'        => $this->exam_last_taken ?: null,
             'whether_failed'         => $this->whether_failed,
             'subjects_studied'       => $this->subjects_studied ?: null,
@@ -496,6 +563,8 @@ class TcCertificate extends Component
                 ? TransferCertificate::findOrFail($this->editTcId)->update($data)
                 : TransferCertificate::create($data);
 
+            $this->saveTcStudentBlanks();
+
             unset($this->statistics, $this->analytics);
             $this->notification()->success(
                 title: 'Success!',
@@ -507,19 +576,38 @@ class TcCertificate extends Component
         }
     }
 
+    /**
+     * What was typed for the student's blank details goes onto the student's
+     * record — only into fields that are blank there, never over a value.
+     */
+    private function saveTcStudentBlanks(): void
+    {
+        $fill = [];
+        foreach (array_keys($this->tcMissingFields) as $key) {
+            $value = trim((string) ($this->tcStudentFill[$key] ?? ''));
+            if ($value !== '') {
+                $fill[$key] = $value;
+            }
+        }
+
+        if ($fill) {
+            StudentDetail::where('organization_id', $this->organizationId)
+                ->whereKey($this->tc_student_id)
+                ->update($fill);
+            unset($this->selectedTcStudent, $this->tcMissingFields);
+        }
+    }
+
     public function deleteTc(int $id): void
     {
-        $this->dialog()->confirm([
-            'title'  => 'Delete Transfer Certificate?',
-            'icon'   => 'error',
-            'accept' => ['label' => 'Yes, Delete', 'method' => 'confirmDeleteTc', 'params' => $id],
-            'reject' => ['label' => 'Cancel'],
-        ]);
+        $this->pendingDeleteCertId = null;
+        $this->pendingDeleteTcId   = $id;
     }
 
     public function confirmDeleteTc(int $id): void
     {
-        TransferCertificate::findOrFail($id)->delete();
+        $this->cancelDelete();
+        TransferCertificate::where('organization_id', $this->organizationId)->findOrFail($id)->delete();
         unset($this->statistics, $this->analytics);
         $this->notification()->success(title: 'Deleted!', description: 'TC removed.');
     }
@@ -539,8 +627,11 @@ class TcCertificate extends Component
             'tcClass',
             'tcSection',
             'tcStudentSearch',
+            'tcStudentFill',
             'book_no',
             'last_class_studied',
+            'previous_school_name',
+            'previous_school_class',
             'exam_last_taken',
             'subjects_studied',
             'fees_paid_upto',
@@ -587,17 +678,20 @@ class TcCertificate extends Component
         $tcList       = collect();
 
         if ($this->activeTab === 'tc') {
-            $q = TransferCertificate::with('student.user')
+            $q = TransferCertificate::with(['student.user', 'student.standard', 'student.section'])
                 ->where('organization_id', $this->organizationId);
 
             if ($this->search) {
                 $q->where(function ($sq) {
                     $sq->where('tc_no', 'like', '%' . $this->search . '%')
+                        // Name or admission number, as one group: left loose, the
+                        // "or" let any student's admission number match every row.
                         ->orWhereHas(
                             'student',
-                            fn($s) =>
-                            $s->where('full_name', 'like', '%' . $this->search . '%')
-                                ->orWhere('admission_no', 'like', '%' . $this->search . '%')
+                            fn($s) => $s->where(
+                                fn($n) => $n->where('full_name', 'like', '%' . $this->search . '%')
+                                    ->orWhere('admission_no', 'like', '%' . $this->search . '%')
+                            )
                         );
                 });
             }
@@ -621,11 +715,14 @@ class TcCertificate extends Component
                 $q->where(function ($sq) {
                     $sq->where('event_name', 'like', '%' . $this->search . '%')
                         ->orWhere('certificate_no', 'like', '%' . $this->search . '%')
+                        // Name or admission number, as one group: left loose, the
+                        // "or" let any student's admission number match every row.
                         ->orWhereHas(
                             'student',
-                            fn($s) =>
-                            $s->where('full_name', 'like', '%' . $this->search . '%')
-                                ->orWhere('admission_no', 'like', '%' . $this->search . '%')
+                            fn($s) => $s->where(
+                                fn($n) => $n->where('full_name', 'like', '%' . $this->search . '%')
+                                    ->orWhere('admission_no', 'like', '%' . $this->search . '%')
+                            )
                         );
                 });
             }
