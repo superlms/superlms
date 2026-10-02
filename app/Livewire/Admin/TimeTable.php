@@ -3,11 +3,13 @@
 namespace App\Livewire\Admin;
 
 use App\Models\Admin\TeacherTimeTable;
+use App\Models\Admin\TimetablePeriod;
 use App\Models\Student\Section;
 use App\Models\Student\SectionSubject;
 use App\Models\Student\Standard;
 use App\Models\Student\Subject;
 use App\Models\Teacher\TeacherDetail;
+use App\Services\TeacherPushNotifier;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -18,8 +20,11 @@ class TimeTable extends Component
 {
     use WireUiActions, WithPagination;
 
+    /** The most periods a school's day can be given on the Periods tab. */
+    public const MAX_PERIODS = 15;
+
     // ─── Tabs / view mode ────────────────────────────────────────────────
-    public string $viewMode = 'class'; // 'class' | 'teacher'
+    public string $viewMode = 'class'; // 'class' | 'teacher' | 'periods'
 
     // ─── Filters ─────────────────────────────────────────────────────────
     public string $filterClass   = '';
@@ -37,7 +42,14 @@ class TimeTable extends Component
     public string $createSectionId  = '';
     public array  $createSections   = [];
     public array  $sectionSubjects  = []; // [['id'=>, 'name'=>], ...] for the subject dropdown
-    public array  $scheduleRows     = []; // one row per time slot: start_time, end_time, parts[], sections[], shared
+    public array  $scheduleRows     = []; // one row per period: period, start_time, end_time, parts[], shared
+
+    // ─── Periods panel state (the school's day) ──────────────────────────
+    public bool   $showPeriodPanel = false;
+    public string $periodCount     = '';  // how many periods there are
+    public array  $periodRows      = [];  // [['start' => '09:00', 'end' => '09:45'], ...] in order
+    public string $lunchStart      = '';
+    public string $lunchEnd        = '';
 
     // ─── Delete confirm ──────────────────────────────────────────────────
     public bool   $showDeleteConfirm = false;
@@ -64,6 +76,12 @@ class TimeTable extends Component
     ];
     /** Mon–Sat default for create */
     private array $defaultDays = [1, 2, 3, 4, 5, 6];
+
+    /** The school's periods and lunch break, read once a request. */
+    private ?array $periodsRead = null;
+    private ?array $lunchRead   = null;
+    private bool   $lunchKnown  = false;
+    private string $periodEndWas = '';
 
     protected $queryString = [
         'viewMode'      => ['except' => 'class'],
@@ -111,7 +129,7 @@ class TimeTable extends Component
     // ─── Tab switch ──────────────────────────────────────────────────────
     public function setViewMode(string $mode): void
     {
-        $this->viewMode = in_array($mode, ['class', 'teacher'], true) ? $mode : 'class';
+        $this->viewMode = in_array($mode, ['class', 'teacher', 'periods'], true) ? $mode : 'class';
         $this->resetPage();
     }
 
@@ -146,6 +164,326 @@ class TimeTable extends Component
         $this->reset(['filterClass', 'filterSection', 'filterTeacher', 'filterDays']);
         $this->filterSections = [];
         $this->resetPage();
+    }
+
+    // ─── Times ───────────────────────────────────────────────────────────
+    /** Is this a time of day, 24-hour, as HH:MM? */
+    private function isTime($value): bool
+    {
+        return (bool) preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', (string) $value);
+    }
+
+    /**
+     * What was typed in a time box, as 24-hour HH:MM where it can be read as
+     * one: "9" → 09:00, "930" → 09:30, "9.5" → 09:05, "1330" → 13:30. Anything
+     * else is left as typed, and the row says the time is not valid.
+     */
+    private function normaliseTime($value): string
+    {
+        $value = trim((string) $value);
+        if ($value === '') return '';
+
+        if (preg_match('/^(\d{1,2})\D+(\d{1,2})$/', $value, $m)) {
+            [$h, $min] = [(int) $m[1], (int) $m[2]];
+        } else {
+            $digits = preg_replace('/\D/', '', $value);
+            if ($digits === '' || strlen($digits) > 4) return $value;
+            if (strlen($digits) <= 2) {
+                [$h, $min] = [(int) $digits, 0];
+            } elseif (strlen($digits) === 3) {
+                [$h, $min] = [(int) substr($digits, 0, 1), (int) substr($digits, 1)];
+            } else {
+                [$h, $min] = [(int) substr($digits, 0, 2), (int) substr($digits, 2)];
+            }
+        }
+
+        return ($h > 23 || $min > 59) ? $value : sprintf('%02d:%02d', $h, $min);
+    }
+
+    /** HH:MM as the HH:MM:SS a time column holds, so times compare alike wherever they are stored. */
+    private function hms(string $time): string
+    {
+        return strlen($time) === 5 ? $time . ':00' : $time;
+    }
+
+    /** How long it is from one time to another, e.g. "45m" or "1h 30m"; '' when they are not a span. */
+    public function span($start, $end): string
+    {
+        if (!$this->isTime($start) || !$this->isTime($end) || $start >= $end) return '';
+        $mins = (((int) substr($end, 0, 2)) * 60 + (int) substr($end, 3)) - (((int) substr($start, 0, 2)) * 60 + (int) substr($start, 3));
+        $h = intdiv($mins, 60);
+        $m = $mins % 60;
+        return trim(($h ? "{$h}h " : '') . ($m ? "{$m}m" : ''));
+    }
+
+    // ─── Periods: the school's day ───────────────────────────────────────
+    // How many periods there are, when each starts and ends, and when the
+    // lunch break is. A class's timetable is filled in period by period; the
+    // time of a period is taken from here.
+
+    /** The school's periods in order: [['no' => 1, 'start' => '09:00', 'end' => '09:45'], …]. */
+    public function periods(): array
+    {
+        return $this->periodsRead ??= TimetablePeriod::periodsOf((int) Auth::user()->organization_id);
+    }
+
+    /** The school's lunch break: ['start' => '12:00', 'end' => '12:30'], or null. */
+    public function lunch(): ?array
+    {
+        if (!$this->lunchKnown) {
+            $this->lunchRead  = TimetablePeriod::lunchOf((int) Auth::user()->organization_id);
+            $this->lunchKnown = true;
+        }
+        return $this->lunchRead;
+    }
+
+    /** The Periods panel, opened on what is saved — to add the periods, or to change them. */
+    public function openPeriodPanel(): void
+    {
+        $periods = $this->periods();
+        $lunch   = $this->lunch();
+
+        $this->periodRows  = array_map(fn ($p) => ['start' => $p['start'], 'end' => $p['end']], $periods);
+        $this->periodCount = $periods ? (string) count($periods) : '';
+        $this->lunchStart  = $lunch['start'] ?? '';
+        $this->lunchEnd    = $lunch['end'] ?? '';
+        $this->showPeriodPanel = true;
+    }
+
+    public function closePeriodPanel(): void
+    {
+        $this->showPeriodPanel = false;
+        $this->reset(['periodCount', 'periodRows', 'lunchStart', 'lunchEnd']);
+    }
+
+    /** From the timetable form, when the school has no periods yet: over to the Periods tab, its panel open. */
+    public function goAddPeriods(): void
+    {
+        $this->closePanel();
+        $this->setViewMode('periods');
+        $this->openPeriodPanel();
+    }
+
+    /** The number of periods typed: that many rows, what was typed in them kept. */
+    public function updatedPeriodCount($value): void
+    {
+        $n = max(0, min(self::MAX_PERIODS, (int) preg_replace('/\D/', '', (string) $value)));
+        $this->periodCount = $n ? (string) $n : '';
+
+        $rows = array_slice(array_values($this->periodRows), 0, $n);
+        while (count($rows) < $n) {
+            $rows[] = ['start' => '', 'end' => ''];
+        }
+        $this->periodRows = $rows;
+        $this->chainPeriodStarts();
+    }
+
+    /** The end a period had before a new one is typed over it (see below). */
+    public function updatingPeriodRows($value, $key): void
+    {
+        [$idx, $field] = array_pad(explode('.', (string) $key), 2, '');
+        $this->periodEndWas = $field === 'end' ? (string) ($this->periodRows[(int) $idx]['end'] ?? '') : '';
+    }
+
+    /**
+     * A time typed is put into HH:MM. When a period's end is corrected, the
+     * next period — if it started right at the old end — starts at the new one.
+     */
+    public function updatedPeriodRows($value, $key): void
+    {
+        [$idx, $field] = array_pad(explode('.', (string) $key), 2, '');
+        $idx = (int) $idx;
+
+        if (isset($this->periodRows[$idx]) && in_array($field, ['start', 'end'], true)) {
+            $time = $this->normaliseTime($value);
+            $this->periodRows[$idx][$field] = $time;
+
+            if ($field === 'end' && $this->periodEndWas !== '' && $this->isTime($time)
+                && ($this->periodRows[$idx + 1]['start'] ?? null) === $this->periodEndWas) {
+                $this->periodRows[$idx + 1]['start'] = '';
+            }
+        }
+        $this->chainPeriodStarts();
+    }
+
+    public function updatedLunchStart($value): void
+    {
+        $this->lunchStart = $this->normaliseTime($value);
+    }
+
+    public function updatedLunchEnd($value): void
+    {
+        $this->lunchEnd = $this->normaliseTime($value);
+        $this->chainPeriodStarts();
+    }
+
+    /**
+     * A period whose start is still empty starts where the one before it ends —
+     * or, when that is where the lunch break starts, where the lunch break ends.
+     * What has been typed is never changed.
+     */
+    private function chainPeriodStarts(): void
+    {
+        $lunch = $this->isTime($this->lunchStart) && $this->isTime($this->lunchEnd) && $this->lunchStart < $this->lunchEnd;
+
+        foreach (array_keys($this->periodRows) as $k) {
+            if ($k === 0 || ($this->periodRows[$k]['start'] ?? '') !== '') continue;
+            $before = $this->periodRows[$k - 1]['end'] ?? '';
+            if (!$this->isTime($before)) continue;
+            $this->periodRows[$k]['start'] = ($lunch && $before === $this->lunchStart) ? $this->lunchEnd : $before;
+        }
+    }
+
+    /**
+     * What stands in the way of the periods as typed, by row (0, 1, …) and
+     * 'lunch'. A row not filled in yet is only an error once saving ($strict).
+     */
+    public function periodErrors(bool $strict = false): array
+    {
+        $errors = [];
+        $lastEnd = '';
+        $lastNo  = 0;
+
+        foreach (array_values($this->periodRows) as $k => $row) {
+            $start = (string) ($row['start'] ?? '');
+            $end   = (string) ($row['end'] ?? '');
+
+            if ($start === '' || $end === '') {
+                if ($strict) $errors[$k] = 'Enter its start and end time.';
+                continue;
+            }
+            if (!$this->isTime($start) || !$this->isTime($end)) {
+                $errors[$k] = 'Not a time. Type it as 24-hour, e.g. 09:00 or 13:30.';
+                continue;
+            }
+            if ($start >= $end) {
+                $errors[$k] = 'It has to end after it starts.';
+            } elseif ($lastEnd !== '' && $start < $lastEnd) {
+                $errors[$k] = "It starts before period {$lastNo} ends.";
+            }
+            $lastEnd = $end;
+            $lastNo  = $k + 1;
+        }
+
+        if ($this->lunchStart !== '' || $this->lunchEnd !== '') {
+            if (!$this->isTime($this->lunchStart) || !$this->isTime($this->lunchEnd)) {
+                $errors['lunch'] = 'Enter when it starts and ends, as 24-hour, e.g. 12:00 and 12:30.';
+            } elseif ($this->lunchStart >= $this->lunchEnd) {
+                $errors['lunch'] = 'It has to end after it starts.';
+            } else {
+                foreach (array_values($this->periodRows) as $k => $row) {
+                    if ($this->isTime($row['start'] ?? '') && $this->isTime($row['end'] ?? '')
+                        && $row['start'] < $this->lunchEnd && $row['end'] > $this->lunchStart) {
+                        $errors['lunch'] = 'It runs into period ' . ($k + 1) . '.';
+                        break;
+                    }
+                }
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
+     * Saves the school's day. A period whose time was changed takes its classes
+     * along: every timetable entry at the old time moves to the new one, so the
+     * timetables already made stay on their periods.
+     */
+    public function savePeriods(): void
+    {
+        $this->periodRows = array_values($this->periodRows);
+        foreach (array_keys($this->periodRows) as $k) {
+            $this->periodRows[$k]['start'] = $this->normaliseTime($this->periodRows[$k]['start'] ?? '');
+            $this->periodRows[$k]['end']   = $this->normaliseTime($this->periodRows[$k]['end'] ?? '');
+        }
+        $this->lunchStart = $this->normaliseTime($this->lunchStart);
+        $this->lunchEnd   = $this->normaliseTime($this->lunchEnd);
+
+        if (empty($this->periodRows)) {
+            $this->notification()->error('Enter how many periods there are.');
+            return;
+        }
+        if ($errors = $this->periodErrors(true)) {
+            $k = array_key_first($errors);
+            $this->notification()->error(($k === 'lunch' ? 'Lunch break' : 'Period ' . ($k + 1)) . ': ' . $errors[$k]);
+            return;
+        }
+
+        $org  = (int) Auth::user()->organization_id;
+        $push = app(TeacherPushNotifier::class);
+
+        // The entries of each period whose time is changing — found before
+        // anything moves, so two periods swapping or shifting never mix.
+        $moves = [];
+        foreach (TimetablePeriod::periodsOf($org) as $k => $was) {
+            $now = $this->periodRows[$k] ?? null;
+            if (!$now || ($was['start'] === $now['start'] && $was['end'] === $now['end'])) continue;
+            $ids = TeacherTimeTable::where('organization_id', $org)
+                ->where('start_time', 'like', $was['start'] . '%')
+                ->where('end_time', 'like', $was['end'] . '%')
+                ->pluck('id')
+                ->all();
+            if ($ids) $moves[] = [$ids, $now['start'], $now['end']];
+        }
+
+        // Each class whose timetable moves, as it was — so its teachers hear of it.
+        $before = [];
+        if ($moves) {
+            $classes = TeacherTimeTable::whereIn('id', array_merge(...array_column($moves, 0)))
+                ->select('standard_id', 'section_id')
+                ->distinct()
+                ->get();
+            foreach ($classes as $c) {
+                $before[] = $push->timetableSnapshot($org, (int) $c->standard_id, (int) $c->section_id);
+            }
+        }
+
+        try {
+            DB::beginTransaction();
+
+            TimetablePeriod::where('organization_id', $org)->delete();
+            foreach ($this->periodRows as $k => $row) {
+                TimetablePeriod::create([
+                    'organization_id' => $org,
+                    'type'            => TimetablePeriod::PERIOD,
+                    'period_no'       => $k + 1,
+                    'start_time'      => $this->hms($row['start']),
+                    'end_time'        => $this->hms($row['end']),
+                ]);
+            }
+            if ($this->lunchStart !== '') {
+                TimetablePeriod::create([
+                    'organization_id' => $org,
+                    'type'            => TimetablePeriod::LUNCH,
+                    'period_no'       => null,
+                    'start_time'      => $this->hms($this->lunchStart),
+                    'end_time'        => $this->hms($this->lunchEnd),
+                ]);
+            }
+
+            foreach ($moves as [$ids, $start, $end]) {
+                TeacherTimeTable::whereIn('id', $ids)->update([
+                    'start_time' => $this->hms($start),
+                    'end_time'   => $this->hms($end),
+                ]);
+            }
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            logger()->error('Timetable periods save error: ' . $e->getMessage());
+            $this->notification()->error('Error!', $e->getMessage());
+            return;
+        }
+
+        foreach ($before as $snapshot) {
+            $push->timetableSaved($snapshot);
+        }
+
+        $this->periodsRead = null;
+        $this->lunchKnown  = false;
+        $this->notification()->success('Saved!', count($this->periodRows) . ' period' . (count($this->periodRows) === 1 ? '' : 's') . ' saved.');
+        $this->closePeriodPanel();
     }
 
     // ─── Add / Edit panel ────────────────────────────────────────────────
@@ -186,8 +524,7 @@ class TimeTable extends Component
     public function updatedCreateSectionId(): void
     {
         $this->loadSectionSubjects();
-        $this->buildScheduleRowsFromSection();
-        $this->prefillRowsFromExisting();
+        $this->buildScheduleRows();
     }
 
     /** Subjects available for the chosen section (drives the per-row Subject dropdown). */
@@ -221,117 +558,133 @@ class TimeTable extends Component
     }
 
     // ─── The form's rows ─────────────────────────────────────────────────
-    // A row is one time slot of the class: its start and end, and who teaches
-    // what in it. Usually that is one subject, one teacher, on the days picked
-    // ("part" 0). When those days are not the whole week, the days left over can
-    // be given to another subject and teacher — a further part, shown as a
-    // column to the side — and so on until the week is covered. Each part is
-    // saved as one teacher_time_tables entry per day, as it always was.
+    // A row is one period of the school's day (Timetable → Periods): the form
+    // shows its serial only; its time comes from the period. In it, who teaches
+    // what: usually one teacher, one subject, the whole week ("part" 0). When
+    // the days picked are not the whole week, the days left over get a line of
+    // their own under it — another teacher, another subject — and so on until
+    // the week is covered. Each part is saved as one teacher_time_tables entry
+    // per day, as it always was.
     //
-    // 'sections' are other sections of the same class that take the row along
-    // with this one: the same teacher, subject and time (a combined class).
-    // 'shared' remembers what the row shared when it was loaded, so a change is
-    // carried to those sections and a section taken off loses the period.
+    // A part's 'sections' are other sections of the same class that take it
+    // along with this one: the same teacher, subject and time (a combined
+    // class). The row's 'shared' remembers what it had put into those sections
+    // when it was loaded, so a change is carried to them and a section taken
+    // off loses the period.
+    //
+    // A class that has entries at a time that is not one of the periods (a
+    // timetable made before the periods were set, or from the app) keeps them:
+    // each such time is a row of its own after the periods, 'period' null.
 
-    /** Prefills scheduleRows from existing teacher_time_tables entries (auto-switches to edit mode). */
-    private function prefillRowsFromExisting(): void
+    /** One part of a row: a teacher and a subject on some weekdays, in this section and perhaps others. */
+    private function blankPart(array $days = []): array
     {
+        return [
+            'teacher_id' => '',
+            'subject_id' => '',
+            'sections'   => [],
+            'days'       => array_values($days),
+            'picked'     => false, // its days are whatever is left over, until they are picked by hand
+        ];
+    }
+
+    /** A row with nothing chosen in it yet. */
+    private function isBlankRow(array $row): bool
+    {
+        $parts = $row['parts'] ?? [];
+        return count($parts) === 1 && !(int) ($parts[0]['teacher_id'] ?? 0) && !(int) ($parts[0]['subject_id'] ?? 0);
+    }
+
+    /**
+     * The form's rows for the chosen class and section: one for each of the
+     * school's periods, filled with what the section has at that period's time;
+     * then one for each other time it has a class at. A section that has
+     * entries already is being edited.
+     */
+    private function buildScheduleRows(): void
+    {
+        $this->scheduleRows = [];
         if (!$this->createStandardId || !$this->createSectionId) return;
 
-        $org  = Auth::user()->organization_id;
-        $rows = TeacherTimeTable::where('organization_id', $org)
+        $slot = fn ($r) => substr((string) $r->start_time, 0, 5) . '|' . substr((string) $r->end_time, 0, 5);
+
+        $all = TeacherTimeTable::where('organization_id', Auth::user()->organization_id)
             ->where('standard_id', $this->createStandardId)
-            ->where('section_id',  $this->createSectionId)
             ->get();
-        if ($rows->isEmpty()) return;
+        [$mine, $theirs] = $all->partition(fn ($r) => (string) $r->section_id === (string) $this->createSectionId);
+        $mine   = $mine->groupBy($slot);
+        $theirs = $theirs->groupBy($slot);
 
-        $this->isEdit = true;
+        if ($mine->isNotEmpty()) {
+            $this->isEdit = true;
+        }
 
-        // The same class's other sections, to see which take a slot along with this one.
-        $siblings = TeacherTimeTable::where('organization_id', $org)
-            ->where('standard_id', $this->createStandardId)
-            ->where('section_id', '!=', $this->createSectionId)
-            ->get()
-            ->groupBy(fn($r) => substr($r->start_time, 0, 5) . '|' . substr($r->end_time, 0, 5));
+        foreach ($this->periods() as $p) {
+            $key = $p['start'] . '|' . $p['end'];
+            $this->scheduleRows[] = $this->rowFor($p['no'], $p['start'], $p['end'], $mine->pull($key), $theirs->get($key));
+        }
+        foreach ($mine->sortKeys() as $key => $group) {
+            [$start, $end] = explode('|', $key);
+            $this->scheduleRows[] = $this->rowFor(null, $start, $end, $group, $theirs->get($key));
+        }
 
-        // One form row per time slot; within it a part per (subject · teacher), each
-        // with its weekdays.
-        $this->scheduleRows = [];
-        $slots = $rows
-            ->groupBy(fn($r) => substr($r->start_time, 0, 5) . '|' . substr($r->end_time, 0, 5))
-            ->sortKeys();
-
-        foreach ($slots as $slotKey => $group) {
-            $first = $group->first();
-
-            $parts = $group
-                ->groupBy(fn($r) => $r->subject_id . '|' . $r->teacher_detail_id)
-                ->map(fn($g) => [
-                    'subject_id' => (int) $g->first()->subject_id,
-                    'teacher_id' => (int) $g->first()->teacher_detail_id,
-                    'days'       => $g->pluck('day_of_week')->map(fn($d) => (int) $d)->unique()->sort()->values()->all(),
-                ])
-                ->sortBy(fn($p) => $p['days'][0] ?? 9)
-                ->values()
-                ->all();
-
-            $entries = $group->map(fn($r) => [(int) $r->teacher_detail_id, (int) $r->subject_id, (int) $r->day_of_week])->values()->all();
-
-            // A sibling section shares the slot when it has every one of these entries.
-            $shared = [];
-            foreach (($siblings->get($slotKey) ?? collect())->groupBy('section_id') as $sectionId => $theirs) {
-                $has = $theirs->map(fn($r) => $r->teacher_detail_id . '|' . $r->subject_id . '|' . $r->day_of_week)->flip();
-                if (collect($entries)->every(fn($e) => $has->has(implode('|', $e)))) {
-                    $shared[] = (int) $sectionId;
-                }
+        // A period with nothing in it yet opens on the whole week — less any
+        // day another row, at a time that runs into it, already holds.
+        foreach ($this->scheduleRows as $i => $row) {
+            if ($this->isBlankRow($row)) {
+                $this->scheduleRows[$i]['parts'][0]['days'] = array_values(array_diff($this->defaultDays, $this->occupiedDaysForRow($i)));
             }
-
-            $this->scheduleRows[] = [
-                'start_time' => substr($first->start_time, 0, 5),
-                'end_time'   => substr($first->end_time, 0, 5),
-                'parts'      => $parts,
-                'sections'   => $shared,
-                'shared'     => [
-                    'sections' => $shared,
-                    'start'    => substr($first->start_time, 0, 5),
-                    'end'      => substr($first->end_time, 0, 5),
-                    'entries'  => $entries,
-                ],
-            ];
         }
 
         $this->syncParts();
     }
 
-    /** One part of a row: a subject and a teacher on some weekdays. */
-    private function blankPart(?int $subjectId = null): array
+    /** One row: a period (or a time that is not one), with the section's entries at it as parts. */
+    private function rowFor(?int $period, string $start, string $end, $mine, $theirs): array
     {
-        return [
-            'subject_id' => (int) ($subjectId ?? ($this->sectionSubjects[0]['id'] ?? 0)),
-            'teacher_id' => '',
-            'days'       => [],
-        ];
-    }
+        $parts   = [];
+        $entries = [];
 
-    /** A blank schedule row with sensible defaults. */
-    private function blankRow(?int $subjectId = null): array
-    {
-        return [
-            'start_time' => '09:00',
-            'end_time'   => '10:00',
-            'parts'      => [$this->blankPart($subjectId)],
-            'sections'   => [],
-            'shared'     => ['sections' => [], 'start' => '', 'end' => '', 'entries' => []],
-        ];
-    }
+        if ($mine && $mine->isNotEmpty()) {
+            // What each other section of the class has at this time.
+            $has = [];
+            foreach (($theirs ?? []) as $r) {
+                $has[(int) $r->section_id][(int) $r->teacher_detail_id . '|' . (int) $r->subject_id . '|' . (int) $r->day_of_week] = true;
+            }
+            ksort($has);
 
-    /** Pre-populates one row per subject mapped to the chosen section. */
-    private function buildScheduleRowsFromSection(): void
-    {
-        $this->scheduleRows = [];
-        foreach ($this->sectionSubjects as $s) {
-            $this->scheduleRows[] = $this->blankRow((int) $s['id']);
+            $parts = $mine
+                ->groupBy(fn ($r) => $r->subject_id . '|' . $r->teacher_detail_id)
+                ->map(function ($g) use ($has, &$entries) {
+                    $teacher = (int) $g->first()->teacher_detail_id;
+                    $subject = (int) $g->first()->subject_id;
+                    $days    = $g->pluck('day_of_week')->map(fn ($d) => (int) $d)->unique()->sort()->values()->all();
+
+                    // A section takes the part along when it has it on every one of its days.
+                    $sections = [];
+                    foreach ($has as $sectionId => $theirEntries) {
+                        if (collect($days)->every(fn ($d) => isset($theirEntries["{$teacher}|{$subject}|{$d}"]))) {
+                            $sections[] = (int) $sectionId;
+                            foreach ($days as $d) {
+                                $entries[] = [(int) $sectionId, $teacher, $subject, $d];
+                            }
+                        }
+                    }
+
+                    return ['teacher_id' => $teacher, 'subject_id' => $subject, 'sections' => $sections, 'days' => $days, 'picked' => true];
+                })
+                ->sortBy(fn ($p) => $p['days'][0] ?? 9)
+                ->values()
+                ->all();
         }
+
+        return [
+            'period'     => $period,
+            'start_time' => $start,
+            'end_time'   => $end,
+            'parts'      => $parts ?: [$this->blankPart()],
+            'shared'     => ['start' => $start, 'end' => $end, 'entries' => $entries],
+        ];
     }
 
     /** A subject's name, for messages. */
@@ -340,116 +693,80 @@ class TimeTable extends Component
         return collect($this->sectionSubjects)->firstWhere('id', (int) $id)['name'] ?? 'Subject';
     }
 
-    /** Is this a time of day, 24-hour, as HH:MM? */
-    private function isTime($value): bool
+    /** What a row is called in a message: "Period 3", or its time when it is not a period. */
+    private function rowName(array $row): string
     {
-        return (bool) preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', (string) $value);
+        return ($row['period'] ?? null)
+            ? 'Period ' . $row['period']
+            : ($row['start_time'] ?? '') . ' – ' . ($row['end_time'] ?? '');
     }
 
-    /**
-     * What was typed in a time box, as 24-hour HH:MM where it can be read as
-     * one: "9" → 09:00, "930" → 09:30, "9.5" → 09:05, "1330" → 13:30. Anything
-     * else is left as typed, and the row says the time is not valid.
-     */
-    private function normaliseTime($value): string
-    {
-        $value = trim((string) $value);
-        if ($value === '') return '';
-
-        if (preg_match('/^(\d{1,2})\D+(\d{1,2})$/', $value, $m)) {
-            [$h, $min] = [(int) $m[1], (int) $m[2]];
-        } else {
-            $digits = preg_replace('/\D/', '', $value);
-            if ($digits === '' || strlen($digits) > 4) return $value;
-            if (strlen($digits) <= 2) {
-                [$h, $min] = [(int) $digits, 0];
-            } elseif (strlen($digits) === 3) {
-                [$h, $min] = [(int) substr($digits, 0, 1), (int) substr($digits, 1)];
-            } else {
-                [$h, $min] = [(int) substr($digits, 0, 2), (int) substr($digits, 2)];
-            }
-        }
-
-        return ($h > 23 || $min > 59) ? $value : sprintf('%02d:%02d', $h, $min);
-    }
-
-    /** A time typed is put into HH:MM, and the side columns are offered or withdrawn. */
+    /** Days picked by hand in a part stay as picked; the lines under a row follow. */
     public function updatedScheduleRows($value, $key): void
     {
-        $bits = explode('.', (string) $key);
-        $idx  = (int) $bits[0];
-
-        if (isset($this->scheduleRows[$idx]) && in_array(end($bits), ['start_time', 'end_time'], true)) {
-            $this->scheduleRows[$idx][end($bits)] = $this->normaliseTime($value);
+        if (preg_match('/^(\d+)\.parts\.(\d+)\.days/', (string) $key, $m)
+            && isset($this->scheduleRows[(int) $m[1]]['parts'][(int) $m[2]])) {
+            $this->scheduleRows[(int) $m[1]]['parts'][(int) $m[2]]['picked'] = true;
         }
 
         $this->syncParts();
     }
 
     /**
-     * Keeps each row's parts as the form shows them: the first always; a later
-     * one only while it has days; and, when the days picked so far leave some of
-     * the week free, one more to the side to give them to. A side column whose
-     * subject or teacher is already chosen, but no day yet, is kept as it is.
+     * Keeps each row's parts as the form shows them. The first part has the
+     * days picked in it. Each part after it has days out of what the parts
+     * above it left: the ones picked in it by hand, or — until then — all of
+     * them. A part left with no day goes; and while days are still left over
+     * after the last part, one more is offered for them.
      */
     private function syncParts(): void
     {
+        $siblings = array_map(fn ($s) => (int) $s['id'], $this->otherSections());
+
         foreach ($this->scheduleRows as $i => $row) {
             $parts = array_values($row['parts'] ?? []);
             if (empty($parts)) {
                 $parts = [$this->blankPart()];
             }
             foreach ($parts as $k => $p) {
-                $parts[$k]['days'] = array_values(array_unique(array_map('intval', $p['days'] ?? [])));
+                $parts[$k]['days']     = array_values(array_unique(array_map('intval', $p['days'] ?? [])));
+                $parts[$k]['sections'] = array_values(array_intersect(array_unique(array_map('intval', $p['sections'] ?? [])), $siblings));
+                $parts[$k]['picked']   = (bool) ($p['picked'] ?? false);
+                sort($parts[$k]['days']);
             }
 
+            $slot  = $this->slotDays($i);
             $first = array_shift($parts);
             $kept  = [$first];
-            $tail  = count($parts) ? $parts[count($parts) - 1] : null;
+            $taken = $first['days'];
+
             foreach ($parts as $p) {
-                if (!empty($p['days'])) $kept[] = $p;
+                $left = array_values(array_diff($slot, $taken));
+                if (empty($left)) break;
+
+                $p['days'] = $p['picked'] ? array_values(array_intersect($p['days'], $left)) : $left;
+                if (empty($p['days'])) continue;
+
+                $kept[] = $p;
+                $taken  = array_merge($taken, $p['days']);
             }
 
-            $taken = array_merge(...array_map(fn($p) => $p['days'], $kept));
-            $free  = array_diff($this->slotDays($i), $taken);
-            if (!empty($kept[count($kept) - 1]['days']) && !empty($free)) {
-                $kept[] = ($tail && empty($tail['days'])) ? $tail : $this->blankPart();
+            $left = array_values(array_diff($slot, $taken));
+            if (!empty($first['days']) && !empty($left)) {
+                $kept[] = $this->blankPart($left);
             }
 
-            $this->scheduleRows[$i]['parts']    = $kept;
-            $this->scheduleRows[$i]['sections'] = array_values(array_unique(array_map('intval', $row['sections'] ?? [])));
+            $this->scheduleRows[$i]['parts'] = $kept;
         }
     }
 
-    public function addRow(): void
-    {
-        $this->scheduleRows[] = $this->blankRow();
-    }
-
+    /** A time that is not one of the school's periods can be taken off the form (and so, on save, the timetable). */
     public function removeRow(int $index): void
     {
-        if (!isset($this->scheduleRows[$index])) return;
+        if (!isset($this->scheduleRows[$index]) || ($this->scheduleRows[$index]['period'] ?? null)) return;
         unset($this->scheduleRows[$index]);
         $this->scheduleRows = array_values($this->scheduleRows);
         $this->syncParts();
-    }
-
-    /** Lesson length for a row, e.g. "1h 30m" — shown next to the time inputs. */
-    public function rowDuration(int $rowIndex): string
-    {
-        $row = $this->scheduleRows[$rowIndex] ?? null;
-        if (!$row || !$this->isTime($row['start_time'] ?? '') || !$this->isTime($row['end_time'] ?? '')) return '';
-        try {
-            $s = \Carbon\Carbon::createFromFormat('H:i', $row['start_time']);
-            $e = \Carbon\Carbon::createFromFormat('H:i', $row['end_time']);
-            if ($e->lessThanOrEqualTo($s)) return '';
-            $mins = $s->diffInMinutes($e);
-            $h = intdiv($mins, 60);
-            $m = $mins % 60;
-            return trim(($h ? "{$h}h " : '') . ($m ? "{$m}m" : ($h ? '' : '0m')));
-        } catch (\Throwable $e) {
-            return '';
-        }
     }
 
     /** Every weekday a row's parts have picked. */
@@ -467,6 +784,7 @@ class TimeTable extends Component
      * Days already taken by ANOTHER row that overlaps this row's time slot.
      * A class can only be in one place at a time, so if 09:00–10:00 is filled by
      * Hindi on Mon/Tue/Thu, those weekdays are gone for any other 09:00–10:00 row.
+     * (The school's periods never overlap; a time from an older timetable may.)
      */
     public function occupiedDaysForRow(int $rowIndex): array
     {
@@ -496,25 +814,28 @@ class TimeTable extends Component
     private function slotDays(int $rowIndex): array
     {
         $own = $this->rowDays($this->scheduleRows[$rowIndex] ?? []);
-        return array_values(array_unique(array_merge(array_diff($this->defaultDays, $this->occupiedDaysForRow($rowIndex)), $own)));
+        $days = array_values(array_unique(array_merge(array_diff($this->defaultDays, $this->occupiedDaysForRow($rowIndex)), $own)));
+        sort($days);
+        return $days;
     }
 
     /**
-     * Weekdays one part of a row may still pick: the slot's days minus those the
-     * row's other parts have. Days already selected in THIS part always stay.
+     * Weekdays one part of a row may pick: the slot's days minus those the
+     * parts above it have. (The first part may pick any; a day it takes is
+     * taken off the part under it.)
      */
     public function availableDaysForPart(int $rowIndex, int $partIndex): array
     {
         $row = $this->scheduleRows[$rowIndex] ?? null;
         if (!$row) return [];
 
-        $others = [];
+        $above = [];
         foreach (($row['parts'] ?? []) as $k => $p) {
-            if ($k === $partIndex) continue;
-            foreach (($p['days'] ?? []) as $d) $others[] = (int) $d;
+            if ($k >= $partIndex) break;
+            foreach (($p['days'] ?? []) as $d) $above[] = (int) $d;
         }
 
-        $avail = array_diff($this->slotDays($rowIndex), $others);
+        $avail = array_diff($this->slotDays($rowIndex), $above);
         sort($avail);
         return array_values($avail);
     }
@@ -525,7 +846,7 @@ class TimeTable extends Component
         return $this->availableDaysForPart($rowIndex, 0);
     }
 
-    /** The class's other sections a row may be shared with. */
+    /** The class's other sections a period may be shared with. */
     public function otherSections(): array
     {
         return array_values(array_filter($this->createSections, fn($s) => (string) $s['id'] !== (string) $this->createSectionId));
@@ -536,7 +857,7 @@ class TimeTable extends Component
      * Availability check for one part: is its teacher already busy — in another
      * class/section (saved), or elsewhere in this same form — at an overlapping
      * time on any of the part's days? Returns a short reason or null. A section
-     * the row is shared with is not "another class": the teacher takes them
+     * the part is shared with is not "another class": the teacher takes them
      * together.
      */
     public function getPartConflict(int $rowIndex, int $partIndex): ?string
@@ -557,13 +878,17 @@ class TimeTable extends Component
 
         // 1) Teacher already booked elsewhere at this time. The current section is
         //    excluded — it gets wiped & recreated on save — and so are the sections
-        //    this row is shared with.
-        $together = array_merge([(int) $this->createSectionId], array_map('intval', $row['sections'] ?? []), array_map('intval', $row['shared']['sections'] ?? []));
+        //    this part is shared with, or the row was when it was loaded.
+        $together = array_merge(
+            [(int) $this->createSectionId],
+            array_map('intval', $part['sections'] ?? []),
+            array_map(fn ($e) => (int) $e[0], $row['shared']['entries'] ?? [])
+        );
         $clash = TeacherTimeTable::with(['standard:id,name', 'section:id,name'])
             ->where('teacher_detail_id', $teacherId)
             ->whereIn('day_of_week', $days)
-            ->where('start_time', '<', $end)
-            ->where('end_time',   '>', $start)
+            ->where('start_time', '<', $this->hms($end))
+            ->where('end_time',   '>', $this->hms($start))
             ->get()
             ->first(fn($e) => !((string) $e->standard_id === (string) $this->createStandardId && in_array((int) $e->section_id, $together, true)));
 
@@ -602,55 +927,67 @@ class TimeTable extends Component
         return null;
     }
 
-    /** The parts of a row that are complete: a subject, a teacher and at least one day. */
+    /** Is a part complete: a teacher, a subject and at least one day? */
+    private function isComplete(array $part): bool
+    {
+        return (int) ($part['subject_id'] ?? 0) > 0
+            && (int) ($part['teacher_id'] ?? 0) > 0
+            && !empty($part['days'] ?? []);
+    }
+
+    /** The parts of a row that are complete. */
     private function completeParts(array $row): array
     {
-        return array_values(array_filter($row['parts'] ?? [], fn($p) => (int) ($p['subject_id'] ?? 0) > 0
-            && (int) ($p['teacher_id'] ?? 0) > 0
-            && !empty($p['days'] ?? [])));
+        return array_values(array_filter($row['parts'] ?? [], fn($p) => $this->isComplete($p)));
     }
 
     /**
-     * A row shared with other sections: does one of them already have something
-     * else at that time? What the row itself put there before does not count —
-     * it is replaced on save. Returns a short reason or null.
+     * A row with a part shared with other sections: does one of them already
+     * have something else at that time on those days? What the row itself put
+     * there before does not count — it is replaced on save. Returns a short
+     * reason or null.
      */
     public function getShareConflict(int $rowIndex): ?string
     {
         $row = $this->scheduleRows[$rowIndex] ?? null;
-        $sections = array_values(array_intersect(array_map('intval', $row['sections'] ?? []), array_map(fn($s) => (int) $s['id'], $this->otherSections())));
-        if (!$row || empty($sections)) return null;
+        if (!$row) return null;
 
         $start = $row['start_time'] ?? '';
         $end   = $row['end_time'] ?? '';
         if (!$this->isTime($start) || !$this->isTime($end) || $start >= $end) return null;
 
-        $parts = $this->completeParts($row);
-        $days  = array_values(array_unique(array_merge([], ...array_map(fn($p) => array_map('intval', $p['days']), $parts))));
-        if (empty($days)) return null;
+        $siblings = array_map(fn ($s) => (int) $s['id'], $this->otherSections());
 
+        // What the row puts into each section now, and on which days.
         $mine = [];
-        foreach ($parts as $p) {
-            foreach ($p['days'] as $d) $mine[(int) $p['teacher_id'] . '|' . (int) $p['subject_id'] . '|' . (int) $d] = true;
-        }
-        $was = [];
-        if (($row['shared']['start'] ?? '') !== '') {
-            foreach (($row['shared']['entries'] ?? []) as $e) {
-                $was[implode('|', $e) . '|' . $row['shared']['start'] . '|' . $row['shared']['end']] = true;
+        $ask  = [];
+        foreach ($this->completeParts($row) as $p) {
+            foreach (array_intersect(array_map('intval', $p['sections'] ?? []), $siblings) as $sectionId) {
+                foreach ($p['days'] as $d) {
+                    $mine[$sectionId . '|' . (int) $p['teacher_id'] . '|' . (int) $p['subject_id'] . '|' . (int) $d] = true;
+                    $ask[$sectionId][(int) $d] = true;
+                }
             }
+        }
+        if (empty($ask)) return null;
+
+        // What it had put there when it was loaded.
+        $was = [];
+        foreach (($row['shared']['entries'] ?? []) as $e) {
+            $was[implode('|', $e) . '|' . ($row['shared']['start'] ?? '') . '|' . ($row['shared']['end'] ?? '')] = true;
         }
 
         $theirs = TeacherTimeTable::with(['section:id,name', 'subject:id,name'])
             ->where('organization_id', Auth::user()->organization_id)
             ->where('standard_id', $this->createStandardId)
-            ->whereIn('section_id', $sections)
-            ->whereIn('day_of_week', $days)
-            ->where('start_time', '<', $end)
-            ->where('end_time',   '>', $start)
+            ->whereIn('section_id', array_keys($ask))
+            ->where('start_time', '<', $this->hms($end))
+            ->where('end_time',   '>', $this->hms($start))
             ->get();
 
         foreach ($theirs as $e) {
-            $key   = (int) $e->teacher_detail_id . '|' . (int) $e->subject_id . '|' . (int) $e->day_of_week;
+            if (!isset($ask[(int) $e->section_id][(int) $e->day_of_week])) continue;
+            $key   = (int) $e->section_id . '|' . (int) $e->teacher_detail_id . '|' . (int) $e->subject_id . '|' . (int) $e->day_of_week;
             $times = substr($e->start_time, 0, 5) . '|' . substr($e->end_time, 0, 5);
             if (isset($mine[$key]) && $times === $start . '|' . $end) continue;   // already the same period
             if (isset($was[$key . '|' . $times])) continue;                       // this row's own, about to be replaced
@@ -667,14 +1004,10 @@ class TimeTable extends Component
         if (!$this->createStandardId) { $this->notification()->error('Please select a class.'); return; }
         if (!$this->createSectionId)  { $this->notification()->error('Please select a section.'); return; }
 
-        foreach (array_keys($this->scheduleRows) as $idx) {
-            $this->scheduleRows[$idx]['start_time'] = $this->normaliseTime($this->scheduleRows[$idx]['start_time'] ?? '');
-            $this->scheduleRows[$idx]['end_time']   = $this->normaliseTime($this->scheduleRows[$idx]['end_time'] ?? '');
-        }
         $this->syncParts();
 
-        // Keep only rows that have at least one complete part: a subject, a teacher
-        // and at least one day.
+        // Keep only rows that have at least one complete part: a teacher, a
+        // subject and at least one day.
         $rowsToSave = collect($this->scheduleRows)
             ->map(function ($row, $idx) {
                 $row['__idx']   = $idx;
@@ -686,14 +1019,14 @@ class TimeTable extends Component
             ->all();
 
         if (empty($rowsToSave) && !$this->isEdit) {
-            $this->notification()->error('Add at least one row with a subject, teacher and days to save.');
+            $this->notification()->error('Choose a teacher and a subject for at least one period.');
             return;
         }
 
         $siblingIds = array_map(fn($s) => (int) $s['id'], $this->otherSections());
 
         foreach ($rowsToSave as $row) {
-            $n = $this->subjectName($row['__parts'][0]['subject_id']);
+            $n = $this->rowName($row);
             if (!$this->isTime($row['start_time']) || !$this->isTime($row['end_time']) || $row['start_time'] >= $row['end_time']) {
                 $this->notification()->error("{$n}: invalid time range."); return;
             }
@@ -703,9 +1036,9 @@ class TimeTable extends Component
                 $dn = $this->daysOfWeekFull[(int) reset($occupiedClash)] ?? reset($occupiedClash);
                 $this->notification()->error("{$n} ({$dn}): the class is already scheduled at this time."); return;
             }
-            foreach (array_keys($this->scheduleRows[(int) $row['__idx']]['parts']) as $p) {
-                if ($conflict = $this->getPartConflict((int) $row['__idx'], (int) $p)) {
-                    $this->notification()->error($this->subjectName($this->scheduleRows[(int) $row['__idx']]['parts'][$p]['subject_id']) . ": {$conflict}"); return;
+            foreach ($this->scheduleRows[(int) $row['__idx']]['parts'] as $p => $part) {
+                if ($this->isComplete($part) && ($conflict = $this->getPartConflict((int) $row['__idx'], (int) $p))) {
+                    $this->notification()->error("{$n}: {$conflict}"); return;
                 }
             }
             if ($conflict = $this->getShareConflict((int) $row['__idx'])) {
@@ -714,15 +1047,20 @@ class TimeTable extends Component
         }
 
         // The class's timetable as it was, so each teacher hears what changed —
-        // and the same for every section a row is, or was, shared with.
+        // and the same for every section a period is, or was, shared with.
         $org  = (int) Auth::user()->organization_id;
-        $push = app(\App\Services\TeacherPushNotifier::class);
+        $push = app(TeacherPushNotifier::class);
         $before = $push->timetableSnapshot($org, (int) $this->createStandardId, (int) $this->createSectionId);
 
         $touched = [];
         foreach ($this->scheduleRows as $row) {
-            foreach (array_merge($row['sections'] ?? [], $row['shared']['sections'] ?? []) as $sid) {
-                if (in_array((int) $sid, $siblingIds, true)) $touched[(int) $sid] = true;
+            foreach (($row['parts'] ?? []) as $part) {
+                foreach (($part['sections'] ?? []) as $sid) {
+                    if (in_array((int) $sid, $siblingIds, true)) $touched[(int) $sid] = true;
+                }
+            }
+            foreach (($row['shared']['entries'] ?? []) as $e) {
+                if (in_array((int) $e[0], $siblingIds, true)) $touched[(int) $e[0]] = true;
             }
         }
         $beforeOthers = [];
@@ -745,12 +1083,12 @@ class TimeTable extends Component
             // first; what it shares now goes back in below.
             foreach ($this->scheduleRows as $row) {
                 $was = $row['shared'] ?? [];
-                $wasSections = array_values(array_intersect(array_map('intval', $was['sections'] ?? []), $siblingIds));
-                if (empty($wasSections) || ($was['start'] ?? '') === '') continue;
-                foreach (($was['entries'] ?? []) as [$teacherId, $subjectId, $day]) {
+                if (($was['start'] ?? '') === '') continue;
+                foreach (($was['entries'] ?? []) as [$sectionId, $teacherId, $subjectId, $day]) {
+                    if (!in_array((int) $sectionId, $siblingIds, true)) continue;
                     TeacherTimeTable::where('organization_id', $org)
                         ->where('standard_id', $this->createStandardId)
-                        ->whereIn('section_id', $wasSections)
+                        ->where('section_id', $sectionId)
                         ->where('teacher_detail_id', $teacherId)
                         ->where('subject_id', $subjectId)
                         ->where('day_of_week', $day)
@@ -776,22 +1114,22 @@ class TimeTable extends Component
                     'section_id'        => $sectionId,
                     'subject_id'        => $subjectId,
                     'day_of_week'       => $day,
-                    'start_time'        => $start,
-                    'end_time'          => $end,
+                    'start_time'        => $this->hms($start),
+                    'end_time'          => $this->hms($end),
                     'is_active'         => true,
                 ]);
                 $created++;
             };
 
             foreach ($rowsToSave as $row) {
-                $also = array_values(array_intersect(array_map('intval', $row['sections'] ?? []), $siblingIds));
                 foreach ($row['__parts'] as $part) {
+                    $also = array_values(array_intersect(array_map('intval', $part['sections'] ?? []), $siblingIds));
                     foreach ($part['days'] as $day) {
                         $day = (int) $day;
                         if (!in_array($day, $this->defaultDays, true)) continue;
                         $tryCreate((int) $this->createSectionId, (int) $part['teacher_id'], (int) $part['subject_id'], $day, $row['start_time'], $row['end_time']);
 
-                        // The same period in each section the row is shared with —
+                        // The same period in each section the part is shared with —
                         // unless that section has it already.
                         foreach ($also as $sid) {
                             $there = TeacherTimeTable::where('organization_id', $org)
@@ -831,12 +1169,12 @@ class TimeTable extends Component
     public function onEditSection(int $standardId, int $sectionId): void
     {
         $this->resetForm();
+        $this->isEdit = false;
         $this->createStandardId = (string) $standardId;
         $this->updatedCreateStandardId();
         $this->createSectionId  = (string) $sectionId;
         $this->loadSectionSubjects();
-        $this->buildScheduleRowsFromSection();
-        $this->prefillRowsFromExisting();
+        $this->buildScheduleRows();
 
         if (!$this->isEdit) {
             $this->notification()->error('No schedule found for this section.');
@@ -865,7 +1203,7 @@ class TimeTable extends Component
         if (!$this->deleteStandardId || !$this->deleteSectionId) return;
         try {
             $org = Auth::user()->organization_id;
-            $push = app(\App\Services\TeacherPushNotifier::class);
+            $push = app(TeacherPushNotifier::class);
             $before = $push->timetableSnapshot((int) $org, (int) $this->deleteStandardId, (int) $this->deleteSectionId);
             TeacherTimeTable::where('organization_id', $org)
                 ->where('standard_id', $this->deleteStandardId)
@@ -912,51 +1250,88 @@ class TimeTable extends Component
                 ->get();
         }
 
-        // CLASS VIEW: one card containing all subject groups
-        // TEACHER VIEW: one card per (class, section) of that teacher with the teacher's subject groups
+        // The school's day: the serial of the period each time is, and — on the
+        // class's own timetable — where the lunch break falls.
+        $periods  = $this->periods();
+        $lunch    = $this->lunch();
+        $periodNo = [];
+        foreach ($periods as $p) {
+            $periodNo[$p['start'] . '|' . $p['end']] = $p['no'];
+        }
+
+        // CLASS VIEW: one card with the section's periods.
+        // TEACHER VIEW: one card per (class, section) of that teacher, with the teacher's periods there.
+        // A row is one time of the day; its lines are who teaches what then, and on which days.
         $sectionCards = collect();
         if ($entries->isNotEmpty()) {
             $sectionCards = $entries
                 ->groupBy(fn($e) => $e->standard_id . '|' . ($e->section_id ?? ''))
-                ->map(function ($items) {
+                ->map(function ($items) use ($periods, $periodNo, $lunch) {
                     $first = $items->first();
-                    $subjectGroups = $items
-                        ->groupBy(fn($e) => $e->subject_id . '|' . $e->start_time . '|' . $e->end_time)
-                        ->map(function ($g) {
-                            $byTeacher = $g->groupBy('teacher_detail_id')->map(function ($items) {
-                                $first = $items->first();
-                                return [
-                                    'teacher_name' => $first->teacher?->user?->name ?? '—',
-                                    'days'         => $items->pluck('day_of_week')->map(fn($d) => (int) $d)->sort()->values()->all(),
-                                ];
-                            })->sortByDesc(fn($t) => count($t['days']))->values()->all();
-
+                    $rows = $items
+                        ->groupBy(fn($e) => substr((string) $e->start_time, 0, 5) . '|' . substr((string) $e->end_time, 0, 5))
+                        ->map(function ($g, $key) use ($periodNo) {
                             $first = $g->first();
                             return [
-                                'subject'    => $first->subject?->name ?? '—',
-                                'start_time' => $first->start_time,
-                                'end_time'   => $first->end_time,
-                                'teachers'   => $byTeacher,
-                                'days'       => $g->pluck('day_of_week')->map(fn($d) => (int) $d)->unique()->sort()->values()->all(),
+                                'type'       => 'period',
+                                'no'         => $periodNo[$key] ?? null,
+                                'start_time' => substr((string) $first->start_time, 0, 5),
+                                'end_time'   => substr((string) $first->end_time, 0, 5),
+                                'lines'      => $g
+                                    ->groupBy(fn($e) => $e->subject_id . '|' . $e->teacher_detail_id)
+                                    ->map(fn($l) => [
+                                        'subject' => $l->first()->subject?->name ?? '—',
+                                        'teacher' => $l->first()->teacher?->user?->name ?? '—',
+                                        'days'    => $l->pluck('day_of_week')->map(fn($d) => (int) $d)->unique()->sort()->values()->all(),
+                                    ])
+                                    ->sortBy(fn($l) => $l['days'][0] ?? 9)
+                                    ->values()
+                                    ->all(),
                             ];
                         })
                         ->sortBy('start_time')
                         ->values();
 
+                    // A school with no periods set numbers the rows as they come, as before.
+                    if (empty($periods)) {
+                        $rows = $rows->map(fn($r, $i) => array_merge($r, ['no' => $i + 1]));
+                    }
+                    $count = $rows->count();
+
+                    if ($lunch && $this->viewMode === 'class') {
+                        $at = $rows->search(fn($r) => $r['start_time'] >= $lunch['start']);
+                        $rows->splice($at === false ? $rows->count() : $at, 0, [[
+                            'type'       => 'lunch',
+                            'start_time' => $lunch['start'],
+                            'end_time'   => $lunch['end'],
+                        ]]);
+                    }
+
                     return [
-                        'standard_id'    => $first->standard_id,
-                        'section_id'     => $first->section_id,
-                        'standard'       => $first->standard?->name ?? '—',
-                        'section'        => $first->section?->name ?? '—',
-                        'subject_groups' => $subjectGroups,
+                        'standard_id' => $first->standard_id,
+                        'section_id'  => $first->section_id,
+                        'standard'    => $first->standard?->name ?? '—',
+                        'section'     => $first->section?->name ?? '—',
+                        'rows'        => $rows->values(),
+                        'count'       => $count,
                     ];
                 })
                 ->sortBy([['standard_id', 'asc'], ['section_id', 'asc']])
                 ->values();
         }
 
+        // PERIODS TAB: the day in order — each period, and the lunch break where it falls.
+        $dayRows = collect($periods)->map(fn($p) => ['type' => 'period'] + $p);
+        if ($lunch) {
+            $dayRows->push(['type' => 'lunch', 'no' => null] + $lunch);
+        }
+        $dayRows = $dayRows->sortBy('start')->values();
+
         return view('livewire.admin.time-table', [
             'sectionCards' => $sectionCards,
+            'periods'      => $periods,
+            'lunch'        => $lunch,
+            'dayRows'      => $dayRows,
         ]);
     }
 }
