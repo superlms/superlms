@@ -93,29 +93,6 @@
         #main-scroll .lms-cover { inset: 0 !important; }
         .lms-navbar:has(.lms-cover) { z-index: 60; }
 
-        /* ─── Slide-in panels: the rest of the window is blurred ───
-           A slide-in panel's backdrop covered the page only — not the top bar,
-           not the sidebar — and blurred it so lightly that it hardly showed.
-           While a panel is open its backdrop now covers the whole window and
-           blurs all of it; the panel itself stays where it was, under the top
-           bar. For that the page's layer is lifted over the top bar (z-40) and
-           the sidebar (dropped to z-40 meanwhile) — but kept under what is
-           drawn over a panel from outside the page (notifications and dialogs,
-           z-50 and up), so those still show on top of it. A click on the
-           blurred top bar or sidebar closes the panel, as a click on the page
-           beside it does. A panel kept in the page but hidden (x-show) does
-           not count. Browsers without :has() keep the old look. */
-        @supports selector(:has(*)) {
-            body:has(#main-scroll .fixed.inset-x-0.top-16:not(.lms-cover):not(.flex):not([x-cloak]):not([style*="display: none"])) .lms-aside { z-index: 40; }
-            #main-scroll:has(:where(.fixed.inset-x-0.top-16:not(.lms-cover):not(.flex):not([x-cloak]):not([style*="display: none"]))) { z-index: 45; }
-            #main-scroll .fixed.inset-x-0.top-16:not(.lms-cover):not(.flex) > .absolute.inset-0:first-child {
-                position: fixed;
-                inset: 0;
-                -webkit-backdrop-filter: blur(6px);
-                backdrop-filter: blur(6px);
-            }
-        }
-
         /* Sidebar logo, expanded state. The collapsed rail overrides it below. */
         .lms-logo-img { width: 4.5rem !important; height: 4.5rem !important; }
 
