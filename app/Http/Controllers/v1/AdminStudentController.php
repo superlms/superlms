@@ -424,7 +424,8 @@ class AdminStudentController extends ApiController
             'state'                  => $request->state,
             'pincode'                => $request->pincode,
             'admission_no'           => $admissionNo,
-            'date_of_admission'      => $request->date_of_admission ?: now()->toDateString(),
+            // What the app sent, or none — never the day the student was added.
+            'date_of_admission'      => $request->date_of_admission ?: null,
             'roll_no'                => $rollNo,
             'board'                  => $board,
             'aadhar_no'              => $request->aadhar_no,

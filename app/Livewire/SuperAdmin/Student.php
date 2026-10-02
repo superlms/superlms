@@ -700,7 +700,7 @@ class Student extends Component
         $this->addPincode         = '';
         $this->addAadharNo        = '';
         $this->addBoard           = '';
-        $this->addDateOfAdmission = now()->format('Y-m-d');
+        $this->addDateOfAdmission = '';   // entered, not assumed to be today
         $this->addStandardId      = '';
         $this->addSectionId       = '';
         $this->addTransportation  = '0';
@@ -902,7 +902,7 @@ class Student extends Component
                     'aadhar_no'               => $this->addAadharNo ?: null,
                     'board'                   => $standardBoard,
                     'admission_no'            => $admissionNo,
-                    'date_of_admission'       => $this->addDateOfAdmission ?: now()->toDateString(),
+                    'date_of_admission'       => $this->addDateOfAdmission ?: null,
                     'roll_no'                 => $rollNo,
                     'transportation_required' => (bool) $this->addTransportation,
                     'appar_id'                => $this->addApparId ?: null,

@@ -554,7 +554,10 @@ class Student extends Component
                     'state'                  => $this->selectedState ?? null,
                     'pincode'                => $this->pincode ?? null,
                     'admission_no'           => $admissionNo,
-                    'date_of_admission'      => $this->dateOfAdmission ?: now()->toDateString(),
+                    // The admission date is what was entered, or none: a blank one
+                    // used to be saved as the day the student was added (or edited),
+                    // so it could never be cleared.
+                    'date_of_admission'      => $this->dateOfAdmission ?: null,
                     'roll_no'                => $rollNo,
                     'board'                  => $standardBoard,
                     'aadhar_no'              => $this->aadharNo ?? null,
