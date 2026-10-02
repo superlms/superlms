@@ -512,20 +512,55 @@ class TcCertificate extends Component
 
     public function saveTc(): void
     {
-        $this->validate([
-            'tc_student_id'    => 'required|exists:student_details,id',
-            'application_date' => 'required|date',
-            'tc_issue_date'    => 'required|date',
-            'general_conduct'  => 'required|string',
-            'previous_school_name'            => 'nullable|string|max:255',
-            'previous_school_class'           => 'nullable|string|max:50',
-            'tcStudentFill.mother_name'       => 'nullable|string|max:255',
-            'tcStudentFill.father_name'       => 'nullable|string|max:255',
-            'tcStudentFill.dob'               => 'nullable|date',
-            'tcStudentFill.date_of_admission' => 'nullable|date',
-        ], [
+        // Every field of the form is needed — and, where the student's record
+        // lacks something the certificate prints, that too. (Only the SC / ST
+        // tick is a yes or no and so is never "missing".)
+        $rules = [
+            'tc_student_id'           => 'required|exists:student_details,id',
+            'nationality'             => 'required|string|max:100',
+            'book_no'                 => 'required|string|max:50',
+            'previous_school_name'    => 'required|string|max:255',
+            'previous_school_class'   => 'required|string|max:50',
+            'last_class_studied'      => 'required|string|max:50',
+            'exam_last_taken'         => 'required|string|max:255',
+            'whether_failed'          => 'required|string|max:50',
+            'qualified_for_promotion' => 'required|in:Yes,No',
+            'subjects_studied'        => 'required|string|max:1000',
+            'total_working_days'      => 'required|integer|min:0|max:65535',
+            'days_present'            => 'required|integer|min:0|max:65535',
+            'fees_paid_upto'          => 'required|string|max:100',
+            'fee_concession'          => 'required|string|max:255',
+            'is_ncc_scout'            => 'required|string|max:50',
+            'general_conduct'         => 'required|string|max:50',
+            'extra_activities'        => 'required|string|max:255',
+            'application_date'        => 'required|date',
+            'tc_issue_date'           => 'required|date',
+            'reason_for_leaving'      => 'required|string|max:255',
+            'tc_remarks'              => 'required|string|max:1000',
+        ];
+        foreach (array_keys($this->tcMissingFields) as $key) {
+            $rules['tcStudentFill.' . $key] = in_array($key, ['dob', 'date_of_admission'], true)
+                ? 'required|date'
+                : 'required|string|max:255';
+        }
+
+        $this->validate($rules, [
             'tc_student_id.required' => 'Pick the student.',
         ], [
+            'book_no'                 => 'book no.',
+            'previous_school_name'    => 'last school name',
+            'previous_school_class'   => 'class in last school',
+            'last_class_studied'      => 'class last studied',
+            'exam_last_taken'         => 'exam last taken',
+            'subjects_studied'        => 'subjects studied',
+            'fees_paid_upto'          => 'fees paid upto',
+            'fee_concession'          => 'fee concession',
+            'is_ncc_scout'            => 'NCC / scout / guide',
+            'extra_activities'        => 'games / extra-curricular activities',
+            'tc_issue_date'           => 'date of issue',
+            'application_date'        => 'date of application',
+            'reason_for_leaving'      => 'reason for leaving',
+            'tc_remarks'              => 'remark',
             'tcStudentFill.mother_name'       => "mother's name",
             'tcStudentFill.father_name'       => "father's name",
             'tcStudentFill.dob'               => 'date of birth',

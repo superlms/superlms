@@ -384,7 +384,7 @@
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                 <div class="min-w-0">
                     <h2 class="text-lg font-semibold text-gray-900">{{ $editTcId ? 'Edit' : 'Issue' }} Transfer Certificate</h2>
-                    <p class="text-xs text-gray-500 mt-0.5">Pick the student, then fill all details as per records</p>
+                    <p class="text-xs text-gray-500 mt-0.5">Pick the class, then the student, then fill all details as per records — every field is needed</p>
                 </div>
                 <button wire:click="closeTcModal" type="button"
                     class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
@@ -417,11 +417,11 @@
                 @if (count($this->tcMissingFields))
                     <div>
                         <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Missing in the Student's Record</p>
-                        <p class="text-xs text-gray-400 mb-3">The certificate prints these from the student's record. Fill them here and they are saved to the record too.</p>
+                        <p class="text-xs text-gray-400 mb-3">The certificate prints these from the student's record, where they are blank. Fill them here — they are needed, and are saved to the record too.</p>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             @foreach ($this->tcMissingFields as $fillKey => $fillLabel)
                                 <div wire:key="tc-fill-{{ $fillKey }}">
-                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">{{ $fillLabel }}</label>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">{{ $fillLabel }} <span class="text-red-500">*</span></label>
                                     <input type="{{ in_array($fillKey, ['dob', 'date_of_admission'], true) ? 'date' : 'text' }}" wire:model.defer="tcStudentFill.{{ $fillKey }}"
                                         class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 @error('tcStudentFill.' . $fillKey) border-red-400 @enderror">
                                     @error('tcStudentFill.' . $fillKey)<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
@@ -436,14 +436,16 @@
                     <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Student &amp; Academic</p>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Nationality</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Nationality <span class="text-red-500">*</span></label>
                             <input type="text" wire:model.defer="nationality"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('nationality')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Book No.</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Book No. <span class="text-red-500">*</span></label>
                             <input type="text" wire:model.defer="book_no" placeholder="e.g. 096"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('book_no')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div class="sm:col-span-2">
                             <label class="flex items-center gap-2.5 px-3.5 py-2.5 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
@@ -452,45 +454,50 @@
                             </label>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Last School Name</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Last School Name <span class="text-red-500">*</span></label>
                             <input type="text" wire:model.defer="previous_school_name" maxlength="255" placeholder="e.g. ABC Public School, Aligarh"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 @error('previous_school_name') border-red-400 @enderror">
                             @error('previous_school_name')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Class in Last School</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Class in Last School <span class="text-red-500">*</span></label>
                             <input type="text" wire:model.defer="previous_school_class" maxlength="50" placeholder="e.g. 8th"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 @error('previous_school_class') border-red-400 @enderror">
                             @error('previous_school_class')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Class Last Studied</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Class Last Studied <span class="text-red-500">*</span></label>
                             <input type="text" wire:model.defer="last_class_studied" placeholder="e.g. 12th"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('last_class_studied')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Exam Last Taken with Result</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Exam Last Taken with Result <span class="text-red-500">*</span></label>
                             <input type="text" wire:model.defer="exam_last_taken" placeholder="e.g. 12th Passed"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('exam_last_taken')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Whether Failed</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Whether Failed <span class="text-red-500">*</span></label>
                             <select wire:model.defer="whether_failed"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                                 @foreach ($failedOptions as $opt)<option value="{{ $opt }}">{{ $opt }}</option>@endforeach
                             </select>
+                            @error('whether_failed')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Qualified for Promotion</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Qualified for Promotion <span class="text-red-500">*</span></label>
                             <select wire:model.defer="qualified_for_promotion"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                                 <option value="Yes">Yes</option><option value="No">No</option>
                             </select>
+                            @error('qualified_for_promotion')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div class="sm:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Subjects Studied</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Subjects Studied <span class="text-red-500">*</span></label>
                             <input type="text" wire:model.defer="subjects_studied" placeholder="e.g. Hindi, English, Mathematics, Science"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('subjects_studied')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                     </div>
                 </div>
@@ -500,24 +507,28 @@
                     <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Attendance &amp; Fees</p>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Total Working Days</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Total Working Days <span class="text-red-500">*</span></label>
                             <input type="number" wire:model.defer="total_working_days" min="0"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('total_working_days')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Days Present</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Days Present <span class="text-red-500">*</span></label>
                             <input type="number" wire:model.defer="days_present" min="0"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('days_present')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Fees Paid Upto</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Fees Paid Upto <span class="text-red-500">*</span></label>
                             <input type="text" wire:model.defer="fees_paid_upto" placeholder="e.g. March 2026"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('fees_paid_upto')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Fee Concession (if any)</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Fee Concession (if any) <span class="text-red-500">*</span></label>
                             <input type="text" wire:model.defer="fee_concession" placeholder="e.g. None"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('fee_concession')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                     </div>
                 </div>
@@ -527,11 +538,12 @@
                     <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Activities &amp; Conduct</p>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">NCC / Scout / Guide</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">NCC / Scout / Guide <span class="text-red-500">*</span></label>
                             <select wire:model.defer="is_ncc_scout"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                                 @foreach ($nccOptions as $opt)<option value="{{ $opt }}">{{ $opt }}</option>@endforeach
                             </select>
+                            @error('is_ncc_scout')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">General Conduct <span class="text-red-500">*</span></label>
@@ -542,9 +554,10 @@
                             @error('general_conduct')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div class="sm:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Games / Extra-Curricular Activities</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Games / Extra-Curricular Activities <span class="text-red-500">*</span></label>
                             <input type="text" wire:model.defer="extra_activities" placeholder="e.g. Cricket, Debate"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('extra_activities')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                     </div>
                 </div>
@@ -566,14 +579,16 @@
                             @error('tc_issue_date')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div class="sm:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Reason for Leaving</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Reason for Leaving <span class="text-red-500">*</span></label>
                             <input type="text" wire:model.defer="reason_for_leaving" placeholder="e.g. No Further Classes"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('reason_for_leaving')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                         <div class="sm:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Any Other Remark</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Any Other Remark <span class="text-red-500">*</span></label>
                             <textarea wire:model.defer="tc_remarks" rows="2" placeholder="e.g. No"
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm resize-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                            @error('tc_remarks')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
                     </div>
                 </div>

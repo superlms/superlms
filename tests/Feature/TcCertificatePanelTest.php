@@ -428,7 +428,7 @@ class TcCertificatePanelTest extends TestCase
     }
 
     #[DataProvider('pages')]
-    public function test_the_class_and_the_student_are_two_selects_in_a_row(string $pageClass): void
+    public function test_the_class_then_the_student_with_the_fathers_name_small_beside(string $pageClass): void
     {
         $this->student('Bina', 'Suresh Pal', 2);
         $asha = $this->student('Asha', 'Ramesh Kumar', 1);
@@ -442,53 +442,82 @@ class TcCertificatePanelTest extends TestCase
             // Before a class is picked the student box waits for one.
             $panel = $this->panel($page->call($open)->html(), $heading);
             $this->assertStringContainsString('wire:model.live="' . $class . '"', $panel);
-            $this->assertStringContainsString('wire:model.live="' . $studentProp . '"', $panel);
             $this->assertStringContainsString('Select a class first', $panel);
 
-            // The class's students of every section, A to Z, the father's name in brackets.
+            // The class's students of every section, A to Z: the name, and the
+            // father's name small beside it — no admission number.
             $panel = $this->panel($page->set($class, '1')->html(), $heading);
-            preg_match('/<select wire:model\.live="' . $studentProp . '".*?<\/select>/s', $panel, $m);
-            preg_match_all('/<option value="(\d*)">(.*?)<\/option>/s', $m[0], $o);
-            $this->assertSame(
-                ['Select Student', 'Asha (Ramesh Kumar) · ADM-ASH', 'Bina (Suresh Pal) · ADM-BIN'],
-                array_map(fn ($t) => html_entity_decode(trim(preg_replace('/\s+/', ' ', $t))), $o[2])
-            );
+            $picker = substr($panel, 0, strpos($panel, 'Event / Activity Name') ?: strpos($panel, 'Student &amp; Academic'));
+            preg_match_all('/wire:click="\$set\(\'' . $studentProp . '\', (\d+)\)".*?<\/button>/s', $picker, $m);
+            $this->assertSame(['Asha Ramesh Kumar', 'Bina Suresh Pal'], array_map(fn ($b) => $this->text(substr($b, strpos($b, '>') + 1)), $m[0]));
+            $this->assertStringContainsString('<span class="text-sm text-gray-800">Asha</span>', $picker);
+            $this->assertStringContainsString('<span class="text-xs text-gray-400">Ramesh Kumar</span>', $picker);
+            $this->assertStringNotContainsString('ADM-', $picker);
 
-            // No section, no search box, no list to scroll.
-            $this->assertStringNotContainsString('All Sections', $panel);
-            $this->assertStringNotContainsString('Search by name or admission no.', $panel);
-            $this->assertStringNotContainsString('max-h-56', $panel);
+            // No section, no search box.
+            $this->assertStringNotContainsString('All Sections', $picker);
+            $this->assertStringNotContainsString('Search by name or admission no.', $picker);
 
-            // Picking sets the student; another class starts with nobody picked.
-            $page->set($studentProp, (string) $asha)->assertSet($studentProp, $asha)
-                ->set($class, '')->assertSet($studentProp, null);
+            // Picking sets the student and shows them in the box; another class starts with nobody picked.
+            $panel = $this->panel($page->set($studentProp, $asha)->assertSet($studentProp, $asha)->html(), $heading);
+            $this->assertMatchesRegularExpression('/<span class="text-gray-900">Asha<\/span>\s*<span class="text-xs text-gray-400">Ramesh Kumar<\/span>/', $panel);
+            $page->set($class, '')->assertSet($studentProp, null);
         }
     }
 
     // ───────────────────────── issue TC ─────────────────────────
 
+    /** Every field of the Issue TC form, filled. */
+    private function filledTc($page, int $student, array $more = [])
+    {
+        $fields = $more + [
+            'tcClass' => '1', 'tc_student_id' => $student,
+            'nationality' => 'Indian', 'book_no' => '096',
+            'previous_school_name' => 'ABC Public School', 'previous_school_class' => '4th',
+            'last_class_studied' => '5th', 'exam_last_taken' => '5th Passed', 'subjects_studied' => 'Hindi, English, Maths',
+            'total_working_days' => 220, 'days_present' => 201, 'fees_paid_upto' => 'March 2026', 'fee_concession' => 'None',
+            'extra_activities' => 'Cricket', 'reason_for_leaving' => 'No Further Classes', 'tc_remarks' => 'No',
+        ];
+        foreach ($fields as $key => $value) {
+            $page->set($key, $value);
+        }
+
+        return $page;
+    }
+
     #[DataProvider('pages')]
-    public function test_a_tc_keeps_the_last_school_and_its_class(string $pageClass): void
+    public function test_every_field_of_a_tc_is_needed(string $pageClass): void
     {
         $asha = $this->student('Asha', 'Ramesh');
 
-        $page = Livewire::test($pageClass)->set('activeTab', 'tc')->call('createTc');
-        $panel = $this->panel($page->html(), 'Transfer Certificate</h2>');
-        $this->assertStringContainsString('wire:model.defer="previous_school_name"', $panel);
-        $this->assertStringContainsString('wire:model.defer="previous_school_class"', $panel);
+        $page = Livewire::test($pageClass)->set('activeTab', 'tc')->call('createTc')->set('nationality', '')->call('saveTc')
+            ->assertHasErrors([
+                'tc_student_id', 'nationality', 'book_no', 'previous_school_name', 'previous_school_class', 'last_class_studied',
+                'exam_last_taken', 'subjects_studied', 'fees_paid_upto', 'fee_concession', 'extra_activities', 'reason_for_leaving', 'tc_remarks',
+            ])
+            ->assertHasNoErrors(['whether_failed', 'qualified_for_promotion', 'is_ncc_scout', 'general_conduct', 'application_date', 'tc_issue_date', 'total_working_days', 'days_present']);
+        $this->assertSame(0, TransferCertificate::count());
 
-        $page->set('tcClass', '1')->set('tc_student_id', $asha)
-            ->set('previous_school_name', ' ABC Public School ')->set('previous_school_class', '4th')
-            ->call('saveTc')->assertHasNoErrors()->assertSet('tcModal', false);
+        // Every label carries the star and every field shows its error.
+        $panel = $this->panel($page->html(), 'Transfer Certificate</h2>');
+        foreach (['Nationality', 'Book No.', 'Last School Name', 'Class in Last School', 'Class Last Studied', 'Exam Last Taken with Result', 'Whether Failed',
+            'Qualified for Promotion', 'Subjects Studied', 'Total Working Days', 'Days Present', 'Fees Paid Upto', 'Fee Concession (if any)',
+            'NCC / Scout / Guide', 'Games / Extra-Curricular Activities', 'Reason for Leaving', 'Any Other Remark'] as $label) {
+            $this->assertStringContainsString($label . ' <span class="text-red-500">*</span>', $panel, $label);
+        }
+        $this->assertStringContainsString('The book no. field is required.', $panel);
+        $this->assertStringContainsString('The remark field is required.', $panel);
+
+        $this->filledTc($page, $asha)->call('saveTc')->assertHasNoErrors()->assertSet('tcModal', false);
 
         $tc = TransferCertificate::first();
-        $this->assertSame(['ABC Public School', '4th'], [$tc->previous_school_name, $tc->previous_school_class]);
+        $this->assertSame([$asha, '096', 'ABC Public School', '4th', 'None', 'No'],
+            [$tc->student_detail_id, $tc->book_no, $tc->previous_school_name, $tc->previous_school_class, $tc->fee_concession, $tc->remarks]);
 
-        // Edit brings them back; left blank they are saved as nothing.
+        // Edit brings them back.
         $page->call('editTc', $tc->id)->assertSet('previous_school_name', 'ABC Public School')->assertSet('previous_school_class', '4th')
-            ->set('previous_school_name', '')->set('previous_school_class', '')->call('saveTc')->assertHasNoErrors();
-        $this->assertNull($tc->fresh()->previous_school_name);
-        $this->assertNull($tc->fresh()->previous_school_class);
+            ->set('previous_school_name', 'XYZ School')->call('saveTc')->assertHasNoErrors();
+        $this->assertSame('XYZ School', $tc->fresh()->previous_school_name);
     }
 
     #[DataProvider('pages')]
@@ -512,24 +541,21 @@ class TcCertificatePanelTest extends TestCase
         $this->assertStringNotContainsString('tcStudentFill.father_name', $panel);
         $this->assertStringNotContainsString('tcStudentFill.date_of_admission', $panel);
 
-        // A date that is not one is refused.
-        $page->set('tcStudentFill.dob', 'not a date')->call('saveTc')->assertHasErrors(['tcStudentFill.dob']);
+        // They are needed too: left blank, or with a date that is not one, nothing is issued.
+        $this->filledTc($page, $gaps)->call('saveTc')
+            ->assertHasErrors(['tcStudentFill.mother_name', 'tcStudentFill.dob'])
+            ->assertHasNoErrors(['tcStudentFill.father_name', 'tcStudentFill.date_of_admission']);
+        $page->set('tcStudentFill.mother_name', 'Sunita Devi')->set('tcStudentFill.dob', 'not a date')->call('saveTc')
+            ->assertHasErrors(['tcStudentFill.dob']);
         $this->assertSame(0, TransferCertificate::count());
 
         // Filled, they go onto the student's record; a value already there is never touched.
-        $page->set('tcStudentFill.mother_name', 'Sunita Devi')->set('tcStudentFill.dob', '2014-08-15')
-            ->set('tcStudentFill.father_name', 'Somebody Else')
+        $page->set('tcStudentFill.dob', '2014-08-15')->set('tcStudentFill.father_name', 'Somebody Else')
             ->call('saveTc')->assertHasNoErrors()->assertSet('tcModal', false);
 
         $record = DB::table('student_details')->where('id', $gaps)->first();
         $this->assertSame(['Sunita Devi', '2014-08-15', 'Suresh'], [$record->mother_name, substr((string) $record->dob, 0, 10), $record->father_name]);
         $this->assertSame(1, TransferCertificate::count());
-
-        // Left unfilled, the certificate is still issued and the record stays as it was.
-        $third = $this->student('Chitra', 'Mohan', 1, null, null, ['date_of_admission' => null]);
-        $page->call('createTc')->set('tcClass', '1')->set('tc_student_id', $third)->call('saveTc')->assertHasNoErrors();
-        $this->assertNull(DB::table('student_details')->where('id', $third)->value('date_of_admission'));
-        $this->assertSame(2, TransferCertificate::count());
     }
 
     // ───────────────────────── the printed TC ─────────────────────────
