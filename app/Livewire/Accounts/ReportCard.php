@@ -19,4 +19,9 @@ class ReportCard extends \App\Livewire\Admin\ReportCard
     {
         return 'accounts.report-card.print';
     }
+
+    protected function viewRouteName(): string
+    {
+        return 'accounts.report-card.view';
+    }
 }

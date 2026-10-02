@@ -92,6 +92,7 @@ Route::prefix('accounts')->group(function () {
             Route::get('/report-card', ReportCard::class)->name('accounts.report-card');
             Route::get('/report-card/{id}/download', [\App\Http\Controllers\Admin\ReportCardController::class, 'download'])->name('accounts.report-card.download');
             Route::get('/report-card/{id}/print', [\App\Http\Controllers\Admin\ReportCardController::class, 'print'])->name('accounts.report-card.print');
+            Route::get('/report-card/{id}/view', [\App\Http\Controllers\Admin\ReportCardController::class, 'view'])->name('accounts.report-card.view');
             Route::get('/tc-certificate', TcCertificate::class)->name('accounts.tc-certificate');
             Route::get('/certificates/{id}/download', [\App\Http\Controllers\Admin\CertificatePdfController::class, 'downloadCert'])->name('accounts.cert.download');
             Route::get('/certificates/{id}/view', [\App\Http\Controllers\Admin\CertificatePdfController::class, 'viewCert'])->name('accounts.cert.view');

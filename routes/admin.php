@@ -178,6 +178,8 @@ Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
             ->name('admin.report-card.download');
         Route::get('/report-card/{id}/print', [ReportCardController::class, 'print'])
             ->name('admin.report-card.print');
+        Route::get('/report-card/{id}/view', [ReportCardController::class, 'view'])
+            ->name('admin.report-card.view');
 
         // Lists → custom list PDF
         Route::get('/lists/pdf', [\App\Http\Controllers\Admin\ListReportController::class, 'generate'])

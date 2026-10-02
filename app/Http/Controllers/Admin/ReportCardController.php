@@ -30,6 +30,22 @@ class ReportCardController extends Controller
     }
 
     /**
+     * The same card, streamed inline: the list's View screen shows the printed
+     * page itself in a frame.
+     */
+    public function view(Request $request, $organization, $id)
+    {
+        $reportCard = $this->getReportCard($id);
+        $data = $this->buildReportCardData($reportCard);
+
+        $pdf = app(\App\Services\ReportCardService::class)->pdf($data);
+
+        $studentName = str_replace(' ', '_', $reportCard->studentDetail->full_name ?? 'student');
+
+        return $pdf->stream("report_card_{$studentName}.pdf");
+    }
+
+    /**
      * Print report card (view in browser).
      */
     public function print(Request $request, $organization, $id)

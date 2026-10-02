@@ -40,6 +40,12 @@ class ReportCard extends Component
     /** student_detail_id => ['name', 'admission_no', 'regd_no', 'remark', 'result'] */
     public array  $issueRows     = [];
 
+    /** The card open on the View screen, if one is. */
+    public ?int $viewCardId = null;
+
+    /** A student's photo from the list, being shown large, if one is. */
+    public ?string $studentPhoto = null;
+
     public function mount()
     {
         //
@@ -386,6 +392,83 @@ class ReportCard extends Component
     }
 
     /**
+     * Issue a revoked card again, at once: the same card comes back as it was
+     * issued — its date, registration number, remark and result. One issued
+     * card per student and class stays the rule, so if another was issued
+     * since, this one stays revoked.
+     */
+    public function reissueReportCard($id)
+    {
+        try {
+            $orgId = Auth::user()->organization_id;
+
+            $reportCard = ReportCardModel::where('id', $id)
+                ->where('organization_id', $orgId)
+                ->where('status', 'revoked')
+                ->first();
+
+            if (! $reportCard) {
+                return;
+            }
+
+            $another = ReportCardModel::where('organization_id', $orgId)
+                ->where('student_detail_id', $reportCard->student_detail_id)
+                ->where('standard_id', $reportCard->standard_id)
+                ->where('section_id', $reportCard->section_id)
+                ->where('status', 'issued')
+                ->exists();
+
+            if ($another) {
+                $this->notification()->warning(
+                    $title = 'Already issued',
+                    $description = 'This student already has an issued report card for this class.'
+                );
+                return;
+            }
+
+            $reportCard->update(['status' => 'issued']);
+            $this->notification()->success(
+                $title = 'Issued!',
+                $description = 'Report card has been issued again.'
+            );
+        } catch (\Exception $e) {
+            $this->notification()->error(
+                $title = 'Error!',
+                $description = 'Failed to issue report card: ' . $e->getMessage()
+            );
+        }
+    }
+
+    /** View: the card on a screen of its own, to look at and nothing else. */
+    public function openCardView($id)
+    {
+        $exists = ReportCardModel::where('id', $id)
+            ->where('organization_id', Auth::user()->organization_id)
+            ->where('status', 'issued')
+            ->exists();
+
+        $this->viewCardId = $exists ? (int) $id : null;
+    }
+
+    public function closeCardView()
+    {
+        $this->viewCardId = null;
+    }
+
+    /** A student's photo in the list, clicked: shown large. */
+    public function showStudentPhoto($studentDetailId)
+    {
+        $this->studentPhoto = StudentDetail::with('user')
+            ->where('organization_id', Auth::user()->organization_id)
+            ->find($studentDetailId)?->user?->image ?: null;
+    }
+
+    public function closeStudentPhoto()
+    {
+        $this->studentPhoto = null;
+    }
+
+    /**
      * The list is a search result, not a dump of every card ever issued: it
      * stays empty until at least one filter is set.
      */
@@ -519,11 +602,15 @@ class ReportCard extends Component
 
     protected function printRouteName(): string { return 'admin.report-card.print'; }
 
+    /** The card streamed inline, for the View screen's frame. */
+    protected function viewRouteName(): string { return 'admin.report-card.view'; }
+
     public function render()
     {
         if ($this->viewMode === 'list' && $this->hasFilters()) {
             $query = ReportCardModel::with([
                 'studentDetail',
+                'studentDetail.user',
                 'studentDetail.standard',
                 'studentDetail.section',
                 'issuedBy',
@@ -558,9 +645,19 @@ class ReportCard extends Component
             );
         }
 
+        // The card on the View screen — an issued one of this school, or none.
+        $viewCard = $this->viewCardId
+            ? ReportCardModel::with('studentDetail')
+                ->where('organization_id', Auth::user()->organization_id)
+                ->where('status', 'issued')
+                ->find($this->viewCardId)
+            : null;
+
         return view($this->viewName(), [
             'downloadRoute' => $this->downloadRouteName(),
             'printRoute'    => $this->printRouteName(),
+            'viewRoute'     => $this->viewRouteName(),
+            'viewCard'      => $viewCard,
             'reportCards' => $reportCards,
             'hasFilters'  => $this->hasFilters(),
         ]);

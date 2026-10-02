@@ -112,79 +112,92 @@
                     <p class="text-xs text-gray-400 mt-1">Search a name or admission number, or pick a class, section or status above.</p>
                 </div>
             @else
+            {{-- The listing, in the Students list's style: the photo opens large on a
+                 click, the admission number sits small under the name and the
+                 section small under the class, the status is plain text, and the
+                 actions are the Students list's plain buttons — View (the card on
+                 a screen of its own), Download (the file, straight away) and
+                 Revoke; a revoked card has Issue, which issues it again. --}}
             <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full">
                         <thead class="bg-gray-50 border-b border-gray-200">
                             <tr>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">S.No</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Student Name</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Class &amp; Section</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Admission No.</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Class</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Academic Year</th>
-                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Issued On</th>
-                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-36">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @forelse ($reportCards as $index => $card)
-                                <tr class="hover:bg-gray-50 transition-colors">
-                                    <td class="px-4 py-3 text-sm text-gray-500 tabular-nums">{{ $reportCards->firstItem() + $index }}</td>
+                                <tr wire:key="rc-{{ $card->id }}" class="hover:bg-gray-50/70 transition-colors">
+                                    <td class="px-4 py-3"><span class="text-sm text-gray-500 font-medium">{{ $reportCards->firstItem() + $index }}</span></td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center gap-3">
-                                            <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                                <span class="text-blue-700 font-semibold text-xs">{{ strtoupper(substr($card->studentDetail->full_name ?? 'N', 0, 1)) }}</span>
+                                            @if ($card->studentDetail?->user?->image)
+                                                <img src="{{ $card->studentDetail->user->image }}" wire:click="showStudentPhoto({{ $card->studentDetail->id }})" title="View photo"
+                                                    class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0 cursor-zoom-in hover:opacity-90">
+                                            @else
+                                                <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                    <span class="text-xs font-semibold text-indigo-600">{{ strtoupper(substr($card->studentDetail->full_name ?? 'N', 0, 1)) }}</span>
+                                                </div>
+                                            @endif
+                                            <div class="min-w-0">
+                                                <p class="text-sm font-semibold text-gray-900 truncate">{{ $card->studentDetail->full_name ?? 'N/A' }}</p>
+                                                <p class="text-xs text-gray-400 truncate">{{ $card->studentDetail->admission_no ?? '' }}</p>
                                             </div>
-                                            <span class="text-sm font-semibold text-gray-900">{{ $card->studentDetail->full_name ?? 'N/A' }}</span>
                                         </div>
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-gray-600">{{ $card->studentDetail->standard->name ?? '' }} - {{ $card->studentDetail->section->name ?? '' }}</td>
-                                    <td class="px-4 py-3 text-sm text-gray-600 font-mono">{{ $card->studentDetail->admission_no ?? 'N/A' }}</td>
-                                    <td class="px-4 py-3 text-sm text-gray-600">{{ $card->academic_year ?? 'N/A' }}</td>
-                                    <td class="px-4 py-3 text-center">
-                                        @if ($card->status === 'issued')
-                                            <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-emerald-100 text-emerald-700">Issued</span>
-                                        @else
-                                            <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-red-100 text-red-700">Revoked</span>
-                                        @endif
+                                    <td class="px-4 py-3">
+                                        <p class="text-sm text-gray-700">{{ $card->studentDetail?->standard?->name ?? '—' }}</p>
+                                        <p class="text-xs text-gray-400">{{ $card->studentDetail?->section?->name ?? '' }}</p>
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-gray-600">{{ $card->issued_at ? $card->issued_at->format('d M Y') : 'N/A' }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">{{ $card->academic_year ?? 'N/A' }}</td>
+                                    <td class="px-4 py-3 text-sm {{ $card->status === 'issued' ? 'text-gray-700' : 'text-red-600 font-medium' }}">{{ $card->status === 'issued' ? 'Issued' : 'Revoked' }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{{ $card->issued_at ? $card->issued_at->format('d M Y') : 'N/A' }}</td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-center gap-1">
                                             @if ($card->status === 'issued')
-                                                <a href="{{ route($downloadRoute, ['organization' => auth()->user()->organization_id, 'id' => $card->id]) }}"
-                                                    target="_blank" title="View"
-                                                    class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">
-                                                    {{-- Opens the card in a new tab, so this reads as "view", not "download". --}}
+                                                <button wire:click="openCardView({{ $card->id }})" title="View"
+                                                    class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                                     </svg>
-                                                </a>
-                                                <a href="{{ route($printRoute, ['organization' => auth()->user()->organization_id, 'id' => $card->id]) }}"
-                                                    target="_blank" title="Print"
-                                                    class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200">
+                                                </button>
+                                                {{-- `download`, and no new tab: the file is saved and nothing opens. --}}
+                                                <a href="{{ route($downloadRoute, ['organization' => auth()->user()->organization_id, 'id' => $card->id]) }}" download title="Download"
+                                                    class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                                     </svg>
                                                 </a>
                                                 <button wire:click="revokeReportCard({{ $card->id }})"
                                                     wire:confirm="Are you sure you want to revoke this report card?" title="Revoke"
-                                                    class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200">
+                                                    class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                                                     </svg>
                                                 </button>
                                             @else
-                                                <span class="text-xs text-gray-400 italic">Revoked</span>
+                                                <button wire:click="reissueReportCard({{ $card->id }})" title="Issue again"
+                                                    class="inline-flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    Issue
+                                                </button>
                                             @endif
                                         </div>
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="8" class="px-4 py-16 text-center">
+                                    <td colspan="7" class="px-4 py-16 text-center">
                                         <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
                                             <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -505,6 +518,52 @@
                     Issue {{ count($issueRows) }} Report Card(s)
                 </button>
             </div>
+        </div>
+    </div>
+@endif
+{{-- ══════════════════════════════════════════════════
+     VIEW — the card on a screen of its own, over the whole window, with Back
+     and Exit. It is there to be looked at: the printed page in a frame, with
+     no download or print on it (Download is in the list).
+══════════════════════════════════════════════════ --}}
+@if ($viewCard)
+    <div class="lms-cover fixed inset-0 z-[9999] bg-white flex flex-col" x-on:keydown.escape.window="$wire.closeCardView()">
+        <div class="flex-none flex items-center gap-3 h-14 px-4 border-b border-gray-200 bg-white">
+            <button type="button" wire:click="closeCardView"
+                class="inline-flex items-center gap-1.5 h-9 px-3.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                Back
+            </button>
+            <div class="flex-1 min-w-0 text-center">
+                <p class="text-sm font-semibold text-gray-900 truncate">{{ $viewCard->studentDetail->full_name ?? 'Report Card' }}</p>
+                <p class="text-xs text-gray-400 truncate">Report Card{{ $viewCard->academic_year ? ' · ' . $viewCard->academic_year : '' }}</p>
+            </div>
+            <button type="button" wire:click="closeCardView"
+                class="inline-flex items-center gap-1.5 h-9 px-3.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">
+                Exit
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+        </div>
+        <div class="flex-1 min-h-0 bg-gray-100">
+            <iframe src="{{ route($viewRoute, ['organization' => auth()->user()->organization_id, 'id' => $viewCard->id]) }}#toolbar=0&amp;navpanes=0&amp;view=FitH"
+                class="w-full h-full border-0" title="Report Card"></iframe>
+        </div>
+    </div>
+@endif
+
+{{-- A student's photo in the list, clicked: shown large in the middle of the
+     window (lms-cover), its cross in its own corner — as the Students list. --}}
+@if ($studentPhoto)
+    <div class="lms-cover fixed inset-0 z-[9999] flex overflow-y-auto p-4 bg-black/80"
+        wire:click.self="closeStudentPhoto" x-on:keydown.escape.window="$wire.closeStudentPhoto()">
+        <div class="relative m-auto max-w-full">
+            <img src="{{ $studentPhoto }}" alt=""
+                style="--photo: min(28rem, 90vw, calc(100vh - 8rem)); width: var(--photo); height: var(--photo)"
+                class="rounded-lg object-cover shadow-2xl bg-white">
+            <button type="button" wire:click="closeStudentPhoto" title="Close"
+                class="absolute top-2 right-2 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
         </div>
     </div>
 @endif
