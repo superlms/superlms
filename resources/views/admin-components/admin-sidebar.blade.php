@@ -1,25 +1,9 @@
 @php
-    $authUser = auth()->user();
-    $allItems = config('menu.' . App\Helpers\Constants::ROLEVALUE[$authUser->role]);
-
-    // Sub-admins see only the functionalities granted to them, and never the
-    // Users management screen (reserved for the full school admin).
-    if ($authUser->role === 'sub-admin') {
-        $granted  = (array) $authUser->permissions;
-        $navItems = collect($allItems)
-            ->reject(fn($i) => ($i['link'] ?? '') === 'admin.users')
-            ->filter(fn($i) => in_array($i['link'] ?? '', $granted, true))
-            ->values()
-            ->all();
-    } else {
-        $navItems = $allItems;
-    }
-
-    // Hide modules this school has not been granted (core items always stay).
-    $navItems = \App\Support\ModuleAccess::filterMenu($navItems, $authUser->organization);
-
-    // Screens that are opened from the More screen instead (Exam Copy).
-    $navItems = array_values(array_filter($navItems, fn($i) => ($i['sidebar'] ?? true) !== false));
+    // What the sidebar lists is worked out in one place, which the Quick Links
+    // screen asks too: a sub-admin's granted screens only (never Users), no
+    // screen of a module the school has not been given, and none that is
+    // opened from the More screen instead (Exam Copy).
+    $navItems = \App\Support\AdminMenu::sidebar(auth()->user());
 @endphp
 
 {{-- The school panel's own sidebar tweaks, on md+ (this partial is only

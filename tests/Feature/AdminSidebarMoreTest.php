@@ -108,6 +108,33 @@ class AdminSidebarMoreTest extends TestCase
         $this->assertSame('Documents', $catalog['admin.documents']);
     }
 
+    public function test_quick_links_are_the_sidebars_own_list(): void
+    {
+        // The full admin: every sidebar screen but Quick Links itself — so
+        // Documents is a tile and Exam Copy, which is not in the sidebar, is not.
+        $this->signIn();
+        $tiles = array_column(Livewire::test(\App\Livewire\Admin\QuickLinks::class)->get('links'), 'title');
+        $sidebar = array_values(array_diff($this->sidebarTitles(), ['Quick Links']));
+
+        $this->assertSame($sidebar, $tiles);
+        $this->assertContains('Documents', $tiles);
+        $this->assertNotContains('Exam Copy', $tiles);
+        $this->assertNotContains('Quick Links', $tiles);
+
+        // A sub-admin: only the screens granted — as the sidebar shows them.
+        $this->signIn('sub-admin', ['admin.student', 'admin.exam-copy', 'admin.documents']);
+        $tiles = array_column(Livewire::test(\App\Livewire\Admin\QuickLinks::class)->get('links'), 'title');
+        $this->assertSame(['Students', 'Documents'], $tiles);
+        $this->assertSame($this->sidebarTitles(), $tiles);
+
+        // A school without the exam module: its screens are tiles for nobody.
+        DB::table('module_organization')->insert(['organization_id' => 8, 'module_key' => 'exam', 'enabled' => false]);
+        $this->signIn();
+        $tiles = array_column(Livewire::test(\App\Livewire\Admin\QuickLinks::class)->get('links'), 'title');
+        $this->assertNotContains('Exam', $tiles);
+        $this->assertNotContains('Seating Plan', $tiles);
+    }
+
     public function test_more_has_exam_copy_and_no_documents(): void
     {
         $this->signIn();

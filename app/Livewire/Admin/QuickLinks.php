@@ -27,16 +27,13 @@ class QuickLinks extends Component
         $this->organization = request()->route('organization')
             ?? auth()->user()?->organization;
 
-        $configLinks = config('menu.admin', []);
+        // The tiles are the sidebar's own list — the same screens, in the same
+        // order — so a screen that is not in the sidebar (Exam Copy, opened
+        // from More) is not a tile here either. It used to read the whole menu.
+        $configLinks = \App\Support\AdminMenu::sidebar(auth()->user());
 
         // Drop the Quick Links tile itself.
         $configLinks = array_filter($configLinks, fn($link) => $link['link'] !== 'admin.quick-links');
-
-        // Hide modules this school has not been granted (core items always stay).
-        $configLinks = \App\Support\ModuleAccess::filterMenu(
-            array_values($configLinks),
-            auth()->user()?->organization
-        );
 
         $colors = [
             'blue', 'indigo', 'purple', 'green', 'yellow', 'pink', 'teal', 'rose',
