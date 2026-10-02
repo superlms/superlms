@@ -37,6 +37,7 @@ class AttendanceKeepSavedTest extends TestCase
         Schema::create('users', function (Blueprint $t) {
             $t->id();
             $t->string('name');
+            $t->string('username')->nullable();
             $t->string('email')->nullable();
             $t->string('image')->nullable();
             $t->string('role')->nullable();

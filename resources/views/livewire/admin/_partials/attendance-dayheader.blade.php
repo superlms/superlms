@@ -1,13 +1,15 @@
 {{-- Single-day attendance analytics as the card's header strip, matching the
      month-card header. Expects $stats = tally array and $title = the day.
-     $subtitle (optional) replaces the default second line. --}}
+     $subtitle (optional) replaces the default second line. $plain (optional)
+     leaves the strip uncoloured, as the teachers' day list has it. --}}
 @php
     $subtitle = $subtitle ?? '';
+    $plain = $plain ?? false;
     $marked = $stats['present'] + $stats['absent'] + $stats['half_day'];
     $percent = $marked > 0 ? round(($stats['present'] + 0.5 * $stats['half_day']) / $marked * 100, 1) : 0;
 @endphp
 
-<div class="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 flex flex-wrap items-center justify-between gap-2">
+<div class="px-4 py-3 border-b border-gray-100 {{ $plain ? '' : 'bg-gradient-to-r from-blue-50 to-indigo-50' }} flex flex-wrap items-center justify-between gap-2">
     <div>
         <h3 class="text-sm font-semibold text-gray-700">{{ $title }}</h3>
         <p class="text-[11px] text-gray-400">{{ $subtitle ?: 'Sundays are a standing holiday.' }}</p>

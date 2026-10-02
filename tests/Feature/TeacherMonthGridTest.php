@@ -29,6 +29,7 @@ class TeacherMonthGridTest extends TestCase
         Schema::create('users', function (Blueprint $t) {
             $t->id();
             $t->string('name');
+            $t->string('username')->nullable();
             $t->string('email')->nullable();
             $t->string('image')->nullable();
             $t->unsignedBigInteger('organization_id')->nullable();

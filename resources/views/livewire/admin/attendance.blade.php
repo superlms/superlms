@@ -206,45 +206,59 @@
                         @include('livewire.admin._partials.attendance-dayheader', [
                             'stats' => $tByDateStats,
                             'title' => 'Teacher Attendance · ' . \Carbon\Carbon::parse($tDate)->format('l, d M Y'),
+                            'plain' => true,
                         ])
                     @endif
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm min-w-[560px]">
-                            <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
-                                <tr>
-                                    <th class="px-4 py-3 text-left w-12">#</th>
-                                    <th class="px-4 py-3 text-left">Teacher</th>
-                                    <th class="px-4 py-3 text-center w-32">Status</th>
-                                    <th class="px-4 py-3 text-left">Remark</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100">
-                                @forelse ($tByDateRows as $i => $row)
-                                    <tr>
-                                        <td class="px-4 py-3 text-gray-400">{{ $i + 1 }}</td>
-                                        <td class="px-4 py-3">
-                                            <div class="flex items-center gap-3">
-                                                @if ($row['image'])
-                                                    <img src="{{ $row['image'] }}" class="w-9 h-9 rounded-full object-cover border border-gray-200">
-                                                @else
-                                                    <div class="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-xs">{{ strtoupper(substr($row['name'], 0, 1)) }}</div>
-                                                @endif
-                                                <div class="min-w-0">
-                                                    <p class="font-medium text-gray-800 truncate">{{ $row['name'] }}</p>
-                                                    <p class="text-xs text-gray-400 truncate">{{ $row['email'] }}</p>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td class="px-4 py-3 text-center">
-                                            <span class="text-xs font-semibold px-2.5 py-1 rounded-full {{ $statusPill($row['status']) }}">{{ $statusText($row['status']) }}</span>
-                                        </td>
-                                        <td class="px-4 py-3 text-gray-500">{{ $row['remark'] ?: '—' }}</td>
-                                    </tr>
-                                @empty
-                                    <tr><td colspan="4" class="px-4 py-10 text-center text-gray-400">No teachers found.</td></tr>
-                                @endforelse
-                            </tbody>
-                        </table>
+                    {{-- The list runs in two columns side by side with a line down
+                         between them: the first half of the teachers on the left,
+                         the rest on the right, both in the same format — number,
+                         photo, name over username, status, remark. The status is
+                         plain text; only an absent one is red. On a narrow screen
+                         the second column follows under the first. --}}
+                    @php
+                        $tHalves = $tByDateRows->isEmpty()
+                            ? collect([collect()])
+                            : $tByDateRows->values()->chunk((int) ceil($tByDateRows->count() / 2));
+                    @endphp
+                    <div class="grid grid-cols-1 {{ $tHalves->count() > 1 ? 'lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-200' : '' }}">
+                        @foreach ($tHalves as $half)
+                            <div class="overflow-x-auto" wire:key="t-bydate-half-{{ $loop->index }}">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left w-12">#</th>
+                                            <th class="px-4 py-3 text-left">Teacher</th>
+                                            <th class="px-4 py-3 text-left w-24">Status</th>
+                                            <th class="px-4 py-3 text-left">Remark</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        @forelse ($half as $i => $row)
+                                            <tr>
+                                                <td class="px-4 py-3 text-gray-400">{{ $i + 1 }}</td>
+                                                <td class="px-4 py-3">
+                                                    <div class="flex items-center gap-3">
+                                                        @if ($row['image'])
+                                                            <img src="{{ $row['image'] }}" class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                                                        @else
+                                                            <div class="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-xs flex-shrink-0">{{ strtoupper(substr($row['name'], 0, 1)) }}</div>
+                                                        @endif
+                                                        <div class="min-w-0">
+                                                            <p class="font-medium text-gray-800 truncate">{{ $row['name'] }}</p>
+                                                            <p class="text-xs text-gray-400 truncate">{{ $row['username'] ?: $row['email'] }}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="px-4 py-3 whitespace-nowrap {{ $row['status'] === 'absent' ? 'text-red-600 font-medium' : 'text-gray-700' }}">{{ $statusText($row['status']) }}</td>
+                                                <td class="px-4 py-3 text-gray-500">{{ $row['remark'] ?: '—' }}</td>
+                                            </tr>
+                                        @empty
+                                            <tr><td colspan="4" class="px-4 py-10 text-center text-gray-400">No teachers found.</td></tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        @endforeach
                     </div>
                 </div>
             @endif

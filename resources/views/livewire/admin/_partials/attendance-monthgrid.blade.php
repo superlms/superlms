@@ -22,7 +22,38 @@
     @if (empty($grid['teachers']))
         <p class="py-12 text-center text-gray-400 text-sm">No teachers found.</p>
     @else
-        <div class="overflow-auto max-h-[70vh]">
+        {{-- The grid is as tall as the room left under the filter bar, so the
+             whole card fits the window once the page's title and tabs have slid
+             away. At 70% of the window it was taller than that: the page ran on
+             a little further and stopped with this card's heading caught half
+             behind the filter bar. The height is kept on #main-scroll, outside
+             what Livewire re-renders, and measured again whenever the window,
+             the page header or the heading changes size. --}}
+        <div class="overflow-auto max-h-[70vh]" style="max-height: var(--lms-grid-h, 70vh)"
+            x-data="{
+                ro: null,
+                fit() {
+                    const page = document.getElementById('main-scroll');
+                    if (!page) return;
+                    const head = page.querySelector('div.sticky.top-0');
+                    const bar = head ? Array.from(head.children).filter(el => el.classList.contains('bg-gray-50')).pop() : null;
+                    const heading = this.$el.previousElementSibling;
+                    /* 72 = the page's padding over and under the card, the
+                       card's margin and its border. */
+                    const room = page.clientHeight - (bar ? bar.offsetHeight : 0) - (heading ? heading.offsetHeight : 0) - 72;
+                    page.style.setProperty('--lms-grid-h', Math.max(room, 260) + 'px');
+                },
+                init() {
+                    this.fit();
+                    if (typeof ResizeObserver === 'undefined') return;
+                    this.ro = new ResizeObserver(() => this.fit());
+                    const page = document.getElementById('main-scroll');
+                    const head = page ? page.querySelector('div.sticky.top-0') : null;
+                    [page, head, this.$el.previousElementSibling].forEach(el => el && this.ro.observe(el));
+                },
+                destroy() { this.ro && this.ro.disconnect(); },
+            }"
+            x-on:resize.window.debounce.150ms="fit()">
             <table class="min-w-full text-xs border-separate border-spacing-0">
                 <thead>
                     <tr>

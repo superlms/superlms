@@ -1,0 +1,197 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Livewire\Accounts\Attendance as AccountsAttendancePage;
+use App\Livewire\Admin\Attendance as AdminAttendancePage;
+use App\Models\Teacher\TeacherDetail;
+use App\Models\User;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Livewire\Livewire;
+use PHPUnit\Framework\Attributes\DataProvider;
+use Tests\TestCase;
+
+/**
+ * Teacher Attendance → By Date: the day's teachers in two columns side by side,
+ * each row its number, photo, name over username, status and remark. The status
+ * is plain text, an absent one red, and the card's header is not coloured.
+ */
+class TeacherDayListTest extends TestCase
+{
+    private int $org = 8;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Carbon::setTestNow('2026-09-17 10:00:00');
+
+        Schema::create('users', function (Blueprint $t) {
+            $t->id();
+            $t->string('name');
+            $t->string('username')->nullable();
+            $t->string('email')->nullable();
+            $t->string('image')->nullable();
+            $t->unsignedBigInteger('organization_id')->nullable();
+            $t->timestamps();
+        });
+        Schema::create('teacher_details', function (Blueprint $t) {
+            $t->id();
+            $t->unsignedBigInteger('user_id');
+            $t->unsignedBigInteger('organization_id');
+            $t->timestamps();
+        });
+        Schema::create('teacher_attendances', function (Blueprint $t) {
+            $t->id();
+            $t->unsignedBigInteger('teacher_detail_id');
+            $t->unsignedBigInteger('organization_id');
+            $t->date('attendance_date');
+            $t->integer('status');
+            $t->string('remarks')->nullable();
+            $t->unsignedBigInteger('marked_by')->nullable();
+            $t->timestamps();
+        });
+        foreach (['standards', 'sections', 'assign_teacher_standards'] as $table) {
+            Schema::create($table, function (Blueprint $t) use ($table) {
+                $t->id();
+                $t->unsignedBigInteger('organization_id')->nullable();
+                if ($table === 'standards') { $t->string('name'); $t->integer('order')->default(0); }
+                if ($table === 'sections') { $t->unsignedBigInteger('standard_id'); $t->string('name'); }
+                if ($table === 'assign_teacher_standards') {
+                    $t->unsignedBigInteger('teacher_detail_id');
+                    $t->unsignedBigInteger('standard_id');
+                    $t->unsignedBigInteger('section_id')->default(0);
+                }
+                $t->timestamps();
+            });
+        }
+
+        config(['app.key' => 'base64:' . base64_encode(str_repeat('g', 32))]);
+
+        $admin = new User(['name' => 'Admin', 'email' => 'admin@example.com']);
+        $admin->id = 500;
+        $admin->organization_id = $this->org;
+        $this->actingAs($admin);
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
+
+    public static function pages(): array
+    {
+        return ['admin' => [AdminAttendancePage::class], 'accounts' => [AccountsAttendancePage::class]];
+    }
+
+    private function teacher(string $name, ?string $username): int
+    {
+        $user = User::create(['name' => $name, 'username' => $username, 'email' => strtolower($name) . '@t.test', 'organization_id' => $this->org]);
+
+        return TeacherDetail::create(['user_id' => $user->id, 'organization_id' => $this->org])->id;
+    }
+
+    private function mark(int $teacher, int $status, ?string $remark = null): void
+    {
+        DB::table('teacher_attendances')->insert([
+            'teacher_detail_id' => $teacher, 'organization_id' => $this->org,
+            'attendance_date' => '2026-09-16', 'status' => $status, 'remarks' => $remark,
+        ]);
+    }
+
+    /** The day's rows as the page hands them to its view. */
+    private function rows(string $pageClass): array
+    {
+        $page = new $pageClass();
+        $page->mount();
+        $page->tDate = '2026-09-16';
+
+        return $page->render()->getData()['tByDateRows']->all();
+    }
+
+    #[DataProvider('pages')]
+    public function test_a_row_carries_the_username_beside_what_it_had(string $pageClass): void
+    {
+        $asha = $this->teacher('Asha', 'asha01');
+        $this->teacher('Bina', null);
+        $this->mark($asha, 0, 'On leave');
+
+        $rows = $this->rows($pageClass);
+
+        $this->assertSame(['Asha', 'Bina'], array_column($rows, 'name'));
+        $this->assertSame(['asha01', ''], array_column($rows, 'username'));
+        $this->assertSame(['asha@t.test', 'bina@t.test'], array_column($rows, 'email'));
+        $this->assertSame(['absent', 'not_marked'], array_column($rows, 'status'));
+        $this->assertSame('On leave', $rows[0]['remark']);
+    }
+
+    #[DataProvider('pages')]
+    public function test_the_list_is_two_columns_of_plain_statuses(string $pageClass): void
+    {
+        $asha = $this->teacher('Asha', 'asha01');
+        $bina = $this->teacher('Bina', 'bina02');
+        $this->teacher('Chitra', null);
+        $this->mark($asha, 1);
+        $this->mark($bina, 0, 'On leave');
+
+        $html = Livewire::test($pageClass)->set('tDate', '2026-09-16')->html();
+
+        // Three teachers: two on the left, the third on the right.
+        $this->assertSame(2, substr_count($html, 'wire:key="t-bydate-half-'));
+        $this->assertStringContainsString('lg:grid-cols-2', $html);
+        $right = substr($html, strpos($html, 'wire:key="t-bydate-half-1"'));
+        $right = substr($right, 0, strpos($right, '</table>'));
+        $this->assertStringContainsString('Chitra', $right);
+        $this->assertStringNotContainsString('Bina', $right);
+        $this->assertMatchesRegularExpression('/text-gray-400">\s*3\s*</', $right);   // numbered on from the left
+
+        // Username under the name; the email only where there is no username.
+        $this->assertStringContainsString('asha01', $html);
+        $this->assertStringNotContainsString('asha@t.test', $html);
+        $this->assertStringContainsString('chitra@t.test', $html);
+
+        // Plain text, the absent one red — no coloured tag.
+        $this->assertMatchesRegularExpression('/text-red-600 font-medium">\s*Absent\s*</', $html);
+        $this->assertMatchesRegularExpression('/text-gray-700">\s*Present\s*</', $html);
+        $this->assertStringNotContainsString('rounded-full bg-red-100', $html);
+        $this->assertStringNotContainsString('rounded-full bg-emerald-100', $html);
+
+        // The card's header is not coloured.
+        $this->assertStringContainsString('Teacher Attendance · Wednesday, 16 Sep 2026', $html);
+        $this->assertStringNotContainsString('from-blue-50 to-indigo-50', $html);
+    }
+
+    #[DataProvider('pages')]
+    public function test_a_single_row_stays_one_column(string $pageClass): void
+    {
+        $asha = $this->teacher('Asha', 'asha01');
+        $this->teacher('Bina', 'bina02');
+        $this->mark($asha, 0);
+
+        $html = Livewire::test($pageClass)->set('tDate', '2026-09-16')->set('tByDateStatus', 'absent')->html();
+
+        $this->assertSame(1, substr_count($html, 'wire:key="t-bydate-half-'));
+        $this->assertStringNotContainsString('lg:grid-cols-2', $html);
+        $this->assertStringContainsString('Asha', substr($html, strpos($html, 'wire:key="t-bydate-half-0"')));
+    }
+
+    #[DataProvider('pages')]
+    public function test_no_teachers_says_so(string $pageClass): void
+    {
+        Livewire::test($pageClass)->set('tDate', '2026-09-16')->assertSee('No teachers found.');
+    }
+
+    public function test_the_student_day_header_keeps_its_colour(): void
+    {
+        $stats = ['total' => 1, 'present' => 1, 'absent' => 0, 'half_day' => 0, 'holiday' => 0, 'not_marked' => 0];
+
+        $coloured = view('livewire.admin._partials.attendance-dayheader', ['stats' => $stats, 'title' => 'Student Attendance'])->render();
+        $plain = view('livewire.admin._partials.attendance-dayheader', ['stats' => $stats, 'title' => 'Teacher Attendance', 'plain' => true])->render();
+
+        $this->assertStringContainsString('from-blue-50 to-indigo-50', $coloured);
+        $this->assertStringNotContainsString('from-blue-50', $plain);
+    }
+}

@@ -981,7 +981,7 @@ class Attendance extends Component
 
         $standards = Standard::where('organization_id', $orgId)->inClassOrder()->get(['id', 'name']);
         // A to Z, whatever the case the name was typed in.
-        $teachers  = TeacherDetail::with('user:id,name,email,image')->where('organization_id', $orgId)->get()
+        $teachers  = TeacherDetail::with('user:id,name,username,email,image')->where('organization_id', $orgId)->get()
             ->sortBy(fn($t) => mb_strtolower((string) ($t->user->name ?? '')))->values();
 
         // School years to choose from, newest first — each runs April → March.
@@ -1116,6 +1116,7 @@ class Attendance extends Component
                 $rec = $recs->get($t->id);
                 return [
                     'name'   => $t->user->name ?? '—',
+                    'username' => $t->user->username ?? '',
                     'email'  => $t->user->email ?? '',
                     'image'  => $t->user->image ?? null,
                     'status' => $rec ? $this->toLabel($rec->status) : $unmarked,
