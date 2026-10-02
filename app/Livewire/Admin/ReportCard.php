@@ -45,8 +45,8 @@ class ReportCard extends Component
     public string $issueDate     = '';
     /**
      * student_detail_id => ['name', 'admission_no', 'regd_no', 'remark', 'result',
-     * 'co' => ['term1' => [grade per area], 'term2' => [grade per area]]] — the
-     * co-scholastic grades are listed in ReportCardService::CO_SCHOLASTIC_AREAS' order.
+     * 'grade'] — the one grade is the co-scholastic grade the card prints for
+     * every area in both terms.
      */
     public array  $issueRows     = [];
 
@@ -266,9 +266,6 @@ class ReportCard extends Component
             ->orderBy('full_name')
             ->get();
 
-        // No grade is chosen to begin with: each is to be picked.
-        $blank = array_fill(0, count(ReportCardService::CO_SCHOLASTIC_AREAS), '');
-
         $this->issueRows = [];
         foreach ($students as $student) {
             $this->issueRows[$student->id] = [
@@ -277,7 +274,8 @@ class ReportCard extends Component
                 'regd_no'      => (string) ($student->registration_number ?? ''),
                 'remark'       => '',
                 'result'       => '',
-                'co'           => ['term1' => $blank, 'term2' => $blank],
+                // No grade is chosen to begin with: it is to be picked.
+                'grade'        => '',
             ];
         }
 
@@ -294,21 +292,27 @@ class ReportCard extends Component
     }
 
     /**
-     * One co-scholastic grade for every student on the details list at once —
-     * a class of forty need not be picked one by one. Each can still be changed.
+     * The grade for every student on the details list at once — a class of
+     * forty need not be picked one by one. Each can still be changed.
      */
-    public function setAllCoGrade($term, $area, $grade)
+    public function setAllGrade($grade)
     {
-        $area = (int) $area;
-        if (! in_array($term, ['term1', 'term2'], true)
-            || ! array_key_exists($area, ReportCardService::CO_SCHOLASTIC_AREAS)
-            || ! in_array($grade, ReportCardService::CO_SCHOLASTIC_GRADES, true)) {
+        if (! in_array($grade, ReportCardService::CO_SCHOLASTIC_GRADES, true)) {
             return;
         }
 
         foreach (array_keys($this->issueRows) as $studentId) {
-            $this->issueRows[$studentId]['co'][$term][$area] = $grade;
+            $this->issueRows[$studentId]['grade'] = $grade;
         }
+    }
+
+    /**
+     * The earlier form chose a grade per area and term; a student has the one
+     * grade now, so a call of that shape sets it.
+     */
+    public function setAllCoGrade($term, $area, $grade)
+    {
+        $this->setAllGrade($grade);
     }
 
     /**
@@ -331,20 +335,17 @@ class ReportCard extends Component
         $this->validate([
             'issueDate'            => 'required|date',
             'issueRows.*.regd_no'  => 'nullable|string|max:50',
-            // A remark is to be entered and every co-scholastic grade chosen
-            // before a card is issued.
+            // A remark is to be entered and the grade chosen before a card
+            // is issued.
             'issueRows.*.remark'   => 'required|string|max:500',
             'issueRows.*.result'   => 'nullable|in:PASSED,FAILED',
-            'issueRows.*.co.term1.*' => 'required|in:' . $grades,
-            'issueRows.*.co.term2.*' => 'required|in:' . $grades,
+            'issueRows.*.grade'    => 'required|in:' . $grades,
         ], [
             'issueDate.required'   => 'Please pick an issue date.',
             'issueRows.*.remark.required' => 'Enter a remark.',
             'issueRows.*.remark.max' => 'A remark may not be longer than 500 characters.',
-            'issueRows.*.co.term1.*.required' => 'Choose every co-scholastic grade.',
-            'issueRows.*.co.term2.*.required' => 'Choose every co-scholastic grade.',
-            'issueRows.*.co.term1.*.in' => 'Choose every co-scholastic grade.',
-            'issueRows.*.co.term2.*.in' => 'Choose every co-scholastic grade.',
+            'issueRows.*.grade.required' => 'Choose a grade.',
+            'issueRows.*.grade.in' => 'Choose a grade.',
         ]);
 
         try {
@@ -380,9 +381,11 @@ class ReportCard extends Component
                     'regd_no' => trim((string) ($row['regd_no'] ?? '')) ?: null,
                     'remark' => trim((string) ($row['remark'] ?? '')) ?: null,
                     'result' => ($row['result'] ?? '') ?: null,
+                    // The one grade chosen goes on every co-scholastic area, in
+                    // both terms.
                     'co_scholastic' => [
-                        'term1' => array_combine(ReportCardService::CO_SCHOLASTIC_AREAS, array_values($row['co']['term1'])),
-                        'term2' => array_combine(ReportCardService::CO_SCHOLASTIC_AREAS, array_values($row['co']['term2'])),
+                        'term1' => array_fill_keys(ReportCardService::CO_SCHOLASTIC_AREAS, $row['grade']),
+                        'term2' => array_fill_keys(ReportCardService::CO_SCHOLASTIC_AREAS, $row['grade']),
                     ],
                     'issued_at' => $issuedAt,
                     'issued_by' => Auth::id(),

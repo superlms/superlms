@@ -332,7 +332,7 @@ class ReportCardPanelTest extends TestCase
     }
 
     #[DataProvider('pages')]
-    public function test_continue_lists_each_student_for_a_remark_and_co_scholastic_grades(string $pageClass, string $panel): void
+    public function test_continue_lists_each_student_on_one_row_for_a_remark_and_one_grade(string $pageClass, string $panel): void
     {
         $asha = $this->student('Asha');
         $bina = $this->student('Bina');
@@ -340,61 +340,60 @@ class ReportCardPanelTest extends TestCase
         $page = Livewire::test($pageClass)->call('openIssueScreen')->set('issueStandard', '1')->set('issueSection', '1')
             ->set('selectedStudents', [$asha, $bina])->call('openIssueForm')->assertSet('showIssueForm', true);
 
-        // Number, name over admission number, the remark, and a grade to choose for each area in each term.
+        // One row a student: number, name over admission number, the remark, the
+        // registration number and one grade.
         $issue = $this->panel($page->html(), 'Issue Report Cards</h2>');
+        $head = substr($issue, strpos($issue, 'hidden md:grid grid-cols-12'));
+        $this->assertStringStartsWith('Student Remark * Regd. No Grade *', $this->text(substr($head, strpos($head, '>') + 1, 600)));
+
         $first = substr($issue, strpos($issue, 'wire:key="issue-row-' . $asha . '"'));
         $first = substr($first, 0, strpos($first, 'wire:key="issue-row-' . $bina . '"'));
-        $this->assertStringStartsWith('1 Asha ADM-ASH Remark *', $this->text(substr($first, strpos($first, '>') + 1)));
+        $this->assertStringStartsWith('1 Asha ADM-ASH', $this->text(substr($first, strpos($first, '>') + 1)));
+        $this->assertSame(2, substr_count($first, '<input '));   // the remark and the registration number
         $this->assertStringContainsString('wire:model.defer="issueRows.' . $asha . '.remark"', $first);
-        $this->assertSame(6, substr_count($first, 'wire:model.defer="issueRows.' . $asha . '.co.term'));
-        foreach (ReportCardService::CO_SCHOLASTIC_AREAS as $area) {
-            $this->assertStringContainsString(e($area), $first);
-        }
-
-        // The registration number sits beside the remark; the result is not asked; the button says Submit.
         $this->assertStringContainsString('wire:model.defer="issueRows.' . $asha . '.regd_no"', $first);
-        $this->assertStringStartsWith('1 Asha ADM-ASH Remark * Regd. No Co-Scholastic Grades *', $this->text(substr($first, strpos($first, '>') + 1)));
-        $this->assertStringNotContainsString('.result"', $issue);
-        $this->assertStringNotContainsString('PASSED', $issue);
-        $this->assertMatchesRegularExpression('/wire:target="issueReportCards">Submit<\/span>/', $issue);
-        $this->assertStringNotContainsString('Report Card(s)', $issue);
+        $this->assertSame(1, substr_count($first, '<select '));
+        $this->assertStringContainsString('<select wire:model.defer="issueRows.' . $asha . '.grade"', $first);
+        preg_match_all('/<option value="([A-E]?)">/', $first, $o);
+        $this->assertSame(['', 'A', 'B', 'C', 'D', 'E'], $o[1]);
 
-        // The issue date and the grades-for-all are one row.
-        $this->assertMatchesRegularExpression('/lg:grid-cols-12.*?wire:model\.defer="issueDate".*?Set a grade for all students/s', $issue);
+        // No grade per area or term, no result; the button says Submit.
+        $this->assertStringNotContainsString('.co.term', $issue);
+        $this->assertStringNotContainsString('.result"', $issue);
+        $this->assertMatchesRegularExpression('/wire:target="issueReportCards">Submit<\/span>/', $issue);
+
+        // The issue date and the grade-for-all are side by side.
+        $this->assertMatchesRegularExpression('/wire:model\.defer="issueDate".*?Set a grade for all students.*?\$wire\.setAllGrade\(/s', $issue);
 
         // Nothing is chosen to begin with, and nothing is issued until it is.
         $page->call('issueReportCards')->assertHasErrors([
-            'issueRows.' . $asha . '.remark', 'issueRows.' . $asha . '.co.term1.0', 'issueRows.' . $bina . '.co.term2.2',
+            'issueRows.' . $asha . '.remark', 'issueRows.' . $asha . '.grade', 'issueRows.' . $bina . '.grade',
         ]);
         $this->assertSame(0, ReportCard::count());
         $issue = $this->panel($page->html(), 'Issue Report Cards</h2>');
         $this->assertStringContainsString('Enter a remark.', $issue);
-        $this->assertStringContainsString('Choose every co-scholastic grade.', $issue);
+        $this->assertStringContainsString('Choose a grade.', $issue);
 
-        // A grade set for everyone fills that box for each student; each can still differ.
-        $page->call('setAllCoGrade', 'term1', 0, 'B')->call('setAllCoGrade', 'term9', 0, 'A')->call('setAllCoGrade', 'term1', 0, 'Z')
-            ->assertSet('issueRows.' . $asha . '.co.term1.0', 'B')->assertSet('issueRows.' . $bina . '.co.term1.0', 'B')
-            ->assertSet('issueRows.' . $asha . '.co.term1.1', '');
-        foreach ([$asha, $bina] as $id) {
-            foreach (['term1', 'term2'] as $term) {
-                foreach ([0, 1, 2] as $area) {
-                    $page->set("issueRows.{$id}.co.{$term}.{$area}", 'A');
-                }
-            }
-        }
-        $page->set("issueRows.{$asha}.co.term2.2", 'C')->set("issueRows.{$asha}.remark", 'Very good')
+        // A grade set for everyone fills each student's; one can still differ. A grade that is not one is ignored.
+        $page->call('setAllGrade', 'B')->call('setAllGrade', 'Z')
+            ->assertSet('issueRows.' . $asha . '.grade', 'B')->assertSet('issueRows.' . $bina . '.grade', 'B')
+            ->set("issueRows.{$asha}.grade", 'C')->set("issueRows.{$asha}.remark", 'Very good')
             ->call('issueReportCards')->assertHasErrors(['issueRows.' . $bina . '.remark']);   // one remark still missing
         $this->assertSame(0, ReportCard::count());
 
         $page->set("issueRows.{$bina}.remark", 'Keep it up')->call('issueReportCards')
             ->assertHasNoErrors()->assertSet('showIssuePanel', false)->assertSet('showIssueForm', false);
 
+        // The one grade is kept for all three areas, in both terms — and so printed.
         $card = ReportCard::where('student_detail_id', $asha)->first();
         $this->assertSame(['issued', 'Very good', 'REG-ASH', null, '2026-10-02'], [$card->status, $card->remark, $card->regd_no, $card->result, $card->issued_at->toDateString()]);
-        $this->assertSame([
-            'term1' => ['General Studies' => 'A', 'Health & Physical Education' => 'A', 'Work Behaviour' => 'A'],
-            'term2' => ['General Studies' => 'A', 'Health & Physical Education' => 'A', 'Work Behaviour' => 'C'],
-        ], $card->co_scholastic);
+        $all = ['General Studies' => 'C', 'Health & Physical Education' => 'C', 'Work Behaviour' => 'C'];
+        $this->assertSame(['term1' => $all, 'term2' => $all], $card->co_scholastic);
+        $printed = ReportCardService::coScholasticFor($card);
+        $this->assertSame(['C', 'C', 'C', 'C', 'C', 'C'], array_merge(array_column($printed['term1'], 'grade'), array_column($printed['term2'], 'grade')));
+
+        $other = ReportCard::where('student_detail_id', $bina)->first();
+        $this->assertSame(['B', 'B', 'B'], array_values($other->co_scholastic['term2']));
         $this->assertSame(2, ReportCard::count());
     }
 

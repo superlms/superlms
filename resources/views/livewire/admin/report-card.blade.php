@@ -221,10 +221,11 @@
      ISSUE REPORT CARDS — a slide-in over the list, in two steps.
      1. Pick the class and its section; the students come up, and the ones to
         issue for are ticked. Continue.
-     2. A row for each: number, name over admission number, the remark to
-        enter (the registration number beside it) and the co-scholastic
-        grades to choose. Submit issues them. The result is no longer asked:
-        the card works it out from the marks.
+     2. A row for each: number, name over admission number, then on the one
+        row the remark to enter, the registration number and one grade to
+        choose — the co-scholastic grade the card prints for all three areas
+        in both terms. Submit issues them. The result is not asked: the card
+        works it out from the marks.
 ══════════════════════════════════════════════════ --}}
 @if ($showIssuePanel)
     <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
@@ -237,7 +238,7 @@
                     <h2 class="text-lg font-semibold text-gray-900">Issue Report Cards</h2>
                     <p class="text-xs text-gray-500 mt-0.5">
                         @if ($showIssueForm)
-                            {{ count($issueRows) }} student(s) — enter the remark and choose the co-scholastic grades for each
+                            {{ count($issueRows) }} student(s) — enter the remark and choose the grade for each
                         @else
                             Pick the class and section, tick the students, then Continue
                         @endif
@@ -386,10 +387,10 @@
                 {{-- ─────────── Step 2: each student's details ─────────── --}}
                 <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5" wire:key="issue-step-2">
 
-                    {{-- The issue date, and beside it in the same row the grades that can
-                         be set for every student at once (each can still be changed below). --}}
-                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-x-4 gap-y-3 items-start">
-                        <div class="lg:col-span-3">
+                    {{-- The issue date, and beside it the one grade that can be set for
+                         every student at once (each can still be changed below). --}}
+                    <div class="flex flex-wrap items-start gap-4">
+                        <div class="w-48">
                             <label class="block text-xs font-medium text-gray-700 mb-1">Issue Date <span class="text-red-500">*</span></label>
                             <input wire:model.defer="issueDate" type="date"
                                 class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm @error('issueDate') border-red-400 @enderror">
@@ -397,86 +398,64 @@
                         </div>
 
                         @if (count($issueRows) > 1)
-                            <div class="lg:col-span-9" x-data>
+                            <div class="w-48" x-data>
                                 <label class="block text-xs font-medium text-gray-700 mb-1">Set a grade for all students</label>
-                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                    @foreach ($coAreas as $ai => $area)
-                                        <div wire:key="co-all-{{ $ai }}">
-                                            <div class="grid grid-cols-2 gap-2">
-                                                @foreach (['term1' => 'Term 1', 'term2' => 'Term 2'] as $termKey => $termLabel)
-                                                    <select x-on:change="$wire.setAllCoGrade('{{ $termKey }}', {{ $ai }}, $event.target.value); $event.target.value = ''" title="{{ $area }} — {{ $termLabel }}, for all students"
-                                                        class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm text-gray-600">
-                                                        <option value="">{{ $termLabel }}</option>
-                                                        @foreach ($coGrades as $g)<option value="{{ $g }}">{{ $g }}</option>@endforeach
-                                                    </select>
-                                                @endforeach
-                                            </div>
-                                            <p class="text-xs text-gray-500 mt-1 truncate" title="{{ $area }}">{{ $area }}</p>
-                                        </div>
-                                    @endforeach
-                                </div>
+                                <select x-on:change="$wire.setAllGrade($event.target.value); $event.target.value = ''"
+                                    class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm text-gray-600">
+                                    <option value="">Grade</option>
+                                    @foreach ($coGrades as $g)<option value="{{ $g }}">{{ $g }}</option>@endforeach
+                                </select>
                             </div>
                         @endif
                     </div>
 
-                    <div class="border border-gray-200 rounded-xl divide-y divide-gray-100">
-                        @foreach ($issueRows as $studentId => $row)
-                            <div class="px-4 py-4 grid grid-cols-12 gap-x-4 gap-y-3" wire:key="issue-row-{{ $studentId }}">
-                                <div class="col-span-12 md:col-span-3 flex gap-3">
-                                    <span class="text-sm text-gray-500 font-medium w-6 flex-shrink-0">{{ $loop->iteration }}</span>
-                                    <div class="min-w-0">
-                                        <p class="text-sm font-semibold text-gray-900 truncate">{{ $row['name'] ?: '—' }}</p>
-                                        <p class="text-xs text-gray-400 truncate">{{ $row['admission_no'] ?: '' }}</p>
+                    {{-- One row a student: the remark, the registration number and one
+                         grade. The grade is the co-scholastic grade the card prints for
+                         every area, in both terms. --}}
+                    <div class="border border-gray-200 rounded-xl overflow-hidden">
+                        <div class="hidden md:grid grid-cols-12 gap-x-4 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            <div class="col-span-3">Student</div>
+                            <div class="col-span-5">Remark <span class="text-red-500">*</span></div>
+                            <div class="col-span-2">Regd. No</div>
+                            <div class="col-span-2">Grade <span class="text-red-500">*</span></div>
+                        </div>
+
+                        <div class="divide-y divide-gray-100">
+                            @foreach ($issueRows as $studentId => $row)
+                                <div class="px-4 py-3 grid grid-cols-12 gap-x-4 gap-y-2 items-start" wire:key="issue-row-{{ $studentId }}">
+                                    <div class="col-span-12 md:col-span-3 flex gap-3">
+                                        <span class="text-sm text-gray-500 font-medium w-6 flex-shrink-0">{{ $loop->iteration }}</span>
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-semibold text-gray-900 truncate">{{ $row['name'] ?: '—' }}</p>
+                                            <p class="text-xs text-gray-400 truncate">{{ $row['admission_no'] ?: '' }}</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-span-12 md:col-span-5">
+                                        <input wire:model.defer="issueRows.{{ $studentId }}.remark" type="text" maxlength="500" placeholder="Remark" title="Remark"
+                                            class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm @error('issueRows.' . $studentId . '.remark') border-red-400 @enderror">
+                                        @error('issueRows.' . $studentId . '.remark')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div class="col-span-6 md:col-span-2">
+                                        <input wire:model.defer="issueRows.{{ $studentId }}.regd_no" type="text" maxlength="50" placeholder="Regd. No" title="Regd. No"
+                                            class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm">
+                                        @error('issueRows.' . $studentId . '.regd_no')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div class="col-span-6 md:col-span-2">
+                                        <select wire:model.defer="issueRows.{{ $studentId }}.grade" title="Co-scholastic grade"
+                                            class="w-full px-2.5 py-1.5 border rounded-md text-sm @error('issueRows.' . $studentId . '.grade') border-red-400 @else border-gray-300 @enderror">
+                                            <option value="">Grade</option>
+                                            @foreach ($coGrades as $g)<option value="{{ $g }}">{{ $g }}</option>@endforeach
+                                        </select>
+                                        @error('issueRows.' . $studentId . '.grade')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                                     </div>
                                 </div>
-
-                                <div class="col-span-12 md:col-span-9 space-y-3">
-                                    {{-- The remark, with the registration number beside it --}}
-                                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                                        <div class="sm:col-span-3">
-                                            <label class="block text-xs font-medium text-gray-700 mb-1">Remark <span class="text-red-500">*</span></label>
-                                            <input wire:model.defer="issueRows.{{ $studentId }}.remark" type="text" maxlength="500" placeholder="e.g. Very good progress. Keep it up."
-                                                class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm @error('issueRows.' . $studentId . '.remark') border-red-400 @enderror">
-                                            @error('issueRows.' . $studentId . '.remark')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                                        </div>
-                                        <div>
-                                            <label class="block text-xs font-medium text-gray-700 mb-1">Regd. No</label>
-                                            <input wire:model.defer="issueRows.{{ $studentId }}.regd_no" type="text" maxlength="50" placeholder="—"
-                                                class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm">
-                                            @error('issueRows.' . $studentId . '.regd_no')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label class="block text-xs font-medium text-gray-700 mb-1">Co-Scholastic Grades <span class="text-red-500">*</span></label>
-                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                            @foreach ($coAreas as $ai => $area)
-                                                <div>
-                                                    <p class="text-xs text-gray-500 mb-1 truncate" title="{{ $area }}">{{ $area }}</p>
-                                                    <div class="grid grid-cols-2 gap-2">
-                                                        @foreach (['term1' => 'Term 1', 'term2' => 'Term 2'] as $termKey => $termLabel)
-                                                            <select wire:model.defer="issueRows.{{ $studentId }}.co.{{ $termKey }}.{{ $ai }}" title="{{ $area }} — {{ $termLabel }}"
-                                                                class="w-full px-2 py-1.5 border rounded-md text-sm @error('issueRows.' . $studentId . '.co.' . $termKey . '.' . $ai) border-red-400 @else border-gray-300 @enderror">
-                                                                <option value="">{{ $termLabel }}</option>
-                                                                @foreach ($coGrades as $g)<option value="{{ $g }}">{{ $g }}</option>@endforeach
-                                                            </select>
-                                                        @endforeach
-                                                    </div>
-                                                </div>
-                                            @endforeach
-                                        </div>
-                                        @if ($errors->has('issueRows.' . $studentId . '.co.*'))
-                                            <p class="mt-1 text-xs text-red-500">Choose every co-scholastic grade.</p>
-                                        @endif
-                                    </div>
-                                </div>
-                            </div>
-                        @endforeach
+                            @endforeach
+                        </div>
                     </div>
 
                     <p class="text-xs text-gray-500">
-                        The issue date prints as "Issue Date" on every card in this batch. Regd. No is prefilled from the
-                        student's registration number.
+                        The grade is the co-scholastic grade: the card prints it for {{ implode(', ', $coAreas) }}, in Term 1 and Term 2 alike.
+                        The issue date prints as "Issue Date" on every card in this batch. Regd. No is prefilled from the student's registration number.
                     </p>
                 </div>
 
