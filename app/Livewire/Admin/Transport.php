@@ -47,6 +47,9 @@ class Transport extends Component
     public bool $showDriverView = false;
     public string $driverViewTitle = '';
     public array $driverViewDetails = [];
+    /** The driver on view, and their photo, for the top of the panel. */
+    public ?int $driverViewId = null;
+    public ?string $driverViewImage = null;
 
     public bool $showRouteView = false;
     public string $routeViewTitle = '';
@@ -71,6 +74,10 @@ class Transport extends Component
     public array   $route_vehicle_types = [];
     /** Group key of the route being edited (a group is one row per type). */
     public ?string $editTransportGroup  = null;
+    /** The route row being edited: one vehicle's route, edited on its own. */
+    public ?int    $editRouteRowId      = null;
+    /** That row's vehicle type — a route row runs one type. */
+    public string  $route_vehicle_type  = '';
     public ?int   $driver_detail_id    = null;
     public string $pickup_time         = '';
     public string $drop_time           = '';
@@ -99,6 +106,8 @@ class Transport extends Component
     public ?int $pendingDeleteDriverId = null;
     /** Route group key pending deletion (a group is one row per vehicle type). */
     public ?string $pendingDeleteRouteId = null;
+    /** One vehicle's route pending deletion. */
+    public ?int $pendingDeleteRouteRowId = null;
 
     public array $availableDrivers = [];
     public array $vehicleTypes = ['Bus', 'Mini Bus', 'Van', 'Auto', 'Car', 'Other'];
@@ -126,12 +135,11 @@ class Transport extends Component
 
         return [
             'drivers'         => DriverDetail::where('organization_id', $orgId)->where('is_active', true)->count(),
-            // Counted as the listing shows them: one route per group, not one
-            // per vehicle-type row.
+            // Counted as the listing shows them: every vehicle of a route is
+            // a route of its own.
             'routes'          => Transportation::where('organization_id', $orgId)
                 ->where('is_active', true)
-                ->distinct()
-                ->count(DB::raw('COALESCE(route_group, id)')),
+                ->count(),
             'students'        => DB::table('transportation_students')->where('organization_id', $orgId)->count(),
             'monthly_revenue' => Transportation::where('organization_id', $orgId)
                 ->where('is_active', true)->withCount('students')->get()
@@ -162,6 +170,22 @@ class Transport extends Component
     public function updatedFilterRoute(): void  { $this->resetPage(); }
     public function updatedFilterDriver(): void { $this->resetPage(); }
     public function updatedActiveTab(): void    { $this->resetPage(); $this->search = ''; }
+
+    /**
+     * The filter bar's Clear, on every tab. It used to be a string of $set
+     * calls on the button itself, of which only the first ran — so only the
+     * search box was ever cleared.
+     */
+    public function clearFilters(): void
+    {
+        $this->search         = '';
+        $this->filterDriver   = '';
+        $this->filterRoute    = '';
+        $this->filterStatus   = '';
+        $this->feeFilterRoute = '';
+        $this->feeStudentId   = null;
+        $this->resetPage();
+    }
 
     // ═══════════════════════════════ DRIVERS ═════════════════════════════════
     public function createDriver(): void
@@ -196,6 +220,8 @@ class Transport extends Component
         $driver = DriverDetail::with('user', 'transportations')->findOrFail($id);
 
         $this->driverViewTitle   = $driver->user->name ?? 'Driver';
+        $this->driverViewId      = $driver->id;
+        $this->driverViewImage   = $driver->image ?: null;
         $this->driverViewDetails = [
             'Phone'       => $driver->phone ?: 'N/A',
             'License No.' => $driver->license_no ?: 'N/A',
@@ -212,6 +238,8 @@ class Transport extends Component
     {
         $this->showDriverView    = false;
         $this->driverViewDetails = [];
+        $this->driverViewId      = null;
+        $this->driverViewImage   = null;
     }
 
     /** A driver's photo in the list, clicked: shown large. */
@@ -420,6 +448,7 @@ class Transport extends Component
         $this->resetTransportForm();
         $this->editTransportId    = null;
         $this->editTransportGroup = null;
+        $this->editRouteRowId     = null;
         $this->transportModal     = true;
     }
 
@@ -494,6 +523,11 @@ class Transport extends Component
 
     public function saveTransport(): void
     {
+        // One vehicle's route carries the one type picked for it.
+        if ($this->editRouteRowId) {
+            $this->route_vehicle_types = array_values(array_filter([$this->route_vehicle_type]));
+        }
+
         $this->validate([
             'route_name'            => 'required|string|max:255',
             'route_vehicle_types'   => 'required|array|min:1',
@@ -523,6 +557,13 @@ class Transport extends Component
 
         try {
             DB::transaction(function () use ($types, $shared) {
+                if ($this->editRouteRowId) {
+                    Transportation::where('organization_id', $this->organizationId)
+                        ->findOrFail($this->editRouteRowId)
+                        ->update($shared + ['vehicle_type' => $types[0]]);
+                    return;
+                }
+
                 if ($this->editTransportGroup) {
                     $this->updateRouteGroup($this->editTransportGroup, $types, $shared);
                     return;
@@ -542,7 +583,7 @@ class Transport extends Component
 
             $this->notification()->success(
                 'Success!',
-                $this->editTransportGroup
+                ($this->editTransportGroup || $this->editRouteRowId)
                     ? 'Route updated'
                     : (count($types) > 1
                         ? count($types) . ' routes created — one per vehicle type'
@@ -630,11 +671,108 @@ class Transport extends Component
         $this->notification()->success('Updated!', 'Route status changed');
     }
 
+    // ── One vehicle's route, on its own ─────────────────────────────────────
+    // The same route run by several vehicles is a row per vehicle, and the
+    // listing shows, views, edits, switches and deletes each by itself. (The
+    // group methods above are what the listing used while it showed such a
+    // route as a single row; they are kept as they were.)
+
+    private function routeRow(int $id): ?Transportation
+    {
+        return Transportation::with(['driver.user', 'students'])
+            ->where('organization_id', $this->organizationId)
+            ->find($id);
+    }
+
+    public function viewRouteRow(int $id): void
+    {
+        $row = $this->routeRow($id);
+
+        if (!$row) {
+            $this->notification()->error('Error!', 'Route not found');
+            return;
+        }
+
+        $this->routeViewTitle   = $row->route_name;
+        $this->routeViewDetails = [
+            'Vehicle Type' => $row->vehicle_type ?: 'N/A',
+            'Driver'       => $row->driver?->user?->name ?: 'N/A',
+            'Vehicle No.'  => $row->driver?->vehicle_no ?: 'N/A',
+            'Pickup Time'  => $row->pickup_time ?: 'N/A',
+            'Drop Time'    => $row->drop_time ?: 'N/A',
+            'Monthly Fee'  => '₹' . number_format((float) $row->monthly_fee, 0),
+            'Capacity'     => $row->capacity ?: 'N/A',
+            'Students'     => $row->students->count(),
+            'Status'       => $row->is_active ? 'Active' : 'Inactive',
+        ];
+        $this->showRouteView = true;
+    }
+
+    public function editRouteRow(int $id): void
+    {
+        $row = $this->routeRow($id);
+
+        if (!$row) {
+            $this->notification()->error('Error!', 'Route not found');
+            return;
+        }
+
+        $this->editRouteRowId       = $row->id;
+        $this->editTransportGroup   = null;
+        $this->editTransportId      = $row->id;
+        $this->route_name           = $row->route_name;
+        $this->route_vehicle_type   = (string) $row->vehicle_type;
+        $this->route_vehicle_types  = array_values(array_filter([$row->vehicle_type]));
+        $this->driver_detail_id     = $row->driver_detail_id ?: null;
+        $this->pickup_time          = $row->pickup_time ?? '';
+        $this->drop_time            = $row->drop_time ?? '';
+        $this->monthly_fee          = (float) $row->monthly_fee;
+        $this->capacity             = (int) $row->capacity;
+        $this->transport_is_active  = (bool) $row->is_active;
+        $this->transportModal       = true;
+    }
+
+    public function toggleRouteRowStatus(int $id): void
+    {
+        $row = $this->routeRow($id);
+        if (!$row) return;
+
+        $row->update(['is_active' => !$row->is_active]);
+
+        unset($this->statistics);
+        $this->notification()->success('Updated!', 'Route status changed');
+    }
+
+    public function confirmDeleteRouteRow(int $id): void { $this->pendingDeleteRouteRowId = $id; }
+    public function cancelDeleteRouteRow(): void { $this->pendingDeleteRouteRowId = null; }
+
+    public function executeDeleteRouteRow(): void
+    {
+        if (!$this->pendingDeleteRouteRowId) return;
+
+        try {
+            $row = $this->routeRow($this->pendingDeleteRouteRowId);
+            if ($row) {
+                DB::transaction(function () use ($row) {
+                    $row->students()->detach();
+                    $row->delete();
+                });
+            }
+            unset($this->statistics);
+            $this->notification()->success('Deleted!', 'Route deleted');
+        } catch (\Exception $e) {
+            $this->notification()->error('Error!', 'Failed to delete route');
+        }
+
+        $this->pendingDeleteRouteRowId = null;
+    }
+
     public function closeTransportModal(): void
     {
         $this->transportModal     = false;
         $this->editTransportId    = null;
         $this->editTransportGroup = null;
+        $this->editRouteRowId     = null;
         $this->resetTransportForm();
         $this->resetValidation();
     }
@@ -642,7 +780,7 @@ class Transport extends Component
     private function resetTransportForm(): void
     {
         $this->reset([
-            'route_name', 'route_vehicle_types', 'driver_detail_id',
+            'route_name', 'route_vehicle_types', 'route_vehicle_type', 'driver_detail_id',
             'pickup_time', 'drop_time', 'monthly_fee', 'capacity', 'transport_is_active',
         ]);
         $this->transport_is_active = true;
@@ -684,9 +822,10 @@ class Transport extends Component
     }
 
     /**
-     * The routes listing shows ONE row per route, with its vehicle types beside
-     * it — even though each type is its own row underneath, so a driver can be
-     * assigned to the Bus and the Van separately.
+     * The routes listing shows a row for every vehicle of a route: the same
+     * route run by a Bus and a Van is two rows, each with its own driver,
+     * students and status. (It showed one row per route, its types side by
+     * side, until the school asked for them apart.)
      */
     private function getTransportations()
     {
@@ -714,25 +853,20 @@ class Transport extends Component
             ->get();
 
         $groups = $rows
-            ->groupBy(fn ($r) => $r->route_group ?: 'r' . $r->id)
-            ->map(function ($rows, $key) {
-                $first = $rows->first();
-
-                return (object) [
-                    'key'           => (string) $key,
-                    'route_name'    => $first->route_name,
-                    'vehicle_types' => $rows->pluck('vehicle_type')->filter()->unique()->values()->all(),
-                    'driver'        => $first->driver,
-                    'driver_names'  => $rows->map(fn ($r) => $r->driver?->user?->name)->filter()->unique()->values()->all(),
-                    'vehicle_nos'   => $rows->map(fn ($r) => $r->driver?->vehicle_no)->filter()->unique()->values()->all(),
-                    'pickup_time'   => $first->pickup_time,
-                    'drop_time'     => $first->drop_time,
-                    'monthly_fee'   => (float) $first->monthly_fee,
-                    'capacity'      => (int) $first->capacity,
-                    'students'      => $rows->sum(fn ($r) => $r->students->count()),
-                    'is_active'     => $rows->contains(fn ($r) => (bool) $r->is_active),
-                ];
-            })
+            ->map(fn ($r) => (object) [
+                'key'          => (int) $r->id,
+                'route_name'   => $r->route_name,
+                'vehicle_type' => $r->vehicle_type,
+                'driver'       => $r->driver,
+                'driver_name'  => $r->driver?->user?->name,
+                'vehicle_no'   => $r->driver?->vehicle_no,
+                'pickup_time'  => $r->pickup_time,
+                'drop_time'    => $r->drop_time,
+                'monthly_fee'  => (float) $r->monthly_fee,
+                'capacity'     => (int) $r->capacity,
+                'students'     => $r->students->count(),
+                'is_active'    => (bool) $r->is_active,
+            ])
             ->values();
 
         $page = $this->getPage();

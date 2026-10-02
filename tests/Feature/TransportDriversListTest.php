@@ -182,6 +182,30 @@ class TransportDriversListTest extends TestCase
     }
 
     #[DataProvider('pages')]
+    public function test_view_shows_the_drivers_photo(string $pageClass): void
+    {
+        $ravi = $this->driver('Ravi', ['image' => 'https://cdn.test/ravi.jpg', 'phone' => '9876543210']);
+        $sonu = $this->driver('Sonu');
+
+        $page = Livewire::test($pageClass)->set('activeTab', 'drivers')
+            ->call('viewDriver', $ravi->id)
+            ->assertSet('driverViewId', $ravi->id)->assertSet('driverViewImage', 'https://cdn.test/ravi.jpg');
+        $html = $page->html();
+        $panel = substr($html, strpos($html, 'Driver Details'));
+        $this->assertMatchesRegularExpression('/<img src="https:\/\/cdn\.test\/ravi\.jpg"[^>]*wire:click="showDriverPhoto\(' . $ravi->id . '\)"[^>]*class="w-24 h-24 rounded-full/s', $panel);
+
+        // A click on it opens it large, over the panel.
+        $page->call('showDriverPhoto', $ravi->id)->assertSet('driverPhoto', 'https://cdn.test/ravi.jpg');
+
+        // No photo: the initial stands in; closing forgets the last driver's.
+        $page->call('closeDriverPhoto')->call('closeDriverView')->assertSet('driverViewImage', null)->call('viewDriver', $sonu->id);
+        $html = $page->html();
+        $panel = substr($html, strpos($html, 'Driver Details'));
+        $this->assertMatchesRegularExpression('/text-3xl font-semibold text-blue-600">S</', $panel);
+        $this->assertStringNotContainsString('ravi.jpg', $panel);
+    }
+
+    #[DataProvider('pages')]
     public function test_the_status_is_the_dot_and_still_switches_the_driver(string $pageClass): void
     {
         $ravi = $this->driver('Ravi');

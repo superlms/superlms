@@ -46,141 +46,99 @@
         @endunless
 
         @if ($summary)
-            {{-- ─── Student detail card, with the fee figures folded in ─── --}}
-            @php $pct = $summary['annual'] > 0 ? round(($summary['paid'] / $summary['annual']) * 100) : 0; @endphp
+            {{-- ─── The student, read as the Students page's View: photo and name,
+                 then plain label and value — the route and how to reach them on
+                 one side, the fee with what is paid and what is left on the other. ─── --}}
+            @php
+                $pct      = $summary['annual'] > 0 ? round(($summary['paid'] / $summary['annual']) * 100) : 0;
+                $sMonths  = (int) $summary['months_count'];
+                $receipts = $summary['payments']->count();
+                $aboutRows = [
+                    'Route'       => ($summary['route']->route_name ?? '—') . ($summary['route']?->vehicle_type ? ' · ' . $summary['route']->vehicle_type : ''),
+                    'Pickup Time' => $summary['route']?->pickup_time ?: '—',
+                    'Drop Time'   => $summary['route']?->drop_time ?: '—',
+                    'Email'       => $summary['student']->email ?: '—',
+                    'Mobile'      => $summary['student']->phone ?: '—',
+                ];
+                $feeRows = [
+                    'Monthly Fee' => '₹' . number_format($summary['monthly'], 0),
+                    'Annual Fee'  => '₹' . number_format($summary['annual'], 0) . ' · ' . $sMonths . ($sMonths === 1 ? ' month' : ' months'),
+                    'Paid'        => '₹' . number_format($summary['paid'], 0) . ' · ' . $pct . '% · ' . $receipts . ($receipts === 1 ? ' receipt' : ' receipts'),
+                    'Remaining'   => '₹' . number_format($summary['remaining'], 0),
+                ];
+            @endphp
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                <div class="flex flex-wrap items-center justify-between gap-x-8 gap-y-4 px-5 py-4">
-                    <div class="flex items-center gap-4 min-w-0">
-                        @if ($summary['student']->user?->image)
-                            <img src="{{ $summary['student']->user->image }}" class="w-14 h-14 rounded-full object-cover border-2 border-white shadow flex-shrink-0">
-                        @else
-                            <div class="w-14 h-14 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 text-lg font-bold flex-shrink-0">
-                                {{ strtoupper(substr($summary['student']->full_name ?? 'S', 0, 1)) }}
-                            </div>
-                        @endif
-                        <div class="min-w-0">
-                            <h3 class="text-lg font-bold text-gray-900 truncate">{{ $summary['student']->full_name }}</h3>
-                            <p class="text-sm text-gray-500 truncate">
-                                {{ $summary['student']->admission_no }} ·
-                                {{ $summary['student']->standard->name ?? '' }}{{ $summary['student']->section ? '-' . $summary['student']->section->name : '' }}
-                            </p>
-                            <p class="text-xs text-gray-400 mt-0.5 truncate">
-                                <svg class="w-3.5 h-3.5 inline -mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 9m0 8V9m0 0L9 7"/></svg>
-                                Route: <strong class="text-gray-700">{{ $summary['route']->route_name ?? '—' }}</strong>
-                                @if ($summary['route']?->vehicle_type)
-                                    <span class="ml-1 inline-block bg-indigo-50 text-indigo-700 rounded px-1.5 py-0.5 text-[10px] font-medium">{{ $summary['route']->vehicle_type }}</span>
-                                @endif
-                            </p>
+                <div class="flex items-center gap-4 px-5 py-4 border-b border-gray-100">
+                    @if ($summary['student']->user?->image)
+                        <img src="{{ $summary['student']->user->image }}" class="w-14 h-14 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                    @else
+                        <div class="w-14 h-14 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-lg font-semibold flex-shrink-0">
+                            {{ strtoupper(substr($summary['student']->full_name ?? 'S', 0, 1)) }}
                         </div>
-                    </div>
-
-                    {{-- Fee figures, inline rather than in a card of their own --}}
-                    <div class="flex flex-wrap items-center gap-x-7 gap-y-3">
-                        <div>
-                            <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Monthly</p>
-                            <p class="text-base font-bold text-gray-800">₹{{ number_format($summary['monthly'], 0) }}</p>
-                        </div>
-                        <div>
-                            <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Annual</p>
-                            <p class="text-base font-bold text-blue-600">₹{{ number_format($summary['annual'], 0) }}</p>
-                        </div>
-                        <div>
-                            <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Paid</p>
-                            <p class="text-base font-bold text-emerald-600">₹{{ number_format($summary['paid'], 0) }}</p>
-                        </div>
-                        <div>
-                            <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Remaining</p>
-                            <p class="text-base font-bold {{ $summary['remaining'] > 0 ? 'text-red-600' : 'text-gray-400' }}">
-                                ₹{{ number_format($summary['remaining'], 0) }}
-                            </p>
-                        </div>
-
+                    @endif
+                    <div class="min-w-0">
+                        <h3 class="text-lg font-semibold text-gray-900 truncate">{{ $summary['student']->full_name }}</h3>
+                        <p class="text-xs text-gray-500 mt-0.5 truncate">
+                            {{ $summary['student']->admission_no }} ·
+                            {{ $summary['student']->standard->name ?? '' }}{{ $summary['student']->section ? '-' . $summary['student']->section->name : '' }}
+                        </p>
                     </div>
                 </div>
-
-                {{-- Collection progress --}}
-                <div class="px-5 pb-3">
-                    <div class="flex items-center gap-3">
-                        <div class="h-1.5 flex-1 bg-gray-100 rounded-full overflow-hidden">
-                            <div class="h-full bg-emerald-500 rounded-full" style="width: {{ min(100, $pct) }}%"></div>
+                <div class="px-5 py-5 grid grid-cols-1 lg:grid-cols-2 gap-x-10 gap-y-4">
+                    @foreach ([$aboutRows, $feeRows] as $side)
+                        <div class="space-y-4">
+                            @foreach ($side as $label => $value)
+                                <div class="grid grid-cols-3 gap-3 text-sm">
+                                    <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
+                                    <span class="col-span-2 font-medium break-words {{ $label === 'Remaining' && $summary['remaining'] > 0 ? 'text-red-600' : 'text-gray-800' }}">{{ $value }}</span>
+                                </div>
+                            @endforeach
                         </div>
-                        <span class="text-[11px] font-medium text-gray-400 flex-shrink-0">{{ $pct }}% collected · {{ $summary['payments']->count() }} receipt(s)</span>
-                    </div>
-                </div>
-
-                {{-- Contact + route details --}}
-                <div class="border-t border-gray-100 bg-gray-50/60 px-5 py-3">
-                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
-                        <div class="min-w-0"><p class="text-gray-400">Email</p><p class="font-medium text-gray-700 truncate">{{ $summary['student']->email ?: '—' }}</p></div>
-                        <div><p class="text-gray-400">Mobile</p><p class="font-medium text-gray-700">{{ $summary['student']->phone ?: '—' }}</p></div>
-                        <div><p class="text-gray-400">Pickup</p><p class="font-medium text-gray-700">{{ $summary['route']?->pickup_time ?: '—' }}</p></div>
-                        <div><p class="text-gray-400">Drop</p><p class="font-medium text-gray-700">{{ $summary['route']?->drop_time ?: '—' }}</p></div>
-                        <div><p class="text-gray-400">Monthly</p><p class="font-medium text-gray-700">₹{{ number_format($summary['monthly'], 0) }}</p></div>
-                        <div><p class="text-gray-400">Billable</p><p class="font-medium text-gray-700">{{ $summary['months_count'] }}/12</p></div>
-                    </div>
+                    @endforeach
                 </div>
             </div>
 
-            {{-- ─── Monthly fee status: the whole academic year ─── --}}
+            {{-- ─── The months of the school year, a plain row each. June is never
+                 charged, so it is left out (unless an old record still has it on). ─── --}}
             @php
-                $monthChips = [
-                    'paid'     => ['Paid',     'border-emerald-200 bg-emerald-50', 'bg-emerald-500', 'text-emerald-700'],
-                    'partial'  => ['Partial',  'border-amber-200 bg-amber-50',     'bg-amber-500',   'text-amber-700'],
-                    'unpaid'   => ['Unpaid',   'border-red-200 bg-red-50',         'bg-red-500',     'text-red-700'],
-                    'upcoming' => ['Upcoming', 'border-blue-200 bg-blue-50',       'bg-blue-400',    'text-blue-700'],
-                    'not_used' => ['Not used', 'border-gray-200 bg-gray-50',       'bg-gray-300',    'text-gray-400'],
-                ];
-                $monthCounts = collect($summary['month_status'])->countBy('status');
+                $monthWord = ['paid' => 'Paid', 'partial' => 'Partial', 'unpaid' => 'Unpaid', 'upcoming' => 'Upcoming', 'not_used' => 'Not used'];
+                $shownMonths = collect($summary['month_status'])->reject(fn ($m) => $m['key'] === 'jun' && $m['status'] === 'not_used')->values();
+                $monthCounts = $shownMonths->countBy('status');
+                $countLine = collect(['paid', 'partial', 'unpaid', 'upcoming'])->map(fn ($s) => $monthWord[$s] . ' ' . ($monthCounts[$s] ?? 0))->implode(' · ');
             @endphp
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div class="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h4 class="text-sm font-semibold text-gray-700">Monthly Fee Status</h4>
-                        <p class="text-xs text-gray-400 mt-0.5">Apr – Mar · {{ $summary['months_count'] }} of 12 months billed</p>
+                        <p class="text-xs text-gray-400 mt-0.5">{{ $countLine }}</p>
                     </div>
-                    <div class="flex flex-wrap items-center gap-3">
-                        {{-- Legend, doubling as a count per state --}}
-                        <div class="flex flex-wrap items-center gap-3">
-                            @foreach ($monthChips as $state => $chip)
-                                <span class="inline-flex items-center gap-1.5 text-[11px] text-gray-500">
-                                    <span class="w-2 h-2 rounded-full {{ $chip[2] }}"></span>
-                                    {{ $chip[0] }}
-                                    <span class="font-semibold text-gray-700">{{ $monthCounts[$state] ?? 0 }}</span>
-                                </span>
-                            @endforeach
-                        </div>
-                        @if ($summary['route'])
-                            <button wire:click="editTransportStudent({{ $summary['student']->id }}, {{ $summary['route']->id }})"
-                                class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 border border-emerald-200 rounded-md px-2.5 py-1 hover:bg-emerald-50">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                Edit months
-                            </button>
-                        @endif
-                    </div>
+                    @if ($summary['route'])
+                        <button wire:click="editTransportStudent({{ $summary['student']->id }}, {{ $summary['route']->id }})"
+                            class="px-3 py-1.5 text-sm font-medium text-gray-700 border border-gray-200 hover:bg-gray-50 rounded-md">Edit months</button>
+                    @endif
                 </div>
-
-                <div class="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5">
-                    @foreach ($summary['month_status'] as $m)
-                        @php $chip = $monthChips[$m['status']] ?? $monthChips['not_used']; @endphp
-                        <div class="rounded-lg border px-3 py-2.5 {{ $chip[1] }} {{ $m['is_current'] ? 'ring-1 ring-gray-900/20' : '' }}">
-                            <div class="flex items-center justify-between gap-2">
-                                <p class="text-sm font-bold text-gray-800">
-                                    {{ substr($m['label'], 0, 3) }}
-                                    <span class="text-[10px] font-normal text-gray-400">'{{ substr($m['year'], 2) }}</span>
-                                </p>
-                                <span class="w-2 h-2 rounded-full flex-shrink-0 {{ $chip[2] }}"></span>
-                            </div>
-                            <p class="text-[11px] font-medium {{ $chip[3] }} mt-1">
-                                @if ($m['status'] === 'not_used')
-                                    Not used
-                                @elseif ($m['status'] === 'upcoming')
-                                    Upcoming · ₹{{ number_format($m['amount'], 0) }}
-                                @else
-                                    ₹{{ number_format($m['paid'], 0) }} / ₹{{ number_format($m['amount'], 0) }}
-                                @endif
-                            </p>
-                        </div>
-                    @endforeach
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                            <tr>
+                                <th class="px-4 py-3 text-left">Month</th>
+                                <th class="px-4 py-3 text-left">Status</th>
+                                <th class="px-4 py-3 text-right">Paid</th>
+                                <th class="px-4 py-3 text-right">Fee</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @foreach ($shownMonths as $m)
+                                @php $begun = in_array($m['status'], ['paid', 'partial', 'unpaid'], true); @endphp
+                                <tr wire:key="fee-month-{{ $m['key'] }}">
+                                    <td class="px-4 py-3 text-gray-800 font-medium whitespace-nowrap">{{ $m['label'] }} {{ $m['year'] }}</td>
+                                    <td class="px-4 py-3 {{ $m['status'] === 'unpaid' ? 'text-red-600 font-medium' : ($m['status'] === 'not_used' ? 'text-gray-400' : 'text-gray-700') }}">{{ $monthWord[$m['status']] ?? $monthWord['not_used'] }}</td>
+                                    <td class="px-4 py-3 text-right text-gray-700">{{ $begun ? '₹' . number_format($m['paid'], 0) : '—' }}</td>
+                                    <td class="px-4 py-3 text-right text-gray-700">{{ $m['status'] === 'not_used' ? '—' : '₹' . number_format($m['amount'], 0) }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
             </div>
 

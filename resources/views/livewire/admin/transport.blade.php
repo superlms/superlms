@@ -98,7 +98,7 @@
             @endif
 
             @if ($activeTab === 'fees' ? ($feeFilterRoute || $feeStudentId) : ($search || $filterDriver || $filterRoute || $filterStatus))
-                <button wire:click="$set('search',''); $set('filterDriver',''); $set('filterRoute',''); $set('filterStatus',''); $set('feeFilterRoute',''); $set('feeStudentId','')"
+                <button wire:click="clearFilters"
                     class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     Clear
@@ -111,11 +111,14 @@
 <div class="p-4 sm:p-6">
 
 {{-- ═══════════════════════ ROUTES TAB ═══════════════════════
-     One row per route. The vehicle types sit under the route's name and the
-     vehicle numbers under the driver's, both small and plain; the monthly fare
-     has its 11-month total under it; whether the route is on is the dot before
-     the actions, as the Students list has it — a click on it still turns the
-     route on or off. --}}
+     A row for every vehicle of a route: the same route run by a Bus and a Van
+     is two rows, each with its own driver, students and status, and each is
+     viewed, edited, switched and deleted by itself. The vehicle type sits
+     under the route's name and the vehicle number under the driver's, both
+     small and plain; the driver's photo opens large on a click; the monthly
+     fare has its 11-month total under it; whether the route is on is the dot
+     before the actions, as the Students list has it — a click on it still
+     turns the route on or off. --}}
 @if ($activeTab === 'transportation')
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
@@ -136,22 +139,23 @@
                         <tr wire:key="route-{{ $t->key }}" class="hover:bg-gray-50">
                             <td class="px-4 py-3">
                                 <p class="font-medium text-gray-900">{{ $t->route_name }}</p>
-                                @if (count($t->vehicle_types))
-                                    <p class="text-xs text-gray-400">{{ implode(', ', $t->vehicle_types) }}</p>
+                                @if ($t->vehicle_type)
+                                    <p class="text-xs text-gray-400">{{ $t->vehicle_type }}</p>
                                 @endif
                             </td>
                             <td class="px-4 py-3">
-                                @if (count($t->driver_names))
+                                @if ($t->driver_name)
                                     <div class="flex items-center gap-2">
                                         @if ($t->driver?->image)
-                                            <img src="{{ $t->driver->image }}" class="w-7 h-7 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                                            <img src="{{ $t->driver->image }}" wire:click="showDriverPhoto({{ $t->driver->id }})" title="View photo"
+                                                class="w-7 h-7 rounded-full object-cover border border-gray-200 flex-shrink-0 cursor-zoom-in hover:opacity-90">
                                         @else
-                                            <div class="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 text-xs font-bold flex-shrink-0">{{ strtoupper(substr($t->driver_names[0], 0, 1)) }}</div>
+                                            <div class="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 text-xs font-bold flex-shrink-0">{{ strtoupper(substr($t->driver_name, 0, 1)) }}</div>
                                         @endif
                                         <div class="min-w-0">
-                                            <p class="text-gray-700">{{ implode(', ', $t->driver_names) }}</p>
-                                            @if (count($t->vehicle_nos))
-                                                <p class="text-xs text-gray-400">{{ implode(', ', $t->vehicle_nos) }}</p>
+                                            <p class="text-gray-700">{{ $t->driver_name }}</p>
+                                            @if ($t->vehicle_no)
+                                                <p class="text-xs text-gray-400">{{ $t->vehicle_no }}</p>
                                             @endif
                                         </div>
                                     </div>
@@ -168,16 +172,16 @@
                             <td class="px-4 py-3 text-center text-gray-600">{{ $t->students }}</td>
                             <td class="px-4 py-3">
                                 <div class="flex items-center justify-center gap-1">
-                                    <button wire:click="toggleTransportStatus('{{ $t->key }}')" class="p-1 mr-0.5 rounded-full hover:bg-gray-100" title="{{ $t->is_active ? 'Active' : 'Inactive' }}">
+                                    <button wire:click="toggleRouteRowStatus({{ $t->key }})" class="p-1 mr-0.5 rounded-full hover:bg-gray-100" title="{{ $t->is_active ? 'Active' : 'Inactive' }}">
                                         <span class="block w-2 h-2 rounded-full {{ $t->is_active ? 'bg-green-500' : 'bg-red-500' }}"></span>
                                     </button>
-                                    <button wire:click="viewRoute('{{ $t->key }}')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md" title="View">
+                                    <button wire:click="viewRouteRow({{ $t->key }})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md" title="View">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                     </button>
-                                    <button wire:click="editTransport('{{ $t->key }}')" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md" title="Edit">
+                                    <button wire:click="editRouteRow({{ $t->key }})" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md" title="Edit">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                     </button>
-                                    <button wire:click="confirmDeleteRoute('{{ $t->key }}')" class="p-1.5 text-red-600 hover:bg-red-50 rounded-md" title="Delete">
+                                    <button wire:click="confirmDeleteRouteRow({{ $t->key }})" class="p-1.5 text-red-600 hover:bg-red-50 rounded-md" title="Delete">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                     </button>
                                 </div>
@@ -494,24 +498,41 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1.5">
                         Vehicle Type <span class="text-red-500">*</span>
                     </label>
-                    <div class="flex flex-wrap gap-2">
-                        @foreach ($vehicleTypes as $vt)
-                            <label class="inline-flex items-center gap-2 px-3 py-1.5 border rounded-lg cursor-pointer transition-colors
-                                {{ in_array($vt, $route_vehicle_types) ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50' }}">
-                                <input type="checkbox" wire:model.live="route_vehicle_types" value="{{ $vt }}"
-                                    class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                                <span class="text-sm font-medium">{{ $vt }}</span>
-                            </label>
-                        @endforeach
-                    </div>
-                    <p class="text-xs text-gray-400 mt-1.5">
-                        @if (count($route_vehicle_types) > 1)
-                            {{ count($route_vehicle_types) }} routes will be created — one per vehicle type. The list
-                            shows them as a single route, and a driver is assigned to each type separately.
-                        @else
-                            Pick more than one to run this route with several vehicle types.
-                        @endif
-                    </p>
+                    @if ($editRouteRowId)
+                        {{-- One vehicle's route: it runs the one type picked here. --}}
+                        <div class="flex flex-wrap gap-2">
+                            @foreach (collect($vehicleTypes)->push($route_vehicle_type)->filter()->unique() as $vt)
+                                <label wire:key="rvt-one-{{ $vt }}" class="inline-flex items-center gap-2 px-3 py-1.5 border rounded-lg cursor-pointer transition-colors
+                                    {{ $route_vehicle_type === $vt ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50' }}">
+                                    <input type="radio" wire:model.live="route_vehicle_type" value="{{ $vt }}"
+                                        class="border-gray-300 text-blue-600 focus:ring-blue-500">
+                                    <span class="text-sm font-medium">{{ $vt }}</span>
+                                </label>
+                            @endforeach
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1.5">
+                            Each vehicle of a route is a route of its own. To run this route with another vehicle too, add it from Add Route.
+                        </p>
+                    @else
+                        <div class="flex flex-wrap gap-2">
+                            @foreach ($vehicleTypes as $vt)
+                                <label class="inline-flex items-center gap-2 px-3 py-1.5 border rounded-lg cursor-pointer transition-colors
+                                    {{ in_array($vt, $route_vehicle_types) ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50' }}">
+                                    <input type="checkbox" wire:model.live="route_vehicle_types" value="{{ $vt }}"
+                                        class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                    <span class="text-sm font-medium">{{ $vt }}</span>
+                                </label>
+                            @endforeach
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1.5">
+                            @if (count($route_vehicle_types) > 1)
+                                {{ count($route_vehicle_types) }} routes will be created — one per vehicle type, each listed
+                                on its own with its own driver.
+                            @else
+                                Pick more than one to add this route for several vehicle types at once.
+                            @endif
+                        </p>
+                    @endif
                     @error('route_vehicle_types')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                 </div>
                 <div class="grid grid-cols-2 gap-4">
@@ -596,6 +617,18 @@
             </div>
 
             <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                {{-- The photo; a click opens it large --}}
+                <div class="flex justify-center pb-2">
+                    @if ($driverViewImage)
+                        <img src="{{ $driverViewImage }}" alt="{{ $driverViewTitle }}" wire:click="showDriverPhoto({{ (int) $driverViewId }})" title="View photo"
+                            class="w-24 h-24 rounded-full object-cover border border-gray-200 cursor-zoom-in hover:opacity-90">
+                    @else
+                        <div class="w-24 h-24 rounded-full bg-blue-50 flex items-center justify-center">
+                            <span class="text-3xl font-semibold text-blue-600">{{ strtoupper(substr($driverViewTitle, 0, 1)) }}</span>
+                        </div>
+                    @endif
+                </div>
+
                 @foreach ($driverViewDetails as $label => $value)
                     <div class="grid grid-cols-3 gap-3 text-sm">
                         <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
@@ -612,9 +645,10 @@
 @endif
 
 {{-- ══════════ TRANSPORT STUDENT MONTHS SLIDE-IN ══════════
-     The months the student is charged for, as a plain grid of the twelve: a
-     month that is on is dark, one that is off is an outline, and a click
-     switches it. The fee they add up to is the line above them. --}}
+     The months the student is charged for, as a plain grid: a month that is
+     on is lightly tinted, one that is off is an outline, and a click switches
+     it. June is never charged, so it is not among them. The fee they add up
+     to is the line above them. --}}
 @if ($editTxStudentModal)
     @php $activeCount = collect($editTxBillableMonths)->filter()->count(); @endphp
     <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
@@ -643,10 +677,11 @@
                     <p class="text-xs text-gray-400 uppercase tracking-wider mb-3">Months Charged</p>
                     <div class="grid grid-cols-4 gap-2">
                         @foreach ($monthsOrder as $key => $label)
+                            @continue($key === 'jun')
                             @php $on = $editTxBillableMonths[$key] ?? false; @endphp
                             <button type="button" wire:key="txm-{{ $key }}" wire:click="toggleTxMonth('{{ $key }}')" title="{{ $label }}"
                                 class="py-2 text-sm rounded-md border transition-colors
-                                    {{ $on ? 'bg-gray-900 border-gray-900 text-white font-medium' : 'bg-white border-gray-200 text-gray-400 hover:bg-gray-50' }}">
+                                    {{ $on ? 'bg-blue-50 border-blue-200 text-blue-700 font-medium' : 'bg-white border-gray-200 text-gray-400 hover:bg-gray-50' }}">
                                 {{ substr($label, 0, 3) }}
                             </button>
                         @endforeach
@@ -726,10 +761,12 @@
                     </div>
                 @endforeach
 
-                {{-- The months of the school year, each with what it stands at --}}
+                {{-- The months of the school year, each with what it stands at.
+                     June is never charged, so it is left out (unless an old
+                     record still has it on). --}}
                 @if (!empty($v['month_status']))
                     <div class="pt-4 mt-2 border-t border-gray-100 space-y-4">
-                        @foreach ($v['month_status'] as $m)
+                        @foreach (collect($v['month_status'])->reject(fn ($m) => $m['key'] === 'jun' && $m['status'] === 'not_used') as $m)
                             <div class="grid grid-cols-3 gap-3 text-sm">
                                 <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $m['label'] }}</span>
                                 <span class="col-span-2 font-medium {{ $m['status'] === 'not_used' ? 'text-gray-400' : 'text-gray-800' }}">{{ $monthLine($m) }}</span>
@@ -754,6 +791,7 @@
     $tDeletes = [
         ['flag' => $pendingDeleteDriverId, 'cancel' => 'cancelDeleteDriver', 'exec' => 'executeDeleteDriver', 'title' => 'Delete driver?', 'body' => 'Removes the driver and their login. Assigned routes will have no driver.'],
         ['flag' => $pendingDeleteRouteId,  'cancel' => 'cancelDeleteRoute',  'exec' => 'executeDeleteRoute',  'title' => 'Delete route?',  'body' => 'Removes the route and unassigns all its students.'],
+        ['flag' => $pendingDeleteRouteRowId, 'cancel' => 'cancelDeleteRouteRow', 'exec' => 'executeDeleteRouteRow', 'title' => 'Delete route?', 'body' => 'Removes this vehicle\'s route and unassigns its students. The same route run by another vehicle stays.'],
         ['flag' => $pendingDeleteTxStudentId, 'cancel' => 'cancelDeleteTransportStudent', 'exec' => 'executeDeleteTransportStudent', 'title' => 'Remove from transport?', 'body' => 'Removes <strong>' . e($pendingDeleteTxStudentName) . '</strong> from this route. Their transport fee no longer applies. Past payments are kept as history.'],
     ];
 @endphp

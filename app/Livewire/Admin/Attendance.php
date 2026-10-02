@@ -1186,6 +1186,7 @@ class Attendance extends Component
                 $rec = $recs->get($s->id);
                 return [
                     'name'   => $s->user->name ?? ($s->full_name ?? '—'),
+                    'admission_no' => $s->admission_no ?? '',
                     'email'  => $s->user->email ?? '',
                     'image'  => $s->user->image ?? null,
                     'status' => $rec ? $this->toLabel($rec->status) : $unmarked,

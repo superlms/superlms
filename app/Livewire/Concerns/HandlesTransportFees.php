@@ -232,6 +232,8 @@ trait HandlesTransportFees
         $this->editTxStudentName     = $student->full_name ?? '';
         $this->editTxMonthly         = (float) ($route?->monthly_fee ?? 0);
         $this->editTxBillableMonths  = $this->normalizeBillableMonths($pivot->billable_months ?? null);
+        // June is never charged: it is not offered, and saving leaves it off.
+        $this->editTxBillableMonths['jun'] = false;
         $this->editTxStudentModal    = true;
     }
 
@@ -247,6 +249,7 @@ trait HandlesTransportFees
 
     public function toggleTxMonth(string $monthKey): void
     {
+        if ($monthKey === 'jun') return;   // never charged
         if (!array_key_exists($monthKey, $this->editTxBillableMonths)) return;
         $this->editTxBillableMonths[$monthKey] = !$this->editTxBillableMonths[$monthKey];
     }
@@ -254,6 +257,8 @@ trait HandlesTransportFees
     public function saveTransportStudentMonths(): void
     {
         if (!$this->editTxStudentId || !$this->editTxStudentRouteId) return;
+
+        $this->editTxBillableMonths['jun'] = false;   // never charged
 
         try {
             DB::table('transportation_students')

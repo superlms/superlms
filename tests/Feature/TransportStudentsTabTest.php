@@ -210,11 +210,13 @@ class TransportStudentsTabTest extends TestCase
             'Admission No A-ASH', 'Class Class 5-A', 'Mobile 9876543210', 'Route Sector 12',
             'Pickup Time 07:30', 'Drop Time 14:00', 'Monthly Fee ₹1,000', 'Annual Fee ₹11,000 · 11 months',
             'Paid ₹4,400', 'Remaining ₹6,600',
-            'April Paid · ₹1,000', 'June Not used', 'August Paid · ₹1,000',
+            'April Paid · ₹1,000', 'May Paid · ₹1,000 July Paid · ₹1,000', 'August Paid · ₹1,000',   // no June between May and July
             'September Partial · ₹400 of ₹1,000', 'October Unpaid · ₹1,000', 'November Upcoming · ₹1,000',
         ] as $line) {
             $this->assertStringContainsString($line, $text);
         }
+
+        $this->assertStringNotContainsString('June', $text);
 
         // No coloured tiles.
         $this->assertStringNotContainsString('bg-emerald-50', $panel);
@@ -247,13 +249,16 @@ class TransportStudentsTabTest extends TestCase
         $panel = $this->panel($page->html(), 'Monthly Fee Schedule');
         $text = preg_replace('/\s+/', ' ', strip_tags($panel));
 
-        $this->assertSame(12, substr_count($panel, 'wire:click="toggleTxMonth('));
-        $this->assertSame(11, substr_count($panel, 'bg-gray-900 border-gray-900 text-white'));   // June is off
+        // Eleven months, lightly tinted when charged; June is not among them.
+        $this->assertSame(11, substr_count($panel, 'wire:click="toggleTxMonth('));
+        $this->assertStringNotContainsString("toggleTxMonth('jun')", $panel);
+        $this->assertSame(11, substr_count($panel, 'bg-blue-50 border-blue-200 text-blue-700'));
+        $this->assertStringNotContainsString('bg-gray-900 border-gray-900', $panel);
         $this->assertStringContainsString('Annual Fee ₹11,000 · 11 months', $text);
         $this->assertStringNotContainsString('translate-x-4', $panel);   // no switches
-        $this->assertStringNotContainsString('bg-blue-50', $panel);
 
-        $page->call('toggleTxMonth', 'jun')->call('toggleTxMonth', 'apr')->call('toggleTxMonth', 'jun');
+        // June cannot be turned on, whatever asks for it.
+        $page->call('toggleTxMonth', 'jun')->assertSet('editTxBillableMonths.jun', false)->call('toggleTxMonth', 'apr');
         $text = preg_replace('/\s+/', ' ', strip_tags($this->panel($page->html(), 'Monthly Fee Schedule')));
         $this->assertStringContainsString('Annual Fee ₹10,000 · 10 months', $text);
 
@@ -263,5 +268,66 @@ class TransportStudentsTabTest extends TestCase
         $this->assertFalse($saved['apr']);
         $this->assertFalse($saved['jun']);
         $this->assertTrue($saved['may']);
+    }
+
+    #[DataProvider('pages')]
+    public function test_a_record_with_june_on_loses_it_when_its_months_are_saved(string $pageClass): void
+    {
+        $all = array_fill_keys(['apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec', 'jan', 'feb', 'mar'], true);
+        $asha = $this->rider('Asha', $all);
+
+        // Until then it is still counted, and still shown, as it is saved.
+        $page = $this->page($pageClass)->call('viewTransportStudentDetail', $asha, $this->route);
+        $text = preg_replace('/\s+/', ' ', strip_tags($this->panel($page->html(), 'Transport Details')));
+        $this->assertStringContainsString('Annual Fee ₹12,000 · 12 months', $text);
+        $this->assertStringContainsString('June Paid', str_replace('June Unpaid', 'June Paid', $text));
+
+        $page->call('editViewedTransportStudent')->assertSet('editTxBillableMonths.jun', false);
+        $text = preg_replace('/\s+/', ' ', strip_tags($this->panel($page->html(), 'Monthly Fee Schedule')));
+        $this->assertStringContainsString('Annual Fee ₹11,000 · 11 months', $text);
+
+        $page->call('saveTransportStudentMonths');
+        $saved = json_decode(DB::table('transportation_students')->where('student_detail_id', $asha)->value('billable_months'), true);
+        $this->assertFalse($saved['jun']);
+        $this->assertTrue($saved['apr']);
+    }
+
+    #[DataProvider('pages')]
+    public function test_the_fee_summary_is_plain_rows(string $pageClass): void
+    {
+        $asha = $this->rider('Asha', null, 4400);   // Apr, May, Jul, Aug paid; Sep 400 of 1,000; Oct unpaid
+
+        $html = Livewire::test($pageClass)->set('activeTab', 'fees')
+            ->set('feeFilterRoute', (string) $this->route)->set('feeStudentId', $asha)->html();
+        $from = strpos($html, 'Monthly Fee Status');
+        $about = preg_replace('/\s+/', ' ', strip_tags(substr($html, 0, $from)));
+        $months = substr($html, $from, strpos($html, 'Transactions') - $from);
+        $text = preg_replace('/\s+/', ' ', strip_tags($months));
+
+        foreach ([
+            'Route Sector 12 · Bus', 'Pickup Time 07:30', 'Drop Time 14:00', 'Mobile 9876543210',
+            'Monthly Fee ₹1,000', 'Annual Fee ₹11,000 · 11 months', 'Paid ₹4,400 · 40% · 1 receipt', 'Remaining ₹6,600',
+        ] as $line) {
+            $this->assertStringContainsString($line, $about);
+        }
+
+        foreach ([
+            'Paid 4 · Partial 1 · Unpaid 1 · Upcoming 5',
+            'April 2026 Paid ₹1,000 ₹1,000', 'May 2026 Paid ₹1,000 ₹1,000 July 2026 Paid',   // no June
+            'September 2026 Partial ₹400 ₹1,000', 'October 2026 Unpaid ₹0 ₹1,000',
+            'November 2026 Upcoming — ₹1,000', 'March 2027 Upcoming — ₹1,000',
+        ] as $line) {
+            $this->assertStringContainsString($line, $text);
+        }
+        $this->assertStringNotContainsString('June', $text);
+        $this->assertMatchesRegularExpression('/text-red-600 font-medium">Unpaid</', $months);
+
+        // No coloured tiles, no progress bar.
+        $start = strrpos(substr($html, 0, $from), 'class="space-y-5"');
+        $area = substr($html, $start, strpos($html, 'Transactions') - $start);
+        foreach (['bg-emerald-50', 'bg-red-50', 'bg-amber-50', 'bg-emerald-500'] as $class) {
+            $this->assertStringNotContainsString($class, $area);
+        }
+        $this->assertStringContainsString('wire:click="editTransportStudent(' . $asha . ', ' . $this->route . ')"', $months);
     }
 }
