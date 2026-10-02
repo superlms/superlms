@@ -17,6 +17,9 @@
 
     // Hide modules this school has not been granted (core items always stay).
     $navItems = \App\Support\ModuleAccess::filterMenu($navItems, $authUser->organization);
+
+    // Screens that are opened from the More screen instead (Exam Copy).
+    $navItems = array_values(array_filter($navItems, fn($i) => ($i['sidebar'] ?? true) !== false));
 @endphp
 
 {{-- The school panel's own sidebar tweaks, on md+ (this partial is only

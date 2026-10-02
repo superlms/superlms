@@ -140,6 +140,13 @@ return [
             'icon' => 'queue-list',
             'prefix' => 'admin.lists',
         ],
+        // Was a tile on the More screen; it sits in the sidebar, under Lists.
+        [
+            'title' => 'Documents',
+            'link' => 'admin.documents',
+            'icon' => 'document-text',
+            'prefix' => 'admin.documents',
+        ],
         [
             'title' => 'Exam',
             'link' => 'admin.add-exam',
@@ -164,11 +171,15 @@ return [
             'icon' => 'arrow-trending-up',
             'prefix' => 'admin.performance',
         ],
+        // Opened from the More screen, not the sidebar ('sidebar' => false). It
+        // stays in this list so the page search, Quick Links and the screens a
+        // sub-admin can be granted go on finding it.
         [
             'title' => 'Exam Copy',
             'link' => 'admin.exam-copy',
             'icon' => 'document-text',
             'prefix' => 'admin.exam-copy',
+            'sidebar' => false,
         ],
         [
             'title' => 'Report Card',

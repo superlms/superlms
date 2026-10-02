@@ -12,8 +12,9 @@ class More extends Component
         ['title' => 'Users',               'route' => 'admin.users',                'icon' => 'user-group'],
         ['title' => 'Admissions',          'route' => 'admin.admissions',           'icon' => 'user-plus'],
         ['title' => 'Website Data',         'route' => 'admin.website-data',         'icon' => 'globe-alt'],
-        ['title' => 'Documents',            'route' => 'admin.documents',            'icon' => 'document-text'],
-        ['title' => 'Credit',              'route' => 'admin.credit',               'icon' => 'credit-card'],
+        // Documents moved to the sidebar (under Lists); Exam Copy came here from it.
+        ['title' => 'Exam Copy',            'route' => 'admin.exam-copy',            'icon' => 'document-text'],
+        ['title' => 'Credit',             'route' => 'admin.credit',               'icon' => 'credit-card'],
         ['title' => 'Rules & Regulation',  'route' => 'admin.rules-and-regulation', 'icon' => 'clipboard'],
         ['title' => 'Contact Admin',       'route' => 'admin.contact-admin',        'icon' => 'chat-bubble-left'],
         ['title' => 'About App',           'route' => 'admin.about-app',            'icon' => 'information-circle'],
@@ -31,9 +32,17 @@ class More extends Component
         $this->organization = request()->route('organization')
             ?? auth()->user()?->organization;
 
+        $user = auth()->user();
+
+        // A tile of a module the school has not been given is left out, as the
+        // sidebar leaves it out (Exam Copy belongs to one; the rest are core).
+        $this->items = array_values(array_filter(
+            $this->items,
+            fn (array $item) => \App\Support\ModuleAccess::allows($user?->organization, $item['route']),
+        ));
+
         // A sub-admin reaches this screen for Profile alone, so drop the tiles
         // their permissions would bounce them straight back off.
-        $user = auth()->user();
         if ($user?->role === 'sub-admin') {
             $this->items = array_values(array_filter(
                 $this->items,
