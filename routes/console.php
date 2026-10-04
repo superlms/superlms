@@ -23,6 +23,7 @@ Schedule::command('homework:purge-old')
 
 // Every midnight (IST): in each school that issues ID cards, give a card to the
 // students, teachers and employees added during the day — anyone without one.
+// Every other school's people added since 4 Oct 2026 get theirs the same night.
 // See App\Console\Commands\GenerateMissingIdCards.
 //
 // It runs again every half hour until 5:30 am. The command only fills gaps, so

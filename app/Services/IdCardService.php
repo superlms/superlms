@@ -71,6 +71,37 @@ class IdCardService
     {
         $persons = $this->personsWithoutActiveCard($organization, $type, $standardIds);
 
+        return $this->issueCards($organization, $type, $persons, $expiryDate, $userId, $qrSeconds);
+    }
+
+    /**
+     * The nightly run in a school that has never generated a batch: a card for
+     * each person of $type added on or after $addedFrom who has none. Those
+     * added before wait for the school's own Generate. Staff are the Employees
+     * tab's — management, employees and drivers; a teacher's staff row gets no
+     * card, the teacher has one of their own.
+     *
+     * @return array{generated:int, skipped:int, errors:array<int,string>}
+     */
+    public function generateForNewJoiners(Organization $organization, string $type, string $expiryDate, \DateTimeInterface $addedFrom): array
+    {
+        $persons = $this->personsWithoutActiveCard($organization, $type, null, $addedFrom);
+
+        if ($type === 'employee') {
+            $persons = $persons->reject(fn ($employee) => $employee->type === 'teacher');
+        }
+
+        return $this->issueCards($organization, $type, $persons, $expiryDate);
+    }
+
+    /**
+     * A card (and its QR) for each of $persons. With $qrSeconds, QR codes are
+     * drawn only for that long; every card is still created.
+     *
+     * @return array{generated:int, skipped:int, errors:array<int,string>}
+     */
+    private function issueCards(Organization $organization, string $type, $persons, string $expiryDate, ?int $userId = null, ?int $qrSeconds = null): array
+    {
         $generated = 0;
         $errors = [];
         $qrUntil = $qrSeconds !== null ? microtime(true) + $qrSeconds : null;
@@ -142,11 +173,13 @@ class IdCardService
     }
 
     /**
-     * Persons of the given type that don't yet have an active ID card.
+     * Persons of the given type that don't yet have an active ID card. With
+     * $addedFrom, only those added on or after it.
      */
-    public function personsWithoutActiveCard(Organization $organization, string $type, ?array $standardIds = null)
+    public function personsWithoutActiveCard(Organization $organization, string $type, ?array $standardIds = null, ?\DateTimeInterface $addedFrom = null)
     {
         $active = fn ($q) => $q->where('status', 'active');
+        $added  = fn ($q) => $addedFrom ? $q->where('created_at', '>=', $addedFrom) : $q;
 
         if ($type === 'student') {
             $query = StudentDetail::with(['standard', 'section', 'user'])
@@ -157,20 +190,20 @@ class IdCardService
                 $query->whereIn('standard_id', $standardIds);
             }
 
-            return $query->get();
+            return $added($query)->get();
         }
 
         if ($type === 'teacher') {
-            return TeacherDetail::with(['user', 'assignedClasses.standard', 'assignedClasses.section'])
+            return $added(TeacherDetail::with(['user', 'assignedClasses.standard', 'assignedClasses.section'])
                 ->where('organization_id', $organization->id)
-                ->whereDoesntHave('idCards', $active)
+                ->whereDoesntHave('idCards', $active))
                 ->get();
         }
 
         // employee — all admin employees
-        return AdminEmployee::with(['teacherDetail.user'])
+        return $added(AdminEmployee::with(['teacherDetail.user'])
             ->where('organization_id', $organization->id)
-            ->whereDoesntHave('idCards', $active)
+            ->whereDoesntHave('idCards', $active))
             ->get();
     }
 
