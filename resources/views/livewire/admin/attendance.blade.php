@@ -109,13 +109,8 @@
                             <option value="monthly">By Month</option>
                             <option value="yearly">Complete Year</option>
                         </select>
-                        @if ($tRange === 'yearly')
-                            {{-- The school year runs April → March, so the picker
-                                 takes its starting year: 2026 = Apr 26–Mar 27. --}}
-                            <select wire:key="t-byteacher-year" wire:model.live="tYear" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
-                                @foreach ($academicYears as $y)<option value="{{ $y }}">Apr {{ $y }} – Mar {{ $y + 1 }}</option>@endforeach
-                            </select>
-                        @else
+                        {{-- Complete Year is the running session (April → March): no year to pick. --}}
+                        @if ($tRange !== 'yearly')
                             <input type="month" wire:key="t-byteacher-month" wire:model.live="tMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
                         @endif
                     @endif
@@ -147,11 +142,7 @@
                             <option value="monthly">By Month</option>
                             <option value="yearly">Complete Year</option>
                         </select>
-                        @if ($stRange === 'yearly')
-                            <select wire:key="s-bystudent-year" wire:model.live="stYear" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
-                                @foreach ($academicYears as $y)<option value="{{ $y }}">Apr {{ $y }} – Mar {{ $y + 1 }}</option>@endforeach
-                            </select>
-                        @else
+                        @if ($stRange !== 'yearly')
                             <input type="month" wire:key="s-bystudent-month" wire:model.live="stMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate">
                         @endif
                     @endif

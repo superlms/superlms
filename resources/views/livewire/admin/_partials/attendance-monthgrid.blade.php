@@ -1,22 +1,26 @@
 {{--
-    Teacher attendance for one month as a grid: the dates down the first
-    column, one column per teacher, each cell that teacher's status that day.
+    Teacher attendance for one month as a grid: one row per teacher, the
+    month's dates across as columns, each cell that teacher's status that day.
+    The table is laid out to the card's width (table-fixed), so every date of
+    the month and the names fit without scrolling sideways; a long name is cut
+    with "…" (the whole name on hover). Totals sit in the last column.
     Expects: $grid (title, teachers, rows, totals), $statusPill, $statusText.
 --}}
 @php
-    $short = ['present' => 'P', 'absent' => 'A', 'half_day' => 'HD', 'holiday' => 'H', 'not_marked' => '—'];
+    $short = ['present' => 'P', 'absent' => 'A', 'half_day' => '½', 'holiday' => 'H', 'not_marked' => '·'];
+    // The Mark Attendance panel's soft tints.
+    $tint = [
+        'present'    => 'bg-emerald-50 text-emerald-700',
+        'absent'     => 'bg-red-50 text-red-600',
+        'half_day'   => 'bg-amber-50 text-amber-700',
+        'holiday'    => 'bg-indigo-50 text-indigo-700',
+        'not_marked' => 'text-gray-300',
+    ];
 @endphp
 <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-5">
-    <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
+    <div class="px-5 py-3.5 border-b border-gray-100 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h3 class="text-sm font-semibold text-gray-800">Teacher Attendance · {{ $grid['title'] }}</h3>
-        <div class="flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
-            @foreach (['present', 'absent', 'half_day', 'holiday', 'not_marked'] as $st)
-                <span class="inline-flex items-center gap-1">
-                    <span class="inline-flex items-center justify-center min-w-[1.5rem] px-1 py-0.5 rounded font-semibold {{ $statusPill($st) }}">{{ $short[$st] }}</span>
-                    {{ $statusText($st) }}
-                </span>
-            @endforeach
-        </div>
+        <p class="text-xs text-gray-400">P present · A absent · ½ half day · H holiday · <span class="text-gray-300">·</span> not marked</p>
     </div>
 
     @if (empty($grid['teachers']))
@@ -24,12 +28,11 @@
     @else
         {{-- The grid is as tall as the room left under the filter bar, so the
              whole card fits the window once the page's title and tabs have slid
-             away. At 70% of the window it was taller than that: the page ran on
-             a little further and stopped with this card's heading caught half
-             behind the filter bar. The height is kept on #main-scroll, outside
-             what Livewire re-renders, and measured again whenever the window,
-             the page header or the heading changes size. --}}
-        <div class="overflow-auto max-h-[70vh]" style="max-height: var(--lms-grid-h, 70vh)"
+             away; many teachers scroll up and down inside it, never sideways.
+             The height is kept on #main-scroll, outside what Livewire
+             re-renders, and measured again whenever the window, the page
+             header or the heading changes size. --}}
+        <div class="overflow-y-auto overflow-x-hidden max-h-[70vh]" style="max-height: var(--lms-grid-h, 70vh)"
             x-data="{
                 ro: null,
                 fit() {
@@ -54,48 +57,49 @@
                 destroy() { this.ro && this.ro.disconnect(); },
             }"
             x-on:resize.window.debounce.150ms="fit()">
-            <table class="min-w-full text-xs border-separate border-spacing-0">
+            <table class="w-full table-fixed text-[10px] border-separate border-spacing-0">
+                <colgroup>
+                    <col class="w-32 lg:w-44">
+                    @foreach ($grid['rows'] as $row)
+                        <col>
+                    @endforeach
+                    <col class="w-20">
+                </colgroup>
                 <thead>
                     <tr>
-                        <th class="sticky top-0 left-0 z-20 bg-gray-50 border-b border-r border-gray-200 px-3 py-2 text-left align-bottom font-semibold text-gray-500 uppercase whitespace-nowrap">Date</th>
-                        @foreach ($grid['teachers'] as $t)
-                            {{-- Names run bottom to top, so each column is only as wide as a cell. --}}
-                            <th class="sticky top-0 z-10 bg-gray-50 border-b border-gray-200 px-1 py-2 align-bottom font-medium text-gray-700" title="{{ $t['name'] }}">
-                                <span class="inline-block max-h-40 overflow-hidden text-ellipsis whitespace-nowrap [writing-mode:vertical-rl] rotate-180">{{ $t['name'] }}</span>
+                        <th class="sticky top-0 z-10 bg-gray-50 border-b border-r border-gray-200 px-3 py-2 text-left font-semibold text-gray-500 uppercase text-[10px]">Teacher</th>
+                        @foreach ($grid['rows'] as $row)
+                            <th class="sticky top-0 z-10 border-b border-gray-200 px-0 py-1.5 text-center font-medium leading-tight
+                                       {{ $row['today'] ? 'bg-blue-50 text-blue-700' : ($row['sunday'] ? 'bg-gray-100 text-gray-400' : 'bg-gray-50 text-gray-600') }}"
+                                title="{{ $row['label'] }} · {{ $row['dow'] }}">
+                                <span class="block tabular-nums">{{ (int) substr($row['date'], 8, 2) }}</span>
+                                <span class="block text-[8px] text-gray-400 font-normal">{{ substr($row['dow'], 0, 1) }}</span>
                             </th>
                         @endforeach
+                        <th class="sticky top-0 z-10 bg-gray-50 border-b border-l border-gray-200 px-1 py-2 text-center font-semibold text-gray-500 uppercase text-[10px]">Total</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($grid['rows'] as $row)
-                        <tr wire:key="tmg-{{ $row['date'] }}" class="{{ $row['sunday'] ? 'bg-gray-50' : '' }}">
-                            <td class="sticky left-0 z-10 border-b border-r border-gray-100 px-3 py-1.5 whitespace-nowrap {{ $row['today'] ? 'bg-blue-50 text-blue-700 font-semibold' : ($row['sunday'] ? 'bg-gray-50 text-gray-400' : 'bg-white text-gray-700') }}">
-                                {{ $row['label'] }} <span class="text-gray-400 font-normal">{{ $row['dow'] }}</span>
-                            </td>
-                            @foreach ($grid['teachers'] as $t)
+                    @foreach ($grid['teachers'] as $t)
+                        @php $tot = $grid['totals'][$t['id']]; @endphp
+                        <tr wire:key="tmg-{{ $t['id'] }}" class="hover:bg-gray-50/60">
+                            <td class="border-b border-r border-gray-100 px-3 py-1.5 text-xs text-gray-800 truncate" title="{{ $t['name'] }}">{{ $t['name'] }}</td>
+                            @foreach ($grid['rows'] as $row)
                                 @php $st = $row['cells'][$t['id']] ?? null; @endphp
-                                <td class="border-b border-gray-100 px-1 py-1.5 text-center">
+                                <td class="border-b border-gray-100 p-[1px] text-center {{ $row['sunday'] ? 'bg-gray-50' : '' }}">
                                     @if ($st)
-                                        <span class="inline-flex items-center justify-center min-w-[1.75rem] px-1 py-0.5 rounded font-semibold {{ $statusPill($st) }}" title="{{ $t['name'] }} · {{ $row['label'] }} · {{ $statusText($st) }}">{{ $short[$st] ?? '—' }}</span>
+                                        <span class="block rounded-sm py-1 leading-none font-medium {{ $tint[$st] ?? $tint['not_marked'] }}"
+                                            title="{{ $t['name'] }} · {{ $row['label'] }} · {{ $statusText($st) }}">{{ $short[$st] ?? '·' }}</span>
                                     @endif
                                 </td>
                             @endforeach
+                            <td class="border-b border-l border-gray-100 px-1.5 py-1 text-center leading-4 tabular-nums whitespace-nowrap">
+                                <span class="text-gray-700">P {{ $tot['present'] }}</span><span class="text-gray-300"> · </span><span class="{{ $tot['absent'] ? 'text-red-600' : 'text-gray-400' }}">A {{ $tot['absent'] }}</span>
+                                @if ($tot['half_day'])<span class="block text-amber-700">½ {{ $tot['half_day'] }}</span>@endif
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>
-                <tfoot>
-                    <tr>
-                        <td class="sticky left-0 z-10 bg-gray-50 border-r border-gray-200 px-3 py-2 font-semibold text-gray-500 uppercase whitespace-nowrap">Total</td>
-                        @foreach ($grid['teachers'] as $t)
-                            @php $tot = $grid['totals'][$t['id']]; @endphp
-                            <td class="bg-gray-50 px-1 py-2 text-center whitespace-nowrap text-[11px] leading-5">
-                                <span class="text-emerald-700 font-semibold">P {{ $tot['present'] }}</span>
-                                <span class="text-red-600 font-semibold ml-1">A {{ $tot['absent'] }}</span>
-                                @if ($tot['half_day'])<span class="text-amber-700 font-semibold ml-1">HD {{ $tot['half_day'] }}</span>@endif
-                            </td>
-                        @endforeach
-                    </tr>
-                </tfoot>
             </table>
         </div>
     @endif

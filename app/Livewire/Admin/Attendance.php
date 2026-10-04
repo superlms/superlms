@@ -176,9 +176,33 @@ class Attendance extends Component
         $this->mainTab = $tab;
     }
 
+    /**
+     * By Date / By Month / By Teacher: each view starts on its own defaults —
+     * today, this month, no teacher, a month (not the year), every status — so
+     * nothing picked in the last one is carried over.
+     */
     public function switchTeacherView(string $v): void
     {
+        if ($v !== $this->teacherView) {
+            $this->tDate         = now()->toDateString();
+            $this->tByDateStatus = '';
+            $this->tMonth        = now()->format('Y-m');
+            $this->tTeacherId    = '';
+            $this->tRange        = 'monthly';
+            $this->tYear         = (string) self::academicYearOf(now());
+        }
         $this->teacherView = $v;
+    }
+
+    /** Complete Year is always the running session (the year box is off the page). */
+    public function updatedTRange(): void
+    {
+        $this->tYear = (string) self::academicYearOf(now());
+    }
+
+    public function updatedStRange(): void
+    {
+        $this->stYear = (string) self::academicYearOf(now());
     }
 
     public function switchStudentView(string $v): void

@@ -14,8 +14,11 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
- * Teacher Attendance → By Month: the month's dates down the side, a column per
- * teacher, each cell that teacher's status that day.
+ * Teacher Attendance → By Month: a row per teacher, the month's dates across,
+ * each cell that teacher's status that day — laid out to the card's width so
+ * nothing scrolls sideways. Switching By Date / By Month / By Teacher starts
+ * each on its own defaults; Complete Year is the running session (no year box)
+ * and the month cards are the quiet Mark Attendance look.
  */
 class TeacherMonthGridTest extends TestCase
 {
@@ -167,5 +170,71 @@ class TeacherMonthGridTest extends TestCase
             ->assertSee('30 Sep')
             ->assertSee('Asha')
             ->assertSee('P 1');
+    }
+
+    public function test_a_row_per_teacher_with_the_dates_across_and_a_long_name_cut_short(): void
+    {
+        $asha = $this->teacher('Asha Kumari Shrivastava Devi');
+        $this->teacher('Bina');
+
+        $html = \Livewire\Livewire::test(AdminAttendancePage::class)
+            ->call('switchTeacherView', 'by_month')
+            ->set('tMonth', '2026-09')
+            ->html();
+
+        $this->assertStringContainsString('w-full table-fixed', $html);
+        $this->assertStringContainsString('overflow-y-auto overflow-x-hidden', $html);
+        $this->assertStringContainsString('wire:key="tmg-' . $asha . '"', $html);
+        $this->assertStringContainsString('truncate" title="Asha Kumari Shrivastava Devi"', $html);
+        // Thirty date columns in the head, then Total.
+        $head = substr($html, strpos($html, '<thead>'), strpos($html, '</thead>') - strpos($html, '<thead>'));
+        $this->assertSame(32, substr_count($head, '<th '));
+    }
+
+    #[DataProvider('pages')]
+    public function test_switching_views_leaves_nothing_of_the_last_one(string $pageClass): void
+    {
+        $asha = $this->teacher('Asha');
+        $page = new $pageClass();
+        $page->mount();
+
+        $page->switchTeacherView('by_teacher');
+        $page->tTeacherId = (string) $asha;
+        $page->tRange = 'yearly';
+        $page->tMonth = '2026-05';
+        $page->switchTeacherView('by_month');
+        $this->assertSame(['', 'monthly', '2026-09'], [$page->tTeacherId, $page->tRange, $page->tMonth]);
+
+        $page->tTeacherId = (string) $asha;
+        $page->switchTeacherView('by_date');
+        $this->assertSame('', $page->tTeacherId);
+
+        $page->tDate = '2026-09-01';
+        $page->tByDateStatus = 'absent';
+        $page->switchTeacherView('by_teacher');
+        $this->assertSame(['2026-09-17', ''], [$page->tDate, $page->tByDateStatus]);
+
+        // Clicking the view already open keeps what is picked.
+        $page->tTeacherId = (string) $asha;
+        $page->switchTeacherView('by_teacher');
+        $this->assertSame((string) $asha, $page->tTeacherId);
+    }
+
+    public function test_complete_year_is_the_running_session_in_quiet_month_cards(): void
+    {
+        $asha = $this->teacher('Asha');
+        $this->mark($asha, '2026-09-01', 1);
+
+        \Livewire\Livewire::test(AdminAttendancePage::class)
+            ->call('switchTeacherView', 'by_teacher')
+            ->set('tTeacherId', (string) $asha)
+            ->set('tYear', '2024')
+            ->set('tRange', 'yearly')
+            ->assertSet('tYear', '2026')
+            ->assertDontSeeHtml('wire:model.live="tYear"')
+            ->assertViewHas('tCardsTitle', 'Apr 2026 – Mar 2027')
+            ->assertSee('September 2026')
+            ->assertDontSeeHtml('bg-gradient-to-r from-purple-50')
+            ->assertSeeHtml('bg-emerald-50 text-emerald-700');
     }
 }
