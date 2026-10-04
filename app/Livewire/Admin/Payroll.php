@@ -45,6 +45,9 @@ class Payroll extends Component
     /** The Mark Attendance panel's own order: teachers first; A to Z within a type. */
     public const MARK_ORDER = ['teacher' => 1, 'management' => 2, 'driver' => 3, 'employee' => 4];
 
+    /** Absences a month that are a paid leave — no pay is cut for them. */
+    public const PAID_LEAVES_A_MONTH = 1;
+
     /**
      * What a row may be marked in that panel — the same four for everyone:
      * present, absent, half day, holiday. Staff could be put on Leave as well;
@@ -161,6 +164,11 @@ class Payroll extends Component
     public string $spDate             = '';
     public string $spFrom             = '';
     public string $spRemark           = '';
+    // A month's own screen (the arrow on its row): its salary, attendance and
+    // salary so far, then the payments kept against it; its Add Payment keeps
+    // the payment against that month (spMonth), whatever day it is paid on.
+    public string $salaryMonthView    = '';
+    public string $spMonth            = '';
 
     // ─── Payments History ─────────────────────────────────────────────────────
     // Filter: a type, then one of its people, then a month (the search box is off the page).
@@ -802,6 +810,7 @@ class Payroll extends Component
         $this->attendanceDraft = [];
         $this->closeMarkPanel();
         $this->showSalaryPayPanel = false;
+        $this->salaryMonthView    = '';
     }
 
     // ─── Mark Attendance panel: everyone at once ──────────────────────────────
@@ -1355,8 +1364,9 @@ class Payroll extends Component
 
     /**
      * Attendance-based payable for an employee in the selected salary month.
-     * Present / leave / unmarked days are paid in full; each absent is a full
-     * per-day cut and each half day a half cut.
+     * Present / leave / unmarked days are paid in full. The month's first
+     * absent is a paid leave and costs nothing; each absent after it is a full
+     * per-day cut (eight absents cut seven days), and each half day a half cut.
      */
     private function salaryBreakdown(AdminEmployee $emp, $adminGrouped, $teacherGrouped, ?string $month = null): array
     {
@@ -1381,16 +1391,27 @@ class Payroll extends Component
         }
 
         $perDay    = $daysInMonth > 0 ? $base / $daysInMonth : 0;
-        $deduction = ($absent + 0.5 * $halfDay) * $perDay;
+        $paidLeave = min($absent, self::PAID_LEAVES_A_MONTH);
+        $cutDays   = ($absent - $paidLeave) + 0.5 * $halfDay;
+        $deduction = $cutDays * $perDay;
         $payable   = max(0, round($base - $deduction));
 
-        return compact('present', 'absent', 'halfDay', 'leave', 'payable') + ['base' => $base];
+        return compact('present', 'absent', 'halfDay', 'leave', 'payable', 'paidLeave', 'cutDays')
+            + ['base' => $base, 'perDay' => $perDay, 'deduction' => max(0, $base - $payable)];
     }
 
     /** Another type starts over on its people. */
     public function updatedSalaryType(): void
     {
         $this->salaryEmpId = '';
+        $this->salaryMonthView = '';
+        $this->closeSalaryPayment();
+    }
+
+    /** Someone else picked: back to their months. */
+    public function updatedSalaryEmpId(): void
+    {
+        $this->salaryMonthView = '';
         $this->closeSalaryPayment();
     }
 
@@ -1398,7 +1419,25 @@ class Payroll extends Component
     {
         $this->salaryType  = '';
         $this->salaryEmpId = '';
+        $this->salaryMonthView = '';
         $this->closeSalaryPayment();
+    }
+
+    /** The arrow on a month's row: that month's own screen. */
+    public function openSalaryMonth(string $ym): void
+    {
+        if (!$this->salaryPerson() || !preg_match('/^\d{4}-\d{2}$/', $ym)) {
+            return;
+        }
+        $this->closeSalaryPayment();
+        $this->salaryMonthView = $ym;
+    }
+
+    /** Back from a month's screen to the person's months. */
+    public function closeSalaryMonth(): void
+    {
+        $this->closeSalaryPayment();
+        $this->salaryMonthView = '';
     }
 
     /** The person the Mark Salary tab is on, if one is picked (and is this school's). */
@@ -1469,12 +1508,18 @@ class Payroll extends Component
                 'half'     => $b['halfDay'],
                 'leave'    => $b['leave'],
                 'payable'  => (float) $b['payable'],
+                'paid_leave' => $b['paidLeave'],
+                'cut_days'   => $b['cutDays'],
+                'per_day'    => (float) $b['perDay'],
+                'deduction'  => (float) $b['deduction'],
                 'paid'     => (float) $paid->sum('amount'),
                 'payments' => $paid->map(fn ($p) => [
+                    'id'     => $p->id,
                     'amount' => (float) $p->amount,
                     'date'   => $p->payment_date?->format('d M Y') ?? '—',
                     'from'   => $p->paid_by,
                     'remark' => $p->remark,
+                    'mode'   => $p->payment_mode,
                 ])->values()->all(),
             ];
 
@@ -1490,14 +1535,19 @@ class Payroll extends Component
         ];
     }
 
-    /** The header's Add Payment: a blank form on today, from the person signed in. */
-    public function openSalaryPayment(): void
+    /**
+     * The header's Add Payment: a blank form on today, from the person signed
+     * in. From a month's screen ($month) the payment is kept against that
+     * month; from the header, against the month of its date (as before).
+     */
+    public function openSalaryPayment(?string $month = null): void
     {
         if (!$this->salaryPerson()) {
             return;
         }
 
         $this->resetValidation();
+        $this->spMonth  = ($month !== null && preg_match('/^\d{4}-\d{2}$/', $month) && $month <= now()->format('Y-m')) ? $month : '';
         $this->spAmount = '';
         $this->spDate   = now()->toDateString();
         $this->spFrom   = (string) (Auth::user()->name ?? '');
@@ -1508,6 +1558,7 @@ class Payroll extends Component
     public function closeSalaryPayment(): void
     {
         $this->showSalaryPayPanel = false;
+        $this->spMonth = '';
         $this->resetValidation(['spAmount', 'spDate', 'spFrom', 'spRemark']);
     }
 
@@ -1539,10 +1590,15 @@ class Payroll extends Component
             'spRemark' => 'remark',
         ]);
 
+        // A month's screen hands its own month; anything else is not one.
+        if ($this->spMonth !== '' && (!preg_match('/^\d{4}-\d{2}$/', $this->spMonth) || $this->spMonth > now()->format('Y-m'))) {
+            $this->spMonth = '';
+        }
+
         AdminSalaryPayment::create([
             'admin_employee_id' => $emp->id,
             'organization_id'   => $this->orgId(),
-            'month'             => Carbon::parse($this->spDate)->format('Y-m'),
+            'month'             => $this->spMonth !== '' ? $this->spMonth : Carbon::parse($this->spDate)->format('Y-m'),
             'amount'            => $this->spAmount,
             'payment_mode'      => 'cash',
             'paid_by'           => $this->spFrom,

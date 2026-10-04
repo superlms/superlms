@@ -523,9 +523,9 @@ class PayrollPanelTest extends TestCase
             ->assertViewHas('salaryBreakdowns', function ($b) use ($row, $days) {
                 $r = $b[$row->id];
 
-                // One absent (₹1,000) and one half day (₹500) cut — the holidays cost nothing.
+                // The one absent is the month's paid leave; the half day cuts ₹500 — the holidays cost nothing.
                 return $r['present'] === 1 && $r['absent'] === 1 && $r['halfDay'] === 1
-                    && (float) $r['payable'] === (float) ($days * 1000 - 1500);
+                    && (float) $r['payable'] === (float) ($days * 1000 - 500);
             });
 
         // And the month's calendar reads them as holidays.
@@ -608,7 +608,7 @@ class PayrollPanelTest extends TestCase
             $ravi = $this->staff('Ravi Kumar', 'driver', ['mobile' => '9811111111', 'bank_name' => 'SBI']);
             $ravi->update(['salary' => 30000]);
             $this->staff('Zoya', 'employee');
-            // September (30 days, ₹1,000 a day): an absent and a half day.
+            // September (30 days, ₹1,000 a day): an absent (the paid leave) and a half day.
             AdminAttendance::create(['organization_id' => $this->org, 'admin_employee_id' => $ravi->id, 'date' => '2026-09-03', 'status' => 'absent']);
             AdminAttendance::create(['organization_id' => $this->org, 'admin_employee_id' => $ravi->id, 'date' => '2026-09-04', 'status' => 'half_day']);
             AdminAttendance::create(['organization_id' => $this->org, 'admin_employee_id' => $ravi->id, 'date' => '2026-09-05', 'status' => 'present']);
@@ -631,11 +631,11 @@ class PayrollPanelTest extends TestCase
                     $months = collect($acc['months'])->keyBy('ym');
 
                     return $months->keys()->all() === ['2026-10', '2026-09', '2026-08', '2026-07', '2026-06', '2026-05', '2026-04']
-                        && $months['2026-09']['payable'] === 28500.0
+                        && $months['2026-09']['payable'] === 29500.0
                         && [$months['2026-09']['present'], $months['2026-09']['absent'], $months['2026-09']['half']] === [1, 1, 1]
                         && $months['2026-08']['payable'] === 30000.0
                         && $months['2026-10']['running'] === true
-                        && $acc['payable'] === 208500.0 && $acc['paid'] === 0.0 && $acc['balance'] === 208500.0;
+                        && $acc['payable'] === 209500.0 && $acc['paid'] === 0.0 && $acc['balance'] === 209500.0;
                 });
 
             // Add Payment: amount, date, from and a remark.
@@ -668,12 +668,119 @@ class PayrollPanelTest extends TestCase
                     $oct = collect($acc['months'])->firstWhere('ym', '2026-10');
 
                     return $oct['paid'] === 30000.0 && count($oct['payments']) === 2
-                        && $acc['paid'] === 30000.0 && $acc['balance'] === 178500.0;
+                        && $acc['paid'] === 30000.0 && $acc['balance'] === 179500.0;
                 });
             $this->assertSame(2, \App\Models\Admin\AdminSalaryPayment::count());
 
             // Another type starts over on its people.
             $page->set('salaryType', 'employee')->assertSet('salaryEmpId', '')->assertViewHas('salaryPerson', null);
+        } finally {
+            \Illuminate\Support\Carbon::setTestNow();
+        }
+    }
+
+    public function test_one_absent_a_month_is_a_paid_leave_and_each_one_after_it_cuts_a_day(): void
+    {
+        $page = new PayrollPage();
+        $emp  = tap($this->staff('Ravi', 'employee'))->update(['salary' => 30000]);   // September: ₹1,000 a day
+        $run  = fn (array $statuses) => (fn () => $this->salaryBreakdown(
+            $emp,
+            collect([$emp->id => collect(array_map(fn ($s) => (object) ['status' => $s], $statuses))]),
+            [],
+            '2026-09'
+        ))->call($page);
+
+        // No absent: nothing cut, the paid leave not used.
+        $b = $run(['present', 'present']);
+        $this->assertSame([30000.0, 0, 0.0], [(float) $b['payable'], $b['paidLeave'], (float) $b['cutDays']]);
+
+        // One absent: the paid leave, nothing cut.
+        $b = $run(['absent', 'present']);
+        $this->assertSame([30000.0, 1], [(float) $b['payable'], $b['paidLeave']]);
+
+        // Eight absents: seven days cut.
+        $b = $run(array_fill(0, 8, 'absent'));
+        $this->assertSame([23000.0, 1, 7.0], [(float) $b['payable'], $b['paidLeave'], (float) $b['cutDays']]);
+        $this->assertEquals(7000, $b['deduction']);
+
+        // A half day still costs half a day; the paid leave is for an absent.
+        $b = $run(['absent', 'absent', 'half_day']);
+        $this->assertSame([28500.0, 1.5], [(float) $b['payable'], (float) $b['cutDays']]);
+    }
+
+    public function test_a_months_arrow_opens_its_screen_with_its_payments_and_an_add_payment_for_it(): void
+    {
+        \Illuminate\Support\Carbon::setTestNow('2026-10-15 11:00:00');
+        try {
+            $ravi = tap($this->staff('Ravi Kumar', 'driver'))->update(['salary' => 30000]);
+            // September: three absents — one paid leave, two days cut (₹2,000).
+            foreach (['03', '04', '05'] as $d) {
+                AdminAttendance::create(['organization_id' => $this->org, 'admin_employee_id' => $ravi->id, 'date' => "2026-09-$d", 'status' => 'absent']);
+            }
+            AdminAttendance::create(['organization_id' => $this->org, 'admin_employee_id' => $ravi->id, 'date' => '2026-09-06', 'status' => 'present']);
+
+            $page = Livewire::test(PayrollPage::class)
+                ->set('activeTab', 'salary')->set('salaryType', 'driver')->set('salaryEmpId', (string) $ravi->id)
+                // Every month's row ends in the arrow.
+                ->assertSeeHtml("wire:click=\"openSalaryMonth('2026-09')\"")
+                ->assertSeeHtml("wire:click=\"openSalaryMonth('2026-10')\"")
+                ->call('openSalaryMonth', '2026-09')
+                ->assertSet('salaryMonthView', '2026-09')
+                // Its own header: back and an Add Payment for this month (the page's own is not shown).
+                ->assertSeeHtml('wire:click="closeSalaryMonth"')
+                ->assertSeeHtml("wire:click=\"openSalaryPayment('2026-09')\"")
+                ->assertDontSeeHtml('wire:click="openSalaryPayment"')
+                // First the salary, the attendance and the salary it works out to.
+                ->assertSee('Monthly salary')
+                ->assertSee('₹30,000')
+                ->assertSee('1 absent counted as a paid leave')
+                ->assertSee('Salary for the month')
+                ->assertSee('₹28,000')
+                ->assertSee('2 days cut · ₹2,000')
+                ->assertSee('No payment in September 2026 yet.');
+
+            // A payment made today for September is kept against September.
+            $page->call('openSalaryPayment', '2026-09')
+                ->assertSet('spMonth', '2026-09')
+                ->assertSet('spDate', '2026-10-15')
+                ->assertSee('Ravi Kumar · September 2026 · balance ₹28,000')
+                ->set('spAmount', '20000')->set('spFrom', 'Head')->set('spRemark', 'Part')
+                ->call('saveSalaryPayment')
+                ->assertHasNoErrors()
+                ->assertSet('showSalaryPayPanel', false)
+                ->assertSet('salaryMonthView', '2026-09');
+            $this->assertSame(['2026-09', '2026-10-15'], [
+                \App\Models\Admin\AdminSalaryPayment::first()->month,
+                \App\Models\Admin\AdminSalaryPayment::first()->payment_date->toDateString(),
+            ]);
+
+            // Its payments are listed; more than the salary is shown as such.
+            $page->call('openSalaryPayment', '2026-09')->set('spAmount', '9000')->set('spFrom', 'Head')->set('spDate', '2026-10-14')
+                ->call('saveSalaryPayment')
+                ->assertHasNoErrors()
+                ->assertSee('Part')
+                ->assertSee('₹20,000')
+                ->assertSee('₹9,000')
+                ->assertSee('Total · 2 payments')
+                ->assertSee('Paid extra')
+                ->assertSee("₹1,000 has been paid over this month's salary", false);
+
+            // Back: the person's months again, with the page's own Add Payment,
+            // which still keeps a payment against the month of its date.
+            $page->call('closeSalaryMonth')
+                ->assertSet('salaryMonthView', '')
+                ->assertSeeHtml('wire:click="openSalaryPayment"')
+                ->call('openSalaryPayment')
+                ->assertSet('spMonth', '')
+                ->set('spAmount', '500')->set('spFrom', 'Head')->set('spDate', '2026-10-02')
+                ->call('saveSalaryPayment')
+                ->assertHasNoErrors();
+            $this->assertSame('2026-10', \App\Models\Admin\AdminSalaryPayment::latest('id')->first()->month);
+
+            // Someone else picked: back to their months.
+            $page->call('openSalaryMonth', '2026-09')
+                ->set('salaryEmpId', (string) $this->staff('Zed', 'driver')->id)
+                ->assertSet('salaryMonthView', '');
         } finally {
             \Illuminate\Support\Carbon::setTestNow();
         }

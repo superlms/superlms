@@ -104,7 +104,8 @@ class AdminPayrollApiTest extends TestCase
         $this->assertTrue($d['can_pay']);
         $this->assertSame(2, $row['breakdown']['absent']);
         $this->assertSame(1, $row['breakdown']['half_day']);
-        $this->assertSame((float) ($days * 1000 - 2500), (float) $row['breakdown']['payable']);
+        // The first absent is the month's paid leave: one absent and a half day cut.
+        $this->assertSame((float) ($days * 1000 - 1500), (float) $row['breakdown']['payable']);
 
         $paid = $this->api()->pay(new Request([
             'month' => $month, 'amount' => $row['breakdown']['payable'], 'mode' => 'bank_transfer', 'paid_by' => 'Head', 'date' => now()->toDateString(),
