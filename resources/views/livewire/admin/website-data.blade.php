@@ -1,7 +1,7 @@
 <div class="min-h-screen bg-gray-50">
 
     {{-- ══════════ TOP BAR ══════════ --}}
-    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 sticky top-0 z-40">
+    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sticky top-0 z-40">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div class="flex items-center gap-3 min-w-0">
                 <a href="{{ route('admin.more', ['organization' => $organization?->id]) }}" class="p-2 -ml-2 text-gray-400 hover:text-gray-600">
@@ -20,7 +20,7 @@
             </div>
         </div>
         {{-- Tabs --}}
-        <nav class="flex gap-1 mt-3 -mb-4 overflow-x-auto">
+        <nav class="flex gap-1 mt-3 -mb-3 overflow-x-auto">
             @foreach (['details' => 'Details', 'about' => 'About', 'leadership' => 'Leadership', 'facilities' => 'Facilities', 'admission' => 'Admissions', 'gallery' => 'Gallery', 'pages' => 'Pages', 'documents' => 'Documents', 'results' => 'Results'] as $tab => $label)
                 <button wire:click="switchTab('{{ $tab }}')"
                     class="py-2.5 px-4 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors

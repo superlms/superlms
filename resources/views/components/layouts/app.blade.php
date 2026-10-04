@@ -92,6 +92,21 @@
         #main-scroll:has(.lms-cover) { z-index: 60; }
         #main-scroll .lms-cover { inset: 0 !important; }
 
+        /* ─── The page's scrollbar on the right: a hairline, as the sidebar's ───
+           The same thin bar for a slide-in panel's own scrolling body. */
+        #main-scroll::-webkit-scrollbar,
+        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"] .overflow-y-auto::-webkit-scrollbar { width: 3px; }
+        #main-scroll::-webkit-scrollbar-track,
+        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"] .overflow-y-auto::-webkit-scrollbar-track { background: transparent; }
+        #main-scroll::-webkit-scrollbar-thumb,
+        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"] .overflow-y-auto::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+        #main-scroll::-webkit-scrollbar-button,
+        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"] .overflow-y-auto::-webkit-scrollbar-button { display: none; }
+        @supports not selector(::-webkit-scrollbar) {
+            #main-scroll,
+            #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"] .overflow-y-auto { scrollbar-width: thin; scrollbar-color: #d1d5db transparent; }
+        }
+
         /* ─── Slide-in panels (Add / Edit): the Mark Attendance panel's look ───
            Every slide-in that holds fields to fill — `absolute top-0 right-0
            bottom-0 w-full max-w-…` inside its `fixed` overlay, with a text box,

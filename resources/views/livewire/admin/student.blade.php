@@ -54,7 +54,7 @@
              Teachers: the layout slides the header up by the height of these
              rows, so spacing on the header itself (or a margin on the filter
              bar) would be left out and a slice of the title stayed in view. --}}
-        <div class="pt-4 sm:pt-5 pb-3 sm:pb-4">
+        <div class="py-3">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Students</h1>

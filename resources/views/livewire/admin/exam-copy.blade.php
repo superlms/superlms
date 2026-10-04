@@ -85,7 +85,7 @@
                 </select>
 
                 <input wire:model.live.debounce.400ms="search" type="text" placeholder="Search name, admission no, subject..."
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 flex-[1_1_6rem] min-w-0 max-w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
 
                 @if ($search || $filterExam || $filterStandard || $filterSection || $filterSubject || $filterStudent)
                     <button wire:click="clearSubjectFilters"

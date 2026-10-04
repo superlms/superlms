@@ -80,7 +80,7 @@
                   + 2 tabs (School Profile / School Info)
     ══════════════════════════════════════════════════ --}}
     <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div class="px-3 sm:px-6 py-3 sm:py-4">
+        <div class="px-3 sm:px-6 py-3">
             <div class="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
 
                 {{-- Compact logo with small "change" overlay (about-app sized) --}}
