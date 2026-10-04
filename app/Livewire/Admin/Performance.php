@@ -64,6 +64,9 @@ class Performance extends Component
     public array  $perfStudents = [];
     public array  $perfSubjects = [];
     public array  $performers   = [];
+    // A performer's View: the exam, class and section, and their marks subject by subject.
+    public bool   $showPerformerView = false;
+    public array  $performerView     = [];
 
     // ─── Shared lookup ────────────────────────────────────────────────────────
     public $exams     = [];
@@ -429,7 +432,9 @@ class Performance extends Component
         $query = ExamCopy::with(['studentDetail.user', 'studentDetail.standard', 'studentDetail.section'])
             ->where('organization_id', $orgId)
             ->where('standard_id', $this->perfStandard)
-            ->where('section_id',  $this->perfSection);
+            ->where('section_id',  $this->perfSection)
+            // A deleted student's marks stay behind (no FK) — they are not ranked.
+            ->whereHas('studentDetail');
 
         if ($this->perfExam)    $query->where('exam_id',           $this->perfExam);
         if ($this->perfSubject) $query->where('subject_id',        $this->perfSubject);
@@ -471,6 +476,68 @@ class Performance extends Component
         unset($d);
 
         $this->performers = array_values($totals);
+    }
+
+    /**
+     * A performer's View: the exam, their class and section, and what they got
+     * in each subject of that exam, with the total.
+     */
+    public function viewPerformer(int $studentDetailId): void
+    {
+        if (!$this->perfExam) {
+            return;
+        }
+        $orgId   = Auth::user()->organization_id;
+        $student = StudentDetail::with(['user:id,name,image', 'standard:id,name', 'section:id,name'])
+            ->where('organization_id', $orgId)->find($studentDetailId);
+        $exam    = Exam::where('organization_id', $orgId)->find($this->perfExam);
+        if (!$student || !$exam) {
+            $this->notification()->error('Record not found!');
+            return;
+        }
+
+        $copies = ExamCopy::with('subject:id,name')
+            ->where('organization_id', $orgId)
+            ->where('exam_id', $exam->id)
+            ->where('student_detail_id', $student->id)
+            ->get()
+            ->sortBy(fn ($c) => mb_strtolower((string) ($c->subject?->name ?? '')))
+            ->values();
+
+        $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ''), '0'), '.');
+        $obtained = (float) $copies->where('is_absent', false)->sum('marks_obtained');
+        $max      = (float) $copies->sum('max_marks');
+        $pct      = $max > 0 ? round($obtained / $max * 100, 2) : 0;
+        $rank     = collect($this->performers)->first(fn ($p) => (int) ($p['student']->id ?? $p['student']['id'] ?? 0) === (int) $student->id)['rank'] ?? null;
+
+        $this->performerView = [
+            'name'      => $student->full_name ?: ($student->user?->name ?? 'N/A'),
+            'admission' => $student->admission_no,
+            'image'     => $student->user?->image ?: $student->image,
+            'exam'      => $exam->exam_name,
+            'class'     => $student->standard?->name ?? '—',
+            'section'   => $student->section?->name ?? '—',
+            'rank'      => $rank,
+            'subjects'  => $copies->map(fn ($c) => [
+                'subject'  => $c->subject?->name ?? '—',
+                'absent'   => (bool) $c->is_absent,
+                'obtained' => $num($c->marks_obtained),
+                'max'      => $num($c->max_marks),
+                'pct'      => $c->is_absent ? null : $num($c->percentage),
+                'grade'    => $c->is_absent ? 'AB' : $c->grade_letter,
+            ])->all(),
+            'obtained'  => $num($obtained),
+            'max'       => $num($max),
+            'pct'       => $num($pct),
+            'grade'     => $this->calculateGrade($pct),
+        ];
+        $this->showPerformerView = true;
+    }
+
+    public function closePerformerView(): void
+    {
+        $this->showPerformerView = false;
+        $this->performerView     = [];
     }
 
     // ─── View / Edit ─────────────────────────────────────────────────────────
@@ -664,7 +731,7 @@ class Performance extends Component
                 'admission_no'   => $student->admission_no,
                 'image'          => $student->image,
                 // Absent students keep the input blank (so a "0" isn't shown/re-saved as a mark).
-                'marks_obtained' => $existing && !$isAbsent ? (string) $existing->marks_obtained : '',
+                'marks_obtained' => $existing && !$isAbsent ? rtrim(rtrim(number_format((float) $existing->marks_obtained, 2, '.', ''), '0'), '.') : '',
                 'max_marks'      => $existing ? (int) $existing->max_marks : $max,
                 'grade'          => $existing ? $existing->grade : '',
                 'remarks'        => $existing ? ($existing->remarks ?? '') : '',
@@ -689,7 +756,48 @@ class Performance extends Component
     public function render()
     {
         $examCopies = $this->getExamCopies();
-        return view('livewire.admin.performance', compact('examCopies'));
+        $headStats  = $this->headStats();
+        return view('livewire.admin.performance', compact('examCopies', 'headStats'));
+    }
+
+    /**
+     * The header's figures, for what the open tab's filters pick: the students
+     * of the class / section chosen (the whole school when none; one when a
+     * student is picked) and how many are active; then the average marks and
+     * the average percentage of their papers in the exam / subject chosen —
+     * an absent paper left out. A deleted student's marks never count.
+     */
+    private function headStats(): array
+    {
+        $orgId = Auth::user()->organization_id;
+        [$exam, $std, $sec, $sub, $stu] = $this->activeTab === 'performers'
+            ? [$this->perfExam, $this->perfStandard, $this->perfSection, $this->perfSubject, $this->perfStudent]
+            : [$this->filterExam, $this->filterStandard, $this->filterSection, $this->filterSubject, $this->filterStudent];
+
+        $students = StudentDetail::where('organization_id', $orgId)
+            ->when($std, fn ($q) => $q->where('standard_id', $std))
+            ->when($sec, fn ($q) => $q->where('section_id', $sec))
+            ->when($stu, fn ($q) => $q->where('id', $stu));
+        $total  = (clone $students)->count();
+        $active = (clone $students)->whereHas('user', fn ($q) => $q->where('is_active', 1))->count();
+
+        $avg = ExamCopy::where('organization_id', $orgId)
+            ->whereHas('studentDetail')
+            ->where(fn ($q) => $q->where('is_absent', false)->orWhereNull('is_absent'))
+            ->when($exam, fn ($q) => $q->where('exam_id', $exam))
+            ->when($std, fn ($q) => $q->where('standard_id', $std))
+            ->when($sec, fn ($q) => $q->where('section_id', $sec))
+            ->when($sub, fn ($q) => $q->where('subject_id', $sub))
+            ->when($stu, fn ($q) => $q->where('student_detail_id', $stu))
+            ->selectRaw('AVG(marks_obtained) as avg_marks, AVG(percentage) as avg_pct')
+            ->first();
+
+        return [
+            'total'     => $total,
+            'active'    => $active,
+            'avg_marks' => round((float) ($avg->avg_marks ?? 0), 1),
+            'avg_pct'   => round((float) ($avg->avg_pct ?? 0), 1),
+        ];
     }
 
     private function getExamCopies()
@@ -710,7 +818,9 @@ class Performance extends Component
             ->where('section_id',  $this->filterSection);
 
         $query->where('exam_id', $this->filterExam)
-            ->where('subject_id', $this->filterSubject);
+            ->where('subject_id', $this->filterSubject)
+            // A deleted student's marks stay behind (no FK) — they are not listed.
+            ->whereHas('studentDetail');
 
         if ($this->filterStudent) $query->where('student_detail_id', $this->filterStudent);
 
