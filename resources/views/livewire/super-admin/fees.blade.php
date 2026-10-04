@@ -828,20 +828,22 @@
                     {{-- ── ONE TIME FIELDS (single full-year amount) ── --}}
                     @if ($feePlan === 'one_time')
                         <div class="space-y-4">
-                            <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1.5">Fee Label *</label>
-                                <input wire:model="oneTimeLabel" type="text" placeholder="Annual Platform Fee"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
-                                           focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
-                                @error('oneTimeLabel') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1.5">Fee Label *</label>
+                                    <input wire:model="oneTimeLabel" type="text" placeholder="Annual Platform Fee"
+                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
+                                               focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                                    @error('oneTimeLabel') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                                </div>
 
-                            <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1.5">Complete Year Fee (₹) *</label>
-                                <input wire:model.live="oneTimeAmount" type="number" placeholder="e.g. 6000" min="0.01" step="0.01"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
-                                           focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
-                                @error('oneTimeAmount') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1.5">Complete Year Fee (₹) *</label>
+                                    <input wire:model.live="oneTimeAmount" type="number" placeholder="e.g. 6000" min="0.01" step="0.01"
+                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
+                                               focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                                    @error('oneTimeAmount') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                                </div>
                             </div>
 
                             <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between">
@@ -863,20 +865,22 @@
                     {{-- ── PER STUDENT FIELDS ── --}}
                     @if ($feePlan === 'per_student')
                         <div class="space-y-4">
-                            <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1.5">Fee Label *</label>
-                                <input wire:model="perStudentLabel" type="text" placeholder="Annual Platform Fee"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
-                                           focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                                @error('perStudentLabel') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1.5">Fee Label *</label>
+                                    <input wire:model="perStudentLabel" type="text" placeholder="Annual Platform Fee"
+                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
+                                               focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                                    @error('perStudentLabel') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                                </div>
 
-                            <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1.5">Amount per Student (₹) *</label>
-                                <input wire:model.live="perStudentAmount" type="number" placeholder="e.g. 500" min="0.01" step="0.01"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
-                                           focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                                @error('perStudentAmount') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1.5">Amount per Student (₹) *</label>
+                                    <input wire:model.live="perStudentAmount" type="number" placeholder="e.g. 500" min="0.01" step="0.01"
+                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
+                                               focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                                    @error('perStudentAmount') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                                </div>
                             </div>
 
                             @php
@@ -1247,61 +1251,65 @@
                         </div>
                     </div>
 
-                    <div>
-                        <div class="flex items-center justify-between mb-1">
-                            <label class="block text-xs font-medium text-gray-600">Total collected (₹)</label>
-                            <div class="flex items-center gap-2">
-                                <button type="button"
-                                    x-on:click="amt = total; $refs.amtInput.value = total; $wire.set('payAmount', total, false)"
-                                    class="text-[11px] font-semibold text-emerald-600 hover:underline">Pay full</button>
-                                <button type="button"
-                                    x-on:click="amt = 0; $refs.amtInput.value = ''; $wire.set('payAmount', 0, false)"
-                                    class="text-[11px] font-semibold text-gray-400 hover:underline">Clear</button>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block text-xs font-medium text-gray-600">Total collected (₹)</label>
+                                <div class="flex items-center gap-2">
+                                    <button type="button"
+                                        x-on:click="amt = total; $refs.amtInput.value = total; $wire.set('payAmount', total, false)"
+                                        class="text-[11px] font-semibold text-emerald-600 hover:underline">Pay full</button>
+                                    <button type="button"
+                                        x-on:click="amt = 0; $refs.amtInput.value = ''; $wire.set('payAmount', 0, false)"
+                                        class="text-[11px] font-semibold text-gray-400 hover:underline">Clear</button>
+                                </div>
+                            </div>
+                            <input wire:model.defer="payAmount" type="number" min="0" step="0.01" x-ref="amtInput"
+                                x-on:input="amt = parseFloat($event.target.value) || 0"
+                                placeholder="0"
+                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
+                                       focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+
+                            {{-- Live status hint --}}
+                            <div class="mt-1.5 text-xs">
+                                <template x-if="(parseFloat(amt) || 0) <= 0">
+                                    <span class="text-gray-400">No amount entered — will be marked <strong>Pending</strong>.</span>
+                                </template>
+                                <template x-if="(parseFloat(amt) || 0) > 0 && total > 0 && (parseFloat(amt) || 0) + 0.01 >= total">
+                                    <span class="text-emerald-600 font-medium">Fee fully paid ✓</span>
+                                </template>
+                                <template x-if="(parseFloat(amt) || 0) > 0 && (total <= 0 || (parseFloat(amt) || 0) + 0.01 < total)">
+                                    <span class="text-amber-600 font-medium">
+                                        Partial — <span x-text="fmt(remaining)"></span> will remain due.
+                                    </span>
+                                </template>
                             </div>
                         </div>
-                        <input wire:model.defer="payAmount" type="number" min="0" step="0.01" x-ref="amtInput"
-                            x-on:input="amt = parseFloat($event.target.value) || 0"
-                            placeholder="0"
-                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
-                                   focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-
-                        {{-- Live status hint --}}
-                        <div class="mt-1.5 text-xs">
-                            <template x-if="(parseFloat(amt) || 0) <= 0">
-                                <span class="text-gray-400">No amount entered — will be marked <strong>Pending</strong>.</span>
-                            </template>
-                            <template x-if="(parseFloat(amt) || 0) > 0 && total > 0 && (parseFloat(amt) || 0) + 0.01 >= total">
-                                <span class="text-emerald-600 font-medium">Fee fully paid ✓</span>
-                            </template>
-                            <template x-if="(parseFloat(amt) || 0) > 0 && (total <= 0 || (parseFloat(amt) || 0) + 0.01 < total)">
-                                <span class="text-amber-600 font-medium">
-                                    Partial — <span x-text="fmt(remaining)"></span> will remain due.
-                                </span>
-                            </template>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Payment Mode</label>
+                            <select wire:model.defer="payMode"
+                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
+                                       focus:ring-2 focus:ring-blue-500 bg-white">
+                                <option value="cash">Cash</option>
+                                <option value="online">Online</option>
+                                <option value="cheque">Cheque</option>
+                                <option value="upi">UPI</option>
+                            </select>
                         </div>
                     </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Payment Mode</label>
-                        <select wire:model.defer="payMode"
-                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
-                                   focus:ring-2 focus:ring-blue-500 bg-white">
-                            <option value="cash">Cash</option>
-                            <option value="online">Online</option>
-                            <option value="cheque">Cheque</option>
-                            <option value="upi">UPI</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Payment Date</label>
-                        <input wire:model.defer="payDate" type="date"
-                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
-                                   focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Remark (Optional)</label>
-                        <input wire:model.defer="payRemark" type="text" placeholder="Optional remark"
-                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
-                                   focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Payment Date</label>
+                            <input wire:model.defer="payDate" type="date"
+                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
+                                       focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Remark (Optional)</label>
+                            <input wire:model.defer="payRemark" type="text" placeholder="Optional remark"
+                                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
+                                       focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                        </div>
                     </div>
                 </div>
 

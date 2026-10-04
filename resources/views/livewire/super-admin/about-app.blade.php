@@ -978,19 +978,21 @@
 
                 <div class="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-5">
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Type <span class="text-red-500">*</span></label>
-                        <input type="text" wire:model.defer="newContact.type" placeholder="e.g. Email, Phone"
-                            class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm
-                                   focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                        @error('newContact.type')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Value <span class="text-red-500">*</span></label>
-                        <input type="text" wire:model.defer="newContact.value" placeholder="e.g. info@app.com"
-                            class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm
-                                   focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                        @error('newContact.value')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Type <span class="text-red-500">*</span></label>
+                            <input type="text" wire:model.defer="newContact.type" placeholder="e.g. Email, Phone"
+                                class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm
+                                       focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('newContact.type')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Value <span class="text-red-500">*</span></label>
+                            <input type="text" wire:model.defer="newContact.value" placeholder="e.g. info@app.com"
+                                class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm
+                                       focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('newContact.value')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                        </div>
                     </div>
                 </div>
 
@@ -1067,24 +1069,26 @@
                     <div class="bg-gray-50 rounded-xl p-4 space-y-4">
                         <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Basic Information</p>
 
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Full Name <span class="text-red-500">*</span></label>
-                            <input type="text" wire:model="newTeamMember.name" placeholder="e.g. Annant Dagur"
-                                class="w-full border rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-amber-400 focus:border-amber-400
-                                       @error('newTeamMember.name') border-red-400 bg-red-50 @else border-gray-300 @enderror">
-                            @error('newTeamMember.name')
-                                <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>
-                            @enderror
-                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Full Name <span class="text-red-500">*</span></label>
+                                <input type="text" wire:model="newTeamMember.name" placeholder="e.g. Annant Dagur"
+                                    class="w-full border rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-amber-400 focus:border-amber-400
+                                           @error('newTeamMember.name') border-red-400 bg-red-50 @else border-gray-300 @enderror">
+                                @error('newTeamMember.name')
+                                    <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>
+                                @enderror
+                            </div>
 
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Position / Role <span class="text-red-500">*</span></label>
-                            <input type="text" wire:model="newTeamMember.position" placeholder="e.g. CEO, Lead Developer"
-                                class="w-full border rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-amber-400 focus:border-amber-400
-                                       @error('newTeamMember.position') border-red-400 bg-red-50 @else border-gray-300 @enderror">
-                            @error('newTeamMember.position')
-                                <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>
-                            @enderror
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Position / Role <span class="text-red-500">*</span></label>
+                                <input type="text" wire:model="newTeamMember.position" placeholder="e.g. CEO, Lead Developer"
+                                    class="w-full border rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-amber-400 focus:border-amber-400
+                                           @error('newTeamMember.position') border-red-400 bg-red-50 @else border-gray-300 @enderror">
+                                @error('newTeamMember.position')
+                                    <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>
+                                @enderror
+                            </div>
                         </div>
 
                         <div>

@@ -622,20 +622,22 @@
                 </div>
 
                 <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Term <span class="text-red-500">*</span></label>
-                        <select wire:model.defer="term" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                            <option value="">Select Term</option>
-                            @foreach ($termOptions as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
-                        </select>
-                        @error('term')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
-                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Term <span class="text-red-500">*</span></label>
+                            <select wire:model.defer="term" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">Select Term</option>
+                                @foreach ($termOptions as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
+                            </select>
+                            @error('term')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Exam Name <span class="text-red-500">*</span></label>
-                        <input wire:model.defer="examName" type="text" placeholder="e.g. Annual Examination 2026"
-                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                        @error('examName')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Exam Name <span class="text-red-500">*</span></label>
+                            <input wire:model.defer="examName" type="text" placeholder="e.g. Annual Examination 2026"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('examName')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-3">
@@ -970,31 +972,33 @@
 
                     {{-- Subject - the class's own subjects, plus an "Other" bucket for
                          papers that don't belong to any one subject. --}}
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Subject <span class="text-red-500">*</span></label>
-                        <select wire:model.defer="paperSubject" @disabled(!$paperStandard)
-                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm disabled:opacity-50">
-                            <option value="">Select Subject</option>
-                            @foreach ($paperModalSubjects as $sub)
-                                <option value="{{ $sub['id'] }}">{{ $sub['name'] }}</option>
-                            @endforeach
-                            <option value="other">Other</option>
-                        </select>
-                        <p class="text-xs text-gray-400 mt-1">
-                            @if (!$paperStandard)
-                                Choose a class first.
-                            @else
-                                Pick <strong>Other</strong> for a paper that isn't tied to one of these subjects.
-                            @endif
-                        </p>
-                        @error('paperSubject')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
-                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Subject <span class="text-red-500">*</span></label>
+                            <select wire:model.defer="paperSubject" @disabled(!$paperStandard)
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm disabled:opacity-50">
+                                <option value="">Select Subject</option>
+                                @foreach ($paperModalSubjects as $sub)
+                                    <option value="{{ $sub['id'] }}">{{ $sub['name'] }}</option>
+                                @endforeach
+                                <option value="other">Other</option>
+                            </select>
+                            <p class="text-xs text-gray-400 mt-1">
+                                @if (!$paperStandard)
+                                    Choose a class first.
+                                @else
+                                    Pick <strong>Other</strong> for a paper that isn't tied to one of these subjects.
+                                @endif
+                            </p>
+                            @error('paperSubject')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Title <span class="text-red-500">*</span></label>
-                        <input wire:model.defer="paperTitle" type="text" placeholder="e.g. Mathematics Question Paper"
-                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                        @error('paperTitle')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Title <span class="text-red-500">*</span></label>
+                            <input wire:model.defer="paperTitle" type="text" placeholder="e.g. Mathematics Question Paper"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('paperTitle')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
                     </div>
 
                     <div x-data>

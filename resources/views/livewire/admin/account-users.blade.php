@@ -159,18 +159,20 @@
                         <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Basic Info</p>
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Full Name <span class="text-rose-500">*</span></label>
-                        <input type="text" wire:model="name" placeholder="Enter full name"
-                            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
-                        @error('name') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
-                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Full Name <span class="text-rose-500">*</span></label>
+                            <input type="text" wire:model="name" placeholder="Enter full name"
+                                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                            @error('name') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
+                        </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Email <span class="text-rose-500">*</span></label>
-                        <input type="email" wire:model="email" placeholder="Enter email address"
-                            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
-                        @error('email') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Email <span class="text-rose-500">*</span></label>
+                            <input type="email" wire:model="email" placeholder="Enter email address"
+                                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                            @error('email') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
+                        </div>
                     </div>
 
                     <div>

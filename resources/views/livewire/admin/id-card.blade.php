@@ -384,20 +384,22 @@
 
                 <div class="flex-1 overflow-y-auto">
                     <div class="px-6 py-6 space-y-5">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Expiry Date <span class="text-red-500">*</span></label>
-                            <input type="date" wire:model="editExpiryDate"
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                            @error('editExpiryDate')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Status <span class="text-red-500">*</span></label>
-                            <select wire:model="editStatus"
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                                <option value="active">Active</option>
-                                <option value="inactive">Inactive</option>
-                            </select>
-                            @error('editStatus')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Expiry Date <span class="text-red-500">*</span></label>
+                                <input type="date" wire:model="editExpiryDate"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                @error('editExpiryDate')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Status <span class="text-red-500">*</span></label>
+                                <select wire:model="editStatus"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                </select>
+                                @error('editStatus')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
                         </div>
                     </div>
                 </div>

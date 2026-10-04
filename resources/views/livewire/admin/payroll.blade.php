@@ -1286,16 +1286,18 @@
                         @endif
                     </div>
 
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Paid By *</label>
-                        <input type="text" wire:model.defer="payPaidBy" placeholder="Who is making this payment"
-                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400">
-                        @error('payPaidBy')<p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>@enderror
-                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Paid By *</label>
+                            <input type="text" wire:model.defer="payPaidBy" placeholder="Who is making this payment"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400">
+                            @error('payPaidBy')<p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>@enderror
+                        </div>
 
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Payment Date *</label>
-                        <input type="date" wire:model.defer="payDate" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Payment Date *</label>
+                            <input type="date" wire:model.defer="payDate" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400">
+                        </div>
                     </div>
 
                     @if (in_array($payMode, ['online', 'bank_transfer', 'cheque']))
