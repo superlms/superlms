@@ -21,6 +21,7 @@ use App\Models\Teacher\TeacherDetail;
 use App\Models\WebsiteContact;
 use App\Support\AcademicYear;
 use Illuminate\Support\Facades\DB;
+use App\Support\NameOrder;
 
 class Analytics extends Component
 {
@@ -1169,6 +1170,7 @@ class Analytics extends Component
         // Available teachers = not absent today
         $this->availableTeachers = TeacherDetail::where('organization_id', $orgId)
             ->whereNotIn('id', $absentTeacherIds)
+            ->tap(fn ($q) => NameOrder::teachers($q))
             ->get()
             ->map(fn($t) => ['id' => $t->id, 'name' => $t->name])
             ->toArray();

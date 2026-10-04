@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
+use App\Support\NameOrder;
 
 class ReportCard extends Component
 {
@@ -708,7 +709,7 @@ class ReportCard extends Component
                 $query->where('status', $this->filterStatus);
             }
 
-            $reportCards = $query->latest('issued_at')->paginate($this->perPage);
+            $reportCards = $query->tap(fn ($q) => NameOrder::byStudent($q, 'report_cards'))->paginate($this->perPage);
         } else {
             // An empty page rather than a bare collection, so the view can call
             // total()/firstItem()/links() on it either way.

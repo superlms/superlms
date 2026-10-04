@@ -777,7 +777,7 @@ class LmsToolbox
             $q->where('section_id', $sec);
         }
 
-        $rows = (clone $q)->orderBy('roll_no')->orderBy('full_name')->limit(self::MAX_ROWS)->get();
+        $rows = (clone $q)->orderBy('full_name')->orderBy('id')->limit(self::MAX_ROWS)->get();
 
         return [
             'covers'   => $this->coverage($orgId),

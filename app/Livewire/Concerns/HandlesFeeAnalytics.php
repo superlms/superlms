@@ -10,6 +10,7 @@ use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use App\Support\NameOrder;
 
 /**
  * The Fee > Analytics tab.
@@ -216,8 +217,10 @@ trait HandlesFeeAnalytics
         //    biggest outstanding balances in the school ────────────────────────
         usort($studentRows, fn ($a, $b) => $b['due'] <=> $a['due']);
         $this->analyticsStudentScope = $std ? 'class' : 'top_due';
+        // A class reads A to Z by name; the school-wide list stays the
+        // biggest balances first (it is a top-dues list).
         $this->analyticsStudentRows  = $std
-            ? $studentRows
+            ? NameOrder::sortArray($studentRows, fn ($r) => $r['name'])
             : array_slice(array_filter($studentRows, fn ($r) => $r['due'] > 0), 0, self::ANALYTICS_TOP_DUE);
 
         $this->loadAnalyticsTrend();

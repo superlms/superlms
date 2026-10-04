@@ -9,6 +9,7 @@ use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
 use Illuminate\Support\Facades\DB;
+use App\Support\NameOrder;
 
 /**
  * The View Fee screen — shared verbatim between Admin\Fee's "View Fee" tab and
@@ -130,7 +131,7 @@ trait HandlesViewFee
             ->where('organization_id', $orgId)
             ->where('standard_id', $this->viewClassStandardId)
             ->when($this->viewClassSectionId, fn ($q) => $q->where('section_id', $this->viewClassSectionId))
-            ->orderBy('roll_no')
+            ->tap(fn ($q) => NameOrder::students($q))
             ->get();
 
         $studentIds = $students->pluck('id');
@@ -250,7 +251,7 @@ trait HandlesViewFee
                 ->where('organization_id', $orgId)
                 ->where('standard_id', $this->viewStudentStandardId)
                 ->when($this->viewStudentSectionId, fn ($q) => $q->where('section_id', $this->viewStudentSectionId))
-                ->orderBy('roll_no')->get()
+                ->tap(fn ($q) => NameOrder::students($q))->get()
             : collect();
 
         return [

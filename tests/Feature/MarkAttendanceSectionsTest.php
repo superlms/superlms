@@ -13,8 +13,8 @@ use Tests\TestCase;
 
 /**
  * The teacher app's Mark Attendance list: a teacher who is class teacher of
- * several sections of one class gets them as one list — the section assigned
- * first leading, each section's students A to Z — and another class apart.
+ * several sections of one class gets them as one list — every student A to Z
+ * by name, whatever the section — and another class apart.
  */
 class MarkAttendanceSectionsTest extends TestCase
 {
@@ -91,7 +91,7 @@ class MarkAttendanceSectionsTest extends TestCase
         ]);
     }
 
-    public function test_sections_of_one_class_come_as_one_list_first_assigned_first_names_a_to_z(): void
+    public function test_sections_of_one_class_come_as_one_list_names_a_to_z(): void
     {
         $five  = DB::table('standards')->insertGetId(['name' => '5']);
         $six   = DB::table('standards')->insertGetId(['name' => '6']);
@@ -124,10 +124,10 @@ class MarkAttendanceSectionsTest extends TestCase
 
         $this->assertCount(2, $classes);
 
-        // Class 5: section B (assigned first) then A, each A to Z.
+        // Class 5: both sections in one list, A to Z by name whatever the section.
         $this->assertSame('5 - Section B, Section A', $classes[0]['class_info']['class_display']);
-        $this->assertSame(['Bela', 'Yash', 'aarav', 'Zoya'], array_column($classes[0]['students'], 'full_name'));
-        $this->assertSame(['Section B', 'Section B', 'Section A', 'Section A'], array_column($classes[0]['students'], 'section_name'));
+        $this->assertSame(['aarav', 'Bela', 'Yash', 'Zoya'], array_column($classes[0]['students'], 'full_name'));
+        $this->assertSame(['Section A', 'Section B', 'Section B', 'Section A'], array_column($classes[0]['students'], 'section_name'));
 
         // Class 6 on its own.
         $this->assertSame('6 - A', $classes[1]['class_info']['class_display']);

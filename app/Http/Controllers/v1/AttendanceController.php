@@ -80,8 +80,9 @@ class AttendanceController extends Controller
 
             // Get students for each assigned class. A teacher may be class
             // teacher of several sections of one class: those come as one
-            // list, the section assigned first leading, each section's
-            // students A to Z by name. Different classes stay apart.
+            // list, every student A to Z by name whatever their section (the
+            // app shows the section after the name). Different classes stay
+            // apart.
             $studentsByClass = collect();
 
             $groups = $teacherDetail->assignedClasses
@@ -106,11 +107,10 @@ class AttendanceController extends Controller
                     $students->whereIn('section_id', $sectionIds->all());
                 }
 
-                $sectionRank = $sectionIds->flip();
                 $students = $students->get()
                     ->sortBy([
-                        fn ($a, $b) => ($sectionRank[(int) $a->section_id] ?? PHP_INT_MAX) <=> ($sectionRank[(int) $b->section_id] ?? PHP_INT_MAX),
                         fn ($a, $b) => strcasecmp(trim((string) $a->full_name), trim((string) $b->full_name)),
+                        fn ($a, $b) => (int) $a->id <=> (int) $b->id,
                     ])
                     ->values();
 

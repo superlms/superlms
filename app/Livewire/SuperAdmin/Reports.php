@@ -277,7 +277,7 @@ class Reports extends Component
     {
         return match ($metric) {
             'students' => $scope(User::where('role', 'user'), 'created_at')
-                ->with('organization:id,name')->latest()->get()
+                ->with('organization:id,name')->orderBy('name')->orderBy('id')->get()
                 ->map(fn($u) => [
                     'title'    => $u->name,
                     'subtitle' => $u->organization?->name ?? 'Unknown school',
@@ -286,7 +286,7 @@ class Reports extends Component
                 ])->toArray(),
 
             'teachers' => $scope(User::where('role', 'teacher'), 'created_at')
-                ->with('organization:id,name')->latest()->get()
+                ->with('organization:id,name')->orderBy('name')->orderBy('id')->get()
                 ->map(fn($u) => [
                     'title'    => $u->name,
                     'subtitle' => $u->organization?->name ?? 'Unknown school',

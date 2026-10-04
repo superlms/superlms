@@ -13,6 +13,7 @@ use App\Support\AcademicYear;
 use App\Support\TransportBilling;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use App\Support\NameOrder;
 
 /**
  * Fee Submission — shared verbatim between Admin\Fee's "Fee Submission" tab and
@@ -431,7 +432,7 @@ trait HandlesFeeSubmission
                           ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$term}%"));
                     });
                 })
-                ->orderBy('roll_no')
+                ->tap(fn ($q) => NameOrder::students($q))
                 ->limit(200)
                 ->get()
             : collect();

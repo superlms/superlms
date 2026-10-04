@@ -19,6 +19,7 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
+use App\Support\NameOrder;
 
 /**
  * Assignments — the screen that used to be "Quiz".
@@ -728,7 +729,7 @@ class Assignments extends Component
         $students = StudentDetail::where('organization_id', $this->orgId())
             ->where('standard_id', $assignment->standard_id)
             ->when($assignment->section_id, fn($q) => $q->where('section_id', $assignment->section_id))
-            ->orderByRaw('CAST(roll_no AS UNSIGNED), full_name')
+            ->tap(fn ($q) => NameOrder::students($q))
             ->get(['id', 'user_id', 'full_name', 'roll_no', 'image']);
 
         $submissions = AssignmentSubmission::where('assignment_id', $assignment->id)->get()->keyBy('user_id');

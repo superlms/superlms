@@ -19,6 +19,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
+use App\Support\NameOrder;
 
 /**
  * Admit Cards — student-centric.
@@ -543,7 +544,7 @@ class AdmitCard extends Component
             ->where('standard_id', $this->printStandard)
             ->when($this->printSection, fn ($q) => $q->where('section_id', $this->printSection))
             ->when(!$this->printIncludeDone, fn ($q) => $q->unprinted())
-            ->orderByRaw('CAST(roll_number AS UNSIGNED), roll_number')
+            ->tap(fn ($q) => NameOrder::byStudent($q, 'admit_cards'))
             ->get();
     }
 
@@ -594,7 +595,7 @@ class AdmitCard extends Component
                     $q->whereHas('admitCards', fn ($a) => $a->where('exam_id', $this->examFilter)))
                 ->when($this->statusFilter === 'not_issued', fn ($q) =>
                     $q->whereDoesntHave('admitCards', fn ($a) => $a->where('exam_id', $this->examFilter)))
-                ->orderByRaw('CAST(roll_no AS UNSIGNED), roll_no')
+                ->tap(fn ($q) => NameOrder::students($q))
                 ->paginate($this->perPage);
 
             $issued = ModelAdmitCard::where('organization_id', $this->orgId())

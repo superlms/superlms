@@ -421,9 +421,10 @@ class AdminAnalyticsController extends DashboardController
         $away = $todayCodes
             ->filter(fn($s) => !in_array($s, [1, 3, 4], true))
             ->map(fn($s, $id) => ['name' => $names[$id], 'status' => $s === 2 ? 'half_day' : 'absent'])
-            ->sortBy('name')
+            ->sortBy(fn($r) => mb_strtolower(trim((string) $r['name'])))
             ->values();
-        $unmarked = $holiday ? collect() : $names->keys()->diff($todayCodes->keys())->map(fn($id) => $names[$id])->sort()->values();
+        $unmarked = $holiday ? collect() : $names->keys()->diff($todayCodes->keys())->map(fn($id) => $names[$id])
+            ->sortBy(fn($n) => mb_strtolower(trim((string) $n)))->values();
 
         // Six months, day by day.
         $days = $base()

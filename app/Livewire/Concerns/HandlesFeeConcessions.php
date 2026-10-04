@@ -7,6 +7,7 @@ use App\Models\Student\Section;
 use App\Models\Student\StudentDetail;
 use App\Support\AccountsNotifier;
 use Illuminate\Support\Facades\Auth;
+use App\Support\NameOrder;
 
 /**
  * The Fee Concession feature — shared between Admin\Fee's "Concession" tab
@@ -93,7 +94,7 @@ trait HandlesFeeConcessions
             ->where('organization_id', $this->orgId())
             ->where('standard_id', $this->concFilterStandard)
             ->when($this->concFilterSection, fn ($q) => $q->where('section_id', $this->concFilterSection))
-            ->orderBy('roll_no')->get();
+            ->tap(fn ($q) => NameOrder::students($q))->get();
     }
 
     public function openConcessionModal(?int $id = null): void
@@ -226,7 +227,7 @@ trait HandlesFeeConcessions
             ? StudentDetail::with('user')->where('organization_id', $orgId)
                 ->where('standard_id', $this->filterConcStandardId)
                 ->when($this->filterConcSectionId, fn ($q) => $q->where('section_id', $this->filterConcSectionId))
-                ->orderBy('roll_no')->get()
+                ->tap(fn ($q) => NameOrder::students($q))->get()
             : collect();
 
         // Penalty waivers (from the Penalties tab) are a different pool — kept
@@ -238,6 +239,8 @@ trait HandlesFeeConcessions
             ->when($this->filterConcSectionId, fn ($q) => $q->where('section_id', $this->filterConcSectionId))
             ->when($this->filterConcStudentId, fn ($q) => $q->where('student_detail_id', $this->filterConcStudentId))
             ->when($this->filterConcDate, fn ($q) => $q->whereDate('created_at', $this->filterConcDate))
+            // A to Z by student; a student's newest concession first.
+            ->orderBy(NameOrder::studentName('fee_concessions'))
             ->orderByDesc('created_at')
             ->paginate($this->concPerPage, ['*'], 'concPage');
 

@@ -15,6 +15,7 @@ use App\Models\Student\StudentDetail;
 use App\Models\Teacher\TeacherDetail;
 use App\Support\TransportBilling;
 use Illuminate\Support\Carbon;
+use App\Support\NameOrder;
 
 /**
  * Config-driven builder for the admin "Lists" module.
@@ -290,7 +291,7 @@ class ListReportService
                     ->where('organization_id', $orgId)
                     ->when($stdId, fn ($q) => $q->where('standard_id', $stdId))
                     ->when($secId, fn ($q) => $q->where('section_id', $secId))
-                    ->orderByRaw('CAST(roll_no AS UNSIGNED), roll_no')
+                    ->tap(fn ($q) => NameOrder::students($q))
                     ->get();
                 return [$records, [
                     'roll_no'             => fn ($r) => $r->roll_no,
@@ -314,6 +315,7 @@ class ListReportService
             case 'teacher':
                 $records = TeacherDetail::with('user:id,name,email')
                     ->where('organization_id', $orgId)
+                    ->tap(fn ($q) => NameOrder::teachers($q))
                     ->get();
                 return [$records, [
                     'employee_id'       => fn ($r) => $r->employee_id,
@@ -332,6 +334,7 @@ class ListReportService
                     ->where('organization_id', $orgId)
                     ->when($stdId, fn ($q) => $q->where('standard_id', $stdId))
                     ->when($secId, fn ($q) => $q->where('section_id', $secId))
+                    ->orderBy(NameOrder::studentName('fee_payments'))
                     ->orderByDesc('payment_date')
                     ->get();
                 return [$records, [
@@ -354,7 +357,7 @@ class ListReportService
                     ->where('organization_id', $orgId)
                     ->where('standard_id', $stdId)
                     ->when($secId, fn ($q) => $q->where('section_id', $secId))
-                    ->orderByRaw('CAST(roll_no AS UNSIGNED), roll_no')
+                    ->tap(fn ($q) => NameOrder::students($q))
                     ->get();
 
                 $structures = FeeStructure::where('organization_id', $orgId)
@@ -428,7 +431,7 @@ class ListReportService
                     ->when($stdId, fn ($q) => $q->where('standard_id', $stdId))
                     ->when($secId, fn ($q) => $q->where('section_id', $secId))
                     ->when(!empty($p['status']), fn ($q) => $q->where('status', $p['status']))
-                    ->orderByDesc('issued_at')
+                    ->tap(fn ($q) => NameOrder::byStudent($q, 'report_cards'))
                     ->get();
                 return [$records, [
                     'regd_no'       => fn ($r) => $r->regd_no,
@@ -481,6 +484,7 @@ class ListReportService
                     ->when($examId, fn ($q) => $q->where('exam_id', $examId))
                     ->when($stdId, fn ($q) => $q->where('standard_id', $stdId))
                     ->when($secId, fn ($q) => $q->where('section_id', $secId))
+                    ->tap(fn ($q) => NameOrder::byStudent($q, 'exam_copies'))
                     ->get();
                 return [$records, [
                     'roll_no'        => fn ($r) => optional($r->studentDetail)->roll_no,
@@ -500,7 +504,7 @@ class ListReportService
                     ->where('organization_id', $orgId)
                     ->when($stdId, fn ($q) => $q->whereHas('studentDetail', fn ($s) => $s->where('standard_id', $stdId)))
                     ->when($secId, fn ($q) => $q->whereHas('studentDetail', fn ($s) => $s->where('section_id', $secId)))
-                    ->orderByDesc('issue_date')
+                    ->tap(fn ($q) => NameOrder::byStudent($q, 'student_id_cards'))
                     ->get();
                 return [$records, [
                     'card_number' => fn ($r) => $r->card_number,
@@ -517,7 +521,7 @@ class ListReportService
                     ->when($examId, fn ($q) => $q->where('exam_id', $examId))
                     ->when($stdId, fn ($q) => $q->where('standard_id', $stdId))
                     ->when($secId, fn ($q) => $q->where('section_id', $secId))
-                    ->orderByDesc('issue_date')
+                    ->tap(fn ($q) => NameOrder::byStudent($q, 'admit_cards'))
                     ->get();
                 return [$records, [
                     'admit_card_number' => fn ($r) => $r->admit_card_number,
@@ -540,7 +544,7 @@ class ListReportService
         $students = StudentDetail::where('organization_id', $orgId)
             ->when($stdId, fn ($q) => $q->where('standard_id', $stdId))
             ->when($secId, fn ($q) => $q->where('section_id', $secId))
-            ->orderByRaw('CAST(roll_no AS UNSIGNED), roll_no')
+            ->tap(fn ($q) => NameOrder::students($q))
             ->get(['id', 'full_name', 'roll_no']);
 
         [$year, $mon] = $month && str_contains($month, '-')

@@ -14,6 +14,7 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Url;
 use WireUi\Traits\WireUiActions;
+use App\Support\NameOrder;
 
 class Performance extends Component
 {
@@ -713,6 +714,6 @@ class Performance extends Component
 
         if ($this->filterStudent) $query->where('student_detail_id', $this->filterStudent);
 
-        return $query->orderBy('created_at', 'desc')->paginate($this->perPage);
+        return $query->tap(fn ($q) => NameOrder::byStudent($q, 'exam_copies'))->paginate($this->perPage);
     }
 }

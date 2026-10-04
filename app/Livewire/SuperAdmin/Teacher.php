@@ -17,6 +17,7 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
+use App\Support\NameOrder;
 
 class Teacher extends Component
 {
@@ -409,7 +410,7 @@ class Teacher extends Component
     {
         if (!$this->filterOrganization) return;
 
-        $teachers = $this->baseQuery()->get();
+        $teachers = $this->baseQuery()->tap(fn ($q) => NameOrder::teachers($q))->get();
 
         return response()->streamDownload(function () use ($teachers) {
             $handle = fopen('php://output', 'w');
@@ -594,7 +595,7 @@ class Teacher extends Component
 
     public function render()
     {
-        $teachers = $this->baseQuery()->latest()->paginate($this->perPage);
+        $teachers = $this->baseQuery()->tap(fn ($q) => NameOrder::teachers($q))->paginate($this->perPage);
         return view('livewire.super-admin.teacher', compact('teachers'));
     }
 }

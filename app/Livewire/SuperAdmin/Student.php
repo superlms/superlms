@@ -28,6 +28,7 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
+use App\Support\NameOrder;
 
 class Student extends Component
 {
@@ -546,7 +547,7 @@ class Student extends Component
     {
         if (!$this->filterOrganization) return;
 
-        $students = $this->baseQuery()->with('transportations')->get();
+        $students = $this->baseQuery()->with('transportations')->tap(fn ($q) => NameOrder::students($q))->get();
         $ids      = $students->pluck('id')->all();
 
         // ── Attendance: present (status = 1) out of total marked days ──
@@ -962,7 +963,7 @@ class Student extends Component
 
     public function render()
     {
-        $students = $this->baseQuery()->latest()->paginate($this->perPage);
+        $students = $this->baseQuery()->tap(fn ($q) => NameOrder::students($q))->paginate($this->perPage);
         return view('livewire.super-admin.student', compact('students'));
     }
 }

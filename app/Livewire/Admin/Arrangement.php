@@ -11,6 +11,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use WireUi\Traits\WireUiActions;
+use App\Support\NameOrder;
 
 class Arrangement extends Component
 {
@@ -304,6 +305,7 @@ class Arrangement extends Component
         $absentTeachers = TeacherDetail::with('user')
             ->whereIn('id', $absentDetailIds)
             ->where('organization_id', $org)
+            ->tap(fn ($q) => NameOrder::teachers($q))
             ->get();
 
         // 2. Their day-of-week slots (optionally filtered by class)
@@ -340,6 +342,7 @@ class Arrangement extends Component
             ->where('organization_id', $org)
             ->whereHas('user', fn($q) => $q->where('is_active', 1))
             ->whereNotIn('id', $absentDetailIds)
+            ->tap(fn ($q) => NameOrder::teachers($q))
             ->get();
 
         $candidateIds = $activeTeachers->pluck('id')->toArray();

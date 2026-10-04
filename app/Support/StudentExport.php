@@ -38,17 +38,14 @@ class StudentExport
     {
         $dash = fn ($v) => ($v === null || $v === '') ? '-' : $v;
 
-        // Class-by-class order: class → section → numeric roll → name.
+        // A to Z by name, the way every student list reads (NameOrder).
         $students = StudentDetail::with(['user', 'standard', 'section', 'organization', 'transportations'])
             ->where('organization_id', $org)
             ->whereHas('user', fn($q) => $q->where('organization_id', $org))
             // Class-wise export: one class, and one section within it when chosen.
             ->when($classId, fn($q) => $q->where('standard_id', $classId))
             ->when($classId && $sectionId, fn($q) => $q->where('section_id', $sectionId))
-            ->orderBy('standard_id')
-            ->orderBy('section_id')
-            ->orderByRaw('CAST(roll_no AS UNSIGNED)')
-            ->orderBy('full_name')
+            ->tap(fn ($q) => NameOrder::students($q))
             ->get();
 
         $ids = $students->pluck('id')->all();
@@ -252,10 +249,7 @@ class StudentExport
             ->whereHas('user', fn($q) => $q->where('organization_id', $org))
             ->when($classId, fn($q) => $q->where('standard_id', $classId))
             ->when($classId && $sectionId, fn($q) => $q->where('section_id', $sectionId))
-            ->orderBy('standard_id')
-            ->orderBy('section_id')
-            ->orderByRaw('CAST(roll_no AS UNSIGNED)')
-            ->orderBy('full_name')
+            ->tap(fn ($q) => NameOrder::students($q))
             ->get();
 
         $photos = PdfPhotos::squares($students->map(fn ($s) => $s->user->image ?? null)->all());

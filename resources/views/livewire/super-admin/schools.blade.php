@@ -891,6 +891,7 @@
                             ->latest()
                             ->take(20)
                             ->get();
+                        $schoolStudents = \App\Support\NameOrder::sort($schoolStudents, fn ($s) => $s->full_name ?: ($s->user->name ?? ''));
                     @endphp
                     <div class="p-4">
                         <div class="flex items-center justify-between mb-3">
@@ -1051,6 +1052,7 @@
                             ->latest()
                             ->take(20)
                             ->get();
+                        $schoolTeachers = \App\Support\NameOrder::sort($schoolTeachers, fn ($t) => $t->user->name ?? '');
                     @endphp
                     <div class="p-4">
                         <div class="flex items-center justify-between mb-3">

@@ -10,6 +10,7 @@ use App\Models\Student\Subject;
 use App\Models\Teacher\TeacherDetail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Support\NameOrder;
 
 /**
  * School-admin Timetable module for the mobile app.
@@ -56,6 +57,7 @@ class AdminTimetableController extends ApiController
         $teachers = TeacherDetail::with('user:id,name')
             ->where('organization_id', $orgId)
             ->whereHas('user', fn ($q) => $q->where('is_active', 1))
+            ->tap(fn ($q) => NameOrder::teachers($q))
             ->get()->map(fn ($t) => ['id' => $t->id, 'name' => $t->user->name ?? '—']);
 
         return $this->success(['classes' => $classes, 'teachers' => $teachers, 'days' => self::DAY_NAMES], 'Timetable lookups fetched.');

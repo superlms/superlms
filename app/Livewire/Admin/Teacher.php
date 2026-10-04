@@ -29,6 +29,7 @@ use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Support\NameOrder;
 
 class Teacher extends Component
 {
@@ -819,7 +820,7 @@ class Teacher extends Component
     {
         $teachers = TeacherDetail::with(['user', 'assignedClasses'])
             ->where('organization_id', $org)
-            ->orderBy('employee_id')
+            ->tap(fn ($q) => NameOrder::teachers($q))
             ->get();
 
         $ids = $teachers->pluck('id')->all();
@@ -1051,7 +1052,7 @@ class Teacher extends Component
                     ->pluck('teacher_detail_id');
                 $q->whereIn('id', $teacherIds);
             })
-            ->latest()
+            ->tap(fn ($q) => NameOrder::teachers($q))
             ->paginate($this->perPage);
 
         return view('livewire.admin.teacher', compact('teachers'));

@@ -906,7 +906,7 @@
                                     <select wire:model.defer="empTeacherDetailId"
                                         class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                                         <option value="">— Don't link —</option>
-                                        @foreach (\App\Models\Teacher\TeacherDetail::with('user')->where('organization_id', auth()->user()->organization_id)->get() as $td)
+                                        @foreach (\App\Models\Teacher\TeacherDetail::with('user')->where('organization_id', auth()->user()->organization_id)->tap(fn ($q) => \App\Support\NameOrder::teachers($q))->get() as $td)
                                             <option value="{{ $td->id }}">{{ $td->user?->name ?? 'Teacher #' . $td->id }}</option>
                                         @endforeach
                                     </select>

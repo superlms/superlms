@@ -16,6 +16,7 @@ use Livewire\WithPagination;
 use Livewire\WithFileUploads;
 use Livewire\Attributes\Url;
 use WireUi\Traits\WireUiActions;
+use App\Support\NameOrder;
 
 class ExamCopy extends Component
 {
@@ -727,6 +728,6 @@ class ExamCopy extends Component
         if ($this->filterSubject)  $query->where('subject_id', $this->filterSubject);
         if ($this->filterStudent)  $query->where('student_detail_id', $this->filterStudent);
 
-        return $query->orderByDesc('created_at')->paginate($this->perPage);
+        return $query->tap(fn ($q) => NameOrder::byStudent($q, 'exam_copies'))->paginate($this->perPage);
     }
 }

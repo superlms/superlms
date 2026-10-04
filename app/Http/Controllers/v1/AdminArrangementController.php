@@ -9,6 +9,7 @@ use App\Models\Teacher\TeacherAttendance;
 use App\Models\Teacher\TeacherDetail;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use App\Support\NameOrder;
 
 /**
  * School-admin Arrangement (substitution) module for the mobile app.
@@ -77,7 +78,8 @@ class AdminArrangementController extends ApiController
         ];
 
         $absentTeachers = TeacherDetail::with('user:id,name')
-            ->whereIn('id', $absentDetailIds)->where('organization_id', $orgId)->get();
+            ->whereIn('id', $absentDetailIds)->where('organization_id', $orgId)
+            ->tap(fn ($q) => NameOrder::teachers($q))->get();
 
         $absentSlots = TeacherTimeTable::with(['standard:id,name', 'section:id,name', 'subject:id,name'])
             ->whereIn('teacher_detail_id', $absentDetailIds)
@@ -99,7 +101,8 @@ class AdminArrangementController extends ApiController
         $activeTeachers = TeacherDetail::with('user:id,name')
             ->where('organization_id', $orgId)
             ->whereHas('user', fn ($q) => $q->where('is_active', 1))
-            ->whereNotIn('id', $absentDetailIds)->get();
+            ->whereNotIn('id', $absentDetailIds)
+            ->tap(fn ($q) => NameOrder::teachers($q))->get();
         $candidateIds = $activeTeachers->pluck('id')->toArray();
 
         $candidateBusy = TeacherTimeTable::where('organization_id', $orgId)

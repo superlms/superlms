@@ -11,6 +11,7 @@ use App\Models\Student\SectionSubject;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
 use Illuminate\Http\Request;
+use App\Support\NameOrder;
 
 /**
  * School-admin Report Card module for the mobile app.
@@ -138,7 +139,7 @@ class AdminReportCardController extends ApiController
         if ($request->filled('section_id'))  $query->where('section_id', $request->section_id);
         if ($request->filled('status'))      $query->where('status', $request->status);
 
-        $paginator = $query->latest('issued_at')->paginate((int) $request->input('per_page', 10));
+        $paginator = $query->tap(fn ($q) => NameOrder::byStudent($q, 'report_cards'))->paginate((int) $request->input('per_page', 10));
         $items = collect($paginator->items())->map(fn ($rc) => $this->present($rc));
 
         return $this->paginated($items, $this->paginationMeta($paginator), 'Report cards fetched.');

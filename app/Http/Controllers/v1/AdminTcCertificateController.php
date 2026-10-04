@@ -9,6 +9,7 @@ use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
 use Illuminate\Http\Request;
+use App\Support\NameOrder;
 
 /**
  * School-admin TC & Certificate module for the mobile app.
@@ -151,7 +152,7 @@ class AdminTcCertificateController extends ApiController
             }
             $this->applyStudentFilters($q, $request);
             $this->applyMonthFilter($q, $request, 'issue_date');
-            $paginator = $q->orderByDesc('issue_date')->paginate($perPage);
+            $paginator = $q->tap(fn ($q) => NameOrder::byStudent($q, 'transfer_certificates'))->paginate($perPage);
             $items = collect($paginator->items())->map(fn ($tc) => $this->presentTc($tc));
         } else {
             $q = Certificate::with('student:id,full_name,admission_no,standard_id,section_id')
@@ -164,7 +165,7 @@ class AdminTcCertificateController extends ApiController
             }
             $this->applyStudentFilters($q, $request);
             $this->applyMonthFilter($q, $request, 'issued_date');
-            $paginator = $q->orderByDesc('issued_date')->paginate($perPage);
+            $paginator = $q->tap(fn ($q) => NameOrder::byStudent($q, 'certificates'))->paginate($perPage);
             $items = collect($paginator->items())->map(fn ($c) => $this->presentCert($c));
         }
 

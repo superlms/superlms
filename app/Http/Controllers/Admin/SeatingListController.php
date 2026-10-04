@@ -106,14 +106,15 @@ class SeatingListController extends Controller
         // the section's own datesheet first, then the class-wide one it inherits.
         $subjectFor = $this->subjectResolver($orgId, $plan, $students->pluck('standard_id')->filter()->unique()->values());
 
-        // Room by room, then down each room in seat order.
-        $rows = $assignments->sortBy(fn ($a) => sprintf(
-            '%s|%04d|%04d|%03d',
-            $rooms[$a->room_id]->room_name ?? '',
-            (int) ($a->seat?->row_no ?? 0),
-            (int) ($a->seat?->col_no ?? 0),
-            (int) ($a->seat_position ?? 1),
-        ))->values()->map(function ($a) use ($students, $rooms, $subjectFor) {
+        // Room by room, each room's candidates A to Z by name (the seat is on
+        // every row); two of a name in seat order.
+        $nameOf = fn ($a) => trim((string) ($students[$a->student_id]->full_name ?? ''));
+        $rows = $assignments->sortBy([
+            fn ($a, $b) => strcmp(($rooms[$a->room_id]->room_name ?? '') . '|', ($rooms[$b->room_id]->room_name ?? '') . '|'),
+            fn ($a, $b) => strnatcasecmp($nameOf($a), $nameOf($b)),
+            fn ($a, $b) => [(int) ($a->seat?->row_no ?? 0), (int) ($a->seat?->col_no ?? 0), (int) ($a->seat_position ?? 1)]
+                <=> [(int) ($b->seat?->row_no ?? 0), (int) ($b->seat?->col_no ?? 0), (int) ($b->seat_position ?? 1)],
+        ])->values()->map(function ($a) use ($students, $rooms, $subjectFor) {
             $s    = $students[$a->student_id] ?? null;
             $room = $rooms[$a->room_id] ?? null;
 

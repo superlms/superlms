@@ -6,6 +6,7 @@ use App\Models\Admin\TeacherTimeTable;
 use App\Models\Student\StudentDetail;
 use App\Models\Teacher\TeacherDetail;
 use Illuminate\Http\Request;
+use App\Support\NameOrder;
 
 class InstructorController extends ApiController
 {
@@ -107,7 +108,7 @@ class InstructorController extends ApiController
             );
         }
 
-        $instructors = $query->latest()->paginate((int) $request->get('per_page', 20));
+        $instructors = $query->tap(fn ($q) => NameOrder::teachers($q))->paginate((int) $request->get('per_page', 20));
 
         $items = $instructors->getCollection()->map(
             fn($t) => $this->formatStudentInstructor($t, $standardId, $sectionId)
@@ -196,7 +197,7 @@ class InstructorController extends ApiController
             );
         }
 
-        $instructors = $query->latest()->paginate((int) $request->get('per_page', 20));
+        $instructors = $query->tap(fn ($q) => NameOrder::teachers($q))->paginate((int) $request->get('per_page', 20));
 
         $items = $instructors->getCollection()->map(fn($t) => $this->formatInstructor($t));
 

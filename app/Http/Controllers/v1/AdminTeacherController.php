@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use App\Support\NameOrder;
 
 /**
  * School-admin Teachers module for the mobile app.
@@ -90,7 +91,7 @@ class AdminTeacherController extends ApiController
                     ->pluck('teacher_detail_id');
                 $q->whereIn('id', $ids);
             })
-            ->latest();
+            ->tap(fn ($q) => NameOrder::teachers($q));
 
         $paginator = $query->paginate((int) $request->input('per_page', 25));
 

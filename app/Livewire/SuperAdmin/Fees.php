@@ -11,6 +11,7 @@ use App\Models\SuperAdmin\SuperAdminFeeStructure;
 use Livewire\Component;
 use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
+use App\Support\NameOrder;
 
 class Fees extends Component
 {
@@ -718,6 +719,7 @@ class Fees extends Component
             ->where('organization_id', $orgId)
             ->where('standard_id', $this->updateStandardId)
             ->when($this->updateSectionId, fn($q) => $q->where('section_id', $this->updateSectionId))
+            ->tap(fn ($q) => NameOrder::students($q))
             ->get();
 
         $this->studentFeeList = $students->map(
@@ -1124,6 +1126,7 @@ class Fees extends Component
             ->where('organization_id', $this->selectedSchool->id)
             ->when($this->viewFeeStandardId, fn ($q) => $q->where('standard_id', $this->viewFeeStandardId))
             ->when($this->viewFeeSectionId, fn ($q) => $q->where('section_id', $this->viewFeeSectionId))
+            ->tap(fn ($q) => NameOrder::students($q))
             ->get();
 
         $rows = $students->values()

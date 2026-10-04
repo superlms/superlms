@@ -438,6 +438,7 @@ trait HandlesTransportFees
                 $q->where('full_name', 'like', '%' . $this->feeStudentSearch . '%')
                   ->orWhere('admission_no', 'like', '%' . $this->feeStudentSearch . '%');
             })
+            ->orderBy('full_name')->orderBy('id')
             ->limit(10)->get();
     }
 

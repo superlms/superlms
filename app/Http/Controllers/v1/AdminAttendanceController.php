@@ -236,7 +236,7 @@ class AdminAttendanceController extends ApiController
 
         $teachers = TeacherDetail::with('user:id,name,email,image')
             ->where('organization_id', $orgId)->get()
-            ->sortBy(fn ($t) => $t->user->name ?? '')
+            ->sortBy(fn ($t) => mb_strtolower(trim((string) ($t->user->name ?? ''))))
             ->map(fn ($t) => [
                 'id'    => $t->id,
                 'name'  => $t->user->name ?? '—',
@@ -287,7 +287,7 @@ class AdminAttendanceController extends ApiController
         $date  = $request->input('date', now()->toDateString());
 
         $teachers = TeacherDetail::with($this->teacherUser($request))->where('organization_id', $orgId)->get()
-            ->sortBy(fn ($t) => $t->user->name ?? '')->values();
+            ->sortBy(fn ($t) => mb_strtolower(trim((string) ($t->user->name ?? ''))))->values();
 
         $existing = TeacherAttendance::where('organization_id', $orgId)
             ->whereDate('attendance_date', $date)->get()->keyBy('teacher_detail_id');
@@ -397,7 +397,7 @@ class AdminAttendanceController extends ApiController
         $date  = $request->input('date', now()->toDateString());
 
         $teachers = TeacherDetail::with($this->teacherUser($request))->where('organization_id', $orgId)->get()
-            ->sortBy(fn ($t) => $t->user->name ?? '')->values();
+            ->sortBy(fn ($t) => mb_strtolower(trim((string) ($t->user->name ?? ''))))->values();
         $recs = TeacherAttendance::where('organization_id', $orgId)
             ->whereDate('attendance_date', $date)->get()->keyBy('teacher_detail_id');
 
@@ -459,7 +459,7 @@ class AdminAttendanceController extends ApiController
 
         $orgId = $user->organization_id;
         $teachers = TeacherDetail::with('user:id,name,email,image')->where('organization_id', $orgId)->get()
-            ->sortBy(fn ($t) => $t->user->name ?? '')->values();
+            ->sortBy(fn ($t) => mb_strtolower(trim((string) ($t->user->name ?? ''))))->values();
         $columns = $request->filled('teacher_id')
             ? $teachers->where('id', (int) $request->teacher_id)->values()
             : $teachers;

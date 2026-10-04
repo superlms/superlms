@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
+use App\Support\NameOrder;
 
 class TimeTable extends Component
 {
@@ -103,6 +104,7 @@ class TimeTable extends Component
         $this->allTeachers = TeacherDetail::with('user:id,name,email,is_active')
             ->where('organization_id', $org)
             ->whereHas('user', fn($q) => $q->where('is_active', 1))
+            ->tap(fn ($q) => NameOrder::teachers($q))
             ->get();
         $this->loadStats();
     }

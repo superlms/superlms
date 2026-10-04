@@ -41,7 +41,7 @@ class StudentAttendanceService
                 }
             });
 
-            $students = $students->orderBy('roll_no')->get();
+            $students = $students->orderBy('full_name')->orderBy('id')->get();
 
             return $students->map(function ($student) use ($date) {
                 $attendance = StudentAttendance::where('student_detail_id', $student->id)

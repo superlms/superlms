@@ -6,6 +6,7 @@ use App\Models\Admin\Fee\FeeStructure as FeeStructureModel;
 use App\Models\Student\Section;
 use App\Models\Student\StudentDetail;
 use Illuminate\Support\Collection;
+use App\Support\NameOrder;
 
 /**
  * Fee Structure's Add Dues — what each student still owed from last year.
@@ -167,8 +168,7 @@ trait HandlesFeeDues
         return StudentDetail::where('organization_id', $this->orgId())
             ->where('standard_id', $this->duesStandardId)
             ->when($this->duesSectionId && !$wholeClass, fn ($q) => $q->where('section_id', $this->duesSectionId))
-            ->orderByRaw('CAST(roll_no AS UNSIGNED), roll_no')
-            ->orderBy('full_name');
+            ->tap(fn ($q) => NameOrder::students($q));
     }
 
     /** The students' Last Year Dues rows as they are saved now. */

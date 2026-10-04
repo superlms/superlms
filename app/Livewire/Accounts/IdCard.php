@@ -389,7 +389,17 @@ class IdCard extends Component
             $query->where('status', $this->statusFilter);
         }
 
-        $cards = $query->latest()->paginate($this->perPage);
+        // A to Z by the holder's name, on every tab (as the admin panel's).
+        $holderName = match ($this->cardType) {
+            'student' => \App\Models\Student\StudentDetail::select('full_name')
+                ->whereColumn('student_details.id', 'student_id_cards.student_detail_id')->limit(1),
+            'teacher' => \App\Models\User::select('users.name')
+                ->join('teacher_details', 'teacher_details.user_id', '=', 'users.id')
+                ->whereColumn('teacher_details.id', 'teacher_id_cards.teacher_detail_id')->limit(1),
+            default   => \App\Models\Admin\AdminEmployee::select('name')
+                ->whereColumn('admin_employees.id', 'employee_id_cards.admin_employee_id')->limit(1),
+        };
+        $cards = $query->orderBy($holderName)->orderBy('id')->paginate($this->perPage);
 
         $standards = \App\Models\Student\Standard::where('organization_id', $orgId)
             ->where('is_active', true)->inClassOrder()->get(['id', 'name']);

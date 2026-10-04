@@ -16,6 +16,7 @@ use App\Models\Student\StudentDetail;
 use App\Models\Student\Subject;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use App\Support\NameOrder;
 
 /**
  * School-admin Admit Card module for the mobile app.
@@ -205,7 +206,7 @@ class AdminAdmitCardController extends ApiController
                 $q->whereHas('admitCards', fn ($a) => $a->where('exam_id', $examId)))
             ->when($status === 'not_issued', fn ($q) =>
                 $q->whereDoesntHave('admitCards', fn ($a) => $a->where('exam_id', $examId)))
-            ->orderByRaw('CAST(roll_no AS UNSIGNED), roll_no');
+            ->tap(fn ($q) => NameOrder::students($q));
 
         $paginator = $query->paginate((int) $request->input('per_page', 15));
 
@@ -365,7 +366,7 @@ class AdminAdmitCardController extends ApiController
 
         $cards = $base()
             ->when(!$includeDone, fn ($q) => $q->unprinted())
-            ->orderByRaw('CAST(roll_number AS UNSIGNED), roll_number')
+            ->tap(fn ($q) => NameOrder::byStudent($q, 'admit_cards'))
             ->get()
             ->map(fn ($c) => [
                 'id'                => $c->id,

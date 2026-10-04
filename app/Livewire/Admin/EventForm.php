@@ -120,6 +120,7 @@ class EventForm extends Component
             
         $this->teachers = User::where('organization_id', $organizationId)
             ->where('role', 'teacher')
+            ->orderBy('name')->orderBy('id')
             ->get();
     }
 

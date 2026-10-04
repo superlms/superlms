@@ -10,6 +10,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use App\Support\NameOrder;
 
 class AdmitCardController extends Controller
 {
@@ -78,8 +79,8 @@ class AdmitCardController extends Controller
             ->when(!$ids && $request->exam_id, fn($q) => $q->where('exam_id', $request->exam_id))
             ->when(!$ids && $request->standard_id, fn($q) => $q->where('standard_id', $request->standard_id))
             ->when(!$ids && $request->section_id, fn($q) => $q->where('section_id', $request->section_id))
-            // Natural roll order, so 2 comes before 10 on the sheet.
-            ->orderByRaw('CAST(roll_number AS UNSIGNED), roll_number')
+            // A to Z by the student's name, as every student list reads.
+            ->tap(fn ($q) => NameOrder::byStudent($q, 'admit_cards'))
             ->get();
 
         $this->attachSeating($admitCards);
@@ -99,8 +100,8 @@ class AdmitCardController extends Controller
      * The four-up print sheet as a PDF — for the admin app, which has no
      * browser print: the same sheet Print opens here (admit-card-sheet, four
      * cards to an A4 landscape page, cut along the dotted lines), drawn by
-     * dompdf with the sheet's own PDF rules. Only the cards in `ids`, in roll
-     * order. Stamping them as printed is the caller's job, as it is here.
+     * dompdf with the sheet's own PDF rules. Only the cards in `ids`, A to Z
+     * by name. Stamping them as printed is the caller's job, as it is here.
      */
     public function sheetPdf(Request $request, $organization)
     {
@@ -110,7 +111,7 @@ class AdmitCardController extends Controller
         $admitCards = AdmitCard::with(['studentDetail.standard', 'studentDetail.section', 'organization'])
             ->where('organization_id', $orgId)
             ->whereIn('id', $ids ?: [0])
-            ->orderByRaw('CAST(roll_number AS UNSIGNED), roll_number')
+            ->tap(fn ($q) => NameOrder::byStudent($q, 'admit_cards'))
             ->get();
 
         $this->attachSeating($admitCards);

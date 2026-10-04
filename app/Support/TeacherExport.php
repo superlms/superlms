@@ -34,7 +34,7 @@ class TeacherExport
     {
         $teachers = TeacherDetail::with(['user', 'assignedClasses'])
             ->where('organization_id', $org)
-            ->orderBy('employee_id')
+            ->tap(fn ($q) => NameOrder::teachers($q))
             ->get();
 
         $ids = $teachers->pluck('id')->all();
@@ -207,7 +207,7 @@ class TeacherExport
     {
         $teachers = TeacherDetail::with(['user', 'assignedClasses'])
             ->where('organization_id', $org)
-            ->orderBy('employee_id')
+            ->tap(fn ($q) => NameOrder::teachers($q))
             ->get();
 
         $hasBank = Schema::hasColumn('teacher_details', 'bank_name');

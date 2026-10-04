@@ -8,6 +8,7 @@ use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
 use App\Support\AccountsNotifier;
 use Illuminate\Support\Facades\Auth;
+use App\Support\NameOrder;
 
 /**
  * The Penalties tab: what each student's fee cycle installments have accrued
@@ -121,7 +122,7 @@ trait HandlesPenalties
             ->where('organization_id', $orgId)
             ->where('standard_id', $this->penaltyClassStandardId)
             ->when($this->penaltyClassSectionId, fn ($q) => $q->where('section_id', $this->penaltyClassSectionId))
-            ->orderBy('roll_no')
+            ->tap(fn ($q) => NameOrder::students($q))
             ->get();
 
         $this->penaltyClassList = $students->map(function (StudentDetail $student) {
@@ -291,7 +292,7 @@ trait HandlesPenalties
                 ->where('organization_id', $orgId)
                 ->where('standard_id', $this->penaltyViewStandardId)
                 ->when($this->penaltyViewSectionId, fn ($q) => $q->where('section_id', $this->penaltyViewSectionId))
-                ->orderBy('roll_no')->get()
+                ->tap(fn ($q) => NameOrder::students($q))->get()
             : collect();
 
         return [

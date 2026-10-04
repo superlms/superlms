@@ -13,6 +13,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
+use App\Support\NameOrder;
 
 class TcCertificate extends Component
 {
@@ -742,7 +743,7 @@ class TcCertificate extends Component
                 [$fy, $fm] = array_pad(explode('-', $this->filterMonth), 2, null);
                 if ($fy && $fm) $q->whereYear('issue_date', $fy)->whereMonth('issue_date', $fm);
             }
-            $tcList = $q->orderByDesc('issue_date')->paginate($this->perPage);
+            $tcList = $q->tap(fn ($q) => NameOrder::byStudent($q, 'transfer_certificates'))->paginate($this->perPage);
         } else {
             $q = Certificate::with('student.user')
                 ->where('organization_id', $this->organizationId)
@@ -773,7 +774,7 @@ class TcCertificate extends Component
                 [$fy, $fm] = array_pad(explode('-', $this->filterMonth), 2, null);
                 if ($fy && $fm) $q->whereYear('issued_date', $fy)->whereMonth('issued_date', $fm);
             }
-            $certificates = $q->orderByDesc('issued_date')->paginate($this->perPage);
+            $certificates = $q->tap(fn ($q) => NameOrder::byStudent($q, 'certificates'))->paginate($this->perPage);
         }
 
         // Preview data

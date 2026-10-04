@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use App\Support\NameOrder;
 
 /**
  * A teacher's Assignments in the app — the admin panel's Assignments on the
@@ -75,7 +76,7 @@ class AssignmentController extends ApiController
         $students = StudentDetail::where('organization_id', $assignment->organization_id)
             ->where('standard_id', $assignment->standard_id)
             ->when($assignment->section_id, fn ($q) => $q->where('section_id', $assignment->section_id))
-            ->orderByRaw('CAST(roll_no AS UNSIGNED), full_name')
+            ->tap(fn ($q) => NameOrder::students($q))
             ->get(['id', 'user_id', 'full_name', 'roll_no', 'image']);
         $submissions = AssignmentSubmission::where('assignment_id', $assignment->id)->get()->keyBy('user_id');
 

@@ -11,6 +11,7 @@ use App\Models\Teacher\TeacherDetail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use App\Support\NameOrder;
 
 /**
  * Teacher → Exam-copy PDF management.
@@ -65,7 +66,7 @@ class ExamCopyController extends ApiController
         if ($request->filled('subject_id'))        $query->where('subject_id', (int) $request->subject_id);
 
         $perPage = (int) $request->get('per_page', 20);
-        $paginator = $query->latest()->paginate($perPage);
+        $paginator = $query->tap(fn ($q) => NameOrder::byStudent($q, 'exam_copies'))->paginate($perPage);
 
         $items = $paginator->getCollection()->map(fn($c) => $this->formatCopy($c));
 
@@ -512,19 +513,14 @@ class ExamCopyController extends ApiController
             return [null, $this->error('You do not teach this class+subject.', 403)];
         }
 
-        // Roll number order (2 before 10), then name; no roll number goes last.
+        // A to Z by name, as every student list reads; two of a name by roll number.
         $students = StudentDetail::with('user:id,name')
             ->where('organization_id', $orgId)
             ->where('standard_id', $standardId)
             ->where('section_id', $sectionId)
             ->get(['id', 'user_id', 'full_name', 'roll_no', 'admission_no'])
-            ->sort(function ($a, $b) {
-                $ra = trim((string) $a->roll_no);
-                $rb = trim((string) $b->roll_no);
-                if (($ra === '') !== ($rb === '')) return $ra === '' ? 1 : -1;
-                return strnatcasecmp($ra, $rb)
-                    ?: strnatcasecmp((string) ($a->full_name ?? $a->user?->name), (string) ($b->full_name ?? $b->user?->name));
-            })
+            ->sort(fn ($a, $b) => strnatcasecmp(trim((string) ($a->full_name ?? $a->user?->name)), trim((string) ($b->full_name ?? $b->user?->name)))
+                ?: strnatcasecmp(trim((string) $a->roll_no), trim((string) $b->roll_no)))
             ->values();
 
         $ctx = [

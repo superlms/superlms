@@ -25,6 +25,7 @@ use App\Support\AdminAppOtp;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use App\Support\NameOrder;
 
 /**
  * School-admin entry point for the mobile app (Phase 0).
@@ -436,7 +437,11 @@ class AdminController extends ApiController
             if ($request->filled($p)) $base->where($p, (int) $request->input($p));
         }
 
-        $rows = $q->latest()->take(300)->get()->map(fn ($c) => [
+        // The newest 300 as before, listed A to Z by the student's name.
+        $rows = NameOrder::sort(
+            $q->latest()->take(300)->get(),
+            fn ($c) => $c->studentDetail?->user?->name ?? $c->studentDetail?->full_name ?? ''
+        )->map(fn ($c) => [
             'id'             => $c->id,
             'student'        => $c->studentDetail?->user?->name ?? $c->studentDetail?->full_name ?? '—',
             'class'          => $c->standard?->name,

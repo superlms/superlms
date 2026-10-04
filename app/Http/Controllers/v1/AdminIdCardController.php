@@ -131,7 +131,17 @@ class AdminIdCardController extends ApiController
             $query->where('status', $request->status);
         }
 
-        $paginator = $query->latest()->paginate((int) $request->input('per_page', 100));
+        // A to Z by the holder's name, on every tab (as the panel's).
+        $holderName = match ($type) {
+            'student' => StudentDetail::select('full_name')
+                ->whereColumn('student_details.id', 'student_id_cards.student_detail_id')->limit(1),
+            'teacher' => \App\Models\User::select('users.name')
+                ->join('teacher_details', 'teacher_details.user_id', '=', 'users.id')
+                ->whereColumn('teacher_details.id', 'teacher_id_cards.teacher_detail_id')->limit(1),
+            default   => \App\Models\Admin\AdminEmployee::select('name')
+                ->whereColumn('admin_employees.id', 'employee_id_cards.admin_employee_id')->limit(1),
+        };
+        $paginator = $query->orderBy($holderName)->orderBy('id')->paginate((int) $request->input('per_page', 100));
 
         // Lookups for the student filters.
         $standards = Standard::where('organization_id', $orgId)->where('is_active', true)
