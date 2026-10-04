@@ -211,6 +211,9 @@
     {{-- ─── Photo cropper (x-admin.photo-cropper): pick, fit in the circle, upload ─── --}}
     @include('partials.photo-cropper-js')
 
+    {{-- ─── Keyboard: Enter to the next field / row, ← → along a row ─── --}}
+    @include('partials.keyboard-nav')
+
     {{-- ─── Tell the installed app the panel is open (it then opens without a code) ─── --}}
     @include('partials.panel-app-open')
 
