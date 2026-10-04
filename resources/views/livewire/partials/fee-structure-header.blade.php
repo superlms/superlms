@@ -34,7 +34,7 @@
                 @endforeach
             </select>
 
-            <select wire:model.live="filterStructureSection" @disabled(!$filterStructureStandard) class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+            <select data-sole-section wire:model.live="filterStructureSection" @disabled(!$filterStructureStandard) class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
                 <option value="">All Sections</option>
                 @foreach ($filterSections as $sec)
                     <option value="{{ $sec->id }}">{{ $sec->name }}</option>

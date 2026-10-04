@@ -179,7 +179,7 @@
 
                     <span class="text-gray-300">→</span>
 
-                    <select wire:model.live="filterPaperSection" @disabled(!$filterPaperStandard)
+                    <select data-sole-section wire:model.live="filterPaperSection" @disabled(!$filterPaperStandard)
                         class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
                         <option value="">All Sections</option>
                         @foreach ($paperFilterSections as $sec)
@@ -237,7 +237,7 @@
 
                     <span class="text-gray-300">→</span>
 
-                    <select wire:model.live="syllabusFilterSection" @disabled(!$syllabusFilterStandard)
+                    <select data-sole-section wire:model.live="syllabusFilterSection" @disabled(!$syllabusFilterStandard)
                         class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
                         <option value="">Select Section</option>
                         @foreach ($filterSections as $sec)

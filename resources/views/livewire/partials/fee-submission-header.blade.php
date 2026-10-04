@@ -16,7 +16,7 @@
             <option value="">Select Class</option>
             @foreach ($fsStandards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
         </select>
-        <select wire:model.live="submissionSectionId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+        <select data-sole-section wire:model.live="submissionSectionId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
             <option value="">All Sections</option>
             @foreach ($fsSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
         </select>

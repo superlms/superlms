@@ -99,7 +99,7 @@
                             @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
                         </select>
 
-                        <select wire:key="sf-section" wire:model.live="filterSectionId" @disabled(!$filterStandardId)
+                        <select wire:key="sf-section" data-sole-section wire:model.live="filterSectionId" @disabled(!$filterStandardId)
                             class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate disabled:opacity-50 disabled:cursor-not-allowed">
                             <option value="">Select section…</option>
                             @foreach ($filterSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
@@ -127,7 +127,7 @@
                         @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
                     </select>
 
-                    <select wire:key="ds-section" wire:model.live="dsFilterSectionId" @disabled(!$dsFilterStandardId)
+                    <select wire:key="ds-section" data-sole-section wire:model.live="dsFilterSectionId" @disabled(!$dsFilterStandardId)
                         class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 max-w-full sm:max-w-[13rem] truncate disabled:opacity-50 disabled:cursor-not-allowed">
                         <option value="">Select section…</option>
                         @foreach ($dsFilterSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach

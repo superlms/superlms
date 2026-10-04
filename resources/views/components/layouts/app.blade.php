@@ -214,6 +214,9 @@
     {{-- ─── Keyboard: Enter to the next field / row, ← → along a row ─── --}}
     @include('partials.keyboard-nav')
 
+    {{-- ─── Filter bars: a class with one section picks it by itself ─── --}}
+    @include('partials.sole-section')
+
     {{-- ─── Tell the installed app the panel is open (it then opens without a code) ─── --}}
     @include('partials.panel-app-open')
 

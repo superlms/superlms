@@ -29,7 +29,7 @@
                 <option value="{{ $std->id }}">{{ $std->name }}</option>
             @endforeach
         </select>
-        <select wire:model.live="calcSectionId" @disabled(!$calcStandardId) class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+        <select data-sole-section wire:model.live="calcSectionId" @disabled(!$calcStandardId) class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
             <option value="">All sections</option>
             @foreach ($calcSections as $sec)
                 <option value="{{ $sec->id }}">{{ $sec->name }}</option>

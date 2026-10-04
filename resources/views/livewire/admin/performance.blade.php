@@ -96,7 +96,7 @@
                     <option value="">Select Class</option>
                     @foreach ($standards as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
                 </select>
-                <select wire:model.live="filterSection" @disabled(!$filterStandard)
+                <select data-sole-section wire:model.live="filterSection" @disabled(!$filterStandard)
                     class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]">
                     <option value="">Select Section</option>
                     @foreach ($sections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
@@ -142,7 +142,7 @@
                     <option value="">Select Class</option>
                     @foreach ($standards as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
                 </select>
-                <select wire:model.live="perfSection" @disabled(!$perfStandard)
+                <select data-sole-section wire:model.live="perfSection" @disabled(!$perfStandard)
                     class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]">
                     <option value="">Select Section</option>
                     @foreach ($perfSections as $sec)<option value="{{ $sec['id'] }}">{{ $sec['name'] }}</option>@endforeach

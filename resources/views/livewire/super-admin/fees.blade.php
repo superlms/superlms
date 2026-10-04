@@ -510,7 +510,7 @@
                                         <option value="{{ $std->id }}">{{ $std->name }}</option>
                                     @endforeach
                                 </select>
-                                <select wire:model.live="viewFeeSectionId" @if (!$viewFeeStandardId) disabled @endif
+                                <select data-sole-section wire:model.live="viewFeeSectionId" @if (!$viewFeeStandardId) disabled @endif
                                     class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-400">
                                     <option value="">All Sections</option>
                                     @foreach ($viewFeeSections as $sec)

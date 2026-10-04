@@ -26,7 +26,7 @@
                     @endforeach
                 </select>
 
-                <select wire:model.live="analyticsSectionId" @disabled(!$analyticsStandardId)
+                <select data-sole-section wire:model.live="analyticsSectionId" @disabled(!$analyticsStandardId)
                     class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
                     <option value="">All Sections</option>
                     @foreach ($analyticsSections as $sec)

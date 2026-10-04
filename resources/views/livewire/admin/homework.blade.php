@@ -94,7 +94,7 @@
                         @endforeach
                     </select>
 
-                    <select wire:key="hw-section" wire:model.live="filterSection" @disabled(!$filterStandard)
+                    <select wire:key="hw-section" data-sole-section wire:model.live="filterSection" @disabled(!$filterStandard)
                         class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 flex-shrink-0">
                         <option value="">All Sections</option>
                         @foreach ($filterSections as $section)
@@ -145,7 +145,7 @@
                             <option value="{{ $standard->id }}">{{ $standard->name }}</option>
                         @endforeach
                     </select>
-                    <select wire:key="st-section" wire:model.live="hwStatusSection" @disabled(!$hwStatusStandard)
+                    <select wire:key="st-section" data-sole-section wire:model.live="hwStatusSection" @disabled(!$hwStatusStandard)
                         class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 flex-shrink-0">
                         <option value="">Select section…</option>
                         @foreach ($hwStatusSections as $section)

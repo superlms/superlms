@@ -87,7 +87,7 @@
                         @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
                     </select>
 
-                    <select wire:model.live="filterSection" @disabled(!$filterStandard)
+                    <select data-sole-section wire:model.live="filterSection" @disabled(!$filterStandard)
                         class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
                         <option value="">All Sections</option>
                         @foreach ($filterSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
@@ -125,7 +125,7 @@
                         @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
                     </select>
                     <span class="text-gray-300">→</span>
-                    <select wire:model.live="resSection" @disabled(!$resStandard)
+                    <select data-sole-section wire:model.live="resSection" @disabled(!$resStandard)
                         class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
                         <option value="">All sections</option>
                         @foreach ($resSections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach

@@ -103,7 +103,7 @@
 
                 <span class="text-gray-300">→</span>
 
-                <select wire:model.live="filterSection" @disabled(!$filterSubjectStandard)
+                <select data-sole-section wire:model.live="filterSection" @disabled(!$filterSubjectStandard)
                     class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
                     <option value="">Select Section</option>
                     @foreach ($availableSections as $sec)
