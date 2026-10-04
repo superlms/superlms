@@ -192,6 +192,9 @@
             <button wire:click="openUploadMarks" class="mt-3 text-sm font-medium text-blue-600 hover:text-blue-800">Upload marks →</button>
         </div>
     @else
+        {{-- The Students list's table: S.No, the student (photo, name, admission
+             number under it), class, the paper, marks, grade, and the same
+             View / Edit buttons. --}}
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full">
@@ -199,63 +202,75 @@
                         <tr>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Student</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Adm No</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Exam · Subject</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Obtained</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Admission No</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Class</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Subject</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Marks</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Grade</th>
-                            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-28">Actions</th>
+                            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         @foreach ($examCopies as $i => $ec)
-                            <tr class="hover:bg-gray-50/70 transition-colors">
-                                <td class="px-4 py-3 text-sm text-gray-500 font-medium">{{ $examCopies->firstItem() + $i }}</td>
+                            @php
+                                $sd    = $ec->studentDetail;
+                                $sName = $sd?->full_name ?: ($sd?->user?->name ?? 'N/A');
+                                $sImg  = $sd?->user?->image ?: $sd?->image;
+                                $secL  = mb_strtoupper(mb_substr(trim((string) $ec->section?->name), -1));
+                            @endphp
+                            <tr class="hover:bg-gray-50/70 transition-colors" wire:key="ec-{{ $ec->id }}">
                                 <td class="px-4 py-3">
-                                    <div class="flex items-center gap-2.5">
-                                        @if ($ec->studentDetail?->image)
-                                            <img src="{{ $ec->studentDetail->image }}" class="w-8 h-8 rounded-full object-cover border border-gray-100">
+                                    <span class="text-sm text-gray-500 font-medium">{{ $examCopies->firstItem() + $i }}</span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-3">
+                                        @if ($sImg)
+                                            <img src="{{ $sImg }}" class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0">
                                         @else
-                                            <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                                                <span class="text-xs font-semibold text-indigo-600">{{ strtoupper(substr($ec->studentDetail?->user?->name ?? 'S', 0, 1)) }}</span>
+                                            <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                <span class="text-xs font-semibold text-indigo-600">{{ strtoupper(substr($sName, 0, 1)) }}</span>
                                             </div>
                                         @endif
-                                        <div>
-                                            <p class="text-sm font-semibold text-gray-800">{{ $ec->studentDetail?->user?->name ?? 'N/A' }}</p>
-                                            <p class="text-xs text-gray-400">Roll: {{ $ec->studentDetail?->roll_no ?? '—' }}</p>
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-semibold text-gray-900 truncate">{{ $sName }}</p>
+                                            <p class="text-xs text-gray-400 truncate">{{ $sd?->father_name ?? '' }}</p>
                                         </div>
                                     </div>
                                 </td>
-                                <td class="px-4 py-3 text-xs text-gray-500">{{ $ec->studentDetail?->admission_no ?? '—' }}</td>
-                                <td class="px-4 py-3 text-sm text-gray-700">
-                                    <div class="font-medium">{{ $ec->exam?->exam_name ?? '—' }}</div>
-                                    <div class="text-xs text-gray-500">{{ $ec->subject?->name ?? '—' }}</div>
-                                </td>
-                                <td class="px-4 py-3 text-sm font-medium text-gray-700">{{ $ec->max_marks }}</td>
                                 <td class="px-4 py-3">
+                                    <span class="text-sm font-mono text-gray-700">{{ $sd?->admission_no ?? '—' }}</span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span class="text-sm text-gray-700 whitespace-nowrap">{{ $ec->standard?->name ?? '—' }}{{ $secL !== '' ? '-' . $secL : '' }}</span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <p class="text-sm text-gray-700">{{ $ec->subject?->name ?? '—' }}</p>
+                                    <p class="text-xs text-gray-400">{{ $ec->exam?->exam_name ?? '' }}</p>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap">
                                     @if ($ec->is_absent)
-                                        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-700">Absent</span>
+                                        <span class="text-sm text-red-600">Absent</span>
                                     @else
-                                        <span class="font-semibold text-gray-800">{{ $ec->marks_obtained }}</span>
-                                        <div class="text-xs text-gray-400">{{ $ec->percentage }}%</div>
+                                        <span class="text-sm font-semibold text-gray-900 tabular-nums">{{ $ec->marks_obtained }}</span><span class="text-sm text-gray-400 tabular-nums"> / {{ $ec->max_marks }}</span>
+                                        <p class="text-xs text-gray-400 tabular-nums">{{ $ec->percentage }}%</p>
                                     @endif
                                 </td>
                                 <td class="px-4 py-3">
                                     @if ($ec->is_absent)
-                                        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-700">AB</span>
+                                        <span class="text-sm text-red-600">AB</span>
                                     @else
-                                        <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full {{ $gradeBadge($ec->grade_letter) }}">{{ $ec->grade_letter }}</span>
+                                        <span class="text-sm text-gray-700">{{ $ec->grade_letter }}</span>
                                     @endif
                                 </td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center justify-center gap-1">
                                         <button wire:click="onView({{ $ec->id }})" title="View"
                                             class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                         </button>
                                         {{-- View and edit only: marks are corrected, never dropped. --}}
                                         <button wire:click="onEdit({{ $ec->id }})" title="Edit"
-                                            class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
+                                            class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                         </button>
                                     </div>
@@ -265,8 +280,32 @@
                     </tbody>
                 </table>
             </div>
+
+            {{-- Pagination, as the Students list's --}}
             @if ($examCopies->hasPages())
-                <div class="px-6 py-4 border-t border-gray-100">{{ $examCopies->links() }}</div>
+                <div class="px-6 py-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <p class="text-sm text-gray-500">
+                        Showing <span class="font-medium text-gray-700">{{ $examCopies->firstItem() }}</span>
+                        to <span class="font-medium text-gray-700">{{ $examCopies->lastItem() }}</span>
+                        of <span class="font-medium text-gray-700">{{ $examCopies->total() }}</span> students
+                    </p>
+                    <div class="flex items-center gap-1">
+                        @if ($examCopies->onFirstPage())
+                            <span class="px-3 py-1.5 text-sm text-gray-300 border border-gray-200 rounded-lg cursor-not-allowed">&laquo; Prev</span>
+                        @else
+                            <button wire:click="previousPage" class="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">&laquo; Prev</button>
+                        @endif
+                        @foreach ($examCopies->getUrlRange(max(1, $examCopies->currentPage() - 2), min($examCopies->lastPage(), $examCopies->currentPage() + 2)) as $page => $url)
+                            <button wire:click="gotoPage({{ $page }})"
+                                class="px-3 py-1.5 text-sm rounded-lg transition-colors {{ $page == $examCopies->currentPage() ? 'bg-blue-600 text-white border border-blue-600' : 'text-gray-600 border border-gray-300 hover:bg-gray-50' }}">{{ $page }}</button>
+                        @endforeach
+                        @if ($examCopies->hasMorePages())
+                            <button wire:click="nextPage" class="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">Next &raquo;</button>
+                        @else
+                            <span class="px-3 py-1.5 text-sm text-gray-300 border border-gray-200 rounded-lg cursor-not-allowed">Next &raquo;</span>
+                        @endif
+                    </div>
+                </div>
             @endif
         </div>
     @endif
@@ -294,58 +333,55 @@
                 <h3 class="font-semibold text-gray-900 text-sm">
                     {{ $perfSubject ? 'Ranked by this subject\'s marks' : 'Ranked by overall marks in this exam' }}
                 </h3>
-                <span class="ml-auto text-xs font-medium bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full">{{ count($performers) }} students</span>
+                <span class="ml-auto text-xs text-gray-500">{{ count($performers) }} students</span>
             </div>
             <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="bg-gray-50 border-b border-gray-100">
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-16">Rank</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Student</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Adm No</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Class</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Obtained</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">%</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Grade</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Remark</th>
+                <table class="w-full">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">Rank</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Student</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Admission No</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Class</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Marks</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Grade</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Remark</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         @foreach ($performers as $p)
                             @php
                                 $remark = $perfRemark($p['percentage']);
-                                $rankBg = match($p['rank']) {
-                                    1 => 'bg-amber-400 text-white',
-                                    2 => 'bg-slate-400 text-white',
-                                    3 => 'bg-orange-400 text-white',
-                                    default => 'bg-gray-100 text-gray-600',
-                                };
+                                $st     = $p['student'];
+                                $pName  = $st?->full_name ?: ($st?->user?->name ?? 'N/A');
+                                $pImg   = $st?->user?->image ?: $st?->image;
+                                $pSec   = mb_strtoupper(mb_substr(trim((string) $st?->section?->name), -1));
                             @endphp
-                            <tr class="hover:bg-gray-50 {{ $p['rank'] <= 3 ? 'bg-amber-50/30' : '' }}">
-                                <td class="px-4 py-3"><span class="inline-flex w-7 h-7 items-center justify-center rounded-full text-xs font-bold {{ $rankBg }}">{{ $p['rank'] }}</span></td>
+                            <tr class="hover:bg-gray-50/70 transition-colors">
+                                <td class="px-4 py-3"><span class="text-sm text-gray-500 font-medium">{{ $p['rank'] }}</span></td>
                                 <td class="px-4 py-3">
-                                    <div class="flex items-center gap-2.5">
-                                        @if ($p['student']?->image)
-                                            <img src="{{ $p['student']->image }}" class="w-8 h-8 rounded-full object-cover border border-gray-100">
+                                    <div class="flex items-center gap-3">
+                                        @if ($pImg)
+                                            <img src="{{ $pImg }}" class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0">
                                         @else
-                                            <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                                                <span class="text-xs font-semibold text-indigo-600">{{ strtoupper(substr($p['student']?->user?->name ?? 'S', 0, 1)) }}</span>
+                                            <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                <span class="text-xs font-semibold text-indigo-600">{{ strtoupper(substr($pName, 0, 1)) }}</span>
                                             </div>
                                         @endif
-                                        <div>
-                                            <p class="font-semibold text-gray-800 text-sm">{{ $p['student']?->user?->name ?? 'N/A' }}</p>
-                                            <p class="text-xs text-gray-400">Roll: {{ $p['student']?->roll_no ?? '—' }}</p>
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-semibold text-gray-900 truncate">{{ $pName }}</p>
+                                            <p class="text-xs text-gray-400 truncate">{{ $st?->father_name ?? '' }}</p>
                                         </div>
                                     </div>
                                 </td>
-                                <td class="px-4 py-3 text-gray-500 text-xs">{{ $p['student']?->admission_no ?? '—' }}</td>
-                                <td class="px-4 py-3 text-xs text-gray-600">{{ $p['student']?->standard?->name ?? '—' }} {{ $p['student']?->section?->name ?? '' }}</td>
-                                <td class="px-4 py-3 text-sm font-medium text-gray-700">{{ $p['total_max'] }}</td>
-                                <td class="px-4 py-3 font-semibold text-gray-800">{{ $p['total_obtained'] }}</td>
-                                <td class="px-4 py-3 font-bold text-blue-600">{{ $p['percentage'] }}%</td>
-                                <td class="px-4 py-3"><span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full {{ $gradeBadge($p['grade']) }}">{{ $p['grade'] }}</span></td>
-                                <td class="px-4 py-3"><span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full {{ $remark['cls'] }}">{{ $remark['label'] }}</span></td>
+                                <td class="px-4 py-3"><span class="text-sm font-mono text-gray-700">{{ $st?->admission_no ?? '—' }}</span></td>
+                                <td class="px-4 py-3"><span class="text-sm text-gray-700 whitespace-nowrap">{{ $st?->standard?->name ?? '—' }}{{ $pSec !== '' ? '-' . $pSec : '' }}</span></td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <span class="text-sm font-semibold text-gray-900 tabular-nums">{{ $p['total_obtained'] }}</span><span class="text-sm text-gray-400 tabular-nums"> / {{ $p['total_max'] }}</span>
+                                    <p class="text-xs text-gray-400 tabular-nums">{{ $p['percentage'] }}%</p>
+                                </td>
+                                <td class="px-4 py-3"><span class="text-sm text-gray-700">{{ $p['grade'] }}</span></td>
+                                <td class="px-4 py-3"><span class="text-sm {{ $remark['label'] === 'Fail' ? 'text-red-600' : 'text-gray-700' }}">{{ $remark['label'] }}</span></td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -362,174 +398,124 @@
      UPLOAD MARKS SLIDE-IN (exams-style)
 ═══════════════════════════════════════════════ --}}
 @if ($showUploadModal)
+@php
+    $markedCount = collect($studentMarks)->filter(fn ($m) => ($m['is_absent'] ?? false) || (($m['marks_obtained'] ?? '') !== '' && $m['marks_obtained'] !== null))->count();
+    $uploadExamName = collect($exams)->firstWhere('id', $uploadExam)?->exam_name;
+@endphp
+{{-- The Mark Attendance panel's look: a toolbar of pickers, one plain row a
+     student (number, photo, name over admission number, remark, marks out of
+     the exam's total, Absent), and the save in the footer. --}}
 <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
     <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeUploadModal"></div>
-    <div class="absolute top-0 right-0 bottom-0 w-full max-w-5xl bg-white shadow-2xl flex flex-col">
+    <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
+        {{-- Header --}}
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-            <div>
+            <div class="min-w-0">
                 <h2 class="text-lg font-semibold text-gray-900">Upload Marks</h2>
-                <p class="text-xs text-gray-500 mt-0.5">Select exam, class, section &amp; subject to enter marks</p>
+                <p class="text-xs text-gray-500 mt-0.5 truncate">
+                    @if ($uploadExam)
+                        {{ $uploadExamName }} · total marks {{ $uploadTotalMarks }}
+                    @else
+                        Select exam, class, section &amp; subject to enter marks
+                    @endif
+                </p>
             </div>
-            <button wire:click="closeUploadModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+            <button wire:click="closeUploadModal" type="button"
+                class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
 
-        <div class="px-6 py-4 border-b border-gray-100 flex-shrink-0">
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Exam <span class="text-red-500">*</span></label>
-                    <select wire:model.live="uploadExam"
-                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                        <option value="">Select Exam</option>
-                        @foreach ($exams as $e)<option value="{{ $e->id }}">{{ $e->exam_name }}</option>@endforeach
-                    </select>
-                    @error('uploadExam')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Class <span class="text-red-500">*</span></label>
-                    <select wire:model.live="uploadStandard"
-                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                        <option value="">Select Class</option>
-                        @foreach ($standards as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
-                    </select>
-                    @error('uploadStandard')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Section <span class="text-red-500">*</span></label>
-                    <select wire:model.live="uploadSection" @disabled(!$uploadStandard)
-                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50">
-                        <option value="">Select Section</option>
-                        @foreach ($sections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
-                    </select>
-                    @error('uploadSection')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Subject <span class="text-red-500">*</span></label>
-                    <select wire:model.live="uploadSubject" @disabled(!$uploadSection)
-                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50">
-                        <option value="">Select Subject</option>
-                        @foreach ($subjects as $sub)<option value="{{ $sub->id }}">{{ $sub->name }}</option>@endforeach
-                    </select>
-                    @error('uploadSubject')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                </div>
-            </div>
-            @if ($uploadExam)
-                <p class="mt-3 text-xs text-gray-500">Exam total marks: <strong class="text-gray-700 font-medium">{{ $uploadTotalMarks }}</strong> — auto-applied to every student row below.</p>
+        {{-- Toolbar: exam → class → section → subject --}}
+        <div class="px-6 py-3 border-b border-gray-100 flex flex-wrap items-center gap-2 flex-shrink-0">
+            <select wire:model.live="uploadExam"
+                class="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white focus:ring-1 focus:ring-gray-400 focus:border-gray-400 @error('uploadExam') border-red-400 @enderror">
+                <option value="">Select exam…</option>
+                @foreach ($exams as $e)<option value="{{ $e->id }}">{{ $e->exam_name }}</option>@endforeach
+            </select>
+            <select wire:model.live="uploadStandard"
+                class="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white focus:ring-1 focus:ring-gray-400 focus:border-gray-400 @error('uploadStandard') border-red-400 @enderror">
+                <option value="">Select class…</option>
+                @foreach ($standards as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach
+            </select>
+            <select wire:model.live="uploadSection" @disabled(!$uploadStandard)
+                class="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white disabled:opacity-50 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 @error('uploadSection') border-red-400 @enderror">
+                <option value="">Select section…</option>
+                @foreach ($sections as $sec)<option value="{{ $sec->id }}">{{ $sec->name }}</option>@endforeach
+            </select>
+            <select wire:model.live="uploadSubject" @disabled(!$uploadSection)
+                class="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white disabled:opacity-50 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 @error('uploadSubject') border-red-400 @enderror">
+                <option value="">Select subject…</option>
+                @foreach ($subjects as $sub)<option value="{{ $sub->id }}">{{ $sub->name }}</option>@endforeach
+            </select>
+            @if (count($studentMarks) > 0)
+                <span class="ml-auto text-xs text-gray-400 tabular-nums">{{ $markedCount }} of {{ count($studentMarks) }} entered</span>
             @endif
         </div>
 
-        <div class="flex-1 overflow-y-auto">
-            @if (!$uploadExam || !$uploadStandard || !$uploadSection || !$uploadSubject)
-                <div class="flex flex-col items-center justify-center py-20 text-center px-8">
-                    <div class="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mb-3">
-                        <svg class="w-7 h-7 text-blue-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5"/></svg>
-                    </div>
-                    <p class="text-sm font-medium text-gray-700">Pick Exam, Class, Section &amp; Subject</p>
-                    <p class="text-xs text-gray-400 mt-1">Student list will appear here</p>
-                </div>
-            @elseif (count($studentMarks) === 0)
-                <div class="flex flex-col items-center justify-center py-20 text-center">
-                    <p class="text-sm font-medium text-gray-600">No students found for this section.</p>
-                </div>
-            @else
-                @php
-                    $uploadStd = collect($standards)->firstWhere('id', $uploadStandard);
-                    $uploadSec = collect($sections)->firstWhere('id', $uploadSection);
-                    $uploadSub = collect($subjects)->firstWhere('id', $uploadSubject);
-                @endphp
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead class="sticky top-0 z-10 bg-gray-50">
-                            <tr class="border-b border-gray-200">
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-10">#</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[160px]">Student</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Adm No</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Class</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Subject</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-24">Total</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-28">Marks</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[120px]">Remark</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            @foreach ($studentMarks as $studentId => $marks)
-                                @php $isSaved = $marks['saved'] ?? false; $isAbsent = $marks['is_absent'] ?? false; @endphp
-                                <tr class="{{ $isAbsent ? 'bg-red-50/40' : ($isSaved ? 'bg-emerald-50/40' : 'bg-white') }} hover:bg-gray-50">
-                                    <td class="px-4 py-3 text-gray-400 text-xs">{{ $loop->iteration }}</td>
-                                    <td class="px-4 py-3">
-                                        <div class="flex items-center gap-2.5">
-                                            @if (!empty($marks['image']))
-                                                <img src="{{ $marks['image'] }}" class="w-8 h-8 rounded-full object-cover border border-gray-100">
-                                            @else
-                                                <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                                                    <span class="text-xs font-semibold text-indigo-600">{{ strtoupper(substr($marks['student_name'], 0, 1)) }}</span>
-                                                </div>
-                                            @endif
-                                            <div>
-                                                <p class="font-semibold text-gray-800 text-sm">{{ $marks['student_name'] }}</p>
-                                                <p class="text-xs text-gray-400">Roll: {{ $marks['roll_no'] ?? '—' }}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-4 py-3 text-xs text-gray-500">{{ $marks['admission_no'] ?? '—' }}</td>
-                                    <td class="px-4 py-3 text-xs text-gray-600">{{ $uploadStd?->name ?? '' }} <span class="text-gray-400">·</span> {{ $uploadSec?->name ?? '' }}</td>
-                                    <td class="px-4 py-3 text-xs text-gray-600">{{ $uploadSub?->name ?? '—' }}</td>
-                                    <td class="px-4 py-3">
-                                        <span class="text-sm font-semibold text-gray-700">{{ $uploadTotalMarks }}</span>
-                                    </td>
-                                    <td class="px-4 py-3">
-                                        @if ($isAbsent)
-                                            <div class="flex items-center gap-2">
-                                                <span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-700">Absent</span>
-                                                <button type="button" wire:click="toggleAbsent({{ $studentId }})"
-                                                    class="text-[11px] font-medium text-blue-600 hover:text-blue-800">Undo</button>
-                                            </div>
-                                        @else
-                                            {{-- Deferred wire:model so values sync on Save click (no debounce race). --}}
-                                            <div class="flex items-center gap-2">
-                                                <input type="number"
-                                                    wire:model="studentMarks.{{ $studentId }}.marks_obtained"
-                                                    class="w-24 px-2.5 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                                    min="0" max="{{ $uploadTotalMarks }}" step="0.01" placeholder="Obtained">
-                                                <button type="button" wire:click="toggleAbsent({{ $studentId }})"
-                                                    class="text-[11px] font-medium text-red-500 hover:text-red-700 whitespace-nowrap">Absent</button>
-                                            </div>
-                                        @endif
-                                    </td>
-                                    <td class="px-4 py-3">
-                                        <input type="text"
-                                            wire:model="studentMarks.{{ $studentId }}.remarks"
-                                            class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                            placeholder="Remark">
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            @endif
-        </div>
-
-        <div class="flex items-center justify-between gap-2 px-6 py-3.5 border-t border-gray-200 flex-shrink-0">
-            <p class="text-xs text-gray-400">
-                @if (count($studentMarks) > 0)
-                    {{ count($studentMarks) }} students · {{ collect($studentMarks)->where('saved', true)->count() }} saved
-                    <span class="text-amber-600">· students left blank will be marked <strong>Absent</strong> on save</span>
-                @else
-                    Total marks: <strong class="text-gray-700">{{ $uploadTotalMarks }}</strong>
-                @endif
+        @if ($errors->hasAny(['uploadExam', 'uploadStandard', 'uploadSection', 'uploadSubject']))
+            <p class="px-6 py-2 text-xs text-red-500 border-b border-gray-100 flex-shrink-0">
+                {{ $errors->first('uploadExam') ?: ($errors->first('uploadStandard') ?: ($errors->first('uploadSection') ?: $errors->first('uploadSubject'))) }}
             </p>
-            <div class="flex gap-2">
-                <button wire:click="closeUploadModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                {{-- Target the save itself: without it any other in-flight
-                     request (a filter change, the search) disables this. --}}
-                <button wire:click="uploadMarks" wire:loading.attr="disabled" wire:target="uploadMarks"
-                    class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
-                    <span wire:loading.remove wire:target="uploadMarks">Save All Marks</span>
-                    <span wire:loading wire:target="uploadMarks">Saving...</span>
-                </button>
-            </div>
+        @endif
+
+        @if (count($studentMarks) > 0)
+            <p class="px-6 py-2 text-xs text-gray-500 border-b border-gray-100 flex-shrink-0">
+                Out of {{ $uploadTotalMarks }} for everyone · {{ collect($studentMarks)->where('saved', true)->count() }} already saved ·
+                <span class="text-amber-700">a student left blank is saved Absent</span>
+            </p>
+        @endif
+
+        {{-- Rows --}}
+        <div class="flex-1 overflow-y-auto divide-y divide-gray-100">
+            @if (!$uploadExam || !$uploadStandard || !$uploadSection || !$uploadSubject)
+                <p class="py-16 text-center text-sm text-gray-400">Select an exam, class, section &amp; subject to start entering marks.</p>
+            @else
+                @forelse ($studentMarks as $studentId => $marks)
+                    @php $isAbsent = $marks['is_absent'] ?? false; @endphp
+                    <div wire:key="mark-u-{{ $studentId }}" class="flex flex-wrap items-center gap-x-3 gap-y-2 px-6 py-2.5 {{ $isAbsent ? 'bg-red-50/40' : '' }}">
+                        <span class="w-4 text-[11px] text-gray-300 tabular-nums flex-shrink-0">{{ $loop->iteration }}</span>
+                        @if (!empty($marks['image']))
+                            <img src="{{ $marks['image'] }}" class="w-8 h-8 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                        @else
+                            <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-[11px] font-medium flex-shrink-0">{{ strtoupper(substr($marks['student_name'], 0, 1)) }}</div>
+                        @endif
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm text-gray-800 truncate">{{ $marks['student_name'] }}</p>
+                            <p class="text-[11px] text-gray-400 truncate">{{ $marks['admission_no'] ?: '—' }}</p>
+                        </div>
+                        <input type="text" wire:model="studentMarks.{{ $studentId }}.remarks" placeholder="Remark"
+                            class="w-28 sm:w-36 text-xs border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        {{-- Marks out of the total, or Absent; deferred wire:model so values sync on Save. --}}
+                        <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-[11px] flex-shrink-0">
+                            @if ($isAbsent)
+                                <span class="w-[5.5rem] px-2.5 py-1.5 text-center text-gray-300">—</span>
+                            @else
+                                <input type="number" wire:model="studentMarks.{{ $studentId }}.marks_obtained"
+                                    min="0" max="{{ $uploadTotalMarks }}" step="0.01" placeholder="Marks"
+                                    class="w-14 px-2 py-1.5 text-xs border-0 focus:ring-0 tabular-nums">
+                                <span class="pr-2.5 py-1.5 text-gray-400 tabular-nums">/ {{ $uploadTotalMarks }}</span>
+                            @endif
+                            <button type="button" wire:click="toggleAbsent({{ $studentId }})" title="{{ $isAbsent ? 'Undo absent' : 'Absent' }}"
+                                class="px-2.5 py-1.5 border-l border-gray-200 {{ $isAbsent ? 'bg-red-50 text-red-600 font-medium' : 'text-gray-500 hover:bg-gray-50' }}">Absent</button>
+                        </div>
+                    </div>
+                @empty
+                    <p class="py-16 text-center text-sm text-gray-400">No students in this class/section.</p>
+                @endforelse
+            @endif
+        </div>
+
+        {{-- Footer --}}
+        <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+            <button wire:click="closeUploadModal" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+            {{-- Target the save itself: without it any other in-flight
+                 request (a filter change, the search) disables this. --}}
+            <button wire:click="uploadMarks" type="button" wire:loading.attr="disabled" wire:target="uploadMarks"
+                class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                <span wire:loading.remove wire:target="uploadMarks">Save All Marks</span>
+                <span wire:loading wire:target="uploadMarks">Saving...</span>
+            </button>
         </div>
     </div>
 </div>
