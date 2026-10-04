@@ -230,7 +230,7 @@
 @if ($showIssuePanel)
     <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
         <div class="absolute inset-0 bg-black/[0.08] backdrop-blur-[1.5px]" wire:click="backToList"></div>
-        <div class="absolute top-0 right-0 bottom-0 w-full max-w-5xl bg-white shadow-2xl flex flex-col">
+        <div class="absolute top-0 right-0 bottom-0 w-full {{ $showIssueForm ? 'max-w-5xl' : 'max-w-3xl' }} bg-white shadow-2xl flex flex-col">
 
             {{-- Header --}}
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
@@ -254,124 +254,85 @@
 
             @if (! $showIssueForm)
                 {{-- ─────────── Step 1: class, section, students ─────────── --}}
-                <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5" wire:key="issue-step-1">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Class <span class="text-red-500">*</span></label>
-                            <select wire:model.live="issueStandard"
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                                <option value="">Select Class</option>
-                                @foreach ($this->standards as $standard)
-                                    <option value="{{ $standard->id }}">{{ $standard->name }}</option>
-                                @endforeach
-                            </select>
+                {{-- The Mark Attendance panel's look: the class and section in one
+                     toolbar with the pick-all buttons and the count, a line on who
+                     can be picked, then one plain row a student — the tick, number,
+                     initial, name over admission number, roll number and where their
+                     card stands. --}}
+                @php
+                    $eligibleCount = $issueStudentsLoaded
+                        ? $this->issueStudents->filter(fn($s) => $s['marks_complete'] && !$s['already_issued'])->count()
+                        : 0;
+                @endphp
+                <div class="px-6 py-3 border-b border-gray-100 flex flex-wrap items-center gap-2 flex-shrink-0" wire:key="issue-step-1-bar">
+                    <select wire:model.live="issueStandard"
+                        class="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">Select class…</option>
+                        @foreach ($this->standards as $standard)
+                            <option value="{{ $standard->id }}">{{ $standard->name }}</option>
+                        @endforeach
+                    </select>
+                    <select wire:model.live="issueSection" wire:key="issue-section-{{ $issueStandard ?: 'none' }}" @disabled(!$issueStandard)
+                        class="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white disabled:opacity-50 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">{{ $issueStandard ? 'Select section…' : 'Select a class first' }}</option>
+                        @foreach ($this->issueSections as $section)
+                            <option value="{{ $section->id }}">{{ $section->name }}</option>
+                        @endforeach
+                    </select>
+                    @if ($issueStudentsLoaded && $eligibleCount > 0)
+                        <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-xs">
+                            <button type="button" wire:click="toggleAllEligible(true)" class="px-2.5 py-1.5 text-gray-600 hover:bg-gray-50">All eligible</button>
+                            <button type="button" wire:click="toggleAllEligible(false)" class="px-2.5 py-1.5 text-gray-500 hover:bg-gray-50 border-l border-gray-200">Clear</button>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Section <span class="text-red-500">*</span></label>
-                            <select wire:model.live="issueSection" wire:key="issue-section-{{ $issueStandard ?: 'none' }}" @disabled(!$issueStandard)
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:opacity-60">
-                                <option value="">{{ $issueStandard ? 'Select Section' : 'Select a class first' }}</option>
-                                @foreach ($this->issueSections as $section)
-                                    <option value="{{ $section->id }}">{{ $section->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                    </div>
-
+                    @endif
                     @if ($issueStudentsLoaded)
-                        @php
-                            $eligibleCount = $this->issueStudents->filter(fn($s) => $s['marks_complete'] && !$s['already_issued'])->count();
-                        @endphp
-                        <div class="border border-gray-200 rounded-xl overflow-hidden">
-                            <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
-                                <h3 class="text-sm font-semibold text-gray-900">Select Students</h3>
-                                <div class="flex flex-wrap items-center gap-4">
-                                    <div class="flex flex-wrap items-center gap-3 text-[11px]">
-                                        <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span><span class="text-gray-500">Eligible</span></span>
-                                        <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-gray-300"></span><span class="text-gray-500">Incomplete</span></span>
-                                        <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-400"></span><span class="text-gray-500">Issued</span></span>
-                                    </div>
-                                    @if ($eligibleCount > 0)
-                                        <label class="flex items-center gap-2 cursor-pointer">
-                                            <input type="checkbox" wire:click="toggleAllEligible($event.target.checked)"
-                                                {{ count($selectedStudents) === $eligibleCount && $eligibleCount > 0 ? 'checked' : '' }}
-                                                class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                                            <span class="text-xs font-medium text-gray-700">Select all eligible ({{ count($selectedStudents) }}/{{ $eligibleCount }})</span>
-                                        </label>
-                                    @endif
-                                </div>
-                            </div>
+                        <span class="ml-auto text-xs text-gray-400 tabular-nums">{{ count($selectedStudents) }} of {{ $eligibleCount }} eligible picked</span>
+                    @endif
+                </div>
 
-                            <div class="overflow-x-auto">
-                                <table class="w-full">
-                                    <thead class="bg-gray-50 border-b border-gray-200">
-                                        <tr>
-                                            <th class="px-4 py-3 w-10"></th>
-                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
-                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Student Name</th>
-                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Roll No.</th>
-                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Marks Status</th>
-                                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Report Card</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-gray-100">
-                                        @forelse ($this->issueStudents as $index => $student)
-                                            @php
-                                                $isEligible = $student['marks_complete'] && !$student['already_issued'];
-                                                $rowClass = !$student['marks_complete'] ? 'opacity-50 bg-gray-50/60' : ($student['already_issued'] ? 'bg-blue-50/40' : '');
-                                            @endphp
-                                            <tr wire:key="issue-pick-{{ $student['id'] }}" class="{{ $rowClass }} hover:bg-gray-50 transition-colors">
-                                                <td class="px-4 py-3">
-                                                    @if ($isEligible)
-                                                        <input type="checkbox" wire:model.live="selectedStudents" value="{{ $student['id'] }}"
-                                                            class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                                                    @else
-                                                        <input type="checkbox" disabled class="w-4 h-4 rounded border-gray-200 text-gray-300 cursor-not-allowed">
-                                                    @endif
-                                                </td>
-                                                <td class="px-4 py-3"><span class="text-sm text-gray-500 font-medium">{{ $index + 1 }}</span></td>
-                                                <td class="px-4 py-3">
-                                                    <p class="text-sm font-semibold text-gray-900">{{ $student['full_name'] }}</p>
-                                                    <p class="text-xs text-gray-400">{{ $student['admission_no'] ?? '' }}</p>
-                                                </td>
-                                                <td class="px-4 py-3 text-sm text-gray-600">{{ $student['roll_no'] }}</td>
-                                                <td class="px-4 py-3">
-                                                    @if ($student['marks_complete'])
-                                                        <span class="text-sm text-gray-700">Complete</span>
-                                                    @else
-                                                        <span class="text-sm text-amber-700">Incomplete</span>
-                                                        @if ($student['missing_info'])
-                                                            <p class="text-[11px] text-gray-400 mt-0.5">{{ $student['missing_info'] }}</p>
-                                                        @endif
-                                                    @endif
-                                                </td>
-                                                <td class="px-4 py-3">
-                                                    @if ($student['already_issued'])
-                                                        <span class="text-sm text-blue-700">Already issued</span>
-                                                    @elseif ($student['marks_complete'])
-                                                        <span class="text-sm text-gray-500">Ready to issue</span>
-                                                    @else
-                                                        <span class="text-sm text-gray-400">—</span>
-                                                    @endif
-                                                </td>
-                                            </tr>
-                                        @empty
-                                            <tr>
-                                                <td colspan="6" class="px-4 py-12 text-center">
-                                                    <p class="text-sm font-semibold text-gray-800">No students found</p>
-                                                    <p class="text-xs text-gray-400 mt-1">No students are enrolled in this class and section.</p>
-                                                </td>
-                                            </tr>
-                                        @endforelse
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                @if ($issueStudentsLoaded)
+                    <p class="px-6 py-2 text-xs text-gray-500 border-b border-gray-100 flex-shrink-0">Only a student whose marks are complete and who has no card yet can be picked.</p>
+                @endif
+
+                {{-- Rows --}}
+                <div class="flex-1 overflow-y-auto divide-y divide-gray-100" wire:key="issue-step-1">
+                    @if ($issueStudentsLoaded)
+                        @forelse ($this->issueStudents as $index => $student)
+                            @php
+                                $isEligible = $student['marks_complete'] && !$student['already_issued'];
+                                [$stateLabel, $stateCls] = match (true) {
+                                    $student['already_issued']   => ['Already issued', 'bg-blue-50 text-blue-700'],
+                                    $student['marks_complete']   => ['Ready to issue', 'bg-emerald-50 text-emerald-700'],
+                                    default                      => ['Marks incomplete', 'bg-amber-50 text-amber-700'],
+                                };
+                            @endphp
+                            <label wire:key="issue-pick-{{ $student['id'] }}"
+                                class="flex flex-wrap items-center gap-x-3 gap-y-2 px-6 py-2.5 {{ $isEligible ? 'cursor-pointer hover:bg-gray-50' : '' }} {{ !$student['marks_complete'] ? 'bg-gray-50/60' : '' }}">
+                                @if ($isEligible)
+                                    <input type="checkbox" wire:model.live="selectedStudents" value="{{ $student['id'] }}"
+                                        class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 flex-shrink-0">
+                                @else
+                                    <input type="checkbox" disabled class="w-4 h-4 rounded border-gray-200 text-gray-300 cursor-not-allowed flex-shrink-0">
+                                @endif
+                                <span class="w-4 text-[11px] text-gray-300 tabular-nums flex-shrink-0">{{ $index + 1 }}</span>
+                                <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-[11px] font-medium flex-shrink-0">{{ strtoupper(substr($student['full_name'] ?? 'S', 0, 1)) }}</div>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm text-gray-800 truncate">{{ $student['full_name'] }}</p>
+                                    <p class="text-[11px] text-gray-400 truncate">
+                                        {{ $student['admission_no'] ?: '—' }}
+                                        @if (!$student['marks_complete'] && $student['missing_info'])
+                                            <span class="text-amber-700">· {{ $student['missing_info'] }}</span>
+                                        @endif
+                                    </p>
+                                </div>
+                                <span class="text-xs text-gray-400 tabular-nums flex-shrink-0">Roll {{ $student['roll_no'] }}</span>
+                                <span class="inline-flex items-center rounded-md border border-gray-200 px-2.5 py-1.5 text-[11px] font-medium flex-shrink-0 {{ $stateCls }}">{{ $stateLabel }}</span>
+                            </label>
+                        @empty
+                            <p class="py-16 text-center text-sm text-gray-400">No students in this class/section.</p>
+                        @endforelse
                     @else
-                        <div class="border border-gray-200 rounded-xl px-6 py-14 text-center">
-                            <p class="text-sm font-semibold text-gray-800">Select a class and section</p>
-                            <p class="text-xs text-gray-400 mt-1">The students of the section come up here to pick from.</p>
-                        </div>
+                        <p class="py-16 text-center text-sm text-gray-400">Select a class &amp; section to pick the students.</p>
                     @endif
                 </div>
 

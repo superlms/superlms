@@ -313,18 +313,21 @@ class ReportCardPanelTest extends TestCase
         $html = $page->call('openIssueScreen')->assertSet('showIssuePanel', true)->assertSet('viewMode', 'list')->html();
         $this->assertStringContainsString('Choose a filter', Livewire::test($pageClass)->call('openIssueScreen')->html());   // the list's home is still there
         $issue = $this->panel($html, 'Issue Report Cards</h2>');
-        $this->assertStringContainsString('max-w-5xl bg-white shadow-2xl flex flex-col', $html);
+        // Picking the students: the Mark Attendance panel's width and look.
+        $this->assertStringContainsString('max-w-3xl bg-white shadow-2xl flex flex-col', $html);
         $this->assertStringContainsString('wire:model.live="issueStandard"', $issue);
         $this->assertStringContainsString('wire:model.live="issueSection"', $issue);
-        $this->assertStringContainsString('Select a class and section', $issue);
+        $this->assertStringContainsString('Select a class &amp; section to pick the students.', $issue);
         $this->assertStringNotContainsString('Load Students', $issue);
 
-        // Class then section: the students come up by themselves, the admission number under the name.
+        // Class then section: the students come up by themselves, one plain row each —
+        // the tick, the name over the admission number, the roll number and where the card stands.
         $issue = $this->panel($page->set('issueStandard', '1')->set('issueSection', '1')->assertSet('issueStudentsLoaded', true)->html(), 'Issue Report Cards</h2>');
-        $list = $this->table($issue);
-        preg_match_all('/<th\s[^>]*>(.*?)<\/th>/s', $list, $m);
-        $this->assertSame(['', 'S.No', 'Student Name', 'Roll No.', 'Marks Status', 'Report Card'], array_map('trim', $m[1]));
-        $this->assertMatchesRegularExpression('/Asha<\/p>\s*<p class="text-xs text-gray-400">ADM-ASH<\/p>/', $list);
+        $this->assertStringNotContainsString('<table', $issue);
+        $this->assertMatchesRegularExpression('/Asha<\/p>\s*<p class="text-\[11px\] text-gray-400 truncate">\s*ADM-ASH/', $issue);
+        $this->assertStringContainsString('wire:key="issue-pick-', $issue);
+        $this->assertStringContainsString('Roll ', $issue);
+        $this->assertStringContainsString('eligible picked', $issue);
         $this->assertStringContainsString('wire:click="openIssueForm"', $issue);
 
         // Closing puts everything back.
