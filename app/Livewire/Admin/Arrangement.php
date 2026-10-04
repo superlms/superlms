@@ -99,6 +99,11 @@ class Arrangement extends Component
     public function clearFilters(): void
     {
         $this->reset(['filterClass']);
+        // Another day picked: back to today, as a date change does it.
+        if ($this->date !== Carbon::today()->format('Y-m-d')) {
+            $this->date = Carbon::today()->format('Y-m-d');
+            $this->updatedDate();
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════

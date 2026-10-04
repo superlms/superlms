@@ -41,17 +41,19 @@
                 @foreach ($standards as $std)<option value="{{ $std->id }}">{{ $std->name }}</option>@endforeach
             </select>
 
-            <span class="text-xs text-gray-500 ml-auto">
-                Showing slots for <strong class="text-gray-700">{{ \Carbon\Carbon::parse($date)->format('D, d M Y') }}</strong>
-            </span>
-
-            @if ($filterClass)
+            {{-- Clear sits right after the filters (as on every page): a class
+                 picked, or a day other than today, goes back to today, all classes. --}}
+            @if ($filterClass || $date !== now()->format('Y-m-d'))
                 <button wire:click="clearFilters"
                     class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     Clear
                 </button>
             @endif
+
+            <span class="text-xs text-gray-500 ml-auto">
+                Showing slots for <strong class="text-gray-700">{{ \Carbon\Carbon::parse($date)->format('D, d M Y') }}</strong>
+            </span>
         </div>
     </div>
 </div>

@@ -186,4 +186,17 @@ class ArrangementPanelTest extends TestCase
         $page->call('closeArrange')->assertSet('arrangeTeacherId', null);
         $page->call('openArrange', $this->t['asha'])->set('date', '2026-09-18')->assertSet('arrangeTeacherId', null);
     }
+
+    public function test_clear_sits_right_after_the_filters_and_brings_back_today(): void
+    {
+        $page = Livewire::test(Arrangement::class)->assertDontSeeHtml('wire:click="clearFilters"');
+
+        $html = $page->set('date', '2026-09-18')->assertSeeHtml('wire:click="clearFilters"')->html();
+        // After the class box, before the "Showing slots for" line.
+        $this->assertLessThan(strpos($html, 'Showing slots for'), strpos($html, 'wire:click="clearFilters"'));
+        $this->assertGreaterThan(strpos($html, 'wire:model.live="filterClass"'), strpos($html, 'wire:click="clearFilters"'));
+
+        $page->call('clearFilters')->assertSet('date', '2026-09-17')->assertSet('filterClass', '')
+            ->assertDontSeeHtml('wire:click="clearFilters"');
+    }
 }
