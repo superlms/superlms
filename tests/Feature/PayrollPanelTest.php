@@ -622,8 +622,8 @@ class PayrollPanelTest extends TestCase
                 ->set('salaryType', 'driver')
                 ->assertViewHas('salaryPeople', fn ($list) => $list->pluck('name')->all() === ['Ravi Kumar'])
                 ->set('salaryEmpId', (string) $ravi->id)
-                ->assertSeeHtml('wire:click="openSalaryPayment"')
-                ->assertSee('Add Payment')
+                // The months list has no Add Payment (a month's own screen does).
+                ->assertDontSeeHtml('wire:click="openSalaryPayment')
                 // Their details, then every month from April to this one.
                 ->assertSee('Ravi Kumar')
                 ->assertSee('SBI')
@@ -724,12 +724,16 @@ class PayrollPanelTest extends TestCase
                 // Every month's row ends in the arrow.
                 ->assertSeeHtml("wire:click=\"openSalaryMonth('2026-09')\"")
                 ->assertSeeHtml("wire:click=\"openSalaryMonth('2026-10')\"")
+                // Each Payment cell is the amount taken of the salary so far, no lines under it.
+                ->assertSee('of ₹28,000')
                 ->call('openSalaryMonth', '2026-09')
                 ->assertSet('salaryMonthView', '2026-09')
-                // Its own header: back and an Add Payment for this month (the page's own is not shown).
-                ->assertSeeHtml('wire:click="closeSalaryMonth"')
+                // The month shows in the filter bar (All months goes back); Add Payment
+                // for this month is in the page header.
+                ->assertSeeHtml('wire:model.live="salaryMonthView"')
+                ->assertSee('All months')
                 ->assertSeeHtml("wire:click=\"openSalaryPayment('2026-09')\"")
-                ->assertDontSeeHtml('wire:click="openSalaryPayment"')
+                ->assertDontSeeHtml('wire:click="closeSalaryMonth"')
                 // First the salary, the attendance and the salary it works out to.
                 ->assertSee('Monthly salary')
                 ->assertSee('₹30,000')
@@ -765,12 +769,17 @@ class PayrollPanelTest extends TestCase
                 ->assertSee('Paid extra')
                 ->assertSee("₹1,000 has been paid over this month's salary", false);
 
-            // Back: the person's months again, with the page's own Add Payment,
-            // which still keeps a payment against the month of its date.
-            $page->call('closeSalaryMonth')
-                ->assertSet('salaryMonthView', '')
-                ->assertSeeHtml('wire:click="openSalaryPayment"')
-                ->call('openSalaryPayment')
+            // The months list shows it as taken of the salary, with the extra.
+            $page->set('salaryMonthView', '')
+                ->assertSee('₹29,000')
+                ->assertSee('of ₹28,000')
+                ->assertSee('₹1,000 extra')
+                ->assertDontSee('14 Oct 2026')
+                ->assertDontSeeHtml('wire:click="openSalaryPayment');
+
+            // Opened without a month (as the header's own button used to) a payment
+            // is still kept against the month of its date.
+            $page->call('openSalaryPayment')
                 ->assertSet('spMonth', '')
                 ->set('spAmount', '500')->set('spFrom', 'Head')->set('spDate', '2026-10-02')
                 ->call('saveSalaryPayment')

@@ -1433,6 +1433,15 @@ class Payroll extends Component
         $this->salaryMonthView = $ym;
     }
 
+    /** The filter bar's month: a month's screen, or All months (''). */
+    public function updatedSalaryMonthView(): void
+    {
+        $this->closeSalaryPayment();
+        if ($this->salaryMonthView !== '' && !preg_match('/^\d{4}-\d{2}$/', $this->salaryMonthView)) {
+            $this->salaryMonthView = '';
+        }
+    }
+
     /** Back from a month's screen to the person's months. */
     public function closeSalaryMonth(): void
     {

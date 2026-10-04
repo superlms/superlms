@@ -36,10 +36,11 @@
                     </button>
                 @endif
 
-                {{-- Mark Salary tab: once a person is picked, a payment can be added to them
-                     (a month's own screen carries its own Add Payment) --}}
-                @if ($activeTab === 'salary' && $salaryPerson && $salaryMonthView === '')
-                    <button wire:click="openSalaryPayment"
+                {{-- Mark Salary tab: Add Payment on a month's own screen, for that month
+                     (the months list has none) --}}
+                @if ($activeTab === 'salary' && $salaryPerson && $salaryMonthView !== ''
+                    && collect($salaryAccount['months'] ?? [])->contains('ym', $salaryMonthView))
+                    <button wire:click="openSalaryPayment('{{ $salaryMonthView }}')"
                         class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700
                                text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
@@ -185,6 +186,16 @@
                         <option value="{{ $emp->id }}">{{ $emp->name }}{{ count($emp->types()) > 1 ? ' (' . implode(', ', array_map('ucfirst', $emp->types())) . ')' : '' }}</option>
                     @endforeach
                 </select>
+                @if ($salaryPerson && $salaryAccount)
+                    {{-- The month open (its row's arrow sets it); All months goes back to the list. --}}
+                    <select wire:model.live="salaryMonthView"
+                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <option value="">All months</option>
+                        @foreach ($salaryAccount['months'] as $mo)
+                            <option value="{{ $mo['ym'] }}">{{ $mo['label'] }}</option>
+                        @endforeach
+                    </select>
+                @endif
                 @if ($salaryType || $salaryEmpId)
                     <button wire:click="clearSalaryPerson" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -573,8 +584,9 @@
             @endphp
             @if ($openMonth)
                 {{-- ─── A MONTH'S OWN SCREEN ───
-                     The arrow on a month's row opens it: Back and Add Payment in its
-                     header; first what the person is paid a month, the attendance
+                     The arrow on a month's row opens it (the month then shows in the
+                     filter bar, All months goes back; Add Payment is in the page
+                     header): first what the person is paid a month, the attendance
                      marked and the salary it works out to so far (the month's first
                      absent a paid leave); then every payment kept against the month,
                      and how much more than the salary has gone, if it has. --}}
@@ -585,26 +597,6 @@
                     $days    = fn ($n) => rtrim(rtrim(number_format((float) $n, 1), '0'), '.');
                     $over    = $m['paid'] - $m['payable'];
                 @endphp
-
-                {{-- Header: back, the month and the person, Add Payment --}}
-                <div class="bg-white rounded-xl border border-gray-200 px-4 sm:px-5 py-3.5 flex items-center justify-between gap-3">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <button wire:click="closeSalaryMonth" type="button" title="Back"
-                            class="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:text-gray-800 hover:bg-gray-50 flex-shrink-0">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                        </button>
-                        <div class="min-w-0">
-                            <p class="text-base font-semibold text-gray-900 truncate">{{ $m['label'] }}</p>
-                            <p class="text-xs text-gray-400 truncate">{{ $salaryPerson->name }}@if ($m['running']) · Running month — so far @endif</p>
-                        </div>
-                    </div>
-                    <button wire:click="openSalaryPayment('{{ $m['ym'] }}')" type="button"
-                        class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700
-                               text-white text-sm font-semibold rounded-lg shadow-sm transition-colors flex-shrink-0">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                        Add Payment
-                    </button>
-                </div>
 
                 {{-- Salary, attendance, salary so far --}}
                 <div class="bg-white rounded-xl border border-gray-200 grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
@@ -794,17 +786,10 @@
                                         </td>
                                         <td class="px-4 py-3 align-top text-right text-sm text-gray-600 tabular-nums">{{ $money($m['base']) }}</td>
                                         <td class="px-4 py-3 align-top text-right text-sm font-semibold text-gray-900 tabular-nums">{{ $money($m['payable']) }}</td>
-                                        <td class="px-5 py-3 align-top text-right">
-                                            @if ($m['payments'])
-                                                <p class="text-sm font-semibold text-emerald-600 tabular-nums">{{ $money($m['paid']) }}</p>
-                                                @foreach ($m['payments'] as $pay)
-                                                    <p class="text-[11px] text-gray-400 tabular-nums" title="{{ $pay['remark'] }}">
-                                                        {{ $pay['date'] }}@if (count($m['payments']) > 1) · {{ $money($pay['amount']) }}@endif{{ $pay['from'] ? ' · ' . $pay['from'] : '' }}
-                                                    </p>
-                                                @endforeach
-                                            @else
-                                                <span class="text-sm text-gray-300">—</span>
-                                            @endif
+                                        <td class="px-5 py-3 align-top text-right whitespace-nowrap">
+                                            {{-- Taken so far, of the salary the month works out to so far. --}}
+                                            <p class="text-sm font-semibold tabular-nums {{ $m['paid'] > 0 ? 'text-emerald-600' : 'text-gray-400' }}">{{ $money($m['paid']) }}</p>
+                                            <p class="text-[11px] text-gray-400 tabular-nums">of {{ $money($m['payable']) }}@if ($m['paid'] > $m['payable']) <span class="text-amber-600">· {{ $money($m['paid'] - $m['payable']) }} extra</span>@endif</p>
                                         </td>
                                         <td class="px-3 py-3 align-top text-right">
                                             <button wire:click="openSalaryMonth('{{ $m['ym'] }}')" type="button" title="Open {{ $m['label'] }}"
