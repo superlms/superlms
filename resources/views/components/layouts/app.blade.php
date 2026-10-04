@@ -92,10 +92,14 @@
         #main-scroll:has(.lms-cover) { z-index: 60; }
         #main-scroll .lms-cover { inset: 0 !important; }
 
-        /* ─── Slide-in panels (Add / Edit / View): the Mark Attendance panel's look ───
-           Every slide-in — `absolute top-0 right-0 bottom-0 w-full max-w-…`
-           inside its `fixed` overlay — keeps its own fields, layout and code;
-           only its look follows the Mark Attendance panel:
+        /* ─── Slide-in panels (Add / Edit): the Mark Attendance panel's look ───
+           Every slide-in that holds fields to fill — `absolute top-0 right-0
+           bottom-0 w-full max-w-…` inside its `fixed` overlay, with a text box,
+           a dropdown or a textarea in it — keeps its own fields, layout and
+           code; only its look follows the Mark Attendance panel. A View panel
+           (nothing to fill; a hidden photo picker does not count) keeps the
+           look it always had. The same panel switching between view and edit
+           (Calendar) follows what it shows at the moment:
            - as wide as that panel (3xl); the wider ones (4xl, 5xl) stay as they are;
            - big form boxes (py-2 / py-2.5 / py-3, px-3.5 / px-4) are its compact boxes, with
              a grey focus ring (a box showing an error keeps its red border);
@@ -104,39 +108,39 @@
              with space-y) are set apart by a thin line. Lists of rows that
              already divide themselves (divide-y — Mark Attendance, Upload
              Marks, Arrange) and boxed cards are left alone. */
-        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"]:is([class~="max-w-md"], [class~="max-w-lg"], [class~="max-w-xl"], [class~="max-w-2xl"]) {
+        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"]:has(:is(input:not([type="hidden"]):not([type="file"]), select, textarea)):is([class~="max-w-md"], [class~="max-w-lg"], [class~="max-w-xl"], [class~="max-w-2xl"]) {
             max-width: 48rem;
         }
-        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"] :is(input, select, textarea):is([class~="py-2"], [class~="py-2.5"], [class~="py-3"]) {
+        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"]:has(:is(input:not([type="hidden"]):not([type="file"]), select, textarea)) :is(input, select, textarea):is([class~="py-2"], [class~="py-2.5"], [class~="py-3"]) {
             padding-top: .375rem;
             padding-bottom: .375rem;
         }
         /* A dropdown made of a button that looks like a box (the Certificate /
            TC student picker) is made as compact as the boxes beside it. */
-        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"] button[class~="w-full"][class~="border"]:is([class~="py-2"], [class~="py-2.5"]) {
+        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"]:has(:is(input:not([type="hidden"]):not([type="file"]), select, textarea)) button[class~="w-full"][class~="border"]:is([class~="py-2"], [class~="py-2.5"]) {
             padding-top: .375rem;
             padding-bottom: .375rem;
         }
-        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"] :is(input, textarea):is([class~="px-3.5"], [class~="px-4"]) {
+        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"]:has(:is(input:not([type="hidden"]):not([type="file"]), select, textarea)) :is(input, textarea):is([class~="px-3.5"], [class~="px-4"]) {
             padding-left: .75rem;
             padding-right: .75rem;
         }
-        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"] select:is([class~="px-3.5"], [class~="px-4"]) {
+        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"]:has(:is(input:not([type="hidden"]):not([type="file"]), select, textarea)) select:is([class~="px-3.5"], [class~="px-4"]) {
             padding-left: .75rem;
         }
-        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"] :is(input, select, textarea):focus:not([class*="border-red"]) {
+        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"]:has(:is(input:not([type="hidden"]):not([type="file"]), select, textarea)) :is(input, select, textarea):focus:not([class*="border-red"]) {
             border-color: rgb(156 163 175);
             --tw-ring-color: rgb(156 163 175);
         }
-        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"] label.block[class*="mb-"] {
+        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"]:has(:is(input:not([type="hidden"]):not([type="file"]), select, textarea)) label.block[class*="mb-"] {
             font-size: .75rem;
             line-height: 1rem;
             font-weight: 500;
             color: rgb(75 85 99);
             margin-bottom: .25rem;
         }
-        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"] > div[class*="overflow-y-auto"][class*="space-y"]:not([class*="divide-y"]) > :is(div, section, fieldset) + :is(div, section, fieldset):not([class*="border"]):not([class*="rounded"]),
-        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"] > div[class*="overflow-y-auto"] > form[class*="space-y"] > :is(div, section, fieldset) + :is(div, section, fieldset):not([class*="border"]):not([class*="rounded"]) {
+        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"]:has(:is(input:not([type="hidden"]):not([type="file"]), select, textarea)) > div[class*="overflow-y-auto"][class*="space-y"]:not([class*="divide-y"]) > :is(div, section, fieldset) + :is(div, section, fieldset):not([class*="border"]):not([class*="rounded"]),
+        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"]:has(:is(input:not([type="hidden"]):not([type="file"]), select, textarea)) > div[class*="overflow-y-auto"] > form[class*="space-y"] > :is(div, section, fieldset) + :is(div, section, fieldset):not([class*="border"]):not([class*="rounded"]) {
             border-top: 1px solid rgb(243 244 246);
             padding-top: 1rem;
         }
