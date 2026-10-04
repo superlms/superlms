@@ -1,9 +1,11 @@
-<div>
+<div class="min-h-screen bg-gray-50">
 
     {{-- ══════════════════════════════════════════════════
-         HEADER
+         HEADER — stays whole at the top while the page scrolls
+         (data-lms-pin: the layout does not slide it away; there is no
+         filter bar under it to pin instead)
     ══════════════════════════════════════════════════ --}}
-    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sticky top-0 z-50">
+    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sticky top-0 z-50" data-lms-pin>
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">School Calendar</h1>
@@ -369,33 +371,34 @@
                             if (!empty($ev['teacher']))   $rows['Teacher']  = $ev['teacher'];
                         @endphp
 
-                        <div class="space-y-5 text-sm text-gray-700">
-                            <div>
-                                <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Event</h4>
-                                <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    @foreach ($rows as $label => $value)
-                                        <div><dt class="text-xs text-gray-400">{{ $label }}</dt><dd class="font-medium">{{ $value }}</dd></div>
-                                    @endforeach
-                                </dl>
-                            </div>
+                        {{-- The Students view's look: one column, a label / value row each. --}}
+                        <div class="space-y-4">
+                            @foreach ($rows as $label => $value)
+                                <div class="grid grid-cols-3 gap-3 text-sm">
+                                    <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
+                                    <span class="col-span-2 text-gray-800 font-medium">{{ $value }}</span>
+                                </div>
+                            @endforeach
 
                             @if (!empty($ev['description']))
-                                <div>
-                                    <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Description</h4>
-                                    <p class="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{{ $ev['description'] }}</p>
+                                <div class="grid grid-cols-3 gap-3 text-sm">
+                                    <span class="text-xs text-gray-400 uppercase tracking-wider">Description</span>
+                                    <span class="col-span-2 text-gray-800 whitespace-pre-line leading-relaxed">{{ $ev['description'] }}</span>
                                 </div>
                             @endif
 
                             @if (!empty($ev['attachment']))
-                                <div>
-                                    <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Attachment</h4>
-                                    <a href="{{ $ev['attachment'] }}" target="_blank" rel="noopener"
-                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                                        </svg>
-                                        Open attachment
-                                    </a>
+                                <div class="grid grid-cols-3 gap-3 text-sm">
+                                    <span class="text-xs text-gray-400 uppercase tracking-wider">Attachment</span>
+                                    <span class="col-span-2">
+                                        <a href="{{ $ev['attachment'] }}" target="_blank" rel="noopener"
+                                            class="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-800">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                            </svg>
+                                            Open attachment
+                                        </a>
+                                    </span>
                                 </div>
                             @endif
                         </div>

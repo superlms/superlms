@@ -323,6 +323,8 @@
                 // Filter bar first (it IS the header) → pin it as is; no filter
                 // bar at all → let the whole header scroll away, as it used to.
                 function offsetFor(header) {
+                    // A header marked to stay whole (the Calendar's) never slides.
+                    if (header.hasAttribute('data-lms-pin')) return 0;
                     var kids = header.children, filterIdx = -1;
                     for (var i = kids.length - 1; i >= 0; i--) {
                         if (kids[i].classList.contains('bg-gray-50')) { filterIdx = i; break; }
