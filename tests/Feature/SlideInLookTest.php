@@ -15,9 +15,7 @@ class SlideInLookTest extends TestCase
 {
     public function test_the_layout_carries_the_slide_in_look(): void
     {
-        $css = str_replace("
-", "
-", file_get_contents(resource_path('views/components/layouts/app.blade.php')));
+        $css = str_replace("\r\n", "\n", file_get_contents(resource_path('views/components/layouts/app.blade.php')));
         $panel = '#main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"]';
 
         $this->assertStringContainsString($panel . ':is([class~="max-w-md"], [class~="max-w-lg"], [class~="max-w-xl"], [class~="max-w-2xl"]) {' . "\n" . '            max-width: 48rem;', $css);
