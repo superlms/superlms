@@ -37,6 +37,9 @@ class Arrangement extends Component
     // ─── Slot currently being re-assigned (null = none) ──────────────────
     public ?int $editingSlotId = null;
 
+    // ─── The absent teacher whose periods are open in the slide-in ───────
+    public ?int $arrangeTeacherId = null;
+
     // ─── Delete confirm overlay ──────────────────────────────────────────
     public bool   $showDeleteConfirm = false;
     public ?int   $deleteTargetId    = null;
@@ -71,7 +74,21 @@ class Arrangement extends Component
         $this->slotSubstitutes = [];
         $this->slotReasons     = [];
         $this->editingSlotId   = null;
+        $this->arrangeTeacherId = null;
         $this->loadStats();
+    }
+
+    /** A teacher's row in the list: their periods for the day, in the slide-in. */
+    public function openArrange(int $teacherDetailId): void
+    {
+        $this->cancelEdit();
+        $this->arrangeTeacherId = $teacherDetailId;
+    }
+
+    public function closeArrange(): void
+    {
+        $this->cancelEdit();
+        $this->arrangeTeacherId = null;
     }
 
     public function updatedFilterClass(): void
