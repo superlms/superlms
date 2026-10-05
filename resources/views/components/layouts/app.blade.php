@@ -92,14 +92,17 @@
         #main-scroll:has(.lms-cover) { z-index: 60; }
         #main-scroll .lms-cover { inset: 0 !important; }
 
-        /* ─── The page's scrollbar on the right: a hairline, as the sidebar's ───
-           The same thin bar for a slide-in panel's own scrolling body. */
+        /* ─── The page's scrollbar on the right: slim, as the sidebar's, but 8px ───
+           wide so it can be caught with the mouse and dragged; a little darker
+           under the pointer. The same bar for a slide-in panel's scrolling body. */
         #main-scroll::-webkit-scrollbar,
-        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"] .overflow-y-auto::-webkit-scrollbar { width: 3px; }
+        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"] .overflow-y-auto::-webkit-scrollbar { width: 8px; }
         #main-scroll::-webkit-scrollbar-track,
         #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"] .overflow-y-auto::-webkit-scrollbar-track { background: transparent; }
         #main-scroll::-webkit-scrollbar-thumb,
-        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"] .overflow-y-auto::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"] .overflow-y-auto::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+        #main-scroll::-webkit-scrollbar-thumb:hover,
+        #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"] .overflow-y-auto::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
         #main-scroll::-webkit-scrollbar-button,
         #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"] .overflow-y-auto::-webkit-scrollbar-button { display: none; }
         @supports not selector(::-webkit-scrollbar) {
