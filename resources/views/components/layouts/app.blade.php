@@ -109,6 +109,14 @@
             #main-scroll,
             #main-scroll div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"] .overflow-y-auto { scrollbar-width: thin; scrollbar-color: #d1d5db transparent; }
         }
+        /* While a slide-in is open the page behind it stands still. The page's
+           scrollbar was drawn over the panel's own at the window's right edge,
+           so dragging the panel's bar (or the wheel on that strip) scrolled the
+           page instead. With the page held, the bar there is the panel's. A
+           slide-in hidden by Alpine (x-show → display: none) does not count. */
+        #main-scroll:has(.fixed:not(.lms-cover):not([x-cloak]):not([style*="display: none"]) div[class*="absolute top-0 right-0 bottom-0 w-full max-w-"]) {
+            overflow-y: hidden;
+        }
 
         /* ─── Slide-in panels (Add / Edit): the Mark Attendance panel's look ───
            Every slide-in that holds fields to fill — `absolute top-0 right-0
