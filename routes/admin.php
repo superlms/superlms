@@ -96,6 +96,10 @@ Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
         Route::get('/standard', Standard::class)->name('admin.standard');
         Route::get('/add-exam', AddExam::class)->name('admin.add-exam');
         Route::get('/student', Student::class)->name('admin.student');
+        // A student's photo from this site: small for the list, whole for the cropper.
+        Route::get('/student/{user}/photo', [\App\Http\Controllers\Admin\StudentPhotoController::class, 'show'])
+            ->whereNumber('user')
+            ->name('admin.student.photo');
         Route::get('/admissions', Admissions::class)->name('admin.admissions');
         Route::get('/lists',      Lists::class)->name('admin.lists');
         Route::get('/teacher', Teacher::class)->name('admin.teacher');

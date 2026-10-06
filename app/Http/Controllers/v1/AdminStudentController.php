@@ -9,6 +9,7 @@ use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
 use App\Models\User;
 use App\Support\LoginIdentifier;
+use App\Support\PhotoCrop;
 use App\Support\StudentDuplicates;
 use App\Support\StudentNumbers;
 use Illuminate\Http\Request;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * School-admin Students module for the mobile app.
@@ -297,7 +299,10 @@ class AdminStudentController extends ApiController
             }
             $path = null;
             if ($request->hasFile('image')) {
-                $path = $request->file('image')->store('admin/students/images', 's3');
+                // Cut to the square the teacher app's cropper was set to, when
+                // it sent one (PhotoCrop); otherwise kept as sent, as before.
+                $path = ($crop = PhotoCrop::fromRequest($request)) ? $this->storeCropped($request->file('image')->get(), $crop) : null;
+                $path ??= $request->file('image')->store('admin/students/images', 's3');
                 Storage::disk('s3')->setVisibility($path, 'public');
                 $userData['image'] = Storage::disk('s3')->url($path);
             }
@@ -394,7 +399,20 @@ class AdminStudentController extends ApiController
             ];
             if ($request->hasFile('image')) {
                 if ($student->image) $this->safeS3Delete($student->image);
-                $path = $request->file('image')->store('admin/students/images', 's3');
+                // Cut to the square the teacher app's cropper was set to, when
+                // it sent one (PhotoCrop); otherwise kept as sent, as before.
+                $path = ($crop = PhotoCrop::fromRequest($request)) ? $this->storeCropped($request->file('image')->get(), $crop) : null;
+                $path ??= $request->file('image')->store('admin/students/images', 's3');
+                Storage::disk('s3')->setVisibility($path, 'public');
+                $userData['image'] = Storage::disk('s3')->url($path);
+            } elseif ($student->image && ($crop = PhotoCrop::fromRequest($request))) {
+                // No new photo, only a square on the one they have: that one is
+                // cut, and the uncut one taken off once the cut one is stored.
+                $path = $this->cropSaved($student->image, $crop);
+                if (!$path) {
+                    return $this->error('The photo could not be cropped just now. Please try again.', 422);
+                }
+                $this->safeS3Delete($student->image);
                 Storage::disk('s3')->setVisibility($path, 'public');
                 $userData['image'] = Storage::disk('s3')->url($path);
             }
@@ -624,6 +642,34 @@ class AdminStudentController extends ApiController
     }
 
     // ══════════════════════════ HELPERS ══════════════════════════
+
+    /**
+     * The photo cut to the square (PhotoCrop) and stored; its path — or null
+     * when no square was asked for or the picture could not be cut.
+     */
+    private function storeCropped(string $bytes, ?array $crop): ?string
+    {
+        if (!$crop || ($jpeg = PhotoCrop::cut($bytes, $crop)) === null) {
+            return null;
+        }
+
+        $path = 'admin/students/images/' . Str::random(40) . '.jpg';
+
+        return Storage::disk('s3')->put($path, $jpeg) ? $path : null;
+    }
+
+    /** The photo a student has, cut to the square and stored as a new one. */
+    private function cropSaved(string $url, array $crop): ?string
+    {
+        $url = Str::startsWith($url, ['http://', 'https://']) ? $url : Storage::disk('s3')->url($url);
+        try {
+            $response = \Illuminate\Support\Facades\Http::timeout(20)->connectTimeout(3)->get($url);
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        return $response->successful() ? $this->storeCropped($response->body(), $crop) : null;
+    }
 
     private function safeS3Delete(?string $url): void
     {

@@ -7,6 +7,10 @@
      `model`, as a plain file input with wire:model would have. A file the
      browser can't draw (HEIC, say) is uploaded as it is, as before.
 
+     The photo already saved opens the same way (openUrl, asked for by the
+     window event `lms-crop-photo`): fetched from this site, fitted, and sent
+     to `model` as a new photo.
+
      Global — not inside the component's markup — because the forms that hold
      the input are rendered by Livewire updates, and scripts added that way
      never run. --}}
@@ -30,6 +34,7 @@
                 model: model,
                 open: false,
                 busy: false,
+                loading: false,
                 error: '',
                 src: null,
                 fileName: 'photo',
@@ -101,6 +106,45 @@
                         this.send(file);
                     };
                     img.src = url;
+                },
+
+                // The photo already saved, fitted again. Fetched as a file from
+                // this site, so the canvas may read it.
+                openUrl(url) {
+                    if (!url || this.busy || this.loading) return;
+                    this.release();
+                    this.error = '';
+                    this.fileName = 'photo';
+                    this.loading = true;
+                    this.open = true;
+                    fetch(url, { credentials: 'same-origin', cache: 'no-store' })
+                        .then((r) => { if (!r.ok) throw new Error('http ' + r.status); return r.blob(); })
+                        .then((blob) => {
+                            const src = URL.createObjectURL(blob);
+                            const img = new Image();
+                            img.onload = () => {
+                                this.loading = false;
+                                if (!this.open) { URL.revokeObjectURL(src); return; }   // closed meanwhile
+                                this.src = src;
+                                this.natW = img.naturalWidth;
+                                this.natH = img.naturalHeight;
+                                this.size = Math.min(260, window.innerWidth - 96);
+                                this.zoom = 1;
+                                const s = this.scale();
+                                this.x = (this.size - this.natW * s) / 2;
+                                this.y = (this.size - this.natH * s) / 2;
+                            };
+                            img.onerror = () => {
+                                URL.revokeObjectURL(src);
+                                this.loading = false;
+                                this.error = 'This photo cannot be cropped here. Please pick a new one instead.';
+                            };
+                            img.src = src;
+                        })
+                        .catch(() => {
+                            this.loading = false;
+                            this.error = 'Could not open the photo. Please try again.';
+                        });
                 },
 
                 down(e) {

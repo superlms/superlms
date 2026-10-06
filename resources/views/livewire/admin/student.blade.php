@@ -229,7 +229,9 @@
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-3">
                                         @if ($student->user?->image)
-                                            <img src="{{ $student->user->image }}"
+                                            {{-- A small square of the photo (the whole camera shot opens on a click) --}}
+                                            <img src="{{ \App\Http\Controllers\Admin\StudentPhotoController::thumbUrl($student->user) }}"
+                                                loading="lazy" decoding="async" alt=""
                                                 class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0 cursor-pointer"
                                                 wire:click="onImageClick({{ $student->user->id }})">
                                         @else
@@ -397,7 +399,8 @@
                             {{ $students->firstItem() + $index }}
                         </span>
                         @if ($student->user?->image)
-                            <img src="{{ $student->user->image }}"
+                            <img src="{{ \App\Http\Controllers\Admin\StudentPhotoController::thumbUrl($student->user) }}"
+                                loading="lazy" decoding="async" alt=""
                                 class="w-10 h-10 rounded-full object-cover border border-gray-200 flex-shrink-0"
                                 wire:click="onImageClick({{ $student->user->id }})">
                         @else
@@ -608,6 +611,15 @@
                                     </div>
                                 @endif
                                 <x-admin.photo-cropper model="studentImage" class="flex-1 text-sm" />
+                                @if (!$studentImage && $studentImageUrl && $editId)
+                                    {{-- The photo already saved, fitted in its circle again; saved with the form --}}
+                                    <button type="button" x-data title="Crop the saved photo"
+                                        x-on:click="$dispatch('lms-crop-photo', { model: 'studentImage', url: @js(route('admin.student.photo', ['organization' => auth()->user()->organization_id, 'user' => $editId])) })"
+                                        class="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2" /></svg>
+                                        Crop
+                                    </button>
+                                @endif
                             </div>
                             <div wire:loading wire:target="studentImage" class="text-xs text-blue-600 mt-1">Uploading…</div>
                             @error('studentImage')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
@@ -1016,6 +1028,12 @@
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                     </label>
                     @if ($viewData['user']->image ?? null)
+                        {{-- The photo fitted in its circle again, and saved at once (as Change does) --}}
+                        <button type="button" x-data title="Crop photo"
+                            x-on:click="$dispatch('lms-crop-photo', { model: 'viewPhotoUpload', url: @js(route('admin.student.photo', ['organization' => auth()->user()->organization_id, 'user' => $viewData['user']->id])) })"
+                            class="w-10 h-10 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 text-white">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2" /></svg>
+                        </button>
                         <button type="button" wire:click="$set('confirmPhotoRemove', true)" title="Remove photo"
                             class="w-10 h-10 flex items-center justify-center rounded-full bg-white/15 hover:bg-red-600 text-white">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>

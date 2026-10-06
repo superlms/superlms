@@ -5,10 +5,17 @@
 
      Attributes go on the input. The popup is moved to <body>, so it covers the
      whole window (top bar and sidebar too) wherever the input sits. Logic:
-     window.lmsPhotoCropper (partials/photo-cropper-js). --}}
+     window.lmsPhotoCropper (partials/photo-cropper-js).
+
+     The photo already saved can be fitted again too: any button may ask for it
+     with a window event naming this input's model and where to fetch the photo
+     from (this site — a picture from another host can't be cut in a canvas):
+
+         $dispatch('lms-crop-photo', { model: 'studentImage', url: '…' }) --}}
 @props(['model'])
 
-<span x-data="lmsPhotoCropper(@js($model))" class="contents">
+<span x-data="lmsPhotoCropper(@js($model))" class="contents"
+    x-on:lms-crop-photo.window="$event.detail && $event.detail.model === model && openUrl($event.detail.url)">
     <input type="file" accept="image/*" x-ref="input" x-on:change="pick($event)" {{ $attributes }}>
 
     <template x-teleport="body">
@@ -44,6 +51,7 @@
                     </div>
                 </template>
 
+                <p x-show="loading" class="mt-3 text-sm text-gray-500">Opening the photo…</p>
                 <p x-show="busy" class="mt-3 text-sm text-blue-600">Uploading…</p>
                 <p x-show="error" x-text="error" class="mt-3 text-sm text-red-600"></p>
 
