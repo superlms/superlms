@@ -47,7 +47,16 @@
                                 </svg>
                             </div>
                         @endif
-                        <x-admin.photo-cropper model="teacherImage" class="flex-1 text-sm" />
+                        <x-admin.photo-editor model="teacherImage" class="flex-1 text-sm" />
+                        @if (!$teacherImage && $editId && $teacherImageUrl)
+                            {{-- The photo already saved, cropped again; saved with the form --}}
+                            <button type="button" x-data title="Crop the saved photo"
+                                x-on:click="$dispatch('lms-crop-photo', { model: 'teacherImage', url: @js(route('admin.teacher.photo', ['organization' => auth()->user()->organization_id, 'user' => $editId])) })"
+                                class="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2" /></svg>
+                                Crop
+                            </button>
+                        @endif
                     </div>
                     <div wire:loading wire:target="teacherImage" class="text-xs text-blue-600 mt-1">Uploading...</div>
                     @error('teacherImage')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror

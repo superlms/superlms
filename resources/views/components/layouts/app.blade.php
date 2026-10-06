@@ -281,6 +281,9 @@
     {{-- ─── Photo cropper (x-admin.photo-cropper): pick, fit in the circle, upload ─── --}}
     @include('partials.photo-cropper-js')
 
+    {{-- ─── Photo editor (x-admin.photo-editor): crop from any side, see the list's circle, upload ─── --}}
+    @include('partials.photo-editor-js')
+
     {{-- ─── Keyboard: Enter to the next field / row, ← → along a row ─── --}}
     @include('partials.keyboard-nav')
 

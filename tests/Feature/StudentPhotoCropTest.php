@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Http\Controllers\Admin\StudentPhotoController;
+use App\Http\Controllers\Admin\TeacherPhotoController;
 use App\Http\Controllers\v1\AdminStudentController;
 use App\Models\Student\StudentDetail;
 use App\Models\User;
@@ -222,8 +223,16 @@ class StudentPhotoCropTest extends TestCase
         // A 200 px square of a 400 × 200 photo: kept at 200, never blown up.
         $this->assertSame([200, 200, 'red'], $this->look($left));
         $this->assertSame([200, 200, 'blue'], $this->look($right));
-        // A big one is brought down to 512.
-        $this->assertSame([512, 512, 'blue'], $this->look(PhotoCrop::cut($this->photo(4000, 2000), [0.5, 0.0, 0.5, 1.0])));
+        // A big one is brought down to 1024 on its longer side.
+        $this->assertSame([1024, 1024, 'blue'], $this->look(PhotoCrop::cut($this->photo(4000, 2000), [0.5, 0.0, 0.5, 1.0])));
+    }
+
+    public function test_a_part_cut_from_any_side_keeps_its_shape(): void
+    {
+        // The left quarter of a 400 × 200 photo: 100 × 200, red.
+        $this->assertSame([100, 200, 'red'], $this->look(PhotoCrop::cut($this->photo(), [0.0, 0.0, 0.25, 1.0])));
+        // A wide strip off the right of a big one: 2000 × 500 → 1024 × 256.
+        $this->assertSame([1024, 256, 'blue'], $this->look(PhotoCrop::cut($this->photo(4000, 2000), [0.5, 0.5, 0.5, 0.25])));
     }
 
     public function test_a_photo_taken_sideways_is_cut_as_the_phone_shows_it(): void
@@ -322,5 +331,68 @@ class StudentPhotoCropTest extends TestCase
         $this->assertSame('https://cdn.test/admin/students/images/aarav.jpg', User::find($d->user_id)->image);
         $this->assertSame('Renamed', User::find($d->user_id)->name);
         Http::assertNothingSent();
+    }
+
+    // ── The photo alone (the teacher app's list: crop and Save) ──────────────
+
+    private function photoApi(int $id, array $q = [], array $files = [])
+    {
+        return app(AdminStudentController::class)->photo(Request::create('/', 'POST', $q, [], $files), $id);
+    }
+
+    public function test_the_saved_photo_is_cut_from_the_photo_endpoint(): void
+    {
+        Http::fake(['cdn.test/*' => Http::response($this->photo())]);
+        $d = $this->student();
+
+        $res = $this->photoApi($d->id, ['crop_x' => 0, 'crop_y' => 0, 'crop_w' => 0.25, 'crop_h' => 1]);
+
+        $this->assertSame(200, $res->getStatusCode(), json_encode($res->getData(true)));
+        $this->assertSame(User::find($d->user_id)->image, $res->getData(true)['data']['image']);
+        $this->assertSame([100, 200, 'red'], $this->look($this->storedImage($d->user_id)));
+    }
+
+    public function test_no_photo_to_crop_is_said(): void
+    {
+        $d = $this->student(['image' => null]);
+
+        $res = $this->photoApi($d->id, ['crop_x' => 0, 'crop_y' => 0, 'crop_w' => 0.5, 'crop_h' => 1]);
+
+        $this->assertSame(422, $res->getStatusCode());
+        $this->assertNull(User::find($d->user_id)->image);
+    }
+
+    public function test_a_new_photo_at_the_photo_endpoint_is_cut_or_kept_as_sent(): void
+    {
+        $d = $this->student(['image' => null]);
+        $bytes = $this->photo();
+
+        $this->photoApi($d->id, ['crop_x' => 0.5, 'crop_y' => 0, 'crop_w' => 0.5, 'crop_h' => 1],
+            ['image' => UploadedFile::fake()->createWithContent('face.jpg', $bytes)]);
+        $this->assertSame([200, 200, 'blue'], $this->look($this->storedImage($d->user_id)));
+
+        // As before: no part asked for, the photo as sent.
+        $this->photoApi($d->id, [], ['image' => UploadedFile::fake()->createWithContent('face.jpg', $bytes)]);
+        $this->assertSame($bytes, $this->storedImage($d->user_id));
+    }
+
+    public function test_the_teachers_page_gets_a_teacher_s_photo_and_no_student_s(): void
+    {
+        $bytes = $this->photo(800, 600);
+        Http::fake(['cdn.test/*' => Http::response($bytes, 200, ['Content-Type' => 'image/jpeg'])]);
+        $teacher = $this->student(['role' => 'teacher', 'email' => 't@example.com']);
+        $student = $this->student(['email' => 's@example.com']);
+
+        $res = app(TeacherPhotoController::class)->show(Request::create('/'), $this->org, $teacher->user_id);
+        $this->assertSame($bytes, $res->getContent());
+        $this->assertStringContainsString("/{$this->org}/teacher/{$teacher->user_id}/photo",
+            route('admin.teacher.photo', ['organization' => $this->org, 'user' => $teacher->user_id]));
+
+        try {
+            app(TeacherPhotoController::class)->show(Request::create('/'), $this->org, $student->user_id);
+            $this->fail('a student is not a teacher');
+        } catch (HttpException $e) {
+            $this->assertSame(404, $e->getStatusCode());
+        }
     }
 }

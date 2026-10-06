@@ -289,6 +289,8 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::get('/{id}',     [TeacherStudentController::class, 'show'])->whereNumber('id');
                 Route::post('/',        [TeacherStudentController::class, 'store']);
                 Route::post('/{id}',    [TeacherStudentController::class, 'update'])->whereNumber('id');
+                // The photo alone: a new one, the saved one cropped, or taken off.
+                Route::post('/{id}/photo', [TeacherStudentController::class, 'photo'])->whereNumber('id');
                 Route::delete('/{id}',  [TeacherStudentController::class, 'destroy'])->whereNumber('id');
             });
 

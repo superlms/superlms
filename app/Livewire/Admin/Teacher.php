@@ -234,6 +234,45 @@ class Teacher extends Component
     {
         $this->imagePath = User::find($id)?->image;
         $this->openImage = true;
+        // Whose photo it is, for Crop in the large view.
+        $this->imageUserId = (int) $id;
+    }
+
+    // ─── The photo shown large from the list: cropped, and saved at once ───
+    /** The teacher whose list photo is shown large. */
+    public ?int $imageUserId = null;
+    /** The photo editor's cut of it (x-admin.photo-editor). */
+    public $listPhotoUpload = null;
+
+    public function updatedListPhotoUpload(): void
+    {
+        $this->validate(
+            ['listPhotoUpload' => 'image|max:1024'],
+            ['listPhotoUpload.max' => 'Image must be 1 MB or smaller.', 'listPhotoUpload.image' => 'Please pick an image.']
+        );
+
+        $user = $this->imageUserId
+            ? User::where('id', $this->imageUserId)->where('role', 'teacher')
+                ->where('organization_id', Auth::user()->organization_id)->first()
+            : null;
+        if (!$user) {
+            $this->listPhotoUpload = null;
+            $this->notification()->error('Teacher not found!');
+            return;
+        }
+
+        $path = $this->listPhotoUpload->store('admin/teachers/images', 's3');
+        Storage::disk('s3')->setVisibility($path, 'public');
+        $old = $user->image;
+        $user->update(['image' => Storage::disk('s3')->url($path)]);
+        // The uncut one goes only once the cut one is saved.
+        if ($old) {
+            Storage::disk('s3')->delete(ltrim((string) parse_url($old, PHP_URL_PATH), '/'));
+        }
+
+        $this->listPhotoUpload = null;
+        $this->imagePath = $user->image;
+        $this->notification()->success('Photo updated', 'The cropped photo is saved.');
     }
 
     public function closeImage(): void

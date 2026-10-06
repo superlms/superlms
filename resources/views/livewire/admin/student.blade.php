@@ -610,7 +610,7 @@
                                         </svg>
                                     </div>
                                 @endif
-                                <x-admin.photo-cropper model="studentImage" class="flex-1 text-sm" />
+                                <x-admin.photo-editor model="studentImage" class="flex-1 text-sm" />
                                 @if (!$studentImage && $studentImageUrl && $editId)
                                     {{-- The photo already saved, fitted in its circle again; saved with the form --}}
                                     <button type="button" x-data title="Crop the saved photo"
@@ -1024,7 +1024,7 @@
                 <div class="flex items-center gap-2 mb-3 self-end">
                     <label title="{{ ($viewData['user']->image ?? null) ? 'Change photo' : 'Add photo' }}"
                         class="w-10 h-10 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 text-white cursor-pointer">
-                        <x-admin.photo-cropper model="viewPhotoUpload" class="hidden" />
+                        <x-admin.photo-editor model="viewPhotoUpload" class="hidden" save="Save" />
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                     </label>
                     @if ($viewData['user']->image ?? null)
@@ -1082,6 +1082,16 @@
                 <img src="{{ $imagePath }}" alt=""
                     style="--photo: min(28rem, 90vw, calc(100vh - 8rem)); width: var(--photo); height: var(--photo)"
                     class="rounded-lg object-cover shadow-2xl bg-white">
+                @if ($imageUserId)
+                    {{-- Crop it here and Save: the cut photo replaces it at once --}}
+                    <x-admin.photo-editor model="listPhotoUpload" class="hidden" save="Save" />
+                    <button type="button" x-data title="Crop photo"
+                        x-on:click="$dispatch('lms-crop-photo', { model: 'listPhotoUpload', url: @js(route('admin.student.photo', ['organization' => auth()->user()->organization_id, 'user' => $imageUserId])) })"
+                        class="absolute top-2 right-12 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2" /></svg>
+                    </button>
+                @endif
+                <p wire:loading wire:target="listPhotoUpload" class="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/60 text-xs text-white">Saving…</p>
                 <button type="button" wire:click="closeImage" title="Close"
                     class="absolute top-2 right-2 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>

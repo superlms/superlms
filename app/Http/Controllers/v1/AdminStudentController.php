@@ -602,12 +602,35 @@ class AdminStudentController extends ApiController
             return $this->success(['image' => null], 'Photo removed.');
         }
 
+        // No new photo, only the part to keep of the one they have (the class
+        // teacher's photo editor): that one is cut, and the uncut one taken
+        // off once the cut one is stored.
+        $crop = PhotoCrop::fromRequest($request);
+        if ($crop && !$request->hasFile('image')) {
+            if (!$student->image) {
+                return $this->error('There is no photo to crop.', 422);
+            }
+            $path = $this->cropSaved($student->image, $crop);
+            if (!$path) {
+                return $this->error('The photo could not be cropped just now. Please try again.', 422);
+            }
+            Storage::disk('s3')->setVisibility($path, 'public');
+            $old = $student->image;
+            $student->image = Storage::disk('s3')->url($path);
+            $student->save();
+            $this->safeS3Delete($old);
+
+            return $this->success(['image' => $student->image], 'Photo updated.');
+        }
+
         if ($err = $this->validateWith($request, ['image' => 'required|image|max:2048'], [
             'image.max' => 'The photo may not be larger than 2 MB.',
         ])) return $err;
 
         try {
-            $path = $request->file('image')->store('admin/students/images', 's3');
+            // A new photo with a part to keep is cut to it (PhotoCrop); without, kept as sent.
+            $path = $crop ? $this->storeCropped($request->file('image')->get(), $crop) : null;
+            $path ??= $request->file('image')->store('admin/students/images', 's3');
             Storage::disk('s3')->setVisibility($path, 'public');
             $old = $student->image;
             $student->image = Storage::disk('s3')->url($path);

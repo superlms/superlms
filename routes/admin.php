@@ -103,6 +103,10 @@ Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
         Route::get('/admissions', Admissions::class)->name('admin.admissions');
         Route::get('/lists',      Lists::class)->name('admin.lists');
         Route::get('/teacher', Teacher::class)->name('admin.teacher');
+        // A teacher's photo from this site, whole, for the photo editor.
+        Route::get('/teacher/{user}/photo', [\App\Http\Controllers\Admin\TeacherPhotoController::class, 'show'])
+            ->whereNumber('user')
+            ->name('admin.teacher.photo');
         Route::get('/announcement', Announcement::class)->name('admin.announcement');
         Route::get('/timetable', TimeTable::class)->name('admin.timetable');
         Route::get('/timetable/print', [TimetablePdfController::class, 'printList'])

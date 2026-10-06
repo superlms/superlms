@@ -25,16 +25,20 @@ use Illuminate\Support\Str;
  *             site can be cut in the browser's canvas, one from the media
  *             host's may not be.
  *
- * Only a student of the signed-in admin's own school.
+ * Only a student of the signed-in admin's own school (a teacher, for
+ * TeacherPhotoController).
  */
 class StudentPhotoController extends Controller
 {
     private const SIZES = [32, 256];
 
+    /** Whose photos: users.role. */
+    protected string $role = 'user';
+
     public function show(Request $request, $organization, $user)
     {
         $student = User::where('organization_id', Auth::user()->organization_id)
-            ->where('role', 'user')
+            ->where('role', $this->role)
             ->find((int) $user);
         $url = $student?->image;
         if (!$url) {
