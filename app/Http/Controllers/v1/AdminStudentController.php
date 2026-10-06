@@ -9,6 +9,7 @@ use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
 use App\Models\User;
 use App\Support\LoginIdentifier;
+use App\Support\StudentDuplicates;
 use App\Support\StudentNumbers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -294,6 +295,7 @@ class AdminStudentController extends ApiController
             if (Schema::hasColumn('users', 'password_plain')) {
                 $userData['password_plain'] = \Illuminate\Support\Facades\Crypt::encryptString($plainPassword);
             }
+            $path = null;
             if ($request->hasFile('image')) {
                 $path = $request->file('image')->store('admin/students/images', 's3');
                 Storage::disk('s3')->setVisibility($path, 'public');
@@ -303,7 +305,15 @@ class AdminStudentController extends ApiController
             // Locked per school so two concurrent creates can't read the same
             // admission serial; the lock is released once the transaction ends.
             [$detail, $admissionNo, $student] = StudentNumbers::withCreationLock($orgId, function () use ($request, $userData, $orgId) {
-                return DB::transaction(function () use ($request, $userData, $orgId) {
+                // The same student sent again — Add pressed twice, or pressed
+                // again after the network lost the answer — is the one already
+                // saved. Looked for under the lock, so a second press that came
+                // in while the first was saving finds the first one's student.
+                if ($saved = $this->alreadyAdded($request, $orgId)) {
+                    return [$saved, null, null];
+                }
+
+                $created = DB::transaction(function () use ($request, $userData, $orgId) {
                     $student = new User();
                     $student->fill($userData)->save();
 
@@ -316,7 +326,26 @@ class AdminStudentController extends ApiController
 
                     return [$detail, $admissionNo, $student];
                 });
+
+                // This form's mark, so the same form sent again is this student.
+                StudentDuplicates::remember($orgId, $request->input('client_ref'), $created[0]);
+
+                return $created;
             });
+
+            if (!$student) {
+                // Nobody new: no second welcome by email or on WhatsApp, and
+                // the photo sent again is not kept twice.
+                if ($path) {
+                    try { Storage::disk('s3')->delete($path); }
+                    catch (\Throwable $e) { logger()->warning('AdminStudent s3 delete failed: ' . $e->getMessage()); }
+                }
+
+                $row = $this->shapeRow($detail->fresh(['user', 'standard', 'section']));
+                $row['already_added'] = true;
+
+                return $this->success($row, 'Student Created Successfully!');
+            }
 
             $this->sendWelcomeEmail($student, $orgId, $plainPassword, $admissionNo);
             // And on WhatsApp: the admission number, and a link to the password and the app.
@@ -385,6 +414,17 @@ class AdminStudentController extends ApiController
         } catch (\Throwable $e) {
             return $this->error('Error Saving Student: ' . $e->getMessage(), 500);
         }
+    }
+
+    /**
+     * The student this Add already saved, if it did (StudentDuplicates): the
+     * app's mark for the form (client_ref, sent by newer apps), else the same
+     * child added to the school a moment ago.
+     */
+    private function alreadyAdded(Request $request, int $orgId): ?StudentDetail
+    {
+        return StudentDuplicates::forRef($orgId, $request->input('client_ref'))
+            ?? StudentDuplicates::recent($orgId, $request->standard_id, $request->name, $request->father_name, $request->dob, $request->mobile);
     }
 
     /**

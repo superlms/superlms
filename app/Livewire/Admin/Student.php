@@ -20,6 +20,7 @@ use App\Exports\StudentsExport;
 use App\Support\StudentExport;
 use App\Support\PdfFonts;
 use App\Support\Credentials;
+use App\Support\StudentDuplicates;
 use App\Support\StudentNumbers;
 use App\Support\TransportBilling;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -511,6 +512,25 @@ class Student extends Component
             $createLock = $isNew ? $orgId : null;
             StudentNumbers::acquireCreationLock($createLock);
             try {
+            // The same student added a moment ago — Save clicked twice, or sent
+            // again after the answer was lost — is not added a second time, and
+            // gets no second welcome (StudentDuplicates). Looked for under the
+            // lock, so the first save is committed by now.
+            if ($isNew && StudentDuplicates::recent($orgId, $this->studentsClass, $this->studentsName, $this->fatherName, $this->dob, $this->studentsMobile)) {
+                // The photo this save uploaded, by the path it was stored at.
+                if (!empty($path)) {
+                    Storage::disk('s3')->delete($path);
+                }
+                $this->notification()->info('Already added', 'This student was added a moment ago — not added again.');
+                $this->resetForm();
+                $this->loadStats();
+                $this->resetPage();
+                if ($keepOpen) {
+                    $this->open = true;
+                }
+                return;
+            }
+
             [$detail, $admissionNo] = DB::transaction(function () use ($student, $studentData, $isNew, $org, $orgId, $orphanUserIdToDelete) {
                 // Wipe any orphan User row holding the same email — cleans
                 // the slate so the new User save can't trip a unique conflict

@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Services\ZeptoMailService;
 use App\Support\Credentials;
 use App\Support\LoginIdentifier;
+use App\Support\StudentDuplicates;
 use App\Support\StudentNumbers;
 use App\Support\TransportBilling;
 use Illuminate\Support\Facades\DB;
@@ -876,6 +877,14 @@ class Student extends Component
         // reading the same admission serial, the transaction stops a mid-flow
         // failure leaving a User with no StudentDetail behind it.
         [$user, $detail, $admissionNo] = StudentNumbers::withCreationLock($this->addOrgId, function () use ($userData, $org, $standardBoard) {
+            // The same student added a moment ago — Save clicked twice, or sent
+            // again after the answer was lost — is not added a second time
+            // (StudentDuplicates). Looked for under the lock, so the first save
+            // is committed by now.
+            if (StudentDuplicates::recent($this->addOrgId, $this->addStandardId, $this->addName, $this->addFatherName, $this->addDob, $this->addMobile)) {
+                return [null, null, null];
+            }
+
             return DB::transaction(function () use ($userData, $org, $standardBoard) {
                 $user = User::create($userData);
 
@@ -915,6 +924,19 @@ class Student extends Component
                 return [$user, $detail, $admissionNo];
             });
         });
+
+        if (!$user) {
+            // Nobody new: no second welcome, and the photo this save uploaded
+            // (by the path it was stored at) is not kept twice.
+            if (!empty($path)) {
+                Storage::disk('s3')->delete($path);
+            }
+            $this->closeAddPanel();
+            $this->loadStats();
+            $this->resetPage();
+            $this->notification()->info('Already added', $this->addName . ' was added to ' . $org->name . ' a moment ago — not added again.');
+            return;
+        }
 
         try {
             $templateKey = config('services.zeptomail.student_password_template_key');
