@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\ZeptoMailService;
 use App\Support\TransportBilling;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -445,6 +446,8 @@ class Schools extends Component
     /** Step 1 → 2: validate the school fields, then show module selection. */
     public function goToModuleStep(): void
     {
+        $this->trimSchoolCode();
+
         try {
             $this->validate($this->schoolRules());
         } catch (ValidationException $e) {
@@ -499,6 +502,14 @@ class Schools extends Component
                 'required',
                 'string',
                 Rule::unique('organizations', 'school_code')->ignore($this->editId),
+                // Every school has a code of its own: the same code in other
+                // capitals, or one an older school saved with spaces around it,
+                // is the same code.
+                function ($attribute, $value, $fail) {
+                    if ($this->schoolCodeTaken((string) $value)) {
+                        $fail('The school code has already been taken.');
+                    }
+                },
             ],
             'serialNumber'   => [
                 'required',
@@ -509,6 +520,26 @@ class Schools extends Component
             'udiseNumber'    => 'nullable|string|max:100',
             'logo'           => 'nullable|image|max:2048',
         ];
+    }
+
+    /** Another school has this code already (capitals and spaces around it aside). */
+    private function schoolCodeTaken(string $code): bool
+    {
+        $code = mb_strtolower(trim($code));
+        if ($code === '') {
+            return false;
+        }
+
+        return DB::table('organizations')
+            ->when($this->editId, fn ($q) => $q->where('id', '!=', $this->editId))
+            ->whereRaw('LOWER(TRIM(school_code)) = ?', [$code])
+            ->exists();
+    }
+
+    /** The code is saved without spaces around it, so " DPS" is not a code of its own. */
+    private function trimSchoolCode(): void
+    {
+        $this->schoolCode = trim((string) $this->schoolCode);
     }
 
     public function onEdit($id): void
@@ -542,6 +573,8 @@ class Schools extends Component
         // Wrap EVERYTHING (validation included) so no path can return a raw 500.
         // ValidationException is re-thrown so Livewire still shows inline field
         // errors; any other failure surfaces its real message in a toast.
+        $this->trimSchoolCode();
+
         try {
             $this->validate($this->schoolRules());
             $this->persistSchool();
@@ -553,6 +586,16 @@ class Schools extends Component
         } catch (ValidationException $e) {
             throw $e;
         } catch (\Throwable $e) {
+            // Another school was saved with this code a moment ago — the
+            // database's own lock on the code (its unique index) stopped this
+            // one. Said under the code, as the check above would have.
+            if ($e instanceof UniqueConstraintViolationException
+                && str_contains((string) ($e->errorInfo[2] ?? ''), 'school_code')) {
+                $this->modalStep = 1;
+                $this->addError('schoolCode', 'The school code has already been taken.');
+                return;
+            }
+
             Log::error('School save failed', [
                 'editId' => $this->editId,
                 'email'  => $this->email,
