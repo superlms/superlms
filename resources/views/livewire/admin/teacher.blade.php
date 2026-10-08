@@ -152,7 +152,13 @@
                                 </td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-3">
-                                        @if ($teacher->user?->image)
+                                        @if ($teacher->user?->image && ($circle = \App\Support\PhotoCircle::of($teacher->user)))
+                                            {{-- The circle set with Profile on the large photo --}}
+                                            <span class="relative w-9 h-9 rounded-full overflow-hidden border border-gray-200 flex-shrink-0 cursor-pointer"
+                                                wire:click="onImageClick({{ $teacher->user->id }})">
+                                                <img src="{{ $teacher->user->image }}" alt="" style="{{ \App\Support\PhotoCircle::imgStyle($circle) }}">
+                                            </span>
+                                        @elseif ($teacher->user?->image)
                                             <img src="{{ $teacher->user->image }}"
                                                 class="w-9 h-9 rounded-full object-cover object-top border border-gray-200 flex-shrink-0 cursor-pointer"
                                                 wire:click="onImageClick({{ $teacher->user->id }})">
@@ -297,7 +303,13 @@
                     <div class="flex items-center gap-3 p-4 border-b border-gray-100">
                         <span
                             class="text-xs font-bold text-gray-400 w-6 text-center">{{ $teachers->firstItem() + $index }}</span>
-                        @if ($teacher->user?->image)
+                        @if ($teacher->user?->image && ($circle = \App\Support\PhotoCircle::of($teacher->user)))
+                            {{-- The circle set with Profile on the large photo --}}
+                            <span class="relative w-10 h-10 rounded-full overflow-hidden border border-gray-200 flex-shrink-0"
+                                wire:click="onImageClick({{ $teacher->user->id }})">
+                                <img src="{{ $teacher->user->image }}" alt="" style="{{ \App\Support\PhotoCircle::imgStyle($circle) }}">
+                            </span>
+                        @elseif ($teacher->user?->image)
                             <img src="{{ $teacher->user->image }}"
                                 class="w-10 h-10 rounded-full object-cover object-top border border-gray-200 flex-shrink-0"
                                 wire:click="onImageClick({{ $teacher->user->id }})">
@@ -593,12 +605,24 @@
         <div class="lms-cover fixed inset-0 z-[9999] flex overflow-y-auto p-4 bg-black/80"
             wire:click.self="closeImage" x-on:keydown.escape.window="$wire.closeImage()">
             <div class="relative m-auto max-w-full">
+                {{-- The whole photo, nothing of it cut off --}}
                 <img src="{{ $imagePath }}" alt=""
-                    style="--photo: min(28rem, 90vw, calc(100vh - 8rem)); width: var(--photo); height: var(--photo)"
-                    class="rounded-lg object-cover shadow-2xl bg-white">
+                    style="max-width: min(56rem, 92vw); max-height: calc(100vh - 6rem); min-width: 8rem"
+                    class="block w-auto h-auto rounded-lg shadow-2xl bg-white">
                 @if ($imageUserId)
-                    {{-- Crop it here and Save: the cut photo replaces it at once --}}
-                    <x-admin.photo-editor model="listPhotoUpload" class="hidden" save="Save" />
+                    {{-- Profile: the circle the lists show of it, set by moving and
+                         zooming the photo under it; the photo is left as it is --}}
+                    <x-admin.photo-circle method="saveListPhotoCircle" />
+                    <button type="button" x-data title="Profile photo"
+                        data-url="{{ $imagePath }}" data-circle="{{ json_encode($imageCircle) }}"
+                        x-on:click="$dispatch('lms-circle-photo', { method: 'saveListPhotoCircle', url: $el.dataset.url, circle: JSON.parse($el.dataset.circle || 'null') })"
+                        class="absolute top-2 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white"
+                        style="right: 5.5rem">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    </button>
+
+                    {{-- Crop it here and Save: the cut photo replaces it at once (crop only — no circle) --}}
+                    <x-admin.photo-editor model="listPhotoUpload" class="hidden" save="Save" :circle="false" />
                     <button type="button" x-data title="Crop photo"
                         x-on:click="$dispatch('lms-crop-photo', { model: 'listPhotoUpload', url: @js(route('admin.teacher.photo', ['organization' => auth()->user()->organization_id, 'user' => $imageUserId])) })"
                         class="absolute top-2 right-12 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white">

@@ -18,6 +18,7 @@ use App\Models\Admin\SchoolInfo;
 use App\Models\Organization;
 use App\Models\User;
 use App\Support\LoginIdentifier;
+use App\Support\PhotoCircle;
 use App\Support\Usernames;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -236,6 +237,8 @@ class Teacher extends Component
         $this->openImage = true;
         // Whose photo it is, for Crop in the large view.
         $this->imageUserId = (int) $id;
+        // The circle the lists show of it, where Profile opens.
+        $this->imageCircle = PhotoCircle::keyed(PhotoCircle::of(User::find($id)));
     }
 
     // ─── The photo shown large from the list: cropped, and saved at once ───
@@ -272,7 +275,35 @@ class Teacher extends Component
 
         $this->listPhotoUpload = null;
         $this->imagePath = $user->image;
+        // A circle set on the uncut photo is not this one's.
+        $this->imageCircle = null;
         $this->notification()->success('Photo updated', 'The cropped photo is saved.');
+    }
+
+    // ─── Profile on the large photo: the circle the lists show of it ───
+    /** The circle set on the photo shown large ({x, y, w, h}), or null. */
+    public ?array $imageCircle = null;
+
+    /** Profile → Save (x-admin.photo-circle): the photo is left as it is. */
+    public function saveListPhotoCircle($x, $y, $w, $h): void
+    {
+        $user = $this->imageUserId
+            ? User::where('id', $this->imageUserId)->where('role', 'teacher')
+                ->where('organization_id', Auth::user()->organization_id)->first()
+            : null;
+        if (!$user || !$user->image) {
+            $this->notification()->error('Teacher not found!');
+            return;
+        }
+        $rect = PhotoCircle::fromInput(compact('x', 'y', 'w', 'h'));
+        if (!$rect) {
+            $this->notification()->error('Please set the circle on the photo.');
+            return;
+        }
+
+        PhotoCircle::store($user, $rect);
+        $this->imageCircle = PhotoCircle::keyed(PhotoCircle::of($user));
+        $this->notification()->success('Profile photo set', 'The list shows this circle of the photo.');
     }
 
     public function closeImage(): void

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Support\PdfPhotos;
+use App\Support\PhotoCircle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
@@ -52,7 +53,9 @@ class StudentPhotoController extends Controller
             // a=top: the square from the top of the photo, where the face is —
             // the list's circle, as the photo editor's dotted circle shows it.
             $top  = $request->query('a') === 'top';
-            $jpeg = PdfPhotos::squares([$url], $size, 8.0, $top)[$url] ?? null;
+            // The circle set with Profile on the large photo, when it has one.
+            $rect = PhotoCircle::of($student);
+            $jpeg = PdfPhotos::squares([$url], $size, 8.0, $top, $rect)[$url] ?? null;
 
             // Not to be had just now: the photo itself, as the list showed it.
             if ($jpeg === null) {
@@ -92,8 +95,11 @@ class StudentPhotoController extends Controller
             'user'         => $student->id,
             'size'         => $size,
             'a'            => 'top',
-            // A new photo is a new address, so the browser never keeps an old one.
-            'v'            => substr(sha1((string) $student->image), 0, 12),
+            // A new photo is a new address, so the browser never keeps an old
+            // one; so is a circle set on it (none set: the address as before).
+            'v'            => ($rect = PhotoCircle::of($student))
+                ? substr(sha1($student->image . '#' . implode(',', $rect)), 0, 12)
+                : substr(sha1((string) $student->image), 0, 12),
         ]);
     }
 }

@@ -9,6 +9,7 @@ use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
 use App\Models\User;
 use App\Support\LoginIdentifier;
+use App\Support\PhotoCircle;
 use App\Support\PhotoCrop;
 use App\Support\StudentDuplicates;
 use App\Support\StudentNumbers;
@@ -78,6 +79,8 @@ class AdminStudentController extends ApiController
             'section'      => $d->section->name ?? null,
             'image'        => $d->user->image ?? null,
             'is_active'    => (bool) ($d->user->is_active ?? false),
+            // The circle the lists show, when one is set on this photo (Profile).
+            'photo_circle' => PhotoCircle::keyed(PhotoCircle::of($d->user)),
         ];
     }
 
@@ -641,6 +644,35 @@ class AdminStudentController extends ApiController
         }
 
         return $this->success(['image' => $student->image], 'Photo updated.');
+    }
+
+    /**
+     * POST …/students/{id}/photo-circle — circle_x, circle_y, circle_w,
+     * circle_h: the circle the lists show of the student's photo (Profile on
+     * the large photo). The photo itself is left as it is.
+     */
+    public function photoCircle(Request $request, $id)
+    {
+        [$user, $err] = $this->guard();
+        if ($err) return $err;
+
+        $detail = StudentDetail::where('organization_id', $user->organization_id)->find($id);
+        if (!$detail || !$this->mayTouch($detail->standard_id, $detail->section_id)) {
+            return $this->error('Student not found.', 404);
+        }
+        $student = User::find($detail->user_id);
+        if (!$student) return $this->error('Student account not found.', 404);
+        if (!$student->image) return $this->error('There is no photo to set.', 422);
+
+        $rect = PhotoCircle::fromInput($request->all());
+        if (!$rect) return $this->error('Please set the circle on the photo.', 422);
+
+        PhotoCircle::store($student, $rect);
+
+        return $this->success([
+            'image'        => $student->image,
+            'photo_circle' => PhotoCircle::keyed(PhotoCircle::of($student)),
+        ], 'Profile photo set.');
     }
 
     // ══════════════════════════ DELETE ══════════════════════════

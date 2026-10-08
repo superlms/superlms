@@ -14,8 +14,12 @@
      picture from another host can't be cut in a canvas. Attributes go on the
      input; the popup is moved to <body>. Logic: window.lmsPhotoEditor
      (partials/photo-editor-js). The circle cropper (x-admin.photo-cropper)
-     stays as it was where it is still used. --}}
-@props(['model', 'save' => 'Use photo'])
+     stays as it was where it is still used.
+
+     :circle="false" — crop only: no dotted circle and no "In the list"
+     previews (the list's large photo, whose circle is set apart with Profile,
+     x-admin.photo-circle). --}}
+@props(['model', 'save' => 'Use photo', 'circle' => true])
 
 <span x-data="lmsPhotoEditor(@js($model))" class="contents"
     x-on:lms-crop-photo.window="$event.detail && $event.detail.model === model && openUrl($event.detail.url)">
@@ -27,7 +31,7 @@
             x-on:keydown.escape.window="open && close()">
             <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-full overflow-y-auto p-5">
                 <h3 class="text-base font-semibold text-gray-900">Crop photo</h3>
-                <p class="text-xs text-gray-500 mt-0.5" x-show="src">Drag an edge or a corner to crop from that side; drag inside to move it. The dotted circle is what the lists show.</p>
+                <p class="text-xs text-gray-500 mt-0.5" x-show="src">Drag an edge or a corner to crop from that side; drag inside to move it.@if ($circle) The dotted circle is what the lists show.@endif</p>
 
                 <template x-if="src">
                     <div class="mt-4 flex flex-col md:flex-row gap-5 items-center md:items-start">
@@ -39,7 +43,9 @@
                                 <img :src="src" alt="" draggable="false"
                                     class="absolute inset-0 w-full h-full max-w-none pointer-events-none">
                                 <div data-h="move" class="absolute cursor-move" :style="boxStyle()">
-                                    <div class="absolute rounded-full border-2 border-dashed border-white/90 pointer-events-none" :style="circleStyle()"></div>
+                                    @if ($circle)
+                                        <div class="absolute rounded-full border-2 border-dashed border-white/90 pointer-events-none" :style="circleStyle()"></div>
+                                    @endif
                                     <template x-for="h in handles" :key="h.k">
                                         <span :data-h="h.k" class="absolute w-4 h-4 bg-white border border-gray-500 rounded-sm shadow"
                                             :style="h.style + ';cursor:' + h.cursor"></span>
@@ -50,11 +56,13 @@
 
                         {{-- How it will show --}}
                         <div class="flex flex-col items-center md:pt-1 md:w-32">
-                            <div class="rounded-full ring-1 ring-gray-200 bg-gray-100" :style="previewStyle(96)"></div>
-                            <p class="mt-2 text-xs text-gray-500 text-center">In the list</p>
-                            <div class="mt-3 rounded-full ring-1 ring-gray-200 bg-gray-100" :style="previewStyle(40)"></div>
+                            @if ($circle)
+                                <div class="rounded-full ring-1 ring-gray-200 bg-gray-100" :style="previewStyle(96)"></div>
+                                <p class="mt-2 text-xs text-gray-500 text-center">In the list</p>
+                                <div class="mt-3 rounded-full ring-1 ring-gray-200 bg-gray-100" :style="previewStyle(40)"></div>
+                            @endif
                             <button type="button" x-on:click="reset()" :disabled="busy"
-                                class="mt-4 text-xs font-medium text-blue-600 hover:text-blue-800 disabled:opacity-40">Whole photo</button>
+                                class="@if ($circle) mt-4 @endif text-xs font-medium text-blue-600 hover:text-blue-800 disabled:opacity-40">Whole photo</button>
                         </div>
                     </div>
                 </template>

@@ -31,16 +31,19 @@ class PdfPhotos
      * @param  bool      $top   the square from the top of the photo (where the
      *                          face is), as the Students list shows it; else the
      *                          middle one, as the PDFs have it
+     * @param  array|null $rect the square set as the photo's circle (PhotoCircle:
+     *                          [x, y, w, h] fractions of the upright photo), the
+     *                          list's own; it goes before $top
      * @return array<string,string>  url => JPEG bytes
      */
-    public static function squares(array $urls, int $size = 120, float $seconds = 25.0, bool $top = false): array
+    public static function squares(array $urls, int $size = 120, float $seconds = 25.0, bool $top = false, ?array $rect = null): array
     {
         $started = microtime(true);
         $out     = [];
         $missing = [];
 
         foreach (array_unique(array_filter($urls)) as $url) {
-            $file = self::cacheFile($url, $size, $top);
+            $file = self::cacheFile($url, $size, $top, $rect);
             if (is_file($file)) {
                 $out[$url] = (string) file_get_contents($file);
             } else {
@@ -65,12 +68,12 @@ class PdfPhotos
                     continue;
                 }
 
-                $jpeg = self::square($response->body(), $size, $top);
+                $jpeg = self::square($response->body(), $size, $top, $rect);
                 if ($jpeg === null) {
                     continue;
                 }
 
-                $file = self::cacheFile($url, $size, $top);
+                $file = self::cacheFile($url, $size, $top, $rect);
                 if (! is_dir(dirname($file))) {
                     @mkdir(dirname($file), 0775, true);
                 }
@@ -82,8 +85,8 @@ class PdfPhotos
         return $out;
     }
 
-    /** The picture cut to a centred square (or the top one) of $size pixels, as JPEG bytes — or null. */
-    public static function square(string $bytes, int $size, bool $top = false): ?string
+    /** The picture cut to a centred square (or the top one, or $rect) of $size pixels, as JPEG bytes — or null. */
+    public static function square(string $bytes, int $size, bool $top = false, ?array $rect = null): ?string
     {
         $info = @getimagesizefromstring($bytes);
         if (! $info) {
@@ -105,7 +108,8 @@ class PdfPhotos
             // A camera shot carries a small preview of itself: use it when the
             // picture is big and the preview has its shape (a picture cropped
             // after it was taken keeps the old preview, so that one is skipped).
-            if (max($width, $height) > 1200 && function_exists('exif_thumbnail')) {
+            // Not for a circle set on the photo: zoomed in, the preview is too small.
+            if (! $rect && max($width, $height) > 1200 && function_exists('exif_thumbnail')) {
                 rewind($stream);
                 $thumb = @exif_thumbnail($stream, $tw, $th);
                 if ($thumb && $tw && $th && abs(($tw / $th) - ($width / $height)) < 0.05) {
@@ -130,9 +134,20 @@ class PdfPhotos
         $h    = imagesy($source);
         $side = min($w, $h);
 
+        $sx   = (int) (($w - $side) / 2);
+        $sy   = $top ? 0 : (int) (($h - $side) / 2);
+
+        // The circle set on the photo: its square, kept inside the picture.
+        if ($rect) {
+            [$rx, $ry, $rw, $rh] = $rect;
+            $side = max(1, (int) round(min($rw * $w, $rh * $h, $w, $h)));
+            $sx   = (int) max(0, min($w - $side, round($rx * $w)));
+            $sy   = (int) max(0, min($h - $side, round($ry * $h)));
+        }
+
         $square = imagecreatetruecolor($size, $size);
         imagefill($square, 0, 0, imagecolorallocate($square, 255, 255, 255));
-        imagecopyresampled($square, $source, 0, 0, (int) (($w - $side) / 2), $top ? 0 : (int) (($h - $side) / 2), $size, $size, $side, $side);
+        imagecopyresampled($square, $source, 0, 0, $sx, $sy, $size, $size, $side, $side);
 
         ob_start();
         imagejpeg($square, null, 80);
@@ -144,9 +159,12 @@ class PdfPhotos
         return $jpeg !== '' ? $jpeg : null;
     }
 
-    private static function cacheFile(string $url, int $size, bool $top = false): string
+    private static function cacheFile(string $url, int $size, bool $top = false, ?array $rect = null): string
     {
-        return storage_path('app/' . self::DIR . '/' . $size . ($top ? 'top' : '') . '/' . sha1($url) . '.jpg');
+        // A circle's square is kept under its own name beside the photo's others.
+        $name = $rect ? sha1($url . '#' . implode(',', $rect)) : sha1($url);
+
+        return storage_path('app/' . self::DIR . '/' . $size . ($top ? 'top' : '') . '/' . $name . '.jpg');
     }
 
     /** A stored path becomes the disk's URL; a full URL stays as it is. */

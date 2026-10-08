@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\TeacherPhotoController;
 use App\Http\Controllers\v1\AdminStudentController;
 use App\Models\Student\StudentDetail;
 use App\Models\User;
+use App\Support\PhotoCircle;
 use App\Support\PhotoCrop;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
@@ -47,6 +48,7 @@ class StudentPhotoCropTest extends TestCase
             $t->string('email')->nullable();
             $t->string('mobile_number')->nullable();
             $t->string('image')->nullable();
+            $t->string('photo_circle')->nullable();
             $t->string('role')->nullable();
             $t->boolean('is_active')->default(true);
             $t->unsignedBigInteger('organization_id')->nullable();
@@ -423,5 +425,108 @@ class StudentPhotoCropTest extends TestCase
         } catch (HttpException $e) {
             $this->assertSame(404, $e->getStatusCode());
         }
+    }
+
+    // ── Profile: the circle the lists show, the photo left as it is ─────────
+
+    public function test_a_circle_set_on_the_photo_is_its_own_until_the_photo_changes(): void
+    {
+        $d = $this->student();
+        $user = User::find($d->user_id);
+        $this->assertNull(PhotoCircle::of($user));
+
+        PhotoCircle::store($user, [0.5, 0, 0.5, 1]);
+        $this->assertSame([0.5, 0.0, 0.5, 1.0], PhotoCircle::of(User::find($d->user_id)));
+        $this->assertSame('https://cdn.test/admin/students/images/aarav.jpg', User::find($d->user_id)->image);
+
+        // A new (or cropped) photo: the lists show its top again.
+        $user->image = 'https://cdn.test/admin/students/images/new.jpg';
+        $user->save();
+        $this->assertNull(PhotoCircle::of(User::find($d->user_id)));
+    }
+
+    public function test_the_list_shows_the_circle_set_and_its_address_follows_it(): void
+    {
+        // Red on the left half, blue on the right.
+        Http::fake(['cdn.test/*' => Http::response($this->photo())]);
+        $d = $this->student();
+        $user = User::find($d->user_id);
+        $before = StudentPhotoController::thumbUrl($user);
+
+        // None set: the top square across the middle — red a quarter in.
+        $this->assertSame('red', $this->look($this->photoRoute($d->user_id, ['size' => 96, 'a' => 'top'])->getContent(), 0.25)[2]);
+
+        // The right half's square set: blue all over.
+        PhotoCircle::store($user, [0.5, 0, 0.5, 1]);
+        $list = $this->photoRoute($d->user_id, ['size' => 96, 'a' => 'top'])->getContent();
+        $this->assertSame([96, 96, 'blue'], $this->look($list, 0.25));
+
+        $after = StudentPhotoController::thumbUrl(User::find($d->user_id));
+        $this->assertNotSame($before, $after);
+        $this->assertStringContainsString("/{$this->org}/student/{$user->id}/photo?size=96&a=top&v=", $after);
+    }
+
+    private function circleApi(int $id, array $q = [])
+    {
+        return app(AdminStudentController::class)->photoCircle(Request::create('/', 'POST', $q), $id);
+    }
+
+    public function test_the_app_sets_the_circle_and_the_list_rows_carry_it(): void
+    {
+        $d = $this->student();
+
+        $res = $this->circleApi($d->id, ['circle_x' => 0.25, 'circle_y' => 0, 'circle_w' => 0.5, 'circle_h' => 1]);
+
+        $this->assertSame(200, $res->getStatusCode(), json_encode($res->getData(true)));
+        $this->assertEquals(['x' => 0.25, 'y' => 0, 'w' => 0.5, 'h' => 1], $res->getData(true)['data']['photo_circle']);
+        // The photo itself is left as it is.
+        $this->assertSame('https://cdn.test/admin/students/images/aarav.jpg', User::find($d->user_id)->image);
+
+        // The list's rows (shapeRow; index() itself counts with MySQL's YEAR).
+        $row = (fn ($detail) => $this->shapeRow($detail))->call(app(AdminStudentController::class), StudentDetail::with('user')->find($d->id));
+        $this->assertEquals(['x' => 0.25, 'y' => 0, 'w' => 0.5, 'h' => 1], $row['photo_circle']);
+        $none = (fn ($detail) => $this->shapeRow($detail))->call(app(AdminStudentController::class), StudentDetail::with('user')->find($this->student(['email' => 'n@example.com'])->id));
+        $this->assertNull($none['photo_circle']);
+    }
+
+    public function test_no_circle_without_a_photo_or_a_circle(): void
+    {
+        $none = $this->student(['image' => null]);
+        $this->assertSame(422, $this->circleApi($none->id, ['circle_x' => 0, 'circle_y' => 0, 'circle_w' => 0.5, 'circle_h' => 1])->getStatusCode());
+
+        $d = $this->student(['email' => 'q@example.com']);
+        $this->assertSame(422, $this->circleApi($d->id, ['circle_x' => 'a'])->getStatusCode());
+        $this->assertNull(PhotoCircle::of(User::find($d->user_id)));
+
+        // Another school's student is not found.
+        $other = $this->student(['email' => 'o@example.com'], 5);
+        $this->assertSame(404, $this->circleApi($other->id, ['circle_x' => 0, 'circle_y' => 0, 'circle_w' => 0.5, 'circle_h' => 1])->getStatusCode());
+    }
+
+    public function test_the_web_list_s_profile_saves_the_circle_for_this_school_only(): void
+    {
+        $d = $this->student();
+        $other = $this->student(['email' => 'o@example.com'], 5);
+
+        $page = new \App\Livewire\Admin\Student();
+        $page->onImageClick($d->user_id);
+        $this->assertNull($page->imageCircle);
+        $page->saveListPhotoCircle(0.5, 0, 0.5, 1);
+        $this->assertSame([0.5, 0.0, 0.5, 1.0], PhotoCircle::of(User::find($d->user_id)));
+        $this->assertEquals(['x' => 0.5, 'y' => 0, 'w' => 0.5, 'h' => 1], $page->imageCircle);
+
+        // Opened again, Profile starts at it.
+        $page->onImageClick($d->user_id);
+        $this->assertEquals(['x' => 0.5, 'y' => 0, 'w' => 0.5, 'h' => 1], $page->imageCircle);
+
+        $page->imageUserId = $other->user_id;
+        $page->saveListPhotoCircle(0, 0, 0.5, 1);
+        $this->assertNull(PhotoCircle::of(User::find($other->user_id)));
+    }
+
+    public function test_the_teachers_list_lays_the_photo_so_the_circle_fills_it(): void
+    {
+        $style = PhotoCircle::imgStyle([0.25, 0, 0.5, 1]);
+        $this->assertSame('position:absolute;max-width:none;width:200%;height:100%;left:-50%;top:-0%', $style);
     }
 }

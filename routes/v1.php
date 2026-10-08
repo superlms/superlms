@@ -291,6 +291,8 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::post('/{id}',    [TeacherStudentController::class, 'update'])->whereNumber('id');
                 // The photo alone: a new one, the saved one cropped, or taken off.
                 Route::post('/{id}/photo', [TeacherStudentController::class, 'photo'])->whereNumber('id');
+                // The circle the lists show of the photo (Profile), the photo left as it is.
+                Route::post('/{id}/photo-circle', [TeacherStudentController::class, 'photoCircle'])->whereNumber('id');
                 Route::delete('/{id}',  [TeacherStudentController::class, 'destroy'])->whereNumber('id');
             });
 

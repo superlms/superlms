@@ -284,6 +284,9 @@
     {{-- ─── Photo editor (x-admin.photo-editor): crop from any side, see the list's circle, upload ─── --}}
     @include('partials.photo-editor-js')
 
+    {{-- ─── Profile (x-admin.photo-circle): the circle the lists show of a photo ─── --}}
+    @include('partials.photo-circle-js')
+
     {{-- ─── Keyboard: Enter to the next field / row, ← → along a row ─── --}}
     @include('partials.keyboard-nav')
 
