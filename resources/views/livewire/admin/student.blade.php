@@ -232,7 +232,7 @@
                                             {{-- A small square of the photo (the whole camera shot opens on a click) --}}
                                             <img src="{{ \App\Http\Controllers\Admin\StudentPhotoController::thumbUrl($student->user) }}"
                                                 loading="lazy" decoding="async" alt=""
-                                                class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0 cursor-pointer"
+                                                class="w-9 h-9 rounded-full object-cover object-top border border-gray-200 flex-shrink-0 cursor-pointer"
                                                 wire:click="onImageClick({{ $student->user->id }})">
                                         @else
                                             <div
@@ -401,7 +401,7 @@
                         @if ($student->user?->image)
                             <img src="{{ \App\Http\Controllers\Admin\StudentPhotoController::thumbUrl($student->user) }}"
                                 loading="lazy" decoding="async" alt=""
-                                class="w-10 h-10 rounded-full object-cover border border-gray-200 flex-shrink-0"
+                                class="w-10 h-10 rounded-full object-cover object-top border border-gray-200 flex-shrink-0"
                                 wire:click="onImageClick({{ $student->user->id }})">
                         @else
                             <div

@@ -4,7 +4,8 @@
      of the photo already saved) opens it in the middle of the window, the
      whole photo kept to begin with. The part kept is cropped from any side by
      its edges and corners and moved by dragging inside it; the dotted circle
-     in it — the middle square's — is what the round photos in the lists show,
+     in it — its top square's, where the face is — is what the round photos in
+     the lists show,
      and the previews beside it show that circle as the lists will. The button
      cuts the part out (its longer side at most 1024 px, JPEG) and uploads it
      to the Livewire property named by `model`, as a plain file input with
@@ -136,11 +137,11 @@
                     return 'left:' + b.x + 'px;top:' + b.y + 'px;width:' + b.w + 'px;height:' + b.h + 'px;'
                         + 'box-shadow:0 0 0 9999px rgba(0,0,0,.55);outline:2px solid #fff';
                 },
-                // The circle the lists show: the middle square's.
+                // The circle the lists show: the top square's (across, the middle).
                 circleStyle() {
                     const b = this.box;
                     const s = Math.min(b.w, b.h);
-                    return 'left:' + (b.w - s) / 2 + 'px;top:' + (b.h - s) / 2 + 'px;width:' + s + 'px;height:' + s + 'px';
+                    return 'left:' + (b.w - s) / 2 + 'px;top:0px;width:' + s + 'px;height:' + s + 'px';
                 },
                 // That circle, `size` across, as the lists will draw it.
                 previewStyle(size) {
@@ -148,7 +149,7 @@
                     const s = Math.max(1, Math.min(b.w, b.h));
                     const k = size / s;
                     const sx = b.x + (b.w - s) / 2;
-                    const sy = b.y + (b.h - s) / 2;
+                    const sy = b.y;
                     return 'width:' + size + 'px;height:' + size + 'px;background-repeat:no-repeat;'
                         + 'background-image:url(' + this.src + ');'
                         + 'background-size:' + (this.dispW * k) + 'px ' + (this.dispH * k) + 'px;'

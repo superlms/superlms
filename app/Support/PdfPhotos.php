@@ -28,16 +28,19 @@ class PdfPhotos
 
     /**
      * @param  string[]  $urls
+     * @param  bool      $top   the square from the top of the photo (where the
+     *                          face is), as the Students list shows it; else the
+     *                          middle one, as the PDFs have it
      * @return array<string,string>  url => JPEG bytes
      */
-    public static function squares(array $urls, int $size = 120, float $seconds = 25.0): array
+    public static function squares(array $urls, int $size = 120, float $seconds = 25.0, bool $top = false): array
     {
         $started = microtime(true);
         $out     = [];
         $missing = [];
 
         foreach (array_unique(array_filter($urls)) as $url) {
-            $file = self::cacheFile($url, $size);
+            $file = self::cacheFile($url, $size, $top);
             if (is_file($file)) {
                 $out[$url] = (string) file_get_contents($file);
             } else {
@@ -62,12 +65,12 @@ class PdfPhotos
                     continue;
                 }
 
-                $jpeg = self::square($response->body(), $size);
+                $jpeg = self::square($response->body(), $size, $top);
                 if ($jpeg === null) {
                     continue;
                 }
 
-                $file = self::cacheFile($url, $size);
+                $file = self::cacheFile($url, $size, $top);
                 if (! is_dir(dirname($file))) {
                     @mkdir(dirname($file), 0775, true);
                 }
@@ -79,8 +82,8 @@ class PdfPhotos
         return $out;
     }
 
-    /** The picture cut to a centred square of $size pixels, as JPEG bytes — or null. */
-    public static function square(string $bytes, int $size): ?string
+    /** The picture cut to a centred square (or the top one) of $size pixels, as JPEG bytes — or null. */
+    public static function square(string $bytes, int $size, bool $top = false): ?string
     {
         $info = @getimagesizefromstring($bytes);
         if (! $info) {
@@ -129,7 +132,7 @@ class PdfPhotos
 
         $square = imagecreatetruecolor($size, $size);
         imagefill($square, 0, 0, imagecolorallocate($square, 255, 255, 255));
-        imagecopyresampled($square, $source, 0, 0, (int) (($w - $side) / 2), (int) (($h - $side) / 2), $size, $size, $side, $side);
+        imagecopyresampled($square, $source, 0, 0, (int) (($w - $side) / 2), $top ? 0 : (int) (($h - $side) / 2), $size, $size, $side, $side);
 
         ob_start();
         imagejpeg($square, null, 80);
@@ -141,9 +144,9 @@ class PdfPhotos
         return $jpeg !== '' ? $jpeg : null;
     }
 
-    private static function cacheFile(string $url, int $size): string
+    private static function cacheFile(string $url, int $size, bool $top = false): string
     {
-        return storage_path('app/' . self::DIR . '/' . $size . '/' . sha1($url) . '.jpg');
+        return storage_path('app/' . self::DIR . '/' . $size . ($top ? 'top' : '') . '/' . sha1($url) . '.jpg');
     }
 
     /** A stored path becomes the disk's URL; a full URL stays as it is. */

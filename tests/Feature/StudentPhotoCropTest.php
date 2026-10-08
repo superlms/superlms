@@ -160,13 +160,42 @@ class StudentPhotoCropTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    /** A tall photo: red on top (the first 120 rows of 400), blue under it. */
+    private function tall(): string
+    {
+        $im = imagecreatetruecolor(200, 400);
+        imagefilledrectangle($im, 0, 0, 199, 119, imagecolorallocate($im, 255, 0, 0));
+        imagefilledrectangle($im, 0, 120, 199, 399, imagecolorallocate($im, 0, 0, 255));
+        ob_start();
+        imagejpeg($im, null, 95);
+        imagedestroy($im);
+
+        return (string) ob_get_clean();
+    }
+
+    public function test_the_list_s_circle_is_the_top_of_the_photo_and_the_pdf_s_the_middle(): void
+    {
+        Http::fake(['cdn.test/*' => Http::response($this->tall())]);
+        $d = $this->student();
+
+        // The list (a=top): the top square — a quarter of the way down, still red.
+        $list = $this->photoRoute($d->user_id, ['size' => 96, 'a' => 'top'])->getContent();
+        $this->assertSame('red', $this->look($list, 0.5, 0.25)[2]);
+
+        // Without it (and the PDFs): the middle square, as before — blue there.
+        $middle = $this->photoRoute($d->user_id, ['size' => 96])->getContent();
+        $this->assertSame('blue', $this->look($middle, 0.5, 0.25)[2]);
+        $pdf = \App\Support\PdfPhotos::squares(['https://cdn.test/admin/students/images/aarav.jpg'], 96);
+        $this->assertSame('blue', $this->look(array_values($pdf)[0], 0.5, 0.25)[2]);
+    }
+
     public function test_the_list_s_address_changes_with_the_photo(): void
     {
         $d = $this->student();
         $user = User::find($d->user_id);
 
         $a = StudentPhotoController::thumbUrl($user);
-        $this->assertStringContainsString("/{$this->org}/student/{$user->id}/photo?size=96&v=", $a);
+        $this->assertStringContainsString("/{$this->org}/student/{$user->id}/photo?size=96&a=top&v=", $a);
 
         $user->image = 'https://cdn.test/admin/students/images/new.jpg';
         $this->assertNotSame($a, StudentPhotoController::thumbUrl($user));

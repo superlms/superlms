@@ -1,6 +1,7 @@
 {{-- A photo file input whose photo is cropped before it is uploaded: from any
      side (its edges and corners), the part kept moved by dragging inside it,
-     and the circle the lists show drawn on it and shown beside it. Use it in
+     and the circle the lists show — the top of the part kept, where the face
+     is — drawn on it and shown beside it. Use it in
      place of <input type="file" wire:model="…">:
 
          <x-admin.photo-editor model="studentImage" class="flex-1 text-sm" />

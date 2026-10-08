@@ -49,7 +49,10 @@ class StudentPhotoController extends Controller
         $size = (int) $request->query('size', 0);
         if ($size > 0) {
             $size = max(self::SIZES[0], min(self::SIZES[1], $size));
-            $jpeg = PdfPhotos::squares([$url], $size, 8.0)[$url] ?? null;
+            // a=top: the square from the top of the photo, where the face is —
+            // the list's circle, as the photo editor's dotted circle shows it.
+            $top  = $request->query('a') === 'top';
+            $jpeg = PdfPhotos::squares([$url], $size, 8.0, $top)[$url] ?? null;
 
             // Not to be had just now: the photo itself, as the list showed it.
             if ($jpeg === null) {
@@ -88,6 +91,7 @@ class StudentPhotoController extends Controller
             'organization' => $student->organization_id,
             'user'         => $student->id,
             'size'         => $size,
+            'a'            => 'top',
             // A new photo is a new address, so the browser never keeps an old one.
             'v'            => substr(sha1((string) $student->image), 0, 12),
         ]);

@@ -154,7 +154,7 @@
                                     <div class="flex items-center gap-3">
                                         @if ($teacher->user?->image)
                                             <img src="{{ $teacher->user->image }}"
-                                                class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0 cursor-pointer"
+                                                class="w-9 h-9 rounded-full object-cover object-top border border-gray-200 flex-shrink-0 cursor-pointer"
                                                 wire:click="onImageClick({{ $teacher->user->id }})">
                                         @else
                                             <div
@@ -299,7 +299,7 @@
                             class="text-xs font-bold text-gray-400 w-6 text-center">{{ $teachers->firstItem() + $index }}</span>
                         @if ($teacher->user?->image)
                             <img src="{{ $teacher->user->image }}"
-                                class="w-10 h-10 rounded-full object-cover border border-gray-200 flex-shrink-0"
+                                class="w-10 h-10 rounded-full object-cover object-top border border-gray-200 flex-shrink-0"
                                 wire:click="onImageClick({{ $teacher->user->id }})">
                         @else
                             <div
