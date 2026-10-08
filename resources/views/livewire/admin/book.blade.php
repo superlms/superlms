@@ -72,6 +72,17 @@
                     <option value="1">Active</option>
                     <option value="0">Inactive</option>
                 </select>
+
+                {{-- Clear, as the Students list has it --}}
+                @if ($search || $filterStandard || $filterSection || $filterSubject || $filterStatus !== '')
+                    <button wire:click="clearFilters"
+                        class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Clear
+                    </button>
+                @endif
             </div>
         </div>
     </div>
@@ -367,6 +378,63 @@
                         @error('title')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
 
+                    @if (!$editId)
+                        {{-- Add Book: the class and the subject, then the sections it goes to —
+                             every section the subject is taught in is ticked on picking it,
+                             and more can be ticked or unticked; none ticked: the whole class. --}}
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Class <span class="text-red-500">*</span></label>
+                                <select wire:model.live="standard_id" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
+                                    <option value="">Select Class</option>
+                                    @foreach ($standards as $std)
+                                        <option value="{{ $std->id }}">{{ $std->name }}</option>
+                                    @endforeach
+                                </select>
+                                @error('standard_id')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Subject <span class="text-red-500">*</span></label>
+                                <select wire:model.live="subject_id" @disabled(!$standard_id) class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm disabled:opacity-50">
+                                    <option value="">Select Subject</option>
+                                    @foreach ($subjects as $sub)
+                                        <option value="{{ $sub->id }}">{{ $sub->name }}</option>
+                                    @endforeach
+                                </select>
+                                @error('subject_id')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">
+                                Sections <span class="text-gray-400 font-normal">(tick one or more — none ticked: the whole class)</span>
+                            </label>
+                            @if (!$standard_id)
+                                <p class="text-xs text-gray-400">Pick a class first.</p>
+                            @elseif (count($sections) === 0)
+                                <p class="text-xs text-gray-400">This class has no sections — the book is for the whole class.</p>
+                            @else
+                                <div class="flex flex-wrap gap-2">
+                                    @foreach ($sections as $sec)
+                                        <label wire:key="book-sec-{{ $sec->id }}"
+                                            class="inline-flex items-center gap-2 px-3 py-2 border rounded-md text-sm cursor-pointer select-none
+                                                {{ in_array((string) $sec->id, $sectionIds, true) ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-300 text-gray-700 hover:bg-gray-50' }}">
+                                            <input type="checkbox" wire:model.live="sectionIds" value="{{ $sec->id }}" class="rounded">
+                                            {{ $sec->name }}
+                                        </label>
+                                    @endforeach
+                                </div>
+                                <p class="mt-1.5 text-xs text-gray-500">
+                                    @if (count($sectionIds))
+                                        The book is added for {{ count($sectionIds) }} {{ count($sectionIds) === 1 ? 'section' : 'sections' }} at once.
+                                    @else
+                                        No section ticked — the book is for the whole class.
+                                    @endif
+                                </p>
+                            @endif
+                            @error('sectionIds')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                    @else
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Class <span class="text-red-500">*</span></label>
@@ -399,6 +467,7 @@
                         </select>
                         @error('subject_id')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
+                    @endif
 
                     @php $existingBook = $editId ? \App\Models\Admin\Book::find($editId) : null; @endphp
                     {{-- No cover image: the lists show the subject's icon. --}}

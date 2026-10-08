@@ -152,7 +152,8 @@ class Enqueries extends Component
         // classes which would N+1 expand needlessly).
         return ContactAdminTeacher::where('organization_id', Auth::user()->organization_id)
             ->with([
-                'user:id,name,email',
+                // The list shows the teacher's login (username) after the name.
+                'user:id,name,email,username',
                 'organization:id,name',
             ])
             ->when($this->filterDays, fn($q) => $q->where('created_at', '>=', Carbon::now()->subDays((int) $this->filterDays)))
@@ -182,6 +183,10 @@ class Enqueries extends Component
             ->with([
                 'user:id,name,email',
                 'organization:id,name',
+                // The list shows the admission number and class-section after the name.
+                'studentDetail:id,admission_no,standard_id,section_id',
+                'studentDetail.standard:id,name',
+                'studentDetail.section:id,name',
             ])
             ->when($this->filterDays, fn($q) => $q->where('created_at', '>=', Carbon::now()->subDays((int) $this->filterDays)))
             ->when($this->search, function ($query) {

@@ -35,6 +35,13 @@ class Book extends Component
     public $pdf_file;
     public $is_active = true;
     
+    /**
+     * Add Book: the sections it goes to, ticked together (none ticked: the
+     * whole class, as before). Picking the subject ticks every section it is
+     * taught in; the PDF is uploaded once and the book added for each.
+     */
+    public array $sectionIds = [];
+
     // Temporary URLs for preview
     public $tempLogoUrl = null;
     public $tempPdfUrl = null;
@@ -193,6 +200,61 @@ class Book extends Component
 
             $this->loadSubjectsForStandard($value);
         }
+
+        // Add Book: the class's subjects, whether taught class-wide or in some sections.
+        $this->sectionIds = [];
+        if ($value && !$this->editId) {
+            $this->loadSubjectsOfClass($value);
+        }
+    }
+
+    /** Add Book: a subject picked ticks every section of the class it is taught in. */
+    public function updatedSubjectId($value)
+    {
+        if ($this->editId || !$value || !$this->standard_id) {
+            return;
+        }
+
+        $mine = collect($this->sections)->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $this->sectionIds = \Illuminate\Support\Facades\DB::table('section_subjects')
+            ->where('standard_id', $this->standard_id)
+            ->where('subject_id', $value)
+            ->pluck('section_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => in_array($id, $mine, true))
+            ->unique()
+            ->map(fn ($id) => (string) $id)
+            ->values()
+            ->all();
+    }
+
+    /** Every subject of the class: its class-wide ones and its sections' own. */
+    private function loadSubjectsOfClass($standardId): void
+    {
+        $organizationId = Auth::user()->organization_id;
+
+        $classWide = Subject::join('standard_subjects', 'subjects.id', '=', 'standard_subjects.subject_id')
+            ->where('standard_subjects.standard_id', $standardId)
+            ->where('subjects.organization_id', $organizationId)
+            ->where('subjects.is_active', true)
+            ->select('subjects.*')
+            ->get();
+        $bySection = Subject::join('section_subjects', 'subjects.id', '=', 'section_subjects.subject_id')
+            ->where('section_subjects.standard_id', $standardId)
+            ->where('subjects.organization_id', $organizationId)
+            ->where('subjects.is_active', true)
+            ->select('subjects.*')
+            ->get();
+
+        $this->subjects = $classWide->concat($bySection)->unique('id')->sortBy('name')->values();
+    }
+
+    public function clearFilters(): void
+    {
+        $this->reset(['search', 'filterStandard', 'filterSection', 'filterSubject', 'filterStatus']);
+        $this->filterSections = [];
+        $this->filterSubjects = [];
+        $this->resetPage();
     }
 
     /**
@@ -275,6 +337,11 @@ class Book extends Component
 
     public function onSave()
     {
+        // Add Book with sections ticked: one upload, a book for each section.
+        if (!$this->editId && count($this->sectionIds) > 0) {
+            return $this->saveForSections();
+        }
+
         $orgId = Auth::user()->organization_id;
 
         $this->title = trim((string) $this->title);
@@ -333,7 +400,7 @@ class Book extends Component
                 $book = ModalBook::findOrFail($this->editId);
 
                 if ($this->book_logo) {
-                    if ($book->book_logo) {
+                    if ($book->book_logo && !ModalBook::fileShared($book->book_logo, $book->id)) {
                         $oldLogoPath = parse_url($book->book_logo, PHP_URL_PATH);
                         Storage::disk('s3')->delete($oldLogoPath);
                     }
@@ -344,7 +411,7 @@ class Book extends Component
                 }
 
                 if ($this->pdf_file) {
-                    if ($book->pdf_file) {
+                    if ($book->pdf_file && !ModalBook::fileShared($book->pdf_file, $book->id)) {
                         $oldPdfPath = parse_url($book->pdf_file, PHP_URL_PATH);
                         Storage::disk('s3')->delete($oldPdfPath);
                     }
@@ -384,6 +451,74 @@ class Book extends Component
         }
     }
 
+    /** Add Book for the sections ticked: the PDF uploaded once, a book a section. */
+    private function saveForSections()
+    {
+        $orgId = Auth::user()->organization_id;
+        $this->title = trim((string) $this->title);
+
+        $this->validate([
+            'title'        => 'required|string|max:100',
+            'standard_id'  => 'required|exists:standards,id',
+            'subject_id'   => 'required|exists:subjects,id',
+            'sectionIds'   => 'array|min:1',
+            'sectionIds.*' => 'integer|exists:sections,id',
+            'pdf_file'     => 'required|file|mimes:pdf|max:' . self::PDF_MAX_KB,
+            'is_active'    => 'boolean',
+        ], [
+            'title.max'         => 'Book title may not be longer than 100 characters.',
+            'pdf_file.required' => 'The book PDF is required.',
+            'pdf_file.max'      => 'PDF must be 20 MB or smaller.',
+            'pdf_file.mimes'    => 'The book file must be a PDF.',
+        ]);
+
+        // Only the class's own sections; each may not have a book of this name yet.
+        $sections = Section::whereIn('id', array_map('intval', $this->sectionIds))
+            ->where('standard_id', $this->standard_id)
+            ->orderBy('id')
+            ->pluck('name', 'id');
+        if ($sections->isEmpty()) {
+            $this->addError('sectionIds', 'Please tick the sections of this class.');
+            return;
+        }
+        $taken = ModalBook::where('organization_id', $orgId)
+            ->where('standard_id', $this->standard_id)
+            ->whereIn('section_id', $sections->keys())
+            ->where('title', $this->title)
+            ->pluck('section_id');
+        if ($taken->isNotEmpty()) {
+            $names = $taken->map(fn ($id) => $sections[$id] ?? $id)->implode(', ');
+            $this->addError('title', 'A book with this name already exists for section ' . $names . '.');
+            return;
+        }
+
+        try {
+            $pdfPath = $this->pdf_file->store('admin/library/pdfs', 's3');
+            Storage::disk('s3')->setVisibility($pdfPath, 'public');
+            $pdfUrl = Storage::disk('s3')->url($pdfPath);
+
+            foreach ($sections->keys() as $sectionId) {
+                ModalBook::create([
+                    'title'           => $this->title,
+                    'standard_id'     => $this->standard_id,
+                    'section_id'      => (int) $sectionId,
+                    'subject_id'      => $this->subject_id,
+                    'is_active'       => $this->is_active,
+                    'organization_id' => $orgId,
+                    'pdf_file'        => $pdfUrl,
+                ]);
+            }
+
+            $count = $sections->count();
+            $this->notification()->success($count > 1 ? "Book added for {$count} sections!" : 'Book added successfully!');
+            $this->loadStats();
+            $this->closeModal();
+        } catch (\Exception $e) {
+            $this->notification()->error('Error Saving Book', $e->getMessage());
+            logger()->error('Book save error: ' . $e->getMessage());
+        }
+    }
+
     protected function resetForm()
     {
         $this->reset([
@@ -398,7 +533,8 @@ class Book extends Component
             'tempLogoUrl',
             'tempPdfUrl',
             'sections',
-            'subjects'
+            'subjects',
+            'sectionIds',
         ]);
         $this->resetErrorBag();
     }
@@ -443,10 +579,11 @@ class Book extends Component
         try {
             $book = ModalBook::findOrFail($this->deleteTargetId);
 
-            if ($book->book_logo) {
+            // A file another section's copy of the book still uses stays.
+            if ($book->book_logo && !ModalBook::fileShared($book->book_logo, $book->id)) {
                 Storage::disk('s3')->delete(parse_url($book->book_logo, PHP_URL_PATH));
             }
-            if ($book->pdf_file) {
+            if ($book->pdf_file && !ModalBook::fileShared($book->pdf_file, $book->id)) {
                 Storage::disk('s3')->delete(parse_url($book->pdf_file, PHP_URL_PATH));
             }
 

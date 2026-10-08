@@ -229,11 +229,11 @@ class AdminBookController extends ApiController
                 'is_active'   => $request->boolean('is_active', $book->is_active),
             ];
             if ($request->hasFile('book_logo')) {
-                if ($book->book_logo) $this->deleteS3($book->book_logo);
+                if ($book->book_logo && !Book::fileShared($book->book_logo, $book->id)) $this->deleteS3($book->book_logo);
                 $data['book_logo'] = $this->upload($request, 'book_logo', 'admin/library/covers');
             }
             if ($request->hasFile('pdf_file')) {
-                if ($book->pdf_file) $this->deleteS3($book->pdf_file);
+                if ($book->pdf_file && !Book::fileShared($book->pdf_file, $book->id)) $this->deleteS3($book->pdf_file);
                 $data['pdf_file'] = $this->upload($request, 'pdf_file', 'admin/library/pdfs');
             }
 
@@ -253,8 +253,9 @@ class AdminBookController extends ApiController
         $book = Book::where('organization_id', $user->organization_id)->find($id);
         if (!$book) return $this->error('Book not found.', 404);
 
-        if ($book->book_logo) $this->deleteS3($book->book_logo);
-        if ($book->pdf_file)  $this->deleteS3($book->pdf_file);
+        // A file another section's copy of the book still uses stays.
+        if ($book->book_logo && !Book::fileShared($book->book_logo, $book->id)) $this->deleteS3($book->book_logo);
+        if ($book->pdf_file && !Book::fileShared($book->pdf_file, $book->id))   $this->deleteS3($book->pdf_file);
         $book->delete();
 
         return $this->success(null, 'Book deleted successfully!');

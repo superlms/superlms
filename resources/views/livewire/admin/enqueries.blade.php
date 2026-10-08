@@ -220,20 +220,42 @@
                                                 <div class="min-w-0">
                                                     <p class="text-sm font-semibold text-gray-900 truncate">{{ $enquiry->topic ?? 'No topic' }}</p>
                                                     <p class="text-xs text-gray-400 truncate">{{ $queryText }}</p>
-                                                    <p class="text-[11px] text-gray-400 truncate mt-0.5">
-                                                        {{ $enquiry->user?->name ?? 'Unknown' }}
-                                                        @if ($enquiry->user?->email)
-                                                            <span class="mx-1 text-gray-300">·</span>{{ $enquiry->user->email }}
-                                                        @endif
-                                                        <span class="mx-1 text-gray-300">·</span>
-                                                        {{ $enquiry->created_at->format('D, d M Y · g:i A') }}
-                                                        <span class="mx-1 text-gray-300">·</span>
-                                                        <span class="{{ $isReplied ? 'text-emerald-600' : 'text-amber-600' }}">{{ $isReplied ? 'Replied' : 'Pending' }}</span>
-                                                        @if ($enquiry->image)
+                                                    @if ($activeTab === 'teacher')
+                                                        {{-- A teacher's: the name, their username and the time, nothing else. --}}
+                                                        <p class="text-[11px] text-gray-400 truncate mt-0.5">
+                                                            {{ $enquiry->user?->name ?? 'Unknown' }}
+                                                            @if ($enquiry->user?->username)
+                                                                <span class="mx-1 text-gray-300">·</span>{{ $enquiry->user->username }}
+                                                            @endif
                                                             <span class="mx-1 text-gray-300">·</span>
-                                                            Attachment
-                                                        @endif
-                                                    </p>
+                                                            {{ $enquiry->created_at->format('D, d M Y · g:i A') }}
+                                                        </p>
+                                                    @else
+                                                        {{-- A student's: the name, the admission number and the class with the
+                                                             section's last letter (Class 5-A); then when, replied or not, and an attachment. --}}
+                                                        @php
+                                                            $sd = $enquiry->studentDetail;
+                                                            $secLetter = mb_strtoupper(mb_substr(trim((string) $sd?->section?->name), -1));
+                                                            $classSec = $sd?->standard ? $sd->standard->name . ($secLetter !== '' ? '-' . $secLetter : '') : '';
+                                                        @endphp
+                                                        <p class="text-[11px] text-gray-400 truncate mt-0.5">
+                                                            {{ $enquiry->user?->name ?? 'Unknown' }}
+                                                            @if ($sd?->admission_no)
+                                                                <span class="mx-1 text-gray-300">·</span>{{ $sd->admission_no }}
+                                                            @endif
+                                                            @if ($classSec !== '')
+                                                                <span class="mx-1 text-gray-300">·</span>{{ $classSec }}
+                                                            @endif
+                                                            <span class="mx-1 text-gray-300">·</span>
+                                                            {{ $enquiry->created_at->format('D, d M Y · g:i A') }}
+                                                            <span class="mx-1 text-gray-300">·</span>
+                                                            <span class="{{ $isReplied ? 'text-emerald-600' : 'text-amber-600' }}">{{ $isReplied ? 'Replied' : 'Pending' }}</span>
+                                                            @if ($enquiry->image)
+                                                                <span class="mx-1 text-gray-300">·</span>
+                                                                Attachment
+                                                            @endif
+                                                        </p>
+                                                    @endif
                                                 </div>
                                             </div>
                                         </td>
@@ -382,26 +404,24 @@
                     </div>
 
                     @if ($selectedEnquiry->image)
-                        @php $ext = strtolower(pathinfo(parse_url($selectedEnquiry->image, PHP_URL_PATH), PATHINFO_EXTENSION)); @endphp
-                        <div class="rounded-xl border border-gray-200 overflow-hidden">
-                            @if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp']))
-                                <a href="{{ $selectedEnquiry->image }}" target="_blank" rel="noopener" class="block px-4 pt-3">
-                                    <img src="{{ $selectedEnquiry->image }}" alt="Attachment"
-                                        class="max-h-40 rounded-md border border-gray-200">
-                                </a>
-                            @endif
+                        {{-- The attachment as an icon only (an image or a document); a click opens it. --}}
+                        @php
+                            $ext = strtolower(pathinfo(parse_url($selectedEnquiry->image, PHP_URL_PATH), PATHINFO_EXTENSION));
+                            $isImage = in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp']);
+                        @endphp
+                        <div class="rounded-xl border border-gray-200 px-4 py-3 flex items-center justify-between gap-3">
+                            <p class="text-[11px] text-gray-400 uppercase tracking-wider">Attachment</p>
                             <a href="{{ $selectedEnquiry->image }}" target="_blank" rel="noopener" title="Open attachment"
-                                class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
-                                <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                                </svg>
-                                <div class="flex-1 min-w-0">
-                                    <p class="text-[11px] text-gray-400 uppercase tracking-wider">Attachment</p>
-                                    <p class="mt-0.5 text-sm font-medium text-gray-800">Open attachment</p>
-                                </div>
-                                <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                </svg>
+                                class="w-10 h-10 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-colors">
+                                @if ($isImage)
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                @else
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                    </svg>
+                                @endif
                             </a>
                         </div>
                     @endif
