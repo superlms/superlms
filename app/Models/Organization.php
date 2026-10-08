@@ -94,6 +94,17 @@ class Organization extends Model
         $roomIds       = $this->orgScopedIds('seating_rooms',      $orgId);
         $planIds       = $this->orgScopedIds('seating_plans',      $orgId);
 
+        // Pass 3's parents: this school's rows that other tables point at by
+        // their own key, taken before anything is deleted.
+        $studentIds   = $this->orgScopedIds('student_details', $orgId)
+            ->merge($this->idsWhereIn('student_details', 'user_id', $userIds))
+            ->unique()->values();
+        $teacherIds   = $this->orgScopedIds('teacher_details', $orgId);
+        $homeWorkIds  = $this->orgScopedIds('home_works',      $orgId);
+        $announceIds  = $this->orgScopedIds('announcements',   $orgId);
+        $datesheetIds = $this->orgScopedIds('exam_datesheets', $orgId);
+        $messageIds   = $this->idsWhereIn('chat_messages', 'conversation_id', $convoIds);
+
         if ($isMysql) {
             DB::statement('SET FOREIGN_KEY_CHECKS=0');
         }
@@ -120,6 +131,26 @@ class Organization extends Model
             $this->deleteChildren('personal_access_tokens', 'tokenable_id',    $userIds);
             $this->deleteChildren('school_documents',       'school_info_id',  $schoolInfoIds);
             $this->deleteChildren('school_management_teams','school_info_id',  $schoolInfoIds);
+
+            // ── Pass 3: every other table without organization_id that points
+            //    at this school's people or records by one of these keys
+            //    (announcement reads, homework completions, chat blocks and
+            //    deleted-message marks, datesheet papers, role_user, sessions,
+            //    account set-up links, …) — found at runtime, as pass 1 is ──
+            $byKey = [
+                'user_id'           => $userIds,
+                'sender_id'         => $userIds,
+                'blocked_user_id'   => $userIds,
+                'student_detail_id' => $studentIds,
+                'teacher_detail_id' => $teacherIds,
+                'home_work_id'      => $homeWorkIds,
+                'announcement_id'   => $announceIds,
+                'exam_datesheet_id' => $datesheetIds,
+                'message_id'        => $messageIds,
+            ];
+            foreach ($this->unscopedTablesWith(array_keys($byKey)) as [$table, $column]) {
+                $this->deleteInChunks($table, $column, $byKey[$column]);
+            }
         } finally {
             if ($isMysql) {
                 DB::statement('SET FOREIGN_KEY_CHECKS=1');
@@ -143,6 +174,70 @@ class Organization extends Model
         }
 
         DB::table($table)->whereIn($column, $ids->all())->delete();
+    }
+
+    /** Ids of rows in $table whose $column matches any of $ids (empty if table/column absent). */
+    private function idsWhereIn(string $table, string $column, $ids)
+    {
+        if ($ids->isEmpty() || !Schema::hasTable($table) || !Schema::hasColumn($table, $column)) {
+            return collect();
+        }
+
+        return $ids->chunk(1000)
+            ->flatMap(fn ($chunk) => DB::table($table)->whereIn($column, $chunk->values()->all())->pluck('id'))
+            ->values();
+    }
+
+    /** Delete rows whose $column matches any of $ids, a thousand ids at a time. */
+    private function deleteInChunks(string $table, string $column, $ids): void
+    {
+        foreach ($ids->chunk(1000) as $chunk) {
+            DB::table($table)->whereIn($column, $chunk->values()->all())->delete();
+        }
+    }
+
+    /**
+     * [table, column] for every table WITHOUT an organization_id column that
+     * has one of $columns — the school's data found only through a parent.
+     * The Super Admin's own tables are left out.
+     *
+     * @return array<int, array{0: string, 1: string}>
+     */
+    private function unscopedTablesWith(array $columns): array
+    {
+        $scoped = $this->tablesWithOrganizationId();
+        $keep   = fn ($t) => $t !== 'organizations' && !in_array($t, $scoped, true) && !str_starts_with($t, 'super_admin');
+
+        if (DB::getDriverName() === 'mysql') {
+            $marks = implode(',', array_fill(0, count($columns), '?'));
+            $rows  = DB::select(
+                "SELECT table_name AS t, column_name AS c FROM information_schema.columns
+                 WHERE table_schema = ? AND column_name IN ($marks)",
+                array_merge([DB::getDatabaseName()], $columns)
+            );
+
+            return collect($rows)
+                ->filter(fn ($r) => $keep($r->t))
+                ->map(fn ($r) => [$r->t, $r->c])
+                ->values()
+                ->all();
+        }
+
+        // Non-MySQL (e.g. sqlite in tests): inspect each table's columns.
+        $out = [];
+        foreach (Schema::getTableListing() as $t) {
+            $t = str_contains($t, '.') ? explode('.', $t)[1] : $t;
+            if (!$keep($t)) {
+                continue;
+            }
+            foreach ($columns as $c) {
+                if (Schema::hasColumn($t, $c)) {
+                    $out[] = [$t, $c];
+                }
+            }
+        }
+
+        return $out;
     }
 
     /** All table names carrying an organization_id column, except organizations itself. */
