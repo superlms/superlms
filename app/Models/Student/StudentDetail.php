@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Support\StudentSection;
 use App\Traits\HasCommonScopes;
 use Illuminate\Database\Eloquent\Model;
+use App\Support\Cascade;
 
 class StudentDetail extends Model
 {
@@ -50,6 +51,9 @@ class StudentDetail extends Model
 
     protected static function booted(): void
     {
+        // Deleted: every record of the student's, and of their login's, goes with it (Cascade::student).
+        static::deleting(fn (self $detail) => Cascade::student((int) $detail->getKey(), $detail->user_id ? (int) $detail->user_id : null));
+
         // Whoever saves a student — the panel, the admin or teacher app, the
         // Super Admin — the section is one of their class's own: none picked
         // in a class with a single section puts them in it, and another

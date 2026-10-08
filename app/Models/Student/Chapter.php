@@ -5,6 +5,7 @@ namespace App\Models\Student;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use App\Support\Cascade;
 
 class Chapter extends Model
 {
@@ -38,5 +39,11 @@ class Chapter extends Model
     public function organization()
     {
         return $this->belongsTo(Organization::class);
+    }
+
+    /** Deleted: its topics, questions and exam-syllabus rows (Cascade::children) goes with it. */
+    protected static function booted(): void
+    {
+        static::deleting(fn (self $m) => Cascade::children($m->getTable(), (int) $m->getKey()));
     }
 }

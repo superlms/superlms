@@ -5,6 +5,7 @@ namespace App\Models\Admin;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use App\Support\Cascade;
 
 class Exam extends Model
 {
@@ -126,5 +127,11 @@ class Exam extends Model
     public function updatedBy()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** Deleted: its marks, admit cards, datesheets, seating plans and syllabus (Cascade::children) goes with it. */
+    protected static function booted(): void
+    {
+        static::deleting(fn (self $m) => Cascade::children($m->getTable(), (int) $m->getKey()));
     }
 }

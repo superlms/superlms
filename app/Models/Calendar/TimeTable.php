@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Traits\HasCommonScopes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Support\Cascade;
 
 class TimeTable extends Model
 {
@@ -94,5 +95,11 @@ class TimeTable extends Model
             'subject' => $this->academic?->subject?->name,
             'teacher' => $this->academic?->teacher?->name,
         ];
+    }
+
+    /** Deleted: its class, place, attendees, repeats and resources (Cascade::children) goes with it. */
+    protected static function booted(): void
+    {
+        static::deleting(fn (self $m) => Cascade::children($m->getTable(), (int) $m->getKey()));
     }
 }

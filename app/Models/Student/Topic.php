@@ -6,6 +6,7 @@ use App\Models\Organization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Support\Cascade;
 
 class Topic extends Model
 {
@@ -44,5 +45,11 @@ class Topic extends Model
     public function chapter()
     {
         return $this->belongsTo(Chapter::class);
+    }
+
+    /** Deleted: its questions (Cascade::children) goes with it. */
+    protected static function booted(): void
+    {
+        static::deleting(fn (self $m) => Cascade::children($m->getTable(), (int) $m->getKey()));
     }
 }

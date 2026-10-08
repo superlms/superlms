@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\Teacher\TeacherSubject;
 use App\Traits\HasCommonScopes;
 use Illuminate\Database\Eloquent\Model;
+use App\Support\Cascade;
 
 class TeacherDetail extends Model
 {
@@ -134,5 +135,11 @@ class TeacherDetail extends Model
     public function idCards()
     {
         return $this->hasMany(TeacherIdCard::class, 'teacher_detail_id');
+    }
+
+    /** Deleted: the teacher's own records and their login's (Cascade::teacher) goes with it. */
+    protected static function booted(): void
+    {
+        static::deleting(fn (self $m) => Cascade::teacher((int) $m->getKey(), $m->user_id ? (int) $m->user_id : null));
     }
 }

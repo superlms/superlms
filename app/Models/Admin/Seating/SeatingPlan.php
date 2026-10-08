@@ -4,6 +4,7 @@ namespace App\Models\Admin\Seating;
 
 use App\Models\Admin\Exam;
 use Illuminate\Database\Eloquent\Model;
+use App\Support\Cascade;
 
 class SeatingPlan extends Model
 {
@@ -33,5 +34,11 @@ class SeatingPlan extends Model
     public function invigilatorAssignments()
     {
         return $this->hasMany(InvigilatorAssignment::class, 'seating_plan_id');
+    }
+
+    /** Deleted: its seats and invigilators (Cascade::children) goes with it. */
+    protected static function booted(): void
+    {
+        static::deleting(fn (self $m) => Cascade::children($m->getTable(), (int) $m->getKey()));
     }
 }

@@ -8,6 +8,7 @@ use App\Models\Student\Standard;
 use App\Models\Student\Subject;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use App\Support\Cascade;
 
 class HomeWork extends Model
 {
@@ -41,5 +42,11 @@ class HomeWork extends Model
     public function completions()
     {
         return $this->hasMany(HomeWorkCompletion::class, 'home_work_id');
+    }
+
+    /** Deleted: who did it (Cascade::children) goes with it. */
+    protected static function booted(): void
+    {
+        static::deleting(fn (self $m) => Cascade::children($m->getTable(), (int) $m->getKey()));
     }
 }

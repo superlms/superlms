@@ -8,6 +8,7 @@ use App\Models\Teacher\TeacherAttendance;
 use App\Models\Teacher\TeacherDetail;
 use App\Traits\HasCommonScopes;
 use Illuminate\Database\Eloquent\Model;
+use App\Support\Cascade;
 
 class AdminEmployee extends Model
 {
@@ -189,5 +190,11 @@ class AdminEmployee extends Model
             ->first();
 
         return $attendance?->status;
+    }
+
+    /** Deleted: their attendance, salary and ID cards (Cascade::children) goes with it. */
+    protected static function booted(): void
+    {
+        static::deleting(fn (self $m) => Cascade::children($m->getTable(), (int) $m->getKey()));
     }
 }

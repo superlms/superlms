@@ -8,6 +8,7 @@ use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\Topic;
 use Illuminate\Database\Eloquent\Model;
+use App\Support\Cascade;
 
 class McqQuestion extends Model
 {
@@ -46,5 +47,11 @@ class McqQuestion extends Model
     public function topic()
     {
         return $this->belongsTo(Topic::class);
+    }
+
+    /** Deleted: its options and answers (Cascade::children) goes with it. */
+    protected static function booted(): void
+    {
+        static::deleting(fn (self $m) => Cascade::children($m->getTable(), (int) $m->getKey()));
     }
 }

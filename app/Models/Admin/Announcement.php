@@ -6,6 +6,7 @@ use App\Models\Organization;
 use App\Models\Student\Standard;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use App\Support\Cascade;
 
 class Announcement extends Model
 {
@@ -28,5 +29,11 @@ class Announcement extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** Deleted: who read it (Cascade::children) goes with it. */
+    protected static function booted(): void
+    {
+        static::deleting(fn (self $m) => Cascade::children($m->getTable(), (int) $m->getKey()));
     }
 }

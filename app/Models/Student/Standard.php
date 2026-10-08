@@ -7,6 +7,7 @@ use App\Models\Organization;
 use App\Traits\HasCommonScopes;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use App\Support\Cascade;
 
 class Standard extends Model
 {
@@ -48,5 +49,11 @@ class Standard extends Model
     public function homeworks()
     {
         return $this->hasMany(HomeWork::class);
+    }
+
+    /** Deleted: the class's set-up and content, never a student's own records (Cascade::structure) goes with it. */
+    protected static function booted(): void
+    {
+        static::deleting(fn (self $m) => Cascade::structure($m->getTable(), (int) $m->getKey()));
     }
 }

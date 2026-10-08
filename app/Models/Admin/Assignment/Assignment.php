@@ -8,6 +8,7 @@ use App\Models\Student\Standard;
 use App\Models\Student\Subject;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use App\Support\Cascade;
 
 class Assignment extends Model
 {
@@ -98,5 +99,11 @@ class Assignment extends Model
         }
 
         return 'open';
+    }
+
+    /** Deleted: its questions and the students' submissions (Cascade::children) goes with it. */
+    protected static function booted(): void
+    {
+        static::deleting(fn (self $m) => Cascade::children($m->getTable(), (int) $m->getKey()));
     }
 }
