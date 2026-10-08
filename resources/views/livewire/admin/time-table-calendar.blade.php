@@ -256,10 +256,9 @@
             </div>
 
             @if (count($upcomingEvents) > 0)
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-6">
-                    @foreach ($upcomingEvents as $event)
-                        @include('livewire.admin._event-card', ['event' => $event, 'completed' => false])
-                    @endforeach
+                {{-- In the Students list's style (the old cards: _event-card) --}}
+                <div class="p-6">
+                    @include('livewire.admin._event-table', ['events' => $upcomingEvents, 'completed' => false])
                 </div>
             @else
                 <div class="text-center py-12">
@@ -299,10 +298,8 @@
                         <span class="h-px bg-gray-200 flex-1"></span>
                     </div>
                 </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-6 pt-3">
-                    @foreach ($completedEvents as $event)
-                        @include('livewire.admin._event-card', ['event' => $event, 'completed' => true])
-                    @endforeach
+                <div class="p-6 pt-3">
+                    @include('livewire.admin._event-table', ['events' => $completedEvents, 'completed' => true])
                 </div>
             @endif
         </div>
@@ -346,10 +343,10 @@
                     </button>
                 </div>
 
+                @if (isset($sliderData['mode']) && $sliderData['mode'] === 'view')
                 {{-- ✅ Scrollable body (only this section scrolls — header & footer stay fixed) --}}
                 <div class="flex-1 overflow-y-auto px-6 py-6">
 
-                    @if (isset($sliderData['mode']) && $sliderData['mode'] === 'view')
                         {{-- ══ VIEW MODE — same label/value layout as the Exams view panel ══ --}}
                         @php
                             $ev = $sliderData['event'];
@@ -402,19 +399,10 @@
                                 </div>
                             @endif
                         </div>
-                    @else
-                        {{-- ══ ADD / EDIT MODE — Livewire child form ══ --}}
-                        <livewire:admin.event-form
-                            :date="$sliderData['date'] ?? null"
-                            :event="$sliderData['event'] ?? null"
-                            :mode="$sliderData['mode'] ?? 'create'" />
-                    @endif
-
                 </div>
 
                 {{-- ✅ Fixed footer (always at bottom of panel) --}}
                 <div class="flex items-center justify-between px-6 py-3.5 border-t border-gray-200 flex-shrink-0">
-                    @if (isset($sliderData['mode']) && $sliderData['mode'] === 'view')
                         <p class="text-xs text-gray-400">
                             #{{ $sliderData['event']['id'] }}
                             @if ($sliderData['event']['is_completed'] ?? false)
@@ -448,14 +436,16 @@
                             @endif
                             @endif
                         </div>
-                    @else
-                        <button wire:click="closeSlider"
-                            class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md transition-colors">
-                            Cancel
-                        </button>
-                        {{-- Save button rendered by child event-form via emit --}}
-                    @endif
                 </div>
+                @else
+                    {{-- ══ ADD / EDIT MODE — the Livewire child form brings its own
+                         scrolling body and the panel's footer: Cancel and
+                         Create / Update Event side by side at the bottom ══ --}}
+                    <livewire:admin.event-form
+                        :date="$sliderData['date'] ?? null"
+                        :event="$sliderData['event'] ?? null"
+                        :mode="$sliderData['mode'] ?? 'create'" />
+                @endif
 
             </div>
         </div>

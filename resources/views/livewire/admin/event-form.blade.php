@@ -1,9 +1,12 @@
 {{-- Event form — styled to match the Exams template slide-in panel pattern.
-     The parent slide-in renders its own header (title + close) and uses
-     this body section; the Save / Update button lives inside the form so
-     it can submit via wire:submit, and Cancel comes from the parent footer. --}}
-<div>
-    <form wire:submit.prevent="save" class="space-y-4">
+     The parent slide-in renders its own header (title + close); this form
+     fills the rest of the panel: its fields scroll, and the panel's footer —
+     Cancel (closes the parent's slide-in) and Create / Update Event — sits at
+     the bottom. The submit stays inside the form so wire:submit saves it and
+     keeps it disabled while saving. --}}
+<div class="flex-1 min-h-0 flex flex-col">
+    <form wire:submit.prevent="save" class="flex-1 min-h-0 flex flex-col">
+        <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
 
         {{-- Title --}}
         <div x-data="{ len: @js(mb_strlen($title ?? '')) }">
@@ -152,8 +155,14 @@
             </div>
         @endif
 
-        {{-- Action row (matches Exams footer styling, embedded inside form so it submits) --}}
-        <div class="flex items-center justify-end gap-2 pt-2">
+        </div>
+
+        {{-- The panel's footer: Cancel and Create / Update Event (inside the form so it submits) --}}
+        <div class="flex items-center justify-end gap-2 px-6 py-3.5 border-t border-gray-200 flex-shrink-0">
+            <button type="button" wire:click="$parent.closeSlider()"
+                class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md transition-colors">
+                Cancel
+            </button>
             <button type="submit" wire:loading.attr="disabled"
                 class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
                 <span wire:loading.remove wire:target="save">
