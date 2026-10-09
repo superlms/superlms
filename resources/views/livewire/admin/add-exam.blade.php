@@ -219,8 +219,6 @@
                         @endforeach
                     </select>
 
-                    <span class="text-gray-300">→</span>
-
                     <select wire:model.live="syllabusFilterStandard" @disabled(!$syllabusFilterExam)
                         class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
                         <option value="">Select Class</option>
@@ -228,8 +226,6 @@
                             <option value="{{ $s['id'] }}">{{ $s['name'] }}</option>
                         @endforeach
                     </select>
-
-                    <span class="text-gray-300">→</span>
 
                     <select data-sole-section wire:model.live="syllabusFilterSection" @disabled(!$syllabusFilterStandard)
                         class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
@@ -239,9 +235,7 @@
                         @endforeach
                     </select>
 
-                    <span class="text-gray-300">→</span>
-
-                    <select wire:model.live="syllabusFilterSubject" @disabled(!$syllabusFilterSection)
+                    <select wire:model.live="syllabusFilterSubject" @disabled(!$syllabusFilterStandard)
                         class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50">
                         <option value="">Select Subject</option>
                         @foreach ($filterSubjects as $sub)
@@ -290,9 +284,12 @@
                                         @endif
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-700">{{ $examTypes[$exam->exam_type] ?? $exam->exam_type }}</td>
-                                    <td class="px-4 py-3 text-xs text-gray-600">
-                                        {{ $exam->start_date?->format('d M Y') }} →<br>
-                                        {{ $exam->end_date?->format('d M Y') }}
+                                    <td class="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">
+                                        @if ($exam->start_date || $exam->end_date)
+                                            {{ $exam->start_date?->format('d M Y') ?? '—' }} → {{ $exam->end_date?->format('d M Y') ?? '—' }}
+                                        @else
+                                            —
+                                        @endif
                                     </td>
                                     <td class="px-4 py-3 text-center text-sm font-semibold text-gray-800 whitespace-nowrap">
                                         @if ($exam->uses_grading_system ?? false)
@@ -304,19 +301,11 @@
                                     <td class="px-4 py-3 text-center">
                                         {{-- Status follows the dates on every render: ended → Completed,
                                              running → Active, starting within 10 days → Upcoming. --}}
-                                        @php
-                                            $status = $exam->currentStatus();
-                                            $statusClass = [
-                                                'draft'     => 'bg-gray-100 text-gray-600',
-                                                'published' => 'bg-emerald-100 text-emerald-700',
-                                                'upcoming'  => 'bg-amber-100 text-amber-700',
-                                                'active'    => 'bg-blue-100 text-blue-700',
-                                                'completed' => 'bg-violet-100 text-violet-700',
-                                            ][$status] ?? 'bg-gray-100 text-gray-600';
-                                        @endphp
+                                        @php $status = $exam->currentStatus(); @endphp
+                                        {{-- Plain text (no chip); a click still publishes / unpublishes. --}}
                                         <button wire:click="onTogglePublish({{ $exam->id }})"
                                             title="{{ $exam->is_published ? 'Click to unpublish' : 'Click to publish' }}"
-                                            class="text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide {{ $statusClass }}">
+                                            class="text-sm text-gray-700 hover:text-gray-900">
                                             {{ ucfirst($status) }}
                                         </button>
                                     </td>
@@ -372,7 +361,18 @@
             {{-- ═════ EXAM PAPERS — exam and class picked: every subject of the
                  class is a row; its paper with View / Download / Edit / Delete,
                  or Add when none is added. Deleting a paper keeps the subject. ═════ --}}
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            {{-- Add Paper / Edit open the file picker straight away (no panel);
+                 the PDF picked is saved as soon as it is uploaded. --}}
+            <div x-data="{ pick(target) { this.$wire.quickPaperFor = target; this.$refs.quickPaper.value = ''; this.$refs.quickPaper.click(); } }"
+                class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <input type="file" x-ref="quickPaper" wire:model="quickPaperFile" accept="application/pdf,.pdf" class="hidden">
+                <div wire:loading.flex wire:target="quickPaperFile" class="items-center gap-2 px-4 py-2 text-xs text-blue-600 border-b border-gray-100">
+                    <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                    Uploading the PDF…
+                </div>
                 <div class="overflow-x-auto">
                     <table class="w-full">
                         <thead class="bg-gray-50 border-b border-gray-200">
@@ -398,7 +398,7 @@
                                         <td class="px-4 py-3 text-sm text-gray-400">Not added yet</td>
                                         <td class="px-4 py-3 text-sm text-gray-400">—</td>
                                         <td class="px-4 py-3 text-center">
-                                            <button wire:click="openPaperModalFor('{{ $row['key'] }}')" type="button"
+                                            <button x-on:click="pick('add:{{ $row['key'] }}')" type="button" title="Choose the PDF (up to 2 MB)"
                                                 class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-blue-600 bg-white border border-blue-200 rounded-md hover:bg-blue-50">
                                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
                                                 Add Paper
@@ -439,7 +439,7 @@
                                                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                                         </svg>
                                                     </button>
-                                                    <button wire:click="openEditPaperModal({{ $paper->id }})" title="Edit"
+                                                    <button x-on:click="pick('edit:{{ $paper->id }}')" type="button" title="Edit — choose a new PDF"
                                                         class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
                                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -567,6 +567,63 @@
                 @endif
             </div>
 
+        @elseif ($syllabusBoard !== null)
+            {{-- ═════ EXAM SYLLABUS — exam and class picked: every subject of the
+                 class with its chapters for the exam, one after another with
+                 dots; Edit, or Add when none are picked. ═════ --}}
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Subject</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Chapters</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @forelse ($syllabusBoard as $i => $row)
+                                <tr wire:key="sb-{{ $row['subject_id'] }}" class="hover:bg-gray-50/70">
+                                    <td class="px-4 py-3 text-sm text-gray-500 font-medium align-top">{{ $i + 1 }}</td>
+                                    <td class="px-4 py-3 align-top">
+                                        <div class="flex items-center gap-3">
+                                            <x-subject-icon :name="$row['name']" size="w-9 h-9" />
+                                            <span class="text-sm font-semibold text-gray-900 whitespace-nowrap">{{ $row['name'] }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm {{ $row['chapters'] ? 'text-gray-700' : 'text-gray-400' }}">
+                                        {{ $row['chapters'] ? implode(' · ', $row['chapters']) : 'Not added yet' }}
+                                    </td>
+                                    <td class="px-4 py-3 text-center align-top">
+                                        @if ($row['chapters'])
+                                            <button wire:click="onEditSyllabus({{ $syllabusFilterExam }}, {{ $syllabusFilterStandard }}, {{ $row['subject_id'] }}, {{ $row['section_id'] ?? 'null' }})" title="Edit"
+                                                class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
+                                            </button>
+                                        @else
+                                            <button wire:click="openSyllabusFor({{ $row['subject_id'] }})" type="button"
+                                                class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-blue-600 bg-white border border-blue-200 rounded-md hover:bg-blue-50">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                                                Add
+                                            </button>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="4" class="px-4 py-16 text-center">
+                                        <p class="text-sm font-semibold text-gray-800">No subjects for this class</p>
+                                        <p class="text-xs text-gray-400 mt-1">Add subjects to the class first.</p>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         @else
             @if ($syllabus['mode'] === 'detail')
                 {{-- Filtered syllabus — chapters with their topics on one line. --}}
@@ -800,140 +857,116 @@
         </div>
     @endif
 
-    {{-- ADD / EDIT SYLLABUS SLIDE-IN PANEL --}}
+    {{-- ADD / EDIT SYLLABUS SLIDE-IN PANEL — the Mark Attendance panel's look:
+         exam, class (section only when the class has several) and subject in
+         one row, then the subject's chapters to tick; a chapter already in a
+         syllabus says so in plain text with the exam's name. --}}
     @if ($openSyllabusModal)
+        @php
+            $sylTicked = count($sylModalChapterIds);
+            $sylTotal  = count($sylModalChapters);
+        @endphp
         <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeSyllabusModal"></div>
-            <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col">
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
+
+                {{-- Header --}}
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                    <div>
-                        <h2 class="text-lg font-semibold text-gray-900">
-                            {{ $sylModalIsEdit ? 'Edit Exam Syllabus' : 'Add Exam Syllabus' }}
-                        </h2>
-                        <p class="text-xs text-gray-500 mt-0.5">
-                            Pick exam, class, section &amp; subject, then choose chapters
-                        </p>
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900">{{ $sylModalIsEdit ? 'Edit Exam Syllabus' : 'Add Exam Syllabus' }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">Pick exam, class &amp; subject — then tick its chapters and save.</p>
                     </div>
-                    <button wire:click="closeSyllabusModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                    <button wire:click="closeSyllabusModal" type="button"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-5">
-                    {{-- Row 1: Exam + Class --}}
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Exam <span class="text-red-500">*</span></label>
-                            <select wire:model.live="sylModalExamId" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
-                                <option value="">Select exam</option>
-                                @foreach ($allExams as $e)<option value="{{ $e['id'] }}">{{ $e['exam_name'] }} ({{ $e['academic_year'] }})</option>@endforeach
-                            </select>
-                            @error('sylModalExamId')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Class <span class="text-red-500">*</span></label>
-                            <select wire:model.live="sylModalStandardId" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
-                                <option value="">Select class</option>
-                                @foreach ($allStandards as $s)<option value="{{ $s['id'] }}">{{ $s['name'] }}</option>@endforeach
-                            </select>
-                            @error('sylModalStandardId')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                    </div>
-
-                    {{-- Row 2: Section + Subject --}}
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Section <span class="text-red-500">*</span></label>
-                            <select wire:model.live="sylModalSectionId" @disabled(!$sylModalStandardId)
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm disabled:opacity-50">
-                                <option value="">Select section</option>
-                                @foreach ($sylModalSections as $sec)<option value="{{ $sec['id'] }}">{{ $sec['name'] }}</option>@endforeach
-                            </select>
-                            @if (!$sylModalStandardId)<p class="mt-1 text-xs text-gray-400">Choose a class first.</p>@endif
-                            @error('sylModalSectionId')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Subject <span class="text-red-500">*</span></label>
-                            <select wire:model.live="sylModalSubjectId" @disabled(!$sylModalSectionId)
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm disabled:opacity-50">
-                                <option value="">Select subject</option>
-                                @foreach ($sylModalSubjects as $sub)<option value="{{ $sub['id'] }}">{{ $sub['name'] }}</option>@endforeach
-                            </select>
-                            @if (!$sylModalSectionId)<p class="mt-1 text-xs text-gray-400">Choose a section first.</p>@endif
-                            @error('sylModalSubjectId')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                    </div>
-
-                    @if ($sylModalSubjectId && !empty($sylModalChapters))
-                        <div class="border-t border-gray-100 pt-5">
-                            <div class="flex items-center justify-between mb-3">
-                                <div>
-                                    <label class="block text-sm font-semibold text-gray-700">Chapters <span class="text-red-500">*</span></label>
-                                    <p class="text-xs text-gray-500 mt-0.5">{{ count($sylModalChapterIds) }} of {{ count($sylModalChapters) }} selected</p>
-                                </div>
-                                <div class="flex gap-2">
-                                    <button type="button" wire:click="toggleAllChapters(true)" class="text-xs font-medium text-blue-600 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50">Select All</button>
-                                    <button type="button" wire:click="toggleAllChapters(false)" class="text-xs font-medium text-gray-600 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100">Clear</button>
-                                </div>
-                            </div>
-
-                            @if ($sylModalIsEdit)
-                                <p class="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-md px-3 py-2 mb-3">
-                                    Chapters owned by other exams stay selectable and are <strong>transferred</strong>
-                                    here on save. Deselect every chapter to remove this syllabus.
-                                </p>
-                            @endif
-
-                            <div class="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-96 overflow-y-auto">
-                                @foreach ($sylModalChapters as $ch)
-                                    @php
-                                        $ownedByOther = !empty($ch['owning_exam_id'])
-                                            && (int) $ch['owning_exam_id'] !== (int) $sylModalExamId;
-                                        // Add-mode: a chapter belonging to ANY other exam is locked.
-                                        // Edit-mode: nothing is locked — taken chapters can be transferred.
-                                        $isLocked = !$sylModalIsEdit && $ownedByOther;
-                                    @endphp
-                                    <label class="flex items-center gap-3 px-3 py-2.5 transition-colors
-                                                  {{ $isLocked ? 'bg-gray-50 cursor-not-allowed opacity-70' : 'hover:bg-gray-50 cursor-pointer' }}">
-                                        <input type="checkbox" wire:model.live="sylModalChapterIds" value="{{ $ch['id'] }}"
-                                            @disabled($isLocked)
-                                            class="rounded text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed">
-                                        <div class="flex-1 min-w-0">
-                                            <div class="flex flex-wrap items-center gap-2">
-                                                <p class="text-sm font-medium {{ $isLocked ? 'text-gray-500' : 'text-gray-900' }}">
-                                                    {{ $ch['name'] }}
-                                                </p>
-                                                @if ($ownedByOther)
-                                                    <span class="text-[10px] font-semibold uppercase tracking-wide
-                                                                 {{ $sylModalIsEdit ? 'bg-amber-100 text-amber-700' : 'bg-gray-200 text-gray-600' }}
-                                                                 px-1.5 py-0.5 rounded">
-                                                        {{ $sylModalIsEdit ? 'Will transfer from' : 'In' }}
-                                                        {{ $ch['owning_exam_name'] }}
-                                                    </span>
-                                                @endif
-                                            </div>
-                                        </div>
-                                    </label>
-                                @endforeach
-                            </div>
-                            @error('sylModalChapterIds')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                    @elseif ($sylModalSubjectId)
-                        <div class="border-t border-gray-100 pt-5 text-center">
-                            <p class="text-sm text-gray-500">No chapters found for this class + section + subject.</p>
-                            <p class="text-xs text-gray-400 mt-1">Add chapters from the Content section first.</p>
-                        </div>
+                {{-- Toolbar: exam → class → (section) → subject --}}
+                <div class="px-6 py-3 border-b border-gray-100 flex flex-wrap items-center gap-2 flex-shrink-0">
+                    <select wire:model.live="sylModalExamId"
+                        class="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">Select exam…</option>
+                        @foreach ($allExams as $e)<option value="{{ $e['id'] }}">{{ $e['exam_name'] }} ({{ $e['academic_year'] }})</option>@endforeach
+                    </select>
+                    <select wire:model.live="sylModalStandardId"
+                        class="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">Select class…</option>
+                        @foreach ($allStandards as $s)<option value="{{ $s['id'] }}">{{ $s['name'] }}</option>@endforeach
+                    </select>
+                    @if (count($sylModalSections) > 1)
+                        <select wire:model.live="sylModalSectionId"
+                            class="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                            <option value="">All sections</option>
+                            @foreach ($sylModalSections as $sec)<option value="{{ $sec['id'] }}">{{ $sec['name'] }}</option>@endforeach
+                        </select>
+                    @endif
+                    <select wire:model.live="sylModalSubjectId" @disabled(!$sylModalStandardId)
+                        class="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white disabled:opacity-50 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">Select subject…</option>
+                        @foreach ($sylModalSubjects as $sub)<option value="{{ $sub['id'] }}">{{ $sub['name'] }}</option>@endforeach
+                    </select>
+                    @if ($sylModalSubjectId && $sylTotal > 0)
+                        <span class="ml-auto text-xs text-gray-400 tabular-nums">{{ $sylTicked }} of {{ $sylTotal }} ticked</span>
                     @endif
                 </div>
 
-                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
-                    <button wire:click="closeSyllabusModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                    <button wire:click="saveSyllabus" wire:loading.attr="disabled"
-                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
-                        <span wire:loading.remove wire:target="saveSyllabus">
-                            {{ $sylModalIsEdit ? 'Update Syllabus' : 'Save Syllabus' }}
+                @if ($errors->hasAny(['sylModalExamId', 'sylModalStandardId', 'sylModalSubjectId', 'sylModalChapterIds']))
+                    <p class="px-6 py-2 text-xs text-red-500 border-b border-gray-100 flex-shrink-0">
+                        {{ $errors->first('sylModalExamId') ?: ($errors->first('sylModalStandardId') ?: ($errors->first('sylModalSubjectId') ?: $errors->first('sylModalChapterIds'))) }}
+                    </p>
+                @endif
+
+                {{-- One quiet line, with Select all / Clear --}}
+                @if ($sylModalSubjectId && $sylTotal > 0)
+                    <div class="px-6 py-2 text-xs text-gray-500 border-b border-gray-100 flex items-center justify-between gap-3 flex-shrink-0">
+                        <span>{{ $sylModalIsEdit ? 'A chapter added to another exam moves here when ticked; untick every chapter to remove this syllabus.' : 'Tick the chapters this exam covers.' }}</span>
+                        <span class="flex items-center gap-1 flex-shrink-0">
+                            <button type="button" wire:click="toggleAllChapters(true)" class="px-2 py-1 rounded text-blue-600 hover:bg-blue-50 font-medium">Select all</button>
+                            <button type="button" wire:click="toggleAllChapters(false)" class="px-2 py-1 rounded text-gray-600 hover:bg-gray-100 font-medium">Clear</button>
                         </span>
-                        <span wire:loading wire:target="saveSyllabus">Saving...</span>
+                    </div>
+                @endif
+
+                {{-- Rows --}}
+                <div class="flex-1 overflow-y-auto divide-y divide-gray-100">
+                    @if ($sylModalSubjectId && $sylTotal > 0)
+                        @foreach ($sylModalChapters as $i => $ch)
+                            @php
+                                $ownedByOther = !empty($ch['owning_exam_id'])
+                                    && (int) $ch['owning_exam_id'] !== (int) $sylModalExamId;
+                                // Add: a chapter in another exam's syllabus cannot be picked.
+                                // Edit: it can — saving moves it here.
+                                $isLocked = !$sylModalIsEdit && $ownedByOther;
+                            @endphp
+                            <label wire:key="sylch-{{ $ch['id'] }}"
+                                class="flex items-center gap-x-3 px-6 py-2.5 {{ $isLocked ? 'cursor-not-allowed' : 'hover:bg-gray-50 cursor-pointer' }}">
+                                <span class="w-4 text-[11px] text-gray-300 tabular-nums flex-shrink-0">{{ $i + 1 }}</span>
+                                <input type="checkbox" wire:model.live="sylModalChapterIds" value="{{ $ch['id'] }}" @disabled($isLocked)
+                                    class="rounded text-gray-900 focus:ring-gray-400 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0">
+                                <span class="flex-1 min-w-0 text-sm {{ $isLocked ? 'text-gray-400' : 'text-gray-900' }}">{{ $ch['name'] }}</span>
+                                @if (!empty($ch['owning_exam_id']))
+                                    <span class="text-xs text-gray-400 flex-shrink-0">Added · {{ $ch['owning_exam_name'] ?: 'an exam' }}</span>
+                                @endif
+                            </label>
+                        @endforeach
+                    @elseif ($sylModalSubjectId)
+                        <div class="py-16 text-center text-sm text-gray-400">
+                            No chapters for this subject yet.
+                            <p class="text-xs mt-1">Add them from Syllabus first.</p>
+                        </div>
+                    @else
+                        <p class="py-16 text-center text-sm text-gray-400">Select an exam, class &amp; subject to start.</p>
+                    @endif
+                </div>
+
+                {{-- Footer --}}
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                    <button wire:click="closeSyllabusModal" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                    <button wire:click="saveSyllabus" wire:loading.attr="disabled" wire:target="saveSyllabus" type="button"
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                        <span wire:loading.remove wire:target="saveSyllabus">{{ $sylModalIsEdit ? 'Update Syllabus' : 'Save Syllabus' }}</span>
+                        <span wire:loading wire:target="saveSyllabus">Saving…</span>
                     </button>
                 </div>
             </div>
@@ -1012,7 +1045,7 @@
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div>
                         <h2 class="text-lg font-semibold text-gray-900">{{ $paperIsEdit ? 'Edit Exam Paper' : 'Upload Exam Paper' }}</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">Pick the exam, class, section &amp; subject, then upload the PDF (max 1 MB).</p>
+                        <p class="text-xs text-gray-500 mt-0.5">Pick the exam, class, section &amp; subject, then upload the PDF (max 2 MB).</p>
                     </div>
                     <button wire:click="closePaperModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -1089,7 +1122,7 @@
                     <div x-data>
                         <label class="block text-sm font-medium text-gray-700 mb-1.5">
                             PDF File @if (!$paperIsEdit)<span class="text-red-500">*</span>@endif
-                            <span class="text-xs font-normal text-gray-400">(max 1 MB)</span>
+                            <span class="text-xs font-normal text-gray-400">(max 2 MB)</span>
                         </label>
 
                         {{-- Click-anywhere drop-zone wrapping a hidden file input. --}}
@@ -1103,7 +1136,7 @@
                             <span class="min-w-0">
                                 <span class="block text-sm font-medium text-gray-700">Click to choose a PDF</span>
                                 <span class="block text-xs text-gray-400">
-                                    PDF only, up to 1 MB{{ $paperIsEdit ? ' - leave empty to keep the current file' : '' }}
+                                    PDF only, up to 2 MB{{ $paperIsEdit ? ' - leave empty to keep the current file' : '' }}
                                 </span>
                             </span>
                         </label>
@@ -1186,7 +1219,7 @@
                 </div>
 
                 <div class="flex-1 overflow-hidden bg-gray-100">
-                    <iframe src="{{ $viewPaperUrl }}" class="w-full h-full border-0" title="{{ $viewPaperTitle }}"></iframe>
+                    <iframe src="{{ $viewPaperUrl }}#toolbar=0&amp;navpanes=0&amp;view=FitH" class="w-full h-full border-0" title="{{ $viewPaperTitle }}"></iframe>
                 </div>
 
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between flex-shrink-0">

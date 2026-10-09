@@ -25,6 +25,9 @@ class AddExam extends Component
     /** Subject dropdown escape hatch — a paper that belongs to no class subject. */
     public const PAPER_SUBJECT_OTHER = 'other';
 
+    /** An exam paper's PDF may be up to 2 MB. */
+    public const PAPER_MAX_KB = 2048;
+
     // ─── Tabs ────────────────────────────────────────────────────────────────
     public string $activeTab = 'exams'; // 'exams' | 'syllabus' | 'papers'
 
@@ -90,6 +93,12 @@ class AddExam extends Component
     // Delete confirm
     public bool $showPaperDeleteConfirm = false;
     public $paperDeleteId               = null;
+
+    // A PDF picked straight from the subjects list: a subject's Add ('add:<subject id>')
+    // or a paper's Edit ('edit:<paper id>') opens the file picker, and the file is
+    // saved as soon as it is uploaded (updatedQuickPaperFile).
+    public $quickPaperFile       = null;
+    public string $quickPaperFor = '';
 
     // Paper view (slide-in with the PDF) — the link is made once on opening,
     // so a refresh of the page does not reload the frame.
@@ -557,6 +566,36 @@ class AddExam extends Component
         $this->sylModalChapters    = [];
 
         $this->loadSylModalSections($value);
+
+        // Exam, class and subject are what is asked: a class with one section
+        // takes it by itself (its box is not shown), and the subjects come at
+        // once — a class with several sections can still narrow by one.
+        if (count($this->sylModalSections) === 1) {
+            $this->sylModalSectionId = (string) $this->sylModalSections[0]['id'];
+        }
+        $this->loadSylModalSubjects();
+    }
+
+    /**
+     * A subject's Add in the syllabus list: the panel opens on the exam, class
+     * and section the filter shows, with that subject's chapters to tick.
+     */
+    public function openSyllabusFor($subjectId): void
+    {
+        $this->resetSyllabusModal();
+        $this->sylModalIsEdit     = false;
+        $this->sylModalExamId     = (string) $this->syllabusFilterExam;
+        $this->sylModalStandardId = (string) $this->syllabusFilterStandard;
+        $this->loadSylModalSections($this->sylModalStandardId);
+        $this->sylModalSectionId  = (string) $this->syllabusFilterSection;
+        if ($this->sylModalSectionId === '' && count($this->sylModalSections) === 1) {
+            $this->sylModalSectionId = (string) $this->sylModalSections[0]['id'];
+        }
+        $this->loadSylModalSubjects();
+        $this->sylModalSubjectId  = (string) $subjectId;
+        $this->loadSylModalChapters();
+
+        $this->openSyllabusModal = true;
     }
 
     public function updatedSylModalSectionId($value): void
@@ -885,6 +924,84 @@ class AddExam extends Component
         }
     }
 
+    /**
+     * The file picked from the subjects list. Add: a new paper for that
+     * subject on the exam, class and section the filter shows, titled with the
+     * subject's name. Edit: the paper keeps its details and gets the new file
+     * (the old one is taken off storage). PDF only, up to 2 MB.
+     */
+    public function updatedQuickPaperFile(): void
+    {
+        $for  = $this->quickPaperFor;
+        $file = $this->quickPaperFile;
+        $this->reset(['quickPaperFile', 'quickPaperFor']);
+
+        if (!$file || $for === '') {
+            return;
+        }
+
+        $check = \Illuminate\Support\Facades\Validator::make(
+            ['file' => $file],
+            ['file' => 'required|file|mimes:pdf|max:' . self::PAPER_MAX_KB],
+            ['file.mimes' => 'The paper must be a PDF file.', 'file.max' => 'The PDF must be 2 MB or smaller.']
+        );
+        if ($check->fails()) {
+            $this->notification()->error('Not uploaded', $check->errors()->first('file'));
+            return;
+        }
+
+        $orgId = Auth::user()->organization_id;
+
+        try {
+            if (str_starts_with($for, 'edit:')) {
+                $paper = ExamPaper::where('id', (int) substr($for, 5))
+                    ->where('organization_id', $orgId)
+                    ->first();
+                if (!$paper) {
+                    $this->notification()->error('Not found', 'Exam paper not found.');
+                    return;
+                }
+
+                $old = $paper->file_path;
+                $paper->update([
+                    'file_path'   => $file->store('admin/exam-papers/' . $orgId, 's3'),
+                    'uploaded_by' => Auth::id(),
+                ]);
+                if ($old) {
+                    Storage::disk('s3')->delete($old);
+                }
+                $this->notification()->success('Updated', 'The paper\'s file is replaced.');
+                return;
+            }
+
+            if (!str_starts_with($for, 'add:') || !$this->filterPaperExam || !$this->filterPaperStandard) {
+                return;
+            }
+
+            $subjectName = Subject::where('organization_id', $orgId)->where('id', (int) substr($for, 4))->value('name');
+            if ($subjectName === null) {
+                $this->notification()->error('Not uploaded', 'Please pick a valid subject.');
+                return;
+            }
+
+            ExamPaper::create([
+                'organization_id' => $orgId,
+                'exam_id'         => (int) $this->filterPaperExam,
+                'standard_id'     => (int) $this->filterPaperStandard,
+                'section_id'      => $this->filterPaperSection ? (int) $this->filterPaperSection : null,
+                'subject_id'      => (int) substr($for, 4),
+                'title'           => $subjectName,
+                'description'     => null,
+                'file_path'       => $file->store('admin/exam-papers/' . $orgId, 's3'),
+                'uploaded_by'     => Auth::id(),
+            ]);
+            $this->notification()->success('Uploaded', 'Exam paper uploaded successfully.');
+        } catch (\Throwable $e) {
+            logger()->error('ExamPaper quick upload error: ' . $e->getMessage());
+            $this->notification()->error('Error', $e->getMessage());
+        }
+    }
+
     /** View: the paper's PDF in a slide-in, Download and Close at its foot. */
     public function viewPaper(int $id): void
     {
@@ -968,7 +1085,7 @@ class AddExam extends Component
                 : 'required|exists:subjects,id',
             'paperTitle'    => 'required|string|max:255',
             'paperDescription' => 'nullable|string|max:3000',
-            'paperFile'     => ($this->paperIsEdit ? 'nullable' : 'required') . '|file|mimes:pdf|max:1024', // 1 MB
+            'paperFile'     => ($this->paperIsEdit ? 'nullable' : 'required') . '|file|mimes:pdf|max:' . self::PAPER_MAX_KB, // 2 MB
         ];
 
         $this->validate($rules, [
@@ -980,7 +1097,7 @@ class AddExam extends Component
             'paperDescription.max'   => 'Description may not be longer than 3000 characters.',
             'paperFile.required'     => 'Please choose a PDF file.',
             'paperFile.mimes'        => 'The paper must be a PDF file.',
-            'paperFile.max'          => 'The PDF must be 1 MB or smaller.',
+            'paperFile.max'          => 'The PDF must be 2 MB or smaller.',
         ]);
 
         try {
@@ -1160,6 +1277,60 @@ class AddExam extends Component
         return $rows;
     }
 
+    /**
+     * Exam Syllabus with an exam and a class picked: every subject of the
+     * class (or of the section picked) is a row with its chapters for that
+     * exam, in chapter order — a subject with none is still listed, with its
+     * Add. A syllabus is kept per exam, class and subject (saveSyllabus), so
+     * its chapters show whichever section it was saved under. Subjects the
+     * class no longer lists but that have a syllabus come last; the Subject
+     * box narrows the rows. Null when exam or class is not picked.
+     */
+    private function getSyllabusBoard(): ?array
+    {
+        if (!$this->syllabusFilterExam || !$this->syllabusFilterStandard) {
+            return null;
+        }
+
+        $subjects = $this->subjectsForClass($this->syllabusFilterStandard, $this->syllabusFilterSection ?: null);
+
+        $saved = ExamSyllabusChapter::with(['chapter:id,name,order', 'subject:id,name'])
+            ->where('organization_id', Auth::user()->organization_id)
+            ->where('exam_id', $this->syllabusFilterExam)
+            ->where('standard_id', $this->syllabusFilterStandard)
+            ->get()
+            ->groupBy(fn ($r) => (string) $r->subject_id);
+
+        $row = function (string $key, string $name) use ($saved): array {
+            $list = ($saved->get($key) ?? collect())->filter(fn ($r) => $r->chapter)
+                ->sortBy(fn ($r) => [(int) $r->chapter->order, (int) $r->chapter->id])->values();
+
+            return [
+                'subject_id' => (int) $key,
+                'name'       => $name,
+                'section_id' => $list->first()?->section_id,
+                'chapters'   => $list->map(fn ($r) => $r->chapter->name)->all(),
+            ];
+        };
+
+        $rows = [];
+        foreach ($subjects as $s) {
+            $rows[] = $row((string) $s['id'], (string) $s['name']);
+        }
+        $listed = array_map(fn ($r) => (string) $r['subject_id'], $rows);
+        foreach ($saved as $key => $list) {
+            if (!in_array((string) $key, $listed, true)) {
+                $rows[] = $row((string) $key, (string) ($list->first()->subject->name ?? 'Subject'));
+            }
+        }
+
+        if ($this->syllabusFilterSubject !== '') {
+            $rows = array_values(array_filter($rows, fn ($r) => (string) $r['subject_id'] === (string) $this->syllabusFilterSubject));
+        }
+
+        return $rows;
+    }
+
     // ─── Render ─────────────────────────────────────────────────────────────
 
     public function render()
@@ -1198,6 +1369,15 @@ class AddExam extends Component
                 ->orderBy('id')
                 ->get(['id', 'name'])
                 ->toArray();
+        } elseif ($this->syllabusFilterStandard) {
+            // No section picked (a class with several): the class's subjects.
+            $filterSubjects = Subject::where('organization_id', $orgId)
+                ->whereIn('id', DB::table('standard_subjects')
+                    ->where('standard_id', $this->syllabusFilterStandard)
+                    ->pluck('subject_id')->toArray())
+                ->orderBy('id')
+                ->get(['id', 'name'])
+                ->toArray();
         }
 
         // Exam Papers tab data
@@ -1219,11 +1399,12 @@ class AddExam extends Component
             $this->filterPaperSection ?: null
         );
 
-        $paperBoard = $this->activeTab === 'papers' ? $this->getPaperBoard() : null;
+        $paperBoard    = $this->activeTab === 'papers' ? $this->getPaperBoard() : null;
+        $syllabusBoard = $this->activeTab === 'syllabus' ? $this->getSyllabusBoard() : null;
 
         return view('livewire.admin.add-exam', compact(
             'exams', 'syllabus', 'filterSections', 'filterSubjects',
-            'examPapers', 'paperFilterSections', 'paperFilterSubjects', 'paperBoard'
+            'examPapers', 'paperFilterSections', 'paperFilterSubjects', 'paperBoard', 'syllabusBoard'
         ));
     }
 

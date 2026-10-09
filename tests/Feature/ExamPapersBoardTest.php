@@ -6,6 +6,7 @@ use App\Livewire\Admin\AddExam;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -14,10 +15,13 @@ use Tests\TestCase;
 
 /**
  * Exams page: a new exam starts published, the form has no Description, the
- * list reads name over term with Total / Passing in one column and no Year;
- * Exam Papers with an exam and a class picked list every subject of the
- * class — its paper with View / Download / Edit / Delete, or Add — and a
- * deleted paper leaves its subject in the list.
+ * list reads name over term with Total / Passing in one column, dates on one
+ * line, plain-text status and no Year; Exam Papers with an exam and a class
+ * picked list every subject of the class — its paper with View / Download /
+ * Edit / Delete, or Add — where Add and Edit take a PDF (up to 2 MB) straight
+ * from the file picker, and a deleted paper leaves its subject in the list;
+ * Exam Syllabus with an exam and a class picked lists every subject with its
+ * chapters joined by dots, and its panel asks exam, class and subject.
  */
 class ExamPapersBoardTest extends TestCase
 {
@@ -62,6 +66,10 @@ class ExamPapersBoardTest extends TestCase
             $t->id(); $t->unsignedBigInteger('organization_id'); $t->unsignedBigInteger('exam_id'); $t->unsignedBigInteger('standard_id');
             $t->unsignedBigInteger('section_id')->nullable(); $t->unsignedBigInteger('subject_id'); $t->unsignedBigInteger('chapter_id'); $t->timestamps();
         });
+        Schema::create('chapters', function (Blueprint $t) {
+            $t->id(); $t->unsignedBigInteger('organization_id'); $t->unsignedBigInteger('standard_id'); $t->unsignedBigInteger('section_id')->nullable();
+            $t->unsignedBigInteger('subject_id'); $t->string('name'); $t->integer('order')->default(1); $t->timestamps();
+        });
         Schema::create('exam_papers', function (Blueprint $t) {
             $t->id(); $t->unsignedBigInteger('organization_id'); $t->unsignedBigInteger('exam_id'); $t->unsignedBigInteger('standard_id');
             $t->unsignedBigInteger('section_id')->nullable(); $t->unsignedBigInteger('subject_id')->nullable(); $t->string('title');
@@ -90,7 +98,7 @@ class ExamPapersBoardTest extends TestCase
         $exam = DB::table('exams')->insertGetId([
             'organization_id' => $this->org, 'exam_name' => 'Half Yearly', 'term' => 'Term-1', 'academic_year' => '2026-2027',
             'exam_type' => 'written', 'total_marks' => 100, 'passing_marks' => 33, 'is_published' => true,
-            'description' => 'Old note',
+            'description' => 'Old note', 'start_date' => '2026-11-02', 'end_date' => '2026-11-12',
         ]);
         Storage::disk('s3')->put('admin/exam-papers/5/hindi.pdf', '%PDF-1.4');
         $paper = DB::table('exam_papers')->insertGetId([
@@ -118,6 +126,9 @@ class ExamPapersBoardTest extends TestCase
         $this->assertStringNotContainsString('>Year</th>', $html);
         $this->assertStringNotContainsString('Old note', $html);                       // description not under the name
         $this->assertMatchesRegularExpression('/Half Yearly<\/p>\s*(<!--\[if BLOCK\]><!\[endif\]-->)?\s*<p class="text-xs text-gray-400 mt-0.5">Term-1<\/p>/', $html);
+        $this->assertStringContainsString('02 Nov 2026 → 12 Nov 2026', $html);         // the dates on one line
+        $this->assertStringNotContainsString('rounded-full uppercase tracking-wide', $html); // no status chip
+        $this->assertMatchesRegularExpression('/class="text-sm text-gray-700 hover:text-gray-900">\s*Published\s*<\/button>/', $html);
 
         // Saving an exam left ticked publishes it; editing keeps its description.
         $page->set('term', 'Term-2')->set('examName', 'Annual')->set('examType', 'written')
@@ -147,17 +158,45 @@ class ExamPapersBoardTest extends TestCase
         $this->assertSame(2, substr_count($html, 'Add Paper'));                        // English and Maths
         $this->assertStringContainsString('wire:click="viewPaper(' . $s['paper'] . ')"', $html);
         $this->assertStringContainsString('wire:click="downloadPaper(' . $s['paper'] . ')"', $html);
-        $this->assertStringContainsString('wire:click="openEditPaperModal(' . $s['paper'] . ')"', $html);
+        $this->assertStringContainsString('x-on:click="pick(\'edit:' . $s['paper'] . '\')"', $html);          // Edit = the file picker
+        $this->assertStringContainsString('x-on:click="pick(\'add:' . $s['subs']['Maths'] . '\')"', $html);   // Add = the file picker
         $this->assertStringContainsString('wire:click="onDeletePaper(' . $s['paper'] . ')"', $html);
 
-        // Add for Maths opens the form on this exam, class, section and subject.
+        // A PDF picked from Maths' Add is saved at once for this exam, class and section.
+        $page->set('quickPaperFor', 'add:' . $s['subs']['Maths'])
+            ->set('quickPaperFile', UploadedFile::fake()->create('maths.pdf', 1900, 'application/pdf'));
+        $maths = DB::table('exam_papers')->where('subject_id', $s['subs']['Maths'])->first();
+        $this->assertNotNull($maths);
+        $this->assertSame(['Maths', $s['exam'], $s['std'], $s['sec']],
+            [$maths->title, (int) $maths->exam_id, (int) $maths->standard_id, (int) $maths->section_id]);
+        Storage::disk('s3')->assertExists($maths->file_path);
+        $this->assertSame('', $page->get('quickPaperFor'));
+
+        // Over 2 MB, or not a PDF: nothing is saved.
+        $page->set('quickPaperFor', 'add:' . $s['subs']['English'])
+            ->set('quickPaperFile', UploadedFile::fake()->create('big.pdf', 2100, 'application/pdf'));
+        $page->set('quickPaperFor', 'add:' . $s['subs']['English'])
+            ->set('quickPaperFile', UploadedFile::fake()->create('notes.txt', 10, 'text/plain'));
+        $this->assertSame(0, DB::table('exam_papers')->where('subject_id', $s['subs']['English'])->count());
+
+        // Edit with a new PDF: the same paper, a new file, the old one off storage.
+        $page->set('quickPaperFor', 'edit:' . $maths->id)
+            ->set('quickPaperFile', UploadedFile::fake()->create('maths2.pdf', 50, 'application/pdf'));
+        $after = DB::table('exam_papers')->where('id', $maths->id)->first();
+        $this->assertSame('Maths', $after->title);
+        $this->assertNotSame($maths->file_path, $after->file_path);
+        Storage::disk('s3')->assertMissing($maths->file_path);
+        Storage::disk('s3')->assertExists($after->file_path);
+        DB::table('exam_papers')->where('id', $maths->id)->delete();
+
+        // The header's Upload Paper panel still works, now up to 2 MB.
+        $this->assertStringContainsString('(max 2 MB)', $page->call('openPaperModal')->html());
+        $page->call('closePaperModal');
+
+        // The earlier helper still opens the panel on a subject.
         $page->call('openPaperModalFor', (string) $s['subs']['Maths']);
         $this->assertTrue($page->get('showPaperModal'));
-        $this->assertSame((string) $s['exam'], $page->get('paperExam'));
-        $this->assertSame((string) $s['std'], $page->get('paperStandard'));
-        $this->assertSame((string) $s['sec'], $page->get('paperSection'));
         $this->assertSame((string) $s['subs']['Maths'], $page->get('paperSubject'));
-        $this->assertSame('Maths', $page->get('paperTitle'));
         $page->call('closePaperModal');
 
         // Delete: the paper goes, Hindi stays in the list with its Add.
@@ -173,5 +212,48 @@ class ExamPapersBoardTest extends TestCase
         $html = $page->html();
         $this->assertStringContainsString('>English</span>', $html);
         $this->assertStringNotContainsString('>Maths</span>', $html);
+    }
+
+    public function test_syllabus_subjects_list_and_panel(): void
+    {
+        $s = $this->school();
+        $ch = [];
+        foreach (['Varnmala' => 1, 'Matra' => 2, 'Kavita' => 3] as $name => $order) {
+            $ch[$name] = DB::table('chapters')->insertGetId(['organization_id' => $this->org, 'standard_id' => $s['std'],
+                'subject_id' => $s['subs']['Hindi'], 'name' => $name, 'order' => $order]);
+        }
+        foreach (['Matra', 'Varnmala'] as $name) {
+            DB::table('exam_syllabus_chapters')->insert(['organization_id' => $this->org, 'exam_id' => $s['exam'],
+                'standard_id' => $s['std'], 'section_id' => $s['sec'], 'subject_id' => $s['subs']['Hindi'], 'chapter_id' => $ch[$name]]);
+        }
+
+        $page = Livewire::test(AddExam::class)->call('setTab', 'syllabus');
+        $bar = explode('View:', $page->html())[1];
+        $this->assertStringNotContainsString('<span class="text-gray-300">→</span>', explode('BODY', $bar)[0]);
+
+        $page->set('syllabusFilterExam', (string) $s['exam'])->set('syllabusFilterStandard', (string) $s['std']);
+        $html = $page->html();
+        $this->assertStringContainsString('Varnmala · Matra', $html);                   // chapter order, joined by dots
+        $this->assertSame(2, substr_count($html, 'Not added yet'));                    // English, Maths
+        $this->assertStringContainsString('wire:click="openSyllabusFor(' . $s['subs']['Maths'] . ')"', $html);
+        $this->assertStringContainsString('wire:click="onEditSyllabus(' . $s['exam'] . ', ' . $s['std'] . ', ' . $s['subs']['Hindi'] . ', ' . $s['sec'] . ')"', $html);
+
+        // Add from Hindi's row in another exam: exam, class and subject set; the
+        // one section taken by itself (no Section box); chapters added elsewhere
+        // say so in plain text with the exam's name.
+        $other = DB::table('exams')->insertGetId(['organization_id' => $this->org, 'exam_name' => 'Annual', 'term' => 'Term-2', 'is_published' => true]);
+        $page->set('syllabusFilterExam', (string) $other)->set('syllabusFilterStandard', (string) $s['std'])
+            ->call('openSyllabusFor', $s['subs']['Hindi']);
+        $this->assertSame([(string) $other, (string) $s['std'], (string) $s['sec'], (string) $s['subs']['Hindi']],
+            [$page->get('sylModalExamId'), $page->get('sylModalStandardId'), $page->get('sylModalSectionId'), $page->get('sylModalSubjectId')]);
+        $html = $page->html();
+        $this->assertStringNotContainsString('wire:model.live="sylModalSectionId"', $html);
+        $this->assertSame(2, substr_count($html, 'Added · Half Yearly'));
+        $this->assertStringContainsString('max-w-3xl', $html);
+
+        // A fresh Add: picking the class brings its subjects at once.
+        $page->call('closeSyllabusModal')->call('onAddSyllabus')->set('sylModalStandardId', (string) $s['std']);
+        $this->assertSame((string) $s['sec'], $page->get('sylModalSectionId'));
+        $this->assertCount(3, $page->get('sylModalSubjects'));
     }
 }
