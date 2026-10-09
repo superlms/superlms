@@ -270,6 +270,24 @@ class Syllabus extends Component
         }
         unset($this->chapterRows[$index]);
         $this->chapterRows = array_values($this->chapterRows);
+
+        // The numbers close up behind it: a chapter taken off from the middle
+        // moves every later number down by one (7, 8, 9 → 6, 7, 8), unless
+        // another row still carries the number that went.
+        $gone = $row !== null && is_numeric($row['order'] ?? null) ? (int) $row['order'] : null;
+        if ($gone === null) {
+            return;
+        }
+        foreach ($this->chapterRows as $other) {
+            if (is_numeric($other['order'] ?? null) && (int) $other['order'] === $gone) {
+                return;
+            }
+        }
+        foreach ($this->chapterRows as $i => $other) {
+            if (is_numeric($other['order'] ?? null) && (int) $other['order'] > $gone) {
+                $this->chapterRows[$i]['order'] = (int) $other['order'] - 1;
+            }
+        }
     }
 
     public function onSaveChapters(): void

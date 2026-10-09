@@ -244,10 +244,12 @@
              EVENTS — Upcoming + Completed (monthly view only)
         ══════════════════════════════════════════════════ --}}
         @if ($view === 'month')
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        {{-- Straight on the page, as the Students list: a heading line, then
+             the table in its own white box (no container around them). --}}
+        <div class="space-y-3">
 
             {{-- UPCOMING --}}
-            <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div class="flex items-center justify-between px-1">
                 <h3 class="text-base font-semibold text-gray-900">
                     Upcoming Events
                     <span class="ml-1 text-xs text-gray-400 font-normal">— {{ $startsAt->format('F Y') }}</span>
@@ -257,11 +259,9 @@
 
             @if (count($upcomingEvents) > 0)
                 {{-- In the Students list's style (the old cards: _event-card) --}}
-                <div class="p-6">
-                    @include('livewire.admin._event-table', ['events' => $upcomingEvents, 'completed' => false])
-                </div>
+                @include('livewire.admin._event-table', ['events' => $upcomingEvents, 'completed' => false])
             @else
-                <div class="text-center py-12">
+                <div class="text-center py-10">
                     <div class="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
                         <svg class="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
@@ -282,25 +282,13 @@
                 </div>
             @endif
 
-            {{-- DIVIDER + COMPLETED --}}
+            {{-- COMPLETED --}}
             @if (count($completedEvents) > 0)
-                <div class="px-6 pt-4 pb-3 border-t border-gray-200 bg-gray-50/60">
-                    <div class="flex items-center gap-3">
-                        <span class="h-px bg-gray-200 flex-1"></span>
-                        <div class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M5 13l4 4L19 7" />
-                            </svg>
-                            Completed
-                            <span class="text-gray-400 font-normal">· {{ count($completedEvents) }}</span>
-                        </div>
-                        <span class="h-px bg-gray-200 flex-1"></span>
-                    </div>
+                <div class="flex items-center justify-between px-1 pt-3">
+                    <h3 class="text-base font-semibold text-gray-900">Completed</h3>
+                    <span class="text-xs text-gray-400">{{ count($completedEvents) }} {{ count($completedEvents) === 1 ? 'event' : 'events' }}</span>
                 </div>
-                <div class="p-6 pt-3">
-                    @include('livewire.admin._event-table', ['events' => $completedEvents, 'completed' => true])
-                </div>
+                @include('livewire.admin._event-table', ['events' => $completedEvents, 'completed' => true])
             @endif
         </div>
         @endif {{-- end view === 'month' --}}

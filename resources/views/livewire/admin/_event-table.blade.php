@@ -7,7 +7,7 @@
 @php $isCompleted = $completed ?? false; @endphp
 
 {{-- ══ DESKTOP TABLE (hidden on mobile) ══ --}}
-<div class="hidden md:block border border-gray-200 rounded-xl overflow-hidden">
+<div class="hidden md:block bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
     <div class="overflow-x-auto">
         <table class="w-full">
             <thead class="bg-gray-50 border-b border-gray-200">
