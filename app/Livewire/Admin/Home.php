@@ -191,38 +191,69 @@ class Home extends Component
             ->where('is_active', 1)
             ->count();
 
-        // Today's Attendance
+        // Today's Attendance — read from the week's counts (weekMarks), which
+        // count exactly the rows these four queries used to.
         $today = now()->format('Y-m-d');
+        $marks = $this->weekMarks();
 
-        $this->studentsPresentToday = StudentAttendance::whereHas('studentDetail', function ($query) {
-            $query->forOrganization();
-        })
-            ->whereDate('attendance_date', $today)
-            ->where('status', true)
-            ->count();
-
-        $this->studentsAbsentToday = StudentAttendance::whereHas('studentDetail', function ($query) {
-            $query->forOrganization();
-        })
-            ->whereDate('attendance_date', $today)
-            ->where('status', false)
-            ->count();
-
-        $this->teachersPresentToday = TeacherAttendance::whereHas('teacherDetail', function ($query) {
-            $query->forOrganization();
-        })
-            ->whereDate('attendance_date', $today)
-            ->where('status', true)
-            ->count();
-
-        $this->teachersAbsentToday = TeacherAttendance::whereHas('teacherDetail', function ($query) {
-            $query->forOrganization();
-        })
-            ->whereDate('attendance_date', $today)
-            ->where('status', false)
-            ->count();
+        $this->studentsPresentToday = $marks['students'][$today][1] ?? 0;
+        $this->studentsAbsentToday  = $marks['students'][$today][0] ?? 0;
+        $this->teachersPresentToday = $marks['teachers'][$today][1] ?? 0;
+        $this->teachersAbsentToday  = $marks['teachers'][$today][0] ?? 0;
 
         $this->loadFeeOverview();
+    }
+
+    /** The last seven days' marks and fee, read once per load (see weekMarks). */
+    private ?array $weekMarks = null;
+
+    /**
+     * The last seven days, today included, as the dashboard has always counted
+     * them — attendance of the school's own students and teachers (through
+     * their details), present 1 and absent 0, and every fee payment of the
+     * school — but in one grouped query each instead of four counts and a sum
+     * for every day: [date => [status => count]] and [date => amount].
+     */
+    private function weekMarks(): array
+    {
+        if ($this->weekMarks !== null) {
+            return $this->weekMarks;
+        }
+
+        $from = now()->subDays(6)->format('Y-m-d');
+        $to   = now()->format('Y-m-d');
+
+        $byDay = function ($query, string $relation) use ($from, $to): array {
+            $out = [];
+            $rows = $query->whereHas($relation, function ($q) {
+                $q->forOrganization();
+            })
+                ->whereDate('attendance_date', '>=', $from)
+                ->whereDate('attendance_date', '<=', $to)
+                ->whereIn('status', [0, 1])
+                ->selectRaw('DATE(attendance_date) as d, status, COUNT(*) as c')
+                ->groupBy('d', 'status')
+                ->get();
+            foreach ($rows as $r) {
+                $out[(string) $r->d][(int) $r->status] = (int) $r->c;
+            }
+            return $out;
+        };
+
+        $fee = FeePayment::where('organization_id', FacadesAuth::user()->organization_id)
+            ->whereDate('payment_date', '>=', $from)
+            ->whereDate('payment_date', '<=', $to)
+            ->selectRaw('DATE(payment_date) as d, SUM(amount) as total')
+            ->groupBy('d')
+            ->pluck('total', 'd')
+            ->mapWithKeys(fn ($total, $d) => [(string) $d => $total])
+            ->all();
+
+        return $this->weekMarks = [
+            'students' => $byDay(StudentAttendance::query(), 'studentDetail'),
+            'teachers' => $byDay(TeacherAttendance::query(), 'teacherDetail'),
+            'fee'      => $fee,
+        ];
     }
 
     /**
@@ -296,45 +327,22 @@ class Home extends Component
     protected function loadLast7DaysData()
     {
         $this->last7DaysData = [];
+        $marks = $this->weekMarks();
 
         for ($i = 6; $i >= 0; $i--) {
             $date = now()->subDays($i)->format('Y-m-d');
             $dayName = now()->subDays($i)->format('D');
 
             // Student Attendance
-            $studentPresent = StudentAttendance::whereHas('studentDetail', function ($query) {
-                $query->forOrganization();
-            })
-                ->whereDate('attendance_date', $date)
-                ->where('status', true)
-                ->count();
-
-            $studentAbsent = StudentAttendance::whereHas('studentDetail', function ($query) {
-                $query->forOrganization();
-            })
-                ->whereDate('attendance_date', $date)
-                ->where('status', false)
-                ->count();
+            $studentPresent = $marks['students'][$date][1] ?? 0;
+            $studentAbsent  = $marks['students'][$date][0] ?? 0;
 
             // Teacher Attendance
-            $teacherPresent = TeacherAttendance::whereHas('teacherDetail', function ($query) {
-                $query->forOrganization();
-            })
-                ->whereDate('attendance_date', $date)
-                ->where('status', true)
-                ->count();
+            $teacherPresent = $marks['teachers'][$date][1] ?? 0;
+            $teacherAbsent  = $marks['teachers'][$date][0] ?? 0;
 
-            $teacherAbsent = TeacherAttendance::whereHas('teacherDetail', function ($query) {
-                $query->forOrganization();
-            })
-                ->whereDate('attendance_date', $date)
-                ->where('status', false)
-                ->count();
-
-            // Fee Collected
-            $feeCollected = FeePayment::where('organization_id', FacadesAuth::user()->organization_id)
-                ->whereDate('payment_date', $date)
-                ->sum('amount');
+            // Fee Collected (a day without payments is 0, as sum() gave)
+            $feeCollected = ($marks['fee'][$date] ?? null) ?: 0;
 
             $this->last7DaysData[] = [
                 'date' => $date,

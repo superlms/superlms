@@ -98,6 +98,13 @@
                     // Livewire snapshot/effect attributes differ on every render.
                     Array.prototype.slice.call(el.attributes).forEach(function (a) {
                         if (a.name.indexOf('wire:') === 0) { el.removeAttribute(a.name); }
+                        // Blade's entangle directive writes the component's
+                        // id — new on every render — into Alpine's x-data;
+                        // without this the Content page read as changed on
+                        // every check and refreshed itself every 5 seconds.
+                        else if (a.value.indexOf('Livewire.find(') !== -1) {
+                            a.value = a.value.replace(/Livewire\.find\((['"])[^'"]*\1\)/g, 'Livewire.find()');
+                        }
                     });
                     // Signed/temporary media URLs (e.g. S3) get a fresh signature
                     // per render — compare the path only.
@@ -134,18 +141,35 @@
                     }
                     return r.text();
                 }).then(function (html) {
-                    checking = false;
-                    if (html == null) return;
-                    var fp = fingerprint(normalize(html));
-                    if (lastFingerprint === null) {       // first check = baseline
-                        lastFingerprint = fp;
-                        return;
-                    }
-                    if (fp !== lastFingerprint) {
-                        lastFingerprint = fp;
-                        refreshAll();                     // new data → show it now
-                    }
+                    if (html == null) { checking = false; return; }
+                    whenIdle(function () {
+                        try {
+                            var fp = fingerprint(normalize(html));
+                            if (lastFingerprint === null) {       // first check = baseline
+                                lastFingerprint = fp;
+                                return;
+                            }
+                            if (fp !== lastFingerprint) {
+                                lastFingerprint = fp;
+                                refreshAll();                     // new data → show it now
+                            }
+                        } finally {
+                            checking = false;
+                        }
+                    });
                 }).catch(function () { checking = false; });
+            }
+
+            // Reading a whole page takes a few milliseconds (more on an old
+            // computer), so it waits for a moment the browser has nothing else
+            // to do — at most a second — instead of landing in the middle of
+            // typing or scrolling.
+            function whenIdle(fn) {
+                if (typeof window.requestIdleCallback === 'function') {
+                    window.requestIdleCallback(fn, { timeout: 1000 });
+                } else {
+                    setTimeout(fn, 0);
+                }
             }
 
             function start() {
