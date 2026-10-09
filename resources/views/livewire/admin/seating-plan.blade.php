@@ -108,7 +108,7 @@
 
                     @if ($graphFiltersActive)
                         <button wire:key="sf-clear" wire:click="clearGraphFilters"
-                            class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                            class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             Clear
                         </button>
@@ -141,7 +141,7 @@
 
                     @if ($dsFilterExamId || $dsFilterStandardId || $dsFilterSectionId || $dsFilterSubjectId)
                         <button wire:key="ds-clear" wire:click="clearDatesheetFilters"
-                            class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                            class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             Clear
                         </button>
@@ -289,7 +289,8 @@
                             <tr>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Room</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Desks</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Rows</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Columns</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Per Desk</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Seats</th>
                                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
@@ -305,24 +306,24 @@
                                         <span class="text-sm text-gray-500 font-medium">{{ $index + 1 }}</span>
                                     </td>
 
-                                    {{-- Room (initial + name, building under it) --}}
+                                    {{-- Room (name, building under it) --}}
                                     <td class="px-4 py-3">
-                                        <div class="flex items-center gap-3">
-                                            <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                                                <span class="text-xs font-semibold text-indigo-600">{{ strtoupper(substr($room->room_name ?? 'R', 0, 1)) }}</span>
-                                            </div>
-                                            <div class="min-w-0">
-                                                <p class="text-sm font-semibold text-gray-900 truncate">{{ $room->room_name }}</p>
-                                                @if ($room->building)
-                                                    <p class="text-xs text-gray-400 truncate">{{ $room->building }}</p>
-                                                @endif
-                                            </div>
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-semibold text-gray-900 truncate">{{ $room->room_name }}</p>
+                                            @if ($room->building)
+                                                <p class="text-xs text-gray-400 truncate">{{ $room->building }}</p>
+                                            @endif
                                         </div>
                                     </td>
 
-                                    {{-- Desks --}}
+                                    {{-- Rows --}}
                                     <td class="px-4 py-3">
-                                        <span class="text-sm text-gray-700">{{ $room->rows }}×{{ $room->columns }}</span>
+                                        <span class="text-sm text-gray-700">{{ $room->rows }}</span>
+                                    </td>
+
+                                    {{-- Columns --}}
+                                    <td class="px-4 py-3">
+                                        <span class="text-sm text-gray-700">{{ $room->columns }}</span>
                                     </td>
 
                                     {{-- Per desk --}}
@@ -366,7 +367,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="px-6 py-16 text-center">
+                                    <td colspan="7" class="px-6 py-16 text-center">
                                         <p class="text-base font-semibold text-gray-800">No rooms yet</p>
                                         <p class="text-sm text-gray-400 mt-1">Add a room with rows &amp; columns — seats are auto-generated.</p>
                                     </td>
@@ -651,10 +652,8 @@
                         <input type="checkbox" wire:model="roomForm.is_active" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                         Active (available for seating plans)
                     </label>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Notes</label>
-                        <textarea wire:model="roomForm.notes" rows="2" class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
-                    </div>
+                    {{-- No Notes box: a room's saved notes stay as they are (saveRoom
+                         still writes roomForm.notes, loaded when editing). --}}
                 </div>
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
                     <button wire:click="closeRoomPanel" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
@@ -920,7 +919,6 @@
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div>
                         <h2 class="text-lg font-semibold text-gray-900">Generate Seating Plan</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">Reads the exam datesheet — one plan per exam date/shift is created automatically. Invigilators auto-assigned by date.</p>
                     </div>
                     <button wire:click="closeGeneratePanel"
                         class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">

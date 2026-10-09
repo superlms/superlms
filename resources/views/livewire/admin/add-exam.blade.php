@@ -253,7 +253,7 @@
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Exam</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Dates</th>
-                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Total / Passing</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Passing / Total</th>
                                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
@@ -279,7 +279,7 @@
                                         @if ($exam->uses_grading_system ?? false)
                                             —
                                         @else
-                                            {{ $exam->total_marks ?? '—' }} / {{ $exam->passing_marks ?? '—' }}
+                                            {{ $exam->passing_marks ?? '—' }} / {{ $exam->total_marks ?? '—' }}
                                         @endif
                                     </td>
                                     <td class="px-4 py-3 text-center">
@@ -454,101 +454,16 @@
             </div>
 
         @elseif ($activeTab === 'papers')
-            {{-- ═════ EXAM PAPERS TAB ═════ --}}
-            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="w-full">
-                        <thead class="bg-gray-50 border-b border-gray-200">
-                            <tr>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Title</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Exam</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Class</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Section</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Subject</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Uploaded</th>
-                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            @forelse ($examPapers as $paper)
-                                <tr class="hover:bg-gray-50 transition-colors">
-                                    <td class="px-4 py-3">
-                                        <div class="flex items-center gap-3">
-                                            <div class="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
-                                                <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                                </svg>
-                                            </div>
-                                            <div class="min-w-0">
-                                                <span class="block text-sm font-semibold text-gray-900">{{ $paper->title }}</span>
-                                                @if ($paper->description)
-                                                    <span class="block text-xs text-gray-400 truncate max-w-xs" title="{{ $paper->description }}">
-                                                        {{ \Illuminate\Support\Str::limit($paper->description, 70) }}
-                                                    </span>
-                                                @endif
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-4 py-3 text-sm text-gray-700">{{ $paper->exam->exam_name ?? '—' }}</td>
-                                    <td class="px-4 py-3 text-sm text-gray-700">{{ $paper->standard->name ?? '—' }}</td>
-                                    <td class="px-4 py-3 text-sm text-gray-700">{{ $paper->section->name ?? '—' }}</td>
-                                    <td class="px-4 py-3">
-                                        <span class="text-xs font-medium px-2 py-0.5 rounded
-                                            {{ $paper->subject ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-600' }}">
-                                            {{ $paper->subjectLabel() }}
-                                        </span>
-                                    </td>
-                                    <td class="px-4 py-3 text-xs text-gray-500">{{ $paper->created_at->format('d M Y, g:i A') }}</td>
-                                    <td class="px-4 py-3">
-                                        <div class="flex items-center justify-center gap-1">
-                                            <button wire:click="viewPaper({{ $paper->id }})" title="View"
-                                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                </svg>
-                                            </button>
-                                            <button wire:click="downloadPaper({{ $paper->id }})" title="Download"
-                                                class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                                </svg>
-                                            </button>
-                                            <button wire:click="openEditPaperModal({{ $paper->id }})" title="Edit"
-                                                class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                </svg>
-                                            </button>
-                                            <button wire:click="onDeletePaper({{ $paper->id }})" title="Delete"
-                                                class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="7" class="px-4 py-16 text-center">
-                                        <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
-                                            <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                            </svg>
-                                        </div>
-                                        <p class="text-sm font-semibold text-gray-800">No exam papers uploaded</p>
-                                        <p class="text-xs text-gray-400 mt-1">Pick an exam and a class to add a paper for each subject.</p>
-                                    </td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+            {{-- Exam Papers show only once filtered, as Exam Syllabus does: an
+                 exam and a class bring the class's subjects with their papers. --}}
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm py-16 px-4 text-center">
+                <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
+                    <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
                 </div>
-
-                @if ($examPapers->hasPages())
-                    <div class="px-4 py-3 border-t border-gray-100">{{ $examPapers->links() }}</div>
-                @endif
+                <p class="text-sm font-semibold text-gray-800">{{ $filterPaperExam ? 'Now pick a class' : 'Pick an exam and a class' }}</p>
+                <p class="text-xs text-gray-400 mt-1">Its subjects come up with the papers for the exam.</p>
             </div>
 
         @elseif ($syllabusBoard !== null)

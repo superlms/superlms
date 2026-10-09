@@ -122,7 +122,7 @@
                     {{-- Today is the date's default, so it alone is nothing to clear. --}}
                     @if ($search || $filterTeacher || $filterDate !== $this->todayDate() || $filterStandard || $filterSection || $filterSubject)
                         <button wire:click="clearFilters"
-                            class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50 flex-shrink-0">
+                            class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50 flex-shrink-0">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             Clear
                         </button>
@@ -170,7 +170,7 @@
 
                     @if ($hwStatusDate !== $this->todayDate() || $hwStatusStandard || $hwStatusSection || $hwStatusStudent || $hwStatusSubject)
                         <button wire:click="clearStatusFilters"
-                            class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50 flex-shrink-0">
+                            class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50 flex-shrink-0">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             Clear
                         </button>

@@ -15,7 +15,7 @@ use Tests\TestCase;
 
 /**
  * Exams page: a new exam starts published, the form has no Description, the
- * list reads name over term with Total / Passing in one column, dates on one
+ * list reads name over term with Passing / Total in one column, dates on one
  * line, plain-text status and no Year; Exam Papers with an exam and a class
  * picked list every subject of the class — its paper with View / Download /
  * Edit / Delete, or Add — where Add and Edit take a PDF (up to 2 MB) straight
@@ -121,8 +121,8 @@ class ExamPapersBoardTest extends TestCase
         $html = $page->html();
         $this->assertStringNotContainsString('wire:model.defer="description"', $html);
         $this->assertStringContainsString('Publish immediately', $html);
-        $this->assertStringContainsString('Total / Passing', $html);
-        $this->assertStringContainsString('100 / 33', $html);
+        $this->assertStringContainsString('Passing / Total', $html);
+        $this->assertStringContainsString('33 / 100', $html);                           // passing first, then total
         $this->assertStringNotContainsString('>Year</th>', $html);
         $this->assertStringNotContainsString('Old note', $html);                       // description not under the name
         $this->assertMatchesRegularExpression('/Half Yearly<\/p>\s*(<!--\[if BLOCK\]><!\[endif\]-->)?\s*<p class="text-xs text-gray-400 mt-0.5">Term-1<\/p>/', $html);
@@ -152,9 +152,10 @@ class ExamPapersBoardTest extends TestCase
         $page = Livewire::test(AddExam::class)->call('setTab', 'papers');
         $html = $page->html();
         $this->assertStringNotContainsString('<span class="text-gray-300">→</span>', explode('Syllabus tab', $html)[0]);
-        $this->assertStringContainsString('Hindi Paper', $html);                       // no exam/class: the papers table, as before
+        $this->assertStringNotContainsString('Hindi Paper', $html);                    // no exam/class: nothing listed yet
+        $this->assertStringContainsString('Pick an exam and a class', $html);
+        $this->assertStringContainsString('Now pick a class', $page->set('filterPaperExam', (string) $s['exam'])->html());
         $this->assertStringNotContainsString('wire:click="openPaperModal"', $html);    // no Upload Paper in the header
-        $this->assertMatchesRegularExpression('/wire:click="downloadPaper\(\d+\)" title="Download"\s*class="p-1.5 text-emerald-600/', $html);
 
         $page->set('filterPaperExam', (string) $s['exam'])->set('filterPaperStandard', (string) $s['std'])
             ->set('filterPaperSection', (string) $s['sec']);                            // the class's only section (picked by itself on the page)
@@ -166,6 +167,7 @@ class ExamPapersBoardTest extends TestCase
         $this->assertSame(2, substr_count($html, 'Add Paper'));                        // English and Maths
         $this->assertStringContainsString('wire:click="viewPaper(' . $s['paper'] . ')"', $html);
         $this->assertStringContainsString('wire:click="downloadPaper(' . $s['paper'] . ')"', $html);
+        $this->assertMatchesRegularExpression('/wire:click="downloadPaper\(\d+\)" title="Download"\s*class="p-1.5 text-emerald-600/', $html);
         $this->assertStringContainsString('x-on:click="pick(\'edit:' . $s['paper'] . '\')"', $html);          // Edit = the file picker
         $this->assertStringContainsString('x-on:click="pick(\'add:' . $s['subs']['Maths'] . '\')"', $html);   // Add = the file picker
         $this->assertStringContainsString('wire:click="onDeletePaper(' . $s['paper'] . ')"', $html);
