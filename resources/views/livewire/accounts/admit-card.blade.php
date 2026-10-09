@@ -100,100 +100,130 @@
                 <p class="text-sm text-gray-400 mt-1">Pick an <strong>Exam</strong> and a <strong>Class</strong> in the filter above to list students and their admit-card status.</p>
             </div>
         @else
-            {{-- Legend --}}
-            <div class="flex flex-wrap items-center gap-4 mb-3 text-xs text-gray-500">
-                <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-emerald-400"></span> Issued</span>
-                <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-amber-300"></span> Not issued</span>
-                <span class="ml-auto">Showing <strong class="text-gray-700">{{ $students->total() }}</strong> student(s) on this page-set</span>
-            </div>
+            <p class="text-xs text-gray-500 mb-3">Showing <strong class="text-gray-700">{{ $students->total() }}</strong> student(s)</p>
 
-            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            {{-- In the Students list's look: S.No, photo + name over the father's name,
+                 class as "Nursery-A", plain-text status and icon actions. "Issued on"
+                 is what the card was issued on — the student's fee paid % for a fee
+                 rule, attendance % for an attendance rule, both when it went to
+                 everyone (or by hand, or before this was kept). --}}
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full">
                         <thead class="bg-gray-50 border-b border-gray-200">
                             <tr>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Roll</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Student</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Class / Section</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Card No.</th>
-                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Class</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Issued on</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
-                            @forelse($students as $student)
-                                @php $card = $issued[$student->id] ?? null; @endphp
-                                <tr wire:key="stu-{{ $student->id }}"
-                                    class="transition-colors {{ $card ? 'bg-emerald-50/40 hover:bg-emerald-50' : 'bg-amber-50/40 hover:bg-amber-50' }}">
-                                    <td class="px-4 py-3 text-sm text-gray-600 tabular-nums">{{ $student->roll_no ?: '—' }}</td>
+                            @forelse($students as $index => $student)
+                                @php
+                                    $card     = $issued[$student->id] ?? null;
+                                    $inactive = $card && $card->status === 'inactive';
+                                    $fig      = $figures[$student->id] ?? ['fee' => null, 'attendance' => null];
+                                    $feePct   = $fig['fee'] === null ? '—' : $fig['fee'] . '%';
+                                    $attPct   = $fig['attendance'] === null ? '—' : $fig['attendance'] . '%';
+                                @endphp
+                                <tr wire:key="stu-{{ $student->id }}" class="hover:bg-gray-50/70 transition-colors">
+                                    {{-- S.No --}}
+                                    <td class="px-4 py-3">
+                                        <span class="text-sm text-gray-500 font-medium">{{ $students->firstItem() + $index }}</span>
+                                    </td>
+
+                                    {{-- Student (photo + name, father's name under it) --}}
                                     <td class="px-4 py-3">
                                         <div class="flex items-center gap-3">
-                                            @if($student->image)
-                                                <img src="{{ Storage::url($student->image) }}" class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                                            @if ($student->image)
+                                                <img src="{{ Storage::url($student->image) }}" alt=""
+                                                    class="w-9 h-9 rounded-full object-cover object-top border border-gray-200 flex-shrink-0">
                                             @else
-                                                <div class="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                                    <span class="text-blue-700 font-bold text-sm">{{ substr($student->full_name, 0, 1) }}</span>
+                                                <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                    <span class="text-xs font-semibold text-indigo-600">{{ strtoupper(substr($student->full_name ?? 'S', 0, 1)) }}</span>
                                                 </div>
                                             @endif
-                                            <div>
-                                                <p class="font-semibold text-sm text-gray-900">{{ $student->full_name }}</p>
-                                                <p class="text-xs text-gray-400">{{ $student->admission_no ?? '—' }}</p>
+                                            <div class="min-w-0">
+                                                <p class="text-sm font-semibold text-gray-900 truncate">{{ $student->full_name ?? '—' }}</p>
+                                                <p class="text-xs text-gray-400 truncate">{{ $student->father_name ?? '' }}</p>
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-gray-600">
-                                        {{ $student->standard?->name ?? '—' }}@if($student->section?->name) / {{ $student->section->name }} @endif
-                                    </td>
+
+                                    {{-- Class / Section: the class, then the section's last letter (Nursery-A) --}}
                                     <td class="px-4 py-3">
-                                        @if($card)
-                                            <p class="font-mono text-xs text-gray-800 font-medium">{{ $card->admit_card_number }}</p>
-                                        @else
-                                            <span class="text-xs text-gray-400">—</span>
+                                        @if ($student->standard)
+                                            @php $secLetter = mb_strtoupper(mb_substr(trim((string) $student->section?->name), -1)); @endphp
+                                            <span class="text-sm text-gray-700 whitespace-nowrap">{{ $student->standard->name }}{{ $secLetter !== '' ? '-' . $secLetter : '' }}</span>
                                         @endif
                                     </td>
-                                    <td class="px-4 py-3 text-center">
-                                        @if($card)
-                                            <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-emerald-100 text-emerald-700">Issued</span>
-                                            {{-- Whether this one has already come out of the printer --}}
-                                            @if($card->printed_at)
-                                                <span class="block mt-1 text-[10px] text-gray-400" title="{{ $card->printed_at->format('d M Y, g:i A') }}">Printed</span>
-                                            @else
-                                                <span class="block mt-1 text-[10px] text-amber-600">Not printed</span>
-                                            @endif
+
+                                    {{-- Issued on --}}
+                                    <td class="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
+                                        @if (!$card)
+                                            <span class="text-gray-400">—</span>
+                                        @elseif ($card->issue_criteria === 'fee')
+                                            Fee {{ $feePct }}
+                                        @elseif ($card->issue_criteria === 'attendance')
+                                            Attendance {{ $attPct }}
                                         @else
-                                            <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-amber-100 text-amber-700">Not Issued</span>
+                                            Fee {{ $feePct }} / Attendance {{ $attPct }}
                                         @endif
                                     </td>
+
+                                    {{-- Status, as plain text --}}
+                                    <td class="px-4 py-3">
+                                        @if ($card)
+                                            <p class="text-sm {{ $inactive ? 'text-red-600' : 'text-emerald-600' }}">{{ $inactive ? 'Inactive' : 'Issued' }}</p>
+                                            <p class="text-xs text-gray-400" @if($card->printed_at) title="{{ $card->printed_at->format('d M Y, g:i A') }}" @endif>{{ $card->printed_at ? 'Printed' : 'Not printed' }}</p>
+                                        @else
+                                            <p class="text-sm text-amber-600">Not issued</p>
+                                        @endif
+                                    </td>
+
+                                    {{-- Actions (status dot shown inline, as in Students) --}}
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-center gap-1">
-                                            @if($card)
-                                                <a href="{{ route('accounts.admit-card.view', ['organization' => auth()->user()->organization_id, 'id' => $card->id]) }}"
-                                                    class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200" title="View / Print">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                                </a>
-                                                <a href="{{ route('accounts.admit-card.download', ['organization' => auth()->user()->organization_id, 'id' => $card->id]) }}"
-                                                    class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200" title="Download PDF">
+                                            @if ($card)
+                                                <span class="w-2 h-2 rounded-full flex-shrink-0 mr-1 {{ $inactive ? 'bg-red-500' : 'bg-green-500' }}"
+                                                    title="{{ $inactive ? 'Inactive' : 'Active' }}"></span>
+                                                <button wire:click="viewCard({{ $card->id }})" title="View"
+                                                    class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                                </button>
+                                                <a href="{{ route('accounts.admit-card.download', ['organization' => auth()->user()->organization_id, 'id' => $card->id]) }}" title="Download PDF"
+                                                    class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                                                 </a>
-                                                <button wire:click="printOne({{ $card->id }})" wire:loading.attr="disabled" wire:target="printOne({{ $card->id }})"
-                                                    class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 disabled:opacity-60" title="Print this card">
+                                                <button wire:click="printOne({{ $card->id }})" wire:loading.attr="disabled" wire:target="printOne({{ $card->id }})" title="Print this card"
+                                                    class="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-60">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                                                 </button>
-                                                @if($card->printed_at)
-                                                    <button wire:click="markUnprinted({{ $card->id }})"
-                                                        class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200" title="Queue for the next print run">
+                                                @if ($card->printed_at)
+                                                    <button wire:click="markUnprinted({{ $card->id }})" title="Queue for the next print run"
+                                                        class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
                                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                                                     </button>
                                                 @endif
-                                                <button wire:click="confirmDelete({{ $card->id }})"
-                                                    class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200" title="Delete">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                                </button>
+                                                {{-- In Delete's place: inactive (kept, hidden from the student) / active again --}}
+                                                @if ($inactive)
+                                                    <button wire:click="toggleCardStatus({{ $card->id }})" title="Make active"
+                                                        class="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                    </button>
+                                                @else
+                                                    <button wire:click="toggleCardStatus({{ $card->id }})" title="Make inactive"
+                                                        class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                                                    </button>
+                                                @endif
                                             @else
-                                                <button wire:click="issueOne({{ $student->id }})" wire:loading.attr="disabled" wire:target="issueOne({{ $student->id }})"
-                                                    class="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-md shadow-sm transition disabled:opacity-60">
-                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                                                    Issue
+                                                <button wire:click="issueOne({{ $student->id }})" wire:loading.attr="disabled" wire:target="issueOne({{ $student->id }})" title="Issue admit card"
+                                                    class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-60">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                                 </button>
                                             @endif
                                         </div>
@@ -425,6 +455,46 @@
     </div>
     @endif
 
+
+    {{-- ══════════════ VIEW — the card's PDF in a slide-in panel, as the TC page shows one ══════════════ --}}
+    @if ($viewingCard)
+        @php
+            $vcArgs = ['organization' => auth()->user()->organization_id, 'id' => $viewingCard->id];
+            $vcSec  = mb_strtoupper(mb_substr(trim((string) $viewingCard->section?->name), -1));
+        @endphp
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeView"></div>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col" wire:click.stop>
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $viewingCard->student_name ?: 'Admit Card' }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5 truncate">
+                            Admit Card · {{ $viewingCard->exam_name }}{{ $viewingCard->standard?->name ? ' · ' . $viewingCard->standard->name . ($vcSec !== '' ? '-' . $vcSec : '') : '' }}
+                        </p>
+                    </div>
+                    <button wire:click="closeView" type="button"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-hidden bg-gray-100">
+                    <iframe src="{{ route('accounts.admit-card.pdf', $vcArgs) }}#toolbar=0&amp;navpanes=0&amp;view=FitH"
+                        class="w-full h-full border-0" title="Admit Card"></iframe>
+                </div>
+
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
+                    <a href="{{ route('accounts.admit-card.download', $vcArgs) }}"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md inline-flex items-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                        Download PDF
+                    </a>
+                    <button type="button" wire:click="closeView"
+                        class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
+                </div>
+            </div>
+        </div>
+    @endif
 
     {{-- ══════════════════════════ DELETE CONFIRM ══════════════════════════ --}}
     @if($showDeleteModal)

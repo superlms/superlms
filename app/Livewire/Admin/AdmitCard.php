@@ -74,6 +74,9 @@ class AdmitCard extends Component
     public bool  $showDeleteModal  = false;
     public ?int  $pendingDeleteId  = null;
 
+    // ─── View: the card's PDF in a slide-in panel, as the TC page shows one ─────
+    public ?int  $viewCardId = null;
+
     private function orgId(): int
     {
         return Auth::user()->organization_id;
@@ -157,7 +160,7 @@ class AdmitCard extends Component
 
             $generated = 0;
             foreach ($eligible as $student) {
-                if ($this->createCardFor($student, $exam)) {
+                if ($this->createCardFor($student, $exam, $this->genCriteria)) {
                     $generated++;
                 }
             }
@@ -185,7 +188,7 @@ class AdmitCard extends Component
             $exam    = Exam::where('organization_id', $this->orgId())->findOrFail($this->examFilter);
             $student = StudentDetail::where('organization_id', $this->orgId())->findOrFail($studentId);
 
-            if ($this->createCardFor($student, $exam)) {
+            if ($this->createCardFor($student, $exam, 'none')) {
                 $this->notification()->success('Issued!', "Admit card issued for {$student->full_name}.");
             } else {
                 $this->notification()->info('Already issued', 'This student already has an admit card for this exam.');
@@ -199,7 +202,7 @@ class AdmitCard extends Component
      * Create one admit card, pulling the subject schedule from the exam datesheet.
      * Seat / room are resolved live from the seating plan at print time.
      */
-    private function createCardFor(StudentDetail $student, Exam $exam): bool
+    private function createCardFor(StudentDetail $student, Exam $exam, ?string $criteria = null): bool
     {
         if (ModelAdmitCard::where('student_detail_id', $student->id)->where('exam_id', $exam->id)->exists()) {
             return false;
@@ -228,6 +231,8 @@ class AdmitCard extends Component
             'prohibited_items'    => [],
             'subjects'            => $subjects,
             'status'              => 'active',
+            // What it was issued on — the listing shows that figure for the student.
+            'issue_criteria'      => in_array($criteria, ['fee', 'attendance', 'none'], true) ? $criteria : null,
             'issue_date'          => now(),
             'created_by'          => Auth::id(),
         ]);
@@ -443,6 +448,93 @@ class AdmitCard extends Component
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    //  VIEW + ACTIVE / INACTIVE (the listing's actions)
+    // ═══════════════════════════════════════════════════════════════════════════
+    public function viewCard(int $id): void
+    {
+        $this->viewCardId = ModelAdmitCard::where('organization_id', $this->orgId())->whereKey($id)->exists() ? $id : null;
+    }
+
+    public function closeView(): void
+    {
+        $this->viewCardId = null;
+    }
+
+    /**
+     * In the list's Delete place: an inactive card is kept, but the student no
+     * longer sees it in the app (that reads only active cards); a click brings
+     * it back.
+     */
+    public function toggleCardStatus(int $id): void
+    {
+        $card = ModelAdmitCard::where('organization_id', $this->orgId())->find($id);
+        if (!$card) {
+            $this->notification()->error('Not found', 'That admit card no longer exists.');
+            return;
+        }
+
+        $card->update(['status' => $card->status === 'inactive' ? 'active' : 'inactive']);
+        $card->status === 'inactive'
+            ? $this->notification()->success('Made inactive', "{$card->student_name}'s admit card is kept, but hidden from the student.")
+            : $this->notification()->success('Active again', "{$card->student_name}'s admit card is back with the student.");
+    }
+
+    /**
+     * Each listed student's fee paid % and attendance % — what a card can be
+     * issued on — worked out as the criteria check works them out (attendance:
+     * present of every marked day; fee: paid of the class's active academic
+     * fees, transport too when they take it, and their own rows).
+     *
+     * @return array<int, array{fee:?int, attendance:?int}>  keyed by student_detail_id
+     */
+    private function criteriaFigures($students): array
+    {
+        $list = collect($students);
+        if ($list->isEmpty()) {
+            return [];
+        }
+
+        $orgId = $this->orgId();
+        $ids   = $list->pluck('id')->all();
+
+        $attendance = StudentAttendance::whereIn('student_detail_id', $ids)
+            ->selectRaw('student_detail_id, COUNT(*) AS total, SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) AS present')
+            ->groupBy('student_detail_id')
+            ->get()->keyBy('student_detail_id');
+
+        $paid = FeePayment::where('organization_id', $orgId)
+            ->whereIn('student_detail_id', $ids)
+            ->selectRaw('student_detail_id, SUM(amount) AS paid')
+            ->groupBy('student_detail_id')
+            ->pluck('paid', 'student_detail_id');
+
+        $own       = FeeStructure::ownRows($orgId, $ids, null)->groupBy('student_detail_id');
+        $classRows = [];
+        $figures   = [];
+
+        foreach ($list as $student) {
+            $key = $student->standard_id . '|' . ($student->section_id ?? '');
+            $classRows[$key] ??= FeeStructure::where('organization_id', $orgId)
+                ->where('is_active', true)
+                ->where('standard_id', $student->standard_id)
+                ->where(fn ($q) => $q->whereNull('section_id')->orWhere('section_id', $student->section_id))
+                ->get();
+
+            $rows  = $classRows[$key]->concat($own->get($student->id, collect()));
+            $total = $rows->where('fee_type', 'academic')->sum('amount')
+                + ($student->transportation_required ? $rows->where('fee_type', 'transport')->sum('amount') : 0);
+            $att   = $attendance->get($student->id);
+
+            $figures[$student->id] = [
+                'fee'        => $total > 0 ? (int) round(min(100, (float) ($paid[$student->id] ?? 0) / $total * 100)) : null,
+                'attendance' => ($att && (int) $att->total > 0) ? (int) round((int) $att->present / (int) $att->total * 100) : null,
+            ];
+        }
+
+        return $figures;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     //  DELETE
     // ═══════════════════════════════════════════════════════════════════════════
     public function confirmDelete(int $id): void
@@ -582,7 +674,7 @@ class AdmitCard extends Component
         $issued    = collect();
 
         if ($ready) {
-            $students = StudentDetail::with(['standard:id,name', 'section:id,name'])
+            $students = StudentDetail::with(['standard:id,name', 'section:id,name', 'user'])
                 ->where('organization_id', $this->orgId())
                 ->where('standard_id', $this->standardFilter)
                 ->when($this->sectionFilter, fn ($q) => $q->where('section_id', $this->sectionFilter))
@@ -605,10 +697,18 @@ class AdmitCard extends Component
         }
 
         return view('livewire.admin.admit-card', [
-            'students' => $students,
-            'issued'   => $issued,
-            'ready'    => $ready,
-            'org'      => $org,
+            'students'    => $students,
+            'issued'      => $issued,
+            'ready'       => $ready,
+            'org'         => $org,
+            // Fee % and attendance % for the issued ones on this page (the "Issued on" column).
+            'figures'     => $students
+                ? $this->criteriaFigures(collect($students->items())->filter(fn ($s) => isset($issued[$s->id])))
+                : [],
+            'viewingCard' => $this->viewCardId
+                ? ModelAdmitCard::with(['standard:id,name', 'section:id,name'])
+                    ->where('organization_id', $this->orgId())->find($this->viewCardId)
+                : null,
         ]);
     }
 }

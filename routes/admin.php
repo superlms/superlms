@@ -223,6 +223,8 @@ Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
             ->name('admin.admit-card.view');
         Route::get('/admit-card/{id}/download', [\App\Http\Controllers\Admin\AdmitCardController::class, 'download'])
             ->name('admin.admit-card.download');
+        Route::get('/admit-card/{id}/pdf', [\App\Http\Controllers\Admin\AdmitCardController::class, 'pdf'])
+            ->name('admin.admit-card.pdf');
         Route::get('/admit-card/print-all', [\App\Http\Controllers\Admin\AdmitCardController::class, 'printAll'])
             ->name('admin.admit-card.print-all');
         Route::post('/admit-card/{id}/delete', [\App\Http\Controllers\Admin\AdmitCardController::class, 'destroy'])

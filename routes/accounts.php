@@ -88,6 +88,7 @@ Route::prefix('accounts')->group(function () {
             Route::get('/admit-card', AdmitCard::class)->name('accounts.admit-card');
             Route::get('/admit-card/{id}/view', [\App\Http\Controllers\Admin\AdmitCardController::class, 'view'])->name('accounts.admit-card.view');
             Route::get('/admit-card/{id}/download', [\App\Http\Controllers\Admin\AdmitCardController::class, 'download'])->name('accounts.admit-card.download');
+            Route::get('/admit-card/{id}/pdf', [\App\Http\Controllers\Admin\AdmitCardController::class, 'pdf'])->name('accounts.admit-card.pdf');
             Route::get('/admit-card/print-all', [\App\Http\Controllers\Admin\AdmitCardController::class, 'printAll'])->name('accounts.admit-card.print-all');
             Route::get('/report-card', ReportCard::class)->name('accounts.report-card');
             Route::get('/report-card/{id}/download', [\App\Http\Controllers\Admin\ReportCardController::class, 'download'])->name('accounts.report-card.download');

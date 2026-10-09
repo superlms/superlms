@@ -34,6 +34,25 @@ class AdmitCardController extends Controller
 
     public function download(Request $request, $organization, $id)
     {
+        [$pdf, $name] = $this->cardPdf($id);
+
+        return $pdf->download("admit_card_{$name}.pdf");
+    }
+
+    /**
+     * The same PDF, streamed inline — the listing's View shows it in a panel,
+     * as the TC page does, rather than opening a page of its own.
+     */
+    public function pdf(Request $request, $organization, $id)
+    {
+        [$pdf, $name] = $this->cardPdf($id);
+
+        return $pdf->stream("admit_card_{$name}.pdf");
+    }
+
+    /** @return array{0:\Barryvdh\DomPDF\PDF,1:string} the card's A4 PDF and a file-name stem */
+    private function cardPdf($id): array
+    {
         $admitCard = $this->getAdmitCard($id);
         $this->attachSeating(collect([$admitCard]));
 
@@ -63,7 +82,7 @@ class AdmitCardController extends Controller
 
         $name = str_replace(' ', '_', $admitCard->student_name ?? 'admit_card');
 
-        return $pdf->download("admit_card_{$name}.pdf");
+        return [$pdf, $name];
     }
 
     public function printAll(Request $request, $organization)

@@ -41,6 +41,7 @@ class AdmitCard extends Model
         'updated_by',
         'subjects',
         'printed_at',
+        'issue_criteria',
     ];
 
     protected $casts = [
