@@ -334,6 +334,9 @@ trait HandlesStudentFeeView
             'rows'       => $rows->map(fn ($r) => [
                 'fee_name' => $r->fee_name,
                 'amount'   => (float) $r->amount,
+                // The student's own row (Last Year Dues, an earlier year's fee):
+                // the ledger lists these apart, under the class's own heads.
+                'is_dues'  => !empty($r->student_detail_id),
             ])->all(),
             'gross'      => round($gross, 2),
             'concession' => round($taken, 2),

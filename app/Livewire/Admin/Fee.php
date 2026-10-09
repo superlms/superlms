@@ -25,7 +25,19 @@ use WireUi\Traits\WireUiActions;
 
 class Fee extends Component
 {
-    use WireUiActions, WithPagination, HandlesFeeCycles, HandlesFeeConcessions, HandlesStudentFeeView, HandlesViewFee, HandlesFeeSubmission, HandlesPenalties, HandlesPayments, HandlesFeeAnalytics;
+    use WireUiActions, WithPagination, HandlesFeeCycles, HandlesFeeConcessions, HandlesStudentFeeView, HandlesPenalties, HandlesPayments, HandlesFeeAnalytics;
+    // View Fee and Fee Submission are one tab here ("View & Submit Fee"): the
+    // ledger on screen is View Fee's, and Submit Fee in the header collects for
+    // the same student. These few are wrapped below to keep the two in step;
+    // the traits themselves (shared with the accounts pages) are unchanged.
+    use HandlesViewFee {
+        updatedViewStudentId as protected viewFeeUpdatedStudentId;
+        viewStudentFromClass as protected viewFeeStudentFromClass;
+    }
+    use HandlesFeeSubmission {
+        updatedSelectedStudentId as protected submissionUpdatedStudentId;
+        openPaymentDateEdit as protected submissionOpenPaymentDateEdit;
+    }
 
     public string $activeTab = ''; // '' = card menu (landing); otherwise the open tab
 
@@ -65,6 +77,9 @@ class Fee extends Component
     public string $acctStatus = '';
 
     // ─── QR Payments (nested component — filters proxied via events) ───────────
+    // One card with two tabs: 'payments' (what students reported, checked here)
+    // and 'qr' (the school's own QR and UPI ID — the Payment QR component).
+    public string $qrSubTab  = 'payments';
     public string $qrStatus  = FeePaymentRequest::STATUS_PENDING;
     public string $qrFeeType = '';
     public string $qrSearch  = '';
@@ -80,6 +95,7 @@ class Fee extends Component
     protected $queryString = [
         'activeTab'  => ['except' => ''],
         'search'     => ['except' => ''],
+        'qrSubTab'   => ['except' => 'payments'],
     ];
 
     public function mount(): void
@@ -88,6 +104,14 @@ class Fee extends Component
             ->where('is_active', true)->inClassOrder()->get();
         $this->submitDate = today()->toDateString();
         $this->initPaymentFilters();
+
+        // Old links to the two tabs that were merged land on the merged ones.
+        if ($this->activeTab === 'fee_submission') {
+            $this->activeTab = 'view_fee';
+        } elseif ($this->activeTab === 'payment_qr') {
+            $this->activeTab = 'qr_payments';
+            $this->qrSubTab  = 'qr';
+        }
 
         // Deep links (?activeTab=analytics) skip showTab(), so seed it here too.
         if ($this->activeTab === 'analytics') {
@@ -172,6 +196,14 @@ class Fee extends Component
 
     public function showTab(string $tab): void
     {
+        // Fee Submission is part of View Fee now, Payment QR part of QR Payments.
+        $qrSub = $tab === 'payment_qr' ? 'qr' : 'payments';
+        $tab   = match ($tab) {
+            'fee_submission' => 'view_fee',
+            'payment_qr'     => 'qr_payments',
+            default          => $tab,
+        };
+        $this->qrSubTab  = $qrSub;
         $this->activeTab = $tab;
         $this->resetPage();
         $this->search = '';
@@ -187,6 +219,91 @@ class Fee extends Component
     }
 
     // ─── Concession (per-student fee discount) + view — see HandlesFeeConcessions
+
+    // ─── QR Payments | Payment QR ──────────────────────────────────────────────
+    public function setQrSubTab(string $tab): void
+    {
+        $this->qrSubTab = $tab === 'qr' ? 'qr' : 'payments';
+        $this->resetQrFilters();
+    }
+
+    // ─── View & Submit Fee (View Fee and Fee Submission in one tab) ────────────
+
+    /** The student whose ledger the tab shows — picked by student, or opened from the class list. */
+    public function feeTabStudentId(): ?int
+    {
+        if ($this->viewSubTab === 'by_student') {
+            return $this->viewStudentId ? (int) $this->viewStudentId : null;
+        }
+
+        return $this->classViewStudentId ? (int) $this->classViewStudentId : null;
+    }
+
+    /** Picking a student shows the ledger and readies Submit Fee for them. */
+    public function updatedViewStudentId(): void
+    {
+        $this->viewFeeUpdatedStudentId();
+        $this->readySubmitFor($this->viewStudentId ? (int) $this->viewStudentId : null);
+    }
+
+    public function viewStudentFromClass(int $studentId): void
+    {
+        $this->viewFeeStudentFromClass($studentId);
+        $this->readySubmitFor($studentId);
+    }
+
+    private function readySubmitFor(?int $studentId): void
+    {
+        $this->selectedStudentId = $studentId ? (string) $studentId : '';
+        $this->submissionUpdatedStudentId();
+    }
+
+    /** The header's Submit Fee: the Collect Fee panel, for the student on screen. */
+    public function openFeeSubmit(): void
+    {
+        $id = $this->feeTabStudentId();
+        if (!$id) {
+            $this->notification()->error('Select a student first.');
+            return;
+        }
+        if ((int) $this->selectedStudentId !== $id || empty($this->submissionLedger)) {
+            $this->readySubmitFor($id);
+        }
+        $this->openSubmitPanel();
+    }
+
+    /** A payment's date, corrected from the merged tab's ledger. */
+    public function openPaymentDateEdit(string $kind, $id): void
+    {
+        if ($this->activeTab === 'view_fee' && ($sid = $this->feeTabStudentId()) && (int) $this->selectedStudentId !== $sid) {
+            $this->readySubmitFor($sid);
+        }
+        $this->submissionOpenPaymentDateEdit($kind, $id);
+    }
+
+    /**
+     * After a payment or a date fix the submission side reloads; the merged
+     * tab shows the same ledger (and, by class, the list's figures), so both
+     * follow.
+     */
+    public function updatedSelectedStudentId(): void
+    {
+        $this->submissionUpdatedStudentId();
+
+        if ($this->activeTab !== 'view_fee' || !$this->selectedStudentId
+            || (int) $this->selectedStudentId !== $this->feeTabStudentId()) {
+            return;
+        }
+
+        if ($this->viewSubTab === 'by_student') {
+            $this->studentFeeView = $this->submissionLedger;
+        } else {
+            $open = $this->classViewStudentId;
+            $this->loadClassFeeView();
+            $this->classViewStudentId  = $open;
+            $this->classStudentFeeView = $this->submissionLedger;
+        }
+    }
 
     // ─── Fee Structure ─────────────────────────────────────────────────────────
 
@@ -337,7 +454,8 @@ class Fee extends Component
         }
 
         if ($this->activeTab === 'view_fee') {
-            $data = array_merge($data, $this->viewFeeViewData());
+            // …and Collect Fee's (the caps under Amount, the earliest date).
+            $data = array_merge($data, $this->viewFeeViewData(), $this->feeSubmissionViewData());
         }
 
         if ($this->activeTab === 'penalties') {
@@ -355,7 +473,10 @@ class Fee extends Component
                 ->count();
         }
 
-        if ($this->activeTab === 'qr_payments') {
+        if ($this->activeTab === 'qr_payments' && $this->qrSubTab === 'qr') {
+            // The header's button reads Add or Edit.
+            $data['qrExists'] = PaymentQrCode::where('organization_id', $orgId)->exists();
+        } elseif ($this->activeTab === 'qr_payments') {
             // What the header counts — the chosen day, or everything.
             $qrBase = fn () => FeePaymentRequest::where('organization_id', $orgId)
                 ->when($this->qrDate !== '', fn ($q) => $q->whereDate('paid_on', $this->qrDate));

@@ -8,15 +8,15 @@
     @php
         $feeTabs = [
             'fee_structure'  => ['Fee Structure',  'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4', 'Class-wise fee heads & amounts', 'blue'],
-            'fee_submission' => ['Fee Submission', 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z', 'Collect & record student fees', 'emerald'],
-            'view_fee'       => ['View Fee',        'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', "A student's full fee ledger", 'indigo'],
+            // View Fee and Fee Submission are one tab: the ledger, with Submit Fee in the header.
+            'view_fee'       => ['View & Submit Fee', 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', "A student's fee ledger — collect fee from it", 'indigo'],
             'analytics'      => ['Analytics',       'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', 'Collections & dues overview', 'rose'],
             'payments'       => ['Payments',        'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z', 'All recorded fee payments', 'cyan'],
             'penalties'      => ['Penalties',       'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z', 'Late-fee penalties', 'amber'],
             'cycle'          => ['Fee Cycle',       'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15', 'Installments & due dates', 'purple'],
             'concession'     => ['Concession',      'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z', 'Discounts & waivers', 'teal'],
-            'payment_qr'     => ['Payment QR',      'M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5zM13.5 14.25h2.25v2.25H13.5v-2.25zm4.5 0h2.25v2.25H18v-2.25zm-4.5 4.5h2.25V21H13.5v-2.25zm4.5 0h2.25V21H18v-2.25z', 'Your UPI QR for fees in the app', 'indigo'],
-            'qr_payments'    => ['QR Payments',     'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z', 'Check UTRs & screenshots, approve', 'emerald'],
+            // QR Payments carries Payment QR as its second tab (QR + UPI ID).
+            'qr_payments'    => ['QR Payments',     'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z', 'Check payments · your QR & UPI ID', 'emerald'],
             'account_users'  => ['Accounts user',   'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', 'Cashier / account logins', 'orange'],
         ];
         $feeColorMap = [
@@ -58,13 +58,17 @@
                         <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-1">
                             <span>Net Payable: <strong class="text-blue-600">₹{{ number_format($netPayable, 0) }}</strong></span>
                         </div>
+                    @elseif ($activeTab === 'view_fee' && $this->feeTabStudentId() && (int) $selectedStudentId === $this->feeTabStudentId())
+                        <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-1">
+                            <span>Net Payable: <strong class="text-blue-600">₹{{ number_format($netPayable, 0) }}</strong></span>
+                        </div>
                     @elseif ($activeTab === 'account_users')
                         <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-1 divide-x divide-gray-200">
                             <span class="pr-4">Total: <strong class="text-gray-800">{{ $acctTotal ?? 0 }}</strong></span>
                             <span class="px-4">Active: <strong class="text-emerald-600">{{ $acctActive ?? 0 }}</strong></span>
                             <span class="pl-4">Inactive: <strong class="text-rose-500">{{ $acctInactive ?? 0 }}</strong></span>
                         </div>
-                    @elseif ($activeTab === 'qr_payments')
+                    @elseif ($activeTab === 'qr_payments' && $qrSubTab === 'payments')
                         <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-1 divide-x divide-gray-200">
                             <span class="pr-4">
                                 @if ($qrDate !== '')
@@ -88,6 +92,29 @@
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
                             <span class="hidden sm:inline">Update Fee</span>
                             <span class="sm:hidden">Update</span>
+                        </button>
+                    @elseif ($activeTab === 'view_fee')
+                        {{-- Submit Fee — the Collect Fee panel, for the student whose ledger is open --}}
+                        <button wire:click="openFeeSubmit" @disabled(!$this->feeTabStudentId())
+                            title="{{ $this->feeTabStudentId() ? 'Collect fee from this student' : 'Pick a student first' }}"
+                            class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                            <span class="hidden sm:inline">Submit Fee</span>
+                            <span class="sm:hidden">Submit</span>
+                        </button>
+                    @elseif ($activeTab === 'qr_payments' && $qrSubTab === 'qr')
+                        {{-- The QR component owns the slide-in panel; the button lives here. --}}
+                        <button wire:click="$dispatchTo('admin.payment-qr', 'payment-qr-add')"
+                            class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
+                            @if ($qrExists ?? false)
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                <span class="hidden sm:inline">Edit QR</span>
+                                <span class="sm:hidden">Edit</span>
+                            @else
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                                <span class="hidden sm:inline">Add QR</span>
+                                <span class="sm:hidden">Add</span>
+                            @endif
                         </button>
                     @elseif ($activeTab === 'fee_structure')
                         {{-- Add Dues — each student's Last Year Dues; the embedded component owns its panel too. --}}
@@ -229,6 +256,16 @@
         @elseif ($activeTab === 'penalties')
             @include('livewire.partials.penalties-header')
         @elseif ($activeTab === 'qr_payments')
+            {{-- Two tabs: what students reported, and the school's own QR / UPI ID --}}
+            <div class="border-t border-gray-200 px-4 sm:px-6">
+                <div class="flex gap-1">
+                    @foreach (['payments' => 'QR Payments', 'qr' => 'Payment QR'] as $sub => $subLabel)
+                        <button wire:key="qr-sub-{{ $sub }}" wire:click="setQrSubTab('{{ $sub }}')"
+                            class="px-4 py-3 text-sm font-medium border-b-2 transition-colors {{ $qrSubTab === $sub ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">{{ $subLabel }}</button>
+                    @endforeach
+                </div>
+            </div>
+            @if ($qrSubTab === 'payments')
             <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
                 <div class="flex flex-wrap items-center gap-3">
                     <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
@@ -275,6 +312,7 @@
                     <span>Rejected: <strong class="text-rose-500">{{ $qrStats['rejected'] ?? 0 }}</strong></span>
                 </div>
             </div>
+            @endif
         @endif
     </div>
 
@@ -310,10 +348,18 @@
     @if ($activeTab === 'view_fee')
         <div class="space-y-4">
             @include('livewire.partials.view-fee-panel', [
-                'feePrefix' => 'admin',
-                'feeOrg'    => auth()->user()->organization_id,
+                'feePrefix'    => 'admin',
+                'feeOrg'       => auth()->user()->organization_id,
+                // Fee Submission's own: a payment's date can be corrected here.
+                'feeEditDates' => true,
             ])
         </div>
+        {{-- …and its Collect Fee panel and date popup (Submit Fee in the header opens it). --}}
+        @include('livewire.partials.fee-submission-panel', [
+            'feePrefix'  => 'admin',
+            'feeOrg'     => auth()->user()->organization_id,
+            'panelsOnly' => true,
+        ])
     @endif
 
     {{-- ════════════════════════════════════════════════════════════════ --}}
@@ -363,7 +409,11 @@
     {{-- TAB: QR PAYMENTS (reported from the app, checked here)          --}}
     {{-- ════════════════════════════════════════════════════════════════ --}}
     @if ($activeTab === 'qr_payments')
-        @livewire('admin.qr-payments')
+        @if ($qrSubTab === 'qr')
+            @livewire('admin.payment-qr', key('fee-qr-code'))
+        @else
+            @livewire('admin.qr-payments', key('fee-qr-payments'))
+        @endif
     @endif
 
     {{-- ════════════════════════════════════════════════════════════════ --}}

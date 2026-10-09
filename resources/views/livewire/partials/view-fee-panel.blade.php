@@ -16,6 +16,8 @@
             'sv'        => $studentFeeView,
             'feePrefix' => $feePrefix,
             'feeOrg'    => $feeOrg,
+            // The admin's View & Submit Fee lets a payment's date be corrected.
+            'editDates' => $feeEditDates ?? false,
         ])
     @else
         <div class="bg-white rounded-2xl border border-dashed border-gray-200 px-4 py-16 text-center">
@@ -40,6 +42,7 @@
             'sv'        => $classStudentFeeView,
             'feePrefix' => $feePrefix,
             'feeOrg'    => $feeOrg,
+            'editDates' => $feeEditDates ?? false,
         ])
 
     @elseif (!empty($classFeeList))

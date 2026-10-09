@@ -41,6 +41,7 @@ trait HandlesFeeAnalytics
     public array $analyticsPeriods   = [];   // today … last month
     public array $analyticsDaily     = [];   // last 14 days, for the CSS bar chart
     public array $analyticsModes     = [];   // payment-mode split, biggest first
+    public array $analyticsMonthly   = [];   // the last six months, for the monthly chart
     public array $analyticsClassRows = [];   // per-class collection table
     public array $analyticsStudentRows = []; // students, or the biggest dues
     public string $analyticsStudentScope = 'top_due'; // top_due | class
@@ -225,6 +226,7 @@ trait HandlesFeeAnalytics
 
         $this->loadAnalyticsTrend();
         $this->loadAnalyticsModes();
+        $this->loadAnalyticsMonthly();
     }
 
     /** Transport-table payments under the current analytics filters. */
@@ -353,6 +355,47 @@ trait HandlesFeeAnalytics
         usort($rows, fn ($a, $b) => $b['amount'] <=> $a['amount']);
 
         $this->analyticsModes = $rows;
+    }
+
+    /**
+     * Collections month by month — the last six months, this one included —
+     * from the same two payment tables, for the monthly chart.
+     */
+    private function loadAnalyticsMonthly(): void
+    {
+        $first = today()->startOfMonth()->subMonthsNoOverflow(5);
+
+        $byMonth = [];
+        foreach ([$this->analyticsFeeQuery(), $this->analyticsTransportQuery()] as $query) {
+            $rows = $query->where('payment_date', '>=', $first)
+                ->selectRaw('payment_date, SUM(amount) as day_amount, COUNT(*) as day_count')
+                ->groupBy('payment_date')
+                ->get();
+
+            foreach ($rows as $row) {
+                $key = Carbon::parse($row->payment_date)->format('Y-m');
+                $byMonth[$key]['amount'] = ($byMonth[$key]['amount'] ?? 0) + (float) $row->day_amount;
+                $byMonth[$key]['count']  = ($byMonth[$key]['count'] ?? 0) + (int) $row->day_count;
+            }
+        }
+
+        $points = [];
+        for ($i = 5; $i >= 0; $i--) {
+            $month = today()->startOfMonth()->subMonthsNoOverflow($i);
+            $key   = $month->format('Y-m');
+            $points[] = [
+                'label'  => $month->format('M'),
+                'title'  => $month->format('M Y'),
+                'amount' => round((float) ($byMonth[$key]['amount'] ?? 0), 2),
+                'count'  => (int) ($byMonth[$key]['count'] ?? 0),
+            ];
+        }
+
+        $this->analyticsMonthly = [
+            'points' => $points,
+            'total'  => array_sum(array_column($points, 'amount')),
+            'count'  => array_sum(array_column($points, 'count')),
+        ];
     }
 
     /** Sections for the analytics filter bar. */

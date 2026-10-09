@@ -88,7 +88,49 @@
                 <span class="text-[11px] text-gray-400">{{ count($side['rows']) }} head{{ count($side['rows']) === 1 ? '' : 's' }}</span>
             </div>
 
-            @if (count($side['rows']))
+            @php
+                // The student's own rows (Last Year Dues, earlier years' fees) read apart.
+                $feeRows = array_values(array_filter($side['rows'], fn ($r) => empty($r['is_dues'])));
+                $dueRows = array_values(array_filter($side['rows'], fn ($r) => !empty($r['is_dues'])));
+            @endphp
+            @if (count($dueRows))
+                {{-- The class's own heads and their total, then the past years' dues
+                     and theirs, then both together. --}}
+                <div class="px-4 py-3">
+                    @foreach ($feeRows as $n => $r)
+                        <div class="flex items-center gap-3 py-1.5 text-sm">
+                            <span class="w-5 text-[11px] text-gray-300 tabular-nums">{{ $n + 1 }}</span>
+                            <span class="flex-1 text-gray-600 truncate">{{ $r['fee_name'] }}</span>
+                            <span class="text-gray-800 tabular-nums">₹{{ number_format($r['amount'], 2) }}</span>
+                        </div>
+                    @endforeach
+                    @if (!count($feeRows))
+                        <p class="py-1.5 text-xs text-gray-400">No {{ strtolower($label) }} fee set for this class.</p>
+                    @endif
+                    <div class="flex items-center justify-between gap-3 pt-2 mt-1 border-t border-dashed border-gray-200">
+                        <span class="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{{ $label }} total</span>
+                        <span class="text-sm font-semibold text-gray-800 tabular-nums">₹{{ number_format(array_sum(array_column($feeRows, 'amount')), 2) }}</span>
+                    </div>
+                </div>
+                <div class="px-4 py-3 border-t border-gray-100">
+                    <p class="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-1">Past years' dues</p>
+                    @foreach ($dueRows as $n => $r)
+                        <div class="flex items-center gap-3 py-1.5 text-sm">
+                            <span class="w-5 text-[11px] text-gray-300 tabular-nums">{{ $n + 1 }}</span>
+                            <span class="flex-1 text-gray-600 truncate">{{ $r['fee_name'] }}</span>
+                            <span class="text-gray-800 tabular-nums">₹{{ number_format($r['amount'], 2) }}</span>
+                        </div>
+                    @endforeach
+                    <div class="flex items-center justify-between gap-3 pt-2 mt-1 border-t border-dashed border-gray-200">
+                        <span class="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Dues total</span>
+                        <span class="text-sm font-semibold text-gray-800 tabular-nums">₹{{ number_format(array_sum(array_column($dueRows, 'amount')), 2) }}</span>
+                    </div>
+                </div>
+                <div class="px-4 py-2.5 border-t border-gray-100 flex items-center justify-between gap-3">
+                    <span class="text-[11px] font-semibold uppercase tracking-wider text-gray-600">Overall total</span>
+                    <span class="text-sm font-bold text-gray-900 tabular-nums">₹{{ number_format($side['gross'], 2) }}</span>
+                </div>
+            @elseif (count($side['rows']))
                 <div class="px-4 py-3">
                     @foreach ($side['rows'] as $n => $r)
                         <div class="flex items-center gap-3 py-1.5 text-sm">

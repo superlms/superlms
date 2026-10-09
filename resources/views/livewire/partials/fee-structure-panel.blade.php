@@ -304,7 +304,7 @@
     @php
         $duesList    = $this->duesStudents;
         $duesSecs    = $this->duesSections;
-        $duesErrored = collect($errors->keys())->filter(fn ($k) => str_starts_with($k, 'duesAmounts.'))->count();
+        $duesErrored = collect($errors->keys())->filter(fn ($k) => str_starts_with($k, 'duesAmounts.') || str_starts_with($k, 'duesExtras.'))->count();
     @endphp
     <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
         <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeDuesPanel"></div>
@@ -376,16 +376,44 @@
                                             </td>
                                             <td class="px-3 py-2 text-xs text-gray-600">{{ $s->admission_no ?: '—' }}</td>
                                             <td class="px-3 py-2">
-                                                <input type="number" min="0" step="0.01" wire:model.blur="duesAmounts.s{{ $s->id }}" placeholder="0.00"
-                                                    class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500">
+                                                <div class="flex items-center gap-1.5">
+                                                    <input type="number" min="0" step="0.01" wire:model.blur="duesAmounts.s{{ $s->id }}" placeholder="0.00"
+                                                        class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500">
+                                                    {{-- + : earlier years' fees for this student, each named --}}
+                                                    <button type="button" wire:click="addDuesExtra({{ $s->id }})" title="Add an earlier year's fee"
+                                                        class="w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-md border border-gray-300 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                                                    </button>
+                                                </div>
                                                 @error('duesAmounts.s' . $s->id)<p class="text-[11px] text-red-500 mt-1">{{ $message }}</p>@enderror
                                             </td>
                                         </tr>
+                                        @foreach ($duesExtras['s' . $s->id] ?? [] as $x => $extra)
+                                            <tr wire:key="dues-{{ $s->id }}-x{{ $x }}" class="bg-gray-50/60">
+                                                <td></td>
+                                                <td class="px-3 py-1.5" colspan="2">
+                                                    <input type="text" wire:model.blur="duesExtras.s{{ $s->id }}.{{ $x }}.name" placeholder="Fee name, e.g. 2023-24 Fee"
+                                                        class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:ring-1 focus:ring-blue-500">
+                                                    @error('duesExtras.s' . $s->id . '.' . $x . '.name')<p class="text-[11px] text-red-500 mt-1">{{ $message }}</p>@enderror
+                                                </td>
+                                                <td class="px-3 py-1.5">
+                                                    <div class="flex items-center gap-1.5">
+                                                        <input type="number" min="0" step="0.01" wire:model.blur="duesExtras.s{{ $s->id }}.{{ $x }}.amount" placeholder="0.00"
+                                                            class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md bg-white focus:ring-1 focus:ring-blue-500">
+                                                        <button type="button" wire:click="removeDuesExtra({{ $s->id }}, {{ $x }})" title="Remove"
+                                                            class="w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-md text-gray-400 hover:bg-red-50 hover:text-red-600">
+                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                                        </button>
+                                                    </div>
+                                                    @error('duesExtras.s' . $s->id . '.' . $x . '.amount')<p class="text-[11px] text-red-500 mt-1">{{ $message }}</p>@enderror
+                                                </td>
+                                            </tr>
+                                        @endforeach
                                     @endforeach
                                 </tbody>
                             </table>
                         </div>
-                        <p class="text-[11px] text-gray-400 mt-2">Leave a box empty for a student with no dues. Emptying a saved amount takes their dues away.</p>
+                        <p class="text-[11px] text-gray-400 mt-2">Leave a box empty for a student with no dues. Emptying a saved amount takes their dues away. <strong class="text-gray-500 font-medium">+</strong> adds an earlier year's fee for that student — give it a name and an amount.</p>
                     </div>
                 @endif
             </div>

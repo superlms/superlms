@@ -8,6 +8,9 @@
      its own sticky header.
 ══════════════════════════════════════════════════════════════════ --}}
 
+{{-- panelsOnly: the host shows its own ledger (the admin's View & Submit Fee)
+     and wants only the Collect Fee panel and the date popup from here. --}}
+@if (empty($panelsOnly))
 @if (!$selectedStudentId || empty($selectedStudentInfo))
     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div class="text-center py-16 px-4">
@@ -30,6 +33,7 @@
             'editDates' => true,
         ])
     </div>
+@endif
 @endif
 
 {{-- ── Update / Collect Fee slide-in panel ── --}}
