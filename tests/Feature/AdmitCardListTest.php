@@ -123,7 +123,13 @@ class AdmitCardListTest extends TestCase
     public function test_list_reads_as_students_with_issued_on_figures(): void
     {
         $s    = $this->school();
+        DB::table('admit_cards')->where('id', $s['ashaCard'])->update(['printed_at' => now()]);
         $html = $this->page($s)->html();
+
+        // Actions say nothing of printing and carry no status dot.
+        $this->assertStringNotContainsString('wire:click="markUnprinted(', $html);
+        $this->assertStringNotContainsString('rounded-full flex-shrink-0 mr-1', $html);
+        $this->assertStringContainsString('wire:click="printOne(' . $s['ashaCard'] . ')"', $html);
 
         $this->assertStringContainsString('>S.No</th>', $html);
         $this->assertStringContainsString('>Issued on</th>', $html);

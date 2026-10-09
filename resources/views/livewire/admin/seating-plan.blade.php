@@ -106,6 +106,14 @@
                         </select>
                     @endif
 
+                    {{-- A student's name — open once an exam is picked --}}
+                    <div class="relative">
+                        <svg class="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" /></svg>
+                        <input wire:key="sf-search" type="search" wire:model.live.debounce.300ms="filterSearch" @disabled(!$filterExamId)
+                            placeholder="Search student…" title="{{ $filterExamId ? 'Where a student sits in this exam' : 'Pick an exam first' }}"
+                            class="text-xs bg-white border border-gray-200 rounded-md pl-7 pr-2.5 py-1.5 text-gray-700 w-48 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                    </div>
+
                     @if ($graphFiltersActive)
                         <button wire:key="sf-clear" wire:click="clearGraphFilters"
                             class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
@@ -173,7 +181,69 @@
                         : $filterStandardId && $filterSectionId);
                 @endphp
 
-                @if (!$finderReady)
+                @if ($searching)
+                    {{-- Where the searched student sits: one row a session --}}
+                    @if ($searchRows->isEmpty())
+                        <div class="px-5 py-10 text-center">
+                            <p class="text-sm font-semibold text-gray-700">No seat found</p>
+                            <p class="text-xs text-gray-400 mt-1">No student named “{{ $filterSearch }}” is seated in this exam{{ ($graphMode === 'room' && $filterRoomId) ? ' in that room' : (($graphMode === 'class' && $filterStandardId) ? ' in that class' : '') }}.</p>
+                        </div>
+                    @else
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm min-w-[780px]">
+                                <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left w-12">#</th>
+                                        <th class="px-4 py-3 text-left">Student</th>
+                                        <th class="px-4 py-3 text-left w-40">Date</th>
+                                        <th class="px-4 py-3 text-left w-24">Shift</th>
+                                        <th class="px-4 py-3 text-left">Room</th>
+                                        <th class="px-4 py-3 text-left w-28">Seat</th>
+                                        <th class="px-4 py-3 text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    @foreach ($searchRows as $i => $row)
+                                        @php
+                                            $listArgs = [
+                                                'organization' => auth()->user()->organization_id,
+                                                'id'           => $row['plan_id'],
+                                                'room'         => $row['room_id'],
+                                            ];
+                                        @endphp
+                                        <tr wire:key="find-{{ $row['plan_id'] }}-{{ $i }}" class="hover:bg-gray-50/70">
+                                            <td class="px-4 py-3 text-gray-400">{{ $i + 1 }}</td>
+                                            <td class="px-4 py-3">
+                                                <p class="font-medium text-gray-800">{{ $row['name'] }}</p>
+                                                <p class="text-xs text-gray-400">{{ $row['class'] }}{{ $row['roll'] !== '—' ? ' · Roll ' . $row['roll'] : '' }}</p>
+                                            </td>
+                                            <td class="px-4 py-3 text-gray-600">{{ $row['date']?->format('d M Y, D') ?? '—' }}</td>
+                                            <td class="px-4 py-3 text-gray-600">{{ $row['session'] ?: 'Shift 1' }}</td>
+                                            <td class="px-4 py-3 text-gray-600">{{ $row['room'] }}</td>
+                                            <td class="px-4 py-3 font-medium text-gray-800">{{ $row['seat'] }}</td>
+                                            <td class="px-4 py-3">
+                                                <div class="flex items-center justify-center gap-1">
+                                                    <a href="{{ route('admin.seating-plan.list', $listArgs) }}" target="_blank" title="View"
+                                                        class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                        </svg>
+                                                    </a>
+                                                    <a href="{{ route('admin.seating-plan.list-pdf', $listArgs) }}" target="_blank" title="Download"
+                                                        class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                        </svg>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                @elseif (!$finderReady)
                     <div class="px-5 py-10 text-center">
                         <p class="text-sm font-semibold text-gray-700">
                             {{ $graphMode === 'room' ? 'Choose an exam and a room' : 'Choose an exam, a class and a section' }}
@@ -244,13 +314,10 @@
                                         @endif
                                         <td class="px-4 py-3 text-center text-gray-600">{{ $row['students'] }}</td>
                                         <td class="px-4 py-3">
-                                            {{-- View, download and print are one sheet: the same page,
-                                                 opened, saved or sent straight to the printer. Icons in
-                                                 the Students list's look, the dot = published (green) or
-                                                 still a draft (red). --}}
+                                            {{-- View and download are one sheet, opened or saved. Icons in
+                                                 the Students list's look. No status, Print or Publish: a
+                                                 generated plan is published as it is made. --}}
                                             <div class="flex items-center justify-center gap-1">
-                                                <span class="w-2 h-2 rounded-full flex-shrink-0 mr-1 {{ $row['status'] === 'published' ? 'bg-green-500' : 'bg-red-500' }}"
-                                                    title="{{ $row['status'] === 'published' ? 'Published' : 'Draft — not published yet' }}"></span>
                                                 <a href="{{ route('admin.seating-plan.list', $listArgs) }}" target="_blank" title="View"
                                                     class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -263,20 +330,6 @@
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                                     </svg>
                                                 </a>
-                                                <a href="{{ route('admin.seating-plan.list', $listArgs + ['print' => 1]) }}" target="_blank" title="Print"
-                                                    class="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                                                    </svg>
-                                                </a>
-                                                @if ($row['status'] !== 'published')
-                                                    <button wire:click="publishPlan({{ $row['plan_id'] }})" title="Publish"
-                                                        class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                                                        </svg>
-                                                    </button>
-                                                @endif
                                                 <button wire:click="confirmDeletePlan({{ $row['plan_id'] }})" title="Delete this session's plan"
                                                     class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>

@@ -184,12 +184,10 @@
                                         @endif
                                     </td>
 
-                                    {{-- Actions (status dot shown inline, as in Students) --}}
+                                    {{-- Actions: icons as in Students; no status dot and nothing about printing here --}}
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-center gap-1">
                                             @if ($card)
-                                                <span class="w-2 h-2 rounded-full flex-shrink-0 mr-1 {{ $inactive ? 'bg-red-500' : 'bg-green-500' }}"
-                                                    title="{{ $inactive ? 'Inactive' : 'Active' }}"></span>
                                                 <button wire:click="viewCard({{ $card->id }})" title="View"
                                                     class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
@@ -202,12 +200,6 @@
                                                     class="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-60">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                                                 </button>
-                                                @if ($card->printed_at)
-                                                    <button wire:click="markUnprinted({{ $card->id }})" title="Queue for the next print run"
-                                                        class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                                                    </button>
-                                                @endif
                                                 {{-- In Delete's place: inactive (kept, hidden from the student) / active again --}}
                                                 @if ($inactive)
                                                     <button wire:click="toggleCardStatus({{ $card->id }})" title="Make active"

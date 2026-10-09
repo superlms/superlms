@@ -94,6 +94,8 @@ class SeatingPlan extends Component
     public string $filterStandardId = '';
     public string $filterSectionId  = '';
     public string $filterRoomId     = '';
+    // A student's name: once an exam is picked, where that student sits in it.
+    public string $filterSearch     = '';
 
 
     public function mount(): void
@@ -120,6 +122,9 @@ class SeatingPlan extends Component
     public function updatedFilterExamId(): void
     {
         $this->reset(['filterStandardId', 'filterSectionId', 'filterRoomId']);
+        if (!$this->filterExamId) {
+            $this->filterSearch = '';                  // the search needs an exam
+        }
     }
 
     public function updatedFilterStandardId(): void
@@ -129,7 +134,7 @@ class SeatingPlan extends Component
 
     public function clearGraphFilters(): void
     {
-        $this->reset(['filterExamId', 'filterStandardId', 'filterSectionId', 'filterRoomId']);
+        $this->reset(['filterExamId', 'filterStandardId', 'filterSectionId', 'filterRoomId', 'filterSearch']);
     }
 
     /**
@@ -679,6 +684,7 @@ class SeatingPlan extends Component
         $invigilators   = SeatingInvigilator::where('organization_id', $orgId)->get();
         $firstPlanId    = null;
         $createdPlans   = 0;
+        $createdIds     = [];
         $seatedTotal    = 0;
         $skippedNoStud  = 0;
 
@@ -725,7 +731,7 @@ class SeatingPlan extends Component
 
             $result = $planner->plan($studentInput, $rooms);
 
-            DB::transaction(function () use ($result, $rooms, $orgId, $examId, $baseName, $session, $invigilators, $planner, &$firstPlanId, &$createdPlans, &$seatedTotal) {
+            DB::transaction(function () use ($result, $rooms, $orgId, $examId, $baseName, $session, $invigilators, $planner, &$firstPlanId, &$createdPlans, &$seatedTotal, &$createdIds) {
                 $label   = \Carbon\Carbon::parse($session['date'])->format('d M Y');
                 $subject = collect($session['entries'])->pluck('subject')->filter()->unique()->implode(', ');
                 $name    = $baseName . ' — ' . $label . ($session['shift'] > 1 ? ' (Shift ' . $session['shift'] . ')' : '');
@@ -736,7 +742,9 @@ class SeatingPlan extends Component
                     'name'            => $name,
                     'exam_date'       => $session['date'],
                     'session'         => 'Shift ' . $session['shift'],
-                    'status'          => 'draft',
+                    // A generated plan is the plan: published as it is made
+                    // (there is no separate Publish step on the list any more).
+                    'status'          => 'published',
                     'generated_at'    => now(),
                     'total_students'  => $result['totals']['students'],
                     'total_seats'     => $result['totals']['seats'],
@@ -780,6 +788,7 @@ class SeatingPlan extends Component
                 if ($invRows) InvigilatorAssignment::insert($invRows);
 
                 $firstPlanId = $firstPlanId ?? $plan->id;
+                $createdIds[] = $plan->id;
                 $createdPlans++;
                 $seatedTotal += $result['totals']['students'];
             });
@@ -794,6 +803,10 @@ class SeatingPlan extends Component
             $this->notification()->error('No students found for the selected classes on any datesheet date.');
             return;
         }
+
+        // Each seated student hears it once for the exam, every session a line —
+        // what Publish used to send, now that generating is publishing.
+        app(\App\Services\StudentPushNotifier::class)->seatingGenerated($createdIds);
 
         $this->viewingPlanId = $firstPlanId;
         $msg = "{$createdPlans} seating plan(s) generated · {$seatedTotal} student-seatings.";
@@ -1361,7 +1374,48 @@ class SeatingPlan extends Component
                 ->values();
         }
 
-        $graphFiltersActive = $this->filterExamId || $this->filterStandardId
+        // ══ Student search ══ — where a named student sits in the exam: one row a
+        // session, narrowed to the room or class the finder has picked.
+        $searchRows = collect();
+        $searching  = $this->filterExamId && trim($this->filterSearch) !== '';
+        if ($searching && $examPlans->isNotEmpty()) {
+            $matched = StudentDetail::where('organization_id', $orgId)
+                ->whereNotNull('user_id')
+                ->where('full_name', 'like', '%' . trim($this->filterSearch) . '%')
+                ->pluck('user_id');
+
+            if ($matched->isNotEmpty()) {
+                $q = SeatAssignment::with(['room:id,room_name,building', 'seat:id,seat_number,row_no,col_no'])
+                    ->whereIn('seating_plan_id', $examPlans->pluck('id'))
+                    ->whereIn('student_id', $matched);
+                if ($this->graphMode === 'room' && $this->filterRoomId) {
+                    $q->where('room_id', (int) $this->filterRoomId);
+                } elseif ($this->graphMode === 'class') {
+                    $q = $this->classLabelFilter($q);
+                }
+                $found = $q->limit(200)->get();
+                $who   = $this->rollMapFor($found);
+
+                $searchRows = $found->map(function ($a) use ($examPlans, $who) {
+                    $plan = $examPlans->firstWhere('id', (int) $a->seating_plan_id);
+                    return [
+                        'plan_id' => (int) $a->seating_plan_id,
+                        'room_id' => (int) $a->room_id,
+                        'name'    => $who[$a->student_id]['name'] ?? '—',
+                        'roll'    => $who[$a->student_id]['roll'] ?? '—',
+                        'class'   => (string) $a->class_label,
+                        'date'    => $plan?->exam_date,
+                        'session' => $plan?->session,
+                        'room'    => $a->room?->room_name ?? '—',
+                        'seat'    => SeatLabel::seat($a->seat?->row_no, $a->seat?->col_no) . ' (' . max(1, (int) $a->seat_position) . ')',
+                    ];
+                })
+                ->sortBy(fn ($r) => $r['name'] . '|' . ($r['date']?->toDateString() ?? '9999-12-31') . '|' . $r['plan_id'])
+                ->values();
+            }
+        }
+
+        $graphFiltersActive = $this->filterSearch !== '' || $this->filterExamId || $this->filterStandardId
             || $this->filterSectionId || $this->filterRoomId;
 
         // The plan viewer's own chart shows roll numbers too.
@@ -1372,7 +1426,7 @@ class SeatingPlan extends Component
             'viewingPlan', 'planRooms', 'planAssignments', 'planInvigilators', 'planRollMap',
             'datesheets', 'dsSections', 'viewingDatesheet', 'datesheetStdIds', 'generatedStdIds',
             'dsFilterSections', 'dsFilterSubjects', 'filteredDatesheet', 'filteredPapers',
-            'filterSections', 'graphRoomOptions', 'sessionRows', 'graphFiltersActive'
+            'filterSections', 'graphRoomOptions', 'sessionRows', 'graphFiltersActive', 'searchRows', 'searching'
         ));
     }
 }

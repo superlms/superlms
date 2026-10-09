@@ -515,6 +515,7 @@ class AdminSeatingController extends ApiController
         $invigilators  = SeatingInvigilator::where('organization_id', $orgId)->get();
         $firstPlanId   = null;
         $createdPlans  = 0;
+        $createdIds    = [];
         $seatedTotal   = 0;
         $skippedNoStud = 0;
 
@@ -559,7 +560,7 @@ class AdminSeatingController extends ApiController
 
                 $result = $planner->plan($studentInput, $rooms);
 
-                DB::transaction(function () use ($result, $rooms, $orgId, $examId, $baseName, $session, $invigilators, $planner, &$firstPlanId, &$createdPlans, &$seatedTotal) {
+                DB::transaction(function () use ($result, $rooms, $orgId, $examId, $baseName, $session, $invigilators, $planner, &$firstPlanId, &$createdPlans, &$seatedTotal, &$createdIds) {
                     $label   = Carbon::parse($session['date'])->format('d M Y');
                     $subject = collect($session['entries'])->pluck('subject')->filter()->unique()->implode(', ');
                     $name    = $baseName . ' — ' . $label . ($session['shift'] > 1 ? ' (Shift ' . $session['shift'] . ')' : '');
@@ -570,7 +571,8 @@ class AdminSeatingController extends ApiController
                         'name'            => $name,
                         'exam_date'       => $session['date'],
                         'session'         => 'Shift ' . $session['shift'],
-                        'status'          => 'draft',
+                        // A generated plan is published as it is made, as on the panel.
+                        'status'          => 'published',
                         'generated_at'    => now(),
                         'total_students'  => $result['totals']['students'],
                         'total_seats'     => $result['totals']['seats'],
@@ -614,6 +616,7 @@ class AdminSeatingController extends ApiController
                     if ($invRows) InvigilatorAssignment::insert($invRows);
 
                     $firstPlanId = $firstPlanId ?? $plan->id;
+                    $createdIds[] = $plan->id;
                     $createdPlans++;
                     $seatedTotal += $result['totals']['students'];
                 });
@@ -626,6 +629,9 @@ class AdminSeatingController extends ApiController
         if ($createdPlans === 0) {
             return $this->error('No students found for the selected classes on any datesheet date.', 422);
         }
+
+        // Each seated student hears it once for the exam (what Publish sent).
+        app(\App\Services\StudentPushNotifier::class)->seatingGenerated($createdIds);
 
         $msg = "{$createdPlans} seating plan(s) generated · {$seatedTotal} student-seatings.";
         if ($skippedNoStud > 0) {

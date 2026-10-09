@@ -375,6 +375,65 @@ class StudentPushNotifier
         });
     }
 
+    /**
+     * Seating plans were generated — a generated plan is published as it is
+     * made, so each student seated hears it once for the exam, every session
+     * they sit a line of its own ("Tue, 01 Sep 2026 · Shift 1 — Room 1- A3 (1)").
+     *
+     * @param  int[]  $planIds
+     */
+    public function seatingGenerated(array $planIds): void
+    {
+        $this->safe(function () use ($planIds) {
+            $plans = SeatingPlan::whereIn('id', $planIds ?: [0])->where('status', 'published')
+                ->orderBy('exam_date')->orderBy('id')->get();
+            if ($plans->isEmpty()) {
+                return;
+            }
+            $exams = Exam::whereIn('id', $plans->pluck('exam_id')->unique())->get()->keyBy('id');
+
+            $seats = SeatAssignment::with(['room:id,room_name', 'seat:id,seat_number,row_no,col_no'])
+                ->whereIn('seating_plan_id', $plans->pluck('id'))->whereNotNull('student_id')->get();
+            if ($seats->isEmpty()) {
+                return;
+            }
+            // student_id holds the student's detail id (older plans: their user id).
+            $ids = $seats->pluck('student_id')->unique()->all();
+            $details = StudentDetail::whereIn('organization_id', $plans->pluck('organization_id')->unique())
+                ->where(fn ($q) => $q->whereIn('id', $ids)->orWhereIn('user_id', $ids))
+                ->get(['id', 'user_id']);
+            $userOf = [];
+            foreach ($details as $d) {
+                $userOf[(int) $d->id] ??= (int) $d->user_id;
+            }
+            foreach ($details as $d) {
+                $userOf[(int) $d->user_id] ??= (int) $d->user_id;
+            }
+            $students = User::whereIn('id', array_filter($userOf))->where('role', self::STUDENT)->pluck('id')->flip();
+
+            foreach ($plans as $plan) {
+                $exam = $exams->get($plan->exam_id);
+                if (!$exam || !$exam->is_published) {
+                    continue;
+                }
+                $when = trim(($plan->exam_date ? $plan->exam_date->format('D, d M Y') : '') . ($plan->session ? ' · ' . Str::headline((string) $plan->session) : ''), ' ·');
+                foreach ($seats->where('seating_plan_id', $plan->id) as $a) {
+                    $userId = $userOf[(int) $a->student_id] ?? null;
+                    if (!$userId || !isset($students[$userId])) {
+                        continue;
+                    }
+                    $seat = SeatLabel::full($a->room?->room_name, $a->seat?->row_no, $a->seat?->col_no, $a->seat_position);
+                    $this->queue($userId, 'seating-exam:' . $exam->id, [
+                        'type'   => 'seating_published',
+                        'title'  => 'Seating Plan Published',
+                        'intro'  => "Your seats for {$exam->exam_name} are ready.",
+                        'screen' => 'SeatingPlanScreen',
+                    ], ['plan:' . $plan->id => trim($when . ($seat !== '—' ? ' — ' . $seat : ''), ' —')]);
+                }
+            }
+        });
+    }
+
     public function reportCardIssued(ReportCard $rc): void
     {
         $this->safe(function () use ($rc) {
