@@ -35,7 +35,7 @@ class AddExam extends Component
     public $startDate      = '';
     public $endDate        = '';
     public $description    = '';
-    public $isPublished    = false;
+    public $isPublished    = true; // a new exam is published unless unticked
     public $examType       = '';
     public $totalMarks     = '';
     public $passingMarks   = '';
@@ -90,6 +90,12 @@ class AddExam extends Component
     // Delete confirm
     public bool $showPaperDeleteConfirm = false;
     public $paperDeleteId               = null;
+
+    // Paper view (slide-in with the PDF) — the link is made once on opening,
+    // so a refresh of the page does not reload the frame.
+    public $viewPaperId           = null;
+    public string $viewPaperTitle = '';
+    public string $viewPaperUrl   = '';
 
     // ─── Syllabus modal ─────────────────────────────────────────────────────
     public bool $openSyllabusModal = false;
@@ -856,6 +862,64 @@ class AddExam extends Component
         $this->resetValidation();
     }
 
+    /**
+     * A subject's Add in the papers list: the upload form opens on the exam,
+     * class and section the filter shows, with that subject (and its name as
+     * the title) already chosen.
+     */
+    public function openPaperModalFor(string $subject): void
+    {
+        $this->openPaperModal();
+
+        $this->paperExam     = (string) $this->filterPaperExam;
+        $this->paperStandard = (string) $this->filterPaperStandard;
+        $this->loadPaperModalSections($this->paperStandard);
+        $this->paperSection  = (string) $this->filterPaperSection;
+        $this->loadPaperModalSubjects();
+        $this->paperSubject  = $subject;
+
+        foreach ($this->paperModalSubjects as $s) {
+            if ((string) $s['id'] === $subject) {
+                $this->paperTitle = (string) $s['name'];
+            }
+        }
+    }
+
+    /** View: the paper's PDF in a slide-in, Download and Close at its foot. */
+    public function viewPaper(int $id): void
+    {
+        $paper = ExamPaper::where('id', $id)
+            ->where('organization_id', Auth::user()->organization_id)
+            ->first();
+
+        if (!$paper || !$paper->file_path) {
+            $this->notification()->error('Not found', 'Paper file not found.');
+            return;
+        }
+
+        if (!Storage::disk('s3')->exists($paper->file_path)) {
+            $this->notification()->error('File missing', 'File missing on storage. Please re-upload this paper.');
+            return;
+        }
+
+        $filename = str_replace('"', '', $paper->title ?: 'exam-paper') . '.pdf';
+        $this->viewPaperUrl = Storage::disk('s3')->temporaryUrl(
+            $paper->file_path,
+            now()->addMinutes(30),
+            [
+                'ResponseContentDisposition' => 'inline; filename="' . $filename . '"',
+                'ResponseContentType'        => 'application/pdf',
+            ]
+        );
+        $this->viewPaperId    = $paper->id;
+        $this->viewPaperTitle = (string) ($paper->title ?: 'Exam paper');
+    }
+
+    public function closePaperView(): void
+    {
+        $this->reset(['viewPaperId', 'viewPaperTitle', 'viewPaperUrl']);
+    }
+
     public function openEditPaperModal(int $id): void
     {
         $paper = ExamPaper::where('id', $id)
@@ -987,6 +1051,10 @@ class AddExam extends Component
             }
             $paper->delete();
             $this->notification()->success('Deleted', 'Exam paper deleted.');
+
+            if ((int) $this->viewPaperId === (int) $paper->id) {
+                $this->closePaperView();
+            }
         }
 
         $this->paperDeleteId          = null;
@@ -1038,6 +1106,58 @@ class AddExam extends Component
                 : $q->where('subject_id', $this->filterPaperSubject))
             ->orderByDesc('created_at')
             ->paginate($this->perPage, ['*'], 'papersPage');
+    }
+
+    /**
+     * With an exam and a class picked, every subject of the class (or of the
+     * section picked) is a row holding the papers added for it — a subject
+     * with none is still listed, with its Add. A whole-class paper shows
+     * under each section too; papers of a subject the class no longer lists,
+     * and "Other" papers, come last so nothing added is hidden. The Subject
+     * box narrows the rows to that subject. Null when exam or class is not
+     * picked (the papers table shows then, as before).
+     */
+    private function getPaperBoard(): ?array
+    {
+        if (!$this->filterPaperExam || !$this->filterPaperStandard) {
+            return null;
+        }
+
+        $subjects = $this->subjectsForClass($this->filterPaperStandard, $this->filterPaperSection ?: null);
+
+        $papers = ExamPaper::with(['section:id,name', 'subject:id,name'])
+            ->where('organization_id', Auth::user()->organization_id)
+            ->where('exam_id', $this->filterPaperExam)
+            ->where('standard_id', $this->filterPaperStandard)
+            ->when($this->filterPaperSection, fn ($q) => $q->where(fn ($w) => $w
+                ->where('section_id', $this->filterPaperSection)
+                ->orWhereNull('section_id')))
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get()
+            ->groupBy(fn ($p) => $p->subject_id ? (string) $p->subject_id : self::PAPER_SUBJECT_OTHER);
+
+        $rows = [];
+        foreach ($subjects as $s) {
+            $key    = (string) $s['id'];
+            $rows[] = ['key' => $key, 'name' => $s['name'], 'papers' => $papers->get($key, collect())];
+        }
+
+        $listed = array_column($rows, 'key');
+        foreach ($papers as $key => $list) {
+            if ($key !== self::PAPER_SUBJECT_OTHER && !in_array((string) $key, $listed, true)) {
+                $rows[] = ['key' => (string) $key, 'name' => $list->first()->subjectLabel(), 'papers' => $list];
+            }
+        }
+        if ($papers->has(self::PAPER_SUBJECT_OTHER)) {
+            $rows[] = ['key' => self::PAPER_SUBJECT_OTHER, 'name' => 'Other', 'papers' => $papers->get(self::PAPER_SUBJECT_OTHER)];
+        }
+
+        if ($this->filterPaperSubject !== '') {
+            $rows = array_values(array_filter($rows, fn ($r) => $r['key'] === (string) $this->filterPaperSubject));
+        }
+
+        return $rows;
     }
 
     // ─── Render ─────────────────────────────────────────────────────────────
@@ -1099,9 +1219,11 @@ class AddExam extends Component
             $this->filterPaperSection ?: null
         );
 
+        $paperBoard = $this->activeTab === 'papers' ? $this->getPaperBoard() : null;
+
         return view('livewire.admin.add-exam', compact(
             'exams', 'syllabus', 'filterSections', 'filterSubjects',
-            'examPapers', 'paperFilterSections', 'paperFilterSubjects'
+            'examPapers', 'paperFilterSections', 'paperFilterSubjects', 'paperBoard'
         ));
     }
 
