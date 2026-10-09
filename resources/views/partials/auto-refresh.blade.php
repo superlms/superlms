@@ -10,19 +10,40 @@
 
      Scroll (window + any [data-preserve-scroll] element) is captured before an
      auto-triggered morph and restored right after, so the viewport never jumps.
-     User-initiated Livewire actions are never interfered with. --}}
+     User-initiated Livewire actions are never interfered with.
+
+     A page nobody has touched (mouse, keys, touch, scroll) for two minutes is
+     checked every 30 seconds instead of every 5; the first touch after that
+     checks at once and the 5-second pace resumes. --}}
 @once
     <script>
         (function () {
             var INTERVAL_MS = 5000;      // background change-check every 5 seconds
             var AUTO_WINDOW_MS = 1200;   // commits fired this soon after our refresh are "auto" commits
+            var IDLE_AFTER_MS = 120000;  // untouched this long = idle
+            var IDLE_INTERVAL_MS = 30000; // an idle page is checked this often
 
             var lastTickAt = 0;
             var lastFingerprint = null;
             var checking = false;
+            var lastActivityAt = Date.now();
+            var lastCheckAt = 0;
 
             function isAutoCommit() {
                 return (Date.now() - lastTickAt) < AUTO_WINDOW_MS;
+            }
+
+            function isIdle() {
+                return (Date.now() - lastActivityAt) > IDLE_AFTER_MS;
+            }
+
+            // Someone is at the page: coming back from idle checks straight away.
+            function onActivity(e) {
+                // Our own scroll restore after an auto refresh is not a person.
+                if (e && e.type === 'scroll' && isAutoCommit()) return;
+                var wasIdle = isIdle();
+                lastActivityAt = Date.now();
+                if (wasIdle) { tick(); }
             }
 
             // ── Scroll preservation (unchanged) ─────────────────────────────
@@ -128,7 +149,9 @@
 
             function tick() {
                 if (document.hidden || checking || !window.Livewire) return;
+                if (isIdle() && (Date.now() - lastCheckAt) < IDLE_INTERVAL_MS) return;
                 checking = true;
+                lastCheckAt = Date.now();
                 fetch(window.location.href, {
                     credentials: 'same-origin',
                     cache: 'no-store',
@@ -179,7 +202,10 @@
                 window.__superlmsAutoRefresh = setInterval(tick, INTERVAL_MS);
                 // Coming back to the tab → check immediately instead of waiting.
                 document.addEventListener('visibilitychange', function () {
-                    if (!document.hidden) { tick(); }
+                    if (!document.hidden) { lastActivityAt = Date.now(); tick(); }
+                });
+                ['mousemove', 'mousedown', 'keydown', 'wheel', 'touchstart', 'scroll'].forEach(function (type) {
+                    window.addEventListener(type, onActivity, { capture: true, passive: true });
                 });
             }
 
