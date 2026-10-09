@@ -94,6 +94,11 @@ class AddExam extends Component
     public bool $showPaperDeleteConfirm = false;
     public $paperDeleteId               = null;
 
+    // Exam Syllabus → a subject's View: its chapters for the exam in a slide-in.
+    public array $sylViewChapters = [];
+    public string $sylViewTitle   = '';
+    public string $sylViewSub     = '';
+
     // A PDF picked straight from the subjects list: a subject's Add ('add:<subject id>')
     // or a paper's Edit ('edit:<paper id>') opens the file picker, and the file is
     // saved as soon as it is uploaded (updatedQuickPaperFile).
@@ -574,6 +579,27 @@ class AddExam extends Component
             $this->sylModalSectionId = (string) $this->sylModalSections[0]['id'];
         }
         $this->loadSylModalSubjects();
+    }
+
+    /** A subject's View in the syllabus list: its chapters, numbered, in a slide-in. */
+    public function viewSyllabusChapters($subjectId): void
+    {
+        foreach ($this->getSyllabusBoard() ?? [] as $row) {
+            if ((int) $row['subject_id'] === (int) $subjectId) {
+                $exam  = collect($this->allExams)->firstWhere('id', (int) $this->syllabusFilterExam);
+                $class = collect($this->allStandards)->firstWhere('id', (int) $this->syllabusFilterStandard);
+
+                $this->sylViewChapters = $row['chapters'];
+                $this->sylViewTitle    = $row['name'];
+                $this->sylViewSub      = trim(($exam['exam_name'] ?? '') . ' · ' . ($class['name'] ?? ''), ' ·');
+                return;
+            }
+        }
+    }
+
+    public function closeSyllabusChapters(): void
+    {
+        $this->reset(['sylViewChapters', 'sylViewTitle', 'sylViewSub']);
     }
 
     /**

@@ -1,83 +1,171 @@
 <div class="min-h-screen bg-gray-50">
 
-    {{-- ══════════ HEADER ══════════ --}}
-    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sticky top-0 z-30">
-        <div class="flex items-center justify-between gap-3">
+    {{-- ══════════ HEADER (title, Add Doc on the school tab, the two tabs) ══════════ --}}
+    <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
+        <div class="px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
             <div class="flex items-center gap-2.5 min-w-0">
                 <x-admin.back-to-more />
                 <div class="min-w-0">
                     <h1 class="text-lg sm:text-xl font-bold text-gray-900">Documents</h1>
                 </div>
             </div>
-            <button wire:click="openCreate"
-                class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-sm transition-colors flex-shrink-0">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-                Add Doc
-            </button>
+            @if ($tab === 'school')
+                <button wire:click="openCreate"
+                    class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-sm transition-colors flex-shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                    Add Doc
+                </button>
+            @endif
+        </div>
+        <div class="px-4 sm:px-6 flex items-center gap-1 overflow-x-auto">
+                <button wire:click="setTab('school')" type="button"
+                    class="px-4 py-3 text-sm font-medium border-b-2 transition-colors
+                           {{ $tab === 'school' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
+                    School Documents <span class="ml-1 text-xs {{ $tab === 'school' ? 'text-blue-400' : 'text-gray-400' }}">{{ $documents->total() }}</span>
+                </button>
+                <button wire:click="setTab('admin')" type="button"
+                    class="px-4 py-3 text-sm font-medium border-b-2 transition-colors
+                           {{ $tab === 'admin' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
+                    Admin Documents <span class="ml-1 text-xs {{ $tab === 'admin' ? 'text-blue-400' : 'text-gray-400' }}">{{ $sharedDocuments->total() }}</span>
+                </button>
         </div>
     </div>
 
-    <div class="p-4 sm:p-6 space-y-6">
+    @php
+        // The file's kind from its name: a coloured tile with its label, as a file manager shows it.
+        $docType = function (?string $name): array {
+            $ext = strtolower(pathinfo((string) $name, PATHINFO_EXTENSION));
+            return match (true) {
+                $ext === 'pdf'                                                   => ['PDF', 'bg-red-50 text-red-600'],
+                in_array($ext, ['doc', 'docx', 'odt', 'rtf'], true)              => ['DOC', 'bg-blue-50 text-blue-600'],
+                in_array($ext, ['xls', 'xlsx', 'csv', 'ods'], true)              => ['XLS', 'bg-emerald-50 text-emerald-600'],
+                in_array($ext, ['ppt', 'pptx', 'odp'], true)                     => ['PPT', 'bg-orange-50 text-orange-600'],
+                in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'svg', 'bmp'], true) => ['IMG', 'bg-purple-50 text-purple-600'],
+                in_array($ext, ['zip', 'rar', '7z'], true)                       => ['ZIP', 'bg-amber-50 text-amber-600'],
+                default => [$ext !== '' ? strtoupper(substr($ext, 0, 4)) : 'FILE', 'bg-gray-100 text-gray-600'],
+            };
+        };
+    @endphp
 
-        {{-- ══════════ MY DOCUMENTS ══════════ --}}
+    <div class="p-4 sm:p-6">
+        @if ($tab === 'admin')
+            {{-- ══════════ ADMIN DOCUMENTS (sent by the Super Admin — view & download only) ══════════ --}}
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
-                <table class="w-full text-sm min-w-[760px]">
-                    <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                <table class="w-full min-w-[720px]">
+                    <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            <th class="px-4 py-3 text-left w-12">#</th>
-                            <th class="px-4 py-3 text-left">Document</th>
-                            <th class="px-4 py-3 text-left">Description</th>
-                            <th class="px-4 py-3 text-left w-24">Size</th>
-                            <th class="px-4 py-3 text-left w-32">Added On</th>
-                            <th class="px-4 py-3 text-center w-40">Actions</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Document</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Description</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">Shared On</th>
+                            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-40">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
-                        @forelse ($documents as $i => $doc)
-                            <tr class="hover:bg-gray-50/70 transition-colors" wire:key="doc-{{ $doc->id }}">
-                                <td class="px-4 py-3 text-gray-400">{{ $documents->firstItem() + $i }}</td>
+                        @forelse ($sharedDocuments as $i => $doc)
+                            @php [$typeLabel, $typeClass] = $docType($doc->file_name); @endphp
+                            <tr class="hover:bg-gray-50/70 transition-colors" wire:key="shared-{{ $doc->id }}">
+                                <td class="px-4 py-3 text-sm text-gray-500 font-medium">{{ $sharedDocuments->firstItem() + $i }}</td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-3">
-                                        <span class="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
-                                            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                        <span class="w-10 h-10 rounded-lg {{ $typeClass }} flex flex-col items-center justify-center flex-shrink-0" title="{{ $doc->file_name }}">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                            <span class="text-[9px] font-bold leading-none mt-0.5">{{ $typeLabel }}</span>
                                         </span>
                                         <div class="min-w-0">
-                                            <p class="font-semibold text-gray-900 truncate">{{ $doc->title }}</p>
-                                            <p class="text-xs text-gray-400 truncate">{{ $doc->file_name }}</p>
+                                            <p class="text-sm font-semibold text-gray-900 truncate max-w-[300px]" title="{{ $doc->title }}">{{ $doc->title }}</p>
+                                            <p class="text-xs text-gray-400 truncate max-w-[300px]">{{ $doc->file_name }}{{ $doc->readable_size !== '—' ? ' · ' . $doc->readable_size : '' }}</p>
                                         </div>
                                     </div>
                                 </td>
-                                <td class="px-4 py-3 text-gray-600">
+                                <td class="px-4 py-3 text-sm text-gray-600">
                                     <span class="line-clamp-2">{{ $doc->description ?: '—' }}</span>
                                 </td>
-                                <td class="px-4 py-3 text-gray-600 whitespace-nowrap">{{ $doc->readable_size }}</td>
-                                <td class="px-4 py-3 text-gray-500 whitespace-nowrap">{{ $doc->created_at?->format('d M Y') }}</td>
+                                <td class="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{{ $doc->created_at?->format('d M Y') }}</td>
                                 <td class="px-4 py-3">
-                                    <div class="flex items-center justify-center gap-1.5">
+                                    <div class="flex items-center justify-center gap-1">
                                         <a href="{{ $doc->url }}" target="_blank" rel="noopener" title="View"
-                                            class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                                        </a>
-                                        <button wire:click="edit({{ $doc->id }})" title="Edit"
-                                            class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                        </button>
-                                        <button wire:click="downloadDocument({{ $doc->id }})" title="Download"
-                                            class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-green-50 hover:text-green-600 hover:border-green-200">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                                        </button>
-                                        <button wire:click="confirmDelete({{ $doc->id }})" title="Delete"
-                                            class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                                        </button>
+                                            class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></a>
+                                        <button wire:click="downloadShared({{ $doc->id }})" title="Download"
+                                            class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></button>
                                     </div>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-6 py-16 text-center">
-                                    <svg class="w-12 h-12 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                <td colspan="5" class="px-6 py-16 text-center">
+                                    <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center text-gray-400">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                    </div>
+                                    <p class="text-sm text-gray-500">No documents from SuperLMS yet.</p>
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            @if ($sharedDocuments->hasPages())
+                <div class="px-4 py-3 border-t border-gray-100">
+                    {{ $sharedDocuments->links() }}
+                </div>
+            @endif
+        </div>
+        @else
+            {{-- ══════════ SCHOOL DOCUMENTS (the school's own — add, view, edit, download, delete) ══════════ --}}
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[720px]">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Document</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Description</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">Added On</th>
+                            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-40">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @forelse ($documents as $i => $doc)
+                            @php [$typeLabel, $typeClass] = $docType($doc->file_name); @endphp
+                            <tr class="hover:bg-gray-50/70 transition-colors" wire:key="doc-{{ $doc->id }}">
+                                <td class="px-4 py-3 text-sm text-gray-500 font-medium">{{ $documents->firstItem() + $i }}</td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-3">
+                                        <span class="w-10 h-10 rounded-lg {{ $typeClass }} flex flex-col items-center justify-center flex-shrink-0" title="{{ $doc->file_name }}">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                            <span class="text-[9px] font-bold leading-none mt-0.5">{{ $typeLabel }}</span>
+                                        </span>
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-semibold text-gray-900 truncate max-w-[300px]" title="{{ $doc->title }}">{{ $doc->title }}</p>
+                                            <p class="text-xs text-gray-400 truncate max-w-[300px]">{{ $doc->file_name }}{{ $doc->readable_size !== '—' ? ' · ' . $doc->readable_size : '' }}</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 text-sm text-gray-600">
+                                    <span class="line-clamp-2">{{ $doc->description ?: '—' }}</span>
+                                </td>
+                                <td class="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{{ $doc->created_at?->format('d M Y') }}</td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center justify-center gap-1">
+                                        <a href="{{ $doc->url }}" target="_blank" rel="noopener" title="View"
+                                            class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></a>
+                                        <button wire:click="downloadDocument({{ $doc->id }})" title="Download"
+                                            class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></button>
+                                        <button wire:click="edit({{ $doc->id }})" title="Edit"
+                                            class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+                                        <button wire:click="confirmDelete({{ $doc->id }})" title="Delete"
+                                            class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="5" class="px-6 py-16 text-center">
+                                    <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center text-gray-400">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                    </div>
                                     <p class="text-sm text-gray-500">No documents yet. Click <strong>Add Doc</strong> to upload one.</p>
                                 </td>
                             </tr>
@@ -92,70 +180,6 @@
                 </div>
             @endif
         </div>
-
-        {{-- ══════════ SHARED WITH YOUR SCHOOL (super-admin, read-only) ══════════ --}}
-        @if ($sharedDocuments->total() > 0)
-            <div>
-                <div class="flex items-center gap-2 mb-2">
-                    <h2 class="text-sm font-bold text-gray-700">Shared with your school</h2>
-                    <span class="text-[11px] text-gray-400">Sent by SuperLMS — view &amp; download only</span>
-                </div>
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm min-w-[680px]">
-                            <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
-                                <tr>
-                                    <th class="px-4 py-3 text-left">Document</th>
-                                    <th class="px-4 py-3 text-left">Description</th>
-                                    <th class="px-4 py-3 text-left w-24">Size</th>
-                                    <th class="px-4 py-3 text-left w-32">Shared On</th>
-                                    <th class="px-4 py-3 text-center w-24">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100">
-                                @foreach ($sharedDocuments as $doc)
-                                    <tr class="hover:bg-gray-50/70 transition-colors" wire:key="shared-{{ $doc->id }}">
-                                        <td class="px-4 py-3">
-                                            <div class="flex items-center gap-3">
-                                                <span class="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
-                                                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                                </span>
-                                                <div class="min-w-0">
-                                                    <p class="font-semibold text-gray-900 truncate">{{ $doc->title }}</p>
-                                                    <p class="text-xs text-gray-400 truncate">{{ $doc->file_name }}</p>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td class="px-4 py-3 text-gray-600">
-                                            <span class="line-clamp-2">{{ $doc->description ?: '—' }}</span>
-                                        </td>
-                                        <td class="px-4 py-3 text-gray-600 whitespace-nowrap">{{ $doc->readable_size }}</td>
-                                        <td class="px-4 py-3 text-gray-500 whitespace-nowrap">{{ $doc->created_at?->format('d M Y') }}</td>
-                                        <td class="px-4 py-3">
-                                            <div class="flex items-center justify-center gap-1.5">
-                                                <a href="{{ $doc->url }}" target="_blank" rel="noopener" title="View"
-                                                    class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                                                </a>
-                                                <button wire:click="downloadShared({{ $doc->id }})" title="Download"
-                                                    class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-green-50 hover:text-green-600 hover:border-green-200">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-
-                    @if ($sharedDocuments->hasPages())
-                        <div class="px-4 py-3 border-t border-gray-100">
-                            {{ $sharedDocuments->links() }}
-                        </div>
-                    @endif
-                </div>
-            </div>
         @endif
     </div>
 

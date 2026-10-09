@@ -577,10 +577,17 @@
                                         </div>
                                     </td>
                                     <td class="px-4 py-3 text-sm {{ $row['chapters'] ? 'text-gray-700' : 'text-gray-400' }}">
-                                        {{ $row['chapters'] ? implode(' · ', $row['chapters']) : 'Not added yet' }}
+                                        {{ $row['chapters'] ? count($row['chapters']) . ' ' . (count($row['chapters']) === 1 ? 'chapter' : 'chapters') : 'Not added yet' }}
                                     </td>
                                     <td class="px-4 py-3 text-center align-top">
                                         @if ($row['chapters'])
+                                            <button wire:click="viewSyllabusChapters({{ $row['subject_id'] }})" title="View"
+                                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                            </button>
                                             <button wire:click="onEditSyllabus({{ $syllabusFilterExam }}, {{ $syllabusFilterStandard }}, {{ $row['subject_id'] }}, {{ $row['section_id'] ?? 'null' }})" title="Edit"
                                                 class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -721,6 +728,39 @@
                         <span wire:loading.remove wire:target="onSave">{{ $editId ? 'Update Exam' : 'Create Exam' }}</span>
                         <span wire:loading wire:target="onSave">Saving...</span>
                     </button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- VIEW SYLLABUS CHAPTERS — a subject's chapters for the exam, numbered --}}
+    @if ($sylViewTitle !== '')
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeSyllabusChapters"></div>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col" wire:click.stop>
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $sylViewTitle }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5 truncate">{{ $sylViewSub }}{{ $sylViewSub !== '' ? ' · ' : '' }}{{ count($sylViewChapters) }} {{ count($sylViewChapters) === 1 ? 'chapter' : 'chapters' }}</p>
+                    </div>
+                    <button wire:click="closeSyllabusChapters" type="button"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto divide-y divide-gray-100">
+                    @foreach ($sylViewChapters as $n => $chapterName)
+                        <div wire:key="sylview-{{ $n }}" class="flex items-center gap-x-3 px-6 py-2.5">
+                            <span class="w-6 text-xs text-gray-400 tabular-nums flex-shrink-0">{{ $n + 1 }}</span>
+                            <span class="flex-1 min-w-0 text-sm text-gray-900">{{ $chapterName }}</span>
+                        </div>
+                    @endforeach
+                </div>
+
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end flex-shrink-0">
+                    <button type="button" wire:click="closeSyllabusChapters"
+                        class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
                 </div>
             </div>
         </div>

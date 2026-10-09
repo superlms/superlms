@@ -6,23 +6,28 @@ use App\Models\Admin\AdminDocument;
 use App\Models\SuperAdmin\SuperAdminDocument;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
 
 /**
- * School-admin Documents screen. Two things live here:
- *   1. "My Documents" — files the admin uploads and manages for their own
- *      organization (add / edit / download / delete via a right slide-in panel).
- *   2. "Shared with your school" — documents the super-admin has pushed down to
- *      this organization; admins can only view & download these.
+ * School-admin Documents screen, in two tabs:
+ *   1. "School Documents" — files the admin uploads and manages for their own
+ *      organization (add / view / edit / download / delete via a right slide-in panel).
+ *   2. "Admin Documents" — documents the super-admin has pushed down to this
+ *      organization; admins can only view & download these.
  */
 class Documents extends Component
 {
     use WithFileUploads, WithPagination, WireUiActions;
 
     public $organization = null;
+
+    /** 'school' (the school's own documents) or 'admin' (sent by the Super Admin). */
+    #[Url(except: 'school')]
+    public string $tab = 'school';
 
     // ─── Add / edit slide-in panel (admin-owned docs) ─────────────────────────
     public bool   $showPanel        = false;
@@ -44,6 +49,13 @@ class Documents extends Component
     private function orgId(): int
     {
         return (int) Auth::user()?->organization_id;
+    }
+
+    public function setTab(string $tab): void
+    {
+        $this->tab = $tab === 'admin' ? 'admin' : 'school';
+        $this->resetPage();
+        $this->resetPage('sharedPage');
     }
 
     // ─── Panel open / close ──────────────────────────────────────────────────
@@ -241,9 +253,10 @@ class Documents extends Component
             ->latest()
             ->paginate(12);
 
+        // A tab of its own now, so as many a page as the school's documents.
         $sharedDocuments = SuperAdminDocument::forOrganization($this->orgId())
             ->latest()
-            ->paginate(6, ['*'], 'sharedPage');
+            ->paginate(12, ['*'], 'sharedPage');
 
         return view('livewire.admin.documents', compact('documents', 'sharedDocuments'));
     }

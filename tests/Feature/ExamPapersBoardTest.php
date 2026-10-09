@@ -247,8 +247,19 @@ class ExamPapersBoardTest extends TestCase
 
         $page->set('syllabusFilterExam', (string) $s['exam'])->set('syllabusFilterStandard', (string) $s['std']);
         $html = $page->html();
-        $this->assertStringContainsString('Varnmala · Matra', $html);                   // chapter order, joined by dots
+        $this->assertStringContainsString('2 chapters', $html);                        // how many, not the names
+        $this->assertStringNotContainsString('Varnmala', $html);
         $this->assertSame(2, substr_count($html, 'Not added yet'));                    // English, Maths
+        $this->assertStringContainsString('wire:click="viewSyllabusChapters(' . $s['subs']['Hindi'] . ')"', $html);
+
+        // View: the chapters, in chapter order and numbered, in a slide-in.
+        $html = $page->call('viewSyllabusChapters', $s['subs']['Hindi'])->html();
+        $this->assertSame(['Varnmala', 'Matra'], $page->get('sylViewChapters'));
+        $this->assertSame('Half Yearly · NURSERY', $page->get('sylViewSub'));
+        $this->assertMatchesRegularExpression('/>1<\/span>\s*<span class="flex-1 min-w-0 text-sm text-gray-900">Varnmala<\/span>/', $html);
+        $this->assertMatchesRegularExpression('/>2<\/span>\s*<span class="flex-1 min-w-0 text-sm text-gray-900">Matra<\/span>/', $html);
+        $page->call('closeSyllabusChapters');
+        $this->assertSame('', $page->get('sylViewTitle'));
         $this->assertStringContainsString('wire:click="openSyllabusFor(' . $s['subs']['Maths'] . ')"', $html);
         $this->assertStringContainsString('wire:click="onEditSyllabus(' . $s['exam'] . ', ' . $s['std'] . ', ' . $s['subs']['Hindi'] . ', ' . $s['sec'] . ')"', $html);
 
