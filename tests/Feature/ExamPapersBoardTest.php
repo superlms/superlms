@@ -129,6 +129,12 @@ class ExamPapersBoardTest extends TestCase
         $this->assertStringContainsString('02 Nov 2026 → 12 Nov 2026', $html);         // the dates on one line
         $this->assertStringNotContainsString('rounded-full uppercase tracking-wide', $html); // no status chip
         $this->assertMatchesRegularExpression('/class="text-sm text-gray-700 hover:text-gray-900">\s*Published\s*<\/button>/', $html);
+        $this->assertStringNotContainsString('wire:model.live="filterAcademicYear"', $html);   // no Year filter
+        $this->assertMatchesRegularExpression('/wire:click="onViewExam\(\d+\)" title="View"\s*class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"/', $html);
+        $this->assertStringNotContainsString('rounded-md border border-gray-200 text-gray-500', $html);
+        $page->set('search', 'Half');
+        $this->assertMatchesRegularExpression('/wire:click="clearExamFilters"\s*class="inline-flex/', $page->html()); // Clear beside the fields
+        $page->set('search', '');
 
         // Saving an exam left ticked publishes it; editing keeps its description.
         $page->set('term', 'Term-2')->set('examName', 'Annual')->set('examType', 'written')
@@ -147,6 +153,8 @@ class ExamPapersBoardTest extends TestCase
         $html = $page->html();
         $this->assertStringNotContainsString('<span class="text-gray-300">→</span>', explode('Syllabus tab', $html)[0]);
         $this->assertStringContainsString('Hindi Paper', $html);                       // no exam/class: the papers table, as before
+        $this->assertStringNotContainsString('wire:click="openPaperModal"', $html);    // no Upload Paper in the header
+        $this->assertMatchesRegularExpression('/wire:click="downloadPaper\(\d+\)" title="Download"\s*class="p-1.5 text-emerald-600/', $html);
 
         $page->set('filterPaperExam', (string) $s['exam'])->set('filterPaperStandard', (string) $s['std'])
             ->set('filterPaperSection', (string) $s['sec']);                            // the class's only section (picked by itself on the page)
@@ -189,7 +197,7 @@ class ExamPapersBoardTest extends TestCase
         Storage::disk('s3')->assertExists($after->file_path);
         DB::table('exam_papers')->where('id', $maths->id)->delete();
 
-        // The header's Upload Paper panel still works, now up to 2 MB.
+        // The upload panel (the papers table's Edit) still works, now up to 2 MB.
         $this->assertStringContainsString('(max 2 MB)', $page->call('openPaperModal')->html());
         $page->call('closePaperModal');
 
@@ -228,8 +236,14 @@ class ExamPapersBoardTest extends TestCase
         }
 
         $page = Livewire::test(AddExam::class)->call('setTab', 'syllabus');
-        $bar = explode('View:', $page->html())[1];
+        $html = $page->html();
+        $bar = explode('View:', $html)[1];
         $this->assertStringNotContainsString('<span class="text-gray-300">→</span>', explode('BODY', $bar)[0]);
+        // Nothing listed until filtered.
+        $this->assertStringContainsString('Pick an exam and a class', $html);
+        $this->assertStringNotContainsString('Varnmala', $html);
+        $this->assertStringNotContainsString('wire:click="onViewSyllabus(', $html);
+        $this->assertStringContainsString('Now pick a class', $page->set('syllabusFilterExam', (string) $s['exam'])->html());
 
         $page->set('syllabusFilterExam', (string) $s['exam'])->set('syllabusFilterStandard', (string) $s['std']);
         $html = $page->html();
