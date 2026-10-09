@@ -14,8 +14,8 @@ use Tests\TestCase;
 
 /**
  * Users in the Students list's look (status dot in the actions, still a switch;
- * icon actions; access as plain text) with its Add / Edit form in the Mark
- * Attendance look; Rules & Regulations with its tabs under the heading; and
+ * icon actions; access as plain text), its Add / Edit form in the Students
+ * form's look and its View as the Students view (access as text with dots); Rules & Regulations with its tabs under the heading; and
  * no Credit tile on More.
  */
 class UsersRulesMoreTest extends TestCase
@@ -58,16 +58,30 @@ class UsersRulesMoreTest extends TestCase
         $page->call('toggleStatus', $sub->id);
         $this->assertFalse((bool) DB::table('users')->where('id', $sub->id)->value('is_active'));
 
-        // Add New User: the Mark Attendance panel — flat label rows, a toolbar with the steps.
+        // View, as the Students view: label / value rows, the screens granted as plain text with dots.
+        $catalog = $page->instance()->permissionCatalog();
+        $html = $page->call('view', $sub->id)->html();
+        $this->assertStringContainsString('grid grid-cols-3 gap-3 text-sm', $html);
+        $this->assertStringContainsString($catalog['admin.student'] . ' · ' . $catalog['admin.fee'], $html);
+        $this->assertStringNotContainsString('rounded-full bg-indigo-50 text-indigo-700', $html);       // no chips
+        // Its Edit closes the view and opens the form on the same user.
+        $page->call('editFromView', $sub->id);
+        $this->assertFalse($page->get('showViewPanel'));
+        $this->assertTrue($page->get('showPanel'));
+        $this->assertSame($sub->id, $page->get('editId'));
+        $page->call('closePanel');
+
+        // Add New User: the Students form — a photo row, then a flat two-column grid of labelled boxes.
         $html = $page->call('openCreate')->html();
         $this->assertStringContainsString('absolute top-0 right-0 bottom-0 w-full max-w-3xl', $html);
-        $this->assertStringContainsString('1. Personal details', $html);
+        $this->assertStringContainsString('Step 1 of 2', $html);
+        $this->assertStringContainsString('<label class="block text-sm font-medium text-gray-700 mb-1.5">Full Name', $html);
+        $this->assertStringContainsString('grid grid-cols-1 sm:grid-cols-2 gap-3', $html);
         $this->assertStringContainsString('wire:model="fullName"', $html);
-        $this->assertStringContainsString('w-32 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Full name', $html);
         $html = $page->set('fullName', 'Sita')->set('email', 'sita@x.in')->set('mobile', '9876543210')->set('gender', 'female')
             ->call('nextStep')->html();
         $this->assertSame(2, $page->get('step'));
-        $this->assertStringContainsString('of', $html);
+        $this->assertStringContainsString('(0 of ' . count($catalog) . ' selected)', $html);
         $this->assertStringContainsString('wire:click="selectAllPermissions"', $html);
     }
 

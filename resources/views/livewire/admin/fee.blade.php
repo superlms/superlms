@@ -167,30 +167,7 @@
             </div>
         </div>
 
-        {{-- Tabs as cards (Lists-style) — $feeTabs/$feeColorMap defined at top --}}
-        @if ($activeTab === '')
-        <div class="border-t border-gray-200 px-4 sm:px-6 py-6">
-            <p class="text-sm text-gray-500 mb-4">Choose what you want to manage:</p>
-            {{-- In the Quick Links page's look: a round coloured icon and the name, nothing else --}}
-            <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5 sm:gap-3 md:gap-3.5">
-                @foreach ($feeTabs as $tab => [$label, $icon, $desc, $color])
-                    @php $c = $feeColorMap[$color] ?? $feeColorMap['blue']; @endphp
-                    <button wire:click="showTab('{{ $tab }}')" wire:key="fee-tile-{{ $tab }}"
-                        class="relative group flex flex-col items-center justify-start rounded-2xl sm:rounded-xl border border-gray-200 bg-white
-                               hover:bg-gray-50 hover:border-gray-300 active:scale-[0.97] transition p-2.5 sm:p-2 md:p-2.5 overflow-hidden min-w-0">
-                        <div class="w-11 h-11 sm:w-9 sm:h-9 md:w-10 md:h-10 mb-1.5 sm:mb-1 {{ $c['bg'] }} rounded-full flex items-center justify-center shrink-0">
-                            <svg class="w-5 h-5 sm:w-4 sm:h-4 md:w-5 md:h-5 {{ $c['text'] }}" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $icon }}" /></svg>
-                        </div>
-                        <span class="block w-full text-[11px] md:text-xs leading-tight font-medium text-center text-gray-800 break-words"
-                            style="overflow-wrap: anywhere; word-break: break-word;">{{ $label }}</span>
-                        @if ($tab === 'qr_payments' && ($qrPending ?? 0) > 0)
-                            <span title="{{ $qrPending }} to check" class="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">{{ $qrPending > 99 ? '99+' : $qrPending }}</span>
-                        @endif
-                    </button>
-                @endforeach
-            </div>
-        </div>
-        @endif
+        {{-- The sections' tiles are in the body below (a 3 × 3 grid that fills the screen). --}}
 
         {{-- ══════════ PER-TAB FILTER BAR (gray-50, exam-style) ══════════ --}}
         @if ($activeTab === 'account_users')
@@ -317,6 +294,30 @@
     </div>
 
     <div class="p-4 sm:p-6 space-y-5">
+
+    {{-- ════════════════════════════════════════════════════════════════ --}}
+    {{-- THE SECTIONS — Quick Links tiles (a round coloured icon and the   --}}
+    {{-- name) in a 3 × 3 grid that fills the screen under the header.     --}}
+    {{-- ════════════════════════════════════════════════════════════════ --}}
+    @if ($activeTab === '')
+        <div class="grid grid-cols-3 auto-rows-fr gap-3 sm:gap-4 min-h-[22rem] sm:h-[calc(100vh-12rem)]">
+            @foreach ($feeTabs as $tab => [$label, $icon, $desc, $color])
+                @php $c = $feeColorMap[$color] ?? $feeColorMap['blue']; @endphp
+                <button wire:click="showTab('{{ $tab }}')" wire:key="fee-tile-{{ $tab }}"
+                    class="relative group flex flex-col items-center justify-center gap-2 sm:gap-3 rounded-2xl border border-gray-200 bg-white
+                           hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm active:scale-[0.98] transition p-3 sm:p-4 overflow-hidden min-w-0">
+                    <div class="w-12 h-12 sm:w-16 sm:h-16 {{ $c['bg'] }} rounded-full flex items-center justify-center shrink-0">
+                        <svg class="w-6 h-6 sm:w-8 sm:h-8 {{ $c['text'] }}" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $icon }}" /></svg>
+                    </div>
+                    <span class="block w-full text-xs sm:text-sm leading-tight font-medium text-center text-gray-800 break-words"
+                        style="overflow-wrap: anywhere; word-break: break-word;">{{ $label }}</span>
+                    @if ($tab === 'qr_payments' && ($qrPending ?? 0) > 0)
+                        <span title="{{ $qrPending }} to check" class="absolute top-2 right-2 min-w-[20px] h-5 px-1.5 rounded-full bg-amber-500 text-white text-[11px] font-bold flex items-center justify-center">{{ $qrPending > 99 ? '99+' : $qrPending }}</span>
+                    @endif
+                </button>
+            @endforeach
+        </div>
+    @endif
 
     {{-- ════════════════════════════════════════════════════════════════ --}}
     {{-- TAB 1: FEE STRUCTURE  (embeds the standalone admin.fee-structure  --}}

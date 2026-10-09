@@ -128,6 +128,8 @@ class FeeMergedTabsTest extends TestCase
         $this->assertStringContainsString('>Analytics</span>', $html);              // kept
         // Quick Links tiles: a round icon and the name — no description under it.
         $this->assertStringContainsString('wire:key="fee-tile-view_fee"', $html);
+        $this->assertStringContainsString('grid grid-cols-3 auto-rows-fr', $html);              // 3 x 3, filling the screen
+        $this->assertSame(9, substr_count($html, 'wire:key="fee-tile-'));
         $this->assertStringNotContainsString("A student's fee ledger — collect fee from it", $html);
 
         $page->call('showTab', 'fee_submission');

@@ -162,20 +162,22 @@
     </div>
 
     {{-- ══════════════════════════════════════════════════
-         SLIDE-IN PANEL — Create / Edit, in the Mark Attendance panel's look:
-         a toolbar with the two steps, then flat label rows. Every field,
-         rule and save is as before.
+         ADD / EDIT — in the Students form's look: the photo on one row, then
+         the fields in one flat two-column grid; the second step, the access,
+         as a grid of ticks. Every field, rule and save is as before.
     ══════════════════════════════════════════════════ --}}
     @if ($showPanel)
         <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closePanel"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
 
-                {{-- Header --}}
+                {{-- Fixed header --}}
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div class="min-w-0">
-                        <h2 class="text-lg font-semibold text-gray-900">{{ $editId ? 'Edit User' : 'Add New User' }}</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">{{ $step === 1 ? 'Personal details' : 'The screens this user can open' }}</p>
+                        <h2 class="text-lg font-semibold text-gray-900">{{ $editId ? 'Edit User' : 'New User' }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">
+                            Step {{ $step }} of 2 · {{ $step === 1 ? 'Personal details' : 'The screens this user can open' }}
+                        </p>
                     </div>
                     <button wire:click="closePanel" type="button"
                         class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
@@ -183,147 +185,134 @@
                     </button>
                 </div>
 
-                {{-- Toolbar: the two steps; on the second, the count and Select all / Clear all --}}
-                <div class="px-6 py-3 border-b border-gray-100 flex flex-wrap items-center gap-2 flex-shrink-0 text-sm">
-                    <span class="{{ $step === 1 ? 'text-gray-900 font-medium' : 'text-gray-400' }}">1. Personal details</span>
-                    <span class="text-gray-300">/</span>
-                    <span class="{{ $step === 2 ? 'text-gray-900 font-medium' : 'text-gray-400' }}">2. Access</span>
-                    @if ($step === 2)
-                        <span class="ml-auto text-xs text-gray-400 tabular-nums">{{ count($permissions) }} of {{ count($catalog) }} selected</span>
-                        <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-xs">
-                            <button type="button" wire:click="selectAllPermissions" class="px-2.5 py-1.5 text-gray-600 hover:bg-gray-50">Select all</button>
-                            <button type="button" wire:click="clearAllPermissions" class="px-2.5 py-1.5 text-gray-500 hover:bg-gray-50 border-l border-gray-200">Clear all</button>
-                        </div>
-                    @endif
-                </div>
-
-                {{-- STEP 1 — one flat row a field --}}
-                <div class="flex-1 overflow-y-auto divide-y divide-gray-100 {{ $step === 1 ? '' : 'hidden' }}">
-                    <div class="flex items-start gap-3 px-6 py-3">
-                        <span class="w-32 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Photo</span>
-                        <div class="flex-1 min-w-0 flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center flex-shrink-0">
+                {{-- Scrollable body --}}
+                <div class="flex-1 overflow-y-auto">
+                    {{-- STEP 1 — personal details --}}
+                    <div class="px-6 py-6 space-y-5 {{ $step === 1 ? '' : 'hidden' }}">
+                        {{-- Profile photo, one row --}}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Profile Photo <span class="text-gray-400 font-normal">(Optional, JPG/PNG/WebP, max 1 MB)</span></label>
+                            <div class="flex items-center gap-3">
                                 @if ($image)
-                                    <img src="{{ $image->temporaryUrl() }}" class="w-full h-full object-cover" alt="">
+                                    <img src="{{ $image->temporaryUrl() }}" class="w-12 h-12 rounded-full object-cover border border-gray-200 flex-shrink-0" alt="">
                                 @elseif ($imageUrl)
-                                    <img src="{{ $imageUrl }}" class="w-full h-full object-cover" alt="">
+                                    <img src="{{ $imageUrl }}" class="w-12 h-12 rounded-full object-cover border border-gray-200 flex-shrink-0" alt="">
                                 @else
-                                    <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                    <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                    </div>
                                 @endif
-                            </div>
-                            <div class="min-w-0">
                                 <input type="file" wire:model="image" accept=".jpg,.jpeg,.png,.webp"
-                                    class="block w-full text-xs text-gray-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
-                                <p class="text-[11px] text-gray-400 mt-1">Optional · JPG, PNG or WebP · max 1 MB</p>
-                                <div wire:loading wire:target="image" class="text-xs text-blue-600 mt-1">Uploading…</div>
-                                @error('image') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                                    class="flex-1 text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                            </div>
+                            <div wire:loading wire:target="image" class="text-xs text-blue-600 mt-1">Uploading…</div>
+                            @error('image')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+
+                        {{-- The fields, one flat two-column grid --}}
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Full Name <span class="text-red-500">*</span></label>
+                                <input type="text" wire:model="fullName" autocomplete="off" maxlength="100" placeholder="e.g. Rahul Sharma"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 @error('fullName') border-red-400 @enderror">
+                                @error('fullName')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Email <span class="text-red-500">*</span></label>
+                                <input type="email" wire:model="email" autocomplete="off" maxlength="191" placeholder="user@example.com"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 @error('email') border-red-400 @enderror">
+                                @error('email')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Mobile <span class="text-red-500">*</span></label>
+                                <input type="text" wire:model="mobile" autocomplete="off" maxlength="10" inputmode="numeric" placeholder="10-digit mobile"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 @error('mobile') border-red-400 @enderror">
+                                @error('mobile')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Alternative Mobile <span class="text-gray-400 font-normal text-xs">(optional)</span></label>
+                                <input type="text" wire:model="alternativeMobile" autocomplete="off" maxlength="10" inputmode="numeric" placeholder="10-digit mobile"
+                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 @error('alternativeMobile') border-red-400 @enderror">
+                                @error('alternativeMobile')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Gender <span class="text-red-500">*</span></label>
+                                <select wire:model="gender" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 @error('gender') border-red-400 @enderror">
+                                    <option value="">Select Gender</option>
+                                    <option value="male">Male</option>
+                                    <option value="female">Female</option>
+                                    <option value="other">Other</option>
+                                </select>
+                                @error('gender')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Account Status</label>
+                                <select wire:model="isActive" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="1">Active</option>
+                                    <option value="0">Inactive</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Date of Birth <span class="text-gray-400 font-normal text-xs">(optional)</span></label>
+                                <input type="date" wire:model="dob" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 @error('dob') border-red-400 @enderror">
+                                @error('dob')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Date of Joining <span class="text-gray-400 font-normal text-xs">(optional)</span></label>
+                                <input type="date" wire:model="dateOfJoining" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 @error('dateOfJoining') border-red-400 @enderror">
+                                @error('dateOfJoining')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                             </div>
                         </div>
                     </div>
 
-                    <div class="flex items-start gap-3 px-6 py-3">
-                        <span class="w-32 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Full name <span class="text-red-500">*</span></span>
-                        <div class="flex-1 min-w-0">
-                            <input type="text" wire:model="fullName" autocomplete="off" maxlength="100" placeholder="e.g. Rahul Sharma" class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                            @error('fullName') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                    {{-- STEP 2 — the screens this user can open --}}
+                    <div class="px-6 py-6 space-y-3 {{ $step === 2 ? '' : 'hidden' }}">
+                        <div class="flex items-center justify-between gap-3">
+                            <label class="block text-sm font-medium text-gray-700">
+                                Access <span class="text-gray-400 font-normal text-xs">({{ count($permissions) }} of {{ count($catalog) }} selected)</span>
+                            </label>
+                            <div class="flex items-center gap-3 text-xs">
+                                <button type="button" wire:click="selectAllPermissions" class="font-medium text-blue-600 hover:text-blue-800">Select all</button>
+                                <button type="button" wire:click="clearAllPermissions" class="font-medium text-gray-500 hover:text-gray-800">Clear all</button>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-400">The user sees and uses only the screens ticked here.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2">
+                            @foreach ($catalog as $routeName => $title)
+                                <label wire:key="perm-{{ $routeName }}" class="flex items-center gap-2.5 px-3.5 py-2.5 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
+                                    <input type="checkbox" value="{{ $routeName }}" wire:model.live="permissions" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                    <span class="text-sm text-gray-700">{{ $title }}</span>
+                                </label>
+                            @endforeach
                         </div>
                     </div>
-
-                    <div class="flex items-start gap-3 px-6 py-3">
-                        <span class="w-32 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Email <span class="text-red-500">*</span></span>
-                        <div class="flex-1 min-w-0">
-                            <input type="email" wire:model="email" autocomplete="off" maxlength="191" placeholder="user@example.com" class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                            @error('email') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                        </div>
-                    </div>
-
-                    <div class="flex items-start gap-3 px-6 py-3">
-                        <span class="w-32 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Mobile <span class="text-red-500">*</span></span>
-                        <div class="flex-1 min-w-0">
-                            <input type="text" wire:model="mobile" autocomplete="off" maxlength="10" inputmode="numeric" placeholder="10-digit" class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                            @error('mobile') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                        </div>
-                    </div>
-
-                    <div class="flex items-start gap-3 px-6 py-3">
-                        <span class="w-32 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Alternative mobile</span>
-                        <div class="flex-1 min-w-0">
-                            <input type="text" wire:model="alternativeMobile" autocomplete="off" maxlength="10" inputmode="numeric" placeholder="Optional" class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                            @error('alternativeMobile') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                        </div>
-                    </div>
-
-                    <div class="flex items-start gap-3 px-6 py-3">
-                        <span class="w-32 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Date of birth</span>
-                        <div class="flex-1 min-w-0">
-                            <input type="date" wire:model="dob" class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                            @error('dob') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                        </div>
-                    </div>
-
-                    <div class="flex items-start gap-3 px-6 py-3">
-                        <span class="w-32 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Date of joining</span>
-                        <div class="flex-1 min-w-0">
-                            <input type="date" wire:model="dateOfJoining" class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                            @error('dateOfJoining') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                        </div>
-                    </div>
-
-                    <div class="flex items-start gap-3 px-6 py-3">
-                        <span class="w-32 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Gender <span class="text-red-500">*</span></span>
-                        <div class="flex-1 min-w-0">
-                            <select wire:model="gender" class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white">
-                                <option value="">Select</option>
-                                <option value="male">Male</option>
-                                <option value="female">Female</option>
-                                <option value="other">Other</option>
-                            </select>
-                            @error('gender') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                        </div>
-                    </div>
-
-                    <div class="flex items-start gap-3 px-6 py-3">
-                        <span class="w-32 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Account status</span>
-                        <div class="flex-1 min-w-0">
-                            <select wire:model="isActive" class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white">
-                                <option value="1">Active</option>
-                                <option value="0">Inactive</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                {{-- STEP 2 — one flat row a screen, ticked to grant it --}}
-                <div class="flex-1 overflow-y-auto divide-y divide-gray-100 {{ $step === 2 ? '' : 'hidden' }}">
-                    <p class="px-6 py-2 text-xs text-gray-500">The user sees and uses only the screens ticked here.</p>
-                    @foreach ($catalog as $routeName => $title)
-                        <label wire:key="perm-{{ $routeName }}" class="flex items-center gap-3 px-6 py-2.5 cursor-pointer hover:bg-gray-50">
-                            <span class="w-4 text-[11px] text-gray-300 tabular-nums flex-shrink-0">{{ $loop->iteration }}</span>
-                            <input type="checkbox" value="{{ $routeName }}" wire:model.live="permissions" class="rounded border-gray-300 text-gray-900 focus:ring-gray-400">
-                            <span class="text-sm text-gray-800">{{ $title }}</span>
-                        </label>
-                    @endforeach
                 </div>
 
                 {{-- Footer --}}
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between gap-2 flex-shrink-0">
                     @if ($step === 1)
-                        <button wire:click="closePanel" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                        <button wire:click="nextStep" type="button"
-                            class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5">
-                            Next
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
-                        </button>
+                        <span></span>
+                        <div class="flex items-center gap-2">
+                            <button wire:click="closePanel" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                            <button wire:click="nextStep" type="button"
+                                class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5">
+                                Next
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+                            </button>
+                        </div>
                     @else
                         <button wire:click="backStep" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md flex items-center gap-1.5">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
                             Back
                         </button>
-                        <button wire:click="save" type="button" wire:loading.attr="disabled" wire:target="save"
-                            class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
-                            <span wire:loading.remove wire:target="save">{{ $editId ? 'Update User' : 'Create User' }}</span>
-                            <span wire:loading wire:target="save">Saving…</span>
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <button wire:click="closePanel" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                            <button wire:click="save" type="button" wire:loading.attr="disabled" wire:target="save"
+                                class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                                <span wire:loading.remove wire:target="save">{{ $editId ? 'Update User' : 'Create User' }}</span>
+                                <span wire:loading wire:target="save">Saving…</span>
+                            </button>
+                        </div>
                     @endif
                 </div>
             </div>
@@ -331,56 +320,77 @@
     @endif
 
     {{-- ══════════════════════════════════════════════════
-         SLIDE-IN PANEL — View
+         VIEW — in the Students view's look: the photo, then plain label /
+         value rows; the screens granted as plain text, one after another
+         with dots.
     ══════════════════════════════════════════════════ --}}
     @if ($showViewPanel)
+        @php $vActive = (bool) ($viewData['is_active'] ?? false); @endphp
         <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeViewPanel"></div>
-            <div class="absolute top-0 right-0 bottom-0 w-full max-w-md bg-white shadow-2xl flex flex-col">
-                {{-- Panel Header --}}
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+
+                {{-- Header --}}
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                    <div><h2 class="text-lg font-semibold text-gray-900">User Details</h2></div>
-                    <button wire:click="closeViewPanel"
-                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $viewData['name'] ?? 'User Details' }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5 truncate">
+                            {{ ($viewData['email'] ?? '') !== '' ? $viewData['email'] . ' · ' : '' }}{{ $vActive ? 'Active' : 'Inactive' }}
+                        </p>
+                    </div>
+                    <button wire:click="closeViewPanel" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto px-6 py-6">
-                    <div class="flex flex-col items-center text-center mb-6">
+                {{-- Body — one plain label/value row list, as the Students view --}}
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                    <div class="flex justify-center pb-2">
                         @if (!empty($viewData['image']))
-                            <img src="{{ $viewData['image'] }}" class="w-20 h-20 rounded-full object-cover border border-gray-200" alt="">
+                            <img src="{{ $viewData['image'] }}" alt="{{ $viewData['name'] ?? '' }}" class="w-24 h-24 rounded-full object-cover border border-gray-200">
                         @else
-                            <span class="w-20 h-20 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-2xl font-bold">{{ strtoupper(substr($viewData['name'] ?? '', 0, 1)) }}</span>
-                        @endif
-                        <h3 class="text-lg font-bold text-gray-900 mt-3">{{ $viewData['name'] ?? '' }}</h3>
-                        <p class="text-sm text-gray-500">{{ $viewData['email'] ?? '' }}</p>
-                        <span class="mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ ($viewData['is_active'] ?? false) ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600' }}">
-                            {{ ($viewData['is_active'] ?? false) ? 'Active' : 'Inactive' }}
-                        </span>
-                    </div>
-
-                    <dl class="space-y-3 text-sm">
-                        <div class="flex justify-between"><dt class="text-gray-500">Mobile</dt><dd class="text-gray-800 font-medium">{{ $viewData['mobile'] ?? '—' }}</dd></div>
-                        <div class="flex justify-between"><dt class="text-gray-500">Alt. Mobile</dt><dd class="text-gray-800 font-medium">{{ $viewData['alternative_mobile'] ?: '—' }}</dd></div>
-                        <div class="flex justify-between"><dt class="text-gray-500">Date of Birth</dt><dd class="text-gray-800 font-medium">{{ $viewData['dob'] ?? '—' }}</dd></div>
-                        <div class="flex justify-between"><dt class="text-gray-500">Date of Joining</dt><dd class="text-gray-800 font-medium">{{ $viewData['date_of_joining'] ?? '—' }}</dd></div>
-                        <div class="flex justify-between"><dt class="text-gray-500">Gender</dt><dd class="text-gray-800 font-medium capitalize">{{ $viewData['gender'] ?: '—' }}</dd></div>
-                        <div class="flex justify-between"><dt class="text-gray-500">Last Login</dt><dd class="text-gray-800 font-medium">{{ $viewData['last_login_at'] ?? 'Never' }}</dd></div>
-                    </dl>
-
-                    <div class="mt-6">
-                        <h4 class="text-sm font-semibold text-gray-700 mb-2">Granted Access</h4>
-                        @if (!empty($viewData['permissions']))
-                            <div class="flex flex-wrap gap-2">
-                                @foreach ($viewData['permissions'] as $perm)
-                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium">{{ $perm }}</span>
-                                @endforeach
+                            <div class="w-24 h-24 rounded-full bg-indigo-100 flex items-center justify-center">
+                                <span class="text-3xl font-semibold text-indigo-600">{{ strtoupper(substr($viewData['name'] ?? 'U', 0, 1)) }}</span>
                             </div>
-                        @else
-                            <p class="text-xs text-gray-400">No functionalities granted.</p>
                         @endif
                     </div>
+
+                    @foreach ([
+                        'Mobile'          => ($viewData['mobile'] ?? '') ?: 'N/A',
+                        'Alt. Mobile'     => ($viewData['alternative_mobile'] ?? '') ?: 'N/A',
+                        'Gender'          => ($viewData['gender'] ?? '') ? ucfirst($viewData['gender']) : 'N/A',
+                        'Date of Birth'   => ($viewData['dob'] ?? '—') !== '—' ? $viewData['dob'] : 'N/A',
+                        'Date of Joining' => ($viewData['date_of_joining'] ?? '—') !== '—' ? $viewData['date_of_joining'] : 'N/A',
+                        'Status'          => $vActive ? 'Active' : 'Inactive',
+                        'Last Login'      => $viewData['last_login_at'] ?? 'Never',
+                    ] as $label => $value)
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
+                            <span class="col-span-2 text-gray-800 font-medium">{{ $value }}</span>
+                        </div>
+                    @endforeach
+
+                    {{-- The screens granted, plain text with dots between --}}
+                    <div class="pt-4 mt-2 border-t border-gray-100">
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">Access</span>
+                            <span class="col-span-2 text-gray-800 font-medium leading-relaxed">
+                                @if (!empty($viewData['permissions']))
+                                    {{ implode(' · ', $viewData['permissions']) }}
+                                @else
+                                    <span class="text-gray-400 font-normal">None granted</span>
+                                @endif
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Footer --}}
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
+                    <button type="button" wire:click="editFromView({{ (int) ($viewData['id'] ?? 0) }})"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Edit</button>
+                    <button type="button" wire:click="closeViewPanel"
+                        class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
                 </div>
             </div>
         </div>

@@ -342,6 +342,7 @@ class Users extends Component
 
         $catalog = $this->permissionCatalog();
         $this->viewData = [
+            'id'                 => $user->id,
             'name'               => $user->name,
             'email'              => $user->email,
             'mobile'             => $user->mobile_number,
@@ -357,6 +358,13 @@ class Users extends Component
                 ->all(),
         ];
         $this->showViewPanel = true;
+    }
+
+    /** The view panel's Edit: the view closes and the form opens on the same user. */
+    public function editFromView(int $id): void
+    {
+        $this->closeViewPanel();
+        $this->edit($id);
     }
 
     public function closeViewPanel(): void
