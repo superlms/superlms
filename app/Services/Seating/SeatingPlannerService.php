@@ -25,6 +25,10 @@ use Illuminate\Support\Collection;
  *   4. Post-pass: detect adjacency conflicts (L/R/F/B) and resolve by
  *      swapping with a compatible seat in the SAME room.
  *   5. Whatever conflict remains is flagged on the assignment row.
+ *   6. Given the desks the students sat at in their previous paper, nobody is
+ *      left at the same desk again: a student is swapped with a classmate
+ *      (which keeps every class exactly where the plan put it), or else moved
+ *      to a free place with no classmate beside it.
  */
 class SeatingPlannerService
 {
@@ -34,9 +38,11 @@ class SeatingPlannerService
      * @param array $students   [{ id, name, class_label }]  (class_label e.g. "10-A")
      * @param Collection<SeatingRoom> $rooms  with seats relation eager-loaded, in the
      *                                        order a room should fill before the next
+     * @param array<int|string,int> $lastDesk student id => the desk (seat id) they sat at in
+     *                                        their previous paper; empty = plan as before
      * @return array            ['assignments' => [...], 'totals' => [...]]
      */
-    public function plan(array $students, Collection $rooms): array
+    public function plan(array $students, Collection $rooms, array $lastDesk = []): array
     {
         if (empty($students) || $rooms->isEmpty()) {
             return [
@@ -124,6 +130,12 @@ class SeatingPlannerService
         }
 
         $unseated = array_sum(array_map('count', $classQueues));
+
+        // 6. Not the desk of their previous paper — then the flags are counted again.
+        if ($lastDesk) {
+            $this->moveOffLastDesks($assignments, $lastDesk, $rooms);
+            $conflictCount = $this->recountConflicts($assignments, $rooms);
+        }
 
         return [
             'assignments' => $assignments,
@@ -281,6 +293,118 @@ class SeatingPlannerService
         if ($sameClass($r + 1, $c, $p)) return true;
 
         return false;
+    }
+
+    /**
+     * Nobody at the desk they had last paper. First a swap with a classmate,
+     * anywhere — the classes stay exactly where the plan put them, so no
+     * neighbour changes class; failing that (a class of one), a free place with
+     * no classmate beside it, in the same room if there is one.
+     */
+    private function moveOffLastDesks(array &$assignments, array $lastDesk, Collection $rooms): void
+    {
+        $was = fn (array $a): bool => $a['student_id'] !== null
+            && isset($lastDesk[$a['student_id']])
+            && (int) $lastDesk[$a['student_id']] === (int) $a['seat_id'];
+
+        // 1. A classmate's place, as long as it is not that classmate's last desk either.
+        //    (Indexes, re-read each time: a swap changes rows the loop has yet to reach.)
+        $keys = array_keys($assignments);
+        foreach ($keys as $i) {
+            $a = $assignments[$i];
+            if (!$was($a)) continue;
+            foreach ($keys as $j) {
+                $b = $assignments[$j];
+                if ($j === $i || $b['student_id'] === null || $b['class_label'] !== $a['class_label']) continue;
+                if ((int) $b['seat_id'] === (int) $a['seat_id']) continue;              // the same desk
+                if (isset($lastDesk[$b['student_id']]) && (int) $lastDesk[$b['student_id']] === (int) $a['seat_id']) continue;
+                $assignments[$i]['student_id'] = $b['student_id'];
+                $assignments[$j]['student_id'] = $a['student_id'];
+                continue 2;
+            }
+        }
+
+        // 2. Still there: a free place nobody of their class sits beside.
+        $where = $this->placeIndex($rooms);
+        foreach ($keys as $i) {
+            $a = $assignments[$i];
+            if (!$was($a)) continue;
+            $free = array_keys(array_filter($assignments, fn ($b) => $b['student_id'] === null
+                && (int) $b['seat_id'] !== (int) $a['seat_id']
+                && isset($where[$b['seat_id']])));
+            // Their own room first.
+            usort($free, fn ($x, $y) => (int) ($assignments[$y]['room_id'] === $a['room_id']) <=> (int) ($assignments[$x]['room_id'] === $a['room_id']));
+
+            foreach ($free as $j) {
+                $moved = $assignments;
+                $moved[$j]['student_id']  = $a['student_id'];
+                $moved[$j]['class_label'] = $a['class_label'];
+                $moved[$i]['student_id']  = null;
+                $moved[$i]['class_label'] = null;
+                if (!$this->clashesAt($moved, $j, $where)) {
+                    $assignments = $moved;
+                    continue 2;
+                }
+            }
+        }
+    }
+
+    /** seat id => [room id, row, column, rows, columns, places a desk]. */
+    private function placeIndex(Collection $rooms): array
+    {
+        $where = [];
+        foreach ($rooms as $room) {
+            foreach ($room->seats as $seat) {
+                $where[$seat->id] = [$room->id, (int) $seat->row_no, (int) $seat->col_no,
+                    (int) $room->rows, (int) $room->columns, max(1, (int) ($room->seat_capacity ?? 1))];
+            }
+        }
+
+        return $where;
+    }
+
+    /** One room's places as the conflict check reads them, from the assignment rows. */
+    private function roomGrid(array $assignments, $roomId, array $where): array
+    {
+        $grid = [];
+        foreach ($assignments as $a) {
+            if ($a['room_id'] !== $roomId || !isset($where[$a['seat_id']])) continue;
+            [, $r, $c] = $where[$a['seat_id']];
+            $grid[$r][$c][(int) $a['seat_position']] = $a['student_id'] !== null
+                ? ['student_id' => $a['student_id'], 'class_label' => $a['class_label']]
+                : null;
+        }
+
+        return $grid;
+    }
+
+    private function clashesAt(array $assignments, int $index, array $where): bool
+    {
+        $a = $assignments[$index];
+        [$roomId, $r, $c, $rows, $cols, $cap] = $where[$a['seat_id']];
+
+        return $this->hasAdjacencyConflict($this->roomGrid($assignments, $roomId, $where), $r, $c, (int) $a['seat_position'], $rows, $cols, $cap);
+    }
+
+    /** Every row's conflict flag read again from where everyone ended up; returns how many. */
+    private function recountConflicts(array &$assignments, Collection $rooms): int
+    {
+        $where = $this->placeIndex($rooms);
+        $grids = [];
+        $count = 0;
+        foreach ($assignments as $i => $a) {
+            if ($a['student_id'] === null || !isset($where[$a['seat_id']])) {
+                $assignments[$i]['has_conflict'] = false;
+                continue;
+            }
+            [$roomId, $r, $c, $rows, $cols, $cap] = $where[$a['seat_id']];
+            $grids[$roomId] ??= $this->roomGrid($assignments, $roomId, $where);
+            $clash = $this->hasAdjacencyConflict($grids[$roomId], $r, $c, (int) $a['seat_position'], $rows, $cols, $cap);
+            $assignments[$i]['has_conflict'] = $clash;
+            if ($clash) $count++;
+        }
+
+        return $count;
     }
 
     private function seatIdAt(Collection $seats, int $r, int $c)

@@ -163,4 +163,63 @@ class SeatingPlannerServiceTest extends TestCase
         $this->assertSame([], $this->plan([], collect([$this->room(1, 3, 3, 2)]))['assignments']);
         $this->assertSame([], $this->plan($this->students(['10-A' => 3]), collect())['assignments']);
     }
+
+    /** student id => desk (seat id), from a plan's result. */
+    private function desks(array $result): array
+    {
+        return collect($this->seated($result))->mapWithKeys(fn ($a) => [$a['student_id'] => $a['seat_id']])->all();
+    }
+
+    public function test_without_last_desks_the_plan_is_as_it_always_was(): void
+    {
+        $students = $this->students(['10-A' => 6, '10-B' => 6, '9-A' => 4]);
+        $rooms    = collect([$this->room(1, 4, 4, 1)]);
+
+        $this->assertSame($this->plan($students, $rooms), (new SeatingPlannerService())->plan($students, $rooms, []));
+    }
+
+    public function test_the_next_paper_never_puts_a_student_at_the_same_desk(): void
+    {
+        $planner  = new SeatingPlannerService();
+        $students = $this->students(['10-A' => 6, '10-B' => 6, '9-A' => 4]);
+        $rooms    = collect([$this->room(1, 4, 4, 1), $this->room(2, 2, 3, 2)]);
+
+        $first  = $planner->plan($students, $rooms);
+        $second = $planner->plan($students, $rooms, $this->desks($first));
+
+        $this->assertCount(16, $this->seated($second), 'everyone is still seated');
+        foreach ($this->desks($second) as $student => $desk) {
+            $this->assertNotSame($this->desks($first)[$student], $desk, "student {$student} is back at the same desk");
+        }
+        // Classmates trade places, so every class sits where the plan put it.
+        $layout = fn ($r) => collect($r['assignments'])->map(fn ($a) => $a['seat_id'] . '|' . $a['seat_position'] . '|' . $a['class_label'])->all();
+        $this->assertSame($layout($first), $layout($second));
+        $this->assertSame($first['totals']['conflicts'], $second['totals']['conflicts']);
+
+        // …and the paper after that moves them on again.
+        $third = $planner->plan($students, $rooms, $this->desks($second));
+        foreach ($this->desks($third) as $student => $desk) {
+            $this->assertNotSame($this->desks($second)[$student], $desk);
+        }
+    }
+
+    public function test_a_class_of_one_moves_to_a_free_desk_with_no_classmate_beside_it(): void
+    {
+        $planner  = new SeatingPlannerService();
+        $students = $this->students(['10-A' => 3, '9-A' => 1]);   // 9-A has nobody to swap with
+        $rooms    = collect([$this->room(1, 3, 3, 1)]);
+
+        $first  = $planner->plan($students, $rooms);
+        $second = $planner->plan($students, $rooms, $this->desks($first));
+
+        $this->assertCount(4, $this->seated($second));
+        foreach ($this->desks($second) as $student => $desk) {
+            $this->assertNotSame($this->desks($first)[$student], $desk);
+        }
+        // No conflict is added by the move, and the flags match the count.
+        $this->assertLessThanOrEqual($first['totals']['conflicts'], $second['totals']['conflicts']);
+        $this->assertSame($second['totals']['conflicts'], collect($second['assignments'])->where('has_conflict', true)->count());
+        $loner = collect($second['assignments'])->firstWhere('class_label', '9-A');
+        $this->assertFalse($loner['has_conflict']);
+    }
 }

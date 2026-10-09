@@ -225,6 +225,38 @@ class SeatingGenerateOnceTest extends TestCase
         $this->assertSame(2, DB::table('seat_assignments')->where('seating_plan_id', $made->first()->id)->whereNotNull('student_id')->count());
     }
 
+    public function test_a_student_is_not_at_the_same_desk_for_the_next_paper(): void
+    {
+        $s = $this->school();
+        for ($r = 1; $r <= 5; $r++) {
+            for ($c = 1; $c <= 6; $c++) {
+                DB::table('seating_seats')->insert(['room_id' => $s['room'], 'row_no' => $r, 'col_no' => $c, 'seat_number' => chr(64 + $c) . $r]);
+            }
+        }
+        DB::table('seating_rooms')->where('id', $s['room'])->update(['rows' => 5, 'columns' => 6, 'capacity' => 30]);
+        foreach (['Chand', 'Dev', 'Esha', 'Farah'] as $i => $name) {
+            DB::table('student_details')->insert(['organization_id' => $this->org, 'user_id' => 500 + $i, 'standard_id' => $s['c10'], 'full_name' => $name]);
+        }
+        // Class 10 sits two papers: 01 Sep and 02 Sep.
+        $sheet = DB::table('exam_datesheets')->where('exam_id', $s['exam'])->where('standard_id', $s['c10'])->value('id');
+        DB::table('exam_datesheet_papers')->insert(['exam_datesheet_id' => $sheet, 'exam_date' => '2026-09-02', 'shift' => 1]);
+
+        $this->mock(StudentPushNotifier::class, fn ($m) => $m->shouldIgnoreMissing());
+        $before = DB::table('seating_plans')->pluck('id');
+        Livewire::test(SeatingPlan::class)->call('openGeneratePanel')
+            ->set('generateForm.exam_id', (string) $s['exam'])->set('generateForm.name', 'Unit Test — Seating')
+            ->call('generatePlan');
+
+        $made = DB::table('seating_plans')->whereNotIn('id', $before)->orderBy('exam_date')->pluck('id');
+        $this->assertCount(2, $made);
+        $desk = fn ($plan) => DB::table('seat_assignments')->where('seating_plan_id', $plan)->whereNotNull('student_id')->pluck('seat_id', 'student_id')->all();
+        [$day1, $day2] = [$desk($made[0]), $desk($made[1])];
+        $this->assertCount(4, $day2);
+        foreach ($day2 as $student => $seat) {
+            $this->assertNotEquals($day1[$student], $seat, "student {$student} is at the same desk on the next paper");
+        }
+    }
+
     public function test_the_push_is_one_per_student_for_the_exam(): void
     {
         $s = $this->school();

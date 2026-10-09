@@ -520,6 +520,9 @@ class AdminSeatingController extends ApiController
         $skippedNoStud = 0;
 
         try {
+            // The desk each student sat at in their previous paper — the next
+            // paper never puts them back at it (sessions run in date order).
+            $lastDesk = [];
             foreach ($sessions as $session) {
                 // 3a. Students examined in this session.
                 $students = StudentDetail::with(['standard:id,name', 'section:id,name'])
@@ -558,7 +561,12 @@ class AdminSeatingController extends ApiController
                     $rooms->push($this->overflowHall($orgId, $session, $overflow));
                 }
 
-                $result = $planner->plan($studentInput, $rooms);
+                $result = $planner->plan($studentInput, $rooms, $lastDesk);
+                foreach ($result['assignments'] as $a) {
+                    if ($a['student_id'] && $a['seat_id']) {
+                        $lastDesk[$a['student_id']] = (int) $a['seat_id'];
+                    }
+                }
 
                 DB::transaction(function () use ($result, $rooms, $orgId, $examId, $baseName, $session, $invigilators, $planner, &$firstPlanId, &$createdPlans, &$seatedTotal, &$createdIds) {
                     $label   = Carbon::parse($session['date'])->format('d M Y');
