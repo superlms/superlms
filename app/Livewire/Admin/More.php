@@ -14,7 +14,7 @@ class More extends Component
         ['title' => 'Website Data',         'route' => 'admin.website-data',         'icon' => 'globe-alt'],
         // Documents moved to the sidebar (under Lists); Exam Copy came here from it.
         ['title' => 'Exam Copy',            'route' => 'admin.exam-copy',            'icon' => 'document-text'],
-        ['title' => 'Credit',             'route' => 'admin.credit',               'icon' => 'credit-card'],
+        // Credit is no longer a tile here (2026-10-09); its page and route stay.
         ['title' => 'Rules & Regulation',  'route' => 'admin.rules-and-regulation', 'icon' => 'clipboard'],
         ['title' => 'Contact Admin',       'route' => 'admin.contact-admin',        'icon' => 'chat-bubble-left'],
         ['title' => 'About App',           'route' => 'admin.about-app',            'icon' => 'information-circle'],

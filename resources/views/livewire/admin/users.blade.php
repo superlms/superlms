@@ -19,9 +19,10 @@
                         <span class="pl-4">Inactive: <strong class="text-rose-500">{{ $analytics['inactive'] }}</strong></span>
                     </div>
                     <button wire:click="openCreate"
-                        class="inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                        class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                        Add User
+                        <span class="hidden sm:inline">Add User</span>
+                        <span class="sm:hidden">Add</span>
                     </button>
                 </div>
             </div>
@@ -41,92 +42,112 @@
                 </div>
                 <input wire:model.live.debounce.300ms="search" type="text" name="user-search" autocomplete="off"
                     data-lpignore="true" data-1p-ignore data-form-type="other" placeholder="Search name, email, mobile..."
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-purple-500 focus:border-purple-500" />
+                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 <select wire:model.live="filterStatus"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     <option value="">All Status</option>
                     <option value="1">Active</option>
                     <option value="0">Inactive</option>
                 </select>
                 @if ($search || $filterStatus !== '')
-                    <button wire:click="clearFilters" class="text-xs text-purple-600 hover:text-purple-800 font-medium">Clear</button>
+                    <button wire:click="clearFilters"
+                        class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        Clear
+                    </button>
                 @endif
             </div>
         </div>
     </div>
 
     {{-- ══════════════════════════════════════════════════
-         LIST
+         LIST — in the Students list's look: S.No, photo + name over the email,
+         mobile, access as plain text, and the actions as icons with the
+         status dot in front (still a button: a click switches it).
     ══════════════════════════════════════════════════ --}}
     <div class="p-4 sm:p-6">
-        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
-                <table class="w-full text-sm min-w-[720px]">
-                    <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+                <table class="w-full min-w-[720px]">
+                    <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            <th class="px-4 py-3 text-left w-12">#</th>
-                            <th class="px-4 py-3 text-left">User</th>
-                            <th class="px-4 py-3 text-left">Contact</th>
-                            <th class="px-4 py-3 text-center w-32">Access</th>
-                            <th class="px-4 py-3 text-center w-28">Status</th>
-                            <th class="px-4 py-3 text-center w-32">Actions</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">User</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Mobile</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Access</th>
+                            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         @forelse ($users as $i => $u)
-                            <tr wire:key="user-{{ $u->id }}" class="hover:bg-gray-50/70">
-                                <td class="px-4 py-3 text-gray-400">{{ $users->firstItem() + $i }}</td>
+                            <tr wire:key="user-{{ $u->id }}" class="hover:bg-gray-50/70 transition-colors">
+                                {{-- S.No --}}
+                                <td class="px-4 py-3">
+                                    <span class="text-sm text-gray-500 font-medium">{{ $users->firstItem() + $i }}</span>
+                                </td>
+
+                                {{-- User (photo + name, email under it) --}}
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-3">
                                         @if ($u->image)
-                                            <img src="{{ $u->image }}" class="w-9 h-9 rounded-full object-cover border border-gray-200">
+                                            <img src="{{ $u->image }}" alt="" class="w-9 h-9 rounded-full object-cover object-top border border-gray-200 flex-shrink-0">
                                         @else
-                                            <div class="w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-xs">{{ strtoupper(substr($u->name, 0, 1)) }}</div>
+                                            <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                <span class="text-xs font-semibold text-indigo-600">{{ strtoupper(substr($u->name ?? 'U', 0, 1)) }}</span>
+                                            </div>
                                         @endif
                                         <div class="min-w-0">
-                                            <p class="font-medium text-gray-800 truncate">{{ $u->name }}</p>
+                                            <p class="text-sm font-semibold text-gray-900 truncate">{{ $u->name }}</p>
                                             <p class="text-xs text-gray-400 truncate">{{ $u->email }}</p>
                                         </div>
                                     </div>
                                 </td>
-                                <td class="px-4 py-3 text-gray-600">
-                                    {{ $u->mobile_number ?: '—' }}
-                                    @if ($u->alternative_mobile)<span class="text-gray-300"> · </span><span class="text-gray-400">{{ $u->alternative_mobile }}</span>@endif
-                                </td>
-                                <td class="px-4 py-3 text-center">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-xs font-medium">
-                                        {{ count((array) $u->permissions) }} functionalities
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3 text-center">
-                                    <button wire:click="toggleStatus({{ $u->id }})"
-                                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $u->is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600' }}">
-                                        {{ $u->is_active ? 'Active' : 'Inactive' }}
-                                    </button>
-                                </td>
+
+                                {{-- Mobile (the alternative one small under it) --}}
                                 <td class="px-4 py-3">
-                                    <div class="flex items-center justify-center gap-1.5">
+                                    <p class="text-sm text-gray-700">{{ $u->mobile_number ?: '—' }}</p>
+                                    @if ($u->alternative_mobile)
+                                        <p class="text-xs text-gray-400">{{ $u->alternative_mobile }}</p>
+                                    @endif
+                                </td>
+
+                                {{-- Access, as plain text --}}
+                                <td class="px-4 py-3">
+                                    @php $permCount = count((array) $u->permissions); @endphp
+                                    <span class="text-sm text-gray-700">{{ $permCount }} {{ $permCount === 1 ? 'functionality' : 'functionalities' }}</span>
+                                </td>
+
+                                {{-- Actions (status dot shown inline; a click switches it) --}}
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center justify-center gap-1">
+                                        <button wire:click="toggleStatus({{ $u->id }})"
+                                            title="{{ $u->is_active ? 'Active — click to make inactive' : 'Inactive — click to make active' }}"
+                                            class="p-1 rounded-full hover:bg-gray-100 mr-0.5 flex-shrink-0">
+                                            <span class="block w-2 h-2 rounded-full {{ $u->is_active ? 'bg-green-500' : 'bg-red-500' }}"></span>
+                                        </button>
                                         <button wire:click="view({{ $u->id }})" title="View"
-                                            class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                            class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                         </button>
                                         <button wire:click="edit({{ $u->id }})" title="Edit"
-                                            class="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                            class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                                         </button>
                                         <button wire:click="confirmDeletePrompt({{ $u->id }})" title="Delete"
-                                            class="p-1.5 rounded-md border border-red-200 text-red-500 hover:bg-red-50">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                         </button>
                                     </div>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-4 py-12 text-center text-gray-400">
-                                    No sub-admins{{ ($search || $filterStatus !== '') ? ' for this filter' : ' yet' }}.
+                                <td colspan="5" class="px-6 py-16 text-center">
+                                    <p class="text-sm font-semibold text-gray-800">No users{{ ($search || $filterStatus !== '') ? ' for this filter' : ' yet' }}</p>
                                     @if (!$search && $filterStatus === '')
-                                        <button wire:click="openCreate" class="block mx-auto mt-2 text-sm text-purple-600 hover:text-purple-800 font-medium">Add a user →</button>
+                                        <button wire:click="openCreate" class="mt-2 text-sm font-medium text-blue-600 hover:text-blue-800">Add a user →</button>
+                                    @else
+                                        <p class="text-xs text-gray-400 mt-1">Try another search or status.</p>
                                     @endif
                                 </td>
                             </tr>
@@ -141,174 +162,165 @@
     </div>
 
     {{-- ══════════════════════════════════════════════════
-         SLIDE-IN PANEL — Create / Edit (2 steps)
+         SLIDE-IN PANEL — Create / Edit, in the Mark Attendance panel's look:
+         a toolbar with the two steps, then flat label rows. Every field,
+         rule and save is as before.
     ══════════════════════════════════════════════════ --}}
     @if ($showPanel)
         <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closePanel"></div>
-            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
 
-                {{-- Panel Header --}}
+                {{-- Header --}}
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                    <div>
+                    <div class="min-w-0">
                         <h2 class="text-lg font-semibold text-gray-900">{{ $editId ? 'Edit User' : 'Add New User' }}</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">Create sub-admins and grant scoped access</p>
+                        <p class="text-xs text-gray-500 mt-0.5">{{ $step === 1 ? 'Personal details' : 'The screens this user can open' }}</p>
                     </div>
-                    <button wire:click="closePanel"
-                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    <button wire:click="closePanel" type="button"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
 
-                {{-- Body --}}
-                <div class="flex-1 overflow-y-auto px-6 pt-6 pb-6 space-y-5">
+                {{-- Toolbar: the two steps; on the second, the count and Select all / Clear all --}}
+                <div class="px-6 py-3 border-b border-gray-100 flex flex-wrap items-center gap-2 flex-shrink-0 text-sm">
+                    <span class="{{ $step === 1 ? 'text-gray-900 font-medium' : 'text-gray-400' }}">1. Personal details</span>
+                    <span class="text-gray-300">/</span>
+                    <span class="{{ $step === 2 ? 'text-gray-900 font-medium' : 'text-gray-400' }}">2. Access</span>
+                    @if ($step === 2)
+                        <span class="ml-auto text-xs text-gray-400 tabular-nums">{{ count($permissions) }} of {{ count($catalog) }} selected</span>
+                        <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-xs">
+                            <button type="button" wire:click="selectAllPermissions" class="px-2.5 py-1.5 text-gray-600 hover:bg-gray-50">Select all</button>
+                            <button type="button" wire:click="clearAllPermissions" class="px-2.5 py-1.5 text-gray-500 hover:bg-gray-50 border-l border-gray-200">Clear all</button>
+                        </div>
+                    @endif
+                </div>
 
-                    {{-- Step indicator --}}
-                    <div class="flex items-center gap-2">
-                        <span class="flex items-center gap-1.5 text-xs font-medium {{ $step === 1 ? 'text-purple-600' : 'text-gray-400' }}">
-                            <span class="w-5 h-5 rounded-full flex items-center justify-center text-[11px] {{ $step === 1 ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-500' }}">1</span>
-                            Personal Details
-                        </span>
-                        <span class="w-8 h-px bg-gray-200"></span>
-                        <span class="flex items-center gap-1.5 text-xs font-medium {{ $step === 2 ? 'text-purple-600' : 'text-gray-400' }}">
-                            <span class="w-5 h-5 rounded-full flex items-center justify-center text-[11px] {{ $step === 2 ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-500' }}">2</span>
-                            Access & Permissions
-                        </span>
-                    </div>
-
-                    {{-- STEP 1 --}}
-                    <div class="{{ $step === 1 ? '' : 'hidden' }} space-y-5">
-                        {{-- Image --}}
-                        <div class="flex items-center gap-4">
-                            <div class="w-16 h-16 rounded-full border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center">
+                {{-- STEP 1 — one flat row a field --}}
+                <div class="flex-1 overflow-y-auto divide-y divide-gray-100 {{ $step === 1 ? '' : 'hidden' }}">
+                    <div class="flex items-start gap-3 px-6 py-3">
+                        <span class="w-32 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Photo</span>
+                        <div class="flex-1 min-w-0 flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center flex-shrink-0">
                                 @if ($image)
                                     <img src="{{ $image->temporaryUrl() }}" class="w-full h-full object-cover" alt="">
                                 @elseif ($imageUrl)
                                     <img src="{{ $imageUrl }}" class="w-full h-full object-cover" alt="">
                                 @else
-                                    <svg class="w-7 h-7 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                    <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                                 @endif
                             </div>
-                            <div>
-                                <label class="text-sm font-medium text-gray-700">Profile Image <span class="text-gray-400 font-normal">(JPG/PNG/WEBP, max 1 MB)</span></label>
-                                <input type="file" wire:model="image" accept=".jpg,.jpeg,.png,.webp" class="mt-1 block text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-purple-50 file:text-purple-700 file:text-xs file:font-medium hover:file:bg-purple-100" />
-                                <div wire:loading wire:target="image" class="text-xs text-gray-400 mt-1">Uploading…</div>
-                                @error('image') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Full Name <span class="text-rose-500">*</span></label>
-                                <input type="text" wire:model="fullName" autocomplete="off" maxlength="100" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="e.g. Rahul Sharma">
-                                @error('fullName') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Email <span class="text-rose-500">*</span></label>
-                                <input type="email" wire:model="email" autocomplete="off" maxlength="191" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="user@example.com">
-                                @error('email') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Mobile <span class="text-rose-500">*</span></label>
-                                <input type="text" wire:model="mobile" autocomplete="off" maxlength="10" inputmode="numeric" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="10-digit">
-                                @error('mobile') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Alternative Mobile</label>
-                                <input type="text" wire:model="alternativeMobile" autocomplete="off" maxlength="10" inputmode="numeric" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="optional">
-                                @error('alternativeMobile') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Date of Birth <span class="text-gray-400 font-normal">(optional)</span></label>
-                                <input type="date" wire:model="dob" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
-                                @error('dob') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Date of Joining <span class="text-gray-400 font-normal">(optional)</span></label>
-                                <input type="date" wire:model="dateOfJoining" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
-                                @error('dateOfJoining') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Gender <span class="text-rose-500">*</span></label>
-                                <select wire:model="gender" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
-                                    <option value="">Select</option>
-                                    <option value="male">Male</option>
-                                    <option value="female">Female</option>
-                                    <option value="other">Other</option>
-                                </select>
-                                @error('gender') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Account Status</label>
-                                <select wire:model="isActive" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
-                                    <option value="1">Active</option>
-                                    <option value="0">Inactive</option>
-                                </select>
+                            <div class="min-w-0">
+                                <input type="file" wire:model="image" accept=".jpg,.jpeg,.png,.webp"
+                                    class="block w-full text-xs text-gray-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
+                                <p class="text-[11px] text-gray-400 mt-1">Optional · JPG, PNG or WebP · max 1 MB</p>
+                                <div wire:loading wire:target="image" class="text-xs text-blue-600 mt-1">Uploading…</div>
+                                @error('image') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                             </div>
                         </div>
                     </div>
 
-                    {{-- STEP 2 --}}
-                    <div class="{{ $step === 2 ? '' : 'hidden' }} space-y-4">
-                        <div class="bg-purple-50 border border-purple-100 rounded-lg px-4 py-3 text-sm text-purple-700">
-                            Select the functionalities this user can access. They will only see and use the screens you grant here.
+                    <div class="flex items-start gap-3 px-6 py-3">
+                        <span class="w-32 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Full name <span class="text-red-500">*</span></span>
+                        <div class="flex-1 min-w-0">
+                            <input type="text" wire:model="fullName" autocomplete="off" maxlength="100" placeholder="e.g. Rahul Sharma" class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                            @error('fullName') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                         </div>
+                    </div>
 
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm font-medium text-gray-700">
-                                Functionalities
-                                <span class="text-xs text-gray-400 font-normal">({{ count($permissions) }}/{{ count($catalog) }} selected)</span>
-                            </span>
-                            @if (count($catalog) > 0 && count($permissions) >= count($catalog))
-                                <button type="button" wire:click="clearAllPermissions"
-                                    class="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 hover:text-purple-800">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                                    Clear all
-                                </button>
-                            @else
-                                <button type="button" wire:click="selectAllPermissions"
-                                    class="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 hover:text-purple-800">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-                                    Select all
-                                </button>
-                            @endif
+                    <div class="flex items-start gap-3 px-6 py-3">
+                        <span class="w-32 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Email <span class="text-red-500">*</span></span>
+                        <div class="flex-1 min-w-0">
+                            <input type="email" wire:model="email" autocomplete="off" maxlength="191" placeholder="user@example.com" class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                            @error('email') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                         </div>
+                    </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            @foreach ($catalog as $routeName => $title)
-                                <label class="flex items-center gap-2.5 border border-gray-200 rounded-lg px-3 py-2.5 cursor-pointer hover:border-purple-300 has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 transition-colors">
-                                    <input type="checkbox" value="{{ $routeName }}" wire:model.live="permissions" class="rounded text-purple-600 focus:ring-purple-500 border-gray-300">
-                                    <span class="text-sm text-gray-700">{{ $title }}</span>
-                                </label>
-                            @endforeach
+                    <div class="flex items-start gap-3 px-6 py-3">
+                        <span class="w-32 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Mobile <span class="text-red-500">*</span></span>
+                        <div class="flex-1 min-w-0">
+                            <input type="text" wire:model="mobile" autocomplete="off" maxlength="10" inputmode="numeric" placeholder="10-digit" class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                            @error('mobile') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-3 px-6 py-3">
+                        <span class="w-32 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Alternative mobile</span>
+                        <div class="flex-1 min-w-0">
+                            <input type="text" wire:model="alternativeMobile" autocomplete="off" maxlength="10" inputmode="numeric" placeholder="Optional" class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                            @error('alternativeMobile') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-3 px-6 py-3">
+                        <span class="w-32 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Date of birth</span>
+                        <div class="flex-1 min-w-0">
+                            <input type="date" wire:model="dob" class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                            @error('dob') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-3 px-6 py-3">
+                        <span class="w-32 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Date of joining</span>
+                        <div class="flex-1 min-w-0">
+                            <input type="date" wire:model="dateOfJoining" class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                            @error('dateOfJoining') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-3 px-6 py-3">
+                        <span class="w-32 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Gender <span class="text-red-500">*</span></span>
+                        <div class="flex-1 min-w-0">
+                            <select wire:model="gender" class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white">
+                                <option value="">Select</option>
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                                <option value="other">Other</option>
+                            </select>
+                            @error('gender') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-3 px-6 py-3">
+                        <span class="w-32 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Account status</span>
+                        <div class="flex-1 min-w-0">
+                            <select wire:model="isActive" class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white">
+                                <option value="1">Active</option>
+                                <option value="0">Inactive</option>
+                            </select>
                         </div>
                     </div>
                 </div>
 
+                {{-- STEP 2 — one flat row a screen, ticked to grant it --}}
+                <div class="flex-1 overflow-y-auto divide-y divide-gray-100 {{ $step === 2 ? '' : 'hidden' }}">
+                    <p class="px-6 py-2 text-xs text-gray-500">The user sees and uses only the screens ticked here.</p>
+                    @foreach ($catalog as $routeName => $title)
+                        <label wire:key="perm-{{ $routeName }}" class="flex items-center gap-3 px-6 py-2.5 cursor-pointer hover:bg-gray-50">
+                            <span class="w-4 text-[11px] text-gray-300 tabular-nums flex-shrink-0">{{ $loop->iteration }}</span>
+                            <input type="checkbox" value="{{ $routeName }}" wire:model.live="permissions" class="rounded border-gray-300 text-gray-900 focus:ring-gray-400">
+                            <span class="text-sm text-gray-800">{{ $title }}</span>
+                        </label>
+                    @endforeach
+                </div>
+
                 {{-- Footer --}}
-                <div class="px-6 py-3.5 border-t border-gray-100 flex items-center justify-between gap-3">
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between gap-2 flex-shrink-0">
                     @if ($step === 1)
-                        <button wire:click="closePanel" type="button" class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800">Cancel</button>
-                        <button wire:click="nextStep" type="button" class="inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-5 py-2 rounded-lg">
+                        <button wire:click="closePanel" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                        <button wire:click="nextStep" type="button"
+                            class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5">
                             Next
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
                         </button>
                     @else
-                        <button wire:click="backStep" type="button" class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800">
+                        <button wire:click="backStep" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md flex items-center gap-1.5">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
                             Back
                         </button>
-                        <button wire:click="save" type="button" wire:loading.attr="disabled" class="inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white text-sm font-medium px-5 py-2 rounded-lg">
+                        <button wire:click="save" type="button" wire:loading.attr="disabled" wire:target="save"
+                            class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
                             <span wire:loading.remove wire:target="save">{{ $editId ? 'Update User' : 'Create User' }}</span>
                             <span wire:loading wire:target="save">Saving…</span>
                         </button>

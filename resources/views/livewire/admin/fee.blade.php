@@ -171,20 +171,20 @@
         @if ($activeTab === '')
         <div class="border-t border-gray-200 px-4 sm:px-6 py-6">
             <p class="text-sm text-gray-500 mb-4">Choose what you want to manage:</p>
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            {{-- In the Quick Links page's look: a round coloured icon and the name, nothing else --}}
+            <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5 sm:gap-3 md:gap-3.5">
                 @foreach ($feeTabs as $tab => [$label, $icon, $desc, $color])
                     @php $c = $feeColorMap[$color] ?? $feeColorMap['blue']; @endphp
-                    <button wire:click="showTab('{{ $tab }}')"
-                        class="text-left bg-white rounded-xl border border-gray-200 p-3.5 flex items-start gap-3 transition-all hover:border-gray-300 hover:shadow-md">
-                        <div class="w-10 h-10 rounded-lg {{ $c['bg'] }} flex items-center justify-center flex-shrink-0">
-                            <svg class="w-5 h-5 {{ $c['text'] }}" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $icon }}" /></svg>
+                    <button wire:click="showTab('{{ $tab }}')" wire:key="fee-tile-{{ $tab }}"
+                        class="relative group flex flex-col items-center justify-start rounded-2xl sm:rounded-xl border border-gray-200 bg-white
+                               hover:bg-gray-50 hover:border-gray-300 active:scale-[0.97] transition p-2.5 sm:p-2 md:p-2.5 overflow-hidden min-w-0">
+                        <div class="w-11 h-11 sm:w-9 sm:h-9 md:w-10 md:h-10 mb-1.5 sm:mb-1 {{ $c['bg'] }} rounded-full flex items-center justify-center shrink-0">
+                            <svg class="w-5 h-5 sm:w-4 sm:h-4 md:w-5 md:h-5 {{ $c['text'] }}" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $icon }}" /></svg>
                         </div>
-                        <div class="min-w-0 flex-1">
-                            <h3 class="text-sm font-semibold text-gray-900">{{ $label }}</h3>
-                            <p class="text-xs text-gray-500 mt-0.5 leading-snug">{{ $desc }}</p>
-                        </div>
+                        <span class="block w-full text-[11px] md:text-xs leading-tight font-medium text-center text-gray-800 break-words"
+                            style="overflow-wrap: anywhere; word-break: break-word;">{{ $label }}</span>
                         @if ($tab === 'qr_payments' && ($qrPending ?? 0) > 0)
-                            <span title="{{ $qrPending }} to check" class="min-w-[20px] h-5 px-1.5 rounded-full bg-amber-500 text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0">{{ $qrPending > 99 ? '99+' : $qrPending }}</span>
+                            <span title="{{ $qrPending }} to check" class="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">{{ $qrPending > 99 ? '99+' : $qrPending }}</span>
                         @endif
                     </button>
                 @endforeach

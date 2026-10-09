@@ -122,10 +122,13 @@ class FeeMergedTabsTest extends TestCase
         $html = $page->html();
 
         $this->assertStringContainsString('View &amp; Submit Fee', $html);
-        $this->assertStringNotContainsString('>Fee Submission</h3>', $html);
-        $this->assertStringNotContainsString('>Payment QR</h3>', $html);
-        $this->assertStringContainsString('>QR Payments</h3>', $html);
-        $this->assertStringContainsString('>Analytics</h3>', $html);                // kept
+        $this->assertStringNotContainsString('>Fee Submission</span>', $html);
+        $this->assertStringNotContainsString('>Payment QR</span>', $html);
+        $this->assertStringContainsString('>QR Payments</span>', $html);
+        $this->assertStringContainsString('>Analytics</span>', $html);              // kept
+        // Quick Links tiles: a round icon and the name — no description under it.
+        $this->assertStringContainsString('wire:key="fee-tile-view_fee"', $html);
+        $this->assertStringNotContainsString("A student's fee ledger — collect fee from it", $html);
 
         $page->call('showTab', 'fee_submission');
         $this->assertSame('view_fee', $page->get('activeTab'));

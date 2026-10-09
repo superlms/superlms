@@ -1,10 +1,44 @@
 <div class="min-h-screen bg-gray-50">
 
     {{-- ══════════════════════════════════════════════════
-         TABS
+         HEADING, then the TABS under it
     ══════════════════════════════════════════════════ --}}
-    <div class="bg-white border-b border-gray-200 px-6">
-        <nav class="flex gap-1">
+    @php $headRules = count(($existingContent->content ?? [])['sections'] ?? []); @endphp
+    <div class="bg-white border-b border-gray-200">
+        <div class="px-4 sm:px-6 py-3">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div class="flex items-center gap-3 min-w-0">
+                    <x-admin.back-to-more />
+                    <img src="{{ auth()->user()->organization && auth()->user()->organization->logo ? auth()->user()->organization->logo : asset('website-image/Group 11525.png') }}"
+                        alt="Logo"
+                        class="w-12 h-12 rounded-xl object-contain border border-gray-200 shadow-sm bg-white p-1 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">Rules & Regulations</h1>
+                    </div>
+                </div>
+                @if ($activeTab === 'view' && $existingContent)
+                    <div class="flex gap-2 items-center flex-shrink-0">
+                        @if ($headRules > 0)
+                            <span
+                                class="px-3 py-1 bg-red-50 text-red-700 text-xs font-semibold
+                                         rounded-full border border-red-100">
+                                {{ $headRules }} {{ Str::plural('Rule', $headRules) }}
+                            </span>
+                        @endif
+                        <button wire:click="showTab('edit')"
+                            class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium
+                                   text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Edit
+                        </button>
+                    </div>
+                @endif
+            </div>
+        </div>
+        <nav class="border-t border-gray-200 px-4 sm:px-6 flex gap-1">
             <button wire:click="showTab('view')"
                 class="py-3.5 px-5 text-sm font-semibold border-b-2 transition-colors
                        {{ $activeTab === 'view'
@@ -54,39 +88,6 @@
                 $viewAddInfo = $content['additional_info'] ?? [];
                 $viewFiles = $content['files'] ?? [];
             @endphp
-
-            {{-- COMPACT HEADER (super-admin about-app style) --}}
-            <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <x-admin.back-to-more />
-                        <img src="{{ auth()->user()->organization && auth()->user()->organization->logo ? auth()->user()->organization->logo : asset('website-image/Group 11525.png') }}"
-                            alt="Logo"
-                            class="w-12 h-12 rounded-xl object-contain border border-gray-200 shadow-sm bg-white p-1 flex-shrink-0">
-                        <div class="min-w-0">
-                            <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">Rules & Regulations</h1>
-                        </div>
-                    </div>
-                    <div class="flex gap-2 items-center flex-shrink-0">
-                        @if (count($viewSections) > 0)
-                            <span
-                                class="px-3 py-1 bg-red-50 text-red-700 text-xs font-semibold
-                                         rounded-full border border-red-100">
-                                {{ count($viewSections) }} {{ Str::plural('Rule', count($viewSections)) }}
-                            </span>
-                        @endif
-                        <button wire:click="showTab('edit')"
-                            class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium
-                                   text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                            Edit
-                        </button>
-                    </div>
-                </div>
-            </div>
 
             <div class="max-w-5xl mx-auto px-6 py-8 space-y-5">
                 {{-- Rule Sections --}}
