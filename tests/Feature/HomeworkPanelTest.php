@@ -180,11 +180,43 @@ class HomeworkPanelTest extends TestCase
         $this->assertStringNotContainsString('bg-gradient-to-r', $html);                  // a plain strip
         $this->assertStringNotContainsString('rounded-full border bg-', $html);           // no chips
         $this->assertMatchesRegularExpression('/text-red-600 font-medium">\s*1 \/ 2\s*<\/span>/', $html);   // Asha: 1 of 2
-        $this->assertMatchesRegularExpression('/class="text-gray-700">Hindi/', $html);  // done: plain
-        $this->assertMatchesRegularExpression('/class="text-red-600">Maths/', $html);   // not done: red
+        $this->assertMatchesRegularExpression('/class="font-semibold text-gray-800">Hindi/', $html);  // done: plain, a bit bold
+        $this->assertMatchesRegularExpression('/class="font-semibold text-red-600">Maths/', $html);   // not done: red
+        $this->assertStringContainsString('inline-block w-1.5 h-1.5 mx-1 rounded-full bg-gray-400', $html); // a thicker dot between
 
         // One student: day by day.
         $html = $page->set('hwStatusStudent', (string) $asha)->html();
         $this->assertStringContainsString('Day by day', $html);
+    }
+
+    public function test_both_tabs_open_on_today(): void
+    {
+        [$std, $subs] = $this->klass();
+        $sec   = DB::table('sections')->where('standard_id', $std)->where('name', 'A')->value('id');
+        $today = now()->toDateString();
+
+        $page = Livewire::test(Homework::class);
+        $this->assertSame($today, $page->get('filterDate'));
+        $this->assertSame($today, $page->get('hwStatusDate'));
+        $this->assertStringNotContainsString('wire:click="clearFilters"', $page->html());   // today alone: nothing to clear
+
+        // Class + section is now enough to list today's homework.
+        DB::table('home_works')->insert(['organization_id' => $this->org, 'user_id' => 1, 'standard_id' => $std, 'section_id' => $sec,
+            'subject_id' => $subs['Maths'], 'title' => 'Sums today', 'created_at' => now(), 'updated_at' => now()]);
+        $html = $page->set('filterStandard', (string) $std)->set('filterSection', (string) $sec)->html();
+        $this->assertStringContainsString('Sums today', $html);
+        $this->assertStringContainsString('p-1.5 text-red-600 hover:bg-red-50 rounded-lg', $html);   // Students-style actions
+        $this->assertStringNotContainsString('rounded bg-gray-100 text-gray-700">Maths', $html);     // subject as plain text
+
+        // × still empties the date; Clear brings back today.
+        $page->set('filterDate', '');
+        $this->assertStringContainsString('Pick a date, a class and a section', $page->html());
+        $page->call('clearFilters');
+        $this->assertSame($today, $page->get('filterDate'));
+        $page->set('hwStatusDate', '')->call('clearStatusFilters');
+        $this->assertSame($today, $page->get('hwStatusDate'));
+
+        // A date in the URL still wins.
+        $this->assertSame('2026-01-05', Livewire::withQueryParams(['filterDate' => '2026-01-05'])->test(Homework::class)->get('filterDate'));
     }
 }

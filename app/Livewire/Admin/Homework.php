@@ -123,6 +123,16 @@ class Homework extends Component
     public function mount($embedded = false)
     {
         $this->embedded = $embedded;
+
+        // Both tabs open on today, so the day needn't be picked first. A date
+        // already in the URL wins; × beside the picker still clears it.
+        if ($this->filterDate === '' || $this->filterDate === null) {
+            $this->filterDate = $this->todayDate();
+        }
+        if ($this->hwStatusDate === '' || $this->hwStatusDate === null) {
+            $this->hwStatusDate = $this->todayDate();
+        }
+
         $this->loadStandards();
         $this->loadTeachers();
         $this->loadFilterData();
@@ -598,9 +608,16 @@ class Homework extends Component
     public function clearFilters()
     {
         $this->reset(['search', 'filterTeacher', 'filterDate', 'filterStandard', 'filterSection', 'filterSubject']);
+        $this->filterDate = $this->todayDate();     // back to the default day
         $this->filterSections = [];
         $this->filterSubjects = [];
         $this->resetPage();
+    }
+
+    /** Today's date (app timezone) — the default day on both tabs. */
+    public function todayDate(): string
+    {
+        return Carbon::today()->toDateString();
     }
 
     // ═══════════════════════════ TABS + STATUS TRACKER ═══════════════════════════
@@ -686,6 +703,7 @@ class Homework extends Component
     public function clearStatusFilters(): void
     {
         $this->reset(['hwStatusDate', 'hwStatusStandard', 'hwStatusSection', 'hwStatusStudent', 'hwStatusSubject']);
+        $this->hwStatusDate = $this->todayDate();   // back to the default day
         $this->hwStatusSections = [];
         $this->hwStatusStudents = [];
         $this->hwStatusSubjects = [];
