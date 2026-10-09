@@ -76,6 +76,12 @@ class DocumentsTabsTest extends TestCase
             $this->assertStringContainsString('wire:click="' . $action, $html);
         }
         $this->assertStringContainsString('title="View"', $html);
+
+        // The header as the other pages have it (no back arrow), and no file names in the list.
+        $this->assertStringNotContainsString('Back to More', $html);
+        $this->assertStringContainsString('School: <strong class="text-gray-800">1</strong>', $html);
+        $this->assertStringNotContainsString('>fee.pdf', $html);                      // only in the View link, not shown
+        $this->assertStringContainsString('2 KB', $html);
     }
 
     public function test_admin_tab_is_view_and_download_only(): void
@@ -87,6 +93,7 @@ class DocumentsTabsTest extends TestCase
         $this->assertStringContainsString('Circular for all', $html);
         $this->assertStringNotContainsString('Kept private', $html);
         $this->assertStringContainsString('>DOC</span>', $html);
+        $this->assertStringNotContainsString('circular.docx', $html);
         $this->assertStringContainsString('wire:click="downloadShared(', $html);
         $this->assertStringContainsString('title="View"', $html);
         $this->assertStringNotContainsString('wire:click="openCreate"', $html);          // no Add Doc here

@@ -439,171 +439,167 @@
     </div>
 
     {{-- ══════════════════════════════════════════════════
-         ADD / EDIT SLIDE-IN PANEL
+         ADD / EDIT SLIDE-IN PANEL — the Mark Attendance panel's look: class,
+         section and subject in one row (Single / All subjects beside them when
+         adding), then flat rows. Every field, rule and save is as before.
     ══════════════════════════════════════════════════ --}}
     @if ($open)
         <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeModal"></div>
-            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
+
+                {{-- Header --}}
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                    <div>
+                    <div class="min-w-0">
                         <h2 class="text-lg font-semibold text-gray-900">{{ $editId ? 'Edit Homework' : 'New Homework' }}</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">{{ $editId ? 'Update homework details' : 'Create a new homework assignment' }}</p>
+                        <p class="text-xs text-gray-500 mt-0.5">{{ $editId ? 'Update homework details' : 'Pick the class, then write the homework — for one subject or for all of them.' }}</p>
                     </div>
-                    <button wire:click="closeModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                    <button wire:click="closeModal" type="button"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-
-                    {{-- Class / Section --}}
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Standard <span class="text-red-500">*</span></label>
-                            <select wire:model.live="standard_id" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
-                                <option value="">Select Standard</option>
-                                @foreach ($standards as $standard)
-                                    <option value="{{ $standard->id }}">{{ $standard->name }}</option>
-                                @endforeach
-                            </select>
-                            @error('standard_id')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Section <span class="text-gray-400 font-normal">(Optional)</span></label>
-                            <select wire:model.live="section_id" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
-                                <option value="">Select Section</option>
-                                @foreach ($sections as $section)
-                                    <option value="{{ $section->id }}">{{ $section->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                    </div>
-
-                    {{-- Subject Selection (create only) --}}
-                    @if (!$editId)
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Subject Selection</label>
-                            <div class="flex gap-3">
-                                <label class="flex-1 flex items-center gap-2 px-3 py-2 border rounded-md cursor-pointer text-sm transition-colors {{ $subject_selection === 'single' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-300 text-gray-700' }}">
-                                    <input type="radio" wire:model.live="subject_selection" value="single" class="text-blue-600 focus:ring-blue-500">
-                                    Single Subject
-                                </label>
-                                <label class="flex-1 flex items-center gap-2 px-3 py-2 border rounded-md cursor-pointer text-sm transition-colors {{ $subject_selection === 'all' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-300 text-gray-700' }}">
-                                    <input type="radio" wire:model.live="subject_selection" value="all" class="text-blue-600 focus:ring-blue-500">
-                                    All Subjects
-                                </label>
-                            </div>
-                        </div>
+                {{-- Toolbar: class → section → subject, and Single / All subjects --}}
+                <div class="px-6 py-3 border-b border-gray-100 flex flex-wrap items-center gap-2 flex-shrink-0">
+                    <select wire:model.live="standard_id"
+                        class="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">Select class…</option>
+                        @foreach ($standards as $standard)
+                            <option value="{{ $standard->id }}">{{ $standard->name }}</option>
+                        @endforeach
+                    </select>
+                    <select wire:model.live="section_id" @disabled(!$standard_id)
+                        class="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white disabled:opacity-50 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        <option value="">All sections</option>
+                        @foreach ($sections as $section)
+                            <option value="{{ $section->id }}">{{ $section->name }}</option>
+                        @endforeach
+                    </select>
+                    @if ($subject_selection === 'single')
+                        <select wire:model.defer="subject_id" @disabled(!$standard_id)
+                            class="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white disabled:opacity-50 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                            <option value="">Select subject…</option>
+                            @foreach ($subjects as $subject)
+                                <option value="{{ $subject->id }}">{{ $subject->name }}</option>
+                            @endforeach
+                        </select>
                     @endif
 
-                    @if ($subject_selection === 'single')
-                        {{-- ── SINGLE SUBJECT ── --}}
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Homework Title <span class="text-red-500">*</span></label>
-                                <input wire:model.defer="title" type="text" placeholder="e.g. Chapter 3 exercises"
-                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                                @error('title')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Subject <span class="text-red-500">*</span></label>
-                                <select wire:model.defer="subject_id" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm">
-                                    <option value="">Select Subject</option>
-                                    @foreach ($subjects as $subject)
-                                        <option value="{{ $subject->id }}">{{ $subject->name }}</option>
-                                    @endforeach
-                                </select>
-                                @error('subject_id')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
-                            </div>
+                    @if (!$editId)
+                        <div class="ml-auto flex items-center gap-4 text-sm text-gray-700">
+                            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                                <input type="radio" wire:model.live="subject_selection" value="single" class="text-gray-900 focus:ring-gray-400">
+                                Single subject
+                            </label>
+                            <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                                <input type="radio" wire:model.live="subject_selection" value="all" class="text-gray-900 focus:ring-gray-400">
+                                All subjects
+                            </label>
                         </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Description <span class="text-red-500">*</span></label>
-                            <textarea wire:model.defer="description" rows="4" placeholder="Enter homework description..."
-                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm resize-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
-                            @error('description')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Attachment <span class="text-gray-400 font-normal">(Optional, max 1 MB)</span></label>
-
-                            @if ($editId && !$homework_file)
-                                @php $homeworkModel = \App\Models\Admin\HomeWork::find($editId) @endphp
-                                @if ($homeworkModel && $homeworkModel->file)
-                                    <div class="flex items-center gap-2 mb-2">
-                                        <span class="text-sm text-blue-600">{{ basename($homeworkModel->file) }}</span>
-                                        <button wire:click="$set('homework_file', null)" type="button" class="text-red-600 hover:text-red-800 text-xs">Remove</button>
-                                    </div>
-                                @endif
-                            @endif
-
-                            @if ($tempFileUrl)
-                                <span class="text-sm text-gray-600">{{ $tempFileUrl }}</span>
-                            @endif
-
-                            <input type="file" wire:model="homework_file"
-                                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png"
-                                class="block w-full text-sm text-gray-500
-                                   file:mr-4 file:py-2 file:px-4
-                                   file:rounded-md file:border-0
-                                   file:text-sm file:font-semibold
-                                   file:bg-blue-50 file:text-blue-700
-                                   hover:file:bg-blue-100">
-                            <div wire:loading wire:target="homework_file" class="text-xs text-blue-600 mt-1">Uploading…</div>
-                            @error('homework_file')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
-                            <p class="text-xs text-gray-500 mt-1">Allowed: PDF, Word, Excel, PowerPoint, Text, Images (Max: 1 MB)</p>
-                        </div>
-                    @else
-                        {{-- ── ALL SUBJECTS — one form per subject ── --}}
-                        @if (!$standard_id)
-                            <div class="p-3 bg-gray-50 border border-gray-200 rounded-md text-sm text-gray-500">
-                                Select a standard to load its subjects.
-                            </div>
-                        @elseif (count($subjects) === 0)
-                            <div class="p-3 bg-amber-50 border border-amber-200 rounded-md text-sm text-amber-700">
-                                No subjects are mapped to this class/section.
-                            </div>
-                        @else
-                            <p class="text-xs text-gray-500">
-                                Fill in the subjects you want to assign homework for. Leave a subject's
-                                <strong>title blank</strong> to skip it (no homework for that subject).
-                            </p>
-
-                            @foreach ($subjects as $subject)
-                                <div class="border border-gray-200 rounded-lg p-3 space-y-2.5 bg-gray-50/60">
-                                    <div class="flex items-center gap-2">
-                                        <span class="w-6 h-6 rounded-md bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0">{{ strtoupper(substr($subject->name, 0, 1)) }}</span>
-                                        <h4 class="text-sm font-semibold text-gray-800">{{ $subject->name }}</h4>
-                                    </div>
-
-                                    <input wire:model.defer="subjectHomeworks.{{ $subject->id }}.title" type="text"
-                                        placeholder="Title (leave blank to skip this subject)"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-
-                                    <textarea wire:model.defer="subjectHomeworks.{{ $subject->id }}.description" rows="2"
-                                        placeholder="Description (optional)"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white resize-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"></textarea>
-
-                                    <input type="file" wire:model="subjectHomeworks.{{ $subject->id }}.file"
-                                        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png"
-                                        class="block w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                                    <div wire:loading wire:target="subjectHomeworks.{{ $subject->id }}.file" class="text-xs text-blue-600">Uploading…</div>
-                                    @if (!empty($subjectHomeworks[$subject->id]['file']))
-                                        <p class="text-xs text-gray-600 truncate">Selected: {{ $subjectHomeworks[$subject->id]['file']->getClientOriginalName() }}</p>
-                                    @endif
-                                    @error('subjectHomeworks.' . $subject->id . '.file')<p class="text-xs text-red-500">{{ $message }}</p>@enderror
-                                    <p class="text-[11px] text-gray-400">Attachment optional · max 1 MB</p>
-                                </div>
-                            @endforeach
-                        @endif
                     @endif
                 </div>
 
+                @if ($errors->hasAny(['standard_id', 'section_id', 'subject_id']))
+                    <p class="px-6 py-2 text-xs text-red-500 border-b border-gray-100 flex-shrink-0">
+                        {{ $errors->first('standard_id') ?: ($errors->first('section_id') ?: $errors->first('subject_id')) }}
+                    </p>
+                @endif
+
+                @if ($subject_selection === 'single')
+                    {{-- ── SINGLE SUBJECT: one flat row a field ── --}}
+                    <div class="flex-1 overflow-y-auto divide-y divide-gray-100">
+                        <div class="flex items-start gap-3 px-6 py-3">
+                            <span class="w-28 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Title <span class="text-red-500">*</span></span>
+                            <div class="flex-1 min-w-0">
+                                <input wire:model.defer="title" type="text" placeholder="e.g. Chapter 3 exercises"
+                                    class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                @error('title')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                        </div>
+
+                        <div class="flex items-start gap-3 px-6 py-3">
+                            <span class="w-28 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Description <span class="text-red-500">*</span></span>
+                            <div class="flex-1 min-w-0">
+                                <textarea wire:model.defer="description" rows="4" placeholder="Enter homework description..."
+                                    class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 resize-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"></textarea>
+                                @error('description')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                        </div>
+
+                        <div class="flex items-start gap-3 px-6 py-3">
+                            <span class="w-28 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Attachment</span>
+                            <div class="flex-1 min-w-0">
+                                @if ($editId && !$homework_file)
+                                    @php $homeworkModel = \App\Models\Admin\HomeWork::find($editId) @endphp
+                                    @if ($homeworkModel && $homeworkModel->file)
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <span class="text-sm text-blue-600 truncate">{{ basename($homeworkModel->file) }}</span>
+                                            <button wire:click="$set('homework_file', null)" type="button" class="text-red-600 hover:text-red-800 text-xs">Remove</button>
+                                        </div>
+                                    @endif
+                                @endif
+
+                                @if ($tempFileUrl)
+                                    <p class="text-sm text-gray-600 mb-1 truncate">{{ $tempFileUrl }}</p>
+                                @endif
+
+                                <input type="file" wire:model="homework_file"
+                                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png"
+                                    class="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200">
+                                <div wire:loading wire:target="homework_file" class="text-xs text-blue-600 mt-1">Uploading…</div>
+                                @error('homework_file')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                <p class="text-xs text-gray-400 mt-1">Optional · PDF, Word, Excel, PowerPoint, Text, Images · max 1 MB</p>
+                            </div>
+                        </div>
+                    </div>
+                @else
+                    {{-- ── ALL SUBJECTS: one flat row a subject ── --}}
+                    @if ($standard_id && count($subjects) > 0)
+                        <p class="px-6 py-2 text-xs text-gray-500 border-b border-gray-100 flex-shrink-0">
+                            Write the homework for the subjects that have it — a subject left without a title is skipped.
+                        </p>
+                    @endif
+
+                    <div class="flex-1 overflow-y-auto divide-y divide-gray-100">
+                        @if (!$standard_id)
+                            <p class="py-16 text-center text-sm text-gray-400">Select a class to load its subjects.</p>
+                        @elseif (count($subjects) === 0)
+                            <p class="py-16 text-center text-sm text-gray-400">No subjects are mapped to this class / section.</p>
+                        @else
+                            @foreach ($subjects as $k => $subject)
+                                <div wire:key="hw-sub-{{ $subject->id }}" class="flex items-start gap-3 px-6 py-3">
+                                    <span class="w-4 pt-2 text-[11px] text-gray-300 tabular-nums flex-shrink-0">{{ $k + 1 }}</span>
+                                    <div class="w-40 pt-0.5 flex items-center gap-2 flex-shrink-0 min-w-0">
+                                        <x-subject-icon :name="$subject->name" size="w-7 h-7" />
+                                        <span class="text-sm font-medium text-gray-900 truncate">{{ $subject->name }}</span>
+                                    </div>
+                                    <div class="flex-1 min-w-0 space-y-1.5">
+                                        <input wire:model.defer="subjectHomeworks.{{ $subject->id }}.title" type="text"
+                                            placeholder="Title (leave blank to skip this subject)"
+                                            class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                                        <textarea wire:model.defer="subjectHomeworks.{{ $subject->id }}.description" rows="2"
+                                            placeholder="Description (optional)"
+                                            class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 resize-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"></textarea>
+                                        <input type="file" wire:model="subjectHomeworks.{{ $subject->id }}.file"
+                                            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png"
+                                            class="block w-full text-xs text-gray-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200">
+                                        <div wire:loading wire:target="subjectHomeworks.{{ $subject->id }}.file" class="text-xs text-blue-600">Uploading…</div>
+                                        @if (!empty($subjectHomeworks[$subject->id]['file']))
+                                            <p class="text-xs text-gray-600 truncate">Selected: {{ $subjectHomeworks[$subject->id]['file']->getClientOriginalName() }}</p>
+                                        @endif
+                                        @error('subjectHomeworks.' . $subject->id . '.file')<p class="text-xs text-red-500">{{ $message }}</p>@enderror
+                                    </div>
+                                </div>
+                            @endforeach
+                        @endif
+                    </div>
+                @endif
+
+                {{-- Footer --}}
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
-                    <button wire:click="closeModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                    <button wire:click="onSave" wire:loading.attr="disabled"
+                    <button wire:click="closeModal" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                    <button wire:click="onSave" wire:loading.attr="disabled" wire:target="onSave" type="button"
                         class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
                         <span wire:loading.remove wire:target="onSave">{{ $editId ? 'Update Homework' : 'Create Homework' }}</span>
                         <span wire:loading wire:target="onSave">Saving...</span>

@@ -1,33 +1,63 @@
 <div class="min-h-screen bg-gray-50">
 
-    {{-- ══════════ HEADER (title, Add Doc on the school tab, the two tabs) ══════════ --}}
+    {{-- ══════════ HEADER — as Exams and the other pages: title, counts and
+         Add Doc (school tab) on one row, the two tabs under a line ══════════ --}}
     <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div class="px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-            <div class="flex items-center gap-2.5 min-w-0">
-                <x-admin.back-to-more />
-                <div class="min-w-0">
+        <div class="px-4 sm:px-6 py-3">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
                     <h1 class="text-lg sm:text-xl font-bold text-gray-900">Documents</h1>
                 </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-3 divide-x divide-gray-200">
+                        <span class="pr-4">School: <strong class="text-gray-800">{{ $documents->total() }}</strong></span>
+                        <span class="pl-4">Admin: <strong class="text-blue-600">{{ $sharedDocuments->total() }}</strong></span>
+                    </div>
+
+                    @if ($tab === 'school')
+                        <button wire:click="openCreate"
+                            class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span class="hidden sm:inline">Add Doc</span>
+                            <span class="sm:hidden">New</span>
+                        </button>
+                    @endif
+                </div>
             </div>
-            @if ($tab === 'school')
-                <button wire:click="openCreate"
-                    class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-sm transition-colors flex-shrink-0">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-                    Add Doc
-                </button>
-            @endif
+
+            {{-- Mobile/Tablet counts --}}
+            <div class="flex lg:hidden items-center gap-3 sm:gap-4 text-xs text-gray-500 mt-3 flex-wrap">
+                <span>School: <strong class="text-gray-800">{{ $documents->total() }}</strong></span>
+                <span>Admin: <strong class="text-blue-600">{{ $sharedDocuments->total() }}</strong></span>
+            </div>
         </div>
-        <div class="px-4 sm:px-6 flex items-center gap-1 overflow-x-auto">
+
+        {{-- Tabs --}}
+        <div class="border-t border-gray-200 px-4 sm:px-6">
+            <div class="flex gap-1">
                 <button wire:click="setTab('school')" type="button"
                     class="px-4 py-3 text-sm font-medium border-b-2 transition-colors
                            {{ $tab === 'school' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
-                    School Documents <span class="ml-1 text-xs {{ $tab === 'school' ? 'text-blue-400' : 'text-gray-400' }}">{{ $documents->total() }}</span>
+                    <span class="inline-flex items-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        School Documents
+                    </span>
                 </button>
                 <button wire:click="setTab('admin')" type="button"
                     class="px-4 py-3 text-sm font-medium border-b-2 transition-colors
                            {{ $tab === 'admin' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
-                    Admin Documents <span class="ml-1 text-xs {{ $tab === 'admin' ? 'text-blue-400' : 'text-gray-400' }}">{{ $sharedDocuments->total() }}</span>
+                    <span class="inline-flex items-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                        </svg>
+                        Admin Documents
+                    </span>
                 </button>
+            </div>
         </div>
     </div>
 
@@ -69,13 +99,15 @@
                                 <td class="px-4 py-3 text-sm text-gray-500 font-medium">{{ $sharedDocuments->firstItem() + $i }}</td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-3">
-                                        <span class="w-10 h-10 rounded-lg {{ $typeClass }} flex flex-col items-center justify-center flex-shrink-0" title="{{ $doc->file_name }}">
+                                        <span class="w-10 h-10 rounded-lg {{ $typeClass }} flex flex-col items-center justify-center flex-shrink-0">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                                             <span class="text-[9px] font-bold leading-none mt-0.5">{{ $typeLabel }}</span>
                                         </span>
                                         <div class="min-w-0">
                                             <p class="text-sm font-semibold text-gray-900 truncate max-w-[300px]" title="{{ $doc->title }}">{{ $doc->title }}</p>
-                                            <p class="text-xs text-gray-400 truncate max-w-[300px]">{{ $doc->file_name }}{{ $doc->readable_size !== '—' ? ' · ' . $doc->readable_size : '' }}</p>
+                                            @if ($doc->readable_size !== '—')
+                                                <p class="text-xs text-gray-400">{{ $doc->readable_size }}</p>
+                                            @endif
                                         </div>
                                     </div>
                                 </td>
@@ -133,13 +165,15 @@
                                 <td class="px-4 py-3 text-sm text-gray-500 font-medium">{{ $documents->firstItem() + $i }}</td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-3">
-                                        <span class="w-10 h-10 rounded-lg {{ $typeClass }} flex flex-col items-center justify-center flex-shrink-0" title="{{ $doc->file_name }}">
+                                        <span class="w-10 h-10 rounded-lg {{ $typeClass }} flex flex-col items-center justify-center flex-shrink-0">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                                             <span class="text-[9px] font-bold leading-none mt-0.5">{{ $typeLabel }}</span>
                                         </span>
                                         <div class="min-w-0">
                                             <p class="text-sm font-semibold text-gray-900 truncate max-w-[300px]" title="{{ $doc->title }}">{{ $doc->title }}</p>
-                                            <p class="text-xs text-gray-400 truncate max-w-[300px]">{{ $doc->file_name }}{{ $doc->readable_size !== '—' ? ' · ' . $doc->readable_size : '' }}</p>
+                                            @if ($doc->readable_size !== '—')
+                                                <p class="text-xs text-gray-400">{{ $doc->readable_size }}</p>
+                                            @endif
                                         </div>
                                     </div>
                                 </td>
