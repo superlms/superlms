@@ -369,7 +369,8 @@ class Homework extends Component
             'title' => 'required|string|max:255',
             'standard_id' => 'required|exists:standards,id',
             'section_id' => 'nullable|exists:sections,id',
-            'description' => 'required|string',
+            // The Add form has no Description now (an old one still shows on Edit).
+            'description' => 'nullable|string',
             'subject_selection' => 'required|in:single,all',
             'subject_id' => 'required|exists:subjects,id',
             'homework_file' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,txt,jpg,jpeg,png|max:1024',

@@ -311,127 +311,89 @@
     @endif
 
     @else
-    {{-- ═══════════════════ HOMEWORK STATUS REGISTER ═══════════════════ --}}
-    @php
-        // One chip renderer for both shapes: green when the student marked it
-        // done in the app, red when they didn't.
-        $chip = fn($complete) => $complete
-            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-            : 'bg-red-50 text-red-700 border-red-200';
-    @endphp
-
+    {{-- ═══════════════════ HOMEWORK STATUS REGISTER ═══════════════════
+         In the Mark Attendance look: a plain heading strip with the counts,
+         then flat rows — number, the student (or the day), how many are done,
+         and the subjects as plain text, the ones not done in red. --}}
     @if (!$hwStatusStandard || !$hwStatusSection)
         <div class="bg-white rounded-xl border border-gray-200 p-12 text-center">
-            <div class="w-12 h-12 mx-auto mb-3 bg-blue-50 rounded-full flex items-center justify-center">
-                <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+            <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
+                <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
             </div>
             <p class="text-sm font-semibold text-gray-800">Track homework completion</p>
             <p class="text-xs text-gray-400 mt-1">Pick a class and section. Add a date, a student or a subject to narrow it further.</p>
         </div>
     @else
-        {{-- Legend --}}
-        <div class="flex flex-wrap items-center gap-4 text-xs text-gray-500 mb-3">
-            <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-emerald-100 border border-emerald-300"></span> Completed (marked in app)</span>
-            <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-100 border border-red-300"></span> Not completed</span>
-        </div>
-
-        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div class="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 flex flex-wrap items-center justify-between gap-2">
+        @php
+            $hwAll = collect($statusRows);
+            $hwDoneAll = $status['mode'] === 'by_student'
+                ? $hwAll->filter(fn ($r) => $r['total'] > 0 && $r['completed'] === $r['total'])->count()
+                : null;
+        @endphp
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
                 <div>
                     <h3 class="text-sm font-semibold text-gray-700">
-                        {{ $status['mode'] === 'by_day' ? 'Day-by-day register' : 'Every student in this section' }}
+                        {{ $status['mode'] === 'by_day' ? 'Day by day' : 'Every student in this section' }}
                     </h3>
-                    <p class="text-[11px] text-gray-400">{{ $status['scope'] }}</p>
+                    <p class="text-[11px] text-gray-400">{{ $status['scope'] }} · in red: not marked done in the app</p>
                 </div>
-                <span class="text-[11px] text-gray-500">{{ count($statusRows) }} row(s)</span>
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-600">
+                    @if ($status['mode'] === 'by_student')
+                        <span>Students <strong>{{ $hwAll->count() }}</strong></span>
+                        <span>All done <strong>{{ $hwDoneAll }}</strong></span>
+                        <span>Pending <strong>{{ $hwAll->count() - $hwDoneAll }}</strong></span>
+                    @else
+                        <span>Days <strong>{{ $hwAll->count() }}</strong></span>
+                    @endif
+                </div>
             </div>
 
             <div class="overflow-x-auto">
-                @if ($status['mode'] === 'by_day')
-                    {{-- A student is picked: one row per day. --}}
-                    <table class="w-full text-sm min-w-[640px]">
-                        <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
-                            <tr>
-                                <th class="px-4 py-3 text-left w-14">#</th>
-                                <th class="px-4 py-3 text-left w-40">Date</th>
-                                <th class="px-4 py-3 text-left w-32">Day</th>
-                                <th class="px-4 py-3 text-left">Subjects</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            @foreach ($statusRows as $i => $row)
-                                <tr class="hover:bg-gray-50/70">
-                                    <td class="px-4 py-3 text-gray-400">{{ $i + 1 }}</td>
-                                    <td class="px-4 py-3 font-medium text-gray-800">{{ $row['date'] }}</td>
-                                    <td class="px-4 py-3 text-gray-600">{{ $row['day'] }}</td>
-                                    <td class="px-4 py-3">
-                                        @forelse ($row['items'] as $it)
-                                            <span title="{{ $it['title'] }}"
-                                                class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 mr-1.5 mb-1.5 rounded-full border {{ $chip($it['complete']) }}">
-                                                @if ($it['complete'])
-                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-                                                @else
-                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                                                @endif
-                                                {{ $it['subject'] }}
-                                            </span>
-                                        @empty
-                                            <span class="text-xs text-gray-300">No homework</span>
-                                        @endforelse
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                @else
-                    {{-- No student picked: one row per student, across the scope. --}}
-                    <table class="w-full text-sm min-w-[640px]">
-                        <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
-                            <tr>
-                                <th class="px-4 py-3 text-left w-14">#</th>
-                                <th class="px-4 py-3 text-left w-56">Student</th>
-                                <th class="px-4 py-3 text-left w-28">Done</th>
-                                <th class="px-4 py-3 text-left">Homework</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            @forelse ($statusRows as $i => $row)
-                                <tr class="hover:bg-gray-50/70">
-                                    <td class="px-4 py-3 text-gray-400">{{ $i + 1 }}</td>
-                                    <td class="px-4 py-3">
-                                        <p class="font-medium text-gray-800">{{ $row['name'] }}</p>
-                                        @if ($row['roll_no'])
-                                            <p class="text-xs text-gray-400">Roll {{ $row['roll_no'] }}</p>
-                                        @endif
-                                    </td>
-                                    <td class="px-4 py-3">
-                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full {{ $row['total'] > 0 && $row['completed'] === $row['total'] ? 'bg-emerald-100 text-emerald-700' : ($row['completed'] === 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700') }}">
-                                            {{ $row['completed'] }} / {{ $row['total'] }}
-                                        </span>
-                                    </td>
-                                    <td class="px-4 py-3">
-                                        @forelse ($row['items'] as $it)
-                                            <span title="{{ $it['title'] }}"
-                                                class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 mr-1.5 mb-1.5 rounded-full border {{ $chip($it['complete']) }}">
-                                                @if ($it['complete'])
-                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-                                                @else
-                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                                                @endif
-                                                {{ $it['subject'] }}
-                                                @unless ($hwStatusDate)<span class="font-normal opacity-60">· {{ $it['date'] }}</span>@endunless
-                                            </span>
-                                        @empty
-                                            <span class="text-xs text-gray-300">No homework</span>
-                                        @endforelse
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="4" class="px-4 py-12 text-center text-sm text-gray-400">No students in this section.</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                @endif
+                <div class="min-w-[640px] text-sm">
+                    @php $hwCols = 'grid grid-cols-[3rem_minmax(0,14rem)_6rem_minmax(0,1fr)] items-start'; @endphp
+                    <div class="{{ $hwCols }} bg-gray-50 text-gray-500 text-xs font-bold uppercase">
+                        <span class="px-4 py-3">#</span>
+                        <span class="px-4 py-3">{{ $status['mode'] === 'by_day' ? 'Date' : 'Student' }}</span>
+                        <span class="px-4 py-3">Done</span>
+                        <span class="px-4 py-3">Homework</span>
+                    </div>
+
+                    @forelse ($statusRows as $i => $row)
+                        @php
+                            $hwDone = $status['mode'] === 'by_day'
+                                ? count(array_filter($row['items'], fn ($it) => $it['complete']))
+                                : $row['completed'];
+                            $hwTotal = $status['mode'] === 'by_day' ? count($row['items']) : $row['total'];
+                        @endphp
+                        <div wire:key="hwst-{{ $i }}" class="{{ $hwCols }} border-t border-gray-100">
+                            <span class="px-4 py-3 text-gray-400">{{ $i + 1 }}</span>
+                            <div class="px-4 py-3 min-w-0">
+                                @if ($status['mode'] === 'by_day')
+                                    <p class="font-medium text-gray-800">{{ $row['date'] }}</p>
+                                    <p class="text-xs text-gray-400">{{ $row['day'] }}</p>
+                                @else
+                                    <p class="font-medium text-gray-800 truncate">{{ $row['name'] }}</p>
+                                    @if ($row['roll_no'])
+                                        <p class="text-xs text-gray-400">Roll {{ $row['roll_no'] }}</p>
+                                    @endif
+                                @endif
+                            </div>
+                            <span class="px-4 py-3 whitespace-nowrap {{ $hwTotal > 0 && $hwDone < $hwTotal ? 'text-red-600 font-medium' : 'text-gray-700' }}">
+                                {{ $hwTotal > 0 ? $hwDone . ' / ' . $hwTotal : '—' }}
+                            </span>
+                            <div class="px-4 py-3 text-gray-700 leading-relaxed">
+                                @forelse ($row['items'] as $k => $it)
+                                    <span title="{{ $it['title'] }}" class="{{ $it['complete'] ? 'text-gray-700' : 'text-red-600' }}">{{ $it['subject'] }}@if ($status['mode'] === 'by_student' && !$hwStatusDate)<span class="text-gray-400"> ({{ $it['date'] }})</span>@endif</span>@if (!$loop->last)<span class="text-gray-300"> · </span>@endif
+                                @empty
+                                    <span class="text-gray-400">No homework</span>
+                                @endforelse
+                            </div>
+                        </div>
+                    @empty
+                        <p class="px-4 py-10 text-center text-gray-400">No students in this section.</p>
+                    @endforelse
+                </div>
             </div>
         </div>
     @endif
@@ -477,7 +439,7 @@
                         @endforeach
                     </select>
                     @if ($subject_selection === 'single')
-                        <select wire:model.defer="subject_id" @disabled(!$standard_id)
+                        <select wire:model.live="subject_id" @disabled(!$standard_id)
                             class="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white disabled:opacity-50 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
                             <option value="">Select subject…</option>
                             @foreach ($subjects as $subject)
@@ -506,7 +468,11 @@
                     </p>
                 @endif
 
-                @if ($subject_selection === 'single')
+                @if ($subject_selection === 'single' && (!$standard_id || !$subject_id))
+                    <div class="flex-1 overflow-y-auto">
+                        <p class="py-16 text-center text-sm text-gray-400">Select a class and a subject to write the homework.</p>
+                    </div>
+                @elseif ($subject_selection === 'single')
                     {{-- ── SINGLE SUBJECT: one flat row a field ── --}}
                     <div class="flex-1 overflow-y-auto divide-y divide-gray-100">
                         <div class="flex items-start gap-3 px-6 py-3">
@@ -518,14 +484,17 @@
                             </div>
                         </div>
 
-                        <div class="flex items-start gap-3 px-6 py-3">
-                            <span class="w-28 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Description <span class="text-red-500">*</span></span>
-                            <div class="flex-1 min-w-0">
-                                <textarea wire:model.defer="description" rows="4" placeholder="Enter homework description..."
-                                    class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 resize-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"></textarea>
-                                @error('description')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        {{-- No Description when adding; a homework that has one keeps it on Edit. --}}
+                        @if ($editId)
+                            <div class="flex items-start gap-3 px-6 py-3">
+                                <span class="w-28 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Description</span>
+                                <div class="flex-1 min-w-0">
+                                    <textarea wire:model.defer="description" rows="4" placeholder="Enter homework description..."
+                                        class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 resize-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"></textarea>
+                                    @error('description')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                </div>
                             </div>
-                        </div>
+                        @endif
 
                         <div class="flex items-start gap-3 px-6 py-3">
                             <span class="w-28 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Attachment</span>
@@ -578,9 +547,6 @@
                                         <input wire:model.defer="subjectHomeworks.{{ $subject->id }}.title" type="text"
                                             placeholder="Title (leave blank to skip this subject)"
                                             class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
-                                        <textarea wire:model.defer="subjectHomeworks.{{ $subject->id }}.description" rows="2"
-                                            placeholder="Description (optional)"
-                                            class="w-full text-sm border border-gray-200 rounded-md px-2.5 py-1.5 resize-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"></textarea>
                                         <input type="file" wire:model="subjectHomeworks.{{ $subject->id }}.file"
                                             accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png"
                                             class="block w-full text-xs text-gray-500 file:mr-3 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200">

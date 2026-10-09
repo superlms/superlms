@@ -14,9 +14,11 @@ use Tests\TestCase;
 
 /**
  * Add / Edit Homework in the Mark Attendance panel's look: class, section and
- * subject in one row, Single / All subjects beside them, flat rows below — and
- * every save works as before (one subject; all subjects, blank titles skipped;
- * edit; the required fields).
+ * subject in one row, Single / All subjects beside them, flat rows below only
+ * once the class (and, for one subject, the subject) is picked, no Description
+ * when adding — and every save works as before (one subject; all subjects,
+ * blank titles skipped; edit, an old description kept). Homework Status reads
+ * as Mark Attendance does: flat rows, plain text, not done in red.
  */
 class HomeworkPanelTest extends TestCase
 {
@@ -49,6 +51,14 @@ class HomeworkPanelTest extends TestCase
         });
         Schema::create('section_subjects', function (Blueprint $t) {
             $t->id(); $t->unsignedBigInteger('standard_id'); $t->unsignedBigInteger('section_id'); $t->unsignedBigInteger('subject_id'); $t->timestamps();
+        });
+        Schema::create('student_details', function (Blueprint $t) {
+            $t->id(); $t->unsignedBigInteger('organization_id'); $t->unsignedBigInteger('user_id')->nullable();
+            $t->unsignedBigInteger('standard_id')->nullable(); $t->unsignedBigInteger('section_id')->nullable();
+            $t->string('full_name')->nullable(); $t->string('roll_no')->nullable(); $t->timestamps();
+        });
+        Schema::create('home_work_completions', function (Blueprint $t) {
+            $t->id(); $t->unsignedBigInteger('home_work_id'); $t->unsignedBigInteger('user_id'); $t->timestamps();
         });
         Schema::create('home_works', function (Blueprint $t) {
             $t->id(); $t->unsignedBigInteger('organization_id'); $t->unsignedBigInteger('user_id')->default(0);
@@ -84,19 +94,27 @@ class HomeworkPanelTest extends TestCase
         $this->assertStringContainsString('Single subject', $html);
         $this->assertStringContainsString('All subjects', $html);
 
-        // Required fields still asked for.
-        $page->call('onSave');
-        $page->assertHasErrors(['title', 'standard_id', 'description', 'subject_id']);
+        // Nothing to fill until the class and the subject are picked.
+        $this->assertStringContainsString('Select a class and a subject to write the homework.', $html);
+        $this->assertStringNotContainsString('wire:model.defer="title"', $html);
+        $this->assertStringNotContainsString('wire:model.defer="title"', $page->set('standard_id', (string) $std)->html());
 
-        $page->set('standard_id', (string) $std)
-            ->set('subject_id', (string) $subs['Maths'])
-            ->set('title', 'Table of 7')
-            ->set('description', 'Write it five times')
-            ->call('onSave');
+        // Required fields still asked for — Description is not.
+        $page->set('standard_id', '')->call('onSave');
+        $page->assertHasErrors(['title', 'standard_id', 'subject_id']);
+        $page->assertHasNoErrors(['description']);
+
+        $page->set('standard_id', (string) $std)->set('subject_id', (string) $subs['Maths']);
+        $html = $page->html();
+        $this->assertStringContainsString('wire:model.defer="title"', $html);
+        $this->assertStringNotContainsString('wire:model.defer="description"', $html);   // no Description when adding
+
+        $page->set('title', 'Table of 7')->call('onSave');
 
         $hw = DB::table('home_works')->first();
-        $this->assertSame(['Table of 7', 'Write it five times', $std, 0, $subs['Maths']],
-            [$hw->title, $hw->description, (int) $hw->standard_id, (int) $hw->section_id, (int) $hw->subject_id]);
+        $this->assertSame(['Table of 7', $std, 0, $subs['Maths']],
+            [$hw->title, (int) $hw->standard_id, (int) $hw->section_id, (int) $hw->subject_id]);
+        $this->assertSame('', (string) $hw->description);
         $this->assertFalse($page->get('open'));
     }
 
@@ -109,19 +127,19 @@ class HomeworkPanelTest extends TestCase
 
         $html = $page->html();
         $this->assertStringContainsString('a subject left without a title is skipped', $html);
+        $this->assertStringNotContainsString('.description"', $html);                      // no Description boxes
         foreach (['Hindi', 'English', 'Maths'] as $name) {
             $this->assertStringContainsString('>' . $name . '</span>', $html);
         }
 
         $page->set('subjectHomeworks.' . $subs['Hindi'] . '.title', 'Read page 12')
             ->set('subjectHomeworks.' . $subs['English'] . '.title', 'Spellings')
-            ->set('subjectHomeworks.' . $subs['English'] . '.description', 'Ten words')
             ->call('onSave');
 
         $rows = DB::table('home_works')->orderBy('subject_id')->get();
         $this->assertCount(2, $rows);
         $this->assertSame([$subs['Hindi'], $subs['English']], $rows->pluck('subject_id')->map(fn ($v) => (int) $v)->all());
-        $this->assertSame('Ten words', $rows->firstWhere('subject_id', $subs['English'])->description);
+        $this->assertSame('Spellings', $rows->firstWhere('subject_id', $subs['English'])->title);
     }
 
     public function test_edit_keeps_working(): void
@@ -135,9 +153,38 @@ class HomeworkPanelTest extends TestCase
         $this->assertStringContainsString('Edit Homework', $html);
         $this->assertStringNotContainsString('All subjects', $html);                 // editing is one homework
         $this->assertSame((string) $subs['Hindi'], (string) $page->get('subject_id'));
+        $this->assertStringContainsString('wire:model.defer="description"', $html);       // an old description stays editable
 
         $page->set('title', 'New')->call('onSave');
         $this->assertSame('New', DB::table('home_works')->where('id', $id)->value('title'));
+        $this->assertSame('Old text', DB::table('home_works')->where('id', $id)->value('description'));
         $this->assertSame(1, DB::table('home_works')->count());
+    }
+
+    public function test_status_reads_as_mark_attendance(): void
+    {
+        [$std, $subs] = $this->klass();
+        $sec = DB::table('sections')->where('standard_id', $std)->where('name', 'A')->value('id');
+        $asha = DB::table('student_details')->insertGetId(['organization_id' => $this->org, 'user_id' => 501, 'standard_id' => $std, 'section_id' => $sec, 'full_name' => 'Asha', 'roll_no' => '1']);
+        DB::table('student_details')->insert(['organization_id' => $this->org, 'user_id' => 502, 'standard_id' => $std, 'section_id' => $sec, 'full_name' => 'Bilal', 'roll_no' => '2']);
+        $hindi = DB::table('home_works')->insertGetId(['organization_id' => $this->org, 'standard_id' => $std, 'section_id' => $sec, 'subject_id' => $subs['Hindi'], 'title' => 'Read', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('home_works')->insert(['organization_id' => $this->org, 'standard_id' => $std, 'section_id' => $sec, 'subject_id' => $subs['Maths'], 'title' => 'Sums', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('home_work_completions')->insert(['home_work_id' => $hindi, 'user_id' => 501]);
+
+        $page = Livewire::test(Homework::class)->call('switchTab', 'status')
+            ->set('hwStatusStandard', (string) $std)->set('hwStatusSection', (string) $sec);
+        $html = $page->html();
+
+        $this->assertStringContainsString('Every student in this section', $html);
+        $this->assertStringContainsString('Students <strong>2</strong>', $html);
+        $this->assertStringNotContainsString('bg-gradient-to-r', $html);                  // a plain strip
+        $this->assertStringNotContainsString('rounded-full border bg-', $html);           // no chips
+        $this->assertMatchesRegularExpression('/text-red-600 font-medium">\s*1 \/ 2\s*<\/span>/', $html);   // Asha: 1 of 2
+        $this->assertMatchesRegularExpression('/class="text-gray-700">Hindi/', $html);  // done: plain
+        $this->assertMatchesRegularExpression('/class="text-red-600">Maths/', $html);   // not done: red
+
+        // One student: day by day.
+        $html = $page->set('hwStatusStudent', (string) $asha)->html();
+        $this->assertStringContainsString('Day by day', $html);
     }
 }
