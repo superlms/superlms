@@ -15,6 +15,7 @@ use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
 use App\Models\Student\Subject;
+use App\Services\Seating\GeneratedSeating;
 use App\Services\Seating\SeatLocator;
 use App\Services\Seating\SeatingPlannerService;
 use App\Support\ModuleAccess;
@@ -139,6 +140,12 @@ class AdminSeatingController extends ApiController
                 ->orderBy('exam_date')->orderBy('id')
                 ->get(['id', 'name', 'exam_date', 'session', 'notes', 'status', 'total_students', 'total_seats', 'conflict_count'])
             : collect();
+
+        // A plan made again for the same session lists once — the newest copy.
+        if ($examPlans->isNotEmpty()) {
+            $current   = GeneratedSeating::currentPlanIds($examPlans);
+            $examPlans = $examPlans->filter(fn ($p) => in_array((int) $p->id, $current, true))->values();
+        }
 
         // Rooms that actually hold a seat in this exam — no point offering the rest.
         $roomOptions = $examPlans->isEmpty() ? collect() : SeatingRoom::whereIn(
@@ -402,6 +409,8 @@ class AdminSeatingController extends ApiController
 
         return $this->success([
             'datesheet_standard_ids' => $exam ? array_map('intval', $this->datesheetStandardIds($orgId, $exam->id)) : [],
+            // Seated in this exam already — a class is not generated again.
+            'generated_standard_ids' => $exam ? GeneratedSeating::standardIds((int) $orgId, (int) $exam->id) : [],
             'suggested_name'         => $exam ? $exam->exam_name . ' — Seating' : null,
             'standards'              => Standard::where('organization_id', $orgId)->where('is_active', true)
                 ->inClassOrder()->get(['id', 'name'])->map(fn ($s) => ['id' => $s->id, 'name' => $s->name])->values(),
@@ -441,6 +450,19 @@ class AdminSeatingController extends ApiController
         $examId      = $exam->id;
         $baseName    = trim($request->name);
         $standardIds = array_map('intval', $request->standard_ids);
+
+        // A class is seated for an exam once. The app ticks every datesheet
+        // class by default, so the ones already generated are left out here,
+        // and only when nothing else is left is it refused.
+        $already = array_values(array_intersect($standardIds, GeneratedSeating::standardIds((int) $orgId, (int) $examId)));
+        $alreadyNames = $already
+            ? Standard::whereIn('id', $already)->inClassOrder()->pluck('name')->implode(', ')
+            : '';
+        $standardIds = array_values(array_diff($standardIds, $already));
+        if (!$standardIds) {
+            return $this->error($alreadyNames . ' already ' . (count($already) === 1 ? 'has' : 'have')
+                . ' a seating plan for this exam — it is not generated again.', 422);
+        }
 
         // 1. The datesheets (with papers) for this exam + selected classes.
         $datesheets = ExamDatesheet::with('papers.subject:id,name')
@@ -608,6 +630,9 @@ class AdminSeatingController extends ApiController
         $msg = "{$createdPlans} seating plan(s) generated · {$seatedTotal} student-seatings.";
         if ($skippedNoStud > 0) {
             $msg .= " {$skippedNoStud} date(s) skipped (no students).";
+        }
+        if ($already) {
+            $msg .= " {$alreadyNames} left out (already generated).";
         }
 
         return $this->success([

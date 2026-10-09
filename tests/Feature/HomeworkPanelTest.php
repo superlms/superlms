@@ -283,6 +283,9 @@ class HomeworkPanelTest extends TestCase
         $html = Livewire::test(Homework::class)->set('filterStandard', (string) $std)->set('filterSection', (string) $secA)->html();
         $this->assertStringContainsString('<p class="text-sm font-semibold text-gray-600">Sums</p>', $html);
         $this->assertStringNotContainsString('>Assigned</th>', $html);
+        // The class, its section under it in small plain text; the homework column a little narrower.
+        $this->assertMatchesRegularExpression('/<p class="text-sm text-gray-700">Class 5<\/p>\s*(<!--\[if BLOCK\]><!\[endif\]-->)?\s*<p class="text-xs text-gray-400">A<\/p>/', $html);
+        $this->assertStringContainsString('<div class="max-w-md">', $html);
         $this->assertStringNotContainsString(now()->format('d M Y, h:i A'), $html);
     }
 

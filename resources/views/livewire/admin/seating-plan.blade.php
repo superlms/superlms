@@ -245,21 +245,41 @@
                                         <td class="px-4 py-3 text-center text-gray-600">{{ $row['students'] }}</td>
                                         <td class="px-4 py-3">
                                             {{-- View, download and print are one sheet: the same page,
-                                                 opened, saved or sent straight to the printer. --}}
-                                            <div class="flex items-center justify-center gap-1.5">
-                                                <a href="{{ route('admin.seating-plan.list', $listArgs) }}" target="_blank"
-                                                    class="text-xs font-medium px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-blue-50 hover:text-blue-600">View</a>
-                                                <a href="{{ route('admin.seating-plan.list-pdf', $listArgs) }}" target="_blank"
-                                                    class="text-xs font-medium px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-emerald-50 hover:text-emerald-600">Download</a>
-                                                <a href="{{ route('admin.seating-plan.list', $listArgs + ['print' => 1]) }}" target="_blank"
-                                                    class="text-xs font-medium px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50">Print</a>
+                                                 opened, saved or sent straight to the printer. Icons in
+                                                 the Students list's look, the dot = published (green) or
+                                                 still a draft (red). --}}
+                                            <div class="flex items-center justify-center gap-1">
+                                                <span class="w-2 h-2 rounded-full flex-shrink-0 mr-1 {{ $row['status'] === 'published' ? 'bg-green-500' : 'bg-red-500' }}"
+                                                    title="{{ $row['status'] === 'published' ? 'Published' : 'Draft — not published yet' }}"></span>
+                                                <a href="{{ route('admin.seating-plan.list', $listArgs) }}" target="_blank" title="View"
+                                                    class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                    </svg>
+                                                </a>
+                                                <a href="{{ route('admin.seating-plan.list-pdf', $listArgs) }}" target="_blank" title="Download"
+                                                    class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                    </svg>
+                                                </a>
+                                                <a href="{{ route('admin.seating-plan.list', $listArgs + ['print' => 1]) }}" target="_blank" title="Print"
+                                                    class="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                                    </svg>
+                                                </a>
                                                 @if ($row['status'] !== 'published')
-                                                    <button wire:click="publishPlan({{ $row['plan_id'] }})"
-                                                        class="text-xs font-medium px-3 py-1.5 rounded-md border border-emerald-200 text-emerald-600 hover:bg-emerald-50">Publish</button>
+                                                    <button wire:click="publishPlan({{ $row['plan_id'] }})" title="Publish"
+                                                        class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                                        </svg>
+                                                    </button>
                                                 @endif
                                                 <button wire:click="confirmDeletePlan({{ $row['plan_id'] }})" title="Delete this session's plan"
-                                                    class="px-2 py-1.5 rounded-md border border-red-200 text-red-500 hover:bg-red-50">
-                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                    class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                                 </button>
                                             </div>
                                         </td>
@@ -965,13 +985,20 @@
                         </div>
                         <div class="border border-gray-200 rounded-md p-3 max-h-40 overflow-y-auto space-y-1.5">
                             @forelse ($standards as $std)
-                                @php $hasDs = in_array($std->id, $datesheetStdIds); @endphp
-                                <label class="flex items-center justify-between gap-2 text-sm {{ $hasDs ? 'text-gray-700' : 'text-gray-400' }}">
+                                @php
+                                    $hasDs = in_array($std->id, $datesheetStdIds);
+                                    // Seated in this exam already: shown, never generated again.
+                                    $isGenerated = in_array($std->id, $generatedStdIds);
+                                @endphp
+                                <label class="flex items-center justify-between gap-2 text-sm {{ $hasDs && !$isGenerated ? 'text-gray-700' : 'text-gray-400' }}">
                                     <span class="flex items-center gap-2">
-                                        <input type="checkbox" value="{{ $std->id }}" wire:model="generateForm.standard_ids" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                        <input type="checkbox" value="{{ $std->id }}" wire:model="generateForm.standard_ids" @disabled($isGenerated)
+                                            class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-40">
                                         {{ $std->name }}
                                     </span>
-                                    @if ($hasDs)
+                                    @if ($isGenerated)
+                                        <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">already generated</span>
+                                    @elseif ($hasDs)
                                         <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">datesheet</span>
                                     @endif
                                 </label>
@@ -980,6 +1007,9 @@
                             @endforelse
                         </div>
                         <p class="text-xs text-gray-400 mt-1">Only classes with a datesheet for this exam can be seated. Others are shown greyed for reference.</p>
+                        @if (count($generatedStdIds))
+                            <p class="text-xs text-gray-500 mt-0.5">A class marked “already generated” has its seating plan for this exam — it is not generated again.</p>
+                        @endif
                         @error('generateForm.standard_ids')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                     <div>

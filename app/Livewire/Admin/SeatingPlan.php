@@ -15,6 +15,7 @@ use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
 use App\Models\Student\Subject;
+use App\Services\Seating\GeneratedSeating;
 use App\Services\Seating\SeatLocator;
 use App\Support\SeatLabel;
 use App\Services\Seating\SeatingPlannerService;
@@ -556,8 +557,20 @@ class SeatingPlan extends Component
 
     private function preselectDatesheetClasses(): void
     {
-        // Store as strings so the checkbox bindings render as checked.
-        $this->generateForm['standard_ids'] = array_map('strval', $this->datesheetStandardIds());
+        // Store as strings so the checkbox bindings render as checked. A class
+        // whose plan for this exam is already generated is left out.
+        $generated = $this->generatedStandardIds();
+        $this->generateForm['standard_ids'] = array_values(array_map('strval',
+            array_diff($this->datesheetStandardIds(), $generated)));
+    }
+
+    /** Classes already seated in one of the chosen exam's plans — not generated again. */
+    private function generatedStandardIds(): array
+    {
+        return GeneratedSeating::standardIds(
+            (int) Auth::user()->organization_id,
+            (int) ($this->generateForm['exam_id'] ?? 0)
+        );
     }
 
     public function selectAllClasses(): void
@@ -597,6 +610,17 @@ class SeatingPlan extends Component
         $examId     = (int) $this->generateForm['exam_id'];
         $baseName   = trim($this->generateForm['name']);
         $standardIds = array_map('intval', $this->generateForm['standard_ids']);
+
+        // A class is seated for an exam once: its plan is not generated again.
+        $already = array_intersect($standardIds, $this->generatedStandardIds());
+        if ($already) {
+            $names = Standard::whereIn('id', $already)->inClassOrder()->pluck('name')->implode(', ');
+            $this->notification()->error(
+                'Already generated',
+                $names . ' already ' . (count($already) === 1 ? 'has' : 'have') . ' a seating plan for this exam — it is not generated again.'
+            );
+            return;
+        }
 
         // 1. Pull the datesheets (with papers) for this exam + selected classes.
         $datesheets = ExamDatesheet::with('papers.subject:id,name')
@@ -1262,11 +1286,18 @@ class SeatingPlan extends Component
         // Classes that have a datesheet for the exam chosen in the Generate panel
         // (used to highlight / default-select the class checkboxes).
         $datesheetStdIds = $this->showGeneratePanel ? $this->datesheetStandardIds() : [];
+        // …and those already generated for it, shown but not offered again.
+        $generatedStdIds = $this->showGeneratePanel ? $this->generatedStandardIds() : [];
 
         // ══ Seat finder ══
         // By room or by class, the answer is the same list: one row per paper,
         // and every row opens, downloads or prints the same seating list.
+        // A plan made again for the same session lists once — the newest copy.
         $examPlans = $this->examPlans();
+        if ($examPlans->isNotEmpty()) {
+            $current   = GeneratedSeating::currentPlanIds($examPlans);
+            $examPlans = $examPlans->filter(fn ($p) => in_array((int) $p->id, $current, true))->values();
+        }
 
         $filterSections = $this->filterStandardId
             ? Section::where('standard_id', $this->filterStandardId)->where('is_active', true)
@@ -1339,7 +1370,7 @@ class SeatingPlan extends Component
         return view('livewire.admin.seating-plan', compact(
             'rooms', 'invigilators', 'exams', 'standards', 'planCount', 'viewingRoom',
             'viewingPlan', 'planRooms', 'planAssignments', 'planInvigilators', 'planRollMap',
-            'datesheets', 'dsSections', 'viewingDatesheet', 'datesheetStdIds',
+            'datesheets', 'dsSections', 'viewingDatesheet', 'datesheetStdIds', 'generatedStdIds',
             'dsFilterSections', 'dsFilterSubjects', 'filteredDatesheet', 'filteredPapers',
             'filterSections', 'graphRoomOptions', 'sessionRows', 'graphFiltersActive'
         ));

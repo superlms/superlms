@@ -215,7 +215,9 @@
                 <tbody class="divide-y divide-gray-100">
                     @forelse ($homeworks as $homework)
                         <tr class="hover:bg-gray-50 transition-colors">
+                            {{-- A little narrower than the free width (max-w-md), so the others breathe --}}
                             <td class="px-4 py-3">
+                                <div class="max-w-md">
                                 <div class="flex items-start gap-2">
                                     <p class="text-sm font-semibold text-gray-600">{{ $homework->title ?? 'No Title' }}</p>
                                     @if ($homework->file)
@@ -227,6 +229,7 @@
                                 @if ($homework->description)
                                     <p class="text-xs text-gray-400 line-clamp-1 mt-0.5">{{ Str::limit($homework->description, 80) }}</p>
                                 @endif
+                                </div>
                             </td>
                             <td class="px-4 py-3">
                                 @php $setBy = $homework->user; @endphp
@@ -239,10 +242,11 @@
                                     <p class="text-sm text-gray-400">—</p>
                                 @endif
                             </td>
-                            <td class="px-4 py-3 text-sm text-gray-700">
-                                {{ $homework->standard->name ?? 'Unknown' }}
+                            {{-- The class, its section under it in small plain text --}}
+                            <td class="px-4 py-3">
+                                <p class="text-sm text-gray-700">{{ $homework->standard->name ?? 'Unknown' }}</p>
                                 @if ($homework->section)
-                                    <span class="text-gray-400">- {{ $homework->section->name }}</span>
+                                    <p class="text-xs text-gray-400">{{ $homework->section->name }}</p>
                                 @endif
                             </td>
                             {{-- Subject as plain text, as the other lists show it --}}
