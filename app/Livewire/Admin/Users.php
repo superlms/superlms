@@ -50,8 +50,8 @@ class Users extends Component
     public string $filterStatus = '';
 
     protected $queryString = [
-        'search'       => ['except' => ''],
-        'filterStatus' => ['except' => ''],
+        'search'       => ['except' => '', 'history' => false],
+        'filterStatus' => ['except' => '', 'history' => false],
     ];
 
     public function updatedSearch(): void

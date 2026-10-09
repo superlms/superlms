@@ -159,6 +159,9 @@ class FeeMergedTabsTest extends TestCase
         $this->assertStringContainsString('2023-24 Fee', $html);
         $this->assertMatchesRegularExpression('/Dues total<\/span>\s*<span[^>]*>₹500\.00/', $html);
         $this->assertMatchesRegularExpression('/Overall total<\/span>\s*<span[^>]*>₹1,500\.00/', $html);
+        // In the Mark Attendance look: plain text — no capitals labels, no chips.
+        $this->assertStringNotContainsString('uppercase tracking-wider', $html);
+        $this->assertStringNotContainsString('rounded-full text-[10px] font-semibold', $html);
 
         // Submit Fee collects for the same student, and the ledger follows.
         $page->call('openFeeSubmit');

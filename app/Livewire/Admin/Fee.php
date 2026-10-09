@@ -94,7 +94,7 @@ class Fee extends Component
 
     protected $queryString = [
         'activeTab'  => ['except' => ''],
-        'search'     => ['except' => ''],
+        'search'     => ['except' => '', 'history' => false],
         'qrSubTab'   => ['except' => 'payments'],
     ];
 

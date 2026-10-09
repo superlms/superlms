@@ -43,28 +43,39 @@
                 </div>
             </div>
 
-            <div class="px-6 py-10 flex flex-col items-center">
-                @if ($savedUrl)
-                    <img src="{{ $savedUrl }}" alt="Payment QR"
-                        class="w-full max-w-sm aspect-square object-contain rounded-xl border border-gray-200 bg-white p-4">
-                @endif
-
-                <p class="mt-5 text-base font-semibold text-gray-900 text-center">{{ $qr->payee_name ?: (auth()->user()->organization->name ?? 'Your school') }}</p>
-
-                @if ($qr->upi_id)
-                    <div class="mt-1.5 flex items-center gap-2" x-data="{ copied: false }">
-                        <span class="font-mono text-sm text-gray-600">{{ $qr->upi_id }}</span>
-                        <button type="button" class="text-xs font-semibold text-blue-600 hover:text-blue-800"
-                            @click="navigator.clipboard.writeText('{{ $qr->upi_id }}'); copied = true; setTimeout(() => copied = false, 1500)"
-                            x-text="copied ? 'Copied' : 'Copy'">Copy</button>
+            {{-- The QR on the left, a little smaller; a rule; then the UPI ID and the details --}}
+            <div class="flex flex-col sm:flex-row">
+                <div class="p-5 flex-shrink-0">
+                    @if ($savedUrl)
+                        <img src="{{ $savedUrl }}" alt="Payment QR"
+                            class="w-48 h-48 sm:w-56 sm:h-56 object-contain rounded-lg border border-gray-200 bg-white p-2">
+                    @endif
+                </div>
+                <div class="flex-1 min-w-0 border-t sm:border-t-0 sm:border-l border-gray-200 divide-y divide-gray-100 text-sm">
+                    <div class="flex items-center gap-3 px-5 py-3" x-data="{ copied: false }">
+                        <span class="w-32 flex-shrink-0 text-xs text-gray-500">UPI ID</span>
+                        @if ($qr->upi_id)
+                            <span class="font-mono text-gray-800 truncate">{{ $qr->upi_id }}</span>
+                            <button type="button" class="text-xs font-semibold text-blue-600 hover:text-blue-800"
+                                @click="navigator.clipboard.writeText('{{ $qr->upi_id }}'); copied = true; setTimeout(() => copied = false, 1500)"
+                                x-text="copied ? 'Copied' : 'Copy'">Copy</button>
+                        @else
+                            <span class="text-gray-400">Not added</span>
+                        @endif
                     </div>
-                @endif
-
-                @if ($qr->instructions)
-                    <p class="mt-4 max-w-sm text-center text-xs text-gray-500 leading-relaxed">{{ $qr->instructions }}</p>
-                @endif
-
-                <p class="mt-5 text-xs text-gray-400">Updated {{ $qr->updated_at?->diffForHumans() }}</p>
+                    <div class="flex items-center gap-3 px-5 py-3">
+                        <span class="w-32 flex-shrink-0 text-xs text-gray-500">Account name</span>
+                        <span class="text-gray-800 truncate">{{ $qr->payee_name ?: (auth()->user()->organization->name ?? 'Your school') }}</span>
+                    </div>
+                    <div class="flex items-center gap-3 px-5 py-3">
+                        <span class="w-32 flex-shrink-0 text-xs text-gray-500">In the app</span>
+                        <span class="{{ $qr->is_active ? 'text-gray-800' : 'text-gray-400' }}">{{ $qr->is_active ? 'Shown to students on the Fees screen' : 'Hidden — save it again to show it' }}</span>
+                    </div>
+                    <div class="flex items-center gap-3 px-5 py-3">
+                        <span class="w-32 flex-shrink-0 text-xs text-gray-500">Updated</span>
+                        <span class="text-gray-800">{{ $qr->updated_at?->format('d M Y, h:i A') }} <span class="text-xs text-gray-400">· {{ $qr->updated_at?->diffForHumans() }}</span></span>
+                    </div>
+                </div>
             </div>
         </div>
     @endif
@@ -101,7 +112,6 @@
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div>
                         <h2 class="text-lg font-semibold text-gray-900">{{ $qr ? 'Edit payment QR' : 'Add payment QR' }}</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">From your bank or UPI app — Paytm, PhonePe, GPay Business, BHIM</p>
                     </div>
                     <button type="button" wire:click="closePanel"
                         class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0">
@@ -181,26 +191,7 @@
                         @error('payeeName') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                     </div>
 
-                    {{-- Note --}}
-                    <div>
-                        <label for="qr-note" class="block text-sm font-medium text-gray-700 mb-1">Note for students <span class="text-xs text-gray-400 font-normal">(optional)</span></label>
-                        <textarea id="qr-note" wire:model.blur="instructions" rows="3" maxlength="500"
-                            placeholder="e.g. Write the student's name and class in the payment remark."
-                            class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 {{ $errors->has('instructions') ? 'border-red-300' : 'border-gray-200' }}"></textarea>
-                        @error('instructions') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                    </div>
-
-                    {{-- Show in the app --}}
-                    <label class="flex items-center justify-between gap-3 rounded-lg border border-gray-200 px-3.5 py-2.5 cursor-pointer">
-                        <span class="leading-tight">
-                            <span class="block text-sm font-medium text-gray-800">Show in the app</span>
-                            <span class="block text-xs text-gray-500">{{ $isActive ? 'Students can pay on it' : 'Students don\'t see it' }}</span>
-                        </span>
-                        <span class="relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors {{ $isActive ? 'bg-emerald-500' : 'bg-gray-300' }}">
-                            <input type="checkbox" wire:model.live="isActive" class="sr-only">
-                            <span class="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform {{ $isActive ? 'translate-x-5' : 'translate-x-0' }}"></span>
-                        </span>
-                    </label>
+                    {{-- No note and no show / hide switch: a saved QR is shown in the app. --}}
                 </div>
 
                 {{-- Footer --}}

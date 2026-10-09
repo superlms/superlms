@@ -27,9 +27,9 @@ class Enquiry extends Component
 
     protected $queryString = [
         'activeTab'    => ['except' => 'demo'],
-        'filterDays'   => ['except' => ''],
-        'statusFilter' => ['except' => ''],
-        'search'       => ['except' => ''],
+        'filterDays'   => ['except' => '', 'history' => false],
+        'statusFilter' => ['except' => '', 'history' => false],
+        'search'       => ['except' => '', 'history' => false],
     ];
 
     protected $rules = [

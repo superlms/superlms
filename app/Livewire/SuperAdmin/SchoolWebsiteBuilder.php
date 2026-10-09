@@ -5,6 +5,7 @@ namespace App\Livewire\SuperAdmin;
 use App\Models\Organization;
 use App\Models\SchoolWebsite;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use WireUi\Traits\WireUiActions;
 
@@ -28,6 +29,8 @@ class SchoolWebsiteBuilder extends Component
     public string $primary      = '';
     public string $domain       = '';
     public bool   $status       = false;
+    // A tab switch is one step for the header's Back.
+    #[Url(history: true, except: 'pages')]
     public string $activeTab    = 'pages';
 
     public function mount(Organization $organization): void

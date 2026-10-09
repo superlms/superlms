@@ -21,7 +21,7 @@ class ViewFee extends Component
 
     protected $queryString = [
         'viewSubTab'   => ['except' => 'by_student'],
-        'viewStudentId' => ['except' => ''],
+        'viewStudentId' => ['except' => '', 'history' => false],
     ];
 
     /**

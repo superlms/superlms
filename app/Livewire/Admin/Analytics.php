@@ -83,7 +83,12 @@ class Analytics extends Component
     public $bottomRankers        = [];   // …and the 10 at the foot of the same ranking
     public $enquiryStats         = [];   // enquiry funnel counts
 
-    protected $queryString = ['attendanceFilter', 'performerClass', 'performerSection'];
+    // Filters only — they change the URL without adding a Back step.
+    protected $queryString = [
+        'attendanceFilter' => ['history' => false],
+        'performerClass'   => ['history' => false],
+        'performerSection' => ['history' => false],
+    ];
 
     // ─── DB status values ─────────────────────────────────────────────────────
     // student_attendances.status  → tinyint:  1 = present, 0 = absent

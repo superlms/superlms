@@ -137,13 +137,13 @@ class Student extends Component
     public int    $perPage        = 100;
 
     protected $queryString = [
-        'search'        => ['except' => ''],
-        'filterClass'   => ['except' => ''],
-        'filterSection' => ['except' => ''],
-        'filterGender'  => ['except' => ''],
-        'filterStatus'  => ['except' => ''],
-        'filterTransport' => ['except' => ''],
-        'sortBy'        => ['except' => 'name_asc'],
+        'search'        => ['except' => '', 'history' => false],
+        'filterClass'   => ['except' => '', 'history' => false],
+        'filterSection' => ['except' => '', 'history' => false],
+        'filterGender'  => ['except' => '', 'history' => false],
+        'filterStatus'  => ['except' => '', 'history' => false],
+        'filterTransport' => ['except' => '', 'history' => false],
+        'sortBy'        => ['except' => 'name_asc', 'history' => false],
     ];
 
     protected $listeners = [

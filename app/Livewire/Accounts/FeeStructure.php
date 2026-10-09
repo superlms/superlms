@@ -19,7 +19,7 @@ class FeeStructure extends Component
 
     protected $queryString = [
         'structureTab' => ['except' => 'academic'],
-        'search'       => ['except' => ''],
+        'search'       => ['except' => '', 'history' => false],
     ];
 
     private function orgId(): int

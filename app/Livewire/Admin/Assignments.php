@@ -35,7 +35,7 @@ class Assignments extends Component
 
     public const STATUSES = ['submitted', 'reviewed', 'approved', 'rejected'];
 
-    #[Url]
+    #[Url(history: true)]
     public string $activeTab = 'assignments';   // assignments | responses
 
     // ─── Lookups ─────────────────────────────────────────────────────────

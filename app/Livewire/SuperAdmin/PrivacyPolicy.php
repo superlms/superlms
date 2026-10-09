@@ -2,6 +2,7 @@
 
 namespace App\Livewire\SuperAdmin;
 
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use App\Models\PrivacyPolicy as PrivacyPolicyModel;
 use Carbon\Carbon;
@@ -15,6 +16,8 @@ class PrivacyPolicy extends Component
 
     public $sections     = [];
     public $last_updated = '';
+    // A tab switch is one step for the header's Back.
+    #[Url(history: true, except: 'view')]
     public $activeTab    = 'view';
     public $pendingDeleteSectionIndex = null;
 

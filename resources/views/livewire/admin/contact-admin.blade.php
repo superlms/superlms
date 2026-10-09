@@ -103,120 +103,105 @@
          CONTACTS LIST
     ══════════════════════════════════════════════════ --}}
     <div class="p-4 sm:p-6">
-        <div class="space-y-3">
-            @forelse($contacts as $contact)
-                <div class="group bg-white rounded-xl border border-gray-200 hover:border-blue-200 hover:shadow-md
-                            transition-all duration-200 overflow-hidden">
-                    <div class="flex items-stretch">
+        {{-- The list in the Enquiries list's style: one table — S.No, the
+             message (its icon, the topic, and under it the query on one line,
+             cut short with … when it is long; then, small, who sent it, when,
+             replied or not, and an attachment) and the actions. The rest is on
+             its View. A row opens it too. --}}
+        @if ($contacts->count())
+            <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full table-fixed">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-16">S.No</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Message</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-36">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @foreach ($contacts as $contact)
+                                @php $isReplied = !empty($contact->super_admin_reply); @endphp
+                                <tr wire:key="contact-{{ $contact->id }}" wire:click="onViewContact({{ $contact->id }})"
+                                    class="hover:bg-gray-50/70 transition-colors cursor-pointer">
 
-                        {{-- Status accent bar --}}
-                        <div class="w-1 flex-shrink-0
-                            {{ $contact->super_admin_reply ? 'bg-emerald-500' : 'bg-amber-400' }}"></div>
+                                    {{-- S.No --}}
+                                    <td class="px-4 py-3">
+                                        <span class="text-sm text-gray-500 font-medium">{{ $loop->iteration }}</span>
+                                    </td>
 
-                        <div class="flex-1 p-4 sm:p-5 min-w-0">
-                            <div class="flex items-start justify-between gap-4">
-                                <div class="flex items-start gap-3 flex-1 min-w-0">
+                                    {{-- Icon, topic, the query on one line, and under it — small
+                                         and plain — who sent it, when, replied or not, and an attachment. --}}
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-3 min-w-0">
+                                            <div class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                                                </svg>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <p class="text-sm font-semibold text-gray-900 truncate">{{ $contact->topic ?: 'No topic' }}</p>
+                                                <p class="text-xs text-gray-400 truncate">{{ $contact->admin_query }}</p>
+                                                <p class="text-[11px] text-gray-400 truncate mt-0.5">
+                                                    {{ $contact->user?->name ?? 'Unknown' }}
+                                                    <span class="mx-1 text-gray-300">·</span>
+                                                    {{ $contact->created_at->format('D, d M Y · g:i A') }}
+                                                    <span class="mx-1 text-gray-300">·</span>
+                                                    <span class="{{ $isReplied ? 'text-emerald-600' : 'text-amber-600' }}">{{ $isReplied ? 'Replied' : 'Pending' }}</span>
+                                                    @if ($contact->image)
+                                                        <span class="mx-1 text-gray-300">·</span>
+                                                        Attachment
+                                                    @endif
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </td>
 
-                                    {{-- Status icon --}}
-                                    <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0
-                                        {{ $contact->super_admin_reply ? 'bg-emerald-50' : 'bg-amber-50' }}">
-                                        @if ($contact->super_admin_reply)
-                                            <svg class="w-4.5 h-4.5 text-emerald-600 w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                                            </svg>
-                                        @else
-                                            <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                        @endif
-                                    </div>
-
-                                    <div class="flex-1 min-w-0">
-                                        {{-- Title row --}}
-                                        <div class="flex flex-wrap items-center gap-2 mb-1">
-                                            <h3 class="text-base font-semibold text-gray-900">{{ $contact->topic }}</h3>
-                                            <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide
-                                                {{ $contact->super_admin_reply ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">
-                                                {{ $contact->super_admin_reply ? 'Replied' : 'Pending' }}
-                                            </span>
-                                            @if ($contact->image)
-                                                <span class="inline-flex items-center gap-1 text-[11px] font-medium text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
-                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                    {{-- Actions --}}
+                                    <td class="px-4 py-3" onclick="event.stopPropagation()">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <button wire:click="onViewContact({{ $contact->id }})" title="View"
+                                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                            </button>
+                                            {{-- Edit only while it waits for a reply, as before --}}
+                                            @if (!$isReplied)
+                                                <button wire:click="onEditContact({{ $contact->id }})" title="Edit"
+                                                    class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                     </svg>
-                                                    Attachment
-                                                </span>
+                                                </button>
                                             @endif
-                                        </div>
-
-                                        {{-- Query preview --}}
-                                        <p class="text-sm text-gray-600 line-clamp-2 mb-2.5 leading-relaxed">
-                                            {{ Str::limit($contact->admin_query, 140) }}
-                                        </p>
-
-                                        {{-- Meta footer --}}
-                                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-                                            <span class="inline-flex items-center gap-1">
-                                                <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                            <button wire:click="onDeleteContact({{ $contact->id }})" title="Delete"
+                                                class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                 </svg>
-                                                <span class="font-medium text-gray-600">{{ $contact->user->name }}</span>
-                                            </span>
-                                            <span class="text-gray-300">•</span>
-                                            <span class="inline-flex items-center gap-1">
-                                                <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                </svg>
-                                                {{ $contact->created_at->format('M j, Y · g:i A') }}
-                                            </span>
-                                            <span class="text-gray-300">•</span>
-                                            <span class="text-gray-400">{{ $contact->created_at->diffForHumans() }}</span>
+                                            </button>
                                         </div>
-                                    </div>
-                                </div>
-
-                                {{-- Action Buttons --}}
-                                <div class="flex items-center gap-1 flex-shrink-0">
-                                    <button wire:click="onViewContact({{ $contact->id }})" title="View"
-                                        class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                        </svg>
-                                    </button>
-
-                                    @if (!$contact->super_admin_reply)
-                                        <button wire:click="onEditContact({{ $contact->id }})" title="Edit"
-                                            class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200 transition-colors">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                            </svg>
-                                        </button>
-                                    @endif
-
-                                    <button wire:click="onDeleteContact({{ $contact->id }})" title="Delete"
-                                        class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
-            @empty
-                <div class="text-center py-20 bg-white rounded-xl border border-gray-200">
-                    <div class="w-14 h-14 mx-auto mb-3 bg-blue-50 rounded-full flex items-center justify-center">
-                        <svg class="w-7 h-7 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                    </div>
-                    <h3 class="text-base font-semibold text-gray-800 mb-1">No messages found</h3>
-                    <p class="text-sm text-gray-400">Messages sent to Super Admin will appear here.</p>
+            </div>
+        @else
+            <div class="text-center py-20 bg-white rounded-xl border border-gray-200">
+                <div class="w-14 h-14 mx-auto mb-3 bg-blue-50 rounded-full flex items-center justify-center">
+                    <svg class="w-7 h-7 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
                 </div>
-            @endforelse
-        </div>
+                <h3 class="text-base font-semibold text-gray-800 mb-1">No messages found</h3>
+                <p class="text-sm text-gray-400">Messages sent to Super Admin will appear here.</p>
+            </div>
+        @endif
     </div>
 
     {{-- ══════════════════════════════════════════════════

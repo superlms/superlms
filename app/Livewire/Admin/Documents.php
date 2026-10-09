@@ -26,7 +26,7 @@ class Documents extends Component
     public $organization = null;
 
     /** 'school' (the school's own documents) or 'admin' (sent by the Super Admin). */
-    #[Url(except: 'school')]
+    #[Url(history: true, except: 'school')]
     public string $tab = 'school';
 
     // ─── Add / edit slide-in panel (admin-owned docs) ─────────────────────────

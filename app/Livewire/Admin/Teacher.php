@@ -114,11 +114,11 @@ class Teacher extends Component
     public $filterSections = [];
 
     protected $queryString = [
-        'search'        => ['except' => ''],
-        'filterGender'  => ['except' => ''],
-        'filterStatus'  => ['except' => ''],
-        'filterClass'   => ['except' => ''],
-        'filterSection' => ['except' => ''],
+        'search'        => ['except' => '', 'history' => false],
+        'filterGender'  => ['except' => '', 'history' => false],
+        'filterStatus'  => ['except' => '', 'history' => false],
+        'filterClass'   => ['except' => '', 'history' => false],
+        'filterSection' => ['except' => '', 'history' => false],
     ];
 
     protected $listeners = [

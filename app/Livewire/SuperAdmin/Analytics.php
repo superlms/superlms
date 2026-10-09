@@ -2,6 +2,7 @@
 
 namespace App\Livewire\SuperAdmin;
 
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use App\Models\Organization;
 use App\Models\User;
@@ -19,6 +20,8 @@ use Carbon\Carbon;
 
 class Analytics extends Component
 {
+    // A tab switch is one step for the header's Back.
+    #[Url(history: true, except: 'overview')]
     public string $activeTab = 'overview';
 
     /** Chart window in months — 6 / 12 / 24, switchable from the header. */

@@ -17,6 +17,7 @@ use App\Support\SubjectMove;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use WireUi\Traits\WireUiActions;
 use Illuminate\Support\Facades\Storage;
@@ -53,6 +54,8 @@ class Standard extends Component
     public $showViewModal  = false;
     public $viewModalTitle = '';
     public $viewData       = [];
+    // A tab switch is one step for the header's Back.
+    #[Url(history: true, except: 'standard')]
     public $activeTab      = 'standard';
 
     // Search / filter

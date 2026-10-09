@@ -18,9 +18,9 @@ class Payments extends Component
     use WithPagination, HandlesPayments;
 
     protected $queryString = [
-        'paymentModeFilter' => ['except' => ''],
-        'paymentStudentSearch' => ['except' => ''],
-        'feeTypeFilter' => ['except' => ''],
+        'paymentModeFilter' => ['except' => '', 'history' => false],
+        'paymentStudentSearch' => ['except' => '', 'history' => false],
+        'feeTypeFilter' => ['except' => '', 'history' => false],
     ];
 
     public function mount(): void

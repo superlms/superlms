@@ -86,9 +86,9 @@ class TimeTable extends Component
 
     protected $queryString = [
         'viewMode'      => ['except' => 'class'],
-        'filterClass'   => ['except' => ''],
-        'filterSection' => ['except' => ''],
-        'filterTeacher' => ['except' => ''],
+        'filterClass'   => ['except' => '', 'history' => false],
+        'filterSection' => ['except' => '', 'history' => false],
+        'filterTeacher' => ['except' => '', 'history' => false],
     ];
 
     public function mount(): void

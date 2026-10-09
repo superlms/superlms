@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use WireUi\Traits\WireUiActions;
@@ -14,6 +15,8 @@ class Profile extends Component
 {
     use WithFileUploads, WireUiActions;
 
+    // A tab switch is one step for the header's Back.
+    #[Url(history: true, except: 'profile')]
     public string $activeTab = 'profile';
 
     // Photo

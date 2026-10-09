@@ -15,10 +15,11 @@ use WireUi\Traits\WireUiActions;
  * Fees screen and pay on. The money goes straight to the school's account; what
  * they report (UTR / screenshot) waits in Fees → QR Payments to be checked.
  *
- * The page is only the QR itself, large, with edit and remove on it. Adding or
- * changing it happens in the slide-in panel — the image (previewed there as
- * soon as it uploads), the UPI ID, the account name, a note, and whether
- * students see it.
+ * The page is the QR on the left with its details beside it (UPI ID, account
+ * name), and edit and remove on it. Adding or changing it happens in the
+ * slide-in panel — the image (previewed there as soon as it uploads), the UPI
+ * ID and the account name. A saved QR is always shown in the app; the note and
+ * the show / hide switch are gone (an old note is cleared on the next save).
  *
  * One QR per school. The image is kept on S3 by its key, under admin/ — the
  * media bucket serves that prefix (with super-admin/, superadmin/ and website/)
@@ -122,8 +123,9 @@ class PaymentQr extends Component
                 'qr_path'      => $path,
                 'upi_id'       => $this->upiId ?: null,
                 'payee_name'   => $this->payeeName ?: null,
-                'instructions' => $this->instructions ?: null,
-                'is_active'    => $this->isActive,
+                // No note any more, and a QR is shown in the app as soon as it is saved.
+                'instructions' => null,
+                'is_active'    => true,
                 'updated_by'   => Auth::id(),
             ]
         );
@@ -135,7 +137,7 @@ class PaymentQr extends Component
 
         $this->notification()->success(
             $qr ? 'Payment QR updated' : 'Payment QR added',
-            $this->isActive ? 'Students can now pay fees on it from the app.' : 'It stays hidden from students until you switch it on.'
+            'Students can now pay fees on it from the app.'
         );
 
         $this->closePanel();

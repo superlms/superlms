@@ -20,7 +20,7 @@ class TcCertificate extends Component
     use WireUiActions, WithPagination;
 
     // ─── Tabs: achievement | participation | tc ───────────────
-    #[Url(keep: true)]
+    #[Url(history: true, keep: true)]
     public string $activeTab = 'achievement';
 
     // ─── Modals ───────────────────────────────────────────────

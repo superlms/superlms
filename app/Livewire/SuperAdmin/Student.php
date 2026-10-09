@@ -62,12 +62,12 @@ class Student extends Component
     public $filterSections = [];
 
     protected $queryString = [
-        'search'             => ['except' => ''],
-        'filterOrganization' => ['except' => ''],
-        'filterClass'        => ['except' => ''],
-        'filterSection'      => ['except' => ''],
-        'filterGender'       => ['except' => ''],
-        'filterStatus'       => ['except' => ''],
+        'search'             => ['except' => '', 'history' => false],
+        'filterOrganization' => ['except' => '', 'history' => false],
+        'filterClass'        => ['except' => '', 'history' => false],
+        'filterSection'      => ['except' => '', 'history' => false],
+        'filterGender'       => ['except' => '', 'history' => false],
+        'filterStatus'       => ['except' => '', 'history' => false],
     ];
 
     // ─── Add Student Panel ────────────────────────────────────────────────────

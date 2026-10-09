@@ -84,10 +84,10 @@ class Admissions extends Component
 
     protected $queryString = [
         'activeTab'           => ['except' => 'admissions'],
-        'filterStandard'      => ['except' => ''],
-        'filterMonth'         => ['except' => ''],
-        'search'              => ['except' => ''],
-        'filterPaperStandard' => ['except' => ''],
+        'filterStandard'      => ['except' => '', 'history' => false],
+        'filterMonth'         => ['except' => '', 'history' => false],
+        'search'              => ['except' => '', 'history' => false],
+        'filterPaperStandard' => ['except' => '', 'history' => false],
     ];
 
     private function orgId(): int

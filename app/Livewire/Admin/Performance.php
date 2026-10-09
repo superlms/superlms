@@ -20,6 +20,8 @@ class Performance extends Component
 {
     use WireUiActions, WithPagination;
 
+    // A tab switch is one step for the header's Back.
+    #[Url(history: true, except: 'subject')]
     public string $activeTab = 'subject';
 
     // ─── View slider (read-only) ───────────────────────────────────────────────

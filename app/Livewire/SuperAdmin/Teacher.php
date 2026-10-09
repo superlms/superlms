@@ -91,10 +91,10 @@ class Teacher extends Component
     public        $editCities             = [];
 
     protected $queryString = [
-        'search'             => ['except' => ''],
-        'filterOrganization' => ['except' => ''],
-        'filterGender'       => ['except' => ''],
-        'filterStatus'       => ['except' => ''],
+        'search'             => ['except' => '', 'history' => false],
+        'filterOrganization' => ['except' => '', 'history' => false],
+        'filterGender'       => ['except' => '', 'history' => false],
+        'filterStatus'       => ['except' => '', 'history' => false],
     ];
 
     protected $listeners = ['onViewTeacherSuperAdmin' => 'viewTeacher', 'onDeleteTeacherSuperAdmin'];

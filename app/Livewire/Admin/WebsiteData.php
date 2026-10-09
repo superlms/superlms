@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin;
 
 use App\Models\SchoolWebsite;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use WireUi\Traits\WireUiActions;
 
@@ -42,6 +43,8 @@ class WebsiteData extends Component
     public string $pageSlug = '';
     public string $docSlug  = 'disclosures';
 
+    // A tab switch is one step for the header's Back.
+    #[Url(history: true, except: 'details')]
     public string $activeTab         = 'details';
 
     /** Scalar content fields managed by the form. */

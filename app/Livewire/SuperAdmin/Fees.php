@@ -8,6 +8,7 @@ use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
 use App\Models\SuperAdmin\SuperAdminFeePayment;
 use App\Models\SuperAdmin\SuperAdminFeeStructure;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
@@ -20,6 +21,8 @@ class Fees extends Component
     // ─── View State ───────────────────────────────────────────────────────────
     public string $activeView     = 'list';
     public        $selectedSchool = null;
+    // A tab switch is one step for the header's Back.
+    #[Url(history: true, except: 'view_fee')]
     public string $activeTab      = 'view_fee';
 
     // ─── Academic Year ────────────────────────────────────────────────────────

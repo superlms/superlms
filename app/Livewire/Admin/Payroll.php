@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use WireUi\Traits\WireUiActions;
@@ -33,6 +34,8 @@ class Payroll extends Component
     }
 
     // ─── Active Tab ───────────────────────────────────────────────────────────
+    // A tab switch is one step for the header's Back.
+    #[Url(history: true, except: 'employees')]
     public string $activeTab = 'employees';
 
     /**

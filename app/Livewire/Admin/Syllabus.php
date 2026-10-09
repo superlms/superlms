@@ -73,10 +73,10 @@ class Syllabus extends Component
     public array $expandedSubjects = [];
 
     protected $queryString = [
-        'search'         => ['except' => ''],
-        'filterStandard' => ['except' => ''],
-        'filterSection'  => ['except' => ''],
-        'filterSubject'  => ['except' => ''],
+        'search'         => ['except' => '', 'history' => false],
+        'filterStandard' => ['except' => '', 'history' => false],
+        'filterSection'  => ['except' => '', 'history' => false],
+        'filterSubject'  => ['except' => '', 'history' => false],
         'activeTab'      => ['except' => 'view'],
     ];
 

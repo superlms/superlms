@@ -25,7 +25,7 @@ class Transport extends Component
 {
     use WireUiActions, WithPagination, WithFileUploads, HandlesTransportFees;
 
-    #[Url(keep: true)]
+    #[Url(history: true, keep: true)]
     public string $activeTab = 'transportation'; // transportation | drivers | students | fees
 
     /** Domain used for the stand-in address when a driver is saved without an email. */

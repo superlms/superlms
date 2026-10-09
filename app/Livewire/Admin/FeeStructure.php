@@ -30,7 +30,7 @@ class FeeStructure extends Component
 
         return [
             'structureTab' => ['except' => 'academic'],
-            'search'       => ['except' => ''],
+            'search'       => ['except' => '', 'history' => false],
         ];
     }
 

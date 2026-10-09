@@ -4,6 +4,7 @@ namespace App\Livewire\SuperAdmin;
 
 use App\Models\AboutApp as AboutAppModel;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use WireUi\Traits\WireUiActions;
@@ -12,6 +13,8 @@ class AboutApp extends Component
 {
     use WithFileUploads, WireUiActions;
 
+    // A tab switch is one step for the header's Back.
+    #[Url(history: true, except: 'view')]
     public string $activeTab = 'view';
 
     public $aboutApp;

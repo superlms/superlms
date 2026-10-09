@@ -38,8 +38,8 @@ class Ledger extends Component
     public array $modes = ['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Card', 'Other'];
 
     protected $queryString = [
-        'startDate' => ['except' => ''],
-        'endDate'   => ['except' => ''],
+        'startDate' => ['except' => '', 'history' => false],
+        'endDate'   => ['except' => '', 'history' => false],
     ];
 
     /**

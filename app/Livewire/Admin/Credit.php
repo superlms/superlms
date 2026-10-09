@@ -6,6 +6,7 @@ use App\Models\SuperAdmin\CreditPolicy;
 use App\Models\SuperAdmin\CreditQuery;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
@@ -14,6 +15,8 @@ class Credit extends Component
 {
     use WithPagination, WireUiActions;
 
+    // A tab switch is one step for the header's Back.
+    #[Url(history: true, except: 'queries')]
     public string $activeTab = 'queries';
 
     // ── Ask / Edit Credit modal ──────────────────────────────────────────────

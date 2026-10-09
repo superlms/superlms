@@ -5,6 +5,7 @@ namespace App\Livewire\Admin;
 use App\Models\Admin\RulesAndRegulation as AdminRulesAndRegulation;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use WireUi\Traits\WireUiActions;
@@ -13,6 +14,8 @@ class RulesAndRegulation extends Component
 {
     use WireUiActions, WithFileUploads;
 
+    // A tab switch is one step for the header's Back.
+    #[Url(history: true, except: 'view')]
     public $activeTab = 'view'; // ← view first
 
     /** True while the editor is showing the built-in rules, unsaved. */

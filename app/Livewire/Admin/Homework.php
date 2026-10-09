@@ -34,6 +34,8 @@ class Homework extends Component
     public $embedded = false;
 
     // Tabs: 'homework' (assignments) | 'status' (per-student completion tracker)
+    // A tab switch is one step for the header's Back.
+    #[Url(history: true, except: 'homework')]
     public string $activeTab = 'homework';
 
     // ── Homework Status tab filters: date → class → section → student → subject.

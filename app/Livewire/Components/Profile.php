@@ -5,6 +5,7 @@ namespace App\Livewire\Components;
 use App\Models\Admin\SchoolInfo as AdminSchoolInfo;
 use App\Models\Admin\SchoolDocument;
 use App\Models\Organization;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Illuminate\Support\Facades\Storage;
@@ -28,6 +29,8 @@ class Profile extends Component
     public $tempPhotoUrl;
 
     /** 'profile' (descriptive info) or 'info' (one card: bank + details + password). */
+    // A tab switch is one step for the header's Back.
+    #[Url(history: true, except: 'profile')]
     public $activeTab = 'profile';
 
     /** When on the 'info' tab: 'view' (default, read-only card) or 'edit' (form). */

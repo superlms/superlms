@@ -45,9 +45,9 @@ class Enqueries extends Component
 
     protected $queryString = [
         'activeTab'    => ['except' => 'student'],
-        'filterDays'   => ['except' => ''],
-        'search'       => ['except' => ''],
-        'statusFilter' => ['except' => ''],
+        'filterDays'   => ['except' => '', 'history' => false],
+        'search'       => ['except' => '', 'history' => false],
+        'statusFilter' => ['except' => '', 'history' => false],
     ];
 
     public function mount(): void

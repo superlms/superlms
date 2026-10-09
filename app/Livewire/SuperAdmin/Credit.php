@@ -8,6 +8,7 @@ use App\Models\SuperAdmin\CreditQuery;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
@@ -17,6 +18,8 @@ class Credit extends Component
 {
     use WithPagination, WireUiActions, WithFileUploads;
 
+    // A tab switch is one step for the header's Back.
+    #[Url(history: true, except: 'credit')]
     public string $activeTab = 'credit';
 
     // ── Credit tab filters ────────────────────────────────────────────────────

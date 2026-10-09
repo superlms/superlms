@@ -22,6 +22,7 @@ use App\Services\Seating\SeatingPlannerService;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
@@ -30,6 +31,8 @@ class SeatingPlan extends Component
 {
     use WithPagination, WireUiActions;
 
+    // A tab switch is one step for the header's Back.
+    #[Url(history: true, except: 'plans')]
     public string $activeTab = 'plans'; // plans, rooms, datesheet
 
     // ─── Datesheet ──────────────────────────────────────────────────────────
