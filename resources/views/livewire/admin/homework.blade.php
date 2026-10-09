@@ -209,7 +209,6 @@
                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Set by</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Class</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Subject</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Assigned</th>
                         <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
@@ -218,7 +217,7 @@
                         <tr class="hover:bg-gray-50 transition-colors">
                             <td class="px-4 py-3">
                                 <div class="flex items-start gap-2">
-                                    <p class="text-sm font-semibold text-gray-900">{{ $homework->title ?? 'No Title' }}</p>
+                                    <p class="text-sm font-semibold text-gray-600">{{ $homework->title ?? 'No Title' }}</p>
                                     @if ($homework->file)
                                         <svg class="w-3.5 h-3.5 text-blue-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" title="Has attachment">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
@@ -250,7 +249,6 @@
                             <td class="px-4 py-3 text-sm text-gray-700">
                                 {{ $homework->subject->name ?? 'All Subjects' }}
                             </td>
-                            <td class="px-4 py-3 text-xs text-gray-600">{{ $homework->created_at?->format('d M Y, h:i A') ?? 'Unknown' }}</td>
                             {{-- Actions in the Students list's look: coloured icons, no borders --}}
                             <td class="px-4 py-3">
                                 <div class="flex items-center justify-center gap-1">
@@ -278,7 +276,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-4 py-16 text-center">
+                            <td colspan="5" class="px-4 py-16 text-center">
                                 <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
                                     <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -413,7 +411,17 @@
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                     <div class="min-w-0">
                         <h2 class="text-lg font-semibold text-gray-900">{{ $editId ? 'Edit Homework' : 'New Homework' }}</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">{{ $editId ? 'Update homework details' : 'Pick the class, then write the homework — for one subject or for all of them.' }}</p>
+                        <p class="text-xs text-gray-500 mt-0.5">
+                            @if ($editId)
+                                Update homework details
+                            @elseif ($matchedId)
+                                <span class="text-emerald-600 font-medium">Already set today for this class</span> — change it and update.
+                            @elseif ($todaysHomework)
+                                <span class="text-emerald-600 font-medium">Today's homework for this class is filled in</span> — change it, or add the rest.
+                            @else
+                                Pick the class, then write the homework — for one subject or for all of them.
+                            @endif
+                        </p>
                     </div>
                     <button wire:click="closeModal" type="button"
                         class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
@@ -483,8 +491,9 @@
                             </div>
                         </div>
 
-                        {{-- No Description when adding; a homework that has one keeps it on Edit. --}}
-                        @if ($editId)
+                        {{-- No Description when adding; a homework that has one keeps it on Edit
+                             (and when today's homework is brought up from Add). --}}
+                        @if ($editId || $matchedId)
                             <div class="flex items-start gap-3 px-6 py-3">
                                 <span class="w-28 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Description</span>
                                 <div class="flex-1 min-w-0">
@@ -498,8 +507,8 @@
                         <div class="flex items-start gap-3 px-6 py-3">
                             <span class="w-28 pt-2 text-xs font-medium text-gray-500 flex-shrink-0">Attachment</span>
                             <div class="flex-1 min-w-0">
-                                @if ($editId && !$homework_file)
-                                    @php $homeworkModel = \App\Models\Admin\HomeWork::find($editId) @endphp
+                                @if (($editId || $matchedId) && !$homework_file)
+                                    @php $homeworkModel = \App\Models\Admin\HomeWork::find($editId ?: $matchedId) @endphp
                                     @if ($homeworkModel && $homeworkModel->file)
                                         <div class="flex items-center gap-2 mb-2">
                                             <span class="text-sm text-blue-600 truncate">{{ basename($homeworkModel->file) }}</span>
@@ -540,7 +549,12 @@
                                     <span class="w-4 pt-2 text-[11px] text-gray-300 tabular-nums flex-shrink-0">{{ $k + 1 }}</span>
                                     <div class="w-40 pt-0.5 flex items-center gap-2 flex-shrink-0 min-w-0">
                                         <x-subject-icon :name="$subject->name" size="w-7 h-7" />
-                                        <span class="text-sm font-medium text-gray-900 truncate">{{ $subject->name }}</span>
+                                        <div class="min-w-0">
+                                            <span class="block text-sm font-medium text-gray-900 truncate">{{ $subject->name }}</span>
+                                            @if (isset($todaysHomework[$subject->id]))
+                                                <span class="block text-[11px] text-emerald-600">Set today · updates</span>
+                                            @endif
+                                        </div>
                                     </div>
                                     <div class="flex-1 min-w-0 space-y-1.5">
                                         <input wire:model.defer="subjectHomeworks.{{ $subject->id }}.title" type="text"
@@ -552,6 +566,8 @@
                                         <div wire:loading wire:target="subjectHomeworks.{{ $subject->id }}.file" class="text-xs text-blue-600">Uploading…</div>
                                         @if (!empty($subjectHomeworks[$subject->id]['file']))
                                             <p class="text-xs text-gray-600 truncate">Selected: {{ $subjectHomeworks[$subject->id]['file']->getClientOriginalName() }}</p>
+                                        @elseif (!empty($todaysHomework[$subject->id]['file']))
+                                            <p class="text-xs text-gray-500 truncate">Attached: {{ $todaysHomework[$subject->id]['file'] }} <span class="text-gray-400">· pick a file to replace it</span></p>
                                         @endif
                                         @error('subjectHomeworks.' . $subject->id . '.file')<p class="text-xs text-red-500">{{ $message }}</p>@enderror
                                     </div>
@@ -566,7 +582,7 @@
                     <button wire:click="closeModal" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
                     <button wire:click="onSave" wire:loading.attr="disabled" wire:target="onSave" type="button"
                         class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
-                        <span wire:loading.remove wire:target="onSave">{{ $editId ? 'Update Homework' : 'Create Homework' }}</span>
+                        <span wire:loading.remove wire:target="onSave">{{ ($editId || $matchedId) ? 'Update Homework' : ($todaysHomework ? 'Save Homework' : 'Create Homework') }}</span>
                         <span wire:loading wire:target="onSave">Saving...</span>
                     </button>
                 </div>

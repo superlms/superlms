@@ -189,6 +189,103 @@ class HomeworkPanelTest extends TestCase
         $this->assertStringContainsString('Day by day', $html);
     }
 
+    /** Section A with all three subjects mapped to it; returns [std, subs, secA, secB]. */
+    private function klassWithSections(): array
+    {
+        [$std, $subs] = $this->klass();
+        $secA = DB::table('sections')->where('standard_id', $std)->where('name', 'A')->value('id');
+        $secB = DB::table('sections')->where('standard_id', $std)->where('name', 'B')->value('id');
+        foreach ([$secA, $secB] as $sec) {
+            foreach ($subs as $id) {
+                DB::table('section_subjects')->insert(['standard_id' => $std, 'section_id' => $sec, 'subject_id' => $id]);
+            }
+        }
+
+        return [$std, $subs, $secA, $secB];
+    }
+
+    public function test_add_brings_up_todays_homework_for_one_subject(): void
+    {
+        [$std, $subs, $secA, $secB] = $this->klassWithSections();
+        $maths = DB::table('home_works')->insertGetId(['organization_id' => $this->org, 'user_id' => 77, 'standard_id' => $std, 'section_id' => $secA,
+            'subject_id' => $subs['Maths'], 'title' => 'Sums', 'description' => 'Page 4', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('home_works')->insert(['organization_id' => $this->org, 'user_id' => 77, 'standard_id' => $std, 'section_id' => $secA,
+            'subject_id' => $subs['Hindi'], 'title' => 'Yesterday', 'created_at' => now()->subDay(), 'updated_at' => now()->subDay()]);
+
+        $page = Livewire::test(Homework::class)->call('onAddHomework')
+            ->set('standard_id', (string) $std)->set('section_id', (string) $secA)->set('subject_id', (string) $subs['Maths']);
+        $this->assertSame($maths, (int) $page->get('matchedId'));
+        $this->assertSame('Sums', $page->get('title'));
+        $html = $page->html();
+        $this->assertStringContainsString('Already set today for this class', $html);
+        $this->assertStringContainsString('Update Homework', $html);
+        $this->assertStringContainsString('wire:model.defer="description"', $html);
+
+        // Another subject: nothing set today, the form empties again.
+        $page->set('subject_id', (string) $subs['English']);
+        $this->assertNull($page->get('matchedId'));
+        $this->assertSame('', $page->get('title'));
+        $page->set('subject_id', (string) $subs['Hindi']);                         // yesterday's doesn't count
+        $this->assertNull($page->get('matchedId'));
+        $page->set('subject_id', (string) $subs['Maths'])->set('section_id', (string) $secB)->set('subject_id', (string) $subs['Maths']);
+        $this->assertNull($page->get('matchedId'));                               // the same class, another section
+
+        // Back to section A: updating changes that homework, no second copy, setter kept.
+        $page->set('section_id', (string) $secA)->set('subject_id', (string) $subs['Maths'])
+            ->set('title', 'Sums 1-10')->call('onSave');
+        $this->assertSame(2, DB::table('home_works')->count());
+        $row = DB::table('home_works')->where('id', $maths)->first();
+        $this->assertSame(['Sums 1-10', 'Page 4', 77], [$row->title, $row->description, (int) $row->user_id]);
+        $this->assertFalse($page->get('open'));
+    }
+
+    public function test_add_all_subjects_fills_in_todays_and_updates_them(): void
+    {
+        [$std, $subs, $secA, $secB] = $this->klassWithSections();
+        $hindi = DB::table('home_works')->insertGetId(['organization_id' => $this->org, 'user_id' => 77, 'standard_id' => $std, 'section_id' => $secA,
+            'subject_id' => $subs['Hindi'], 'title' => 'Read p1', 'created_at' => now(), 'updated_at' => now()]);
+
+        $open = fn () => Livewire::test(Homework::class)->call('onAddHomework')
+            ->set('subject_selection', 'all')->set('standard_id', (string) $std)->set('section_id', (string) $secA);
+
+        $page = $open();
+        $this->assertSame('Read p1', $page->get('subjectHomeworks.' . $subs['Hindi'] . '.title'));
+        $this->assertSame('', $page->get('subjectHomeworks.' . $subs['English'] . '.title'));
+        $html = $page->html();
+        $this->assertSame(1, substr_count($html, 'Set today · updates'));
+        $this->assertStringContainsString('Save Homework', $html);
+
+        // Another section lets go of it.
+        $page->set('section_id', (string) $secB);
+        $this->assertSame('', $page->get('subjectHomeworks.' . $subs['Hindi'] . '.title'));
+        $this->assertSame([], $page->get('todaysHomework'));
+
+        // Adding English leaves Hindi as one row, unchanged.
+        $open()->set('subjectHomeworks.' . $subs['English'] . '.title', 'Spellings')->call('onSave');
+        $this->assertSame(2, DB::table('home_works')->count());
+        $this->assertSame(1, DB::table('home_works')->where('subject_id', $subs['Hindi'])->count());
+
+        // Opened again, both come up; Hindi changed in place.
+        $page = $open();
+        $this->assertSame('Spellings', $page->get('subjectHomeworks.' . $subs['English'] . '.title'));
+        $page->set('subjectHomeworks.' . $subs['Hindi'] . '.title', 'Read p2')->call('onSave');
+        $this->assertSame(2, DB::table('home_works')->count());
+        $this->assertSame('Read p2', DB::table('home_works')->where('id', $hindi)->value('title'));
+        $this->assertSame(77, (int) DB::table('home_works')->where('id', $hindi)->value('user_id'));
+    }
+
+    public function test_list_has_no_assigned_column(): void
+    {
+        [$std, $subs, $secA] = $this->klassWithSections();
+        DB::table('home_works')->insert(['organization_id' => $this->org, 'user_id' => 1, 'standard_id' => $std, 'section_id' => $secA,
+            'subject_id' => $subs['Maths'], 'title' => 'Sums', 'created_at' => now(), 'updated_at' => now()]);
+
+        $html = Livewire::test(Homework::class)->set('filterStandard', (string) $std)->set('filterSection', (string) $secA)->html();
+        $this->assertStringContainsString('<p class="text-sm font-semibold text-gray-600">Sums</p>', $html);
+        $this->assertStringNotContainsString('>Assigned</th>', $html);
+        $this->assertStringNotContainsString(now()->format('d M Y, h:i A'), $html);
+    }
+
     public function test_both_tabs_open_on_today(): void
     {
         [$std, $subs] = $this->klass();

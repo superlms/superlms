@@ -17,6 +17,7 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 use Livewire\Attributes\Url;
+use Livewire\Attributes\Locked;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -66,7 +67,16 @@ class Homework extends Component
     //   [subjectId => ['title' => '', 'description' => '', 'file' => UploadedFile|null]]
     // A subject left with a blank title is treated as "no homework for it".
     public $subjectHomeworks = [];
-    
+
+    // Today's homework already set for the class / section being added to, so
+    // picking that class again in Add brings it up to edit instead of a second
+    // copy. Single subject: $matchedId is that homework (its title and
+    // description fill the form). All subjects: [subjectId => ['id', 'title', 'file']].
+    #[Locked]
+    public $matchedId = null;
+    #[Locked]
+    public $todaysHomework = [];
+
     // Temporary URLs for preview
     public $tempFileUrl = null;
     
@@ -256,7 +266,80 @@ class Homework extends Component
                 $this->subject_id = ''; // Reset single subject selection
                 $this->syncSubjectHomeworkRows();
             }
+            $this->refreshTodaysHomework();
         }
+    }
+
+    /**
+     * Add only: what was already set today for the class / section (and, for
+     * one subject, that subject) comes up in the form to edit and update.
+     * First lets go of whatever the previous pick brought in.
+     */
+    private function refreshTodaysHomework(): void
+    {
+        if ($this->editId) {
+            return;                                    // Edit is about the one homework it opened
+        }
+
+        $this->forgetTodaysHomework();
+
+        if (!$this->standard_id) {
+            return;
+        }
+
+        // The newest one per subject, set today for exactly this class and section.
+        $today = ModalHomework::where('organization_id', Auth::user()->organization_id)
+            ->where('standard_id', $this->standard_id)
+            ->where('section_id', $this->section_id ?: 0)
+            ->whereDate('created_at', Carbon::today())
+            ->orderByDesc('id')
+            ->get()
+            ->unique('subject_id');
+
+        if ($this->subject_selection === 'single') {
+            $hw = $this->subject_id ? $today->firstWhere('subject_id', (int) $this->subject_id) : null;
+            if ($hw) {
+                $this->matchedId   = $hw->id;
+                $this->title       = $hw->title;
+                $this->description = (string) $hw->description;
+            }
+            return;
+        }
+
+        foreach ($today as $hw) {
+            if (!isset($this->subjectHomeworks[$hw->subject_id])) {
+                continue;                              // not a subject listed for this class
+            }
+            $this->todaysHomework[$hw->subject_id] = [
+                'id'    => $hw->id,
+                'title' => (string) $hw->title,
+                'file'  => $hw->file ? basename((string) parse_url($hw->file, PHP_URL_PATH)) : null,
+            ];
+            if (trim((string) ($this->subjectHomeworks[$hw->subject_id]['title'] ?? '')) === '') {
+                $this->subjectHomeworks[$hw->subject_id]['title'] = (string) $hw->title;
+            }
+        }
+    }
+
+    /** Clears what today's homework filled in, unless it was changed by hand. */
+    private function forgetTodaysHomework(): void
+    {
+        if ($this->matchedId) {
+            $hw = ModalHomework::find($this->matchedId);
+            if ($hw && $this->title === $hw->title) {
+                $this->title       = '';
+                $this->description = '';
+            }
+            $this->matchedId = null;
+        }
+
+        foreach ($this->todaysHomework as $subjectId => $hw) {
+            if (isset($this->subjectHomeworks[$subjectId])
+                && trim((string) ($this->subjectHomeworks[$subjectId]['title'] ?? '')) === $hw['title']) {
+                $this->subjectHomeworks[$subjectId]['title'] = '';
+            }
+        }
+        $this->todaysHomework = [];
     }
 
     /**
@@ -297,6 +380,8 @@ class Homework extends Component
         if ($this->subject_selection === 'all') {
             $this->syncSubjectHomeworkRows();
         }
+
+        $this->refreshTodaysHomework();
     }
 
     public function updatedSectionId($value)
@@ -312,6 +397,13 @@ class Homework extends Component
         if ($this->subject_selection === 'all') {
             $this->syncSubjectHomeworkRows();
         }
+
+        $this->refreshTodaysHomework();
+    }
+
+    public function updatedSubjectId($value)
+    {
+        $this->refreshTodaysHomework();
     }
 
     private function loadSubjectsForStandard($standardId, $sectionId = null)
@@ -400,8 +492,16 @@ class Homework extends Component
                 'organization_id' => Auth::user()->organization_id,
             ];
 
-            if ($this->editId) {
-                $homework = ModalHomework::findOrFail($this->editId);
+            if ($this->editId || $this->matchedId) {
+                if ($this->editId) {
+                    $homework = ModalHomework::findOrFail($this->editId);
+                } else {
+                    // Today's homework found from Add: updated in place, and it
+                    // keeps whoever set it.
+                    $homework = ModalHomework::where('organization_id', Auth::user()->organization_id)
+                        ->findOrFail($this->matchedId);
+                    unset($data['user_id']);
+                }
 
                 if ($this->homework_file) {
                     if ($homework->file) {
@@ -473,6 +573,8 @@ class Homework extends Component
                 'title'       => $title,
                 'description' => trim((string) ($entry['description'] ?? '')),
                 'file'        => $entry['file'] ?? null,
+                // Set already today → that homework is updated, not copied.
+                'existing_id' => $this->todaysHomework[$subject->id]['id'] ?? null,
             ];
         }
 
@@ -486,8 +588,35 @@ class Homework extends Component
             $userId     = Auth::id();
             $sectionId  = $this->section_id ?: 0;
 
+            $updated = 0;
+            $created = 0;
+
             DB::beginTransaction();
             foreach ($toCreate as $row) {
+                $existing = $row['existing_id']
+                    ? ModalHomework::where('organization_id', $org)->find($row['existing_id'])
+                    : null;
+
+                if ($existing) {
+                    // Only its title (and a new attachment) change; saved only
+                    // when something did, so nobody is told of an unchanged one.
+                    $existing->title = $row['title'];
+                    if (!empty($row['file'])) {
+                        if ($existing->file) {
+                            Storage::disk('s3')->delete(parse_url($existing->file, PHP_URL_PATH));
+                        }
+                        $filePath = $row['file']->store('admin/homework/files', 's3');
+                        Storage::disk('s3')->setVisibility($filePath, 'public');
+                        $existing->file = Storage::disk('s3')->url($filePath);
+                    }
+                    if ($existing->isDirty()) {
+                        $existing->save();
+                        $updated++;
+                    }
+                    continue;
+                }
+
+                $created++;
                 $data = [
                     'title'           => $row['title'],
                     'standard_id'     => $this->standard_id,
@@ -508,8 +637,15 @@ class Homework extends Component
             }
             DB::commit();
 
-            $count = count($toCreate);
-            $this->notification()->success("Homework added for {$count} subject(s)!");
+            if ($updated === 0) {
+                $this->notification()->success($created > 0
+                    ? "Homework added for {$created} subject(s)!"
+                    : 'Nothing changed — today\'s homework is as it was.');
+            } else {
+                $this->notification()->success($created > 0
+                    ? "Homework added for {$created} subject(s), updated for {$updated}!"
+                    : "Homework updated for {$updated} subject(s)!");
+            }
             $this->closeModal();
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -532,7 +668,9 @@ class Homework extends Component
             'subjectHomeworks',
             'tempFileUrl',
             'sections',
-            'subjects'
+            'subjects',
+            'matchedId',
+            'todaysHomework',
         ]);
         $this->resetErrorBag();
     }
