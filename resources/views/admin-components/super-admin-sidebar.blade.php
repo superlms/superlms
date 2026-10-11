@@ -2,6 +2,9 @@
     $authUser  = auth()->user();
     $allItems  = config('menu.' . App\Helpers\Constants::ROLEVALUE[$authUser->role]);
 
+    // A screen marked 'sidebar' => false (Credit) is left off the menu.
+    $allItems  = array_values(array_filter($allItems, fn($i) => ($i['sidebar'] ?? true) !== false));
+
     // Sub-super-admins see only the functionalities granted to them, and never
     // the Users management screen (reserved for the main super-admin).
     if ($authUser->role === 'sub-super-admin') {

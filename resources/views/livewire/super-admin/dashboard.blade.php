@@ -1,558 +1,622 @@
 <div class="min-h-screen bg-gray-50">
 
-    {{-- ══════════════════════════════════════════════════════════
-         STICKY HEADER
-    ══════════════════════════════════════════════════════════ --}}
-    <div class="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div class="px-3 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div class="min-w-0">
-                <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">Super Admin Dashboard</h1>
+    @php
+        // ─── Derived figures, as the school dashboard works them out ───
+        $studentsPresentToday = $todayAttendance['student_present'] ?? 0;
+        $teachersPresentToday = $todayAttendance['teacher_present'] ?? 0;
+        $studentAttPct = $totalStudents > 0 ? round(($studentsPresentToday / $totalStudents) * 100, 1) : 0;
+        $teacherAttPct = $totalTeachers > 0 ? round(($teachersPresentToday / $totalTeachers) * 100, 1) : 0;
+        $markedPct     = $activeSchools > 0 ? round(($schoolsMarkedToday / $activeSchools) * 100, 1) : 0;
+
+        // Thirty-day series across every school, students and teachers apart.
+        $trendLabels  = array_column($attendanceTrend, 'label');
+        $trendStuPres = array_column($attendanceTrend, 'student_present');
+        $trendStuAbs  = array_column($attendanceTrend, 'student_absent');
+        $trendTchPres = array_column($attendanceTrend, 'teacher_present');
+        $trendTchAbs  = array_column($attendanceTrend, 'teacher_absent');
+
+        $pendingEnquiries = $enquiryStats['demo_pending'] + $enquiryStats['contact_pending'];
+    @endphp
+
+    {{-- ══════════════════════════════ HEADER ══════════════════════════════ --}}
+    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+                <h1 class="text-lg sm:text-xl font-bold text-gray-900">Dashboard</h1>
+                <p class="text-xs text-gray-400 mt-0.5">{{ now()->format('l, d M Y') }}</p>
             </div>
-            <div class="flex items-center gap-2 flex-wrap">
-                <a href="{{ route('super-admin.schools') }}"
-                    class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm transition-colors">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add School
-                </a>
+            <div class="flex items-center gap-2">
                 <button wire:click="refreshData"
-                    class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-gray-600 border border-gray-300 bg-white hover:bg-gray-50 rounded-lg transition-colors">
-                    <svg class="w-4 h-4" wire:loading.class="animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <svg class="w-4 h-4" wire:loading.class="animate-spin" wire:target="refreshData" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                     Refresh
                 </button>
+                <a href="{{ route('super-admin.schools') }}"
+                    class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add School
+                </a>
             </div>
         </div>
     </div>
 
-    <div class="p-3 sm:p-6 space-y-4 sm:space-y-6">
+    <div class="p-4 sm:p-6 space-y-8">
 
-        {{-- ══════════════════════════════════════════════════════════
-             TOP ANALYTICS STRIP
-        ══════════════════════════════════════════════════════════ --}}
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {{-- ══════════════════════════════════════════════════════════════════
+             OVERVIEW — one flat row of counts, then today's rates.
+        ══════════════════════════════════════════════════════════════════ --}}
+        <section>
+            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Overview</h2>
 
-            {{-- Total Schools --}}
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-5">
-                <div class="flex items-center justify-between mb-3">
-                    <div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
-                        <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
-                                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
-                    </div>
-                    <span class="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Schools</span>
-                </div>
-                <p class="text-2xl sm:text-3xl font-bold text-gray-900">{{ number_format($totalSchools) }}</p>
-                <p class="text-xs text-gray-500 mt-1">Total registered schools</p>
+            <div class="bg-white rounded-xl border border-gray-200 divide-y sm:divide-y-0 sm:divide-x divide-gray-100 grid grid-cols-2 sm:grid-cols-4">
+                @php
+                    $counts = [
+                        ['Schools',  number_format($totalSchools),  $activeSchools . ' active · ' . $newSchoolsThisMonth . ' new this month', 'super-admin.schools'],
+                        ['Students', number_format($totalStudents), number_format($activeStudents) . ' active', 'super-admin.students'],
+                        ['Teachers', number_format($totalTeachers), number_format($activeTeachers) . ' active', 'super-admin.teachers'],
+                        ['Avg / School', number_format($avgStudentsPerSchool), 'students in a school', 'super-admin.analytics'],
+                    ];
+                @endphp
+                @foreach ($counts as [$label, $value, $sub, $route])
+                    <a href="{{ route($route) }}"
+                        class="px-5 py-4 hover:bg-gray-50/70 transition-colors first:rounded-l-xl last:rounded-r-xl">
+                        <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">{{ $label }}</p>
+                        <p class="text-[26px] leading-none font-semibold text-gray-900 mt-2 tabular-nums">{{ $value }}</p>
+                        <p class="text-xs text-gray-400 mt-1.5">{{ $sub }}</p>
+                    </a>
+                @endforeach
             </div>
 
-            {{-- Total Students --}}
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <div class="flex items-center justify-between mb-3">
-                    <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
-                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
-                                d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                        </svg>
-                    </div>
-                    <span class="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Students</span>
-                </div>
-                <p class="text-2xl sm:text-3xl font-bold text-gray-900">{{ number_format($totalStudents) }}</p>
-                <p class="text-xs text-gray-500 mt-1">Total students enrolled</p>
-            </div>
-
-            {{-- Total Teachers --}}
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <div class="flex items-center justify-between mb-3">
-                    <div class="w-10 h-10 bg-violet-50 rounded-xl flex items-center justify-center">
-                        <svg class="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
-                                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                    </div>
-                    <span class="text-xs font-medium text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">Teachers</span>
-                </div>
-                <p class="text-2xl sm:text-3xl font-bold text-gray-900">{{ number_format($totalTeachers) }}</p>
-                <p class="text-xs text-gray-500 mt-1">Total teachers across schools</p>
-            </div>
-
-            {{-- Avg Students/School --}}
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <div class="flex items-center justify-between mb-3">
-                    <div class="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center">
-                        <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
-                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
-                    </div>
-                    <span class="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Average</span>
-                </div>
-                <p class="text-2xl sm:text-3xl font-bold text-gray-900">{{ number_format($avgStudentsPerSchool) }}</p>
-                <p class="text-xs text-gray-500 mt-1">Avg students per school</p>
-            </div>
-        </div>
-
-        {{-- ══════════════════════════════════════════════════════════
-             TOP SCHOOLS + RECENT SCHOOLS
-        ══════════════════════════════════════════════════════════ --}}
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-            {{-- Top 5 by Students --}}
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                    <div>
-                        <h2 class="text-sm font-bold text-gray-900">Top Schools by Students</h2>
-                        <p class="text-xs text-gray-400 mt-0.5">Highest enrollment</p>
-                    </div>
-                    <span class="text-[10px] font-semibold px-2 py-1 bg-blue-50 text-blue-600 rounded-full">Top 5</span>
-                </div>
-                <div class="divide-y divide-gray-50">
-                    @forelse ($topSchoolsByStudents as $school)
-                        <div class="px-5 py-3 flex items-center gap-3 hover:bg-gray-50/60 transition-colors">
-                            <span class="w-6 h-6 flex-shrink-0 rounded-full flex items-center justify-center text-xs font-bold
-                                {{ $school['rank'] === 1 ? 'bg-amber-100 text-amber-700' : ($school['rank'] === 2 ? 'bg-gray-100 text-gray-600' : 'bg-gray-50 text-gray-400') }}">
-                                {{ $school['rank'] }}
-                            </span>
-                            @if ($school['logo'])
-                                <img src="{{ $school['logo'] }}" alt="{{ $school['name'] }}"
-                                    class="w-8 h-8 rounded-lg object-cover flex-shrink-0 border border-gray-100">
-                            @else
-                                <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                    <span class="text-xs font-bold text-blue-600">{{ strtoupper(substr($school['name'], 0, 1)) }}</span>
-                                </div>
-                            @endif
-                            <div class="flex-1 min-w-0">
-                                <p class="text-sm font-semibold text-gray-800 truncate">{{ $school['name'] }}</p>
-                            </div>
-                            <div class="text-right flex-shrink-0">
-                                <p class="text-sm font-bold text-blue-600">{{ number_format($school['students_count']) }}</p>
-                                <p class="text-xs text-gray-400">students</p>
-                            </div>
+            {{-- Today, across every school, with a thin progress rule underneath. --}}
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                @php
+                    $todayCards = [
+                        ['Student Attendance', $studentAttPct . '%', number_format($studentsPresentToday) . ' of ' . number_format($totalStudents) . ' present today', $studentAttPct],
+                        ['Teacher Attendance', $teacherAttPct . '%', number_format($teachersPresentToday) . ' of ' . number_format($totalTeachers) . ' present today', $teacherAttPct],
+                        ['Attendance Marked', $schoolsMarkedToday . ' / ' . $activeSchools, 'active schools have marked students today', $markedPct],
+                    ];
+                @endphp
+                @foreach ($todayCards as [$label, $value, $sub, $pct])
+                    <div class="bg-white rounded-xl border border-gray-200 px-5 py-4">
+                        <div class="flex items-baseline justify-between gap-2">
+                            <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">{{ $label }}</p>
+                            <p class="text-lg font-semibold text-gray-900 tabular-nums">{{ $value }}</p>
                         </div>
-                    @empty
-                        <div class="px-5 py-8 text-center text-sm text-gray-400">No schools yet</div>
-                    @endforelse
-                </div>
-            </div>
-
-            {{-- Top 5 by Teachers --}}
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                    <div>
-                        <h2 class="text-sm font-bold text-gray-900">Top Schools by Teachers</h2>
-                        <p class="text-xs text-gray-400 mt-0.5">Most teaching staff</p>
-                    </div>
-                    <span class="text-[10px] font-semibold px-2 py-1 bg-violet-50 text-violet-600 rounded-full">Top 5</span>
-                </div>
-                <div class="divide-y divide-gray-50">
-                    @forelse ($topSchoolsByTeachers as $school)
-                        <div class="px-5 py-3 flex items-center gap-3 hover:bg-gray-50/60 transition-colors">
-                            <span class="w-6 h-6 flex-shrink-0 rounded-full flex items-center justify-center text-xs font-bold
-                                {{ $school['rank'] === 1 ? 'bg-amber-100 text-amber-700' : ($school['rank'] === 2 ? 'bg-gray-100 text-gray-600' : 'bg-gray-50 text-gray-400') }}">
-                                {{ $school['rank'] }}
-                            </span>
-                            @if ($school['logo'])
-                                <img src="{{ $school['logo'] }}" alt="{{ $school['name'] }}"
-                                    class="w-8 h-8 rounded-lg object-cover flex-shrink-0 border border-gray-100">
-                            @else
-                                <div class="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center flex-shrink-0">
-                                    <span class="text-xs font-bold text-violet-600">{{ strtoupper(substr($school['name'], 0, 1)) }}</span>
-                                </div>
-                            @endif
-                            <div class="flex-1 min-w-0">
-                                <p class="text-sm font-semibold text-gray-800 truncate">{{ $school['name'] }}</p>
-                            </div>
-                            <div class="text-right flex-shrink-0">
-                                <p class="text-sm font-bold text-violet-600">{{ number_format($school['teachers_count']) }}</p>
-                                <p class="text-xs text-gray-400">teachers</p>
-                            </div>
+                        <div class="w-full bg-gray-100 rounded-full h-1 mt-3">
+                            <div class="bg-gray-800 h-1 rounded-full" style="width: {{ min(100, $pct) }}%"></div>
                         </div>
-                    @empty
-                        <div class="px-5 py-8 text-center text-sm text-gray-400">No schools yet</div>
-                    @endforelse
-                </div>
+                        <p class="text-xs text-gray-400 mt-2">{{ $sub }}</p>
+                    </div>
+                @endforeach
             </div>
-        </div>
+        </section>
 
-        {{-- ══════════════════════════════════════════════════════════
-             RECENT SCHOOLS
-        ══════════════════════════════════════════════════════════ --}}
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                <div>
-                    <h2 class="text-sm font-bold text-gray-900">Recently Registered Schools</h2>
-                    <p class="text-xs text-gray-400 mt-0.5">Latest 6 schools on the platform</p>
+        {{-- ══════════════════════════════ QUICK ACCESS ══════════════════════ --}}
+        @if (count($quickTiles) > 0)
+            <section>
+                <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Quick Access</h2>
+                <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                    @foreach ($quickTiles as $q)
+                        <a href="{{ route($q['route']) }}"
+                            class="group bg-white rounded-xl border border-gray-200 px-3 py-4 flex flex-col items-center text-center gap-2.5 hover:border-gray-300 transition-colors">
+                            <span class="w-10 h-10 rounded-lg bg-gray-100 text-gray-600 flex items-center justify-center transition-colors group-hover:bg-gray-900 group-hover:text-white">
+                                <x-icon name="{{ $q['icon'] }}" class="w-5 h-5" />
+                            </span>
+                            <span class="text-xs font-medium text-gray-600 group-hover:text-gray-900">{{ $q['label'] }}</span>
+                        </a>
+                    @endforeach
                 </div>
-                <a href="{{ route('super-admin.schools') }}"
-                    class="text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition-colors">
-                    View all →
-                </a>
+            </section>
+        @endif
+
+        {{-- ══════════════════════════════════════════════════════════════════
+             ATTENDANCE TREND — every school's students and teachers, a chart
+             each over the last 30 days, today's figures underneath.
+        ══════════════════════════════════════════════════════════════════ --}}
+        <section>
+            <div class="mb-3">
+                <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest">Attendance Trend</h2>
+                <p class="text-xs text-gray-400 mt-0.5">All schools · last 30 days</p>
             </div>
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead class="bg-gray-50 border-b border-gray-100">
-                        <tr>
-                            <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">School</th>
-                            <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Students</th>
-                            <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Teachers</th>
-                            <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Joined</th>
-                            <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                            <th class="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-50">
-                        @forelse ($recentSchools as $school)
-                            <tr class="hover:bg-gray-50/60 transition-colors">
-                                <td class="px-5 py-3.5">
-                                    <div class="flex items-center gap-3">
-                                        @if ($school['logo'])
-                                            <img src="{{ $school['logo'] }}" alt="{{ $school['name'] }}"
-                                                class="w-9 h-9 rounded-xl object-cover border border-gray-100 flex-shrink-0">
-                                        @else
-                                            <div class="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                                                <span class="text-sm font-bold text-emerald-600">{{ strtoupper(substr($school['name'], 0, 1)) }}</span>
-                                            </div>
-                                        @endif
-                                        <p class="text-sm font-semibold text-gray-800 max-w-[180px] truncate">{{ $school['name'] }}</p>
-                                    </div>
-                                </td>
-                                <td class="px-5 py-3.5">
-                                    <span class="text-sm font-bold text-blue-600">{{ number_format($school['students_count']) }}</span>
-                                </td>
-                                <td class="px-5 py-3.5">
-                                    <span class="text-sm font-bold text-violet-600">{{ number_format($school['teachers_count']) }}</span>
-                                </td>
-                                <td class="px-5 py-3.5">
-                                    <span class="text-xs text-gray-500">{{ $school['created_at'] }}</span>
-                                </td>
-                                <td class="px-5 py-3.5">
-                                    @if ($school['status'])
-                                        <span class="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-semibold">
-                                            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                                            Active
-                                        </span>
-                                    @else
-                                        <span class="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 font-semibold">
-                                            <span class="w-1.5 h-1.5 bg-gray-400 rounded-full"></span>
-                                            Inactive
-                                        </span>
-                                    @endif
-                                </td>
-                                <td class="px-5 py-3.5 text-center">
-                                    <a href="{{ route('super-admin.schools') }}"
-                                        class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-800 px-3 py-1.5 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                        </svg>
-                                        View
-                                    </a>
-                                </td>
-                            </tr>
-                        @empty
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {{-- Students --}}
+                <div class="bg-white rounded-xl border border-gray-200 p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-semibold text-gray-800">Students</h3>
+                        <div class="flex items-center gap-3 text-[11px] text-gray-400">
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block"></span> Present</span>
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-red-400 inline-block"></span> Absent</span>
+                        </div>
+                    </div>
+                    <div class="h-52" wire:ignore wire:key="sa-home-stu-trend">
+                        <canvas x-data="{
+                            init() {
+                                new Chart(this.$el.getContext('2d'), {
+                                    type: 'line',
+                                    data: {
+                                        labels: @js($trendLabels),
+                                        datasets: [
+                                            { label: 'Present', data: @js($trendStuPres), borderColor: 'rgb(16,185,129)', backgroundColor: 'rgba(16,185,129,0.10)', fill: true, tension: 0.35, borderWidth: 2, pointRadius: 2 },
+                                            { label: 'Absent', data: @js($trendStuAbs), borderColor: 'rgb(248,113,113)', backgroundColor: 'rgba(248,113,113,0.06)', fill: true, tension: 0.35, borderWidth: 2, pointRadius: 2 }
+                                        ]
+                                    },
+                                    options: {
+                                        responsive: true, maintainAspectRatio: false,
+                                        plugins: { legend: { display: false } },
+                                        scales: {
+                                            x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0, autoSkipPadding: 8 } },
+                                            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 } } }
+                                        }
+                                    }
+                                });
+                            }
+                        }"></canvas>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-gray-100">
+                        <p class="text-[11px] text-gray-400 mb-2">{{ now()->format('D, d M Y') }}</p>
+                        <div class="grid grid-cols-4 gap-2 text-center">
+                            <div><p class="text-base font-semibold text-emerald-600 tabular-nums">{{ number_format($todayAttendance['student_present'] ?? 0) }}</p><p class="text-[10px] text-gray-400 uppercase">Present</p></div>
+                            <div><p class="text-base font-semibold text-red-500 tabular-nums">{{ number_format($todayAttendance['student_absent'] ?? 0) }}</p><p class="text-[10px] text-gray-400 uppercase">Absent</p></div>
+                            <div><p class="text-base font-semibold text-amber-500 tabular-nums">{{ number_format($todayAttendance['student_half'] ?? 0) }}</p><p class="text-[10px] text-gray-400 uppercase">Half</p></div>
+                            <div><p class="text-base font-semibold text-gray-800 tabular-nums">{{ $todayAttendance['student_pct'] ?? 0 }}%</p><p class="text-[10px] text-gray-400 uppercase">Rate</p></div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Teachers --}}
+                <div class="bg-white rounded-xl border border-gray-200 p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-semibold text-gray-800">Teachers</h3>
+                        <div class="flex items-center gap-3 text-[11px] text-gray-400">
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-blue-500 inline-block"></span> Present</span>
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-amber-400 inline-block"></span> Absent</span>
+                        </div>
+                    </div>
+                    <div class="h-52" wire:ignore wire:key="sa-home-tch-trend">
+                        <canvas x-data="{
+                            init() {
+                                new Chart(this.$el.getContext('2d'), {
+                                    type: 'line',
+                                    data: {
+                                        labels: @js($trendLabels),
+                                        datasets: [
+                                            { label: 'Present', data: @js($trendTchPres), borderColor: 'rgb(59,130,246)', backgroundColor: 'rgba(59,130,246,0.10)', fill: true, tension: 0.35, borderWidth: 2, pointRadius: 2 },
+                                            { label: 'Absent', data: @js($trendTchAbs), borderColor: 'rgb(251,191,36)', backgroundColor: 'rgba(251,191,36,0.08)', fill: true, tension: 0.35, borderWidth: 2, pointRadius: 2 }
+                                        ]
+                                    },
+                                    options: {
+                                        responsive: true, maintainAspectRatio: false,
+                                        plugins: { legend: { display: false } },
+                                        scales: {
+                                            x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0, autoSkipPadding: 8 } },
+                                            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 } } }
+                                        }
+                                    }
+                                });
+                            }
+                        }"></canvas>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-gray-100">
+                        <p class="text-[11px] text-gray-400 mb-2">{{ now()->format('D, d M Y') }}</p>
+                        <div class="grid grid-cols-4 gap-2 text-center">
+                            <div><p class="text-base font-semibold text-blue-600 tabular-nums">{{ number_format($todayAttendance['teacher_present'] ?? 0) }}</p><p class="text-[10px] text-gray-400 uppercase">Present</p></div>
+                            <div><p class="text-base font-semibold text-red-500 tabular-nums">{{ number_format($todayAttendance['teacher_absent'] ?? 0) }}</p><p class="text-[10px] text-gray-400 uppercase">Absent</p></div>
+                            <div><p class="text-base font-semibold text-amber-500 tabular-nums">{{ number_format($todayAttendance['teacher_half'] ?? 0) }}</p><p class="text-[10px] text-gray-400 uppercase">Half</p></div>
+                            <div><p class="text-base font-semibold text-gray-800 tabular-nums">{{ $todayAttendance['teacher_pct'] ?? 0 }}%</p><p class="text-[10px] text-gray-400 uppercase">Rate</p></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        {{-- ══════════════════════════════════════════════════════════════════
+             FEE COLLECTION — what the schools took, one bar a day over the last
+             30 days, and the Super Admin's own fee from the schools.
+        ══════════════════════════════════════════════════════════════════ --}}
+        <section>
+            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Fee Collection</h2>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
+                    <div class="mb-4">
+                        <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Collected by schools · Last 30 days</p>
+                        <p class="text-2xl font-semibold text-gray-900 mt-1 tabular-nums">₹{{ number_format($feeSummary['range_total'], 0) }}</p>
+                    </div>
+                    <div class="h-56" wire:ignore wire:key="sa-home-fee">
+                        <canvas x-data="{
+                            init() {
+                                new Chart(this.$el.getContext('2d'), {
+                                    type: 'bar',
+                                    data: {
+                                        labels: @js($feeSummary['labels']),
+                                        datasets: [{ label: 'Collected', data: @js($feeSummary['data']), backgroundColor: 'rgba(99,102,241,0.7)', borderRadius: 3, borderSkipped: false, maxBarThickness: 34 }]
+                                    },
+                                    options: {
+                                        responsive: true, maintainAspectRatio: false,
+                                        plugins: {
+                                            legend: { display: false },
+                                            tooltip: { callbacks: { label: (c) => '₹' + Number(c.raw).toLocaleString('en-IN') } }
+                                        },
+                                        scales: {
+                                            x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0, autoSkipPadding: 8 } },
+                                            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 }, callback: (v) => '₹' + Number(v).toLocaleString('en-IN') } }
+                                        }
+                                    }
+                                });
+                            }
+                        }"></canvas>
+                    </div>
+                </div>
+
+                <div class="space-y-5">
+                    {{-- Schools' fee, academic + transport --}}
+                    <div class="bg-white rounded-xl border border-gray-200 p-5">
+                        <h3 class="text-sm font-semibold text-gray-800 mb-4">Schools' Fee</h3>
+                        <dl class="space-y-3 text-sm">
+                            <div class="flex items-baseline justify-between">
+                                <dt class="text-gray-500">Collected today</dt>
+                                <dd class="font-semibold text-gray-900 tabular-nums">₹{{ number_format($feeSummary['today'], 0) }}</dd>
+                            </div>
+                            <div class="flex items-baseline justify-between">
+                                <dt class="text-gray-500">This month</dt>
+                                <dd class="font-semibold text-gray-900 tabular-nums">₹{{ number_format($feeSummary['month'], 0) }}</dd>
+                            </div>
+                            <div class="flex items-baseline justify-between">
+                                <dt class="text-gray-500">This session</dt>
+                                <dd class="font-semibold text-gray-900 tabular-nums">₹{{ number_format($feeSummary['session'], 0) }}</dd>
+                            </div>
+                            <div class="flex items-baseline justify-between pt-3 border-t border-gray-100">
+                                <dt class="text-gray-500">Schools collected today</dt>
+                                <dd class="font-semibold text-gray-900 tabular-nums">{{ $feeSummary['schools_today'] }}</dd>
+                            </div>
+                        </dl>
+                        <p class="text-[11px] text-gray-400 mt-3">Session from {{ $feeSummary['session_from'] }}</p>
+                    </div>
+
+                    {{-- Super Admin fee from the schools --}}
+                    <div class="bg-white rounded-xl border border-gray-200 p-5">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-sm font-semibold text-gray-800">Super Admin Fee</h3>
+                            <a href="{{ route('super-admin.fees') }}" class="text-xs font-medium text-blue-600 hover:text-blue-800">Manage →</a>
+                        </div>
+                        <dl class="space-y-3 text-sm">
+                            <div class="flex items-baseline justify-between">
+                                <dt class="text-gray-500">Collected</dt>
+                                <dd class="font-semibold text-gray-900 tabular-nums">₹{{ number_format($superAdminFee['collected'], 0) }}</dd>
+                            </div>
+                            <div class="flex items-baseline justify-between">
+                                <dt class="text-gray-500">Pending</dt>
+                                <dd class="font-semibold text-gray-900 tabular-nums">₹{{ number_format($superAdminFee['pending'], 0) }}</dd>
+                            </div>
+                            <div class="flex items-baseline justify-between">
+                                <dt class="text-gray-500">This month</dt>
+                                <dd class="font-semibold text-gray-900 tabular-nums">₹{{ number_format($superAdminFee['this_month'], 0) }}</dd>
+                            </div>
+                        </dl>
+                        <div class="pt-4">
+                            <div class="flex justify-between text-xs mb-1.5"><span class="text-gray-400">of ₹{{ number_format($superAdminFee['total'], 0) }}</span><span class="font-semibold text-gray-700">{{ $superAdminFee['pct'] }}%</span></div>
+                            <div class="w-full bg-gray-100 rounded-full h-1.5"><div class="bg-gray-800 h-1.5 rounded-full" style="width: {{ min(100, $superAdminFee['pct']) }}%"></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        {{-- ══════════════════════════════════════════════════════════════════
+             SCHOOLS — every school today, registrations and new schools, plus
+             the side column.
+        ══════════════════════════════════════════════════════════════════ --}}
+        <section>
+            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Schools</h2>
+
+            {{-- Every school, A–Z, with today's figures --}}
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-5">
+                <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-800">Schools Today</h3>
+                        <p class="text-[11px] text-gray-400 mt-0.5">{{ count($schoolsToday) }} {{ count($schoolsToday) === 1 ? 'school' : 'schools' }} · attendance and fee for {{ now()->format('d M') }}</p>
+                    </div>
+                    <a href="{{ route('super-admin.schools') }}" class="text-xs font-medium text-blue-600 hover:text-blue-800">Open →</a>
+                </div>
+                <div class="overflow-x-auto max-h-[28rem] overflow-y-auto">
+                    <table class="w-full text-sm min-w-[720px]">
+                        <thead class="bg-gray-50 text-gray-400 text-[11px] uppercase tracking-wide sticky top-0 z-10">
                             <tr>
-                                <td colspan="6" class="px-5 py-10 text-center text-sm text-gray-400">No schools registered yet</td>
+                                <th class="px-5 py-2.5 text-left font-medium">School</th>
+                                <th class="px-3 py-2.5 text-right font-medium">Students</th>
+                                <th class="px-3 py-2.5 text-right font-medium">Teachers</th>
+                                <th class="px-3 py-2.5 text-right font-medium border-l border-gray-200">Students Present</th>
+                                <th class="px-3 py-2.5 text-right font-medium">Teachers Present</th>
+                                <th class="px-3 py-2.5 text-right font-medium border-l border-gray-200">Fee Today</th>
+                                <th class="px-5 py-2.5 text-right font-medium">This Session</th>
                             </tr>
-                        @endforelse
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @forelse ($schoolsToday as $school)
+                                <tr class="hover:bg-gray-50/70" wire:key="sa-school-today-{{ $school['id'] }}">
+                                    <td class="px-5 py-2.5">
+                                        <div class="flex items-center gap-3 min-w-0">
+                                            @if ($school['logo'])
+                                                <img src="{{ $school['logo'] }}" alt="" class="w-8 h-8 rounded-lg object-cover border border-gray-100 flex-shrink-0">
+                                            @else
+                                                <span class="w-8 h-8 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center text-xs font-semibold flex-shrink-0">{{ strtoupper(mb_substr($school['name'], 0, 1)) }}</span>
+                                            @endif
+                                            <div class="min-w-0">
+                                                <p class="font-medium text-gray-800 truncate max-w-[220px]">{{ $school['name'] }}</p>
+                                                @unless ($school['status'])
+                                                    <p class="text-[11px] text-gray-400">Inactive</p>
+                                                @endunless
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-2.5 text-right text-gray-700 tabular-nums">{{ number_format($school['students']) }}</td>
+                                    <td class="px-3 py-2.5 text-right text-gray-700 tabular-nums">{{ number_format($school['teachers']) }}</td>
+                                    <td class="px-3 py-2.5 text-right tabular-nums border-l border-gray-200">
+                                        @if ($school['student_marked'])
+                                            <p class="font-medium text-gray-800">{{ $school['student_pct'] }}%</p>
+                                            <p class="text-[11px] text-gray-400">{{ number_format($school['student_present']) }} of {{ number_format($school['students']) }}</p>
+                                        @else
+                                            <span class="text-xs text-gray-400">Not marked</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-3 py-2.5 text-right tabular-nums">
+                                        @if ($school['teacher_marked'])
+                                            <p class="font-medium text-gray-800">{{ $school['teacher_pct'] }}%</p>
+                                            <p class="text-[11px] text-gray-400">{{ number_format($school['teacher_present']) }} of {{ number_format($school['teachers']) }}</p>
+                                        @else
+                                            <span class="text-xs text-gray-400">Not marked</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-3 py-2.5 text-right text-gray-700 tabular-nums border-l border-gray-200">₹{{ number_format($school['fee_today'], 0) }}</td>
+                                    <td class="px-5 py-2.5 text-right text-gray-700 tabular-nums">₹{{ number_format($school['fee_session'], 0) }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="7" class="px-5 py-10 text-center text-sm text-gray-400">No schools registered yet</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </div>
 
-        {{-- ══════════════════════════════════════════════════════════
-             CHART + RECENT ACTIVITY
-        ══════════════════════════════════════════════════════════ --}}
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-            {{-- Monthly Registrations Chart --}}
-            <div class="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <div class="flex items-center justify-between mb-5">
-                    <div>
-                        <h2 class="text-sm font-bold text-gray-900">Monthly Registrations</h2>
-                        <p class="text-xs text-gray-400 mt-0.5">Students & teachers over last 12 months</p>
-                    </div>
-                    <div class="flex items-center gap-3 text-xs text-gray-500">
-                        <span class="flex items-center gap-1.5">
-                            <span class="w-3 h-3 rounded-full bg-blue-500 inline-block"></span> Students
-                        </span>
-                        <span class="flex items-center gap-1.5">
-                            <span class="w-3 h-3 rounded-full bg-violet-500 inline-block"></span> Teachers
-                        </span>
-                    </div>
-                </div>
-                <div style="height: 240px; position: relative;">
-                    <canvas id="dashMonthlyChart"></canvas>
-                </div>
-            </div>
+                {{-- LEFT --}}
+                <div class="lg:col-span-2 space-y-5 min-w-0">
 
-            {{-- Recent Activity --}}
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div class="px-5 py-4 border-b border-gray-100">
-                    <h2 class="text-sm font-bold text-gray-900">Recent Activity</h2>
-                    <p class="text-xs text-gray-400 mt-0.5">Latest platform events</p>
-                </div>
-                <div class="divide-y divide-gray-50 overflow-y-auto" style="max-height: 290px;">
-                    @forelse ($recentActivities as $activity)
-                        <div class="px-4 py-3 flex items-start gap-3 hover:bg-gray-50/60 transition-colors">
-                            <div class="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center mt-0.5
-                                {{ $activity['color'] === 'emerald' ? 'bg-emerald-100' : ($activity['color'] === 'blue' ? 'bg-blue-100' : 'bg-violet-100') }}">
-                                @if ($activity['type'] === 'school')
-                                    <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                    </svg>
-                                @elseif ($activity['type'] === 'student')
-                                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                    </svg>
-                                @else
-                                    <svg class="w-4 h-4 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                                    </svg>
-                                @endif
+                    {{-- Monthly registrations --}}
+                    <div class="bg-white rounded-xl border border-gray-200 p-5">
+                        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                            <div>
+                                <h3 class="text-sm font-semibold text-gray-800">Monthly Registrations</h3>
+                                <p class="text-[11px] text-gray-400 mt-0.5">Students and teachers added · last 12 months</p>
                             </div>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-gray-700">{{ $activity['title'] }}</p>
-                                <p class="text-xs text-gray-400 truncate mt-0.5">{{ $activity['description'] }}</p>
-                                <p class="text-[10px] text-gray-300 mt-1">{{ $activity['time'] }}</p>
+                            <div class="flex items-center gap-3 text-[11px] text-gray-400">
+                                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-blue-500 inline-block"></span> Students</span>
+                                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-violet-500 inline-block"></span> Teachers</span>
                             </div>
                         </div>
-                    @empty
-                        <div class="px-5 py-8 text-center text-sm text-gray-400">No recent activity</div>
-                    @endforelse
-                </div>
-            </div>
-        </div>
+                        <div class="h-56" wire:ignore wire:key="sa-home-registrations">
+                            <canvas x-data="{
+                                init() {
+                                    new Chart(this.$el.getContext('2d'), {
+                                        type: 'bar',
+                                        data: {
+                                            labels: @js($monthlyRegistrations['labels']),
+                                            datasets: [
+                                                { label: 'Students', data: @js($monthlyRegistrations['students']), backgroundColor: 'rgba(59,130,246,0.7)', borderRadius: 3, borderSkipped: false, maxBarThickness: 22 },
+                                                { label: 'Teachers', data: @js($monthlyRegistrations['teachers']), backgroundColor: 'rgba(139,92,246,0.7)', borderRadius: 3, borderSkipped: false, maxBarThickness: 22 }
+                                            ]
+                                        },
+                                        options: {
+                                            responsive: true, maintainAspectRatio: false,
+                                            plugins: { legend: { display: false } },
+                                            scales: {
+                                                x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0, autoSkipPadding: 8 } },
+                                                y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 }, precision: 0 } }
+                                            }
+                                        }
+                                    });
+                                }
+                            }"></canvas>
+                        </div>
+                    </div>
 
-        {{-- ══════════════════════════════════════════════════════════
-             QUICK ACTIONS
-        ══════════════════════════════════════════════════════════ --}}
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h2 class="text-sm font-bold text-gray-900 mb-4">Quick Actions</h2>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <a href="{{ route('super-admin.schools') }}"
-                    class="flex flex-col items-center gap-2 p-4 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 transition-colors group">
-                    <div class="w-10 h-10 bg-emerald-500 group-hover:bg-emerald-600 rounded-xl flex items-center justify-center transition-colors">
-                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
+                    {{-- Recently registered schools --}}
+                    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                        <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+                            <h3 class="text-sm font-semibold text-gray-800">Recently Registered Schools</h3>
+                            <a href="{{ route('super-admin.schools') }}" class="text-xs font-medium text-blue-600 hover:text-blue-800">View all →</a>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm min-w-[520px]">
+                                <thead class="bg-gray-50/70 text-gray-400 text-[11px] uppercase tracking-wide">
+                                    <tr>
+                                        <th class="px-5 py-2.5 text-left font-medium">School</th>
+                                        <th class="px-3 py-2.5 text-right font-medium">Students</th>
+                                        <th class="px-3 py-2.5 text-right font-medium">Teachers</th>
+                                        <th class="px-3 py-2.5 text-left font-medium">Joined</th>
+                                        <th class="px-5 py-2.5 text-left font-medium">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    @forelse ($recentSchools as $school)
+                                        <tr class="hover:bg-gray-50/70">
+                                            <td class="px-5 py-2.5">
+                                                <div class="flex items-center gap-3 min-w-0">
+                                                    @if ($school['logo'])
+                                                        <img src="{{ $school['logo'] }}" alt="" class="w-8 h-8 rounded-lg object-cover border border-gray-100 flex-shrink-0">
+                                                    @else
+                                                        <span class="w-8 h-8 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center text-xs font-semibold flex-shrink-0">{{ strtoupper(mb_substr($school['name'], 0, 1)) }}</span>
+                                                    @endif
+                                                    <p class="font-medium text-gray-800 truncate max-w-[220px]">{{ $school['name'] }}</p>
+                                                </div>
+                                            </td>
+                                            <td class="px-3 py-2.5 text-right text-gray-700 tabular-nums">{{ number_format($school['students_count']) }}</td>
+                                            <td class="px-3 py-2.5 text-right text-gray-700 tabular-nums">{{ number_format($school['teachers_count']) }}</td>
+                                            <td class="px-3 py-2.5 text-gray-500 whitespace-nowrap">{{ $school['created_at'] }}</td>
+                                            <td class="px-5 py-2.5 {{ $school['status'] ? 'text-gray-700' : 'text-red-500' }}">{{ $school['status'] ? 'Active' : 'Inactive' }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="5" class="px-5 py-10 text-center text-sm text-gray-400">No schools registered yet</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                    <span class="text-xs font-semibold text-emerald-700">Add School</span>
-                </a>
-                <a href="{{ route('super-admin.credit') }}"
-                    class="flex flex-col items-center gap-2 p-4 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-100 transition-colors group">
-                    <div class="w-10 h-10 bg-blue-500 group-hover:bg-blue-600 rounded-xl flex items-center justify-center transition-colors">
-                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                        </svg>
-                    </div>
-                    <span class="text-xs font-semibold text-blue-700">Credit</span>
-                </a>
-                <a href="{{ route('super-admin.payroll') }}"
-                    class="flex flex-col items-center gap-2 p-4 rounded-xl bg-violet-50 hover:bg-violet-100 border border-violet-100 transition-colors group">
-                    <div class="w-10 h-10 bg-violet-500 group-hover:bg-violet-600 rounded-xl flex items-center justify-center transition-colors">
-                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                    </div>
-                    <span class="text-xs font-semibold text-violet-700">Payroll</span>
-                </a>
-                <a href="{{ route('super-admin.enquiries') }}"
-                    class="flex flex-col items-center gap-2 p-4 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-100 transition-colors group">
-                    <div class="w-10 h-10 bg-amber-500 group-hover:bg-amber-600 rounded-xl flex items-center justify-center transition-colors">
-                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                        </svg>
-                    </div>
-                    <span class="text-xs font-semibold text-amber-700">Enquiries</span>
-                </a>
-            </div>
-        </div>
+                </div>
 
-        {{-- ══════════════════════════════════════════════════════════
-             STATS ROW: RATING + SUPPORT + ENQUIRY + CREDIT
-        ══════════════════════════════════════════════════════════ --}}
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {{-- RIGHT --}}
+                <div class="space-y-5 min-w-0">
 
-            {{-- Rating Stats --}}
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <div class="flex items-center justify-between mb-3">
-                    <div class="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center">
-                        <svg class="w-4.5 h-4.5 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                        </svg>
+                    {{-- Recent activity --}}
+                    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                        <div class="px-5 py-3 border-b border-gray-100">
+                            <h3 class="text-sm font-semibold text-gray-800">Recent Activity</h3>
+                        </div>
+                        <div class="divide-y divide-gray-100 overflow-y-auto max-h-[22rem]">
+                            @forelse ($activityFeed as $activity)
+                                <div class="px-5 py-3 flex items-start gap-3">
+                                    <span class="w-8 h-8 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center flex-shrink-0">
+                                        <x-icon name="{{ $activity['icon'] }}" class="w-4 h-4" />
+                                    </span>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-gray-800">{{ $activity['title'] }}</p>
+                                        <p class="text-xs text-gray-400 truncate mt-0.5">{{ $activity['description'] }}</p>
+                                        <p class="text-[11px] text-gray-400 mt-0.5">{{ $activity['time'] }}</p>
+                                    </div>
+                                </div>
+                            @empty
+                                <p class="px-5 py-8 text-center text-sm text-gray-400">No recent activity</p>
+                            @endforelse
+                        </div>
                     </div>
-                    <a href="{{ route('super-admin.rating') }}" class="text-xs text-amber-600 font-semibold hover:underline">View →</a>
-                </div>
-                <p class="text-lg font-bold text-gray-900 mb-2">Ratings</p>
-                <div class="space-y-1.5 text-xs">
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Avg Rating</span>
-                        <span class="font-bold text-amber-600">{{ $ratingStats['avg_rating'] }} ★</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Rated Schools</span>
-                        <span class="font-semibold text-gray-800">{{ $ratingStats['schools_rated'] }}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Pending</span>
-                        <span class="font-semibold text-red-500">{{ $ratingStats['remaining'] }}</span>
-                    </div>
-                </div>
-            </div>
 
-            {{-- Support Stats --}}
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <div class="flex items-center justify-between mb-3">
-                    <div class="w-9 h-9 bg-sky-50 rounded-xl flex items-center justify-center">
-                        <svg class="w-4.5 h-4.5 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
-                        </svg>
+                    {{-- Support --}}
+                    <div class="bg-white rounded-xl border border-gray-200">
+                        <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+                            <h3 class="text-sm font-semibold text-gray-800">Support</h3>
+                            <a href="{{ route('super-admin.support') }}" class="text-xs font-medium text-blue-600 hover:text-blue-800">Open →</a>
+                        </div>
+                        <dl class="p-5 space-y-2.5 text-sm">
+                            <div class="flex justify-between items-baseline">
+                                <dt class="text-gray-500">Total tickets</dt>
+                                <dd class="font-semibold text-gray-900 tabular-nums">{{ $supportStats['total'] }}</dd>
+                            </div>
+                            <div class="flex justify-between items-baseline">
+                                <dt class="text-gray-500">Pending reply</dt>
+                                <dd class="font-semibold tabular-nums {{ $supportStats['pending'] > 0 ? 'text-red-500' : 'text-gray-900' }}">{{ $supportStats['pending'] }}</dd>
+                            </div>
+                            <div class="flex justify-between items-baseline">
+                                <dt class="text-gray-500">Replied</dt>
+                                <dd class="font-semibold text-gray-900 tabular-nums">{{ $supportStats['replied'] }}</dd>
+                            </div>
+                            <div class="flex justify-between items-baseline">
+                                <dt class="text-gray-500">This month</dt>
+                                <dd class="font-semibold text-gray-900 tabular-nums">{{ $supportStats['this_month'] }}</dd>
+                            </div>
+                        </dl>
                     </div>
-                    <a href="{{ route('super-admin.support') }}" class="text-xs text-sky-600 font-semibold hover:underline">View →</a>
-                </div>
-                <p class="text-lg font-bold text-gray-900 mb-2">Support</p>
-                <div class="space-y-1.5 text-xs">
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Total Tickets</span>
-                        <span class="font-bold text-gray-800">{{ $supportStats['total'] }}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Pending</span>
-                        <span class="font-semibold text-red-500">{{ $supportStats['pending'] }}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">This Month</span>
-                        <span class="font-semibold text-sky-600">{{ $supportStats['this_month'] }}</span>
-                    </div>
-                </div>
-            </div>
 
-            {{-- Enquiry Stats --}}
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <div class="flex items-center justify-between mb-3">
-                    <div class="w-9 h-9 bg-violet-50 rounded-xl flex items-center justify-center">
-                        <svg class="w-4.5 h-4.5 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                        </svg>
-                    </div>
-                    <a href="{{ route('super-admin.enquiries') }}" class="text-xs text-violet-600 font-semibold hover:underline">View →</a>
-                </div>
-                <p class="text-lg font-bold text-gray-900 mb-2">Enquiries</p>
-                <div class="space-y-1.5 text-xs">
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Demo Requests</span>
-                        <span class="font-bold text-gray-800">{{ $enquiryStats['demo_total'] }}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Contact</span>
-                        <span class="font-semibold text-gray-800">{{ $enquiryStats['contact_total'] }}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Pending</span>
-                        <span class="font-semibold text-red-500">{{ $enquiryStats['demo_pending'] + $enquiryStats['contact_pending'] }}</span>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Credit Stats --}}
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <div class="flex items-center justify-between mb-3">
-                    <div class="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center">
-                        <svg class="w-4.5 h-4.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                        </svg>
-                    </div>
-                    <a href="{{ route('super-admin.credit') }}" class="text-xs text-emerald-600 font-semibold hover:underline">View →</a>
-                </div>
-                <p class="text-lg font-bold text-gray-900 mb-2">Credit</p>
-                <div class="space-y-1.5 text-xs">
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Total Amount</span>
-                        <span class="font-bold text-emerald-600">₹{{ number_format($creditStats['total_amount_leased'], 0) }}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Approved</span>
-                        <span class="font-semibold text-gray-800">{{ $creditStats['approved'] }}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Pending</span>
-                        <span class="font-semibold text-amber-600">{{ $creditStats['pending'] }}</span>
+                    {{-- Enquiries --}}
+                    <div class="bg-white rounded-xl border border-gray-200">
+                        <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+                            <h3 class="text-sm font-semibold text-gray-800">Enquiries</h3>
+                            <a href="{{ route('super-admin.enquiries') }}" class="text-xs font-medium text-blue-600 hover:text-blue-800">Open →</a>
+                        </div>
+                        <dl class="p-5 space-y-2.5 text-sm">
+                            <div class="flex justify-between items-baseline">
+                                <dt class="text-gray-500">Demo requests</dt>
+                                <dd class="font-semibold text-gray-900 tabular-nums">{{ $enquiryStats['demo_total'] }}</dd>
+                            </div>
+                            <div class="flex justify-between items-baseline">
+                                <dt class="text-gray-500">Contact messages</dt>
+                                <dd class="font-semibold text-gray-900 tabular-nums">{{ $enquiryStats['contact_total'] }}</dd>
+                            </div>
+                            <div class="flex justify-between items-baseline">
+                                <dt class="text-gray-500">Pending</dt>
+                                <dd class="font-semibold tabular-nums {{ $pendingEnquiries > 0 ? 'text-red-500' : 'text-gray-900' }}">{{ $pendingEnquiries }}</dd>
+                            </div>
+                        </dl>
                     </div>
                 </div>
             </div>
-        </div>
+        </section>
 
+        {{-- ══════════════════════════════ TOP SCHOOLS ═══════════════════════ --}}
+        <section>
+            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Top Schools &amp; Rating</h2>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                @php
+                    $boards = [
+                        ['By Students', $topSchoolsByStudents, 'students_count', 'students'],
+                        ['By Teachers', $topSchoolsByTeachers, 'teachers_count', 'teachers'],
+                    ];
+                @endphp
+                @foreach ($boards as [$title, $rows, $key, $unit])
+                    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                        <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+                            <h3 class="text-sm font-semibold text-gray-800">{{ $title }}</h3>
+                            <span class="text-[11px] text-gray-400">Top 5</span>
+                        </div>
+                        <div class="divide-y divide-gray-100">
+                            @forelse ($rows as $school)
+                                <div class="px-5 py-2.5 flex items-center gap-3">
+                                    <span class="w-5 text-sm font-semibold text-gray-400 tabular-nums">{{ $school['rank'] }}</span>
+                                    @if ($school['logo'])
+                                        <img src="{{ $school['logo'] }}" alt="" class="w-8 h-8 rounded-lg object-cover border border-gray-100 flex-shrink-0">
+                                    @else
+                                        <span class="w-8 h-8 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center text-xs font-semibold flex-shrink-0">{{ strtoupper(mb_substr($school['name'], 0, 1)) }}</span>
+                                    @endif
+                                    <p class="flex-1 min-w-0 text-sm font-medium text-gray-800 truncate">{{ $school['name'] }}</p>
+                                    <p class="text-sm text-gray-700 tabular-nums">{{ number_format($school[$key]) }} <span class="text-xs text-gray-400">{{ $unit }}</span></p>
+                                </div>
+                            @empty
+                                <p class="px-5 py-8 text-center text-sm text-gray-400">No schools yet</p>
+                            @endforelse
+                        </div>
+                    </div>
+                @endforeach
+
+                {{-- LMS rating --}}
+                <div class="bg-white rounded-xl border border-gray-200">
+                    <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+                        <h3 class="text-sm font-semibold text-gray-800">LMS Rating</h3>
+                        <span class="text-sm font-semibold text-gray-900 tabular-nums">{{ number_format($ratingStats['avg_rating'], 1) }}<span class="text-gray-300 font-normal">/5</span></span>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex mb-3">
+                            @for ($i = 1; $i <= 5; $i++)
+                                <svg class="w-4 h-4 {{ $i <= round($ratingStats['avg_rating']) ? 'text-yellow-400' : 'text-gray-200' }}" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                            @endfor
+                        </div>
+                        <dl class="space-y-2.5 text-sm">
+                            <div class="flex justify-between items-baseline">
+                                <dt class="text-gray-500">Schools rated</dt>
+                                <dd class="font-semibold text-gray-900 tabular-nums">{{ $ratingStats['schools_rated'] }}</dd>
+                            </div>
+                            <div class="flex justify-between items-baseline">
+                                <dt class="text-gray-500">Not rated yet</dt>
+                                <dd class="font-semibold text-gray-900 tabular-nums">{{ $ratingStats['remaining'] }}</dd>
+                            </div>
+                        </dl>
+                        <a href="{{ route('super-admin.rating') }}"
+                            class="mt-4 w-full inline-flex justify-center items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition">
+                            View Ratings
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
     </div>
-
-    {{-- ══════════════════════════════════════════════════════════
-         CHART INIT
-    ══════════════════════════════════════════════════════════ --}}
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const ctx = document.getElementById('dashMonthlyChart');
-            if (!ctx) return;
-
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: @json($monthlyRegistrations['labels']),
-                    datasets: [
-                        {
-                            label: 'Students',
-                            data: @json($monthlyRegistrations['students']),
-                            backgroundColor: 'rgba(59, 130, 246, 0.7)',
-                            borderRadius: 6,
-                            borderSkipped: false,
-                        },
-                        {
-                            label: 'Teachers',
-                            data: @json($monthlyRegistrations['teachers']),
-                            backgroundColor: 'rgba(139, 92, 246, 0.7)',
-                            borderRadius: 6,
-                            borderSkipped: false,
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: '#1f2937',
-                            padding: 10,
-                            cornerRadius: 8,
-                        }
-                    },
-                    scales: {
-                        x: {
-                            grid: { display: false },
-                            ticks: { font: { size: 10 }, color: '#9ca3af' }
-                        },
-                        y: {
-                            grid: { color: '#f3f4f6' },
-                            ticks: { font: { size: 10 }, color: '#9ca3af', stepSize: 1 },
-                            beginAtZero: true,
-                        }
-                    }
-                }
-            });
-        });
-    </script>
-
 </div>

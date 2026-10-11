@@ -274,11 +274,14 @@ return [
             'icon' => 'megaphone',
             'prefix' => 'super-admin.push-notification',
         ],
+        // Off the sidebar and Quick Links; the page, its route and the
+        // sub-super-admin permission stay.
         [
             'title' => 'Credit',
             'link' => 'super-admin.credit',
             'icon' => 'credit-card',
             'prefix' => 'super-admin.credit',
+            'sidebar' => false,
         ],
         [
             'title' => 'Support',

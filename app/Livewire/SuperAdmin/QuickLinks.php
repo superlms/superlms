@@ -31,6 +31,10 @@ class QuickLinks extends Component
                 if ($link['link'] === 'super-admin.quick-links') {
                     return false;
                 }
+                // Off the sidebar ('sidebar' => false, e.g. Credit) = no tile either.
+                if (($link['sidebar'] ?? true) === false) {
+                    return false;
+                }
                 if ($user && $user->isSubSuperAdmin()) {
                     return $link['link'] !== 'super-admin.users'
                         && in_array($link['link'], (array) $user->permissions, true);
