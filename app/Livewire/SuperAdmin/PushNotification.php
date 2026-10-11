@@ -32,6 +32,9 @@ class PushNotification extends Component
     public array  $audienceRoles  = ['students', 'teachers'];
     public string $screen         = '';
 
+    // ─── Compose slide-in (opened by the header's Add Notification) ───────
+    public bool $composing = false;
+
     // ─── Review / send ─────────────────────────────────────────────────────
     public bool $confirming        = false;
     public ?int $previewRecipients = null;
@@ -46,6 +49,19 @@ class PushNotification extends Component
             $this->audienceScope  = 'organization';
             $this->organizationId = $lockedOrgId;
         }
+    }
+
+    public function openCompose(): void
+    {
+        $this->resetErrorBag();
+        $this->composing = true;
+    }
+
+    /** Closing keeps what was typed, so reopening carries on from there. */
+    public function closeCompose(): void
+    {
+        $this->composing  = false;
+        $this->confirming = false;
     }
 
     /** A sub-super-admin scoped to one school can't broadcast beyond it. */
@@ -249,6 +265,7 @@ class PushNotification extends Component
         $this->confirming         = false;
         $this->previewRecipients  = null;
         $this->previewDevices     = null;
+        $this->composing          = false;
         $this->resetPage();
     }
 

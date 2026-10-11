@@ -1,133 +1,27 @@
 <div class="min-h-screen bg-gray-50">
 
     {{-- ══════════════════════════════════════════════════
-         HEADER
+         HEADER — Add Notification opens the compose slide-in
     ══════════════════════════════════════════════════ --}}
     <div class="bg-white border-b border-gray-200 sticky top-0 z-30 px-4 sm:px-6 py-3">
-        <div>
-            <h1 class="text-lg sm:text-xl font-bold text-gray-900">Push Notification</h1>
-            <p class="text-xs text-gray-400 mt-0.5">Reaches recipients on both the mobile app and the web dashboard.</p>
-        </div>
-    </div>
-
-    <div class="p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {{-- ══════════════════════════════════════════════════
-             COMPOSE FORM
-        ══════════════════════════════════════════════════ --}}
-        <div class="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6">
-            <h2 class="text-sm font-bold text-gray-900 mb-4">Compose</h2>
-
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">Title</label>
-                    <input type="text" wire:model="title" maxlength="100" placeholder="e.g. Summer Break Registrations Open!"
-                        class="w-full text-sm bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-800
-                               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    @error('title') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                </div>
-
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">Message</label>
-                    <textarea wire:model="body" maxlength="500" rows="4" placeholder="What do you want to tell them?"
-                        class="w-full text-sm bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-800
-                               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
-                    @error('body') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                </div>
-
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">
-                        Deep link screen <span class="font-normal text-gray-400">(optional)</span>
-                    </label>
-                    <input type="text" wire:model="screen" maxlength="100" placeholder="e.g. announcements"
-                        class="w-full text-sm bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-800
-                               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    <p class="text-[11px] text-gray-400 mt-1">If set, tapping the notification opens this screen in the app.</p>
-                    @error('screen') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                </div>
-
-                <div class="border-t border-gray-100 pt-4">
-                    <label class="block text-xs font-semibold text-gray-600 mb-2">Who should receive this?</label>
-
-                    @if ($orgLocked)
-                        <p class="text-xs text-gray-500 mb-3">
-                            Restricted to <strong class="text-gray-800">{{ $organizations->first()->name ?? 'your school' }}</strong>.
-                        </p>
-                    @else
-                        <div class="flex flex-wrap gap-2 mb-3">
-                            <button type="button" wire:click="$set('audienceScope', 'all')"
-                                class="px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors
-                                       {{ $audienceScope === 'all' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50' }}">
-                                All Schools
-                            </button>
-                            <button type="button" wire:click="$set('audienceScope', 'organization')"
-                                class="px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors
-                                       {{ $audienceScope === 'organization' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50' }}">
-                                Specific School
-                            </button>
-                        </div>
-
-                        @if ($audienceScope === 'organization')
-                            <select wire:model="organizationId"
-                                class="w-full text-sm bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-800 mb-3
-                                       focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                <option value="">Select a school…</option>
-                                @foreach ($organizations as $org)
-                                    <option value="{{ $org->id }}">{{ $org->name }}</option>
-                                @endforeach
-                            </select>
-                            @error('organizationId') <p class="text-xs text-red-500 mb-3">{{ $message }}</p> @enderror
-                        @endif
-                    @endif
-
-                    <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Recipient types <span class="normal-case font-normal text-gray-400">(select one or more)</span></p>
-                    <div class="flex flex-wrap gap-2">
-                        @foreach (['students' => 'Students', 'teachers' => 'Teachers', 'admins' => 'Admins'] as $role => $label)
-                            @php $on = in_array($role, $audienceRoles, true); @endphp
-                            <button type="button" wire:click="toggleRole('{{ $role }}')"
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors
-                                       {{ $on ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50' }}">
-                                <span class="w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center
-                                             {{ $on ? 'bg-white/20 border-white/60' : 'border-gray-300' }}">
-                                    @if ($on)
-                                        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-                                    @endif
-                                </span>
-                                {{ $label }}
-                            </button>
-                        @endforeach
-                    </div>
-                    @error('audienceRoles') <p class="text-xs text-red-500 mt-2">{{ $message }}</p> @enderror
-                </div>
-
-                <div class="flex justify-end pt-2">
-                    <button wire:click="review" wire:loading.attr="disabled" wire:target="review"
-                        class="inline-flex items-center gap-1.5 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors disabled:opacity-60">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-                        Review &amp; Send
-                    </button>
-                </div>
+        <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0">
+                <h1 class="text-lg sm:text-xl font-bold text-gray-900">Push Notification</h1>
+                <p class="text-xs text-gray-400 mt-0.5">Reaches recipients on both the mobile app and the web dashboard.</p>
             </div>
-        </div>
-
-        {{-- ══════════════════════════════════════════════════
-             SIDE NOTE
-        ══════════════════════════════════════════════════ --}}
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6 h-fit">
-            <h2 class="text-sm font-bold text-gray-900 mb-3">How this works</h2>
-            <ul class="space-y-2.5 text-xs text-gray-500">
-                <li class="flex gap-2"><span class="text-blue-500">•</span> Delivered <strong class="text-gray-700">two ways</strong>: a push to every registered app device, and an in-app notification in the recipient's web dashboard bell.</li>
-                <li class="flex gap-2"><span class="text-blue-500">•</span> Target students, teachers and school admins — pick any combination.</li>
-                <li class="flex gap-2"><span class="text-blue-500">•</span> App delivery only reaches users who opened the app and allowed notifications; the web inbox reaches everyone.</li>
-                <li class="flex gap-2"><span class="text-blue-500">•</span> You'll see the exact recipient and device count before it actually sends.</li>
-            </ul>
+            <button wire:click="openCompose"
+                class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                <span class="hidden sm:inline">Add Notification</span>
+                <span class="sm:hidden">Add</span>
+            </button>
         </div>
     </div>
 
     {{-- ══════════════════════════════════════════════════
-         CAMPAIGN HISTORY
+         CAMPAIGN HISTORY — every notification sent
     ══════════════════════════════════════════════════ --}}
-    <div class="px-4 sm:px-6 pb-6">
+    <div class="p-4 sm:p-6">
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div class="px-5 py-4 border-b border-gray-100">
                 <h2 class="text-sm font-bold text-gray-900">Recent Campaigns</h2>
@@ -138,7 +32,7 @@
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                                <th class="px-5 py-2.5">Title</th>
+                                <th class="px-5 py-2.5 w-72">Title</th>
                                 <th class="px-5 py-2.5">Audience</th>
                                 <th class="px-5 py-2.5">Recipients</th>
                                 <th class="px-5 py-2.5">Devices</th>
@@ -152,29 +46,32 @@
                                 <tr>
                                     <td class="px-5 py-3">
                                         <p class="font-semibold text-gray-800">{{ $c->title }}</p>
-                                        <p class="text-xs text-gray-400 truncate max-w-xs">{{ $c->body }}</p>
+                                        <p class="text-xs text-gray-400 truncate max-w-[15rem]">{{ $c->body }}</p>
                                     </td>
-                                    <td class="px-5 py-3 text-xs text-gray-600">
-                                        {{ $c->organization?->name ?? 'All Schools' }}
-                                        <span class="text-gray-400">· {{ $c->audienceRolesLabel() }}</span>
+                                    {{-- The school on one line, who it went to under it --}}
+                                    <td class="px-5 py-3 text-xs">
+                                        <p class="text-gray-600">{{ $c->organization?->name ?? 'All Schools' }}</p>
+                                        <p class="text-gray-400 mt-0.5 whitespace-nowrap">{{ $c->audienceRolesLabel() }}</p>
                                     </td>
                                     <td class="px-5 py-3 text-gray-700">{{ number_format($c->recipient_count) }}</td>
                                     <td class="px-5 py-3 text-gray-700">{{ number_format($c->device_count) }}</td>
-                                    <td class="px-5 py-3">
+                                    <td class="px-5 py-3 text-xs font-medium whitespace-nowrap">
                                         @if ($c->delivered)
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 text-[11px] font-medium">Delivered</span>
+                                            <span class="text-emerald-600">Delivered</span>
                                         @elseif ($c->recipient_count > 0)
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-100 text-[11px] font-medium">Web only</span>
+                                            <span class="text-amber-600">Web only</span>
                                         @else
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-50 text-gray-500 border border-gray-200 text-[11px] font-medium">No recipients</span>
+                                            <span class="text-gray-500">No recipients</span>
                                         @endif
                                     </td>
                                     <td class="px-5 py-3 text-xs text-gray-400">{{ $c->created_at->format('d M Y, h:i A') }}</td>
                                     <td class="px-5 py-3 text-right">
-                                        <button wire:click="viewCampaign({{ $c->id }})"
-                                            class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                            View
+                                        <button wire:click="viewCampaign({{ $c->id }})" title="View"
+                                            class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                            </svg>
                                         </button>
                                     </td>
                                 </tr>
@@ -190,6 +87,135 @@
             @endif
         </div>
     </div>
+
+    {{-- ══════════════════════════════════════════════════
+         COMPOSE SLIDE-IN — the same form, fields and Review & Send as
+         before; the notes that sat beside it are under the form.
+    ══════════════════════════════════════════════════ --}}
+    @if ($composing)
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeCompose"></div>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+
+                {{-- Fixed header --}}
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900">Add Notification</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">Goes to the app and the web dashboard</p>
+                    </div>
+                    <button wire:click="closeCompose" type="button"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                {{-- Scrollable body --}}
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Title</label>
+                        <input type="text" wire:model="title" maxlength="100" placeholder="e.g. Summer Break Registrations Open!"
+                            class="w-full text-sm bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-800
+                                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        @error('title') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Message</label>
+                        <textarea wire:model="body" maxlength="500" rows="4" placeholder="What do you want to tell them?"
+                            class="w-full text-sm bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-800
+                                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                        @error('body') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">
+                            Deep link screen <span class="font-normal text-gray-400">(optional)</span>
+                        </label>
+                        <input type="text" wire:model="screen" maxlength="100" placeholder="e.g. announcements"
+                            class="w-full text-sm bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-800
+                                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <p class="text-[11px] text-gray-400 mt-1">If set, tapping the notification opens this screen in the app.</p>
+                        @error('screen') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div class="border-t border-gray-100 pt-4">
+                        <label class="block text-xs font-semibold text-gray-600 mb-2">Who should receive this?</label>
+
+                        @if ($orgLocked)
+                            <p class="text-xs text-gray-500 mb-3">
+                                Restricted to <strong class="text-gray-800">{{ $organizations->first()->name ?? 'your school' }}</strong>.
+                            </p>
+                        @else
+                            <div class="flex flex-wrap gap-2 mb-3">
+                                <button type="button" wire:click="$set('audienceScope', 'all')"
+                                    class="px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors
+                                           {{ $audienceScope === 'all' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50' }}">
+                                    All Schools
+                                </button>
+                                <button type="button" wire:click="$set('audienceScope', 'organization')"
+                                    class="px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors
+                                           {{ $audienceScope === 'organization' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50' }}">
+                                    Specific School
+                                </button>
+                            </div>
+
+                            @if ($audienceScope === 'organization')
+                                <select wire:model="organizationId"
+                                    class="w-full text-sm bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-800 mb-3
+                                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">Select a school…</option>
+                                    @foreach ($organizations as $org)
+                                        <option value="{{ $org->id }}">{{ $org->name }}</option>
+                                    @endforeach
+                                </select>
+                                @error('organizationId') <p class="text-xs text-red-500 mb-3">{{ $message }}</p> @enderror
+                            @endif
+                        @endif
+
+                        <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Recipient types <span class="normal-case font-normal text-gray-400">(select one or more)</span></p>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach (['students' => 'Students', 'teachers' => 'Teachers', 'admins' => 'Admins'] as $role => $label)
+                                @php $on = in_array($role, $audienceRoles, true); @endphp
+                                <button type="button" wire:click="toggleRole('{{ $role }}')"
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors
+                                           {{ $on ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50' }}">
+                                    <span class="w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center
+                                                 {{ $on ? 'bg-white/20 border-white/60' : 'border-gray-300' }}">
+                                        @if ($on)
+                                            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                        @endif
+                                    </span>
+                                    {{ $label }}
+                                </button>
+                            @endforeach
+                        </div>
+                        @error('audienceRoles') <p class="text-xs text-red-500 mt-2">{{ $message }}</p> @enderror
+                    </div>
+
+                    {{-- How this works (was the card beside the form) --}}
+                    <div class="border-t border-gray-100 pt-4">
+                        <h3 class="text-xs font-semibold text-gray-600 mb-2">How this works</h3>
+                        <ul class="space-y-2 text-xs text-gray-500">
+                            <li class="flex gap-2"><span class="text-blue-500">•</span><span>Delivered <strong class="text-gray-700">two ways</strong>: a push to every registered app device, and an in-app notification in the recipient's web dashboard bell.</span></li>
+                            <li class="flex gap-2"><span class="text-blue-500">•</span><span>Target students, teachers and school admins — pick any combination.</span></li>
+                            <li class="flex gap-2"><span class="text-blue-500">•</span><span>App delivery only reaches users who opened the app and allowed notifications; the web inbox reaches everyone.</span></li>
+                            <li class="flex gap-2"><span class="text-blue-500">•</span><span>You'll see the exact recipient and device count before it actually sends.</span></li>
+                        </ul>
+                    </div>
+                </div>
+
+                {{-- Footer --}}
+                <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                    <button wire:click="closeCompose" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                    <button wire:click="review" wire:loading.attr="disabled" wire:target="review"
+                        class="inline-flex items-center gap-1.5 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors disabled:opacity-60">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                        Review &amp; Send
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
 
     {{-- ══════════════════════════════════════════════════
          REVIEW & CONFIRM OVERLAY

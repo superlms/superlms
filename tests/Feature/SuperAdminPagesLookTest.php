@@ -166,6 +166,105 @@ class SuperAdminPagesLookTest extends TestCase
         $this->assertStringContainsString('1 Sunrise Public School Easy to use for our staff. ★★★★★ 4/5 · office@sunrise.edu', $rating);
     }
 
+    public function test_push_notifications_list_on_the_page_and_are_added_from_a_slide_in(): void
+    {
+        Schema::create('organizations', function (Blueprint $t) {
+            $t->id();
+            $t->string('name');
+            $t->timestamps();
+        });
+        Schema::create('users', function (Blueprint $t) {
+            $t->id();
+            $t->string('name')->nullable();
+            $t->string('email')->nullable();
+            $t->string('role')->nullable();
+            $t->unsignedBigInteger('organization_id')->nullable();
+            $t->timestamps();
+        });
+        Schema::create('student_details', function (Blueprint $t) {
+            $t->id();
+            $t->unsignedBigInteger('user_id')->nullable();
+            $t->unsignedBigInteger('organization_id')->nullable();
+            $t->timestamps();
+        });
+        Schema::create('teacher_details', function (Blueprint $t) {
+            $t->id();
+            $t->unsignedBigInteger('user_id')->nullable();
+            $t->unsignedBigInteger('organization_id')->nullable();
+            $t->timestamps();
+        });
+        Schema::create('user_fcm_tokens', function (Blueprint $t) {
+            $t->id();
+            $t->unsignedBigInteger('user_id');
+            $t->string('token')->nullable();
+            $t->string('platform')->nullable();
+            $t->timestamps();
+        });
+        Schema::create('notifications', function (Blueprint $t) {
+            $t->uuid('id')->primary();
+            $t->string('type');
+            $t->string('notifiable_type');
+            $t->unsignedBigInteger('notifiable_id');
+            $t->text('data');
+            $t->timestamp('read_at')->nullable();
+            $t->timestamps();
+        });
+        Schema::create('push_notification_campaigns', function (Blueprint $t) {
+            $t->id();
+            $t->string('title');
+            $t->text('body');
+            $t->string('audience_scope')->default('all');
+            $t->string('audience_role')->nullable();
+            $t->json('audience_roles')->nullable();
+            $t->unsignedBigInteger('organization_id')->nullable();
+            $t->string('screen')->nullable();
+            $t->unsignedInteger('recipient_count')->default(0);
+            $t->unsignedInteger('device_count')->default(0);
+            $t->unsignedInteger('web_count')->default(0);
+            $t->json('device_breakdown')->nullable();
+            $t->boolean('delivered')->default(false);
+            $t->unsignedBigInteger('sent_by')->default(0);
+            $t->timestamps();
+        });
+        DB::table('users')->insert(['id' => 31, 'name' => 'Asha', 'role' => 'user', 'organization_id' => 1]);
+        DB::table('student_details')->insert(['user_id' => 31, 'organization_id' => 1]);
+        DB::table('push_notification_campaigns')->insert([
+            'title' => 'Exam week', 'body' => 'Papers start Monday.', 'audience_scope' => 'all',
+            'audience_role' => 'both', 'audience_roles' => json_encode(['students', 'teachers']),
+            'recipient_count' => 117, 'device_count' => 0, 'delivered' => 0,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $this->mock(\App\Services\FirebaseNotificationService::class, fn ($m) => $m->shouldReceive('notifyUserIds')->andReturn(false));
+
+        $page = Livewire::test(\App\Livewire\SuperAdmin\PushNotification::class);
+        $html = $page->html();
+        $text = preg_replace('/\s+/', ' ', strip_tags($html));
+
+        // The list is the page; the form only comes with Add Notification.
+        $this->assertStringContainsString('Add Notification', $text);
+        $this->assertStringNotContainsString('Who should receive this?', $text);
+        $this->assertStringContainsString('Exam week Papers start Monday. All Schools Students, Teachers 117 0 Web only', $text);
+        $this->assertMatchesRegularExpression('#<p class="text-gray-600">All Schools</p>\s*<p class="text-gray-400 mt-0.5 whitespace-nowrap">Students, Teachers</p>#', $html);
+        $this->assertStringContainsString('<span class="text-amber-600">Web only</span>', $html);
+        $this->assertStringNotContainsString('rounded-full bg-amber-50', $html);
+
+        $page->call('openCompose')
+            ->assertSet('composing', true)
+            ->assertSee('Who should receive this?')
+            ->set('title', 'Holiday')
+            ->set('body', 'School closed on Friday.')
+            ->set('audienceRoles', ['students'])
+            ->call('review')
+            ->assertSet('confirming', true)
+            ->assertSet('previewRecipients', 1)
+            ->call('send')
+            ->assertSet('composing', false)
+            ->assertSet('confirming', false);
+
+        $this->assertSame(2, DB::table('push_notification_campaigns')->count());
+        $this->assertSame(1, DB::table('notifications')->where('notifiable_id', 31)->count());
+    }
+
     public function test_the_privacy_policy_view_is_a_plain_document(): void
     {
         Schema::create('privacy_policies', function (Blueprint $t) {
