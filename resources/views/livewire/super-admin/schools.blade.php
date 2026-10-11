@@ -151,20 +151,21 @@
                                     <td class="px-4 py-3">
                                         <span class="text-sm text-gray-700">{{ $school->mobile_number ?? '—' }}</span>
                                     </td>
-                                    {{-- Board / Medium (long boards truncate with … to avoid side-scroll) --}}
+                                    {{-- Board / Medium: the board, and the medium under it in
+                                         small type; either one cut with … when it is too long. --}}
+                                    @php
+                                        $mediumLabel = match ($school->medium) {
+                                            'english' => 'English Medium',
+                                            'hindi'   => 'Hindi Medium',
+                                            'both'    => 'Hindi & English Medium',
+                                            default   => $school->medium ? ucfirst($school->medium) . ' Medium' : null,
+                                        };
+                                    @endphp
                                     <td class="px-4 py-3">
-                                        <div class="flex items-center gap-1 min-w-0">
-                                            <span class="text-sm text-gray-700 truncate" title="{{ $school->education_board }}">{{ $school->education_board ?? '—' }}</span>
-                                            @if ($school->medium)
-                                                <span class="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold
-                                                    {{ $school->medium === 'hindi'
-                                                        ? 'bg-orange-50 text-orange-700 border border-orange-100'
-                                                        : ($school->medium === 'both'
-                                                            ? 'bg-purple-50 text-purple-700 border border-purple-100'
-                                                            : 'bg-blue-50 text-blue-700 border border-blue-100') }}"
-                                                    title="{{ $school->medium === 'both' ? 'Hindi & English' : ucfirst($school->medium) . ' Medium' }}">
-                                                    {{ $school->medium === 'both' ? 'H&E' : ucfirst($school->medium) }}
-                                                </span>
+                                        <div class="min-w-0">
+                                            <p class="text-sm text-gray-700 truncate" title="{{ $school->education_board }}">{{ $school->education_board ?? '—' }}</p>
+                                            @if ($mediumLabel)
+                                                <p class="text-xs text-gray-400 truncate mt-0.5" title="{{ $mediumLabel }}">{{ $mediumLabel }}</p>
                                             @endif
                                         </div>
                                     </td>

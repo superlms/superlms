@@ -209,14 +209,10 @@
                     @endif
                 </div>
 
-                {{-- Profile — platform side only. Super-admin has no More screen
-                     and its sidebar is platform navigation, not a personal menu,
-                     so the top bar is where the account lives. Admin/sub-admin
-                     reach it from More, accounts from the sidebar. --}}
-                @if (in_array(auth()->user()->role, ['super-admin', 'sub-super-admin']))
-                    <x-button rounded class="h-9 w-9 bg-white" icon="user" outline
-                        wire:click="profilePage" title="Profile" />
-                @endif
+                {{-- The super admin's Profile button was taken off the top bar at
+                     the user's ask (2026-10-11); the page, its route and
+                     profilePage() stay. Admin/sub-admin reach Profile from More,
+                     accounts from the sidebar. --}}
 
                 @if (in_array(auth()->user()->role, ['accounts', 'admin', 'sub-admin']))
                     <div class="relative inline-flex"

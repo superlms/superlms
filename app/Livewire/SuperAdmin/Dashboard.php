@@ -11,11 +11,14 @@ use App\Models\WebsiteContact;
 use App\Models\WebsiteDemo;
 use App\Models\SuperAdmin\CreditQuery;
 use App\Models\SuperAdmin\SuperAdminFeePayment;
-use App\Models\Student\StudentAttendance;
-use App\Models\Teacher\TeacherAttendance;
-use App\Models\Admin\Fee\FeePayment;
-use App\Models\Admin\TransportFeePayment;
-use App\Support\AcademicYear;
+use App\Models\SuperAdmin\SuperAdminEmployee;
+use App\Models\SuperAdmin\SuperAdminSalaryPayment;
+use App\Models\SuperAdmin\SuperAdminAttendance;
+use App\Models\SchoolListing;
+use App\Models\CareerApplication;
+use App\Models\ExecutiveApplication;
+use App\Models\PushNotificationCampaign;
+use App\Models\WebsiteVisit;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\DB;
@@ -127,235 +130,236 @@ class Dashboard extends Component
         ];
     }
 
-    // ── Home in the school dashboard's look ───────────────────────────────────
+    // ── Home: the Super Admin's own figures, in the school panel's look ───────
 
-    /** Days on the Attendance Trend and Fee Collection charts, today included. */
-    private const TREND_DAYS = 30;
+    /** Months on the fee chart, this month included. */
+    private const FEE_MONTHS = 12;
 
-    /** Cache keys of the figures below; they are for one day, so the date is part of the key. */
-    private function homeCacheKey(string $what): string
+    /**
+     * Whether this user may open a screen: a sub-super-admin only the screens
+     * granted to them and never Users, as on Quick Links and the sidebar.
+     */
+    protected function canOpen(string $route): bool
     {
-        return 'sa_home_' . $what . '_' . now()->toDateString();
+        if (! Route::has($route)) {
+            return false;
+        }
+
+        $user = auth()->user();
+        if ($user && $user->isSubSuperAdmin()) {
+            return $route !== 'super-admin.users'
+                && in_array($route, (array) $user->permissions, true);
+        }
+
+        return true;
     }
 
     /**
-     * Every school's student and teacher attendance over the last 30 days,
-     * counted as each school's own dashboard counts it (1 present, 0 absent,
-     * 2 half day; holidays left out): [kind => [org id => [date => [status => count]]]].
+     * The Super Admin's fee from the schools: totals as Analytics → Fee counts
+     * them, and what was collected month by month (by payment date, as the
+     * Fees screen's own chart reads it) over the last 12 months.
      */
-    protected function attendanceBySchool(): array
-    {
-        return cache()->remember($this->homeCacheKey('attendance'), 300, function () {
-            $from   = now()->subDays(self::TREND_DAYS - 1)->toDateString();
-            $to     = now()->toDateString();
-            $orgIds = Organization::pluck('id')->all();
-
-            $read = function ($query) use ($from, $to, $orgIds): array {
-                $out  = [];
-                $rows = $query->whereIn('organization_id', $orgIds)
-                    ->where('attendance_date', '>=', $from)
-                    ->where('attendance_date', '<=', $to)
-                    ->whereIn('status', [0, 1, 2])
-                    ->selectRaw('organization_id as o, attendance_date as d, status, COUNT(*) as c')
-                    ->groupBy('o', 'd', 'status')
-                    ->get();
-                foreach ($rows as $r) {
-                    $out[(int) $r->o][substr((string) $r->d, 0, 10)][(int) $r->status] = (int) $r->c;
-                }
-                return $out;
-            };
-
-            return [
-                'students' => $read(StudentAttendance::query()),
-                'teachers' => $read(TeacherAttendance::query()),
-            ];
-        });
-    }
-
-    /** The 30 days across all schools, oldest first, in the school dashboard's row shape. */
-    protected function attendanceTrend(array $attendance): array
-    {
-        $sum = function (array $bySchool, string $date): array {
-            $present = $absent = $half = 0;
-            foreach ($bySchool as $days) {
-                $present += $days[$date][1] ?? 0;
-                $absent  += $days[$date][0] ?? 0;
-                $half    += $days[$date][2] ?? 0;
-            }
-            return [$present, $absent, $half];
-        };
-
-        $rows = [];
-        for ($i = self::TREND_DAYS - 1; $i >= 0; $i--) {
-            $day  = now()->subDays($i);
-            $date = $day->toDateString();
-
-            [$sPresent, $sAbsent, $sHalf] = $sum($attendance['students'], $date);
-            [$tPresent, $tAbsent, $tHalf] = $sum($attendance['teachers'], $date);
-            $sMarked = $sPresent + $sAbsent + $sHalf;
-            $tMarked = $tPresent + $tAbsent + $tHalf;
-
-            $rows[] = [
-                'date'            => $date,
-                'label'           => $day->format('d M'),
-                'student_present' => $sPresent,
-                'student_absent'  => $sAbsent,
-                'student_half'    => $sHalf,
-                'student_pct'     => $sMarked > 0 ? round(($sPresent + 0.5 * $sHalf) / $sMarked * 100, 1) : 0,
-                'teacher_present' => $tPresent,
-                'teacher_absent'  => $tAbsent,
-                'teacher_half'    => $tHalf,
-                'teacher_pct'     => $tMarked > 0 ? round(($tPresent + 0.5 * $tHalf) / $tMarked * 100, 1) : 0,
-            ];
-        }
-
-        return $rows;
-    }
-
-    /**
-     * Fee the schools have taken, academic and transport from both payment
-     * tables (as each school's dashboard counts it), from the start of this
-     * session (or 30 days back, if that is earlier) up to today:
-     * [org id => [date => amount]].
-     */
-    protected function schoolFees(): array
-    {
-        return cache()->remember($this->homeCacheKey('fee'), 300, function () {
-            $from = min(
-                AcademicYear::start()->toDateString(),
-                now()->subDays(self::TREND_DAYS - 1)->toDateString()
-            );
-            $to     = now()->toDateString();
-            $orgIds = Organization::pluck('id')->all();
-
-            $byDay   = [];
-            $queries = [
-                FeePayment::query()->whereIn('fee_type', ['academic', 'transport']),
-                TransportFeePayment::query(),
-            ];
-            foreach ($queries as $query) {
-                $rows = $query->whereIn('organization_id', $orgIds)
-                    ->whereDate('payment_date', '>=', $from)
-                    ->whereDate('payment_date', '<=', $to)
-                    ->selectRaw('organization_id as o, DATE(payment_date) as d, SUM(amount) as total')
-                    ->groupBy('o', 'd')
-                    ->get();
-                foreach ($rows as $r) {
-                    $o = (int) $r->o;
-                    $d = substr((string) $r->d, 0, 10);
-                    $byDay[$o][$d] = ($byDay[$o][$d] ?? 0) + (float) $r->total;
-                }
-            }
-
-            return $byDay;
-        });
-    }
-
-    /** All schools' fee: the 30-day series, today, this month and this session. */
-    protected function feeSummary(array $byDay): array
-    {
-        $today       = now()->toDateString();
-        $sessionFrom = AcademicYear::start()->toDateString();
-        $monthFrom   = now()->startOfMonth()->toDateString();
-
-        $totals = [];
-        foreach ($byDay as $days) {
-            foreach ($days as $date => $amount) {
-                $totals[$date] = ($totals[$date] ?? 0) + $amount;
-            }
-        }
-
-        $labels = $data = [];
-        for ($i = self::TREND_DAYS - 1; $i >= 0; $i--) {
-            $day      = now()->subDays($i);
-            $labels[] = $day->format('d M');
-            $data[]   = round($totals[$day->toDateString()] ?? 0, 2);
-        }
-
-        $since = fn (string $from) => array_sum(array_filter(
-            $totals,
-            fn ($amount, $date) => $date >= $from && $date <= $today,
-            ARRAY_FILTER_USE_BOTH
-        ));
-
-        return [
-            'labels'        => $labels,
-            'data'          => $data,
-            'range_total'   => array_sum($data),
-            'today'         => $totals[$today] ?? 0,
-            'month'         => $since($monthFrom),
-            'session'       => $since($sessionFrom),
-            'session_from'  => AcademicYear::start()->format('d M Y'),
-            'schools_today' => count(array_filter($byDay, fn ($days) => ($days[$today] ?? 0) > 0)),
-        ];
-    }
-
-    /** One row a school, A–Z: its people, today's attendance and its fee. */
-    protected function schoolsToday(array $attendance, array $fees): array
-    {
-        $today       = now()->toDateString();
-        $sessionFrom = AcademicYear::start()->toDateString();
-
-        return Organization::select(['id', 'name', 'logo', 'status'])
-            ->withCount([
-                'users as students_count' => fn($q) => $q->where('role', 'user'),
-                'users as teachers_count' => fn($q) => $q->where('role', 'teacher'),
-            ])
-            ->get()
-            ->map(function ($s) use ($attendance, $fees, $today, $sessionFrom) {
-                $stu      = $attendance['students'][$s->id][$today] ?? [];
-                $tch      = $attendance['teachers'][$s->id][$today] ?? [];
-                $students = (int) $s->students_count;
-                $teachers = (int) $s->teachers_count;
-
-                $session = 0;
-                foreach ($fees[$s->id] ?? [] as $date => $amount) {
-                    if ($date >= $sessionFrom && $date <= $today) {
-                        $session += $amount;
-                    }
-                }
-
-                return [
-                    'id'              => $s->id,
-                    'name'            => $s->name,
-                    'logo'            => $s->logo,
-                    'status'          => (bool) $s->status,
-                    'students'        => $students,
-                    'teachers'        => $teachers,
-                    'student_marked'  => ! empty($stu),
-                    'student_present' => $stu[1] ?? 0,
-                    'student_pct'     => $students > 0 ? round(($stu[1] ?? 0) / $students * 100) : 0,
-                    'teacher_marked'  => ! empty($tch),
-                    'teacher_present' => $tch[1] ?? 0,
-                    'teacher_pct'     => $teachers > 0 ? round(($tch[1] ?? 0) / $teachers * 100) : 0,
-                    'fee_today'       => $fees[$s->id][$today] ?? 0,
-                    'fee_session'     => $session,
-                ];
-            })
-            ->sortBy(fn ($r) => mb_strtolower(trim((string) $r['name'])))
-            ->values()
-            ->toArray();
-    }
-
-    /** The Super Admin's own fee from schools, counted as Analytics → Fee counts it. */
     protected function superAdminFee(): array
     {
         $total     = (float) SuperAdminFeePayment::sum('amount');
         $collected = (float) SuperAdminFeePayment::paid()->sum('amount');
 
+        $from  = now()->subMonthsNoOverflow(self::FEE_MONTHS - 1)->startOfMonth();
+        $byDay = SuperAdminFeePayment::paid()
+            ->whereNotNull('payment_date')
+            ->whereDate('payment_date', '>=', $from->toDateString())
+            ->whereDate('payment_date', '<=', now()->toDateString())
+            ->selectRaw('DATE(payment_date) as d, SUM(amount) as total')
+            ->groupBy('d')
+            ->pluck('total', 'd');
+
+        $byMonth = [];
+        foreach ($byDay as $date => $amount) {
+            $key = substr((string) $date, 0, 7);
+            $byMonth[$key] = ($byMonth[$key] ?? 0) + (float) $amount;
+        }
+
+        $labels = $data = [];
+        for ($i = self::FEE_MONTHS - 1; $i >= 0; $i--) {
+            $month    = now()->subMonthsNoOverflow($i);
+            $labels[] = $month->format('M y');
+            $data[]   = round($byMonth[$month->format('Y-m')] ?? 0, 2);
+        }
+
         return [
-            'total'      => $total,
-            'collected'  => $collected,
-            'pending'    => max(0, $total - $collected),
-            'this_month' => (float) SuperAdminFeePayment::paid()->where('created_at', '>=', now()->startOfMonth())->sum('amount'),
-            'pct'        => $total > 0 ? round($collected / $total * 100, 1) : 0,
+            'total'          => $total,
+            'collected'      => $collected,
+            'pending'        => max(0, $total - $collected),
+            'pct'            => $total > 0 ? round($collected / $total * 100, 1) : 0,
+            'this_month'     => $byMonth[now()->format('Y-m')] ?? 0,
+            'last_month'     => $byMonth[now()->subMonthNoOverflow()->format('Y-m')] ?? 0,
+            'schools'        => SuperAdminFeePayment::distinct('organization_id')->count('organization_id'),
+            'unpaid_records' => SuperAdminFeePayment::where('is_paid', false)->count(),
+            'labels'         => $labels,
+            'data'           => $data,
+            'year_total'     => array_sum($data),
         ];
     }
 
     /**
-     * Quick Access tiles. A sub-super-admin sees only the screens granted to
-     * them and never Users, as on Quick Links and the sidebar.
+     * The Super Admin's staff: salary for the month now payable (the one before
+     * this, as Payroll and Analytics take it) and today's attendance.
      */
+    protected function staffSummary(): array
+    {
+        $payable = now()->subMonthNoOverflow()->format('Y-m');
+        $active  = SuperAdminEmployee::where('is_active', true);
+
+        $paidIds = SuperAdminSalaryPayment::forMonth($payable)->paid()
+            ->pluck('super_admin_employee_id')->unique()->values();
+
+        $unpaid = (clone $active)->whereNotIn('id', $paidIds)
+            ->orderBy('name')
+            ->get(['id', 'name', 'designation', 'type', 'salary']);
+
+        $today = SuperAdminAttendance::whereDate('date', now()->toDateString())
+            ->whereIn('super_admin_employee_id', (clone $active)->select('id'))
+            ->selectRaw('status, COUNT(*) as c')
+            ->groupBy('status')
+            ->pluck('c', 'status');
+
+        $activeCount = (clone $active)->count();
+        $present     = (int) ($today['present'] ?? 0);
+        $half        = (int) ($today['half_day'] ?? 0);
+        $marked      = (int) $today->sum();
+
+        return [
+            'employees'    => SuperAdminEmployee::count(),
+            'active'       => $activeCount,
+            'bill'         => (float) (clone $active)->sum('salary'),
+            'month'        => Carbon::parse($payable . '-01')->format('M Y'),
+            'paid_count'   => $activeCount - $unpaid->count(),
+            'paid_amount'  => (float) SuperAdminSalaryPayment::forMonth($payable)->paid()->sum('amount'),
+            'paid_pct'     => $activeCount > 0 ? round(($activeCount - $unpaid->count()) / $activeCount * 100, 1) : 0,
+            'unpaid_count' => $unpaid->count(),
+            'unpaid'       => $unpaid->take(6)->map(fn ($e) => [
+                'name'   => $e->name,
+                'role'   => $e->designation ?: ucfirst((string) $e->type),
+                'salary' => (float) $e->salary,
+            ])->values()->toArray(),
+            'today' => [
+                'present'  => $present,
+                'absent'   => (int) ($today['absent'] ?? 0),
+                'half_day' => $half,
+                'leave'    => (int) ($today['leave'] ?? 0),
+                'holiday'  => (int) ($today['holiday'] ?? 0),
+                'marked'   => $marked,
+                'pct'      => $activeCount > 0 ? round(($present + 0.5 * $half) / $activeCount * 100, 1) : 0,
+            ],
+        ];
+    }
+
+    /**
+     * What is waiting on the Super Admin: unanswered support tickets and
+     * enquiries, school listings to approve and new applications. A screen
+     * this user cannot open is left out.
+     */
+    protected function waitingOnYou(): array
+    {
+        $unanswered = fn ($query) => $query->where(fn ($q) => $q->whereNull('remark')->orWhere('remark', ''));
+        $isNew      = fn ($query, string $status) => $query->where(fn ($q) => $q->whereNull('status')->orWhere('status', $status));
+
+        $rows = [
+            ['Support Tickets',   'not replied',  'super-admin.support',                 fn () => ContactSuperAdmin::where('super_admin_reply', false)->count()],
+            ['Demo Requests',     'not answered', 'super-admin.enquiries',               fn () => $unanswered(WebsiteDemo::query())->count()],
+            ['Contact Messages',  'not answered', 'super-admin.enquiries',               fn () => $unanswered(WebsiteContact::query())->count()],
+            ['School Listings',   'to approve',   'super-admin.listing',                 fn () => $isNew(SchoolListing::query(), 'pending')->count()],
+            ['Career Applications', 'new',          'super-admin.website.careers',         fn () => $isNew(CareerApplication::query(), 'new')->count()],
+            ['Become Executive',  'new applications', 'super-admin.website.become-executive', fn () => $isNew(ExecutiveApplication::query(), 'new')->count()],
+        ];
+
+        $out = [];
+        foreach ($rows as [$label, $sub, $route, $count]) {
+            if ($this->canOpen($route)) {
+                $out[] = ['label' => $label, 'sub' => $sub, 'route' => $route, 'count' => (int) $count()];
+            }
+        }
+
+        return $out;
+    }
+
+    /** The latest support tickets from schools, newest first. */
+    protected function latestTickets(): array
+    {
+        return ContactSuperAdmin::with('organization:id,name')
+            ->latest()
+            ->take(5)
+            ->get(['id', 'organization_id', 'topic', 'admin_query', 'super_admin_reply', 'created_at'])
+            ->map(fn ($t) => [
+                'school'  => $t->organization?->name ?? '—',
+                'topic'   => $t->topic ?: \Illuminate\Support\Str::limit((string) $t->admin_query, 60),
+                'replied' => (bool) $t->super_admin_reply,
+                'time'    => $t->created_at?->diffForHumans() ?? '—',
+            ])
+            ->toArray();
+    }
+
+    /** The latest demo requests and contact messages together, newest first. */
+    protected function latestEnquiries(): array
+    {
+        $demo = WebsiteDemo::latest()->take(6)->get(['full_name', 'school_name', 'remark', 'created_at'])
+            ->map(fn ($e) => ['kind' => 'Demo', 'name' => $e->full_name, 'school' => $e->school_name, 'answered' => filled($e->remark), 'at' => $e->created_at]);
+        $contact = WebsiteContact::latest()->take(6)->get(['full_name', 'school_name', 'subject', 'remark', 'created_at'])
+            ->map(fn ($e) => ['kind' => 'Contact', 'name' => $e->full_name, 'school' => $e->school_name ?: $e->subject, 'answered' => filled($e->remark), 'at' => $e->created_at]);
+
+        return $demo->concat($contact)
+            ->sortByDesc(fn ($e) => $e['at']?->timestamp ?? 0)
+            ->take(6)
+            ->map(fn ($e) => array_merge($e, ['time' => $e['at']?->diffForHumans() ?? '—', 'at' => null]))
+            ->values()
+            ->toArray();
+    }
+
+    /** Visits to the SuperLMS website over the last 7 days. */
+    protected function websiteWeek(): array
+    {
+        $from = now()->subDays(6)->startOfDay();
+        $base = fn () => WebsiteVisit::where('created_at', '>=', $from);
+
+        return [
+            'visits'  => $base()->count(),
+            'unique'  => $base()->distinct('visitor_id')->count('visitor_id'),
+            'today'   => WebsiteVisit::where('created_at', '>=', now()->startOfDay())->count(),
+            'top'     => $base()->selectRaw("COALESCE(NULLIF(page, ''), path) as pg, COUNT(*) as c")
+                ->groupBy('pg')->orderByDesc('c')->value('pg') ?? '—',
+        ];
+    }
+
+    /** Push notifications sent from the panel. */
+    protected function pushSummary(): array
+    {
+        $latest = PushNotificationCampaign::latest()->first(['title', 'recipient_count', 'created_at']);
+
+        return [
+            'this_month' => PushNotificationCampaign::where('created_at', '>=', now()->startOfMonth())->count(),
+            'total'      => PushNotificationCampaign::count(),
+            'latest'     => $latest ? [
+                'title'      => $latest->title,
+                'recipients' => (int) $latest->recipient_count,
+                'time'       => $latest->created_at?->diffForHumans() ?? '—',
+            ] : null,
+        ];
+    }
+
+    /** The latest Rate LMS review, with its school. */
+    protected function latestReview(): ?array
+    {
+        $r = RateLms::with('organization:id,name')->latest()->first();
+
+        return $r ? [
+            'school'   => $r->organization?->name ?? '—',
+            'rating'   => (int) $r->rating,
+            'feedback' => $r->feedback,
+            'time'     => $r->created_at?->diffForHumans() ?? '—',
+        ] : null;
+    }
+
+    /** Quick Access tiles this user can open. */
     protected function quickTiles(): array
     {
         $tiles = [
@@ -373,18 +377,7 @@ class Dashboard extends Component
             ['label' => 'Documents',         'route' => 'super-admin.documents',         'icon' => 'folder-open'],
         ];
 
-        $user = auth()->user();
-
-        return array_values(array_filter($tiles, function ($t) use ($user) {
-            if (! Route::has($t['route'])) {
-                return false;
-            }
-            if ($user && $user->isSubSuperAdmin()) {
-                return $t['route'] !== 'super-admin.users'
-                    && in_array($t['route'], (array) $user->permissions, true);
-            }
-            return true;
-        }));
+        return array_values(array_filter($tiles, fn ($t) => $this->canOpen($t['route'])));
     }
 
     // ── Public Actions ────────────────────────────────────────────────────────
@@ -416,8 +409,6 @@ class Dashboard extends Component
         cache()->forget('sa_top_schools_students');
         cache()->forget('sa_top_schools_teachers');
         cache()->forget('sa_monthly_registrations');
-        cache()->forget($this->homeCacheKey('attendance'));
-        cache()->forget($this->homeCacheKey('fee'));
 
         $this->dispatch('notify', ['message' => 'Dashboard refreshed successfully', 'type' => 'success']);
     }
@@ -608,23 +599,21 @@ class Dashboard extends Component
             'total_amount_leased' => (float) CreditQuery::where('status', 'approved')->sum('amount'),
         ];
 
-        // ── Home in the school dashboard's look ──────────────────────────────
+        // ── Home: the Super Admin's own figures ──────────────────────────────
         $activeSchools       = Organization::where('status', true)->count();
         $activeStudents      = User::where('role', 'user')->where('is_active', 1)->count();
         $activeTeachers      = User::where('role', 'teacher')->where('is_active', 1)->count();
         $newSchoolsThisMonth = Organization::where('created_at', '>=', now()->startOfMonth())->count();
 
-        $attendance      = $this->attendanceBySchool();
-        $attendanceTrend = $this->attendanceTrend($attendance);
-        $todayAttendance = end($attendanceTrend) ?: [];
-        $schoolFees      = $this->schoolFees();
-        $feeSummary      = $this->feeSummary($schoolFees);
-        $schoolsToday    = $this->schoolsToday($attendance, $schoolFees);
         $superAdminFee   = $this->superAdminFee();
+        $staff           = $this->staffSummary();
+        $waiting         = $this->waitingOnYou();
+        $latestTickets   = $this->latestTickets();
+        $latestEnquiries = $this->latestEnquiries();
+        $websiteWeek     = $this->websiteWeek();
+        $pushSummary     = $this->pushSummary();
+        $latestReview    = $this->latestReview();
         $quickTiles      = $this->quickTiles();
-
-        // Active schools that have marked their students' attendance today.
-        $schoolsMarkedToday = count(array_filter($schoolsToday, fn ($s) => $s['status'] && $s['student_marked']));
 
         // The empty public $recentActivities shadows a view variable of that
         // name (the feed always showed "No recent activity"), so the view
@@ -636,12 +625,14 @@ class Dashboard extends Component
             'activeStudents',
             'activeTeachers',
             'newSchoolsThisMonth',
-            'attendanceTrend',
-            'todayAttendance',
-            'feeSummary',
-            'schoolsToday',
-            'schoolsMarkedToday',
             'superAdminFee',
+            'staff',
+            'waiting',
+            'latestTickets',
+            'latestEnquiries',
+            'websiteWeek',
+            'pushSummary',
+            'latestReview',
             'quickTiles',
             'activityFeed',
             'totalSchools',

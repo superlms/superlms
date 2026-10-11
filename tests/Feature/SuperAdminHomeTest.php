@@ -13,8 +13,9 @@ use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
- * Super Admin home in the school dashboard's look, and Credit off the
- * sidebar and Quick Links (its page, route and permission stay).
+ * Super Admin home: the Super Admin's own figures in the school panel's
+ * look, and Credit off the sidebar and Quick Links (its page, route and
+ * permission stay).
  */
 class SuperAdminHomeTest extends TestCase
 {
@@ -98,120 +99,147 @@ class SuperAdminHomeTest extends TestCase
         $this->assertNotContains('Credit', $labels);
     }
 
-    private function makeTables(): void
+    private function table(string $name, callable $columns): void
     {
-        Schema::create('organizations', function (Blueprint $t) {
+        Schema::create($name, function (Blueprint $t) use ($columns) {
             $t->id();
-            $t->string('name');
-            $t->string('logo')->nullable();
-            $t->boolean('status')->default(true);
-            $t->timestamps();
-        });
-        Schema::create('users', function (Blueprint $t) {
-            $t->id();
-            $t->string('name');
-            $t->string('role');
-            $t->unsignedBigInteger('organization_id')->nullable();
-            $t->boolean('is_active')->default(true);
-            $t->timestamps();
-        });
-        foreach (['student_attendances' => 'student_detail_id', 'teacher_attendances' => 'teacher_detail_id'] as $table => $who) {
-            Schema::create($table, function (Blueprint $t) use ($who) {
-                $t->id();
-                $t->unsignedBigInteger($who)->nullable();
-                $t->unsignedBigInteger('organization_id');
-                $t->date('attendance_date');
-                $t->unsignedTinyInteger('status');
-                $t->timestamps();
-            });
-        }
-        Schema::create('fee_payments', function (Blueprint $t) {
-            $t->id();
-            $t->unsignedBigInteger('organization_id');
-            $t->string('fee_type');
-            $t->decimal('amount', 12, 2);
-            $t->date('payment_date');
-            $t->timestamps();
-        });
-        Schema::create('transport_fee_payments', function (Blueprint $t) {
-            $t->id();
-            $t->unsignedBigInteger('organization_id');
-            $t->decimal('amount', 12, 2);
-            $t->date('payment_date');
+            $columns($t);
             $t->timestamps();
         });
     }
 
-    public function test_attendance_and_fee_are_counted_across_schools_as_the_school_dashboard_counts_them(): void
+    public function test_the_super_admin_fee_is_counted_by_payment_date_over_twelve_months(): void
     {
         $this->signIn();
-        $this->makeTables();
+        $this->table('super_admin_fee_payments', function (Blueprint $t) {
+            $t->unsignedBigInteger('organization_id');
+            $t->decimal('amount', 12, 2);
+            $t->date('payment_date')->nullable();
+            $t->boolean('is_paid')->default(false);
+        });
 
-        DB::table('organizations')->insert([
-            ['id' => 1, 'name' => 'Zeta School', 'status' => 1],
-            ['id' => 2, 'name' => 'alpha school', 'status' => 1],
-            ['id' => 3, 'name' => 'Idle School', 'status' => 0],
+        $pay = fn ($org, $amount, $date, $paid) => DB::table('super_admin_fee_payments')->insert(['organization_id' => $org, 'amount' => $amount, 'payment_date' => $date, 'is_paid' => $paid]);
+        $pay(1, 1000, '2026-10-05', true);
+        $pay(1, 500, '2026-09-20', true);
+        $pay(2, 300, '2025-09-01', true);   // before the 12 months
+        $pay(2, 2000, null, false);
+
+        $fee = $this->helper('superAdminFee');
+
+        $this->assertEquals(3800, $fee['total']);
+        $this->assertEquals(1800, $fee['collected']);
+        $this->assertEquals(2000, $fee['pending']);
+        $this->assertSame(47.4, $fee['pct']);
+        $this->assertEquals(1000, $fee['this_month']);
+        $this->assertEquals(500, $fee['last_month']);
+        $this->assertEquals(1500, $fee['year_total']);
+        $this->assertCount(12, $fee['labels']);
+        $this->assertSame('Nov 25', $fee['labels'][0]);
+        $this->assertEquals(1000, end($fee['data']));
+        $this->assertSame(2, $fee['schools']);
+        $this->assertSame(1, $fee['unpaid_records']);
+    }
+
+    public function test_staff_salary_and_attendance_count_active_staff_only(): void
+    {
+        $this->signIn();
+        $this->table('super_admin_employees', function (Blueprint $t) {
+            $t->string('name');
+            $t->string('designation')->nullable();
+            $t->string('type')->nullable();
+            $t->decimal('salary', 12, 2)->default(0);
+            $t->boolean('is_active')->default(true);
+        });
+        $this->table('super_admin_salary_payments', function (Blueprint $t) {
+            $t->unsignedBigInteger('super_admin_employee_id');
+            $t->string('month');
+            $t->string('status');
+            $t->decimal('amount', 12, 2);
+        });
+        $this->table('super_admin_attendances', function (Blueprint $t) {
+            $t->unsignedBigInteger('super_admin_employee_id');
+            $t->date('date');
+            $t->string('status');
+        });
+
+        DB::table('super_admin_employees')->insert([
+            ['id' => 1, 'name' => 'Asha', 'designation' => 'Sales', 'type' => 'team', 'salary' => 10000, 'is_active' => 1],
+            ['id' => 2, 'name' => 'Bina', 'designation' => null, 'type' => 'team', 'salary' => 20000, 'is_active' => 1],
+            ['id' => 3, 'name' => 'Chetan', 'designation' => null, 'type' => 'team', 'salary' => 5000, 'is_active' => 0],
         ]);
-        foreach ([[1, 'user', 4], [1, 'teacher', 2], [2, 'user', 2], [2, 'teacher', 1]] as [$org, $role, $n]) {
-            for ($i = 0; $i < $n; $i++) {
-                DB::table('users')->insert(['name' => "$role $org $i", 'role' => $role, 'organization_id' => $org]);
-            }
+        DB::table('super_admin_salary_payments')->insert([
+            ['super_admin_employee_id' => 1, 'month' => '2026-09', 'status' => 'paid', 'amount' => 10000],
+            ['super_admin_employee_id' => 2, 'month' => '2026-09', 'status' => 'pending', 'amount' => 20000],
+        ]);
+        DB::table('super_admin_attendances')->insert([
+            ['super_admin_employee_id' => 1, 'date' => '2026-10-11', 'status' => 'present'],
+            ['super_admin_employee_id' => 2, 'date' => '2026-10-11', 'status' => 'half_day'],
+            ['super_admin_employee_id' => 3, 'date' => '2026-10-11', 'status' => 'present'],  // inactive
+            ['super_admin_employee_id' => 1, 'date' => '2026-10-10', 'status' => 'absent'],   // yesterday
+        ]);
+
+        $staff = $this->helper('staffSummary');
+
+        $this->assertSame(3, $staff['employees']);
+        $this->assertSame(2, $staff['active']);
+        $this->assertEquals(30000, $staff['bill']);
+        $this->assertSame('Sep 2026', $staff['month']);
+        $this->assertSame(1, $staff['paid_count']);
+        $this->assertEquals(10000, $staff['paid_amount']);
+        $this->assertSame(1, $staff['unpaid_count']);
+        $this->assertSame([['name' => 'Bina', 'role' => 'Team', 'salary' => 20000.0]], $staff['unpaid']);
+        $this->assertSame(1, $staff['today']['present']);
+        $this->assertSame(1, $staff['today']['half_day']);
+        $this->assertSame(0, $staff['today']['absent']);
+        $this->assertSame(2, $staff['today']['marked']);
+        $this->assertSame(75.0, $staff['today']['pct']);
+    }
+
+    private function makeRequestTables(): void
+    {
+        $this->table('contact_super_admins', function (Blueprint $t) {
+            $t->unsignedBigInteger('organization_id')->nullable();
+            $t->string('topic')->nullable();
+            $t->text('admin_query')->nullable();
+            $t->boolean('super_admin_reply')->default(false);
+        });
+        foreach (['website_demos', 'website_contacts'] as $name) {
+            $this->table($name, fn (Blueprint $t) => $t->string('remark')->nullable());
+        }
+        foreach (['school_listings', 'career_applications', 'executive_applications'] as $name) {
+            $this->table($name, fn (Blueprint $t) => $t->string('status')->nullable());
         }
 
-        $today = '2026-10-11';
-        $mark = fn ($table, $org, $date, $status) => DB::table($table)->insert(['organization_id' => $org, 'attendance_date' => $date, 'status' => $status]);
-        // School 1 today: 2 present, 1 absent, 1 half. School 2 today: 1 present.
-        foreach ([1, 1, 0, 2] as $s) { $mark('student_attendances', 1, $today, $s); }
-        $mark('student_attendances', 2, $today, 1);
-        $mark('student_attendances', 2, '2026-10-10', 0);
-        $mark('student_attendances', 1, $today, 3);       // holiday: left out
-        $mark('student_attendances', 99, $today, 1);      // a deleted school: left out
-        $mark('student_attendances', 1, '2026-09-01', 1); // older than 30 days
-        $mark('teacher_attendances', 1, $today, 1);
+        DB::table('contact_super_admins')->insert([['super_admin_reply' => 0], ['super_admin_reply' => 1]]);
+        DB::table('website_demos')->insert([['remark' => null], ['remark' => ''], ['remark' => 'Called back']]);
+        DB::table('website_contacts')->insert([['remark' => null], ['remark' => 'Mailed']]);
+        DB::table('school_listings')->insert([['status' => 'pending'], ['status' => null], ['status' => 'approved']]);
+        DB::table('career_applications')->insert([['status' => 'new'], ['status' => 'reviewed']]);
+        DB::table('executive_applications')->insert([['status' => 'new'], ['status' => null], ['status' => 'contacted']]);
+    }
 
-        $fee = fn ($org, $type, $amount, $date) => DB::table('fee_payments')->insert(['organization_id' => $org, 'fee_type' => $type, 'amount' => $amount, 'payment_date' => $date]);
-        $fee(1, 'academic', 500, $today);
-        $fee(2, 'transport', 300, '2026-10-10');
-        $fee(1, 'academic', 1000, '2026-05-02');  // this session, outside 30 days
-        $fee(1, 'academic', 4000, '2026-03-20');  // last session
-        $fee(1, 'penalty', 50, $today);           // not academic/transport
-        DB::table('transport_fee_payments')->insert(['organization_id' => 2, 'amount' => 200, 'payment_date' => $today]);
+    public function test_needs_attention_counts_what_is_waiting_on_the_super_admin(): void
+    {
+        $this->signIn();
+        $this->makeRequestTables();
 
-        $attendance = $this->helper('attendanceBySchool');
-        $trend      = $this->helper('attendanceTrend', $attendance);
-        $todayRow   = end($trend);
+        $counts = array_column($this->helper('waitingOnYou'), 'count', 'label');
 
-        $this->assertCount(30, $trend);
-        $this->assertSame('12 Sep', $trend[0]['label']);
-        $this->assertSame(3, $todayRow['student_present']);
-        $this->assertSame(1, $todayRow['student_absent']);
-        $this->assertSame(1, $todayRow['student_half']);
-        $this->assertSame(70.0, $todayRow['student_pct']); // (3 + 0.5) / 5
-        $this->assertSame(1, $todayRow['teacher_present']);
-        $this->assertSame(1, $trend[28]['student_absent']);
+        $this->assertSame([
+            'Support Tickets'        => 1,
+            'Demo Requests'          => 2,
+            'Contact Messages'       => 1,
+            'School Listings'        => 2,
+            'Career Applications'    => 1,
+            'Become Executive'       => 2,
+        ], $counts);
+    }
 
-        $fees    = $this->helper('schoolFees');
-        $summary = $this->helper('feeSummary', $fees);
+    public function test_a_sub_super_admin_sees_only_the_waiting_work_of_screens_granted(): void
+    {
+        $this->signIn('sub-super-admin', ['super-admin.dashboard', 'super-admin.support', 'super-admin.listing']);
+        $this->makeRequestTables();
 
-        $this->assertEquals(700, $summary['today']);
-        $this->assertEquals(1000, $summary['month']);
-        $this->assertEquals(2000, $summary['session']);
-        $this->assertEquals(1000, $summary['range_total']);
-        $this->assertSame(2, $summary['schools_today']);
-        $this->assertSame('01 Apr 2026', $summary['session_from']);
-
-        $schools = $this->helper('schoolsToday', $attendance, $fees);
-
-        $this->assertSame(['alpha school', 'Idle School', 'Zeta School'], array_column($schools, 'name'));
-        [$alpha, $idle, $zeta] = $schools;
-        $this->assertSame(4, $zeta['students']);
-        $this->assertTrue($zeta['student_marked']);
-        $this->assertEquals(50, $zeta['student_pct']);   // 2 present of 4 students
-        $this->assertEquals(500, $zeta['fee_today']);
-        $this->assertEquals(1500, $zeta['fee_session']);
-        $this->assertEquals(200, $alpha['fee_today']);
-        $this->assertEquals(500, $alpha['fee_session']);
-        $this->assertFalse($idle['student_marked']);
-        $this->assertFalse($idle['status']);
+        $this->assertSame(['Support Tickets', 'School Listings'], array_column($this->helper('waitingOnYou'), 'label'));
     }
 }
