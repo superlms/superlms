@@ -209,7 +209,7 @@
                                             <button wire:click="openRemarkModal({{ $enquiry->id }})" title="{{ $isRemarked ? 'Edit Remark' : 'Add Remark' }}"
                                                 class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
                                                 </svg>
                                             </button>
                                             <button wire:click="deleteEnquiry({{ $enquiry->id }})" title="Delete"
@@ -245,107 +245,96 @@
     </div>
 
     {{-- ══════════════════════════════════════════════════
-         VIEW SLIDE-IN PANEL
+         VIEW SLIDE-IN PANEL — in the Students view's look: who sent it in
+         the header, then plain label / value rows; the remark under a line.
     ══════════════════════════════════════════════════ --}}
     @if ($showDetailModal && $selectedEnquiry)
+        @php
+            $evDemo     = $activeTab === 'demo';
+            $evRemarked = (bool) $selectedEnquiry->remark;
+            $evRows     = [
+                'Email' => $selectedEnquiry->email ?: '—',
+                'Phone' => ($evDemo ? $selectedEnquiry->phone : $selectedEnquiry->phone_number) ?: '—',
+                'School' => $selectedEnquiry->school_name ?: '—',
+            ];
+            if ($evDemo) {
+                $evRows['City']               = $selectedEnquiry->city ?: '—';
+                $evRows['Role']               = $selectedEnquiry->role ?: '—';
+                $evRows['Number of Students'] = $selectedEnquiry->no_of_students ?: '—';
+                if ($selectedEnquiry->preferred_date) {
+                    $evRows['Scheduled Call'] = $selectedEnquiry->preferred_date->format('l, d M Y')
+                        . ($selectedEnquiry->preferred_time ? ' · ' . $selectedEnquiry->preferred_time : '');
+                }
+            }
+            $evRows['Submitted on'] = $selectedEnquiry->created_at->format('d M Y · g:i A');
+        @endphp
         <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeDetailModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
 
-                {{-- Panel Header --}}
+                {{-- Header --}}
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                    <div><h2 class="text-lg font-semibold text-gray-900">Enquiry Details</h2></div>
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $selectedEnquiry->full_name ?: 'Enquiry Details' }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5 truncate">
+                            {{ $evDemo ? 'Demo request' : 'Contact enquiry' }} · {{ $evRemarked ? 'Remarked' : 'Pending' }}
+                        </p>
+                    </div>
                     <button wire:click="closeDetailModal"
-                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-                    <div class="grid grid-cols-2 gap-6">
-                        <div>
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Name</p>
-                            <p class="text-sm text-gray-800">{{ $selectedEnquiry->full_name ?? '—' }}</p>
+                {{-- Body — plain label / value rows --}}
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                    @foreach ($evRows as $label => $value)
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
+                            <span class="col-span-2 text-gray-800 font-medium break-words">{{ $value }}</span>
                         </div>
-                        <div>
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Email</p>
-                            <p class="text-sm text-gray-800 truncate">{{ $selectedEnquiry->email ?? '—' }}</p>
+                    @endforeach
+
+                    @if (!$evDemo)
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">Subject</span>
+                            <span class="col-span-2 text-gray-800 font-medium break-words">{{ $selectedEnquiry->subject ?: '—' }}</span>
                         </div>
-                        <div>
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Phone</p>
-                            <p class="text-sm text-gray-800">{{ $activeTab === 'demo' ? ($selectedEnquiry->phone ?? '—') : ($selectedEnquiry->phone_number ?? '—') }}</p>
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">Description</span>
+                            <span class="col-span-2 text-gray-800 whitespace-pre-line leading-relaxed break-words">{{ $selectedEnquiry->description ?: '—' }}</span>
                         </div>
-                        <div>
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">School</p>
-                            <p class="text-sm text-gray-800 truncate">{{ $selectedEnquiry->school_name ?? '—' }}</p>
-                        </div>
-                        @if ($activeTab === 'demo')
-                            <div>
-                                <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">City</p>
-                                <p class="text-sm text-gray-800">{{ $selectedEnquiry->city ?? '—' }}</p>
+                    @endif
+
+                    {{-- The remark, under a line --}}
+                    <div class="pt-4 mt-2 border-t border-gray-100 space-y-4">
+                        @if ($evRemarked)
+                            <div class="grid grid-cols-3 gap-3 text-sm">
+                                <span class="text-xs text-gray-400 uppercase tracking-wider">Remark</span>
+                                <span class="col-span-2 text-gray-800 whitespace-pre-line leading-relaxed break-words">{{ $selectedEnquiry->remark }}</span>
                             </div>
-                            <div>
-                                <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Role</p>
-                                <p class="text-sm text-gray-800">{{ $selectedEnquiry->role ?? '—' }}</p>
+                            <div class="grid grid-cols-3 gap-3 text-sm">
+                                <span class="text-xs text-gray-400 uppercase tracking-wider">Remarked on</span>
+                                <span class="col-span-2 text-gray-800 font-medium">{{ $selectedEnquiry->updated_at->format('d M Y · g:i A') }}</span>
                             </div>
-                            <div class="col-span-2">
-                                <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Number of Students</p>
-                                <p class="text-sm text-gray-800">{{ $selectedEnquiry->no_of_students ?? '—' }}</p>
+                        @else
+                            <div class="grid grid-cols-3 gap-3 text-sm">
+                                <span class="text-xs text-gray-400 uppercase tracking-wider">Remark</span>
+                                <span class="col-span-2 text-amber-600 font-medium">No remark added yet</span>
                             </div>
-                            @if ($selectedEnquiry->preferred_date)
-                                <div class="col-span-2 bg-indigo-50 border border-indigo-200 rounded-lg p-3 -mt-1">
-                                    <p class="text-xs text-indigo-500 uppercase tracking-wider mb-1 font-semibold">📞 Scheduled Call</p>
-                                    <p class="text-sm text-indigo-900 font-medium">
-                                        📅 {{ $selectedEnquiry->preferred_date?->format('l, d M Y') }}
-                                        @if ($selectedEnquiry->preferred_time)<br>⏰ {{ $selectedEnquiry->preferred_time }}@endif
-                                    </p>
-                                </div>
-                            @endif
                         @endif
                     </div>
-
-                    @if ($activeTab === 'contact')
-                        <div class="border-t border-gray-100 pt-6">
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-2">Subject</p>
-                            <p class="text-base font-medium text-gray-900">{{ $selectedEnquiry->subject ?? '—' }}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-2">Description</p>
-                            <p class="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{{ $selectedEnquiry->description ?? '—' }}</p>
-                        </div>
-                    @endif
-
-                    @if ($selectedEnquiry->remark)
-                        <div class="border-t border-gray-100 pt-6">
-                            <div class="flex items-center justify-between mb-2">
-                                <p class="text-xs text-gray-400 uppercase tracking-wider">Internal Remark</p>
-                                <span class="text-xs text-gray-400">{{ $selectedEnquiry->updated_at->format('d M Y · g:i A') }}</span>
-                            </div>
-                            <div class="bg-gray-50 border-l-2 border-blue-500 rounded-r-md px-4 py-3">
-                                <p class="text-sm text-gray-800 whitespace-pre-line leading-relaxed">{{ $selectedEnquiry->remark }}</p>
-                            </div>
-                        </div>
-                    @else
-                        <div class="flex items-center gap-2.5 text-sm text-amber-700 border-t border-gray-100 pt-6">
-                            <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            No remark added yet
-                        </div>
-                    @endif
                 </div>
 
+                {{-- Footer --}}
                 <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
-                    <button wire:click="openRemarkModal({{ $selectedEnquiry->id }})"
-                        class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        {{ $selectedEnquiry->remark ? 'Edit Remark' : 'Add Remark' }}
+                    <button type="button" wire:click="openRemarkModal({{ $selectedEnquiry->id }})"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">
+                        {{ $evRemarked ? 'Edit Remark' : 'Add Remark' }}
                     </button>
-                    <button wire:click="closeDetailModal" class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
+                    <button type="button" wire:click="closeDetailModal" class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
                 </div>
             </div>
         </div>

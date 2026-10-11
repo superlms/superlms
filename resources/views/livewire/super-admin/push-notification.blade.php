@@ -7,7 +7,6 @@
         <div class="flex items-center justify-between gap-3">
             <div class="min-w-0">
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Push Notification</h1>
-                <p class="text-xs text-gray-400 mt-0.5">Reaches recipients on both the mobile app and the web dashboard.</p>
             </div>
             <button wire:click="openCompose"
                 class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors flex-shrink-0">
@@ -146,17 +145,15 @@
                                 Restricted to <strong class="text-gray-800">{{ $organizations->first()->name ?? 'your school' }}</strong>.
                             </p>
                         @else
-                            <div class="flex flex-wrap gap-2 mb-3">
-                                <button type="button" wire:click="$set('audienceScope', 'all')"
-                                    class="px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors
-                                           {{ $audienceScope === 'all' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50' }}">
-                                    All Schools
-                                </button>
-                                <button type="button" wire:click="$set('audienceScope', 'organization')"
-                                    class="px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors
-                                           {{ $audienceScope === 'organization' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50' }}">
-                                    Specific School
-                                </button>
+                            {{-- Plain radio buttons --}}
+                            <div class="flex flex-wrap items-center gap-x-6 gap-y-2 mb-3">
+                                @foreach (['all' => 'All Schools', 'organization' => 'Specific School'] as $scope => $scopeLabel)
+                                    <label class="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                        <input type="radio" wire:model.live="audienceScope" value="{{ $scope }}" @checked($audienceScope === $scope)
+                                            class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+                                        {{ $scopeLabel }}
+                                    </label>
+                                @endforeach
                             </div>
 
                             @if ($audienceScope === 'organization')
@@ -172,21 +169,16 @@
                             @endif
                         @endif
 
-                        <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Recipient types <span class="normal-case font-normal text-gray-400">(select one or more)</span></p>
-                        <div class="flex flex-wrap gap-2">
+                        <p class="text-xs font-semibold text-gray-600 mb-2">Recipient types <span class="font-normal text-gray-400">(select one or more)</span></p>
+                        {{-- Plain checkboxes; a tick runs toggleRole as the old chips did --}}
+                        <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
                             @foreach (['students' => 'Students', 'teachers' => 'Teachers', 'admins' => 'Admins'] as $role => $label)
                                 @php $on = in_array($role, $audienceRoles, true); @endphp
-                                <button type="button" wire:click="toggleRole('{{ $role }}')"
-                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors
-                                           {{ $on ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50' }}">
-                                    <span class="w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center
-                                                 {{ $on ? 'bg-white/20 border-white/60' : 'border-gray-300' }}">
-                                        @if ($on)
-                                            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-                                        @endif
-                                    </span>
+                                <label class="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer" wire:key="push-role-{{ $role }}">
+                                    <input type="checkbox" wire:click="toggleRole('{{ $role }}')" @checked($on)
+                                        class="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500">
                                     {{ $label }}
-                                </button>
+                                </label>
                             @endforeach
                         </div>
                         @error('audienceRoles') <p class="text-xs text-red-500 mt-2">{{ $message }}</p> @enderror
@@ -258,95 +250,91 @@
     @endif
 
     {{-- ══════════════════════════════════════════════════
-         CAMPAIGN DETAIL OVERLAY
+         CAMPAIGN DETAIL — a slide-in in the Announcement view's look: one
+         plain card of label / value rows (same figures as before).
     ══════════════════════════════════════════════════ --}}
     @if ($viewing)
-        <div class="fixed inset-x-0 bottom-0 top-16 z-50 flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="closeView"></div>
-            <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-                {{-- Header --}}
-                <div class="flex items-start justify-between gap-4 px-6 pt-5 pb-4 border-b border-gray-100">
-                    <div class="flex items-start gap-3">
-                        <div class="w-10 h-10 bg-violet-50 rounded-full flex items-center justify-center flex-shrink-0">
-                            <svg class="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-                        </div>
-                        <div>
-                            <h3 class="text-base font-semibold text-gray-900 leading-tight">{{ $viewing->title }}</h3>
-                            <p class="text-xs text-gray-400 mt-0.5">Sent {{ $viewing->created_at->format('d M Y, h:i A') }}
-                                @if ($viewing->sender) · by {{ $viewing->sender->name }} @endif
-                            </p>
-                        </div>
+        @php
+            $breakdown = $viewing->device_breakdown ?: [];
+            $platforms = collect($breakdown)
+                ->map(fn ($count, $platform) => ucfirst($platform) . ' ' . number_format($count))
+                ->implode(' · ');
+        @endphp
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeView"></div>
+
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+
+                {{-- Panel Header --}}
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">Notification Details</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">
+                            {{ $viewing->created_at->format('d M Y · g:i A') }}
+                        </p>
                     </div>
-                    <button wire:click="closeView" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    <button wire:click="closeView"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
                     </button>
                 </div>
 
-                <div class="px-6 py-5 space-y-5">
-                    {{-- Message --}}
-                    <div>
-                        <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Message</p>
-                        <p class="text-sm text-gray-700 whitespace-pre-line">{{ $viewing->body }}</p>
-                    </div>
-
-                    {{-- Reach cards --}}
-                    <div class="grid grid-cols-3 gap-3">
-                        <div class="rounded-xl border border-gray-100 bg-gray-50 p-3 text-center">
-                            <p class="text-lg font-bold text-gray-900">{{ number_format($viewing->recipient_count) }}</p>
-                            <p class="text-[11px] text-gray-500 mt-0.5">Recipients</p>
+                {{-- Panel Body --}}
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                    <div class="rounded-xl border border-gray-200 divide-y divide-gray-100">
+                        <div class="px-4 py-3">
+                            <p class="text-[11px] text-gray-400 uppercase tracking-wider">Title</p>
+                            <p class="mt-1 text-sm font-semibold text-gray-900 break-words">{{ $viewing->title }}</p>
                         </div>
-                        <div class="rounded-xl border border-blue-100 bg-blue-50 p-3 text-center">
-                            <p class="text-lg font-bold text-blue-700">{{ number_format($viewing->device_count) }}</p>
-                            <p class="text-[11px] text-blue-600/80 mt-0.5">App devices</p>
+                        <div class="px-4 py-3">
+                            <p class="text-[11px] text-gray-400 uppercase tracking-wider">Message</p>
+                            <p class="mt-1 text-sm text-gray-800 whitespace-pre-line leading-relaxed break-words">{{ $viewing->body }}</p>
                         </div>
-                        <div class="rounded-xl border border-violet-100 bg-violet-50 p-3 text-center">
-                            <p class="text-lg font-bold text-violet-700">{{ number_format($viewing->web_count) }}</p>
-                            <p class="text-[11px] text-violet-600/80 mt-0.5">Web inboxes</p>
+                        <div class="px-4 py-3">
+                            <p class="text-[11px] text-gray-400 uppercase tracking-wider">Sent By</p>
+                            <p class="mt-1 text-sm text-gray-800">{{ $viewing->sender?->name ?? '—' }}</p>
                         </div>
-                    </div>
-
-                    {{-- Device breakdown --}}
-                    @php $breakdown = $viewing->device_breakdown ?: []; @endphp
-                    @if (!empty($breakdown))
-                        <div>
-                            <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Devices reached by platform</p>
-                            <div class="flex flex-wrap gap-2">
-                                @foreach ($breakdown as $platform => $count)
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-200 text-xs text-gray-700">
-                                        <span class="font-semibold capitalize">{{ $platform }}</span>
-                                        <span class="text-gray-400">·</span>
-                                        <span>{{ number_format($count) }}</span>
-                                    </span>
-                                @endforeach
-                            </div>
+                        <div class="px-4 py-3">
+                            <p class="text-[11px] text-gray-400 uppercase tracking-wider">Sent</p>
+                            <p class="mt-1 text-sm text-gray-800">{{ $viewing->created_at->format('d M Y · g:i A') }}</p>
                         </div>
-                    @endif
-
-                    {{-- Meta --}}
-                    <div class="grid grid-cols-2 gap-x-4 gap-y-3 pt-1">
-                        <div>
-                            <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">School</p>
-                            <p class="text-sm text-gray-700">{{ $viewing->organization?->name ?? 'All Schools' }}</p>
+                        <div class="px-4 py-3">
+                            <p class="text-[11px] text-gray-400 uppercase tracking-wider">Audience</p>
+                            <p class="mt-1 text-sm text-gray-800">{{ $viewing->organization?->name ?? 'All Schools' }}</p>
+                            <p class="text-xs text-gray-500 mt-0.5">{{ $viewing->audienceRolesLabel() }}</p>
                         </div>
-                        <div>
-                            <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Audience</p>
-                            <p class="text-sm text-gray-700">{{ $viewing->audienceRolesLabel() }}</p>
+                        <div class="px-4 py-3">
+                            <p class="text-[11px] text-gray-400 uppercase tracking-wider">Reach</p>
+                            <p class="mt-1 text-sm text-gray-800">
+                                {{ number_format($viewing->recipient_count) }} recipients
+                                <span class="mx-1 text-gray-300">·</span>{{ number_format($viewing->device_count) }} app devices
+                                <span class="mx-1 text-gray-300">·</span>{{ number_format($viewing->web_count) }} web inboxes
+                            </p>
+                            @if ($platforms !== '')
+                                <p class="text-xs text-gray-500 mt-0.5">{{ $platforms }}</p>
+                            @endif
                         </div>
-                        <div>
-                            <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Deep-link screen</p>
-                            <p class="text-sm text-gray-700">{{ $viewing->screen ?: '—' }}</p>
+                        <div class="px-4 py-3">
+                            <p class="text-[11px] text-gray-400 uppercase tracking-wider">Deep-link Screen</p>
+                            <p class="mt-1 text-sm text-gray-800">{{ $viewing->screen ?: '—' }}</p>
                         </div>
-                        <div>
-                            <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">App delivery</p>
-                            <p class="text-sm {{ $viewing->delivered ? 'text-emerald-600' : 'text-amber-600' }} font-medium">
+                        <div class="px-4 py-3">
+                            <p class="text-[11px] text-gray-400 uppercase tracking-wider">App Delivery</p>
+                            <p class="mt-1 text-sm font-medium {{ $viewing->delivered ? 'text-emerald-600' : 'text-amber-600' }}">
                                 {{ $viewing->delivered ? 'Delivered to devices' : 'No reachable devices' }}
                             </p>
                         </div>
                     </div>
                 </div>
 
-                <div class="px-6 py-4 border-t border-gray-100 flex justify-end">
-                    <button wire:click="closeView" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Close</button>
+                {{-- Panel Footer --}}
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end flex-shrink-0">
+                    <button type="button" wire:click="closeView"
+                        class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md transition-colors">
+                        Close
+                    </button>
                 </div>
             </div>
         </div>

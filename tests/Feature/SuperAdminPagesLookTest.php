@@ -160,6 +160,15 @@ class SuperAdminPagesLookTest extends TestCase
         $this->assertStringContainsString('1 Fee receipt not printing The receipt shows a blank page. Sunrise Public School · Ravi Admin · ravi@sunrise.edu', $support);
         $this->assertStringContainsString('Pending · Attachment', $support);
 
+        // View and Reply in the Students view's look: plain label / value rows.
+        $page = Livewire::test(\App\Livewire\SuperAdmin\Support::class)->call('viewSupport', 1);
+        $view = preg_replace('/\s+/', ' ', strip_tags($page->html()));
+        $this->assertStringContainsString('School Sunrise Public School Submitted by Ravi Admin Email ravi@sunrise.edu', $view);
+        $this->assertStringContainsString('Query The receipt shows a blank page. Your Reply No reply sent yet', $view);
+        $reply = preg_replace('/\s+/', ' ', strip_tags($page->call('openReplyModal', 1)->html()));
+        $this->assertStringContainsString('Reply to Support Fee receipt not printing · Ravi Admin · Sunrise Public School', $reply);
+        $this->assertStringNotContainsString('Replying to', $reply);
+
         $rating = preg_replace('/\s+/', ' ', strip_tags(Livewire::test(\App\Livewire\SuperAdmin\Rating::class)->html()));
         $rating = preg_replace('/\s*·\s*/u', ' · ', $rating);
         $this->assertStringContainsString('S.No Review Actions', $rating);
@@ -247,10 +256,22 @@ class SuperAdminPagesLookTest extends TestCase
         $this->assertMatchesRegularExpression('#<p class="text-gray-600">All Schools</p>\s*<p class="text-gray-400 mt-0.5 whitespace-nowrap">Students, Teachers</p>#', $html);
         $this->assertStringContainsString('<span class="text-amber-600">Web only</span>', $html);
         $this->assertStringNotContainsString('rounded-full bg-amber-50', $html);
+        $this->assertStringNotContainsString('Reaches recipients on both', $text);
+
+        // The detail is a slide-in in the Announcement view's look.
+        $detail = preg_replace('/\s+/', ' ', strip_tags($page->call('viewCampaign', 1)->html()));
+        $detail = preg_replace('/\s*·\s*/u', ' · ', $detail);
+        $this->assertStringContainsString('Notification Details', $detail);
+        $this->assertStringContainsString('Audience All Schools Students, Teachers Reach 117 recipients · 0 app devices · 0 web inboxes', $detail);
+        $page->call('closeView');
 
         $page->call('openCompose')
             ->assertSet('composing', true)
             ->assertSee('Who should receive this?')
+            ->assertSeeHtml('type="radio" wire:model.live="audienceScope" value="all"')
+            ->assertSeeHtml('type="checkbox" wire:click="toggleRole(\'admins\')"')
+            ->call('toggleRole', 'admins')
+            ->assertSet('audienceRoles', ['students', 'teachers', 'admins'])
             ->set('title', 'Holiday')
             ->set('body', 'School closed on Friday.')
             ->set('audienceRoles', ['students'])
@@ -289,6 +310,8 @@ class SuperAdminPagesLookTest extends TestCase
         $this->assertStringContainsString('2.How We Use It To run the service.', $text);
         $this->assertStringContainsString('Last updated 01 Oct 2026', $text);
         $this->assertStringNotContainsString('from-green-50 to-emerald-50', $html);
+        $this->assertStringContainsString('class="min-h-screen bg-white"', $html);
+        $this->assertStringContainsString('<p class="text-sm text-black leading-relaxed mt-2">', $html);
     }
 
     public function test_website_enquiries_are_listed_as_the_school_panels_enquiries(): void
@@ -326,6 +349,15 @@ class SuperAdminPagesLookTest extends TestCase
         $this->assertStringContainsString('1 Sunrise Public School Principal · 600 students · Agra Ravi Kumar', $demo);
         $this->assertStringContainsString('Pending', $demo);
         $this->assertStringContainsString('Call Tue, 13 Oct 2026 · 4:00 PM', $demo);
+
+        // Remark is a reply icon; the view is in the Students view's look.
+        $list = Livewire::test(Enquiry::class);
+        $this->assertStringContainsString('M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6', $list->html());
+        $this->assertStringNotContainsString('M11 5H6a2 2 0 00-2 2v11', $list->html());
+        $view = preg_replace('/\s+/', ' ', strip_tags($list->call('viewEnquiry', 1)->html()));
+        $this->assertStringContainsString('Ravi Kumar Demo request · Pending', $view);
+        $this->assertStringContainsString('Email ravi@example.com Phone 9876543210 School Sunrise Public School City Agra Role Principal Number of Students 600 Scheduled Call Tuesday, 13 Oct 2026 · 4:00 PM', $view);
+        $this->assertStringContainsString('Remark No remark added yet', $view);
 
         $contact = preg_replace('/\s+/', ' ', strip_tags(Livewire::test(Enquiry::class)->call('switchTab', 'contact')->html()));
         $this->assertStringContainsString('1 Pricing for 3 schools Please share the plans. Meena', $contact);

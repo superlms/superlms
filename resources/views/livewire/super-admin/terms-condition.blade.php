@@ -1,4 +1,4 @@
-<div class="min-h-screen bg-gray-50">
+<div class="min-h-screen {{ $activeTab === 'view' ? 'bg-white' : 'bg-gray-50' }}">
 
     {{-- ══════════ TABS ══════════ --}}
     <div class="bg-white border-b border-gray-200 px-6 sticky top-0 z-40">
@@ -87,12 +87,12 @@
                             @php $shown++; @endphp
                             <section class="py-5 first:pt-0">
                                 @if (!empty($section['head']))
-                                    <h2 class="text-base font-semibold text-gray-900">
-                                        <span class="text-gray-400 tabular-nums mr-1">{{ $shown }}.</span>{{ $section['head'] }}
+                                    <h2 class="text-base font-semibold text-black">
+                                        <span class="tabular-nums mr-1">{{ $shown }}.</span>{{ $section['head'] }}
                                     </h2>
                                 @endif
                                 @if (!empty($section['desc']))
-                                    <p class="text-sm text-gray-600 leading-relaxed {{ !empty($section['head']) ? 'mt-2' : '' }}">
+                                    <p class="text-sm text-black leading-relaxed {{ !empty($section['head']) ? 'mt-2' : '' }}">
                                         {!! nl2br(e($section['desc'])) !!}
                                     </p>
                                 @endif
