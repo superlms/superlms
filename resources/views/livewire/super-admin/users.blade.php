@@ -39,15 +39,15 @@
                 </div>
                 <input wire:model.live.debounce.300ms="search" wire:key="users-search" type="text" name="users_list_search"
                     autocomplete="off" placeholder="Search name, email, mobile..."
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 flex-[1_1_8rem] min-w-0 max-w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 <select wire:model.live="filterStatus"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     <option value="">All Status</option>
                     <option value="1">Active</option>
                     <option value="0">Inactive</option>
                 </select>
                 <select wire:model.live="filterOrg"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     <option value="">All Schools</option>
                     @foreach ($organizations as $org)
                         <option value="{{ $org->id }}">{{ $org->name }}</option>

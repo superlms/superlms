@@ -106,6 +106,92 @@ class SuperAdminPagesLookTest extends TestCase
             ->assertSet('fullName', 'Priya Verma');
     }
 
+    public function test_support_tickets_and_ratings_are_listed_as_the_school_panels_enquiries(): void
+    {
+        Schema::create('organizations', function (Blueprint $t) {
+            $t->id();
+            $t->string('name');
+            $t->string('email')->nullable();
+            $t->string('logo')->nullable();
+            $t->timestamps();
+        });
+        Schema::create('users', function (Blueprint $t) {
+            $t->id();
+            $t->string('name')->nullable();
+            $t->string('email')->nullable();
+            $t->string('role')->nullable();
+            $t->timestamps();
+        });
+        Schema::create('contact_super_admins', function (Blueprint $t) {
+            $t->id();
+            $t->unsignedBigInteger('user_id')->nullable();
+            $t->unsignedBigInteger('organization_id')->nullable();
+            $t->string('topic')->nullable();
+            $t->text('admin_query')->nullable();
+            $t->string('image')->nullable();
+            $t->text('super_admin_text')->nullable();
+            $t->boolean('super_admin_reply')->default(false);
+            $t->string('super_admin_attachment')->nullable();
+            $t->timestamps();
+        });
+        Schema::create('rate_lms', function (Blueprint $t) {
+            $t->id();
+            $t->unsignedBigInteger('organization_id')->nullable();
+            $t->text('feedback')->nullable();
+            $t->unsignedTinyInteger('rating');
+            $t->unsignedTinyInteger('status')->default(1);
+            $t->timestamps();
+        });
+        DB::table('organizations')->insert(['id' => 1, 'name' => 'Sunrise Public School', 'email' => 'office@sunrise.edu']);
+        DB::table('users')->insert(['id' => 5, 'name' => 'Ravi Admin', 'email' => 'ravi@sunrise.edu', 'role' => 'admin']);
+        DB::table('contact_super_admins')->insert([
+            'user_id' => 5, 'organization_id' => 1, 'topic' => 'Fee receipt not printing',
+            'admin_query' => 'The receipt shows a blank page.', 'image' => 'https://example.com/a.png',
+            'super_admin_reply' => 0, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('rate_lms')->insert([
+            'organization_id' => 1, 'feedback' => 'Easy to use for our staff.', 'rating' => 4, 'status' => 1,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $support = preg_replace('/\s+/', ' ', strip_tags(Livewire::test(\App\Livewire\SuperAdmin\Support::class)->html()));
+        $support = preg_replace('/\s*·\s*/u', ' · ', $support);
+        $this->assertStringContainsString('S.No Ticket Actions', $support);
+        $this->assertStringContainsString('1 Fee receipt not printing The receipt shows a blank page. Sunrise Public School · Ravi Admin · ravi@sunrise.edu', $support);
+        $this->assertStringContainsString('Pending · Attachment', $support);
+
+        $rating = preg_replace('/\s+/', ' ', strip_tags(Livewire::test(\App\Livewire\SuperAdmin\Rating::class)->html()));
+        $rating = preg_replace('/\s*·\s*/u', ' · ', $rating);
+        $this->assertStringContainsString('S.No Review Actions', $rating);
+        $this->assertStringContainsString('1 Sunrise Public School Easy to use for our staff. ★★★★★ 4/5 · office@sunrise.edu', $rating);
+    }
+
+    public function test_the_privacy_policy_view_is_a_plain_document(): void
+    {
+        Schema::create('privacy_policies', function (Blueprint $t) {
+            $t->id();
+            $t->json('metadata')->nullable();
+            $t->date('last_updated')->nullable();
+            $t->timestamps();
+        });
+        DB::table('privacy_policies')->insert([
+            'metadata' => json_encode(['sections' => [
+                ['head' => 'Information We Collect', 'desc' => 'Name and email.'],
+                ['head' => '', 'desc' => ''],
+                ['head' => 'How We Use It', 'desc' => 'To run the service.'],
+            ]]),
+            'last_updated' => '2026-10-01', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $html = Livewire::test(\App\Livewire\SuperAdmin\PrivacyPolicy::class)->html();
+        $text = preg_replace('/\s+/', ' ', strip_tags($html));
+
+        $this->assertStringContainsString('1.Information We Collect Name and email.', $text);
+        $this->assertStringContainsString('2.How We Use It To run the service.', $text);
+        $this->assertStringContainsString('Last updated 01 Oct 2026', $text);
+        $this->assertStringNotContainsString('from-green-50 to-emerald-50', $html);
+    }
+
     public function test_website_enquiries_are_listed_as_the_school_panels_enquiries(): void
     {
         Schema::create('website_demos', function (Blueprint $t) {

@@ -38,11 +38,11 @@
                 </div>
 
                 <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search school name..."
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-64
+                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 flex-[1_1_8rem] min-w-0 max-w-56
                            focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
 
                 <select wire:model.live="statusFilter"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     <option value="">All Status</option>
                     <option value="1">Active</option>
                     <option value="2">Pending</option>
@@ -50,7 +50,7 @@
                 </select>
 
                 <select wire:model.live="ratingFilter"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     <option value="">All Ratings</option>
                     <option value="5">★★★★★ 5</option>
                     <option value="4">★★★★ 4</option>
@@ -73,107 +73,99 @@
     </div>
 
     {{-- ══════════════════════════════════════════════════
-         BODY — Review list (cards)
+         BODY — Review list
     ══════════════════════════════════════════════════ --}}
     <div class="p-4 sm:p-6">
-        <div class="space-y-3">
-            @forelse ($reviews as $review)
-                @php
-                    $accent = $review->status == 1 ? 'bg-emerald-500' : ($review->status == 2 ? 'bg-amber-400' : 'bg-gray-400');
-                    $iconBg = $review->status == 1 ? 'bg-emerald-50' : ($review->status == 2 ? 'bg-amber-50' : 'bg-gray-100');
-                    $iconColor = $review->status == 1 ? 'text-emerald-600' : ($review->status == 2 ? 'text-amber-600' : 'text-gray-500');
-                    $badgeStyle = $review->status == 1 ? 'bg-emerald-100 text-emerald-700' : ($review->status == 2 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600');
-                @endphp
-                <div class="group bg-white rounded-xl border border-gray-200 hover:border-blue-200 hover:shadow-md transition-all duration-200 overflow-hidden">
-                    <div class="flex items-stretch">
-                        <div class="w-1 flex-shrink-0 {{ $accent }}"></div>
+        {{-- The list in the school panel's Enquiries style: one table — S.No, the
+             review (its icon, the school, under it the feedback on one line
+             cut short with …, then, small, the stars, the school's email, when
+             and the status) and the actions (View, and the status switch). A
+             click on the row opens the review. --}}
+        @if ($reviews->count())
+            <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full table-fixed">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-16">S.No</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Review</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-44">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @foreach ($reviews as $index => $review)
+                                @php
+                                    $statusTone = $review->status == 1 ? 'text-emerald-600' : ($review->status == 2 ? 'text-amber-600' : 'text-gray-500');
+                                @endphp
+                                <tr wire:key="review-{{ $review->id }}" wire:click="viewReview({{ $review->id }})"
+                                    class="hover:bg-gray-50/70 transition-colors cursor-pointer">
 
-                        <div class="flex-1 p-4 sm:p-5 min-w-0">
-                            <div class="flex items-start justify-between gap-4">
-                                <div class="flex items-start gap-3 flex-1 min-w-0">
+                                    {{-- S.No --}}
+                                    <td class="px-4 py-3">
+                                        <span class="text-sm text-gray-500 font-medium">{{ $reviews->firstItem() + $index }}</span>
+                                    </td>
 
-                                    <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 {{ $iconBg }}">
-                                        <svg class="w-5 h-5 {{ $iconColor }}" viewBox="0 0 20 20" fill="currentColor">
-                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                        </svg>
-                                    </div>
-
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex flex-wrap items-center gap-2 mb-1">
-                                            <h3 class="text-base font-semibold text-gray-900">{{ $review->organization?->name ?? '—' }}</h3>
-                                            <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide {{ $badgeStyle }}">
-                                                {{ $this->getStatusLabel($review->status) }}
-                                            </span>
-                                            <span class="inline-flex items-center gap-0.5 text-[11px] font-semibold text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full">
-                                                @for ($i = 1; $i <= 5; $i++)
-                                                    <svg class="w-3 h-3 {{ $i <= $review->rating ? 'text-yellow-400' : 'text-gray-300' }}" viewBox="0 0 20 20" fill="currentColor">
-                                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                                    </svg>
-                                                @endfor
-                                                <span class="ml-1">{{ $review->rating }}/5</span>
-                                            </span>
-                                        </div>
-
-                                        @if ($review->feedback)
-                                            <p class="text-sm text-gray-600 line-clamp-2 mb-2.5 leading-relaxed">
-                                                {{ Str::limit($review->feedback, 200) }}
-                                            </p>
-                                        @endif
-
-                                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-                                            @if ($review->organization?->email)
-                                                <span class="inline-flex items-center gap-1">
-                                                    <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                                    </svg>
-                                                    <span class="font-medium text-gray-600">{{ $review->organization->email }}</span>
-                                                </span>
-                                                <span class="text-gray-300">•</span>
-                                            @endif
-
-                                            <span class="inline-flex items-center gap-1">
-                                                <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    {{-- Review --}}
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-3 min-w-0">
+                                            <div class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
                                                 </svg>
-                                                {{ \Carbon\Carbon::parse($review->created_at)->timezone('Asia/Kolkata')->format('d M Y · h:i A') }}
-                                            </span>
-                                            <span class="text-gray-300">•</span>
-                                            <span class="text-gray-400">{{ $review->created_at->diffForHumans() }}</span>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <p class="text-sm font-semibold text-gray-900 truncate">{{ $review->organization?->name ?? '—' }}</p>
+                                                <p class="text-xs text-gray-400 truncate">{{ $review->feedback ?: 'No feedback written' }}</p>
+                                                <p class="text-[11px] text-gray-400 truncate mt-0.5">
+                                                    <span class="text-yellow-500">{{ str_repeat('★', (int) $review->rating) }}</span><span class="text-gray-300">{{ str_repeat('★', max(0, 5 - (int) $review->rating)) }}</span>
+                                                    {{ $review->rating }}/5
+                                                    @if ($review->organization?->email)
+                                                        <span class="mx-1 text-gray-300">·</span>{{ $review->organization->email }}
+                                                    @endif
+                                                    <span class="mx-1 text-gray-300">·</span>
+                                                    {{ \Carbon\Carbon::parse($review->created_at)->timezone('Asia/Kolkata')->format('D, d M Y · g:i A') }}
+                                                    <span class="mx-1 text-gray-300">·</span>
+                                                    <span class="{{ $statusTone }}">{{ $this->getStatusLabel($review->status) }}</span>
+                                                </p>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
+                                    </td>
 
-                                <div class="flex items-center gap-2 flex-shrink-0">
-                                    <button wire:click="viewReview({{ $review->id }})" title="View"
-                                        class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                        </svg>
-                                    </button>
-                                    <select wire:change="updateStatus({{ $review->id }}, $event.target.value)"
-                                        class="text-xs border border-gray-200 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:ring-1 focus:ring-blue-500">
-                                        <option value="1" {{ $review->status == 1 ? 'selected' : '' }}>Active</option>
-                                        <option value="2" {{ $review->status == 2 ? 'selected' : '' }}>Pending</option>
-                                        <option value="3" {{ $review->status == 3 ? 'selected' : '' }}>Archived</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                                    {{-- Actions --}}
+                                    <td class="px-4 py-3" onclick="event.stopPropagation()">
+                                        <div class="flex items-center justify-center gap-1.5">
+                                            <button wire:click="viewReview({{ $review->id }})" title="View"
+                                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                            </button>
+                                            <select wire:change="updateStatus({{ $review->id }}, $event.target.value)" title="Status"
+                                                class="text-xs border border-gray-200 rounded-md px-2 py-1 bg-white text-gray-700 focus:ring-1 focus:ring-blue-500">
+                                                <option value="1" {{ $review->status == 1 ? 'selected' : '' }}>Active</option>
+                                                <option value="2" {{ $review->status == 2 ? 'selected' : '' }}>Pending</option>
+                                                <option value="3" {{ $review->status == 3 ? 'selected' : '' }}>Archived</option>
+                                            </select>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
-            @empty
-                <div class="text-center py-20 bg-white rounded-xl border border-gray-200">
-                    <div class="w-14 h-14 mx-auto mb-3 bg-yellow-50 rounded-full flex items-center justify-center">
-                        <svg class="w-7 h-7 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                    </div>
-                    <p class="text-base font-semibold text-gray-800">No reviews found</p>
-                    <p class="text-sm text-gray-400 mt-1">School ratings & feedback will appear here.</p>
+            </div>
+        @else
+            <div class="text-center py-20 bg-white rounded-xl border border-gray-200">
+                <div class="w-14 h-14 mx-auto mb-3 bg-yellow-50 rounded-full flex items-center justify-center">
+                    <svg class="w-7 h-7 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
                 </div>
-            @endforelse
-        </div>
+                <p class="text-base font-semibold text-gray-800">No reviews found</p>
+                <p class="text-sm text-gray-400 mt-1">School ratings & feedback will appear here.</p>
+            </div>
+        @endif
 
         @if ($reviews->hasPages())
             <div class="mt-6">{{ $reviews->links() }}</div>

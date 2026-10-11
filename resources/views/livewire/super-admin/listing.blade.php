@@ -48,15 +48,15 @@
                     Filter by:
                 </div>
 
-                <div class="relative">
+                <div class="relative flex-[1_1_8rem] min-w-0 max-w-56">
                     <svg class="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" /></svg>
                     <input type="text" wire:model.live.debounce.300ms="search" placeholder="Search name, email or mobile…"
-                        class="text-xs bg-white border border-gray-200 rounded-md pl-8 pr-3 py-1.5 text-gray-700 w-64 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        class="text-xs bg-white border border-gray-200 rounded-md pl-8 pr-3 py-1.5 text-gray-700 w-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                 </div>
 
                 {{-- Location filter --}}
                 <select wire:model.live="locationFilter"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                     <option value="">All locations</option>
                     @foreach ($locations as $loc)
                         <option value="{{ $loc }}">{{ $loc }}</option>
@@ -65,7 +65,7 @@
 
                 {{-- Status filter --}}
                 <select wire:model.live="statusFilter"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                     <option value="">All statuses</option>
                     <option value="pending">Pending</option>
                     <option value="approved">Approved</option>

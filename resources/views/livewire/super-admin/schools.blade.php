@@ -42,7 +42,7 @@
 
             {{-- Filter bar (enquiry-style sub-header) --}}
             <div class="border-t border-gray-200 bg-gray-50 px-4 sm:px-6 py-3">
-                <div class="flex flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 [&>*]:flex-shrink-0">
+                <div class="flex flex-wrap items-center gap-2">
                     <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
                         <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -51,21 +51,21 @@
                         Filter by:
                     </div>
 
-                    <div class="relative">
+                    <div class="relative flex-[1_1_8rem] min-w-0 max-w-56">
                         <svg class="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" /></svg>
                         <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search name, email, code…"
-                            class="text-xs bg-white border border-gray-200 rounded-md pl-8 pr-3 py-1.5 text-gray-700 w-44 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            class="text-xs bg-white border border-gray-200 rounded-md pl-8 pr-3 py-1.5 text-gray-700 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
 
                     <select wire:model.live="statusFilter"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">All statuses</option>
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
                     </select>
 
                     <select wire:model.live="mediumFilter"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">All mediums</option>
                         <option value="english">English Medium</option>
                         <option value="hindi">Hindi Medium</option>
@@ -73,7 +73,7 @@
                     </select>
 
                     <select wire:model.live="boardFilter"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 max-w-[200px]">
+                        class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">All boards</option>
                         @foreach ($boards as $board)
                             <option value="{{ $board }}">{{ $board }}</option>
@@ -84,13 +84,13 @@
                     <div class="flex items-center gap-1.5 ml-1">
                         <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7h12M3 12h9m-9 5h6m6 0l3 3m0 0l3-3m-3 3V8"/></svg>
                         <select wire:model.live="sortBy"
-                            class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                             <option value="name">Name (A–Z)</option>
                             <option value="created_at">Registered Date</option>
                             <option value="students">No. of Students</option>
                         </select>
                         <select wire:model.live="sortDir"
-                            class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                             <option value="asc">Ascending</option>
                             <option value="desc">Descending</option>
                         </select>

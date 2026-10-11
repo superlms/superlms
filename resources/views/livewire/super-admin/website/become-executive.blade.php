@@ -40,14 +40,14 @@
                     Filter by:
                 </div>
 
-                <div class="relative">
+                <div class="relative flex-[1_1_8rem] min-w-0 max-w-56">
                     <svg class="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" /></svg>
                     <input type="text" wire:model.live.debounce.300ms="search" placeholder="Search name, email, mobile…"
-                        class="text-xs bg-white border border-gray-200 rounded-md pl-8 pr-3 py-1.5 text-gray-700 w-60 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        class="text-xs bg-white border border-gray-200 rounded-md pl-8 pr-3 py-1.5 text-gray-700 w-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                 </div>
 
                 <select wire:model.live="statusFilter"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                     <option value="">All statuses</option>
                     @foreach ($statuses as $s)
                         <option value="{{ $s }}">{{ ucfirst($s) }}</option>

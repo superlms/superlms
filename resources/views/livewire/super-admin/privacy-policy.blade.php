@@ -60,8 +60,8 @@
                     </div>
                     <div class="flex items-center gap-3 flex-shrink-0">
                         @if ($privacyPolicy->last_updated)
-                            <span class="text-xs px-3 py-1 bg-green-50 text-green-600 rounded-full border border-green-100 font-medium">
-                                Last Updated: {{ $privacyPolicy->last_updated->format('d M Y') }}
+                            <span class="text-xs text-gray-400">
+                                Last updated {{ $privacyPolicy->last_updated->format('d M Y') }}
                             </span>
                         @endif
                         <button wire:click="switchTab('edit')"
@@ -77,36 +77,29 @@
                 </div>
             </div>
 
-            <div class="max-w-5xl mx-auto px-6 py-8 space-y-6">
-                @foreach ($viewSections as $i => $section)
-                    @if (!empty($section['head']) || !empty($section['desc']))
-                        <div
-                            class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden
-                                    hover:border-green-200 hover:shadow-md transition-all duration-200">
-                            @if (!empty($section['head']))
-                                <div
-                                    class="px-6 py-4 border-b border-gray-100 flex items-center gap-3
-                                            bg-gradient-to-r from-green-50 to-emerald-50">
-                                    <span
-                                        class="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600
-                                                 text-white text-sm font-bold rounded-xl flex items-center
-                                                 justify-center flex-shrink-0 shadow-sm">
-                                        {{ $i + 1 }}
-                                    </span>
-                                    <h2 class="text-base font-semibold text-gray-900">{{ $section['head'] }}</h2>
-                                </div>
-                            @endif
-                            @if (!empty($section['desc']))
-                                <div class="px-6 py-5">
-                                    <p class="text-sm text-gray-600 leading-relaxed">
+            {{-- The sections as a plain document, out of their cards: "1. Heading",
+                 the text under it, and a hairline between one section and the next. --}}
+            <div class="px-4 sm:px-6 py-6">
+                <div class="max-w-4xl divide-y divide-gray-200">
+                    @php $shown = 0; @endphp
+                    @foreach ($viewSections as $i => $section)
+                        @if (!empty($section['head']) || !empty($section['desc']))
+                            @php $shown++; @endphp
+                            <section class="py-5 first:pt-0">
+                                @if (!empty($section['head']))
+                                    <h2 class="text-base font-semibold text-gray-900">
+                                        <span class="text-gray-400 tabular-nums mr-1">{{ $shown }}.</span>{{ $section['head'] }}
+                                    </h2>
+                                @endif
+                                @if (!empty($section['desc']))
+                                    <p class="text-sm text-gray-600 leading-relaxed {{ !empty($section['head']) ? 'mt-2' : '' }}">
                                         {!! nl2br(e($section['desc'])) !!}
                                     </p>
-                                </div>
-                            @endif
-                        </div>
-                    @endif
-                @endforeach
-
+                                @endif
+                            </section>
+                        @endif
+                    @endforeach
+                </div>
             </div>
         @endif
     @endif

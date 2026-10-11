@@ -25,9 +25,9 @@
                 </div>
                 <input wire:model.live.debounce.300ms="search" type="text" name="documents_search"
                     autocomplete="off" placeholder="Search title, file, description..."
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-purple-500 focus:border-purple-500" />
+                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 flex-[1_1_8rem] min-w-0 max-w-56 focus:ring-2 focus:ring-purple-500 focus:border-purple-500" />
                 <select wire:model.live="filterOrg" @disabled($orgLocked)
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:text-gray-400">
+                    class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:text-gray-400">
                     <option value="">All Schools</option>
                     @foreach ($organizations as $org)
                         <option value="{{ $org->id }}">{{ $org->name }}</option>

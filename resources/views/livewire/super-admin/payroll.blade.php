@@ -94,8 +94,8 @@
                     Filter by:
                 </div>
                 <input wire:model.live.debounce.300ms="empSearch" type="text" placeholder="Search name, designation, mobile…"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-64 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                <select wire:model.live="empTypeFilter" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 flex-[1_1_8rem] min-w-0 max-w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <select wire:model.live="empTypeFilter" class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     <option value="">All Types</option>
                     @foreach ($typeOptions as $val => $label)<option value="{{ $val }}">{{ $label }}</option>@endforeach
                 </select>
@@ -104,7 +104,7 @@
                     <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>
                     Sort:
                 </div>
-                <select wire:model.live="empSort" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                <select wire:model.live="empSort" class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     <option value="name_asc">Name (A–Z)</option>
                     <option value="name_desc">Name (Z–A)</option>
                     <option value="salary_asc">Salary (Low–High)</option>
@@ -133,11 +133,11 @@
                         class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 </div>
                 <span class="text-gray-300 text-xs">or</span>
-                <select wire:model.live="filterAttendanceType" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                <select wire:model.live="filterAttendanceType" class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     <option value="">Employee type</option>
                     @foreach ($typeOptions as $val => $label)<option value="{{ $val }}">{{ $label }}</option>@endforeach
                 </select>
-                <select wire:model.live="attEmpId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[170px]">
+                <select wire:model.live="attEmpId" class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     <option value="">Select employee</option>
                     @foreach ($attEmployees as $emp)
                         <option value="{{ $emp->id }}">{{ $emp->name }} ({{ ucfirst($emp->type) }})</option>
@@ -151,13 +151,13 @@
                     </div>
                     @unless ($attMonth)
                         @php $acadStart = now()->month >= 4 ? now()->year : now()->year - 1; @endphp
-                        <select wire:model.live="attYear" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" title="Academic year (Apr–Mar)">
+                        <select wire:model.live="attYear" class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" title="Academic year (Apr–Mar)">
                             @for ($y = $acadStart; $y >= $acadStart - 5; $y--)
                                 <option value="{{ $y }}">{{ $y }}–{{ substr($y + 1, 2) }}</option>
                             @endfor
                         </select>
                     @endunless
-                    <select wire:model.live="attStatus" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <select wire:model.live="attStatus" class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                         <option value="">All status</option>
                         <option value="present">Present</option>
                         <option value="absent">Absent</option>
@@ -183,12 +183,12 @@
                     Filter by:
                 </div>
                 <input wire:model.live.debounce.300ms="salarySearch" type="text" placeholder="Search employee…"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 flex-[1_1_8rem] min-w-0 max-w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 <div class="flex items-center gap-1.5">
                     <label class="text-xs text-gray-500">Month</label>
                     <input type="month" wire:model.live="salaryMonth" max="{{ now()->format('Y-m') }}" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" />
                 </div>
-                <select wire:model.live="filterSalaryType" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                <select wire:model.live="filterSalaryType" class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     <option value="">All Types</option>
                     @foreach ($typeOptions as $val => $label)<option value="{{ $val }}">{{ $label }}</option>@endforeach
                 </select>
@@ -215,8 +215,8 @@
                     Filter by:
                 </div>
                 <input wire:model.live.debounce.300ms="paymentSearch" type="text" placeholder="Search employee…"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                <select wire:model.live="filterPaymentEmpId" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 min-w-[160px]">
+                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 flex-[1_1_8rem] min-w-0 max-w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                <select wire:model.live="filterPaymentEmpId" class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     <option value="">All Employees</option>
                     @foreach ($allEmployeesForFilter as $emp)<option value="{{ $emp->id }}">{{ $emp->name }}</option>@endforeach
                 </select>

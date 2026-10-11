@@ -50,14 +50,14 @@
                         Filter by:
                     </div>
 
-                    <div class="relative">
+                    <div class="relative flex-[1_1_8rem] min-w-0 max-w-56">
                         <svg class="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" /></svg>
                         <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search schools by name or code..."
-                            class="text-xs bg-white border border-gray-200 rounded-md pl-8 pr-3 py-1.5 text-gray-700 w-64 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            class="text-xs bg-white border border-gray-200 rounded-md pl-8 pr-3 py-1.5 text-gray-700 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     </div>
 
                     <select wire:model.live="filterOrganization"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 max-w-[200px]">
+                        class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">All Schools</option>
                         @foreach ($organizations as $org)
                             <option value="{{ $org->id }}">{{ $org->name }}</option>
@@ -65,14 +65,14 @@
                     </select>
 
                     <select wire:model.live="filterFeeType"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">All Fee Types</option>
                         <option value="per_student">Per Student</option>
                         <option value="one_time">One Time</option>
                     </select>
 
                     <select wire:model.live="filterBoard"
-                        class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 max-w-[200px]">
+                        class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">All Boards</option>
                         @foreach ($boards as $board)
                             <option value="{{ $board }}">{{ $board }}</option>
@@ -504,21 +504,21 @@
                                     Filter:
                                 </div>
                                 <select wire:model.live="viewFeeStandardId"
-                                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                                     <option value="">All Classes</option>
                                     @foreach ($viewStandards as $std)
                                         <option value="{{ $std->id }}">{{ $std->name }}</option>
                                     @endforeach
                                 </select>
                                 <select data-sole-section wire:model.live="viewFeeSectionId" @if (!$viewFeeStandardId) disabled @endif
-                                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-400">
+                                    class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-400">
                                     <option value="">All Sections</option>
                                     @foreach ($viewFeeSections as $sec)
                                         <option value="{{ $sec->id }}">{{ $sec->name }}</option>
                                     @endforeach
                                 </select>
                                 <select wire:model.live="viewFeeStatus"
-                                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                                     <option value="">All Status</option>
                                     <option value="paid">Paid</option>
                                     <option value="partial">Partial</option>

@@ -72,7 +72,7 @@
                 </div>
 
                 <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search name, email, school..."
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 w-56
+                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 flex-[1_1_8rem] min-w-0 max-w-56
                            focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
 
                 <div class="flex items-center gap-2">
@@ -93,7 +93,7 @@
                 <div class="h-5 w-px bg-gray-300 hidden sm:block"></div>
 
                 <select wire:model.live="statusFilter"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     <option value="">All Status</option>
                     <option value="pending">Pending</option>
                     <option value="remarked">Remarked</option>
