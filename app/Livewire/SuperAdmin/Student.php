@@ -306,6 +306,13 @@ class Student extends Component
         }
     }
 
+    /** The view's Edit: the view closes and the student opens in the form. */
+    public function editFromView($id): void
+    {
+        $this->closeViewModal();
+        $this->openEditPanel($id);
+    }
+
     // ─── Edit Student Panel ────────────────────────────────────────────────────
 
     public function openEditPanel($id): void

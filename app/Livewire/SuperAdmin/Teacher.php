@@ -238,6 +238,13 @@ class Teacher extends Component
 
     // ─── Edit Teacher Panel ────────────────────────────────────────────────────
 
+    /** The view's Edit: the view closes and the teacher opens in the form. */
+    public function editFromView($id): void
+    {
+        $this->closeViewModal();
+        $this->openEditPanel($id);
+    }
+
     public function openEditPanel($id): void
     {
         $detail = TeacherDetail::with(['user'])->find($id);
