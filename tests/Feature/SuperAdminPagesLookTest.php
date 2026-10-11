@@ -2,9 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Livewire\SuperAdmin\AboutApp;
 use App\Livewire\SuperAdmin\BecomeExecutive;
 use App\Livewire\SuperAdmin\Careers;
+use App\Livewire\SuperAdmin\Documents;
 use App\Livewire\SuperAdmin\Enquiry;
+use App\Livewire\SuperAdmin\Faqs;
 use App\Livewire\SuperAdmin\QuickLinks;
 use App\Livewire\SuperAdmin\Reports;
 use App\Models\User;
@@ -12,6 +15,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -452,5 +456,114 @@ class SuperAdminPagesLookTest extends TestCase
         $page->set('editStatus', 'approved')->set('editRemark', 'Good fit')->call('saveStatus')->assertSet('viewingId', null);
         $row = DB::table('executive_applications')->first();
         $this->assertSame(['approved', 'Good fit'], [$row->status, $row->admin_remark]);
+    }
+
+    public function test_documents_are_listed_as_the_school_panels_documents_without_the_file_name(): void
+    {
+        Storage::fake('s3');
+        Schema::create('organizations', function (Blueprint $t) {
+            $t->id();
+            $t->string('name');
+            $t->timestamps();
+        });
+        Schema::create('super_admin_documents', function (Blueprint $t) {
+            $t->id();
+            $t->string('title');
+            $t->text('description')->nullable();
+            foreach (['file_path', 'file_name', 'mime_type'] as $c) {
+                $t->string($c)->nullable();
+            }
+            $t->unsignedBigInteger('file_size')->nullable();
+            $t->string('audience_scope')->default('all');
+            $t->unsignedBigInteger('uploaded_by')->nullable();
+            $t->timestamps();
+        });
+        Schema::create('super_admin_document_organization', function (Blueprint $t) {
+            $t->id();
+            $t->unsignedBigInteger('document_id');
+            $t->unsignedBigInteger('organization_id');
+            $t->timestamps();
+        });
+        DB::table('super_admin_documents')->insert([
+            'title' => 'Testing document', 'description' => 'Testing Document', 'file_path' => 'super/t.pdf',
+            'file_name' => 'भूलेख 71.pdf', 'file_size' => 1468006, 'audience_scope' => 'all',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $page = Livewire::test(Documents::class);
+        $html = $page->html();
+        $text = preg_replace('/\s+/', ' ', strip_tags($html));
+
+        $this->assertStringContainsString('S.No Document Description Sent To Added On Actions 1 PDF Testing document 1.4 MB Testing Document All schools 11 Oct 2026', $text);
+        $this->assertStringNotContainsString('भूलेख 71.pdf', $html);                   // the file's own name is not listed
+        $this->assertStringContainsString('Total: <strong class="text-gray-800">1</strong>', $html);
+        $this->assertStringContainsString('Add Doc', $html);
+        foreach (['downloadDocument(1)', 'edit(1)', 'confirmDelete(1)'] as $action) {
+            $this->assertStringContainsString('wire:click="' . $action . '"', $html);
+        }
+
+        // The form keeps who gets it, now as plain radio buttons.
+        $form = $page->call('openCreate')->html();
+        $this->assertSame(3, substr_count($form, 'name="documentAudience"'));
+        $this->assertStringContainsString("wire:click=\"\$set('audienceScope', 'selected')\"", $form);
+    }
+
+    public function test_faqs_are_listed_as_the_website_enquiries(): void
+    {
+        Schema::create('faqs', function (Blueprint $t) {
+            $t->id();
+            $t->string('category')->default('General');
+            $t->string('question');
+            $t->text('answer')->nullable();
+            $t->timestamps();
+        });
+        DB::table('faqs')->insert([
+            'category' => 'Payments', 'question' => 'Can parents pay fees online?', 'answer' => 'Yes, from the parent app.',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $html = Livewire::test(Faqs::class)->html();
+        $text = preg_replace('/\s+/', ' ', strip_tags($html));
+
+        $this->assertStringContainsString('S.No FAQ Actions 1 Can parents pay fees online? Yes, from the parent app. Payments · Sun, 11 Oct 2026 · 10:00 AM', $text);
+        $this->assertStringContainsString('wire:click="openEdit(1)"', $html);
+        $this->assertStringContainsString('wire:click="confirmDelete(1)"', $html);
+    }
+
+    public function test_about_app_view_is_a_plain_document_with_minimal_boxes(): void
+    {
+        Schema::create('about_apps', function (Blueprint $t) {
+            $t->id();
+            foreach (['heading', 'sub_heading', 'logo', 'company_name', 'company_cin', 'address'] as $c) {
+                $t->string($c)->nullable();
+            }
+            foreach (['content', 'contact_details', 'core_team', 'social_media', 'documents'] as $c) {
+                $t->json($c)->nullable();
+            }
+            $t->timestamps();
+        });
+        DB::table('about_apps')->insert([
+            'heading' => 'About SuperLMS', 'company_name' => 'SuperLMS Pvt Ltd', 'address' => 'Aligarh, UP',
+            'content' => json_encode([['title' => 'Who we are', 'description' => 'A school app.'], ['title' => 'What we do', 'description' => 'Everything a school needs.']]),
+            'contact_details' => json_encode([['type' => 'Email', 'value' => 'hello@superlms.in']]),
+            'core_team' => json_encode([['name' => 'Asha', 'position' => 'Founder', 'link' => 'https://example.com/asha']]),
+            'social_media' => json_encode([['platform' => 'instagram', 'url' => 'https://instagram.com/superlms']]),
+            'documents' => json_encode([['title' => 'Brochure', 'file_type' => 'pdf', 'file_path' => 'https://example.com/b.pdf', 'file_size' => 204800]]),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $html = Livewire::test(AboutApp::class)->html();
+        $text = preg_replace('/\s+/', ' ', strip_tags($html));
+
+        $this->assertStringContainsString('min-h-screen bg-white', $html);
+        $this->assertStringContainsString('1.Who we are A school app. 2.What we do Everything a school needs.', $text);
+        $this->assertStringContainsString('Contact Details Email hello@superlms.in Address Aligarh, UP Our Core Team 1 members Asha Founder View Profile ↗', $text);
+        $this->assertStringContainsString('Follow Us On Social Media instagram', $text);
+        $this->assertStringContainsString('Documents 1 file(s) pdf Brochure 200 KB', $text);
+        // No gradient headers, shadows or hover lift left on the view.
+        $view = substr($html, 0, strpos($html, 'Brochure'));
+        foreach (['bg-gradient-to-r', 'shadow-md', 'hover:-translate-y'] as $gone) {
+            $this->assertStringNotContainsString($gone, $view);
+        }
     }
 }
