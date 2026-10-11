@@ -359,27 +359,6 @@ class Dashboard extends Component
         ] : null;
     }
 
-    /** Quick Access tiles this user can open. */
-    protected function quickTiles(): array
-    {
-        $tiles = [
-            ['label' => 'Schools',           'route' => 'super-admin.schools',           'icon' => 'building-library'],
-            ['label' => 'Students',          'route' => 'super-admin.students',          'icon' => 'users'],
-            ['label' => 'Teachers',          'route' => 'super-admin.teachers',          'icon' => 'academic-cap'],
-            ['label' => 'Fees',              'route' => 'super-admin.fees',              'icon' => 'currency-rupee'],
-            ['label' => 'Payroll',           'route' => 'super-admin.payroll',           'icon' => 'banknotes'],
-            ['label' => 'Analytics',         'route' => 'super-admin.analytics',         'icon' => 'chart-bar'],
-            ['label' => 'Reports',           'route' => 'super-admin.reports',           'icon' => 'document-chart-bar'],
-            ['label' => 'Push Notification', 'route' => 'super-admin.push-notification', 'icon' => 'megaphone'],
-            ['label' => 'Support',           'route' => 'super-admin.support',           'icon' => 'lifebuoy'],
-            ['label' => 'Enquiries',         'route' => 'super-admin.enquiries',         'icon' => 'chat-bubble-oval-left-ellipsis'],
-            ['label' => 'Users',             'route' => 'super-admin.users',             'icon' => 'user-group'],
-            ['label' => 'Documents',         'route' => 'super-admin.documents',         'icon' => 'folder-open'],
-        ];
-
-        return array_values(array_filter($tiles, fn ($t) => $this->canOpen($t['route'])));
-    }
-
     // ── Public Actions ────────────────────────────────────────────────────────
 
     public function loginAsSchool(int $schoolId): void
@@ -613,7 +592,6 @@ class Dashboard extends Component
         $websiteWeek     = $this->websiteWeek();
         $pushSummary     = $this->pushSummary();
         $latestReview    = $this->latestReview();
-        $quickTiles      = $this->quickTiles();
 
         // The empty public $recentActivities shadows a view variable of that
         // name (the feed always showed "No recent activity"), so the view
@@ -633,7 +611,6 @@ class Dashboard extends Component
             'websiteWeek',
             'pushSummary',
             'latestReview',
-            'quickTiles',
             'activityFeed',
             'totalSchools',
             'totalStudents',

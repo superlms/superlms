@@ -88,24 +88,6 @@
             </div>
         </section>
 
-        {{-- ══════════════════════════════ QUICK ACCESS ══════════════════════ --}}
-        @if (count($quickTiles) > 0)
-            <section>
-                <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Quick Access</h2>
-                <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-                    @foreach ($quickTiles as $q)
-                        <a href="{{ route($q['route']) }}"
-                            class="group bg-white rounded-xl border border-gray-200 px-3 py-4 flex flex-col items-center text-center gap-2.5 hover:border-gray-300 transition-colors">
-                            <span class="w-10 h-10 rounded-lg bg-gray-100 text-gray-600 flex items-center justify-center transition-colors group-hover:bg-gray-900 group-hover:text-white">
-                                <x-icon name="{{ $q['icon'] }}" class="w-5 h-5" />
-                            </span>
-                            <span class="text-xs font-medium text-gray-600 group-hover:text-gray-900">{{ $q['label'] }}</span>
-                        </a>
-                    @endforeach
-                </div>
-            </section>
-        @endif
-
         {{-- ══════════════════════════ NEEDS ATTENTION ═══════════════════════
              What is waiting on the Super Admin, each figure opening its screen.
         ══════════════════════════════════════════════════════════════════ --}}

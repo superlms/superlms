@@ -68,6 +68,22 @@ class SuperAdminAnalyticsTest extends TestCase
         $this->assertStringContainsString('· 30 days', $text);
     }
 
+    public function test_students_by_gender_reads_the_students_own_details(): void
+    {
+        \Illuminate\Support\Facades\Schema::create('student_details', function (\Illuminate\Database\Schema\Blueprint $t) {
+            $t->id();
+            $t->string('gender')->nullable();
+            $t->timestamps();
+        });
+        foreach (['male', 'Male', ' female', 'other', 'Others', null, ''] as $g) {
+            \Illuminate\Support\Facades\DB::table('student_details')->insert(['gender' => $g]);
+        }
+
+        $split = (fn () => $this->studentGenderSplit())->call(new Analytics());
+
+        $this->assertSame(['male' => 2, 'female' => 1, 'other' => 2, 'unknown' => 2], $split);
+    }
+
     public function test_the_super_admin_sidebar_scrollbar_is_a_hairline_and_page_boxes_get_the_slim_bar(): void
     {
         $html = view('admin-components.super-admin-sidebar')->render();

@@ -6,6 +6,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 use App\Models\Organization;
 use App\Models\User;
+use App\Models\Student\StudentDetail;
 use App\Models\SuperAdmin\CreditQuery;
 use App\Models\SuperAdmin\SuperAdminFeeStructure;
 use App\Models\SuperAdmin\SuperAdminFeePayment;
@@ -233,18 +234,7 @@ class Analytics extends Component
             'schools'  => $this->monthlySeries(Organization::query()),
         ];
 
-        // Student gender split
-        $genders = User::where('role', 'user')
-            ->selectRaw("COALESCE(NULLIF(gender, ''), 'unknown') as g, COUNT(*) as c")
-            ->groupBy('g')
-            ->pluck('c', 'g');
-
-        $this->genderSplit = [
-            'male'    => (int) ($genders['male'] ?? 0),
-            'female'  => (int) ($genders['female'] ?? 0),
-            'other'   => (int) ($genders['other'] ?? 0),
-            'unknown' => (int) ($genders['unknown'] ?? 0),
-        ];
+        $this->genderSplit = $this->studentGenderSplit();
 
         // Platform ratings (Rate LMS)
         $ratingRows = RateLms::selectRaw('rating, COUNT(*) as c')->groupBy('rating')->pluck('c', 'rating');
@@ -263,6 +253,29 @@ class Analytics extends Component
             'avg'          => $totalRatings > 0 ? round((float) RateLms::avg('rating'), 1) : 0,
             'fiveStar'     => (int) ($ratingRows[5] ?? 0),
             'distribution' => $dist,
+        ];
+    }
+
+    /**
+     * Students by gender, from student_details.
+     */
+    private function studentGenderSplit(): array
+    {
+        // Student gender split. A student's gender is kept on student_details
+        // (the panel and app forms save male / female / other there); the
+        // users.gender column is the sub-super-admins' and is empty for
+        // students, so reading it put every student under "Not set".
+        $genders = StudentDetail::query()
+            ->selectRaw("LOWER(COALESCE(NULLIF(TRIM(gender), ''), 'unknown')) as g, COUNT(*) as c")
+            ->groupBy('g')
+            ->pluck('c', 'g');
+
+        return [
+            'male'    => (int) ($genders['male'] ?? 0),
+            'female'  => (int) ($genders['female'] ?? 0),
+            // Anything else written into the field counts as other.
+            'other'   => (int) $genders->except(['male', 'female', 'unknown'])->sum(),
+            'unknown' => (int) ($genders['unknown'] ?? 0),
         ];
     }
 

@@ -80,23 +80,12 @@ class SuperAdminHomeTest extends TestCase
         $this->assertContains('Payroll', $titles);
     }
 
-    public function test_a_sub_super_admin_granted_credit_still_gets_no_credit_link_and_only_granted_tiles(): void
+    public function test_a_sub_super_admin_granted_credit_still_gets_no_credit_link(): void
     {
         $this->signIn('sub-super-admin', ['super-admin.dashboard', 'super-admin.schools', 'super-admin.users', 'super-admin.credit']);
 
         $this->assertSame(['Home', 'Schools'], $this->sidebarTitles());
-        $this->assertSame(['Schools'], array_column($this->helper('quickTiles'), 'label'));
         $this->assertNotContains('Credit', array_column(Livewire::test(QuickLinks::class)->viewData('orderedLinks'), 'title'));
-    }
-
-    public function test_home_tiles_for_the_super_admin_have_no_credit(): void
-    {
-        $this->signIn();
-        $labels = array_column($this->helper('quickTiles'), 'label');
-
-        $this->assertContains('Schools', $labels);
-        $this->assertContains('Users', $labels);
-        $this->assertNotContains('Credit', $labels);
     }
 
     private function table(string $name, callable $columns): void
