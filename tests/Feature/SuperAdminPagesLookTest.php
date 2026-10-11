@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Livewire\SuperAdmin\BecomeExecutive;
+use App\Livewire\SuperAdmin\Careers;
 use App\Livewire\SuperAdmin\Enquiry;
 use App\Livewire\SuperAdmin\QuickLinks;
 use App\Livewire\SuperAdmin\Reports;
@@ -362,5 +364,93 @@ class SuperAdminPagesLookTest extends TestCase
         $contact = preg_replace('/\s+/', ' ', strip_tags(Livewire::test(Enquiry::class)->call('switchTab', 'contact')->html()));
         $this->assertStringContainsString('1 Pricing for 3 schools Please share the plans. Meena', $contact);
         $this->assertStringContainsString('Remarked', $contact);
+    }
+
+    public function test_careers_jobs_and_applications_are_listed_as_website_enquiries(): void
+    {
+        Schema::create('website_pages', function (Blueprint $t) {
+            $t->id();
+            $t->string('slug')->unique();
+            $t->json('metadata')->nullable();
+            $t->date('last_updated')->nullable();
+            $t->timestamps();
+        });
+        Schema::create('career_applications', function (Blueprint $t) {
+            $t->id();
+            foreach (['job_role', 'full_name', 'email', 'mobile', 'qualification', 'experience', 'document_path', 'status'] as $c) {
+                $t->string($c)->nullable();
+            }
+            $t->text('address')->nullable();
+            $t->text('description')->nullable();
+            $t->timestamps();
+        });
+        DB::table('website_pages')->insert([
+            'slug' => 'careers',
+            'metadata' => json_encode(['jobs' => [[
+                'role' => 'Sales Executive', 'department' => 'Sales', 'location' => 'Aligarh', 'type' => 'Full-time', 'salary' => '3 LPA',
+            ]]]),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('career_applications')->insert([
+            'job_role' => 'Sales Executive', 'full_name' => 'Asha Verma', 'email' => 'asha@example.com', 'mobile' => '9000000001',
+            'qualification' => 'MBA', 'experience' => '2 years', 'address' => 'Agra', 'description' => 'I sell well.',
+            'document_path' => null, 'status' => 'new', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $jobs = preg_replace('/\s+/', ' ', strip_tags(Livewire::test(Careers::class)->html()));
+        $this->assertStringContainsString('S.No Job Opening Actions 1 Sales Executive Sales · Aligarh Full-time · 3 LPA', $jobs);
+
+        $page = Livewire::test(Careers::class)->call('switchTab', 'applications');
+        $list = preg_replace('/\s+/', ' ', strip_tags($page->html()));
+        $this->assertStringContainsString('S.No Application Actions 1 Asha Verma I sell well. Sales Executive ·asha@example.com ·9000000001 · Sun, 11 Oct 2026 · 10:00 AM · New', $list);
+
+        $view = preg_replace('/\s+/', ' ', strip_tags($page->call('viewApplication', 1)->html()));
+        $this->assertStringContainsString('Asha Verma Sales Executive · New', $view);
+        $this->assertStringContainsString('Applied for Sales Executive Email asha@example.com Mobile 9000000001 Experience 2 years Qualification MBA Applied on 11 Oct 2026 · 10:00 AM Status New Address Agra About / Message I sell well. Resume Not attached Mark as Reviewed Close', $view);
+
+        // Same toggle as before: the footer marks it reviewed and closes the view.
+        $page->call('toggleReviewed', 1)->assertSet('viewingId', null);
+        $this->assertSame('reviewed', DB::table('career_applications')->value('status'));
+    }
+
+    public function test_become_executive_applications_are_listed_as_website_enquiries(): void
+    {
+        Schema::create('executive_applications', function (Blueprint $t) {
+            $t->id();
+            foreach (['full_name', 'email', 'mobile', 'qualification', 'document_path', 'status'] as $c) {
+                $t->string($c)->nullable();
+            }
+            $t->text('address')->nullable();
+            $t->text('description')->nullable();
+            $t->text('admin_remark')->nullable();
+            $t->timestamps();
+        });
+        // The status save tells the super admins (ActivityNotifier), which reads users.
+        Schema::create('users', function (Blueprint $t) {
+            $t->id();
+            foreach (['name', 'email', 'role'] as $c) {
+                $t->string($c)->nullable();
+            }
+            $t->timestamps();
+        });
+        DB::table('executive_applications')->insert([
+            'full_name' => 'Rohit Singh', 'email' => 'rohit@example.com', 'mobile' => '9000000002', 'qualification' => 'B.Com',
+            'address' => 'Mathura', 'description' => 'I know many schools.', 'status' => 'contacted',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $page = Livewire::test(BecomeExecutive::class);
+        $list = preg_replace('/\s+/', ' ', strip_tags($page->html()));
+        $this->assertStringContainsString('S.No Application Actions 1 Rohit Singh I know many schools. B.Com· rohit@example.com· 9000000002· Sun, 11 Oct 2026 · 10:00 AM · Contacted', $list);
+        $this->assertStringContainsString('text-blue-600">Contacted', $page->html());
+
+        $view = preg_replace('/\s+/', ' ', strip_tags($page->call('viewApplication', 1)->html()));
+        $this->assertStringContainsString('Rohit Singh Partner / Executive application · Contacted', $view);
+        $this->assertStringContainsString('Email rohit@example.com Mobile 9000000002 Qualification B.Com Applied on 11 Oct 2026 · 10:00 AM Status Contacted Address Mathura About / Message I know many schools. Document Not attached', $view);
+
+        // Same status + remark save as before.
+        $page->set('editStatus', 'approved')->set('editRemark', 'Good fit')->call('saveStatus')->assertSet('viewingId', null);
+        $row = DB::table('executive_applications')->first();
+        $this->assertSame(['approved', 'Good fit'], [$row->status, $row->admin_remark]);
     }
 }

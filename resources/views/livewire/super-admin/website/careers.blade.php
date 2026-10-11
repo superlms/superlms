@@ -118,12 +118,15 @@
     </div>
 
     {{-- ══════════════════ TAB 1 — JOB OPENINGS ══════════════════ --}}
+    {{-- In the Website Enquiries' table look: S.No, the opening (its icon, the
+         role, under it the department and location, then, small, the type and
+         salary) and the actions. --}}
     @if ($activeTab === 'jobs')
         <div class="p-4 sm:p-6">
             @if (empty($jobs))
                 <div class="text-center py-20 bg-white rounded-xl border border-gray-200">
-                    <div class="w-14 h-14 mx-auto mb-3 bg-indigo-50 rounded-full flex items-center justify-center">
-                        <svg class="w-7 h-7 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-blue-50 rounded-full flex items-center justify-center">
+                        <svg class="w-7 h-7 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
                     </div>
@@ -131,178 +134,183 @@
                     <p class="text-sm text-gray-400 mt-1">Click <span class="font-semibold text-indigo-600">Add Job</span> to publish your first opening.</p>
                 </div>
             @else
-                <div class="space-y-3">
-                    @foreach ($jobs as $index => $job)
-                        <div class="group bg-white rounded-xl border border-gray-200 hover:border-indigo-200 hover:shadow-md transition-all duration-200 overflow-hidden" wire:key="job-{{ $index }}">
-                            <div class="flex items-stretch">
-                                <div class="w-1 flex-shrink-0 bg-indigo-400"></div>
+                <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full table-fixed">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-16">S.No</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Job Opening</th>
+                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-36">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach ($jobs as $index => $job)
+                                    @php
+                                        $jobWhere = collect([$job['department'] ?? '', $job['location'] ?? ''])->filter()->implode(' · ');
+                                        $jobTerms = collect([$job['type'] ?? '', $job['salary'] ?? ''])->filter()->implode(' · ');
+                                    @endphp
+                                    <tr wire:key="job-{{ $index }}" class="hover:bg-gray-50/70 transition-colors">
 
-                                <div class="flex-1 p-4 sm:p-5 min-w-0">
-                                    <div class="flex items-start justify-between gap-4">
-                                        <div class="flex items-start gap-3 flex-1 min-w-0">
-                                            <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-indigo-50">
-                                                <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                                </svg>
-                                            </div>
+                                        {{-- S.No --}}
+                                        <td class="px-4 py-3">
+                                            <span class="text-sm text-gray-500 font-medium">{{ $index + 1 }}</span>
+                                        </td>
 
-                                            <div class="flex-1 min-w-0">
-                                                <div class="flex flex-wrap items-center gap-2 mb-1">
-                                                    <h3 class="text-base font-semibold text-gray-900">{{ $job['role'] ?: '—' }}</h3>
-                                                    @if (!empty($job['type']))
-                                                        <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide bg-indigo-100 text-indigo-700">{{ $job['type'] }}</span>
-                                                    @endif
-                                                    @if (!empty($job['salary']))
-                                                        <span class="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">💰 {{ $job['salary'] }}</span>
-                                                    @endif
+                                        {{-- Job opening --}}
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center gap-3 min-w-0">
+                                                <div class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                                    </svg>
                                                 </div>
-
-                                                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 mt-1.5">
-                                                    @if (!empty($job['department']))
-                                                        <span class="inline-flex items-center gap-1">
-                                                            <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                                                            <span class="font-medium text-gray-600">{{ $job['department'] }}</span>
-                                                        </span>
-                                                    @endif
-                                                    @if (!empty($job['department']) && !empty($job['location']))
-                                                        <span class="text-gray-300">•</span>
-                                                    @endif
-                                                    @if (!empty($job['location']))
-                                                        <span class="inline-flex items-center gap-1">
-                                                            <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                                            {{ $job['location'] }}
-                                                        </span>
+                                                <div class="min-w-0">
+                                                    <p class="text-sm font-semibold text-gray-900 truncate">{{ $job['role'] ?: '—' }}</p>
+                                                    <p class="text-xs text-gray-400 truncate">{{ $jobWhere !== '' ? $jobWhere : '—' }}</p>
+                                                    @if ($jobTerms !== '')
+                                                        <p class="text-[11px] text-gray-400 truncate mt-0.5">{{ $jobTerms }}</p>
                                                     @endif
                                                 </div>
                                             </div>
-                                        </div>
+                                        </td>
 
-                                        <div class="flex items-center gap-1 flex-shrink-0">
-                                            <button wire:click="openJobEdit({{ $index }})" title="Edit"
-                                                class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                </svg>
-                                            </button>
-                                            <button wire:click="confirmJobDelete({{ $index }})" title="Delete"
-                                                class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    @endforeach
+                                        {{-- Actions --}}
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center justify-center gap-1">
+                                                <button wire:click="openJobEdit({{ $index }})" title="Edit"
+                                                    class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                    </svg>
+                                                </button>
+                                                <button wire:click="confirmJobDelete({{ $index }})" title="Delete"
+                                                    class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             @endif
         </div>
     @endif
 
     {{-- ══════════════════ TAB 2 — WEBSITE QUERIES ══════════════════ --}}
+    {{-- In the Website Enquiries' table look: S.No, the application (its icon,
+         the applicant, under it the message on one line cut short with …,
+         then, small, the role, how to reach them, when, new or reviewed and a
+         resume) and the actions. The rest is on its View; a click on the row
+         opens it. --}}
     @if ($activeTab === 'applications')
         <div class="p-4 sm:p-6">
-            <div class="space-y-3">
-                @forelse ($applications as $app)
-                    @php $isReviewed = $app->status === 'reviewed'; @endphp
-                    <div wire:click="viewApplication({{ $app->id }})"
-                        class="group bg-white rounded-xl border border-gray-200 hover:border-indigo-200 hover:shadow-md transition-all duration-200 overflow-hidden cursor-pointer" wire:key="capp-{{ $app->id }}">
-                        <div class="flex items-stretch">
-                            <div class="w-1 flex-shrink-0 {{ $isReviewed ? 'bg-emerald-500' : 'bg-amber-400' }}"></div>
+            @if ($applications->count())
+                <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full table-fixed">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-16">S.No</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Application</th>
+                                    <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-36">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach ($applications as $index => $app)
+                                    @php $isReviewed = $app->status === 'reviewed'; @endphp
+                                    <tr wire:key="capp-{{ $app->id }}" wire:click="viewApplication({{ $app->id }})"
+                                        class="hover:bg-gray-50/70 transition-colors cursor-pointer">
 
-                            <div class="flex-1 p-4 sm:p-5 min-w-0">
-                                <div class="flex items-start justify-between gap-4">
-                                    <div class="flex items-start gap-3 flex-1 min-w-0">
-                                        <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 {{ $isReviewed ? 'bg-emerald-50' : 'bg-amber-50' }}">
-                                            <svg class="w-5 h-5 {{ $isReviewed ? 'text-emerald-600' : 'text-amber-600' }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                            </svg>
-                                        </div>
+                                        {{-- S.No --}}
+                                        <td class="px-4 py-3">
+                                            <span class="text-sm text-gray-500 font-medium">{{ $applications->firstItem() + $index }}</span>
+                                        </td>
 
-                                        <div class="flex-1 min-w-0">
-                                            <div class="flex flex-wrap items-center gap-2 mb-1">
-                                                <h3 class="text-base font-semibold text-gray-900">{{ $app->full_name }}</h3>
-                                                <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide {{ $isReviewed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ $isReviewed ? 'Reviewed' : 'New' }}</span>
-                                                @if ($app->job_role)
-                                                    <span class="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">💼 {{ \Illuminate\Support\Str::limit($app->job_role, 30) }}</span>
-                                                @endif
+                                        {{-- Application --}}
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center gap-3 min-w-0">
+                                                <div class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                    </svg>
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <p class="text-sm font-semibold text-gray-900 truncate">{{ $app->full_name ?: 'Anonymous' }}</p>
+                                                    <p class="text-xs text-gray-400 truncate">{{ $app->description ?: '—' }}</p>
+                                                    <p class="text-[11px] text-gray-400 truncate mt-0.5">
+                                                        {{ $app->job_role ?: 'General application' }}
+                                                        @if ($app->email)
+                                                            <span class="mx-1 text-gray-300">·</span>{{ $app->email }}
+                                                        @endif
+                                                        @if ($app->mobile)
+                                                            <span class="mx-1 text-gray-300">·</span>{{ $app->mobile }}
+                                                        @endif
+                                                        <span class="mx-1 text-gray-300">·</span>
+                                                        {{ $app->created_at->format('D, d M Y · g:i A') }}
+                                                        <span class="mx-1 text-gray-300">·</span>
+                                                        <span class="{{ $isReviewed ? 'text-emerald-600' : 'text-amber-600' }}">{{ $isReviewed ? 'Reviewed' : 'New' }}</span>
+                                                        @if ($app->document_path)
+                                                            <span class="mx-1 text-gray-300">·</span>
+                                                            Resume
+                                                        @endif
+                                                    </p>
+                                                </div>
                                             </div>
+                                        </td>
 
-                                            @if ($app->description)
-                                                <p class="text-sm text-gray-600 line-clamp-2 mb-2.5 leading-relaxed">{{ \Illuminate\Support\Str::limit($app->description, 160) }}</p>
-                                            @endif
-
-                                            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-                                                @if ($app->email)
-                                                    <span class="inline-flex items-center gap-1">
-                                                        <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                                                        <span class="font-medium text-gray-600">{{ $app->email }}</span>
-                                                    </span>
-                                                    <span class="text-gray-300">•</span>
-                                                @endif
-                                                @if ($app->mobile)
-                                                    <span class="inline-flex items-center gap-1">
-                                                        <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-                                                        {{ $app->mobile }}
-                                                    </span>
-                                                    <span class="text-gray-300">•</span>
-                                                @endif
-                                                <span class="inline-flex items-center gap-1">
-                                                    <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                                    {{ $app->created_at->format('M j, Y · g:i A') }}
-                                                </span>
+                                        {{-- Actions --}}
+                                        <td class="px-4 py-3" onclick="event.stopPropagation()">
+                                            <div class="flex items-center justify-center gap-1">
+                                                <button wire:click="viewApplication({{ $app->id }})" title="View"
+                                                    class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                    </svg>
+                                                </button>
                                                 @if ($app->document_path)
-                                                    <span class="text-gray-300">•</span>
-                                                    <span class="inline-flex items-center gap-1 text-indigo-500">
-                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
-                                                        Resume
-                                                    </span>
+                                                    <button wire:click="viewDocument({{ $app->id }})" title="View Resume"
+                                                        class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                        </svg>
+                                                    </button>
                                                 @endif
+                                                <button wire:click="confirmDeleteApplication({{ $app->id }})" title="Delete"
+                                                    class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
                                             </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="flex items-center gap-1 flex-shrink-0" @click.stop>
-                                        <button wire:click="viewApplication({{ $app->id }})" title="View"
-                                            class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                            </svg>
-                                        </button>
-                                        @if ($app->document_path)
-                                            <button wire:click="viewDocument({{ $app->id }})" title="View Resume"
-                                                class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                                </svg>
-                                            </button>
-                                        @endif
-                                        <button wire:click="confirmDeleteApplication({{ $app->id }})" title="Delete"
-                                            class="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
-                @empty
-                    <div class="text-center py-20 bg-white rounded-xl border border-gray-200">
-                        <div class="w-14 h-14 mx-auto mb-3 bg-indigo-50 rounded-full flex items-center justify-center">
-                            <svg class="w-7 h-7 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                            </svg>
-                        </div>
-                        <p class="text-base font-semibold text-gray-800">No applications found</p>
-                        <p class="text-sm text-gray-400 mt-1">Applications submitted from the Careers page will appear here.</p>
+                </div>
+            @else
+                <div class="text-center py-20 bg-white rounded-xl border border-gray-200">
+                    <div class="w-14 h-14 mx-auto mb-3 bg-blue-50 rounded-full flex items-center justify-center">
+                        <svg class="w-7 h-7 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                        </svg>
                     </div>
-                @endforelse
-            </div>
+                    <p class="text-base font-semibold text-gray-800">No applications found</p>
+                    <p class="text-sm text-gray-400 mt-1">Applications submitted from the Careers page will appear here.</p>
+                </div>
+            @endif
 
             @if ($applications->hasPages())
                 <div class="mt-6">{{ $applications->links() }}</div>
@@ -375,78 +383,82 @@
     @endif
 
     {{-- ══════════════════ APPLICATION VIEW SLIDE-IN PANEL ══════════════════ --}}
+    {{-- In the Website Enquiry view's look: the applicant in the header, then
+         plain label / value rows; the resume under a line. --}}
     @if ($viewing)
+        @php $cvReviewed = $viewing->status === 'reviewed'; @endphp
         <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden" x-data @keydown.escape.window="$wire.closeApplication()">
-            <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closeApplication"></div>
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeApplication"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+
+                {{-- Header --}}
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                    <div>
-                        <h2 class="text-lg font-semibold text-gray-900">{{ $viewing->full_name }}</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">{{ $viewing->job_role ?: 'General application' }}</p>
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $viewing->full_name ?: 'Application Details' }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5 truncate">
+                            {{ $viewing->job_role ?: 'General application' }} · {{ $cvReviewed ? 'Reviewed' : 'New' }}
+                        </p>
                     </div>
                     <button wire:click="closeApplication"
                         class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
                     </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-                    <div class="grid grid-cols-2 gap-5">
-                        <div>
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Email</p>
-                            <p class="text-sm text-gray-800 break-all">{{ $viewing->email }}</p>
+                {{-- Body — plain label / value rows --}}
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                    @foreach ([
+                        'Applied for'   => $viewing->job_role ?: 'General application',
+                        'Email'         => $viewing->email ?: '—',
+                        'Mobile'        => $viewing->mobile ?: '—',
+                        'Experience'    => $viewing->experience ?: '—',
+                        'Qualification' => $viewing->qualification ?: '—',
+                        'Applied on'    => $viewing->created_at->format('d M Y · g:i A'),
+                    ] as $label => $value)
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
+                            <span class="col-span-2 text-gray-800 font-medium break-words">{{ $value }}</span>
                         </div>
-                        <div>
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Mobile</p>
-                            <p class="text-sm text-gray-800">{{ $viewing->mobile }}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Experience</p>
-                            <p class="text-sm text-gray-800">{{ $viewing->experience ?: '—' }}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Qualification</p>
-                            <p class="text-sm text-gray-800">{{ $viewing->qualification ?: '—' }}</p>
-                        </div>
-                        <div class="col-span-2">
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Applied On</p>
-                            <p class="text-sm text-gray-800">{{ $viewing->created_at->format('d M Y, h:i A') }}</p>
-                        </div>
+                    @endforeach
+                    <div class="grid grid-cols-3 gap-3 text-sm">
+                        <span class="text-xs text-gray-400 uppercase tracking-wider">Status</span>
+                        <span class="col-span-2 font-medium {{ $cvReviewed ? 'text-emerald-600' : 'text-amber-600' }}">{{ $cvReviewed ? 'Reviewed' : 'New' }}</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3 text-sm">
+                        <span class="text-xs text-gray-400 uppercase tracking-wider">Address</span>
+                        <span class="col-span-2 text-gray-800 whitespace-pre-line break-words">{{ $viewing->address ?: '—' }}</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3 text-sm">
+                        <span class="text-xs text-gray-400 uppercase tracking-wider">About / Message</span>
+                        <span class="col-span-2 text-gray-800 whitespace-pre-line leading-relaxed break-words">{{ $viewing->description ?: '—' }}</span>
                     </div>
 
-                    <div>
-                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Address</p>
-                        <p class="text-sm text-gray-800 whitespace-pre-line">{{ $viewing->address ?: '—' }}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">About / Message</p>
-                        <p class="text-sm text-gray-800 whitespace-pre-line leading-relaxed">{{ $viewing->description ?: '—' }}</p>
-                    </div>
-
-                    @if ($viewing->document_path)
-                        <div class="border-t border-gray-100 pt-5">
-                            <p class="text-xs text-gray-400 uppercase tracking-wider mb-2">Resume / Document</p>
-                            <div class="flex items-center gap-2">
-                                <button wire:click="viewDocument({{ $viewing->id }})"
-                                    class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                    View in new tab
-                                </button>
-                                <button wire:click="downloadDocument({{ $viewing->id }})"
-                                    class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors">
-                                    ⬇ Download
-                                </button>
-                            </div>
+                    {{-- The resume, under a line --}}
+                    <div class="pt-4 mt-2 border-t border-gray-100">
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">Resume</span>
+                            @if ($viewing->document_path)
+                                <span class="col-span-2 font-medium">
+                                    <button type="button" wire:click="viewDocument({{ $viewing->id }})" class="text-blue-600 hover:underline">Open in new tab ↗</button>
+                                    <span class="mx-1.5 text-gray-300">·</span>
+                                    <button type="button" wire:click="downloadDocument({{ $viewing->id }})" class="text-blue-600 hover:underline">Download</button>
+                                </span>
+                            @else
+                                <span class="col-span-2 text-gray-400 font-medium">Not attached</span>
+                            @endif
                         </div>
-                    @endif
+                    </div>
                 </div>
 
-                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
-                    <button wire:click="closeApplication" class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800">Cancel</button>
-                    <button wire:click="toggleReviewed({{ $viewing->id }})"
-                        class="inline-flex items-center gap-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-semibold px-5 py-2 rounded-lg">
-                        {{ $viewing->status === 'reviewed' ? 'Mark as New' : 'Mark as Reviewed' }}
+                {{-- Footer --}}
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
+                    <button type="button" wire:click="toggleReviewed({{ $viewing->id }})"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">
+                        {{ $cvReviewed ? 'Mark as New' : 'Mark as Reviewed' }}
                     </button>
+                    <button type="button" wire:click="closeApplication" class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
                 </div>
             </div>
         </div>
