@@ -19,6 +19,31 @@
     }
 @endphp
 
+{{-- Scrollbars in the school panel's style (this partial is only included for
+     the super admin and sub-super-admins, so the other panels keep theirs):
+     - the menu's scrollbar is a hairline, as the school sidebar's;
+     - every box that scrolls inside a page (slide-in panel bodies, lists,
+       wide tables) gets the page's own slim 8px bar, darker on hover,
+       instead of the browser's wide one. --}}
+<style>
+    #sidebar-nav::-webkit-scrollbar { width: 3px; }
+    #sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+    #sidebar-nav::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+    #sidebar-nav::-webkit-scrollbar-button { display: none; }
+
+    #main-scroll :is(.overflow-y-auto, .overflow-x-auto, .overflow-auto)::-webkit-scrollbar { width: 8px; height: 8px; }
+    #main-scroll :is(.overflow-y-auto, .overflow-x-auto, .overflow-auto)::-webkit-scrollbar-track { background: transparent; }
+    #main-scroll :is(.overflow-y-auto, .overflow-x-auto, .overflow-auto)::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+    #main-scroll :is(.overflow-y-auto, .overflow-x-auto, .overflow-auto)::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+    #main-scroll :is(.overflow-y-auto, .overflow-x-auto, .overflow-auto)::-webkit-scrollbar-button { display: none; }
+    #main-scroll :is(.overflow-y-auto, .overflow-x-auto, .overflow-auto)::-webkit-scrollbar-corner { background: transparent; }
+
+    @supports not selector(::-webkit-scrollbar) {
+        #sidebar-nav,
+        #main-scroll :is(.overflow-y-auto, .overflow-x-auto, .overflow-auto) { scrollbar-width: thin; scrollbar-color: #d1d5db transparent; }
+    }
+</style>
+
 <!-- Off-canvas menu for mobile, show/hide based on off-canvas menu state. -->
 <div x-show="offcanvas" x-cloak class="fixed inset-0 flex z-[60] md:hidden"
      role="dialog" aria-modal="true"
