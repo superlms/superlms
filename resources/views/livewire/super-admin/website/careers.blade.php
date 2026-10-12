@@ -3,7 +3,7 @@
     {{-- ══════════════════ HEADER (analytics + tabs + filter) ══════════════════ --}}
     <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
         <div class="px-4 sm:px-6 py-3">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-12">
                 <div class="flex items-center gap-3 min-w-0">
                     <img src="{{ asset('website-image/Group 11525.png') }}" alt="SUPERLMS"
                         class="w-11 h-11 rounded-xl object-contain border border-gray-200 shadow-sm bg-white p-1 flex-shrink-0">

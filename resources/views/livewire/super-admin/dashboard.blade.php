@@ -11,7 +11,7 @@
 
     {{-- ══════════════════════════════ HEADER ══════════════════════════════ --}}
     <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-12">
             <div>
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Dashboard</h1>
                 <p class="text-xs text-gray-400 mt-0.5">{{ now()->format('l, d M Y') }}</p>

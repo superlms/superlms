@@ -316,4 +316,71 @@ class SuperAdminEditPagesTest extends TestCase
         $this->assertSame('About Us', $row->heading);
         $this->assertSame(['Who we are', 'What we do'], array_column(json_decode($row->content, true), 'title'));
     }
+
+    public function test_policy_and_about_pages_run_across_the_page_with_one_header_height(): void
+    {
+        foreach (['term_and_conditions', 'term_of_uses', 'privacy_policies'] as $table) {
+            Schema::create($table, function (Blueprint $t) {
+                $t->id();
+                foreach (['platform_logo', 'platform_name', 'company_name', 'company_cin'] as $c) {
+                    $t->string($c)->nullable();
+                }
+                $t->json('metadata')->nullable();
+                $t->date('last_updated')->nullable();
+                $t->timestamps();
+            });
+            DB::table($table)->insert([
+                'metadata' => json_encode(['sections' => [['head' => 'First', 'desc' => 'One.']]]),
+                'last_updated' => '2026-10-01', 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+        Schema::create('about_apps', function (Blueprint $t) {
+            $t->id();
+            foreach (['heading', 'sub_heading', 'logo', 'company_name', 'company_cin', 'address'] as $c) {
+                $t->string($c)->nullable();
+            }
+            foreach (['content', 'contact_details', 'core_team', 'social_media', 'documents'] as $c) {
+                $t->json($c)->nullable();
+            }
+            $t->timestamps();
+        });
+        DB::table('about_apps')->insert([
+            'heading' => 'About SuperLMS', 'content' => json_encode([['title' => 'Who we are', 'description' => 'A school app.']]),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $pages = [
+            [TermsCondition::class, 'switchTab'],
+            [TermOfUse::class,      'switchTab'],
+            [PrivacyPolicy::class,  'switchTab'],
+            [AboutApp::class,       'setTab'],
+        ];
+        foreach ($pages as [$component, $tab]) {
+            foreach (['view', 'edit'] as $which) {
+                $html = Livewire::test($component)->call($tab, $which)->html();
+
+                // No narrow column: the page runs the full width.
+                $this->assertStringNotContainsString('max-w-4xl', $html, "$component $which");
+                // Its header strip is the Super Admin header height.
+                $this->assertStringContainsString('sm:justify-between gap-3 sm:min-h-12', $html, "$component $which");
+                // Tabs scroll sideways on a phone instead of squeezing.
+                $this->assertStringContainsString('<nav class="flex gap-1 min-w-max">', $html, "$component $which");
+            }
+        }
+
+        Schema::create('school_listings', function (Blueprint $t) {
+            $t->id();
+            foreach (['location', 'logo', 'name', 'email', 'mobile', 'address', 'classes', 'status', 'remark', 'payment_type'] as $c) {
+                $t->string($c)->nullable();
+            }
+            foreach (['no_of_students', 'avg_fee', 'payment_amount'] as $c) {
+                $t->decimal($c, 10, 2)->nullable();
+            }
+            $t->timestamps();
+        });
+        $listing = Livewire::test(\App\Livewire\SuperAdmin\Listing::class)->html();
+        $this->assertStringContainsString('School Listing', $listing);
+        $this->assertStringNotContainsString('Add prospective schools', $listing);
+        $this->assertStringContainsString('sm:justify-between gap-3 sm:min-h-12', $listing);
+    }
 }

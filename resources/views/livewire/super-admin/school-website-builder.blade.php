@@ -1,8 +1,8 @@
 <div class="min-h-screen bg-gray-50">
 
     {{-- ══════════ TOP BAR ══════════ --}}
-    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 sticky top-0 z-40">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sticky top-0 z-40">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-12">
             <div class="flex items-center gap-3 min-w-0">
                 <a href="{{ route('super-admin.portal-website') }}" class="p-2 -ml-2 text-gray-400 hover:text-gray-600">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>

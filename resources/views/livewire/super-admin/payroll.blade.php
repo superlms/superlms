@@ -22,7 +22,7 @@
     <div class="sticky top-0 z-40">
     {{-- ══════════ HEADER ══════════ --}}
     <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
-        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:min-h-12">
             <div class="min-w-0">
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Payroll</h1>
             </div>

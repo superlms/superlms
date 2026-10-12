@@ -6,7 +6,7 @@
         {{-- ── HEADER (analytics + filter) ── --}}
         <div class="bg-white border-b border-gray-200 sticky top-0 z-50">
             <div class="px-4 sm:px-6 py-3">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-12">
                     <div>
                         <h1 class="text-lg sm:text-xl font-bold text-gray-900">Schools</h1>
                     </div>
@@ -255,7 +255,7 @@
 
         {{-- ── DETAIL HEADER ── --}}
         <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sticky top-0 z-50">
-            <div class="flex items-center justify-between gap-4">
+            <div class="flex items-center justify-between gap-4 sm:min-h-12">
                 <div class="flex items-center gap-3">
                     <button wire:click="backToList"
                         class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200

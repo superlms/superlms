@@ -1,7 +1,7 @@
 <div class="min-h-screen bg-gray-50">
     {{-- Header --}}
-    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-12">
             <div>
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">School Websites</h1>
             </div>

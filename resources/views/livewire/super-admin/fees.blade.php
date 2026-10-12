@@ -6,7 +6,7 @@
         {{-- HEADER — simple inline analytics (Support/Enquiries style) --}}
         <div class="bg-white border-b border-gray-200 sticky top-0 z-50">
             <div class="px-4 sm:px-6 py-3">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-12">
                     <div>
                         <h1 class="text-lg sm:text-xl font-bold text-gray-900">Fees</h1>
                     </div>
@@ -368,7 +368,7 @@
 
         {{-- ══════════════════════════════ HEADER ══════════════════════════════ --}}
         <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-12">
                 <div class="flex items-center gap-3 min-w-0">
                     <button wire:click="backToList"
                         class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:text-gray-800 hover:bg-gray-50 text-sm transition-colors flex-shrink-0">

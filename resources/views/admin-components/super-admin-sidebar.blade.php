@@ -24,8 +24,17 @@
      - the menu's scrollbar is a hairline, as the school sidebar's;
      - every box that scrolls inside a page (slide-in panel bodies, lists,
        wide tables) gets the page's own slim 8px bar, darker on hover,
-       instead of the browser's wide one. --}}
+       instead of the browser's wide one.
+     Expanded on md+, the logo sits 12px higher (up beside the menu button,
+     which stays on top and clickable) and is 56px instead of 72px, so the
+     menu gets more room. --}}
 <style>
+    @media (min-width: 768px) {
+        html.sidebar-expanded .lms-sa-rail .lms-topbar { position: relative; z-index: 1; }
+        html.sidebar-expanded .lms-sa-rail .lms-logo-wrap { margin-top: -.75rem; }
+        html.sidebar-expanded .lms-sa-rail .lms-logo-img { width: 3.5rem !important; height: 3.5rem !important; }
+    }
+
     #sidebar-nav::-webkit-scrollbar { width: 3px; }
     #sidebar-nav::-webkit-scrollbar-track { background: transparent; }
     #sidebar-nav::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
@@ -74,9 +83,9 @@
 
         <div class="flex-1 h-0 overflow-y-auto bg-white border-r border-gray-200">
             <!-- Mobile Logo Section -->
-            <div class="flex-shrink-0 flex flex-col items-center px-4 py-4 border-b border-gray-200">
+            <div class="flex-shrink-0 flex flex-col items-center px-4 pt-1 pb-3 border-b border-gray-200">
                 <img src="{{ asset('website-image/Group 11525.png') }}" alt="Logo"
-                    class="w-20 h-20 object-contain mb-2">
+                    class="w-14 h-14 object-contain mb-1">
                 <h2 class="text-sm font-bold text-gray-900 text-center">SUPERLMS</h2>
             </div>
 
@@ -109,7 +118,7 @@
 </div>
 
 <!-- Static sidebar for desktop (collapsible icon rail ⇆ full) -->
-<div class="lms-rail hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0">
+<div class="lms-rail lms-sa-rail hidden md:flex md:flex-col md:fixed md:inset-y-0 md:left-0">
     <!-- Sidebar component -->
     <div class="flex-1 flex flex-col min-h-0 bg-white border-r border-gray-200">
         <!-- Three-dot toggle -->
@@ -123,7 +132,7 @@
             </button>
         </div>
         <!-- Logo section -->
-        <div class="lms-logo-wrap flex-shrink-0 flex flex-col items-center px-4 pb-4 pt-1 border-b border-gray-200">
+        <div class="lms-logo-wrap flex-shrink-0 flex flex-col items-center px-4 pb-3 pt-1 border-b border-gray-200">
             <img src="{{ asset('website-image/Group 11525.png') }}" alt="Logo"
                 class="lms-logo-img w-[4.5rem] h-[4.5rem] object-contain">
             <h2 class="lms-logo-name text-sm font-bold text-gray-900 text-center mt-1">SUPERLMS</h2>

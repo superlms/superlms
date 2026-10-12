@@ -1,17 +1,17 @@
 <div class="min-h-screen bg-white">
 
     {{-- ══════════ TABS ══════════ --}}
-    <div class="bg-white border-b border-gray-200 px-6 sticky top-0 z-40">
-        <nav class="flex gap-1">
+    <div class="bg-white border-b border-gray-200 px-3 sm:px-6 sticky top-0 z-40 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <nav class="flex gap-1 min-w-max">
             <button wire:click="switchTab('view')"
-                class="py-3.5 px-5 text-sm font-semibold border-b-2 transition-colors
+                class="py-3 sm:py-3.5 px-3 sm:px-5 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap
                        {{ $activeTab === 'view'
                            ? 'border-blue-500 text-blue-700'
                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
                 View Terms Of Use
             </button>
             <button wire:click="switchTab('edit')"
-                class="py-3.5 px-5 text-sm font-semibold border-b-2 transition-colors
+                class="py-3 sm:py-3.5 px-3 sm:px-5 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap
                        {{ $activeTab === 'edit'
                            ? 'border-purple-500 text-purple-700'
                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
@@ -50,7 +50,7 @@
 
             {{-- COMPACT HEADER (fees style) --}}
             <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-12">
                     <div class="flex items-center gap-3 min-w-0">
                         <img src="{{ asset('website-image/Group 11525.png') }}" alt="SUPERLMS"
                             class="w-12 h-12 rounded-xl object-contain border border-gray-200 shadow-sm bg-white p-1 flex-shrink-0">
@@ -80,19 +80,19 @@
             {{-- The sections as a plain document, out of their cards: "1. Heading",
                  the text under it, and a hairline between one section and the next. --}}
             <div class="px-4 sm:px-6 py-6">
-                <div class="max-w-4xl divide-y divide-gray-200">
+                <div class="divide-y divide-gray-200">
                     @php $shown = 0; @endphp
                     @foreach ($viewSections as $i => $section)
                         @if (!empty($section['head']) || !empty($section['desc']))
                             @php $shown++; @endphp
                             <section class="py-5 first:pt-0">
                                 @if (!empty($section['head']))
-                                    <h2 class="text-base font-semibold text-black">
+                                    <h2 class="text-base font-semibold text-black break-words">
                                         <span class="tabular-nums mr-1">{{ $shown }}.</span>{{ $section['head'] }}
                                     </h2>
                                 @endif
                                 @if (!empty($section['desc']))
-                                    <p class="text-sm text-black leading-relaxed {{ !empty($section['head']) ? 'mt-2' : '' }}">
+                                    <p class="text-sm text-black leading-relaxed break-words {{ !empty($section['head']) ? 'mt-2' : '' }}">
                                         {!! nl2br(e($section['desc'])) !!}
                                     </p>
                                 @endif

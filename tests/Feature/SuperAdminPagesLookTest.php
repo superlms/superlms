@@ -317,7 +317,7 @@ class SuperAdminPagesLookTest extends TestCase
         $this->assertStringContainsString('Last updated 01 Oct 2026', $text);
         $this->assertStringNotContainsString('from-green-50 to-emerald-50', $html);
         $this->assertStringContainsString('class="min-h-screen bg-white"', $html);
-        $this->assertStringContainsString('<p class="text-sm text-black leading-relaxed mt-2">', $html);
+        $this->assertStringContainsString('<p class="text-sm text-black leading-relaxed break-words mt-2">', $html);
     }
 
     public function test_website_enquiries_are_listed_as_the_school_panels_enquiries(): void

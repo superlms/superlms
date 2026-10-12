@@ -2,7 +2,7 @@
 
     {{-- HEADER --}}
     <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div class="px-4 sm:px-6 py-3">
+        <div class="px-4 sm:px-6 py-3 sm:min-h-18 flex items-center">
             <h1 class="text-lg sm:text-xl font-bold text-gray-900">My Profile</h1>
         </div>
         <div class="border-t border-gray-200 px-4 sm:px-6">
