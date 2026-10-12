@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\Organization;
 use App\Models\Student\StudentDetail;
 use App\Models\SuperAdmin\SuperAdminFeePayment;
+use App\Models\SuperAdmin\SuperAdminFeeReceipt;
 use App\Models\SuperAdmin\SuperAdminFeeStructure;
 use Illuminate\Support\Collection;
 
@@ -146,7 +147,8 @@ class SuperAdminFeeTotals
             'pct'         => $expected > 0 ? round($collected / $expected * 100, 1) : 0,
             'schools'     => $schools->count(),
             'schools_due' => $schools->filter(fn ($s) => $s['remaining'] > 0.005)->count(),
-            'payments'    => SuperAdminFeePayment::forYear($year)->where('amount', '>', 0)->count(),
+            // Times money came this year (an Amount Received for many students is one).
+            'payments'    => SuperAdminFeeReceipt::where('academic_year', $year)->where('amount', '>', 0)->count(),
             'by_school'   => $schools,
         ];
     }

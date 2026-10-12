@@ -10,6 +10,7 @@ use App\Models\Student\StudentDetail;
 use App\Models\SuperAdmin\CreditQuery;
 use App\Models\SuperAdmin\SuperAdminFeeStructure;
 use App\Models\SuperAdmin\SuperAdminFeePayment;
+use App\Models\SuperAdmin\SuperAdminFeeReceipt;
 use App\Models\SuperAdmin\SuperAdminEmployee;
 use App\Models\SuperAdmin\SuperAdminSalaryPayment;
 use App\Models\Admin\RateLms;
@@ -361,10 +362,10 @@ class Analytics extends Component
             'avgFeePerStudent'   => $allStudents > 0 ? round($totalFeeToCollect / $allStudents) : 0,
             // Extra detail
             'collectionRate'     => $year['pct'],
-            'collectedThisMonth' => (float) SuperAdminFeePayment::whereDate('payment_date', '>=', $thisMonth->toDateString())
+            'collectedThisMonth' => (float) SuperAdminFeeReceipt::whereDate('payment_date', '>=', $thisMonth->toDateString())
                 ->whereDate('payment_date', '<=', now()->toDateString())
                 ->sum('amount'),
-            'collectedLastMonth' => (float) SuperAdminFeePayment::whereDate('payment_date', '>=', $lastMonth->toDateString())
+            'collectedLastMonth' => (float) SuperAdminFeeReceipt::whereDate('payment_date', '>=', $lastMonth->toDateString())
                 ->whereDate('payment_date', '<=', $lastMonth->copy()->endOfMonth()->toDateString())
                 ->sum('amount'),
             'paidRecords'        => $year['payments'],
@@ -385,17 +386,17 @@ class Analytics extends Component
 
         $this->feeMonthly = [
             'labels'    => $this->monthLabels(),
-            'collected' => $this->monthlySeries(SuperAdminFeePayment::query(), 'amount', 'payment_date'),
-            'payments'  => $this->monthlySeries(SuperAdminFeePayment::query(), 'count', 'payment_date'),
+            'collected' => $this->monthlySeries(SuperAdminFeeReceipt::query(), 'amount', 'payment_date'),
+            'payments'  => $this->monthlySeries(SuperAdminFeeReceipt::where('amount', '>', 0), 'count', 'payment_date'),
         ];
 
         // Collected amount by payment mode
-        $modes = SuperAdminFeePayment::query()
-            ->where('amount', '>', 0)
+        $modes = SuperAdminFeeReceipt::query()
             ->selectRaw("COALESCE(NULLIF(payment_mode, ''), 'other') as mode, SUM(amount) as total")
             ->groupBy('mode')
             ->orderByDesc('total')
             ->pluck('total', 'mode');
+        $modes = $modes->filter(fn($v) => (float) $v > 0);   // a mode whose corrections cancel it out
 
         $this->feeModes = [
             'labels' => $modes->keys()->map(fn($m) => ucwords(str_replace('_', ' ', $m)))->toArray(),

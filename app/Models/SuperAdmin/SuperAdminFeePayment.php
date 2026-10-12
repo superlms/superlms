@@ -44,6 +44,27 @@ class SuperAdminFeePayment extends Model
                     . '-' . str_pad(self::whereYear('created_at', now()->year)->count() + 1, 5, '0', STR_PAD_LEFT);
             }
         });
+
+        // Each change of the money collected is noted on the day it came
+        // (SuperAdminFeeReceipt) — Reports adds those up day by day.
+        static::created(fn (self $model) => SuperAdminFeeReceipt::recordChange($model, 0.0, null, true));
+
+        static::updated(function (self $model) {
+            if (!$model->wasChanged(['amount', 'payment_date'])) {
+                return;
+            }
+            $oldDate = $model->getOriginal('payment_date');
+
+            SuperAdminFeeReceipt::recordChange(
+                $model,
+                (float) $model->getOriginal('amount'),
+                $oldDate ? \Illuminate\Support\Carbon::parse($oldDate)->toDateString() : null
+            );
+        });
+
+        static::deleted(function (self $model) {
+            SuperAdminFeeReceipt::note($model, -(float) $model->amount, $model->payment_date?->toDateString());
+        });
     }
 
     public function organization(): BelongsTo

@@ -9,6 +9,7 @@ use App\Models\SchoolListing;
 use App\Models\Student\StudentDetail;
 use App\Models\SuperAdmin\CreditQuery;
 use App\Models\SuperAdmin\SuperAdminFeePayment;
+use App\Models\SuperAdmin\SuperAdminFeeReceipt;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\User;
 use App\Models\WebsiteContact;
@@ -129,9 +130,9 @@ class SendSuperAdminDailyDigests extends Command
             $students  = User::where('role', 'user')->whereDate('created_at', $date)->count();
             $teachers  = User::where('role', 'teacher')->whereDate('created_at', $date)->count();
             $schools   = Organization::whereDate('created_at', $date)->count();
-            $revenue   = (float) SuperAdminFeePayment::paid()->whereDate('created_at', $date)->sum('amount');
+            // As Reports counts it: money received on the day (SuperAdminFeeReceipt).
+            $revenue   = (float) SuperAdminFeeReceipt::whereDate('payment_date', $date)->sum('amount');
             $fees      = (float) FeePayment::whereDate('payment_date', $date)->sum('amount');
-            $credit    = CreditQuery::whereDate('created_at', $date)->count();
             $support   = ContactSuperAdmin::whereDate('created_at', $date)->count();
             $enquiries = WebsiteDemo::whereDate('created_at', $date)->count()
                        + WebsiteContact::whereDate('created_at', $date)->count();
@@ -142,11 +143,11 @@ class SendSuperAdminDailyDigests extends Command
                     . "New students: {$students}, teachers: {$teachers}, schools: {$schools}. "
                     . 'Platform revenue: ₹' . number_format($revenue, 2) . ', '
                     . 'fees collected: ₹' . number_format($fees, 2) . '. '
-                    . "Credit applications: {$credit}, support tickets: {$support}, enquiries: {$enquiries}.",
+                    . "Support tickets: {$support}, enquiries: {$enquiries}.",
                 [
                     'type' => 'digest_report', 'date' => $date,
                     'students' => $students, 'teachers' => $teachers, 'schools' => $schools,
-                    'revenue' => $revenue, 'fees' => $fees, 'credit' => $credit,
+                    'revenue' => $revenue, 'fees' => $fees,
                     'support' => $support, 'enquiries' => $enquiries,
                 ]
             );

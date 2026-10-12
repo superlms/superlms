@@ -5,8 +5,7 @@ namespace App\Livewire\SuperAdmin;
 use App\Models\Admin\ContactSuperAdmin;
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Organization;
-use App\Models\SuperAdmin\CreditQuery;
-use App\Models\SuperAdmin\SuperAdminFeePayment;
+use App\Models\SuperAdmin\SuperAdminFeeReceipt;
 use App\Models\User;
 use App\Models\WebsiteContact;
 use App\Models\WebsiteDemo;
@@ -18,7 +17,7 @@ class Reports extends Component
     /** 'Y-m' key of the fiscal-year month currently selected. */
     public string $selectedMonth;
 
-    /** ['2026-04' => 'Apr 2026', ...] — the 12 months of the current fiscal year (Apr → Mar). */
+    /** ['2026-04' => 'Apr 2026', ...] — every month from April 2026 to this one. */
     public array $monthOptions = [];
 
     /** Today's activity, independent of whatever month is selected below. */
@@ -41,8 +40,8 @@ class Reports extends Component
     public string $detailLabel = '';
     public array $detailRows = [];
 
-    /** Metric keys rendered in the table, in order. */
-    public const METRICS = ['students', 'teachers', 'schools', 'revenue', 'fees', 'credit', 'support', 'enquiries'];
+    /** Metric keys rendered in the table, in order (Credit is off the Super Admin, so off here too). */
+    public const METRICS = ['students', 'teachers', 'schools', 'revenue', 'fees', 'support', 'enquiries'];
 
     /** Safety cap on rows loaded into a whole-month drill-down. */
     private const MONTH_DETAIL_LIMIT = 500;
@@ -53,7 +52,6 @@ class Reports extends Component
         'schools'   => 'New Schools',
         'revenue'   => 'Platform Revenue',
         'fees'      => 'Fees Collected',
-        'credit'    => 'Credit Applications',
         'support'   => 'Support Tickets',
         'enquiries' => 'Enquiries',
     ];
@@ -131,19 +129,22 @@ class Reports extends Component
         $this->finalise();
     }
 
-    // ── Fiscal-year month list (Apr → Mar) ────────────────────────────────────
+    /** The first month Reports offers. */
+    private const FIRST_MONTH = '2026-04';
+
+    // ── Month list: April 2026 → this month ───────────────────────────────────
     private function buildMonthOptions(): array
     {
-        $fyStartYear = now()->month >= 4 ? now()->year : now()->year - 1;
-        $start       = Carbon::create($fyStartYear, 4, 1);
+        $month = Carbon::createFromFormat('Y-m-d', self::FIRST_MONTH . '-01')->startOfMonth();
+        $last  = now()->startOfMonth();
 
         $opts = [];
-        for ($i = 0; $i < 12; $i++) {
-            $m               = $start->copy()->addMonthsNoOverflow($i);
-            $opts[$m->format('Y-m')] = $m->format('M Y');
+        while ($month->lte($last)) {
+            $opts[$month->format('Y-m')] = $month->format('M Y');
+            $month->addMonthNoOverflow();
         }
 
-        return $opts;
+        return $opts ?: [$last->format('Y-m') => $last->format('M Y')];
     }
 
     // ── All-time snapshot ────────────────────────────────────────────────────
@@ -153,9 +154,8 @@ class Reports extends Component
             'students'  => $this->safe(fn() => User::where('role', 'user')->count()),
             'teachers'  => $this->safe(fn() => User::where('role', 'teacher')->count()),
             'schools'   => $this->safe(fn() => Organization::count()),
-            'revenue'   => $this->safe(fn() => SuperAdminFeePayment::paid()->sum('amount')),
+            'revenue'   => $this->safe(fn() => (float) SuperAdminFeeReceipt::sum('amount')),
             'fees'      => $this->safe(fn() => FeePayment::sum('amount')),
-            'credit'    => $this->safe(fn() => CreditQuery::count()),
             'support'   => $this->safe(fn() => ContactSuperAdmin::count()),
             'enquiries' => $this->safe(fn() => WebsiteDemo::count())
                          + $this->safe(fn() => WebsiteContact::count()),
@@ -178,9 +178,9 @@ class Reports extends Component
             'students'  => $this->safe(fn() => User::where('role', 'user')->whereDate('created_at', $day)->count()),
             'teachers'  => $this->safe(fn() => User::where('role', 'teacher')->whereDate('created_at', $day)->count()),
             'schools'   => $this->safe(fn() => Organization::whereDate('created_at', $day)->count()),
-            'revenue'   => $this->safe(fn() => (float) SuperAdminFeePayment::paid()->whereDate('created_at', $day)->sum('amount')),
+            // Money received on the day (every receipt, part payments too).
+            'revenue'   => $this->safe(fn() => (float) SuperAdminFeeReceipt::whereDate('payment_date', $day)->sum('amount')),
             'fees'      => $this->safe(fn() => (float) FeePayment::whereDate('payment_date', $day)->sum('amount')),
-            'credit'    => $this->safe(fn() => CreditQuery::whereDate('created_at', $day)->count()),
             'support'   => $this->safe(fn() => ContactSuperAdmin::whereDate('created_at', $day)->count()),
             'enquiries' => $this->safe(fn() => WebsiteDemo::whereDate('created_at', $day)->count())
                          + $this->safe(fn() => WebsiteContact::whereDate('created_at', $day)->count()),
@@ -197,9 +197,8 @@ class Reports extends Component
             'students'  => $this->grouped(User::where('role', 'user'),    'created_at',   'COUNT(*)', $start, $end),
             'teachers'  => $this->grouped(User::where('role', 'teacher'), 'created_at',   'COUNT(*)', $start, $end),
             'schools'   => $this->grouped(Organization::query(),          'created_at',   'COUNT(*)', $start, $end),
-            'revenue'   => $this->grouped(SuperAdminFeePayment::paid(),   'created_at',   'SUM(amount)', $start, $end),
+            'revenue'   => $this->grouped(SuperAdminFeeReceipt::query(),  'payment_date', 'SUM(amount)', $start, $end),
             'fees'      => $this->grouped(FeePayment::query(),            'payment_date', 'SUM(amount)', $start, $end),
-            'credit'    => $this->grouped(CreditQuery::query(),           'created_at',   'COUNT(*)', $start, $end),
             'support'   => $this->grouped(ContactSuperAdmin::query(),     'created_at',   'COUNT(*)', $start, $end),
             'enquiries' => $this->mergeCounts(
                 $this->grouped(WebsiteDemo::query(),    'created_at', 'COUNT(*)', $start, $end),
@@ -302,14 +301,19 @@ class Reports extends Component
                     'time'     => $o->created_at?->format('h:i A'),
                 ])->toArray(),
 
-            'revenue' => $scope(SuperAdminFeePayment::paid(), 'created_at')
-                ->with('organization:id,name')->latest()->get()
-                ->map(fn($p) => [
-                    'title'    => $p->organization?->name ?? 'Unknown school',
-                    'subtitle' => $p->payment_mode ? ucwords(str_replace('_', ' ', $p->payment_mode)) : '—',
-                    'meta'     => $p->receipt_number,
-                    'amount'   => (float) $p->amount,
-                    'time'     => $p->created_at?->format('h:i A'),
+            // One row per time money came — an "Amount Received" for many
+            // students is one row, with what it covered under the school.
+            'revenue' => $scope(SuperAdminFeeReceipt::query(), 'payment_date')
+                ->with('organization:id,name')->latest()->latest('id')->get()
+                ->map(fn($r) => [
+                    'title'    => $r->organization?->name ?? 'Unknown school',
+                    'subtitle' => implode(' · ', array_filter([
+                        $r->payment_mode ? ucwords(str_replace('_', ' ', $r->payment_mode)) : null,
+                        $r->label ?: null,
+                    ])) ?: '—',
+                    'meta'     => $r->receipt_number,
+                    'amount'   => (float) $r->amount,
+                    'time'     => $r->created_at?->format('h:i A'),
                 ])->toArray(),
 
             'fees' => $scope(FeePayment::query(), 'payment_date')
@@ -320,16 +324,6 @@ class Reports extends Component
                     'meta'     => $p->receipt_number,
                     'amount'   => (float) $p->amount,
                     'time'     => $p->created_at?->format('h:i A'),
-                ])->toArray(),
-
-            'credit' => $scope(CreditQuery::query(), 'created_at')
-                ->with('organization:id,name')->latest()->get()
-                ->map(fn($c) => [
-                    'title'    => $c->organization?->name ?? 'Unknown school',
-                    'subtitle' => $c->heading ?? ucfirst($c->status),
-                    'meta'     => ucfirst($c->status),
-                    'amount'   => (float) $c->amount,
-                    'time'     => $c->created_at?->format('h:i A'),
                 ])->toArray(),
 
             'support' => $scope(ContactSuperAdmin::query(), 'created_at')

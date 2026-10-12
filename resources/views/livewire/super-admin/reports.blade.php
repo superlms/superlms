@@ -1,15 +1,14 @@
 <div class="min-h-screen bg-gray-50">
 
     @php
-        // [label, isMoney] — the same eight figures as before, in the school
-        // dashboard's quiet look (no per-metric colours or emoji).
+        // [label, isMoney] — the figures in the school dashboard's quiet look
+        // (no per-metric colours or emoji). Credit is off the Super Admin, so off here too.
         $metricMeta = [
             'students'  => ['New Students',     false],
             'teachers'  => ['New Teachers',     false],
             'schools'   => ['New Schools',      false],
             'revenue'   => ['Platform Revenue', true],
             'fees'      => ['Fees Collected',   true],
-            'credit'    => ['Credit Apps',      false],
             'support'   => ['Support Tickets',  false],
             'enquiries' => ['Enquiries',        false],
         ];
@@ -47,7 +46,7 @@
                 <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest">Today</h2>
                 <span class="text-xs text-gray-400">{{ $today['label'] ?? now()->format('l, d M Y') }}</span>
             </div>
-            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden grid grid-cols-2 sm:grid-cols-4">
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7">
                 @foreach ($metricMeta as $k => [$label, $isMoney])
                     @php $val = $today[$k] ?? 0; @endphp
                     <button type="button"
@@ -56,7 +55,7 @@
                         class="text-left px-5 py-4 -mr-px -mb-px border-r border-b border-gray-100 min-w-0 transition-colors
                                {{ $val > 0 ? 'hover:bg-gray-50/70 cursor-pointer' : 'cursor-default' }}">
                         <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide truncate">{{ $label }}</p>
-                        <p class="text-xl font-semibold mt-1.5 tabular-nums truncate {{ $val > 0 ? 'text-gray-900' : 'text-gray-300' }}">{{ $fmt($val, $isMoney) }}</p>
+                        <p class="text-xl font-semibold mt-1.5 tabular-nums truncate text-gray-900">{{ $fmt($val, $isMoney) }}</p>
                     </button>
                 @endforeach
             </div>
@@ -68,7 +67,7 @@
                 <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest">{{ $monthLabel }}</h2>
                 <span class="text-xs text-gray-400">Click a figure for its full detail</span>
             </div>
-            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden grid grid-cols-2 sm:grid-cols-4">
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7">
                 @foreach ($metricMeta as $k => [$label, $isMoney])
                     @php $total = $totals[$k] ?? 0; @endphp
                     <button type="button"
@@ -86,7 +85,7 @@
         {{-- ═══════════════════════════ ALL-TIME TOTALS ═══════════════════════ --}}
         <section>
             <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">All-Time Totals</h2>
-            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden grid grid-cols-2 sm:grid-cols-4">
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7">
                 @foreach ($metricMeta as $k => [$label, $isMoney])
                     <div class="px-5 py-4 -mr-px -mb-px border-r border-b border-gray-100 min-w-0">
                         <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide truncate">{{ $label }}</p>
@@ -104,8 +103,17 @@
             <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Day by Day</h2>
 
             <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
-                    <h3 class="text-sm font-semibold text-gray-800">{{ $monthLabel }}</h3>
+                <div class="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
+                    {{-- Month filter: April 2026 → this month. --}}
+                    <div class="flex items-center gap-2" wire:loading.class="opacity-60" wire:target="setMonth">
+                        <span class="text-xs font-medium text-gray-400 uppercase tracking-wide">Month</span>
+                        <select wire:change="setMonth($event.target.value)" aria-label="Day by day month"
+                            class="text-sm bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            @foreach ($monthOptions as $key => $label)
+                                <option value="{{ $key }}" @selected($key === $selectedMonth)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
                     <span class="text-xs text-gray-400">{{ count($rows) }} days · click any number for detail</span>
                 </div>
 
@@ -119,7 +127,6 @@
                                 <th class="text-center font-medium px-3 py-2.5">Schools</th>
                                 <th class="text-right font-medium px-3 py-2.5 min-w-[130px]">Revenue</th>
                                 <th class="text-right font-medium px-3 py-2.5 min-w-[130px]">Fees Collected</th>
-                                <th class="text-center font-medium px-3 py-2.5">Credit</th>
                                 <th class="text-center font-medium px-3 py-2.5">Support</th>
                                 <th class="text-center font-medium px-5 py-2.5">Enquiries</th>
                             </tr>
@@ -163,7 +170,7 @@
                                             </div>
                                         </td>
                                     @endforeach
-                                    @foreach (['credit', 'support', 'enquiries'] as $m)
+                                    @foreach (['support', 'enquiries'] as $m)
                                         <td class="text-center {{ $m === 'enquiries' ? 'px-5' : 'px-3' }} py-2.5 tabular-nums">
                                             @if ($row[$m] > 0)
                                                 <button wire:click="openDetail('{{ $row['date'] }}', '{{ $m }}')" class="font-medium text-gray-800 hover:text-blue-600 hover:underline">{{ $row[$m] }}</button>
@@ -174,7 +181,7 @@
                                     @endforeach
                                 </tr>
                             @empty
-                                <tr><td colspan="9" class="text-center text-gray-400 py-10">No data.</td></tr>
+                                <tr><td colspan="8" class="text-center text-gray-400 py-10">No data.</td></tr>
                             @endforelse
                         </tbody>
                         <tfoot>
@@ -185,7 +192,6 @@
                                 <td class="text-center px-3 py-3">{{ number_format($totals['schools'] ?? 0) }}</td>
                                 <td class="text-right px-3 py-3">₹{{ number_format($totals['revenue'] ?? 0) }}</td>
                                 <td class="text-right px-3 py-3">₹{{ number_format($totals['fees'] ?? 0) }}</td>
-                                <td class="text-center px-3 py-3">{{ number_format($totals['credit'] ?? 0) }}</td>
                                 <td class="text-center px-3 py-3">{{ number_format($totals['support'] ?? 0) }}</td>
                                 <td class="text-center px-5 py-3">{{ number_format($totals['enquiries'] ?? 0) }}</td>
                             </tr>

@@ -11,6 +11,7 @@ use App\Models\WebsiteContact;
 use App\Models\WebsiteDemo;
 use App\Models\SuperAdmin\CreditQuery;
 use App\Models\SuperAdmin\SuperAdminFeePayment;
+use App\Models\SuperAdmin\SuperAdminFeeReceipt;
 use App\Models\SuperAdmin\SuperAdminEmployee;
 use App\Models\SuperAdmin\SuperAdminSalaryPayment;
 use App\Models\SuperAdmin\SuperAdminAttendance;
@@ -169,7 +170,8 @@ class Dashboard extends Component
         $collected = $year['collected'];
 
         $from  = now()->subMonthsNoOverflow(self::FEE_MONTHS - 1)->startOfMonth();
-        $byDay = SuperAdminFeePayment::query()
+        // Money received on each day (SuperAdminFeeReceipt, as Reports reads it).
+        $byDay = SuperAdminFeeReceipt::query()
             ->whereNotNull('payment_date')
             ->whereDate('payment_date', '>=', $from->toDateString())
             ->whereDate('payment_date', '<=', now()->toDateString())

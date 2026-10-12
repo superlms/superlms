@@ -7,6 +7,7 @@ use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
 use App\Models\SuperAdmin\SuperAdminFeePayment;
+use App\Models\SuperAdmin\SuperAdminFeeReceipt;
 use App\Models\SuperAdmin\SuperAdminFeeStructure;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -382,21 +383,14 @@ class Fees extends Component
 
         $pct = $expected > 0 ? round(($collected / $expected) * 100) : 0;
 
-        // FY April 2026 → March 2027
-        $fyChart = SuperAdminFeePayment::forOrg($orgId)
-            ->where(function ($q) {
-                $q->where(function ($q) {
-                    $q->whereYear('payment_date', 2026)
-                        ->whereMonth('payment_date', '>=', 4);
-                })->orWhere(function ($q) {
-                    $q->whereYear('payment_date', 2027)
-                        ->whereMonth('payment_date', '<=', 3);
-                });
-            })
-            ->selectRaw('MONTH(payment_date) as month, YEAR(payment_date) as year, SUM(amount) as total')
-            ->groupBy('month', 'year')
-            ->get()
-            ->mapWithKeys(fn($row) => ["{$row->year}-{$row->month}" => (float) $row->total])
+        // The year's months (April → March of $academicYear): money received
+        // on each, as Reports counts it (SuperAdminFeeReceipt), keyed "2026-4".
+        $fyFrom  = \Illuminate\Support\Carbon::create((int) explode('-', $this->academicYear)[0], 4, 1);
+        $fyChart = SuperAdminFeeReceipt::where('organization_id', $orgId)
+            ->whereBetween('payment_date', [$fyFrom->toDateString(), $fyFrom->copy()->addYear()->subDay()->toDateString()])
+            ->get(['payment_date', 'amount'])
+            ->groupBy(fn ($r) => $r->payment_date->year . '-' . $r->payment_date->month)
+            ->map(fn ($rows) => round((float) $rows->sum('amount'), 2))
             ->toArray();
 
         $this->schoolStats = [
@@ -747,14 +741,17 @@ class Fees extends Component
      * the payment record (partial collections included); the status is derived
      * from collected vs. the full fee — paid / partial / pending.
      */
-    private function mapStudentFeeRow($s, int $i, ?SuperAdminFeeStructure $structure): array
+    private function mapStudentFeeRow($s, int $i, ?SuperAdminFeeStructure $structure, ?\Illuminate\Support\Collection $payments = null): array
     {
         $feeAmount = (float) ($structure?->amount ?? 0);
 
+        // $payments (keyed by student) saves a query a student on long lists.
         $payment = $structure
-            ? SuperAdminFeePayment::where('student_detail_id', $s->id)
-                ->where('super_admin_fee_structure_id', $structure->id)
-                ->first()
+            ? ($payments !== null
+                ? $payments->get($s->id)
+                : SuperAdminFeePayment::where('student_detail_id', $s->id)
+                    ->where('super_admin_fee_structure_id', $structure->id)
+                    ->first())
             : null;
 
         $collected = $payment ? (float) $payment->amount : 0;
@@ -810,12 +807,18 @@ class Fees extends Component
             return;
         }
 
+        $this->installments = $this->installmentRows($structure);
+    }
+
+    /** One row per period of a one-time / monthly fee: its amount, what came and its status. */
+    private function installmentRows(SuperAdminFeeStructure $structure): array
+    {
         $payments      = SuperAdminFeePayment::where('super_admin_fee_structure_id', $structure->id)
             ->get()
             ->keyBy('installment_period');
         $periodAmounts = (array) ($structure->period_amounts ?? []);
 
-        $this->installments = collect($structure->installmentPeriods())->map(function ($period) use ($structure, $payments, $periodAmounts) {
+        return collect($structure->installmentPeriods())->map(function ($period) use ($structure, $payments, $periodAmounts) {
             $amount    = array_key_exists($period['key'], $periodAmounts)
                 ? (float) $periodAmounts[$period['key']]
                 : (float) $structure->amount;
@@ -1023,9 +1026,10 @@ class Fees extends Component
         // ── One-time org-level installment ──
         if ($this->payInstallmentKey) {
             if ($collected <= 0) {
+                // One by one so the deleted event notes the money taken off (Reports).
                 SuperAdminFeePayment::where('super_admin_fee_structure_id', $this->payStructureId)
                     ->where('installment_period', $this->payInstallmentKey)
-                    ->delete();
+                    ->get()->each->delete();
 
                 $this->afterPaymentChange('Installment cleared — marked as pending.');
                 return;
@@ -1067,9 +1071,10 @@ class Fees extends Component
         }
 
         if ($collected <= 0) {
+            // One by one so the deleted event notes the money taken off (Reports).
             SuperAdminFeePayment::where('student_detail_id', $this->payStudentId)
                 ->where('super_admin_fee_structure_id', $this->payStructureId)
-                ->delete();
+                ->get()->each->delete();
 
             // Per-student plan: clearing the fee revokes the student's app access.
             if ($structure->fee_type === 'per_student') {
@@ -1231,8 +1236,13 @@ class Fees extends Component
             ->tap(fn ($q) => NameOrder::students($q))
             ->get();
 
+        $payments = SuperAdminFeePayment::where('super_admin_fee_structure_id', $structure->id)
+            ->whereNotNull('student_detail_id')
+            ->get()
+            ->keyBy('student_detail_id');
+
         $rows = $students->values()
-            ->map(fn ($s, $i) => $this->mapStudentFeeRow($s, $i, $structure))
+            ->map(fn ($s, $i) => $this->mapStudentFeeRow($s, $i, $structure, $payments))
             ->toArray();
 
         if ($this->viewFeeStatus !== '') {
@@ -1240,6 +1250,71 @@ class Fees extends Component
         }
 
         return $rows;
+    }
+
+    // ─── School view (home look): the school's own fee, all on one page ───────
+
+    /** The school's active Monthly / One Time / Per Student structure for the year. */
+    public function detailStructure(): ?SuperAdminFeeStructure
+    {
+        if (!$this->selectedSchool) {
+            return null;
+        }
+
+        return SuperAdminFeeStructure::where('organization_id', $this->selectedSchool->id)
+            ->where('academic_year', $this->academicYear)
+            ->whereIn('fee_type', ['one_time', 'per_student'])
+            ->active()
+            ->first();
+    }
+
+    /** A Monthly / One Time school's periods (as the Update Fee panel lists them). */
+    public function detailPeriods(?SuperAdminFeeStructure $structure = null): array
+    {
+        $structure ??= $this->detailStructure();
+
+        return $structure && $structure->fee_type === 'one_time'
+            ? $this->installmentRows($structure)
+            : [];
+    }
+
+    /**
+     * How many students (per student) or months (monthly / one time) are paid,
+     * part paid and still to pay — for the whole school, without the filters.
+     */
+    public function detailCounts(?SuperAdminFeeStructure $structure = null, ?array $periods = null): array
+    {
+        $structure ??= $this->detailStructure();
+        $counts    = ['paid' => 0, 'partial' => 0, 'pending' => 0, 'total' => 0, 'unit' => 'student'];
+        if (!$structure) {
+            return $counts;
+        }
+
+        if ($structure->fee_type === 'per_student') {
+            $fee   = (float) $structure->amount;
+            $total = StudentDetail::where('organization_id', $this->selectedSchool->id)->count();
+            $paid  = $partial = 0;
+            foreach (SuperAdminFeePayment::where('super_admin_fee_structure_id', $structure->id)
+                ->whereNotNull('student_detail_id')->pluck('amount') as $amount) {
+                $amount = (float) $amount;
+                if ($amount <= 0) {
+                    continue;
+                }
+                $fee > 0 && $amount + 0.01 >= $fee ? $paid++ : $partial++;
+            }
+
+            return ['paid' => $paid, 'partial' => $partial, 'pending' => max(0, $total - $paid - $partial), 'total' => $total, 'unit' => 'student'];
+        }
+
+        $rows = collect($periods ?? $this->installmentRows($structure))->filter(fn ($r) => $r['amount'] > 0);
+
+        return [
+            'paid'    => $rows->where('status', 'paid')->count(),
+            'partial' => $rows->where('status', 'partial')->count(),
+            'pending' => $rows->where('status', 'pending')->count(),
+            'total'   => $rows->count(),
+            'unit'    => $structure->installment_frequency === 'monthly' ? 'month' : 'fee',
+        ];
     }
 
     public function render()

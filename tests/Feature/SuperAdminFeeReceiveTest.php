@@ -98,6 +98,8 @@ class SuperAdminFeeReceiveTest extends TestCase
             $t->boolean('is_paid')->default(false);
             $t->timestamps();
         });
+        // The real migration: the receipts table (and its backfill, empty here).
+        (require base_path('database/migrations/2026_10_12_100000_create_super_admin_fee_receipts_table.php'))->up();
         Schema::create('users', function (Blueprint $t) {
             $t->id();
             $t->string('name');
@@ -346,5 +348,127 @@ class SuperAdminFeeReceiveTest extends TestCase
         // Biggest fee first.
         $this->assertSame(['Beta School', 'Alpha School'], $sum['by_school']->pluck('name')->all());
         $this->assertSame(['Monthly', 'Per Student'], $sum['by_school']->pluck('plan')->all());
+    }
+
+    private function receipts(?string $date = null)
+    {
+        return DB::table('super_admin_fee_receipts')->when($date, fn ($q) => $q->whereDate('payment_date', $date));
+    }
+
+    public function test_each_time_money_comes_is_one_receipt_on_its_own_day(): void
+    {
+        $this->signIn();
+        $s  = $this->alphaStudents();
+        $fs = $this->structure(['organization_id' => 1, 'fee_type' => 'per_student', 'amount' => 70]);
+
+        // One amount for many students is one receipt.
+        SuperAdminFeeAllocator::apply($fs, 150, 'cash', '2026-10-12');        // Kiran 70, Ravi 70, Zoya 10
+        $first = $this->receipts()->first();
+        $this->assertSame(1, $this->receipts()->count());
+        $this->assertEquals(150, $first->amount);
+        $this->assertSame('3 students', $first->label);
+        $this->assertSame(3, (int) $first->items);
+        $this->assertSame('cash', $first->payment_mode);
+        $this->assertMatchesRegularExpression('/^SARC-1-2026-\d{5} – SARC-1-2026-\d{5}$/', $first->receipt_number);
+
+        // The next amount tops Zoya up: the new money is on its own day, the
+        // first day keeps its 150.
+        SuperAdminFeeAllocator::apply($fs, 130, 'upi', '2026-10-20');         // Zoya +60, Aman 70
+        $this->assertEquals(150, $this->receipts('2026-10-12')->sum('amount'));
+        $this->assertEquals(130, $this->receipts('2026-10-20')->sum('amount'));
+
+        // A single Edit, a date change and a clear on the Fees screen note what they changed.
+        $page = Livewire::test(Fees::class)->call('selectSchool', 1);
+        $row  = fn ($who) => $this->payment($fs->id, ['student_detail_id' => $s[$who]]);
+
+        $page->call('openPayModal', $s['aman'], $fs->id, 70, 70, $row('aman')->id)
+            ->set('payAmount', '50')->set('payDate', '2026-10-20')->call('savePayment');
+        $this->assertEquals(110, $this->receipts('2026-10-20')->sum('amount'));
+
+        $page->call('openPayModal', $s['ravi'], $fs->id, 70, 70, $row('ravi')->id)
+            ->set('payAmount', '70')->set('payDate', '2026-10-15')->call('savePayment');
+        $this->assertEquals(80, $this->receipts('2026-10-12')->sum('amount'));
+        $this->assertEquals(70, $this->receipts('2026-10-15')->sum('amount'));
+
+        $page->call('openPayModal', $s['zoya'], $fs->id, 70, 70, $row('zoya')->id)
+            ->set('payAmount', '0')->call('savePayment');
+        $this->assertNull($row('zoya'));
+        $this->assertSame('Zoya', $this->receipts()->orderByDesc('id')->value('label'));
+
+        // The receipts always add up to the payments.
+        $this->assertEquals(
+            DB::table('super_admin_fee_payments')->sum('amount'),
+            $this->receipts()->sum('amount')
+        );
+        $this->assertEquals(190, $this->receipts()->sum('amount'));   // Kiran 70 + Ravi 70 + Aman 50
+    }
+
+    public function test_the_payments_so_far_become_receipts_one_per_amount_received(): void
+    {
+        $per = $this->structure(['organization_id' => 1, 'fee_type' => 'per_student', 'amount' => 70]);
+        $mon = $this->monthly(2, ['2026-04' => 1000, '2026-05' => 1000]);
+        $s   = $this->alphaStudents();
+        $row = fn ($values) => DB::table('super_admin_fee_payments')->insert($values + [
+            'academic_year' => self::YEAR, 'payment_mode' => 'cash', 'payment_date' => '2026-10-12', 'is_paid' => true,
+        ]);
+        // Saved together in one Amount Received …
+        $row(['organization_id' => 1, 'super_admin_fee_structure_id' => $per->id, 'student_detail_id' => $s['kiran'], 'amount' => 70, 'receipt_number' => 'SARC-1-2026-00180', 'created_at' => '2026-10-12 10:39:10']);
+        $row(['organization_id' => 1, 'super_admin_fee_structure_id' => $per->id, 'student_detail_id' => $s['ravi'], 'amount' => 70, 'receipt_number' => 'SARC-1-2026-00181', 'created_at' => '2026-10-12 10:39:10']);
+        $row(['organization_id' => 1, 'super_admin_fee_structure_id' => $per->id, 'student_detail_id' => $s['zoya'], 'amount' => 20, 'receipt_number' => 'SARC-1-2026-00182', 'created_at' => '2026-10-12 10:39:11', 'is_paid' => false]);
+        // … and one month recorded on its own on another day.
+        $row(['organization_id' => 2, 'super_admin_fee_structure_id' => $mon->id, 'installment_period' => '2026-04', 'amount' => 1000, 'receipt_number' => 'SARC-2-2026-00001', 'payment_date' => '2026-09-01', 'created_at' => '2026-09-01 12:00:00']);
+
+        Schema::drop('super_admin_fee_receipts');
+        (require base_path('database/migrations/2026_10_12_100000_create_super_admin_fee_receipts_table.php'))->up();
+
+        $receipts = $this->receipts()->orderBy('payment_date')->get();
+        $this->assertCount(2, $receipts);
+        $this->assertEquals(1000, $receipts[0]->amount);
+        $this->assertSame('Apr 2026', $receipts[0]->label);
+        $this->assertEquals(160, $receipts[1]->amount);
+        $this->assertSame('3 students', $receipts[1]->label);
+        $this->assertSame(3, (int) $receipts[1]->items);
+        $this->assertSame('SARC-1-2026-00180 – SARC-1-2026-00182', $receipts[1]->receipt_number);
+        $this->assertSame('2026-10-12', substr($receipts[1]->payment_date, 0, 10));
+    }
+
+    public function test_the_school_view_is_one_page_in_the_home_look(): void
+    {
+        $this->signIn();
+        $this->alphaStudents();
+        $per = $this->structure(['organization_id' => 1, 'fee_type' => 'per_student', 'amount' => 500]);
+        SuperAdminFeeAllocator::apply($per, 1200, 'cash', '2026-10-12');
+        $this->monthly(2, ['2026-04' => 1000, '2026-05' => 1000]);
+
+        $text = fn ($page) => preg_replace('/\s+/', ' ', strip_tags($page->html()));
+
+        $alpha = $text(Livewire::test(Fees::class)->call('selectSchool', 1));
+        foreach (['Alpha School', 'Per Student · Annual Platform Fee · 2026-2027', 'Overview', 'To Collect ₹2,000',
+                  'Collected ₹1,200 60% of the fee', 'Students Paid 2 / 4', '1 part paid · 1 pending',
+                  'Collected · Apr 26 – Mar 27 ₹1,200', 'Fee Structure', 'Amount ₹500 / student',
+                  'Students All Classes', '2 Kiran Sec A · Adm: — ₹500 ₹500 Paid', '4 Zoya Sec B · Adm: — ₹500 ₹200 ₹300 due Partial'] as $seen) {
+            $this->assertStringContainsString($seen, $alpha);
+        }
+        $this->assertStringNotContainsString('View Fee', $alpha);   // no tabs: one page
+
+        $beta = $text(Livewire::test(Fees::class)->call('selectSchool', 2));
+        foreach (['Monthly · Annual Platform Fee · 2026-2027', 'Months Paid 0 / 2', 'Months', 'Apr 2026 ₹1,000 ₹0 Pending', 'Jun 2026 — ₹0 No fee'] as $seen) {
+            $this->assertStringContainsString($seen, $beta);
+        }
+    }
+
+    public function test_lists_show_the_board_without_its_medium(): void
+    {
+        $this->assertSame('UP BOARD', \App\Support\BoardName::short('UP BOARD (HINDI & ENGLISH MEDIUM)'));
+        $this->assertSame('UP BOARD', \App\Support\BoardName::short('UP BOARD (ENGLISH MEDIUM)'));
+        $this->assertSame('CBSE', \App\Support\BoardName::short('CBSE'));
+        $this->assertSame('', \App\Support\BoardName::short(null));
+
+        $this->signIn();
+        DB::table('organizations')->where('id', 1)->update(['education_board' => 'UP BOARD (HINDI & ENGLISH MEDIUM)']);
+        $html = Livewire::test(Fees::class)->html();
+        // The list cell; the Board filter keeps the saved values it matches on.
+        $this->assertMatchesRegularExpression('/whitespace-nowrap">UP BOARD<\/td>/', $html);
+        $this->assertDoesNotMatchRegularExpression('/<td[^>]*>[^<]*ENGLISH MEDIUM/', $html);
     }
 }

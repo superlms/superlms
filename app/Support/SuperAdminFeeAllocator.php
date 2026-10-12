@@ -6,6 +6,7 @@ use App\Models\Organization;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
 use App\Models\SuperAdmin\SuperAdminFeePayment;
+use App\Models\SuperAdmin\SuperAdminFeeReceipt;
 use App\Models\SuperAdmin\SuperAdminFeeStructure;
 use App\Services\ActivityNotifier;
 use Illuminate\Support\Facades\DB;
@@ -254,9 +255,27 @@ class SuperAdminFeeAllocator
                         ]);
                         $row->save();
                     }
-                    $plan[$i]['payment_id'] = $row->id;
+                    $plan[$i]['payment_id']     = $row->id;
+                    $plan[$i]['receipt_number'] = $row->receipt_number;
                 }
             });
+
+            // The whole sum is one receipt on the day it came (Reports reads these).
+            if ($plan) {
+                $numbers = array_values(array_filter(array_column($plan, 'receipt_number')));
+                SuperAdminFeeReceipt::create([
+                    'organization_id'              => $structure->organization_id,
+                    'super_admin_fee_structure_id' => $structure->id,
+                    'amount'                       => round(array_sum(array_column($plan, 'take')), 2),
+                    'academic_year'                => $structure->academic_year,
+                    'payment_mode'                 => $mode,
+                    'payment_date'                 => $date,
+                    'receipt_number'               => count($numbers) > 1 ? $numbers[0] . ' – ' . end($numbers) : ($numbers[0] ?? null),
+                    'label'                        => SuperAdminFeeReceipt::describe(array_column($plan, 'student_id'), array_column($plan, 'key')),
+                    'items'                        => count($plan),
+                    'remark'                       => $remark !== '' ? $remark : null,
+                ]);
+            }
 
             return $plan;
         });

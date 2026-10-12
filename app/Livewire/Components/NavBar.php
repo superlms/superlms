@@ -57,6 +57,12 @@ class NavBar extends Component
         $navItems  = config('menu')[$menuKey] ?? [];
         // Hide modules this school has not been granted (core items always stay).
         $navItems  = \App\Support\ModuleAccess::filterMenu($navItems, Auth::user()?->organization);
+        // Super Admin: a screen off the sidebar ('sidebar' => false — Credit)
+        // is not found by the search either. The school admin's More-only
+        // screens stay searchable.
+        if ($menuKey === 'super-admin') {
+            $navItems = array_filter($navItems, fn ($item) => ($item['sidebar'] ?? true) !== false);
+        }
         $colorKeys = array_keys($this->colorMap);
 
         $this->searchResults = collect($navItems)

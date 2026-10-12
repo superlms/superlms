@@ -154,7 +154,7 @@
                                     {{-- Board: the board alone (no medium), cut with … when it is too long. --}}
                                     <td class="px-4 py-3">
                                         <div class="min-w-0">
-                                            <p class="text-sm text-gray-700 truncate" title="{{ $school->education_board }}">{{ $school->education_board ?? '—' }}</p>
+                                            <p class="text-sm text-gray-700 truncate" title="{{ \App\Support\BoardName::short($school->education_board) }}">{{ \App\Support\BoardName::short($school->education_board) ?: '—' }}</p>
                                         </div>
                                     </td>
                                     {{-- Students --}}
@@ -227,7 +227,7 @@
                                     <span>{{ $school->mobile_number ?? '—' }}</span>
                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[11px] font-medium">{{ number_format($school->total_students) }} students</span>
                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-teal-50 text-teal-600 text-[11px] font-medium">{{ number_format($school->total_teachers) }} teachers</span>
-                                    @if ($school->education_board)<span class="truncate max-w-[120px]" title="{{ $school->education_board }}">{{ $school->education_board }}</span>@endif
+                                    @if ($school->education_board)<span class="truncate max-w-[120px]" title="{{ \App\Support\BoardName::short($school->education_board) }}">{{ \App\Support\BoardName::short($school->education_board) }}</span>@endif
                                 </div>
                             </div>
                         </div>
@@ -1130,226 +1130,213 @@
         </div>
     @endif
 
-    {{-- ══════════ ADD / EDIT SCHOOL SLIDE-IN PANEL ══════════ --}}
+    {{-- ══════════ ADD / EDIT SCHOOL SLIDE-IN PANEL ══════════
+         In the school panel's Add Student look (flat 2-col grid, header and
+         footer fixed). Same fields, the same two steps and the same saves. --}}
     @if ($showModal)
+        @php
+            $scIn = 'w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500';
+            $scLb = 'block text-sm font-medium text-gray-700 mb-1.5';
+            try {
+                $logoPreview = $logo ? $logo->temporaryUrl() : null;
+            } catch (\Throwable $e) {
+                $logoPreview = null;
+            }
+        @endphp
         <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeModal"></div>
-            <div class="absolute top-0 right-0 bottom-0 z-10 w-full max-w-2xl bg-white shadow-2xl flex flex-col overflow-hidden">
+            <div class="absolute top-0 right-0 bottom-0 z-10 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
 
                 {{-- Header --}}
-                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white flex-shrink-0">
-                    <div>
-                        <h2 class="text-lg font-bold text-gray-900">{{ $editId ? 'Edit School' : 'Add School' }}</h2>
-                        <p class="text-xs text-gray-500 mt-0.5">{{ $editId ? 'Update school information' : 'Register a new school' }}</p>
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900">{{ $editId ? 'Edit School' : 'New School' }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">
+                            @if ($editId)
+                                Update the school details below
+                            @elseif ($modalStep === 2)
+                                Step 2 of 2 · choose the modules this school can use
+                            @else
+                                Step 1 of 2 · a login password is generated and emailed to the school on save
+                            @endif
+                        </p>
                     </div>
-                    <button wire:click="closeModal" class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    <button wire:click="closeModal" type="button"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
                 </div>
 
-                {{-- Step indicator (create flow only) --}}
-                @if (!$editId)
-                    <div class="flex items-center gap-2 px-6 pt-4 flex-shrink-0">
-                        <span class="inline-flex items-center gap-1.5 text-xs font-semibold {{ $modalStep === 1 ? 'text-blue-600' : 'text-gray-400' }}">
-                            <span class="w-5 h-5 rounded-full flex items-center justify-center text-[11px] {{ $modalStep === 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500' }}">1</span>
-                            School Details
-                        </span>
-                        <span class="w-6 h-px bg-gray-200"></span>
-                        <span class="inline-flex items-center gap-1.5 text-xs font-semibold {{ $modalStep === 2 ? 'text-blue-600' : 'text-gray-400' }}">
-                            <span class="w-5 h-5 rounded-full flex items-center justify-center text-[11px] {{ $modalStep === 2 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500' }}">2</span>
-                            Select Modules
-                        </span>
-                    </div>
-                @endif
-
                 {{-- Body --}}
-                <div class="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+                <div class="flex-1 overflow-y-auto">
+                    <div class="px-6 py-6 space-y-5">
 
-                    {{-- ===== STEP 1: School details ===== --}}
-                    @if ($editId || $modalStep === 1)
+                        {{-- ===== STEP 1: School details ===== --}}
+                        @if ($editId || $modalStep === 1)
 
-                    {{-- Logo --}}
-                    <div>
-                        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">School Logo</h3>
-                        @if ($editId && $existingLogo && !$logo)
-                            <div class="flex items-center gap-3 mb-3">
-                                <img src="{{ $existingLogo }}" class="w-16 h-16 rounded-xl object-cover border border-gray-200">
-                                <span class="text-xs text-gray-400">Current logo</span>
+                            {{-- Logo --}}
+                            <div>
+                                <label class="{{ $scLb }}">
+                                    School Logo <span class="text-gray-400 font-normal">(Optional, max 2 MB)</span>
+                                </label>
+                                <div class="flex items-center gap-3">
+                                    @if ($logoPreview)
+                                        <img src="{{ $logoPreview }}" class="w-12 h-12 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                                    @elseif ($editId && $existingLogo)
+                                        <img src="{{ $existingLogo }}" class="w-12 h-12 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                                    @else
+                                        <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                            <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                            </svg>
+                                        </div>
+                                    @endif
+                                    <input type="file" wire:model="logo" accept="image/*" class="flex-1 text-sm">
+                                </div>
+                                <div wire:loading wire:target="logo" class="text-xs text-blue-600 mt-1">Uploading…</div>
+                                @error('logo')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+
+                            {{-- Every field in one flat 2-col grid --}}
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="{{ $scLb }}">School Name <span class="text-red-500">*</span></label>
+                                    <input wire:model.defer="schoolName" type="text" placeholder="Enter school name"
+                                        class="{{ $scIn }} @error('schoolName') border-red-400 @enderror">
+                                    @error('schoolName')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                </div>
+                                <div>
+                                    <label class="{{ $scLb }}">School Code <span class="text-red-500">*</span></label>
+                                    <input wire:model.defer="schoolCode" type="text" placeholder="Enter school code"
+                                        class="{{ $scIn }} @error('schoolCode') border-red-400 @enderror">
+                                    @error('schoolCode')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                </div>
+                                <div>
+                                    <label class="{{ $scLb }}">Email <span class="text-red-500">*</span></label>
+                                    <input wire:model.defer="email" type="email" placeholder="school@example.com"
+                                        class="{{ $scIn }} @error('email') border-red-400 @enderror">
+                                    @error('email')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                </div>
+                                <div>
+                                    <label class="{{ $scLb }}">Mobile <span class="text-red-500">*</span></label>
+                                    <input wire:model.defer="mobileNumber" type="text" placeholder="Enter mobile number"
+                                        class="{{ $scIn }} @error('mobileNumber') border-red-400 @enderror">
+                                    @error('mobileNumber')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                </div>
+                                <div>
+                                    <label class="{{ $scLb }}">Education Board <span class="text-red-500">*</span></label>
+                                    <select wire:model.defer="educationBoard"
+                                        class="{{ $scIn }} @error('educationBoard') border-red-400 @enderror">
+                                        <option value="">Select Board</option>
+                                        <option value="CBSE">CBSE</option>
+                                        <option value="UP BOARD">UP BOARD</option>
+                                        <option value="UP BOARD (ENGLISH MEDIUM)">UP BOARD (ENGLISH MEDIUM)</option>
+                                        <option value="UP BOARD (HINDI MEDIUM)">UP BOARD (HINDI MEDIUM)</option>
+                                        <option value="UP BOARD (HINDI &amp; ENGLISH MEDIUM)">UP BOARD (HINDI &amp; ENGLISH MEDIUM)</option>
+                                    </select>
+                                    @error('educationBoard')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                </div>
+                                <div>
+                                    <label class="{{ $scLb }}">Medium</label>
+                                    <select wire:model.defer="medium"
+                                        class="{{ $scIn }} @error('medium') border-red-400 @enderror">
+                                        <option value="">Select Medium</option>
+                                        <option value="english">English Medium</option>
+                                        <option value="hindi">Hindi Medium</option>
+                                        <option value="both">Hindi &amp; English Medium</option>
+                                    </select>
+                                    @error('medium')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                </div>
+                                <div>
+                                    <label class="{{ $scLb }}">State <span class="text-red-500">*</span></label>
+                                    <input wire:model.defer="state" type="text" placeholder="Enter state"
+                                        class="{{ $scIn }} @error('state') border-red-400 @enderror">
+                                    @error('state')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                </div>
+                                <div>
+                                    <label class="{{ $scLb }}">Serial Number <span class="text-red-500">*</span></label>
+                                    <input wire:model.defer="serialNumber" type="text" placeholder="Enter serial number"
+                                        class="{{ $scIn }} @error('serialNumber') border-red-400 @enderror">
+                                    @error('serialNumber')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                </div>
+                                <div>
+                                    <label class="{{ $scLb }}">Affiliation No <span class="text-gray-400 font-normal text-xs">(optional)</span></label>
+                                    <input wire:model.defer="affiliationNo" type="text" placeholder="Enter affiliation number"
+                                        class="{{ $scIn }} @error('affiliationNo') border-red-400 @enderror">
+                                    @error('affiliationNo')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                </div>
+                                <div>
+                                    <label class="{{ $scLb }}">UDISE Number <span class="text-gray-400 font-normal text-xs">(optional)</span></label>
+                                    <input wire:model.defer="udiseNumber" type="text" placeholder="Enter UDISE number"
+                                        class="{{ $scIn }} @error('udiseNumber') border-red-400 @enderror">
+                                    @error('udiseNumber')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                </div>
+                            </div>
+
+                            {{-- Full-width address --}}
+                            <div>
+                                <label class="{{ $scLb }}">Address</label>
+                                <textarea wire:model.defer="address" rows="2" placeholder="Enter address"
+                                    class="{{ $scIn }} resize-none @error('address') border-red-400 @enderror"></textarea>
+                                @error('address')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+
+                        @endif {{-- ===== end STEP 1 ===== --}}
+
+                        {{-- ===== STEP 2: Module selection (create only) ===== --}}
+                        @if (!$editId && $modalStep === 2)
+                            <div>
+                                <div class="flex items-center justify-between mb-3 gap-3">
+                                    <label class="{{ $scLb }} !mb-0">Module Access</label>
+                                    <div class="flex items-center gap-2 flex-shrink-0">
+                                        <button type="button" wire:click="enableAllNewModules"
+                                            class="px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">Enable all</button>
+                                        <button type="button" wire:click="disableAllNewModules"
+                                            class="px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">Disable all</button>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-400 mb-3">You can change these later from the school's Modules tab.</p>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    @foreach (config('modules', []) as $key => $def)
+                                        <label class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-md border border-gray-300 cursor-pointer hover:bg-gray-50">
+                                            <span class="text-sm text-gray-700">{{ $def['label'] ?? $key }}</span>
+                                            <input type="checkbox" wire:model="selectedModules.{{ $key }}"
+                                                class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
+                                        </label>
+                                    @endforeach
+                                </div>
                             </div>
                         @endif
-                        <input type="file" wire:model="logo" accept="image/*"
-                            class="block w-full text-sm text-gray-500
-                                   file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0
-                                   file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700
-                                   hover:file:bg-blue-100 transition-colors">
-                        @error('logo') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+
                     </div>
-
-                    {{-- Basic Info --}}
-                    <div>
-                        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Basic Information</h3>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div class="sm:col-span-2">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">School Name <span class="text-red-500">*</span></label>
-                                <input wire:model.defer="schoolName" type="text" placeholder="Enter school name"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                                @error('schoolName') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Email <span class="text-red-500">*</span></label>
-                                <input wire:model.defer="email" type="email" placeholder="Enter email"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                                @error('email') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Mobile Number <span class="text-red-500">*</span></label>
-                                <input wire:model.defer="mobileNumber" type="text" placeholder="Enter mobile number"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                                @error('mobileNumber') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">State <span class="text-red-500">*</span></label>
-                                <input wire:model.defer="state" type="text" placeholder="Enter state"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                                @error('state') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Education Board <span class="text-red-500">*</span></label>
-                                <select wire:model.defer="educationBoard"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="">Select board</option>
-                                    <option value="CBSE">CBSE</option>
-                                    <option value="UP BOARD">UP BOARD</option>
-                                    <option value="UP BOARD (ENGLISH MEDIUM)">UP BOARD (ENGLISH MEDIUM)</option>
-                                    <option value="UP BOARD (HINDI MEDIUM)">UP BOARD (HINDI MEDIUM)</option>
-                                    <option value="UP BOARD (HINDI &amp; ENGLISH MEDIUM)">UP BOARD (HINDI &amp; ENGLISH MEDIUM)</option>
-                                </select>
-                                @error('educationBoard') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Medium</label>
-                                <select wire:model.defer="medium"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="">Select medium</option>
-                                    <option value="english">English Medium</option>
-                                    <option value="hindi">Hindi Medium</option>
-                                    <option value="both">Hindi &amp; English Medium</option>
-                                </select>
-                                @error('medium') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
-                            </div>
-                            <div class="sm:col-span-2">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                                <textarea wire:model.defer="address" rows="2" placeholder="Enter address"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"></textarea>
-                                @error('address') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- Registration --}}
-                    <div>
-                        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Registration Details</h3>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">School Code <span class="text-red-500">*</span></label>
-                                <input wire:model.defer="schoolCode" type="text" placeholder="Enter school code"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono" />
-                                @error('schoolCode') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Serial Number <span class="text-red-500">*</span></label>
-                                <input wire:model.defer="serialNumber" type="text" placeholder="Enter serial number"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono" />
-                                @error('serialNumber') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Affiliation No</label>
-                                <input wire:model.defer="affiliationNo" type="text" placeholder="Enter affiliation number"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono" />
-                                @error('affiliationNo') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">UDISE Number</label>
-                                <input wire:model.defer="udiseNumber" type="text" placeholder="Enter UDISE number"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono" />
-                                @error('udiseNumber') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
-                            </div>
-                        </div>
-                    </div>
-
-                    @if (!$editId)
-                        <div class="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
-                            <p class="font-semibold mb-0.5">Admin account auto-created</p>
-                            <p class="text-xs text-amber-700">A login password will be generated and emailed to the school's email address.</p>
-                        </div>
-                    @endif
-
-                    @endif {{-- ===== end STEP 1 ===== --}}
-
-                    {{-- ===== STEP 2: Module selection (create only) ===== --}}
-                    @if (!$editId && $modalStep === 2)
-                        <div>
-                            <div class="flex items-center justify-between mb-3 gap-3">
-                                <div>
-                                    <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Module Access</h3>
-                                    <p class="text-xs text-gray-400 mt-0.5">Choose which features this school can use. You can change these later from the school's Modules tab.</p>
-                                </div>
-                                <div class="flex items-center gap-2 flex-shrink-0">
-                                    <button type="button" wire:click="enableAllNewModules"
-                                        class="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">Enable all</button>
-                                    <button type="button" wire:click="disableAllNewModules"
-                                        class="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">Disable all</button>
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                @foreach (config('modules', []) as $key => $def)
-                                    <label class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-gray-200 cursor-pointer hover:border-blue-300 hover:bg-blue-50/40 transition-colors">
-                                        <span class="text-sm font-medium text-gray-800">{{ $def['label'] ?? $key }}</span>
-                                        <input type="checkbox" wire:model="selectedModules.{{ $key }}"
-                                            class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
-                                    </label>
-                                @endforeach
-                            </div>
-                        </div>
-                    @endif
-
                 </div>
 
                 {{-- Footer --}}
-                <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
                     @if (!$editId && $modalStep === 2)
                         <button wire:click="backToDetailsStep" type="button"
-                            class="mr-auto px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                            class="mr-auto px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">
                             ← Back
                         </button>
                     @endif
                     <button wire:click="closeModal" type="button"
-                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                        class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">
                         Cancel
                     </button>
 
                     @if (!$editId && $modalStep === 1)
                         <button wire:click="goToModuleStep" type="button"
-                            class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold
-                                   bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm">
+                            class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5">
                             Next: Select Modules →
                         </button>
                     @else
                         <button wire:click="saveSchool" type="button"
                             wire:loading.attr="disabled" wire:target="saveSchool,logo"
-                            class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold
-                                   bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm
-                                   disabled:opacity-60 disabled:cursor-not-allowed">
+                            class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
                             <span wire:loading.remove wire:target="saveSchool,logo">{{ $editId ? 'Update School' : 'Create School' }}</span>
-                            <span wire:loading wire:target="saveSchool,logo" class="flex items-center gap-2">
-                                <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-                                </svg>
-                                Saving...
-                            </span>
+                            <span wire:loading wire:target="saveSchool,logo">Saving...</span>
                         </button>
                     @endif
                 </div>

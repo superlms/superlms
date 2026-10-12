@@ -135,11 +135,17 @@ class SuperAdminHomeTest extends TestCase
              'period_amounts' => null, 'academic_year' => '2026-2027', 'amount' => 1000],
         ]);
 
+        // Money received day by day: the receipts (the real migration makes the table).
+        (require base_path('database/migrations/2026_10_12_100000_create_super_admin_fee_receipts_table.php'))->up();
+
         $pay = fn ($org, $amount, $date, $paid, $year = '2026-2027') => DB::table('super_admin_fee_payments')->insert(['organization_id' => $org, 'amount' => $amount, 'academic_year' => $year, 'payment_date' => $date, 'is_paid' => $paid]);
         $pay(1, 1000, '2026-10-05', true);
         $pay(1, 500, '2026-09-20', false);              // part paid — money received all the same
         $pay(2, 300, '2025-09-01', true, '2025-2026');  // last year, before the 12 months
         $pay(2, 2000, null, false);
+        foreach ([[1, 1000, '2026-10-05'], [1, 500, '2026-09-20'], [2, 300, '2025-09-01'], [2, 2000, null]] as [$org, $amount, $date]) {
+            DB::table('super_admin_fee_receipts')->insert(['organization_id' => $org, 'amount' => $amount, 'payment_date' => $date, 'academic_year' => '2026-2027']);
+        }
 
         $fee = $this->helper('superAdminFee');
 

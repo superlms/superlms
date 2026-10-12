@@ -89,6 +89,7 @@ class EnsureIsSuperAdmin
             \App\Models\SuperAdmin\CreditQuery::class,
             \App\Models\SuperAdmin\SuperAdminFeeStructure::class,
             \App\Models\SuperAdmin\SuperAdminFeePayment::class,
+            \App\Models\SuperAdmin\SuperAdminFeeReceipt::class,
             \App\Models\Admin\ContactSuperAdmin::class,
             \App\Models\Admin\RateLms::class,
             \App\Models\Admin\Fee\FeePayment::class,
