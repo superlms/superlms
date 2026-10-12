@@ -348,6 +348,88 @@ class PushNotification extends Component
         $this->viewingId = null;
     }
 
+    // ─── Delete ────────────────────────────────────────────────────────────
+
+    /** The notification the delete popup asks about. */
+    public ?int $deletingId = null;
+
+    /** Also take it out of the recipients' notification bells (web panel). */
+    public bool $deleteFromBells = true;
+
+    public function confirmDelete(int $id): void
+    {
+        $this->deletingId      = $id;
+        $this->deleteFromBells = true;
+    }
+
+    public function cancelDelete(): void
+    {
+        $this->deletingId = null;
+    }
+
+    /**
+     * Delete a sent notification from the list — and, when asked, the copies
+     * it dropped into the recipients' notification bells. Pushes already shown
+     * on phones cannot be called back.
+     */
+    public function deleteCampaign(): void
+    {
+        $lockedOrgId = $this->lockedOrganizationId();
+        $campaign    = PushNotificationCampaign::query()
+            ->when($lockedOrgId, fn ($q) => $q->where('organization_id', $lockedOrgId))
+            ->find($this->deletingId);
+        $this->deletingId = null;
+
+        if (!$campaign) {
+            return;
+        }
+
+        $removed = 0;
+        if ($this->deleteFromBells) {
+            $removed = $this->deleteWebNotifications($campaign);
+        }
+
+        if ($this->viewingId === $campaign->id) {
+            $this->viewingId = null;
+        }
+        $campaign->delete();
+
+        $this->dispatch('notify', [
+            'type'    => 'success',
+            'message' => 'Notification deleted' . ($removed > 0 ? " and removed from {$removed} inbox(es)." : '.'),
+        ]);
+    }
+
+    /**
+     * The bell copies storeWebNotifications() wrote for this campaign: same
+     * type and the same data (title, text, screen), written just before the
+     * campaign row was saved.
+     */
+    private function deleteWebNotifications(PushNotificationCampaign $campaign): int
+    {
+        try {
+            $data = json_encode(array_filter([
+                'type'   => 'promo',
+                'title'  => $campaign->title,
+                'body'   => $campaign->body,
+                'screen' => $campaign->screen ?: null,
+            ], fn ($v) => $v !== null));
+
+            return DB::table('notifications')
+                ->where('type', 'promo')
+                ->where('data', $data)
+                ->whereBetween('created_at', [
+                    $campaign->created_at->copy()->subMinutes(15),
+                    $campaign->created_at->copy()->addMinute(),
+                ])
+                ->delete();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return 0;
+        }
+    }
+
     public function render()
     {
         $lockedOrgId = $this->lockedOrganizationId();

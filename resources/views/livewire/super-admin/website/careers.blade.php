@@ -9,7 +9,6 @@
                         class="w-11 h-11 rounded-xl object-contain border border-gray-200 shadow-sm bg-white p-1 flex-shrink-0">
                     <div class="min-w-0">
                         <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">Careers</h1>
-                        <p class="text-xs text-gray-500 mt-0.5 truncate">Manage job openings and applications submitted from the website.</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-4 flex-shrink-0">
@@ -237,11 +236,6 @@
                                         {{-- Application --}}
                                         <td class="px-4 py-3">
                                             <div class="flex items-center gap-3 min-w-0">
-                                                <div class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                    </svg>
-                                                </div>
                                                 <div class="min-w-0">
                                                     <p class="text-sm font-semibold text-gray-900 truncate">{{ $app->full_name ?: 'Anonymous' }}</p>
                                                     <p class="text-xs text-gray-400 truncate">{{ $app->description ?: '—' }}</p>

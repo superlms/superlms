@@ -1,4 +1,4 @@
-<div class="min-h-screen {{ $activeTab === 'view' ? 'bg-white' : 'bg-gray-50' }}">
+<div class="min-h-screen bg-white">
 
     {{-- ══════════ TABS ══════════ --}}
     <div class="bg-white border-b border-gray-200 px-6 sticky top-0 z-40">
@@ -138,125 +138,16 @@
     @endif
 
 
-    {{-- ══════════ EDIT TAB ══════════ --}}
+    {{-- ══════════ EDIT TAB ══════════
+         Plain and minimal, in the view's look (partials/sections-editor). --}}
     @if ($activeTab === 'edit')
-        <div class="max-w-5xl mx-auto px-6 py-8 space-y-6">
-
-            {{-- General (basic information now lives in the About App module) --}}
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                <div
-                    class="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50
-                            flex items-center gap-3">
-                    <div class="w-8 h-8 bg-blue-500 rounded-xl flex items-center justify-center shadow-sm">
-                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                    </div>
-                    <h2 class="text-base font-semibold text-gray-900">General</h2>
-                </div>
-                <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Last Updated</label>
-                        <div class="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 flex items-center gap-2">
-                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                            <span class="font-medium">{{ now()->format('d M Y') }}</span>
-                            <span class="text-xs text-gray-400">· set automatically when you save</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Sections --}}
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                <div
-                    class="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50
-                            flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 bg-indigo-500 rounded-xl flex items-center justify-center shadow-sm">
-                            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                            </svg>
-                        </div>
-                        <div>
-                            <h2 class="text-base font-semibold text-gray-900">Terms &amp; Conditions Sections</h2>
-                            <p class="text-xs text-gray-400">{{ count($sections) }} section(s)</p>
-                        </div>
-                    </div>
-                    <button wire:click="addSection"
-                        class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700
-                               text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add Section
-                    </button>
-                </div>
-                <div class="p-6 space-y-4">
-                    @foreach ($sections as $index => $section)
-                        <div class="border border-gray-200 rounded-xl p-4 hover:border-indigo-200 transition-colors">
-                            <div class="flex items-center justify-between mb-3">
-                                <span class="flex items-center gap-2">
-                                    <span
-                                        class="w-6 h-6 bg-indigo-100 text-indigo-700 text-xs font-bold
-                                                 rounded-full flex items-center justify-center">
-                                        {{ $index + 1 }}
-                                    </span>
-                                    <span class="text-sm font-medium text-gray-700">Section {{ $index + 1 }}</span>
-                                </span>
-                                @if (count($sections) > 1)
-                                    <button wire:click="confirmRemoveSection({{ $index }})"
-                                        class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
-                                @endif
-                            </div>
-                            <div class="space-y-3">
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Heading *</label>
-                                    <input type="text" wire:model="sections.{{ $index }}.head"
-                                        placeholder="e.g., Acceptance of Terms"
-                                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
-                                               focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400">
-                                    @error("sections.{$index}.head")
-                                        <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>
-                                    @enderror
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Description *</label>
-                                    <textarea wire:model="sections.{{ $index }}.desc" rows="4" placeholder="Detailed description..."
-                                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
-                                               focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"></textarea>
-                                    @error("sections.{$index}.desc")
-                                        <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>
-                                    @enderror
-                                </div>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-            </div>
-            {{-- Save Button --}}
-            <div class="flex justify-end pb-6">
-                <button wire:click="save"
-                    class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600
-                           hover:from-green-700 hover:to-emerald-700 text-white font-semibold rounded-xl
-                           shadow-md hover:shadow-lg transition-all">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Save Terms &amp; Conditions
-                </button>
-            </div>
-
-        </div>
+        @include('livewire.super-admin.partials.sections-editor', [
+            'title'    => 'Terms & Conditions',
+            'exists'   => (bool) $termsCondition,
+            'sections' => $sections,
+            'cancel'   => "switchTab('view')",
+            'headHint' => 'e.g. Acceptance of Terms',
+        ])
     @endif
 
 </div>

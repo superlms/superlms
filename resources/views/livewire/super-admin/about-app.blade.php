@@ -1,4 +1,4 @@
-<div class="min-h-screen {{ $activeTab === 'view' ? 'bg-white' : 'bg-gray-50' }}">
+<div class="min-h-screen bg-white">
 
     {{-- ══════════ TABS ══════════ --}}
     <div class="bg-white border-b border-gray-200 px-3 sm:px-6 sticky top-0 z-40 overflow-x-auto">
@@ -226,505 +226,256 @@
         @endif
     @endif
 
-    {{-- ══════════ EDIT TAB ══════════ --}}
+    {{-- ══════════ EDIT TAB ══════════
+         Plain and minimal, in the view's look: a title row with Cancel / Save,
+         then each part under its own heading with hairlines between — the
+         fields as the panel's forms, lists in simple bordered boxes with the
+         Students list's action icons. Same fields, slide-ins, removes (with
+         their confirms) and save as before. --}}
     @if ($activeTab === 'edit')
-        <div class="max-w-5xl mx-auto px-6 py-8 space-y-6">
+        @php
+            $aIn = 'w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500';
+            $aLb = 'block text-sm font-medium text-gray-700 mb-1.5';
+            $aAdd = 'inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-800';
+            $aEdit = 'p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors';
+            $aDel = 'p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors';
+            $aView = 'p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors';
+            $plus = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>';
+            $penIcon = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>';
+            $binIcon = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>';
+            $eyeIcon = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>';
+        @endphp
+        <div class="px-4 sm:px-6 py-6">
+            <div class="max-w-4xl">
 
-            {{-- Basic Information --}}
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                <div
-                    class="px-4 sm:px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-blue-50
-                            flex items-center gap-3">
-                    <div class="w-8 h-8 bg-indigo-500 rounded-xl flex items-center justify-center shadow-sm">
-                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+                {{-- Title row --}}
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-5 border-b border-gray-200">
+                    <div class="min-w-0">
+                        <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">{{ $aboutApp ? 'Edit' : 'Create' }} About App</h1>
+                        <p class="text-xs text-gray-400 mt-0.5">Everything on this page is saved together with Save</p>
                     </div>
-                    <h2 class="text-base font-semibold text-gray-900">Basic Information</h2>
-                </div>
-                <div class="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Heading *</label>
-                        <input type="text" wire:model.defer="heading" placeholder="App name or heading"
-                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
-                                   focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400">
-                        @error('heading')
-                            <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Sub Heading</label>
-                        <input type="text" wire:model.defer="sub_heading" placeholder="Tagline or subtitle"
-                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
-                                   focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Company Name</label>
-                        <input type="text" wire:model.defer="company_name" placeholder="e.g. Super Learnings Private Limited"
-                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
-                                   focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400">
-                        @error('company_name')
-                            <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Company CIN</label>
-                        <input type="text" wire:model.defer="company_cin" placeholder="Corporate Identification Number"
-                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
-                                   focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400">
-                        @error('company_cin')
-                            <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Logo</label>
-                        @if ($logoPreview)
-                            <div class="flex items-center gap-3 mb-2">
-                                <img src="{{ $logoPreview }}"
-                                    class="w-14 h-14 rounded-xl object-contain border border-gray-200">
-                                <span class="text-xs text-gray-400">Current logo</span>
-                            </div>
-                        @endif
-                        <input type="file" wire:model="logo" accept="image/*"
-                            class="block w-full text-sm text-gray-500
-                                   file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0
-                                   file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700
-                                   hover:file:bg-indigo-100 transition-colors">
-                        @error('logo')
-                            <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">Address</label>
-                        <textarea wire:model.defer="address" rows="2" placeholder="Office or contact address"
-                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
-                                   focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"></textarea>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <button type="button" wire:click="setTab('view')"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                        <button type="button" wire:click="save" wire:loading.attr="disabled" wire:target="save,logo"
+                            class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md disabled:opacity-60">
+                            <span wire:loading.remove wire:target="save">Save</span>
+                            <span wire:loading wire:target="save">Saving…</span>
+                        </button>
                     </div>
                 </div>
-            </div>
 
-            {{-- Content Sections --}}
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                <div
-                    class="px-4 sm:px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-purple-50
-                            flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 bg-purple-500 rounded-xl flex items-center justify-center shadow-sm">
-                            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                            </svg>
-                        </div>
-                        <div>
-                            <h2 class="text-base font-semibold text-gray-900">Content Sections</h2>
-                            <p class="text-xs text-gray-400">{{ count($content) }} section(s)</p>
-                        </div>
-                    </div>
-                    <button wire:click="addContentSection"
-                        class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-purple-600 hover:bg-purple-700
-                               text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add Section
-                    </button>
-                </div>
-                <div class="p-4 sm:p-6 space-y-4">
-                    @foreach ($content as $index => $section)
-                        <div class="border border-gray-200 rounded-xl p-4 hover:border-purple-200 transition-colors">
-                            <div class="flex items-center justify-between mb-3">
-                                <span class="flex items-center gap-2">
-                                    <span
-                                        class="w-6 h-6 bg-purple-100 text-purple-700 text-xs font-bold
-                                                 rounded-full flex items-center justify-center">
-                                        {{ $index + 1 }}
-                                    </span>
-                                    <span class="text-sm font-medium text-gray-700">Section {{ $index + 1 }}</span>
-                                </span>
-                                @if (count($content) > 1)
-                                    <button wire:click="removeContentSection({{ $index }})"
-                                        class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
-                                @endif
-                            </div>
-                            <div class="space-y-3">
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Title</label>
-                                    <input type="text" wire:model="content.{{ $index }}.title"
-                                        placeholder="Section title"
-                                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
-                                               focus:ring-2 focus:ring-purple-400 focus:border-purple-400">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Description</label>
-                                    <textarea wire:model="content.{{ $index }}.description" rows="3" placeholder="Section description..."
-                                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
-                                               focus:ring-2 focus:ring-purple-400 focus:border-purple-400"></textarea>
-                                </div>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-            </div>
+                <div class="divide-y divide-gray-200">
 
-            {{-- Contact Details --}}
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                <div
-                    class="px-4 sm:px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-sky-50
-                            flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 bg-blue-500 rounded-xl flex items-center justify-center shadow-sm">
-                            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-                        <h2 class="text-base font-semibold text-gray-900">Contact Details</h2>
-                    </div>
-                    <button wire:click="openContactModal()"
-                        class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700
-                               text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add Contact
-                    </button>
-                </div>
-                <div class="p-4 sm:p-6 space-y-2">
-                    @forelse ($contact_details as $index => $contact)
-                        <div
-                            class="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200
-                                    hover:border-blue-200 transition-colors">
-                            <div class="min-w-0">
-                                <span
-                                    class="text-xs font-semibold text-gray-500 uppercase">{{ $contact['type'] }}</span>
-                                <p class="text-sm font-medium text-gray-800 truncate">{{ $contact['value'] }}</p>
+                    {{-- Basic Information --}}
+                    <section class="py-6">
+                        <h2 class="text-base font-semibold text-gray-900 mb-4">Basic Information</h2>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="{{ $aLb }}">Heading <span class="text-red-500">*</span></label>
+                                <input type="text" wire:model.defer="heading" placeholder="App name or heading"
+                                    class="{{ $aIn }} @error('heading') border-red-400 @enderror">
+                                @error('heading')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                             </div>
-                            <div class="flex items-center gap-1 flex-shrink-0 ml-3">
-                                <button wire:click="openContactModal({{ $index }})"
-                                    class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                                    title="Edit">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                    </svg>
-                                </button>
-                                <button wire:click="removeContact({{ $index }})"
-                                    class="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                    title="Delete">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                </button>
+                            <div>
+                                <label class="{{ $aLb }}">Sub Heading</label>
+                                <input type="text" wire:model.defer="sub_heading" placeholder="Tagline or subtitle" class="{{ $aIn }}">
                             </div>
-                        </div>
-                    @empty
-                        <p class="text-sm text-gray-400 text-center py-4">No contacts added yet.</p>
-                    @endforelse
-                </div>
-            </div>
-
-            {{-- Core Team --}}
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                <div
-                    class="px-4 sm:px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-yellow-50 to-amber-50
-                            flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 bg-amber-500 rounded-xl flex items-center justify-center shadow-sm">
-                            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <h2 class="text-base font-semibold text-gray-900">Core Team</h2>
-                            <p class="text-xs text-gray-400">{{ count($core_team) }} members</p>
-                        </div>
-                    </div>
-                    <button wire:click="openTeamModal()"
-                        class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-500 hover:bg-amber-600
-                               text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add Member
-                    </button>
-                </div>
-                <div class="p-4 sm:p-6">
-                    @if (count($core_team))
-                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-                            @foreach ($core_team as $index => $member)
-                                <div
-                                    class="border border-gray-200 rounded-xl p-4 hover:border-amber-200 transition-colors">
-                                    <div class="flex items-center gap-3 mb-3">
-                                        @if (!empty($member['image']))
-                                            <img src="{{ $member['image'] }}" alt="{{ $member['name'] }}"
-                                                class="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm flex-shrink-0">
-                                        @else
-                                            <div
-                                                class="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                                                <svg class="w-6 h-6 text-amber-500" fill="none"
-                                                    stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="1.5"
-                                                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                </svg>
-                                            </div>
-                                        @endif
-                                        <div class="min-w-0">
-                                            <p class="text-sm font-semibold text-gray-800 truncate">
-                                                {{ $member['name'] }}</p>
-                                            <p class="text-xs text-gray-500">{{ $member['position'] ?? '' }}</p>
-                                        </div>
-                                    </div>
-                                    @if (!empty($member['description']))
-                                        <p class="text-xs text-gray-500 mb-3 line-clamp-2">
-                                            {{ $member['description'] }}</p>
+                            <div>
+                                <label class="{{ $aLb }}">Company Name</label>
+                                <input type="text" wire:model.defer="company_name" placeholder="e.g. Super Learnings Private Limited"
+                                    class="{{ $aIn }} @error('company_name') border-red-400 @enderror">
+                                @error('company_name')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="{{ $aLb }}">Company CIN</label>
+                                <input type="text" wire:model.defer="company_cin" placeholder="Corporate Identification Number"
+                                    class="{{ $aIn }} @error('company_cin') border-red-400 @enderror">
+                                @error('company_cin')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="{{ $aLb }}">Logo</label>
+                                <div class="flex items-center gap-3">
+                                    @if ($logoPreview)
+                                        <img src="{{ $logoPreview }}" class="w-12 h-12 rounded-md object-contain border border-gray-200 flex-shrink-0">
                                     @endif
-                                    <div class="flex items-center gap-1">
-                                        <button wire:click="openTeamModal({{ $index }})"
-                                            class="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-medium
-                                                   text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
-                                                viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                            </svg>
-                                            Edit
-                                        </button>
-                                        <button wire:click="removeTeamMember({{ $index }})"
-                                            class="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-medium
-                                                   text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
-                                                viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
-                                            Remove
-                                        </button>
+                                    <input type="file" wire:model="logo" accept="image/*" class="flex-1 min-w-0 text-sm">
+                                </div>
+                                <div wire:loading wire:target="logo" class="text-xs text-blue-600 mt-1">Uploading…</div>
+                                @error('logo')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="{{ $aLb }}">Address</label>
+                                <textarea wire:model.defer="address" rows="2" placeholder="Office or contact address" class="{{ $aIn }} resize-none"></textarea>
+                            </div>
+                        </div>
+                    </section>
+
+                    {{-- Content Sections --}}
+                    <section class="py-6">
+                        <div class="flex items-center justify-between gap-3 mb-2">
+                            <h2 class="text-base font-semibold text-gray-900">Content Sections</h2>
+                            <span class="text-xs text-gray-400">{{ count($content) }} {{ count($content) === 1 ? 'section' : 'sections' }}</span>
+                        </div>
+                        <div class="divide-y divide-gray-100">
+                            @foreach ($content as $index => $section)
+                                <div class="py-4 flex items-start gap-3" wire:key="about-content-{{ $index }}">
+                                    <span class="w-6 pt-2.5 text-sm font-semibold text-gray-400 tabular-nums flex-shrink-0">{{ $index + 1 }}.</span>
+                                    <div class="flex-1 min-w-0 space-y-2">
+                                        <input type="text" wire:model="content.{{ $index }}.title" placeholder="Section title" aria-label="Title {{ $index + 1 }}"
+                                            class="{{ $aIn }} font-medium text-gray-900">
+                                        <textarea wire:model="content.{{ $index }}.description" rows="3" placeholder="Write this section…" aria-label="Text {{ $index + 1 }}"
+                                            class="{{ $aIn }} leading-relaxed resize-y"></textarea>
                                     </div>
+                                    @if (count($content) > 1)
+                                        <button type="button" wire:click="removeContentSection({{ $index }})" title="Delete section"
+                                            class="mt-1.5 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0">{!! $binIcon !!}</button>
+                                    @else
+                                        <span class="w-7 flex-shrink-0"></span>
+                                    @endif
                                 </div>
                             @endforeach
                         </div>
-                    @else
-                        <p class="text-sm text-gray-400 text-center py-4">No team members added yet.</p>
-                    @endif
-                </div>
-            </div>
+                        <button type="button" wire:click="addContentSection" class="{{ $aAdd }} mt-2">{!! $plus !!} Add section</button>
+                    </section>
 
-            {{-- Social Media --}}
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                <div
-                    class="px-4 sm:px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-sky-50
-                            flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 bg-blue-500 rounded-xl flex items-center justify-center shadow-sm">
-                            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
-                            </svg>
+                    {{-- Contact Details --}}
+                    <section class="py-6">
+                        <div class="flex items-center justify-between gap-3 mb-4">
+                            <h2 class="text-base font-semibold text-gray-900">Contact Details</h2>
+                            <button type="button" wire:click="openContactModal()" class="{{ $aAdd }}">{!! $plus !!} Add contact</button>
                         </div>
-                        <h2 class="text-base font-semibold text-gray-900">Social Media</h2>
-                    </div>
-                    <button wire:click="openSocialModal()"
-                        class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700
-                               text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add Social
-                    </button>
-                </div>
-                <div class="p-4 sm:p-6">
-                    @if (count($social_media))
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            @foreach ($social_media as $index => $social)
-                                <div class="group relative bg-white border border-gray-200 rounded-2xl p-4 hover:border-blue-300 hover:shadow-md transition-all">
-                                    <div class="flex items-start gap-3">
-                                        <div class="w-12 h-12 rounded-xl bg-gray-50 border border-gray-200 p-2 flex items-center justify-center flex-shrink-0">
-                                            @if (!empty($social['icon']))
-                                                <img src="{{ $social['icon'] }}" class="w-full h-full object-contain">
-                                            @else
-                                                <x-social-platform-icon :platform="$social['platform'] ?? ''" class="w-full h-full block" />
+                        @if (count($contact_details))
+                            <div class="border border-gray-200 rounded-md divide-y divide-gray-100">
+                                @foreach ($contact_details as $index => $contact)
+                                    <div class="px-4 py-2.5 flex items-center justify-between gap-3">
+                                        <div class="min-w-0 grid grid-cols-3 gap-3 flex-1 text-sm">
+                                            <span class="text-xs text-gray-400 uppercase tracking-wider pt-0.5">{{ $contact['type'] }}</span>
+                                            <span class="col-span-2 text-gray-800 font-medium truncate">{{ $contact['value'] }}</span>
+                                        </div>
+                                        <div class="flex items-center gap-1 flex-shrink-0">
+                                            <button type="button" wire:click="openContactModal({{ $index }})" title="Edit" class="{{ $aEdit }}">{!! $penIcon !!}</button>
+                                            <button type="button" wire:click="removeContact({{ $index }})" title="Delete" class="{{ $aDel }}">{!! $binIcon !!}</button>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <p class="text-sm text-gray-400">No contacts added yet.</p>
+                        @endif
+                    </section>
+
+                    {{-- Core Team --}}
+                    <section class="py-6">
+                        <div class="flex items-center justify-between gap-3 mb-4">
+                            <h2 class="text-base font-semibold text-gray-900">Core Team</h2>
+                            <button type="button" wire:click="openTeamModal()" class="{{ $aAdd }}">{!! $plus !!} Add member</button>
+                        </div>
+                        @if (count($core_team))
+                            <div class="border border-gray-200 rounded-md divide-y divide-gray-100">
+                                @foreach ($core_team as $index => $member)
+                                    <div class="px-4 py-2.5 flex items-center justify-between gap-3">
+                                        <div class="flex items-center gap-3 min-w-0">
+                                            @if (!empty($member['image']))
+                                                <img src="{{ $member['image'] }}" alt="{{ $member['name'] }}" class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0">
                                             @endif
+                                            <div class="min-w-0">
+                                                <p class="text-sm font-medium text-gray-900 truncate">{{ $member['name'] }}</p>
+                                                <p class="text-xs text-gray-400 truncate">
+                                                    {{ $member['position'] ?? '' }}@if (!empty($member['position']) && !empty($member['description'])) · @endif{{ $member['description'] ?? '' }}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div class="min-w-0 flex-1">
-                                            <p class="text-sm font-semibold text-gray-900 capitalize truncate">
-                                                {{ $social['platform'] ?? 'Link' }}
-                                            </p>
-                                            <p class="text-xs text-gray-500 truncate" title="{{ $social['url'] ?? '' }}">
-                                                {{ $social['url'] ?? '' }}
-                                            </p>
+                                        <div class="flex items-center gap-1 flex-shrink-0">
+                                            <button type="button" wire:click="openTeamModal({{ $index }})" title="Edit" class="{{ $aEdit }}">{!! $penIcon !!}</button>
+                                            <button type="button" wire:click="removeTeamMember({{ $index }})" title="Delete" class="{{ $aDel }}">{!! $binIcon !!}</button>
                                         </div>
                                     </div>
-                                    <div class="mt-3 flex items-center gap-1.5">
-                                        @if (!empty($social['url']))
-                                            <a href="{{ $social['url'] }}" target="_blank" rel="noopener noreferrer"
-                                                class="flex-1 inline-flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold
-                                                       text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-lg transition-colors">
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                                                </svg>
-                                                Open
-                                            </a>
-                                        @endif
-                                        <button wire:click="openSocialModal({{ $index }})"
-                                            class="flex-1 inline-flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold
-                                                   text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded-lg transition-colors">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                            </svg>
-                                            Edit
-                                        </button>
-                                        <button wire:click="removeSocialMedia({{ $index }})"
-                                            class="inline-flex items-center justify-center w-8 h-8 text-red-500 hover:bg-red-50 border border-red-100 rounded-lg transition-colors"
-                                            title="Remove">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    @else
-                        <p class="text-sm text-gray-400 text-center py-6">No social media links added yet.</p>
-                    @endif
-                </div>
-            </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <p class="text-sm text-gray-400">No team members added yet.</p>
+                        @endif
+                    </section>
 
-            {{-- Documents --}}
-            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                <div class="px-4 sm:px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-cyan-50 to-blue-50 flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 bg-cyan-500 rounded-xl flex items-center justify-center shadow-sm">
-                            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
+                    {{-- Social Media --}}
+                    <section class="py-6">
+                        <div class="flex items-center justify-between gap-3 mb-4">
+                            <h2 class="text-base font-semibold text-gray-900">Social Media</h2>
+                            <button type="button" wire:click="openSocialModal()" class="{{ $aAdd }}">{!! $plus !!} Add link</button>
                         </div>
-                        <div>
-                            <h2 class="text-base font-semibold text-gray-900">Documents</h2>
-                            <p class="text-xs text-gray-400">{{ count($documents) }} document(s) · Max 2MB per file</p>
-                        </div>
-                    </div>
-                    <button wire:click="openDocumentModal()"
-                        class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-cyan-600 hover:bg-cyan-700
-                               text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add Document
-                    </button>
-                </div>
-                <div class="p-4 sm:p-6">
-                    @if (count($documents))
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                            @foreach ($documents as $index => $doc)
-                                @php
-                                    $ext = strtolower($doc['file_type'] ?? '');
-                                    $extColor = match(true) {
-                                        in_array($ext, ['pdf']) => ['ring' => 'bg-red-50 text-red-600 border-red-100', 'pill' => 'bg-red-100 text-red-700'],
-                                        in_array($ext, ['doc', 'docx']) => ['ring' => 'bg-blue-50 text-blue-600 border-blue-100', 'pill' => 'bg-blue-100 text-blue-700'],
-                                        default => ['ring' => 'bg-cyan-50 text-cyan-600 border-cyan-100', 'pill' => 'bg-cyan-100 text-cyan-700'],
-                                    };
-                                @endphp
-                                <div class="group bg-white border border-gray-200 rounded-2xl p-4 hover:border-cyan-300 hover:shadow-md transition-all">
-                                    <div class="flex items-start gap-3">
-                                        <div class="w-12 h-12 rounded-xl {{ $extColor['ring'] }} border flex items-center justify-center flex-shrink-0">
-                                            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                    d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 3v6h6" />
-                                            </svg>
-                                        </div>
-                                        <div class="min-w-0 flex-1">
-                                            <p class="text-sm font-semibold text-gray-900 truncate" title="{{ $doc['title'] ?? '' }}">
-                                                {{ $doc['title'] ?? 'Document' }}
-                                            </p>
-                                            <div class="mt-1 flex items-center gap-1.5 flex-wrap">
-                                                <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase rounded {{ $extColor['pill'] }}">
-                                                    {{ $doc['file_type'] ?? 'FILE' }}
-                                                </span>
-                                                @if (!empty($doc['file_size']))
-                                                    <span class="text-xs text-gray-400">{{ number_format($doc['file_size'] / 1024, 0) }} KB</span>
+                        @if (count($social_media))
+                            <div class="border border-gray-200 rounded-md divide-y divide-gray-100">
+                                @foreach ($social_media as $index => $social)
+                                    <div class="px-4 py-2.5 flex items-center justify-between gap-3">
+                                        <div class="flex items-center gap-3 min-w-0">
+                                            <div class="w-7 h-7 flex items-center justify-center flex-shrink-0">
+                                                @if (!empty($social['icon']))
+                                                    <img src="{{ $social['icon'] }}" class="w-full h-full object-contain">
+                                                @else
+                                                    <x-social-platform-icon :platform="$social['platform'] ?? ''" class="w-full h-full block" />
                                                 @endif
                                             </div>
+                                            <div class="min-w-0">
+                                                <p class="text-sm font-medium text-gray-900 capitalize truncate">{{ $social['platform'] ?? 'Link' }}</p>
+                                                <p class="text-xs text-gray-400 truncate" title="{{ $social['url'] ?? '' }}">{{ $social['url'] ?? '' }}</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-1 flex-shrink-0">
+                                            @if (!empty($social['url']))
+                                                <a href="{{ $social['url'] }}" target="_blank" rel="noopener noreferrer" title="Open" class="{{ $aView }}">{!! $eyeIcon !!}</a>
+                                            @endif
+                                            <button type="button" wire:click="openSocialModal({{ $index }})" title="Edit" class="{{ $aEdit }}">{!! $penIcon !!}</button>
+                                            <button type="button" wire:click="removeSocialMedia({{ $index }})" title="Delete" class="{{ $aDel }}">{!! $binIcon !!}</button>
                                         </div>
                                     </div>
-                                    <div class="mt-3 flex items-center gap-1.5">
-                                        @if (!empty($doc['file_path']))
-                                            <a href="{{ $doc['file_path'] }}" target="_blank" rel="noopener noreferrer"
-                                                class="flex-1 inline-flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold
-                                                       text-cyan-700 bg-cyan-50 hover:bg-cyan-100 border border-cyan-100 rounded-lg transition-colors">
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                </svg>
-                                                View
-                                            </a>
-                                        @endif
-                                        <button wire:click="openDocumentModal({{ $index }})"
-                                            class="flex-1 inline-flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold
-                                                   text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded-lg transition-colors">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                            </svg>
-                                            Edit
-                                        </button>
-                                        <button wire:click="removeDocument({{ $index }})"
-                                            class="inline-flex items-center justify-center w-8 h-8 text-red-500 hover:bg-red-50 border border-red-100 rounded-lg transition-colors"
-                                            title="Delete">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    @else
-                        <div class="text-center py-8 border-2 border-dashed border-gray-200 rounded-xl">
-                            <svg class="w-10 h-10 mx-auto text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            <p class="text-sm text-gray-400">No documents uploaded.</p>
-                            <p class="text-xs text-gray-300 mt-1">PDF, DOC, DOCX up to 2MB.</p>
-                        </div>
-                    @endif
-                </div>
-            </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <p class="text-sm text-gray-400">No social media links added yet.</p>
+                        @endif
+                    </section>
 
-            {{-- Save Button --}}
-            <div class="flex justify-stretch sm:justify-end pb-6">
-                <button wire:click="save"
-                    class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600
-                           hover:from-green-700 hover:to-emerald-700 text-white font-semibold rounded-xl
-                           shadow-md hover:shadow-lg transition-all">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Save All Changes
-                </button>
+                    {{-- Documents --}}
+                    <section class="py-6">
+                        <div class="flex items-center justify-between gap-3 mb-4">
+                            <div class="min-w-0">
+                                <h2 class="text-base font-semibold text-gray-900">Documents</h2>
+                                <p class="text-xs text-gray-400 mt-0.5">PDF, DOC or DOCX · up to 2 MB each</p>
+                            </div>
+                            <button type="button" wire:click="openDocumentModal()" class="{{ $aAdd }} flex-shrink-0">{!! $plus !!} Add document</button>
+                        </div>
+                        @if (count($documents))
+                            <div class="border border-gray-200 rounded-md divide-y divide-gray-100">
+                                @foreach ($documents as $index => $doc)
+                                    <div class="px-4 py-2.5 flex items-center justify-between gap-3">
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-medium text-gray-900 truncate" title="{{ $doc['title'] ?? '' }}">{{ $doc['title'] ?? 'Document' }}</p>
+                                            <p class="text-xs text-gray-400">
+                                                {{ strtoupper($doc['file_type'] ?? 'FILE') }}@if (!empty($doc['file_size'])) · {{ number_format($doc['file_size'] / 1024, 0) }} KB @endif
+                                            </p>
+                                        </div>
+                                        <div class="flex items-center gap-1 flex-shrink-0">
+                                            @if (!empty($doc['file_path']))
+                                                <a href="{{ $doc['file_path'] }}" target="_blank" rel="noopener noreferrer" title="View" class="{{ $aView }}">{!! $eyeIcon !!}</a>
+                                            @endif
+                                            <button type="button" wire:click="openDocumentModal({{ $index }})" title="Edit" class="{{ $aEdit }}">{!! $penIcon !!}</button>
+                                            <button type="button" wire:click="removeDocument({{ $index }})" title="Delete" class="{{ $aDel }}">{!! $binIcon !!}</button>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <p class="text-sm text-gray-400">No documents uploaded.</p>
+                        @endif
+                    </section>
+                </div>
+
+                {{-- Save --}}
+                <div class="pt-4 border-t border-gray-200 flex justify-end pb-6">
+                    <button type="button" wire:click="save" wire:loading.attr="disabled" wire:target="save,logo"
+                        class="w-full sm:w-auto px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md disabled:opacity-60">Save</button>
+                </div>
             </div>
         </div>
     @endif
