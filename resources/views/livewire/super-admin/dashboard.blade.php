@@ -172,8 +172,8 @@
                             <dd class="font-semibold text-gray-900 tabular-nums">{{ number_format($superAdminFee['schools']) }}</dd>
                         </div>
                         <div class="flex items-baseline justify-between">
-                            <dt class="text-gray-500">Unpaid records</dt>
-                            <dd class="font-semibold tabular-nums {{ $superAdminFee['unpaid_records'] > 0 ? 'text-red-500' : 'text-gray-900' }}">{{ number_format($superAdminFee['unpaid_records']) }}</dd>
+                            <dt class="text-gray-500">Schools with dues</dt>
+                            <dd class="font-semibold tabular-nums {{ $superAdminFee['schools_due'] > 0 ? 'text-red-500' : 'text-gray-900' }}">{{ number_format($superAdminFee['schools_due']) }}</dd>
                         </div>
                     </dl>
                     <div class="mt-auto pt-5">

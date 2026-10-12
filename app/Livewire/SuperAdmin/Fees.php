@@ -13,6 +13,7 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use WireUi\Traits\WireUiActions;
 use App\Support\NameOrder;
+use App\Support\SuperAdminFeeAllocator;
 
 class Fees extends Component
 {
@@ -88,6 +89,13 @@ class Fees extends Component
 
     // ─── Update panel: one_time flow (org-level installments) ─────────────────
     public array $installments = [];
+
+    // ─── Update panel: one amount received from the school, put against what
+    // is due in order (SuperAdminFeeAllocator) ─────────────────────────────────
+    public string $receiveAmount = '';
+    public string $receiveMode   = 'cash';
+    public string $receiveDate   = '';
+    public string $receiveRemark = '';
 
     // ─── Record / Edit Payment Modal (shared by both flows) ───────────────────
     public bool   $showPayModal      = false;
@@ -351,6 +359,10 @@ class Fees extends Component
         $this->studentFeeList   = [];
         $this->installments     = [];
         $this->standards        = [];
+        $this->receiveAmount    = '';
+        $this->receiveMode      = 'cash';
+        $this->receiveDate      = now()->format('Y-m-d');
+        $this->receiveRemark    = '';
     }
 
     private function loadSchoolStats(): void
@@ -832,6 +844,93 @@ class Fees extends Component
                 'payment_mode' => $payment?->payment_mode ?? '—',
             ];
         })->toArray();
+    }
+
+    // ─── Update panel: amount received from the school ─────────────────────────
+
+    /** The structure the Update Fee panel works on (as updatedUpdateOrgId finds it). */
+    private function receiveStructure(): ?SuperAdminFeeStructure
+    {
+        $orgId = $this->activeOrgId();
+        if (!$orgId) {
+            return null;
+        }
+
+        return SuperAdminFeeStructure::where('organization_id', $orgId)
+            ->where('academic_year', $this->academicYear)
+            ->whereIn('fee_type', ['one_time', 'per_student'])
+            ->active()
+            ->first();
+    }
+
+    /** For the panel: the school's total due and what the amount typed would cover. */
+    public function receivePreview(): array
+    {
+        $structure = $this->receiveStructure();
+        if (!$structure) {
+            return ['due' => 0, 'amount' => 0, 'over' => false, 'lines' => [], 'per_student' => false];
+        }
+
+        $dues   = SuperAdminFeeAllocator::dues($structure);
+        $due    = round(array_sum(array_column($dues, 'due')), 2);
+        $amount = is_numeric($this->receiveAmount) ? max(0, round((float) $this->receiveAmount, 2)) : 0;
+
+        return [
+            'due'         => $due,
+            'amount'      => $amount,
+            'over'        => $amount > $due + 0.005,
+            'lines'       => $amount > 0 ? SuperAdminFeeAllocator::lines(SuperAdminFeeAllocator::plan($dues, $amount)) : [],
+            'per_student' => $structure->fee_type === 'per_student',
+        ];
+    }
+
+    /**
+     * Record one amount received from the school: per student it goes to the
+     * first class's students, then the next class's; monthly to April, then
+     * May…; one time to the year's fee. Rows already part paid are topped up.
+     */
+    public function applyReceivedAmount(): void
+    {
+        $this->validate([
+            'receiveAmount' => 'required|numeric|min:0.01',
+            'receiveMode'   => 'required|in:cash,online,cheque,upi',
+            'receiveDate'   => 'required|date',
+            'receiveRemark' => 'nullable|string|max:255',
+        ], [], [
+            'receiveAmount' => 'amount',
+            'receiveMode'   => 'payment mode',
+            'receiveDate'   => 'payment date',
+            'receiveRemark' => 'remark',
+        ]);
+
+        $structure = $this->receiveStructure();
+        if (!$structure) {
+            $this->notification()->error('No fee structure is set for this school.');
+            return;
+        }
+
+        $amount = round((float) $this->receiveAmount, 2);
+        $due    = round(array_sum(array_column(SuperAdminFeeAllocator::dues($structure), 'due')), 2);
+
+        if ($due <= 0.005) {
+            $this->addError('receiveAmount', 'Nothing is due — the whole fee is already paid.');
+            return;
+        }
+        if ($amount > $due + 0.005) {
+            $this->addError('receiveAmount', 'More than the total due (₹' . number_format($due, 0) . ').');
+            return;
+        }
+
+        $result = SuperAdminFeeAllocator::apply($structure, $amount, $this->receiveMode, $this->receiveDate, $this->receiveRemark);
+
+        $this->receiveAmount = '';
+        $this->receiveRemark = '';
+
+        $noun = $result['kind'] === 'student' ? 'student' : ($this->updateOrgFrequency === 'monthly' ? 'month' : 'fee');
+        $what = $result['full'] . ' ' . $noun . ($result['full'] === 1 ? '' : 's') . ' paid in full'
+            . ($result['part'] > 0 ? ', ' . $result['part'] . ' part paid' : '');
+
+        $this->afterPaymentChange('₹' . number_format($result['applied'], 0) . ' recorded — ' . $what . '.');
     }
 
     // ─── Pay / Edit Payment Modal (shared) ─────────────────────────────────────

@@ -296,14 +296,14 @@
             <x-admin.section-heading title="Fee" />
 
             @include('livewire.super-admin.partials.analytics-tiles', ['items' => [
-                ['To Collect', $inr($feeStats['totalFeeToCollect'] ?? 0), number_format($feeStats['totalStudents'] ?? 0) . ' fee records', 'text-gray-900'],
-                ['Collected', $inr($feeStats['totalCollected'] ?? 0), number_format($feeStats['paidRecords'] ?? 0) . ' paid records', 'text-emerald-600'],
-                ['Remaining', $inr(max(0, $feeStats['totalRemaining'] ?? 0)), number_format($feeStats['unpaidRecords'] ?? 0) . ' unpaid records', 'text-red-500'],
+                ['To Collect', $inr($feeStats['totalFeeToCollect'] ?? 0), 'fee structures' . (!empty($feeStats['year']) ? ' · ' . $feeStats['year'] : ''), 'text-gray-900'],
+                ['Collected', $inr($feeStats['totalCollected'] ?? 0), number_format($feeStats['payments'] ?? $feeStats['paidRecords'] ?? 0) . ' payments', 'text-emerald-600'],
+                ['Remaining', $inr(max(0, $feeStats['totalRemaining'] ?? 0)), number_format($feeStats['schoolsDue'] ?? $feeStats['unpaidRecords'] ?? 0) . ' schools with dues', 'text-red-500'],
                 ['Collection Rate', ($feeStats['collectionRate'] ?? 0) . '%', 'of the fee to collect', 'text-gray-900'],
                 ['This Month', $inr($feeStats['collectedThisMonth'] ?? 0), 'collected', 'text-gray-900'],
                 ['Last Month', $inr($feeStats['collectedLastMonth'] ?? 0), 'collected', 'text-gray-900'],
                 ['Schools with Fee', number_format($feeStats['totalSchools'] ?? 0), 'have a fee structure', 'text-gray-900'],
-                ['Avg / Student', $inr($feeStats['avgFeePerStudent'] ?? 0), 'per fee record', 'text-gray-900'],
+                ['Avg / Student', $inr($feeStats['avgFeePerStudent'] ?? 0), 'fee to collect per student', 'text-gray-900'],
             ]])
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -335,7 +335,7 @@
                 <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
                     <div class="px-5 py-3 border-b border-gray-100">
                         <h3 class="text-sm font-semibold text-gray-800">Schools Fee Breakdown</h3>
-                        <p class="text-xs text-gray-400 mt-0.5">Top 10 by amount</p>
+                        <p class="text-xs text-gray-400 mt-0.5">Top 10 by fee{{ !empty($feeStats['year']) ? ' · ' . $feeStats['year'] : '' }}</p>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm min-w-[600px]">

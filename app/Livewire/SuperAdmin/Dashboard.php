@@ -19,6 +19,7 @@ use App\Models\CareerApplication;
 use App\Models\ExecutiveApplication;
 use App\Models\PushNotificationCampaign;
 use App\Models\WebsiteVisit;
+use App\Support\SuperAdminFeeTotals;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\DB;
@@ -155,17 +156,20 @@ class Dashboard extends Component
     }
 
     /**
-     * The Super Admin's fee from the schools: totals as Analytics → Fee counts
-     * them, and what was collected month by month (by payment date, as the
-     * Fees screen's own chart reads it) over the last 12 months.
+     * The Super Admin's fee from the schools: the year's total from the fee
+     * structure set for each school on the Fees screen against the money
+     * recorded (`SuperAdminFeeTotals`, as Fees and Analytics count it), and
+     * what was collected month by month (by payment date, as the Fees
+     * screen's own chart reads it) over the last 12 months.
      */
     protected function superAdminFee(): array
     {
-        $total     = (float) SuperAdminFeePayment::sum('amount');
-        $collected = (float) SuperAdminFeePayment::paid()->sum('amount');
+        $year      = SuperAdminFeeTotals::summary();
+        $total     = $year['expected'];
+        $collected = $year['collected'];
 
         $from  = now()->subMonthsNoOverflow(self::FEE_MONTHS - 1)->startOfMonth();
-        $byDay = SuperAdminFeePayment::paid()
+        $byDay = SuperAdminFeePayment::query()
             ->whereNotNull('payment_date')
             ->whereDate('payment_date', '>=', $from->toDateString())
             ->whereDate('payment_date', '<=', now()->toDateString())
@@ -193,7 +197,9 @@ class Dashboard extends Component
             'pct'            => $total > 0 ? round($collected / $total * 100, 1) : 0,
             'this_month'     => $byMonth[now()->format('Y-m')] ?? 0,
             'last_month'     => $byMonth[now()->subMonthNoOverflow()->format('Y-m')] ?? 0,
-            'schools'        => SuperAdminFeePayment::distinct('organization_id')->count('organization_id'),
+            'schools'        => $year['schools'],
+            'schools_due'    => $year['schools_due'],
+            'year'           => $year['year'],
             'unpaid_records' => SuperAdminFeePayment::where('is_paid', false)->count(),
             'labels'         => $labels,
             'data'           => $data,

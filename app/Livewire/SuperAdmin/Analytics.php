@@ -17,6 +17,7 @@ use App\Models\Admin\ContactSuperAdmin;
 use App\Models\WebsiteContact;
 use App\Models\WebsiteDemo;
 use App\Models\WebsiteVisit;
+use App\Support\SuperAdminFeeTotals;
 use Carbon\Carbon;
 
 class Analytics extends Component
@@ -332,62 +333,65 @@ class Analytics extends Component
 
     // ─── Fee ──────────────────────────────────────────────────────────────────
 
+    /**
+     * The Super Admin's fee: the year's total from the fee structure set for
+     * each school on the Fees screen against the money recorded on its
+     * payments (`SuperAdminFeeTotals`, as the Fees screen and the home count
+     * it — part payments are money received too); months by payment date.
+     */
     private function loadFee(): void
     {
-        $totalSchools      = SuperAdminFeeStructure::distinct('organization_id')->count('organization_id');
-        $totalRecords      = SuperAdminFeePayment::count();
-        $totalFeeToCollect = (float) SuperAdminFeePayment::sum('amount');
-        $totalCollected    = (float) SuperAdminFeePayment::paid()->sum('amount');
-        $totalRemaining    = $totalFeeToCollect - $totalCollected;
+        $year              = SuperAdminFeeTotals::summary();
+        $totalFeeToCollect = $year['expected'];
+        $totalCollected    = $year['collected'];
+        $totalRemaining    = $year['remaining'];
+        $allStudents       = StudentDetail::count();
+
+        $thisMonth = now()->startOfMonth();
+        $lastMonth = now()->subMonthNoOverflow()->startOfMonth();
 
         $this->feeStats = [
-            'totalSchools'       => $totalSchools,
-            'totalStudents'      => $totalRecords,
+            'year'               => $year['year'],
+            'totalSchools'       => $year['schools'],
+            'totalStudents'      => $year['payments'],
             'totalFeeToCollect'  => $totalFeeToCollect,
             'totalCollected'     => $totalCollected,
             'totalRemaining'     => $totalRemaining,
-            'avgFeePerStudent'   => $totalRecords > 0 ? round($totalFeeToCollect / $totalRecords, 2) : 0,
+            // As the Fees screen's header: the fee to collect over every student.
+            'avgFeePerStudent'   => $allStudents > 0 ? round($totalFeeToCollect / $allStudents) : 0,
             // Extra detail
-            'collectionRate'     => $totalFeeToCollect > 0 ? round($totalCollected / $totalFeeToCollect * 100, 1) : 0,
-            'collectedThisMonth' => (float) SuperAdminFeePayment::paid()->where('created_at', '>=', now()->startOfMonth())->sum('amount'),
-            'collectedLastMonth' => (float) SuperAdminFeePayment::paid()
-                ->whereBetween('created_at', [now()->subMonthNoOverflow()->startOfMonth(), now()->subMonthNoOverflow()->endOfMonth()])
+            'collectionRate'     => $year['pct'],
+            'collectedThisMonth' => (float) SuperAdminFeePayment::whereDate('payment_date', '>=', $thisMonth->toDateString())
+                ->whereDate('payment_date', '<=', now()->toDateString())
                 ->sum('amount'),
-            'paidRecords'        => SuperAdminFeePayment::paid()->count(),
-            'unpaidRecords'      => SuperAdminFeePayment::where('is_paid', false)->count(),
+            'collectedLastMonth' => (float) SuperAdminFeePayment::whereDate('payment_date', '>=', $lastMonth->toDateString())
+                ->whereDate('payment_date', '<=', $lastMonth->copy()->endOfMonth()->toDateString())
+                ->sum('amount'),
+            'paidRecords'        => $year['payments'],
+            'unpaidRecords'      => $year['schools_due'],
+            'schoolsDue'         => $year['schools_due'],
+            'payments'           => $year['payments'],
         ];
 
-        // School-wise breakdown — one aggregate query, genuinely top 10 by amount
-        $this->schoolFeeList = SuperAdminFeePayment::selectRaw('
-                organization_id,
-                SUM(amount) as to_collect,
-                SUM(CASE WHEN is_paid = 1 THEN amount ELSE 0 END) as collected
-            ')
-            ->groupBy('organization_id')
-            ->orderByDesc('to_collect')
-            ->limit(10)
-            ->get()
-            ->map(function ($row) {
-                $toCollect = (float) $row->to_collect;
-                $collected = (float) $row->collected;
-
-                return [
-                    'name'      => Organization::find($row->organization_id)?->name ?? 'Unknown',
-                    'toCollect' => $toCollect,
-                    'collected' => $collected,
-                    'remaining' => $toCollect - $collected,
-                    'pct'       => $toCollect > 0 ? round($collected / $toCollect * 100, 1) : 0,
-                ];
-            })->values()->toArray();
+        // School-wise breakdown — the 10 biggest fees of the year.
+        $this->schoolFeeList = $year['by_school']->take(10)->map(fn ($s) => [
+            'name'      => $s['name'],
+            'plan'      => $s['plan'],
+            'toCollect' => $s['expected'],
+            'collected' => $s['collected'],
+            'remaining' => $s['remaining'],
+            'pct'       => $s['pct'],
+        ])->values()->toArray();
 
         $this->feeMonthly = [
             'labels'    => $this->monthLabels(),
-            'collected' => $this->monthlySeries(SuperAdminFeePayment::paid(), 'amount'),
-            'payments'  => $this->monthlySeries(SuperAdminFeePayment::paid()),
+            'collected' => $this->monthlySeries(SuperAdminFeePayment::query(), 'amount', 'payment_date'),
+            'payments'  => $this->monthlySeries(SuperAdminFeePayment::query(), 'count', 'payment_date'),
         ];
 
         // Collected amount by payment mode
-        $modes = SuperAdminFeePayment::paid()
+        $modes = SuperAdminFeePayment::query()
+            ->where('amount', '>', 0)
             ->selectRaw("COALESCE(NULLIF(payment_mode, ''), 'other') as mode, SUM(amount) as total")
             ->groupBy('mode')
             ->orderByDesc('total')

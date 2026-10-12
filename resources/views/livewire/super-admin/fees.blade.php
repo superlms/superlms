@@ -148,23 +148,19 @@
                                         </div>
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-600">{{ $school->education_board ?? '—' }}</td>
-                                    <td class="px-4 py-3">
-                                        @if ($orgStructure?->fee_type === 'one_time')
-                                            <span class="text-xs px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full font-medium border border-indigo-100">One Time</span>
-                                        @elseif ($orgStructure?->fee_type === 'per_student')
-                                            <span class="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full font-medium border border-blue-100">Per Student</span>
-                                        @else
-                                            <span class="text-xs px-2 py-0.5 bg-gray-50 text-gray-400 rounded-full font-medium border border-gray-200">Not set</span>
-                                        @endif
+                                    {{-- Fee Type as plain text: the plan as it was set (Monthly / One Time / Per Student). --}}
+                                    <td class="px-4 py-3 text-sm whitespace-nowrap {{ $orgStructure ? 'text-gray-700' : 'text-gray-400' }}">
+                                        {{ \App\Support\SuperAdminFeeTotals::planName($orgStructure) }}
                                     </td>
-                                    <td class="px-4 py-3">
+                                    {{-- Amount on one line: the figure, then what it is for. --}}
+                                    <td class="px-4 py-3 whitespace-nowrap">
                                         @if ($orgStructure?->fee_type === 'one_time')
                                             @php $rowAmt = !empty($orgStructure->period_amounts) ? array_sum($orgStructure->period_amounts) : (float) ($orgStructure->total_amount ?? $orgStructure->amount); @endphp
                                             <span class="text-sm font-semibold text-gray-800">₹{{ number_format((float) $rowAmt, 0) }}</span>
-                                            <span class="block text-[10px] text-gray-400">/ year</span>
+                                            <span class="text-xs text-gray-400">/ year</span>
                                         @elseif ($orgStructure?->fee_type === 'per_student')
                                             <span class="text-sm font-semibold text-gray-800">₹{{ number_format((float) $orgStructure->amount, 0) }}</span>
-                                            <span class="block text-[10px] text-gray-400">/ student</span>
+                                            <span class="text-xs text-gray-400">/ student</span>
                                         @else
                                             <span class="text-sm text-gray-400">—</span>
                                         @endif
@@ -287,21 +283,15 @@
                             <div class="grid grid-cols-2 gap-2 text-sm">
                                 <div>
                                     <p class="text-xs text-gray-400">Fee Type</p>
-                                    @if ($orgStructure?->fee_type === 'one_time')
-                                        <span class="text-xs px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full font-medium border border-indigo-100">One Time</span>
-                                    @elseif ($orgStructure?->fee_type === 'per_student')
-                                        <span class="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full font-medium border border-blue-100">Per Student</span>
-                                    @else
-                                        <span class="text-xs px-2 py-0.5 bg-gray-50 text-gray-400 rounded-full font-medium border border-gray-200">Not set</span>
-                                    @endif
+                                    <p class="{{ $orgStructure ? 'text-gray-700' : 'text-gray-400' }}">{{ \App\Support\SuperAdminFeeTotals::planName($orgStructure) }}</p>
                                 </div>
                                 <div>
                                     <p class="text-xs text-gray-400">Amount</p>
                                     @if ($orgStructure?->fee_type === 'one_time')
                                         @php $mAmt = !empty($orgStructure->period_amounts) ? array_sum($orgStructure->period_amounts) : (float) ($orgStructure->total_amount ?? $orgStructure->amount); @endphp
-                                        <p class="text-gray-700 font-medium">₹{{ number_format((float) $mAmt, 0) }} <span class="text-[10px] text-gray-400">/ year</span></p>
+                                        <p class="text-gray-700 font-medium whitespace-nowrap">₹{{ number_format((float) $mAmt, 0) }} <span class="text-xs font-normal text-gray-400">/ year</span></p>
                                     @elseif ($orgStructure?->fee_type === 'per_student')
-                                        <p class="text-gray-700 font-medium">₹{{ number_format((float) $orgStructure->amount, 0) }} <span class="text-[10px] text-gray-400">/ student</span></p>
+                                        <p class="text-gray-700 font-medium whitespace-nowrap">₹{{ number_format((float) $orgStructure->amount, 0) }} <span class="text-xs font-normal text-gray-400">/ student</span></p>
                                     @else
                                         <p class="text-gray-400">—</p>
                                     @endif
@@ -1002,6 +992,100 @@
                             @if ($updateOrgFeeLabel)
                                 <span class="text-xs text-gray-400">{{ $updateOrgFeeLabel }} · {{ $academicYear }}</span>
                             @endif
+                        </div>
+
+                        {{-- ── AMOUNT RECEIVED: one sum from the school, put against what is due in
+                             order (per student: first class, then the next…; monthly: April, then May…) ── --}}
+                        @php $receive = $this->receivePreview(); @endphp
+                        <div class="border border-gray-200 rounded-xl p-4 space-y-3">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="min-w-0">
+                                    <p class="text-sm font-semibold text-gray-800">Amount Received</p>
+                                    <p class="text-[11px] text-gray-400 mt-0.5">
+                                        @if ($receive['per_student'])
+                                            Goes to the first class's students first, then the next class, and so on.
+                                        @elseif ($updateOrgFrequency === 'monthly')
+                                            Goes to April first, then May, and so on.
+                                        @else
+                                            Goes to the year's fee.
+                                        @endif
+                                    </p>
+                                </div>
+                                <p class="text-xs text-gray-500 whitespace-nowrap">Total due
+                                    <strong class="{{ $receive['due'] > 0 ? 'text-red-500' : 'text-emerald-600' }}">₹{{ number_format($receive['due'], 0) }}</strong>
+                                </p>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Amount (₹) *</label>
+                                    <input wire:model.live.debounce.400ms="receiveAmount" type="number" min="0" step="0.01" placeholder="e.g. 25000"
+                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
+                                               focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                                    @error('receiveAmount') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Payment Mode</label>
+                                    <select wire:model="receiveMode"
+                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white
+                                               focus:ring-2 focus:ring-blue-500">
+                                        <option value="cash">Cash</option>
+                                        <option value="online">Online</option>
+                                        <option value="cheque">Cheque</option>
+                                        <option value="upi">UPI</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Payment Date</label>
+                                    <input wire:model="receiveDate" type="date"
+                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
+                                               focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                                    @error('receiveDate') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Remark (Optional)</label>
+                                    <input wire:model="receiveRemark" type="text" placeholder="Optional remark"
+                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
+                                               focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                                    @error('receiveRemark') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                                </div>
+                            </div>
+
+                            {{-- What the amount will cover, before it is saved. --}}
+                            @if ($receive['amount'] > 0)
+                                @if ($receive['over'])
+                                    <p class="text-xs text-red-500">More than the total due (₹{{ number_format($receive['due'], 0) }}).</p>
+                                @elseif (count($receive['lines']))
+                                    <div class="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 space-y-1 max-h-44 overflow-y-auto">
+                                        @foreach ($receive['lines'] as $line)
+                                            <div class="flex items-baseline justify-between gap-3 text-xs">
+                                                <span class="font-medium text-gray-700 whitespace-nowrap">{{ $line['label'] }}</span>
+                                                <span class="text-right {{ $line['full'] ? 'text-emerald-700' : 'text-amber-600' }}">{{ $line['text'] }}</span>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            @endif
+
+                            {{-- Asks once before saving: one amount can mark many students / months. --}}
+                            <div x-data="{ ask: false }">
+                                <button type="button" x-show="!ask" x-on:click="ask = true"
+                                    @disabled($receive['due'] <= 0)
+                                    class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors">
+                                    Save Amount
+                                </button>
+                                <div x-show="ask" x-cloak class="flex items-center gap-2">
+                                    <button type="button" wire:click="applyReceivedAmount" x-on:click="ask = false"
+                                        wire:loading.attr="disabled" wire:target="applyReceivedAmount"
+                                        class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition-colors">
+                                        Yes, save{{ $receive['amount'] > 0 ? ' ₹' . number_format($receive['amount'], 0) : '' }}
+                                    </button>
+                                    <button type="button" x-on:click="ask = false"
+                                        class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-medium rounded-lg transition-colors">
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         {{-- ── PER STUDENT: class + section → students list ── --}}

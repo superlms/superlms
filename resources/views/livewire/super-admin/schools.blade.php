@@ -118,7 +118,7 @@
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">School</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">Mobile</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-40">Board / Medium</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-40">Board</th>
                                 <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Students</th>
                                 <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Teachers</th>
                                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">Actions</th>
@@ -151,22 +151,10 @@
                                     <td class="px-4 py-3">
                                         <span class="text-sm text-gray-700">{{ $school->mobile_number ?? '—' }}</span>
                                     </td>
-                                    {{-- Board / Medium: the board, and the medium under it in
-                                         small type; either one cut with … when it is too long. --}}
-                                    @php
-                                        $mediumLabel = match ($school->medium) {
-                                            'english' => 'English Medium',
-                                            'hindi'   => 'Hindi Medium',
-                                            'both'    => 'Hindi & English Medium',
-                                            default   => $school->medium ? ucfirst($school->medium) . ' Medium' : null,
-                                        };
-                                    @endphp
+                                    {{-- Board: the board alone (no medium), cut with … when it is too long. --}}
                                     <td class="px-4 py-3">
                                         <div class="min-w-0">
                                             <p class="text-sm text-gray-700 truncate" title="{{ $school->education_board }}">{{ $school->education_board ?? '—' }}</p>
-                                            @if ($mediumLabel)
-                                                <p class="text-xs text-gray-400 truncate mt-0.5" title="{{ $mediumLabel }}">{{ $mediumLabel }}</p>
-                                            @endif
                                         </div>
                                     </td>
                                     {{-- Students --}}

@@ -97,28 +97,56 @@ class SuperAdminHomeTest extends TestCase
         });
     }
 
-    public function test_the_super_admin_fee_is_counted_by_payment_date_over_twelve_months(): void
+    public function test_the_super_admin_fee_reads_the_fee_structures_and_counts_months_by_payment_date(): void
     {
         $this->signIn();
+        $this->table('organizations', fn (Blueprint $t) => $t->string('name'));
+        $this->table('student_details', function (Blueprint $t) {
+            $t->unsignedBigInteger('organization_id');
+            $t->unsignedBigInteger('standard_id')->nullable();
+        });
+        $this->table('super_admin_fee_structures', function (Blueprint $t) {
+            $t->unsignedBigInteger('organization_id');
+            $t->unsignedBigInteger('standard_id')->nullable();
+            $t->string('fee_type');
+            $t->decimal('amount', 10, 2)->default(0);
+            $t->decimal('total_amount', 10, 2)->nullable();
+            $t->string('installment_frequency')->nullable();
+            $t->text('period_amounts')->nullable();
+            $t->string('academic_year');
+            $t->boolean('is_active')->default(true);
+        });
         $this->table('super_admin_fee_payments', function (Blueprint $t) {
             $t->unsignedBigInteger('organization_id');
             $t->decimal('amount', 12, 2);
+            $t->string('academic_year')->nullable();
             $t->date('payment_date')->nullable();
             $t->boolean('is_paid')->default(false);
         });
 
-        $pay = fn ($org, $amount, $date, $paid) => DB::table('super_admin_fee_payments')->insert(['organization_id' => $org, 'amount' => $amount, 'payment_date' => $date, 'is_paid' => $paid]);
+        DB::table('organizations')->insert([['id' => 1, 'name' => 'Alpha'], ['id' => 2, 'name' => 'Beta']]);
+        DB::table('student_details')->insert([['organization_id' => 2], ['organization_id' => 2], ['organization_id' => 2]]);
+        // Alpha: Monthly, 500 a month = 6,000; Beta: Per Student, 1,000 × 3 = 3,000.
+        DB::table('super_admin_fee_structures')->insert([
+            ['organization_id' => 1, 'fee_type' => 'one_time', 'installment_frequency' => 'monthly', 'total_amount' => 6000,
+             'period_amounts' => json_encode(array_fill_keys(['2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10', '2026-11', '2026-12', '2027-01', '2027-02', '2027-03'], 500)),
+             'academic_year' => '2026-2027', 'amount' => 500],
+            ['organization_id' => 2, 'fee_type' => 'per_student', 'installment_frequency' => null, 'total_amount' => null,
+             'period_amounts' => null, 'academic_year' => '2026-2027', 'amount' => 1000],
+        ]);
+
+        $pay = fn ($org, $amount, $date, $paid, $year = '2026-2027') => DB::table('super_admin_fee_payments')->insert(['organization_id' => $org, 'amount' => $amount, 'academic_year' => $year, 'payment_date' => $date, 'is_paid' => $paid]);
         $pay(1, 1000, '2026-10-05', true);
-        $pay(1, 500, '2026-09-20', true);
-        $pay(2, 300, '2025-09-01', true);   // before the 12 months
+        $pay(1, 500, '2026-09-20', false);              // part paid — money received all the same
+        $pay(2, 300, '2025-09-01', true, '2025-2026');  // last year, before the 12 months
         $pay(2, 2000, null, false);
 
         $fee = $this->helper('superAdminFee');
 
-        $this->assertEquals(3800, $fee['total']);
-        $this->assertEquals(1800, $fee['collected']);
-        $this->assertEquals(2000, $fee['pending']);
-        $this->assertSame(47.4, $fee['pct']);
+        $this->assertEquals(9000, $fee['total']);
+        $this->assertEquals(3500, $fee['collected']);
+        $this->assertEquals(5500, $fee['pending']);
+        $this->assertSame(38.9, $fee['pct']);
         $this->assertEquals(1000, $fee['this_month']);
         $this->assertEquals(500, $fee['last_month']);
         $this->assertEquals(1500, $fee['year_total']);
@@ -126,7 +154,8 @@ class SuperAdminHomeTest extends TestCase
         $this->assertSame('Nov 25', $fee['labels'][0]);
         $this->assertEquals(1000, end($fee['data']));
         $this->assertSame(2, $fee['schools']);
-        $this->assertSame(1, $fee['unpaid_records']);
+        $this->assertSame(2, $fee['schools_due']);
+        $this->assertSame('2026-2027', $fee['year']);
     }
 
     public function test_staff_salary_and_attendance_count_active_staff_only(): void
