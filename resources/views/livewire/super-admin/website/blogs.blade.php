@@ -9,7 +9,6 @@
                         class="w-11 h-11 rounded-xl object-contain border border-gray-200 shadow-sm bg-white p-1 flex-shrink-0">
                     <div class="min-w-0">
                         <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">Blogs</h1>
-                        <p class="text-xs text-gray-500 mt-0.5 truncate">Write and manage the articles shown on the website.</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
@@ -91,11 +90,29 @@
                                         {{ number_format($blog->views) }}
                                     </span>
                                 </div>
-                                <div class="flex items-center gap-1.5">
-                                    <button wire:click="openEdit({{ $blog->id }})"
-                                        class="px-2 py-1 text-[11px] font-medium text-indigo-600 border border-indigo-200 rounded-md hover:bg-indigo-50 transition-colors">Edit</button>
-                                    <button wire:click="confirmDelete({{ $blog->id }})"
-                                        class="px-2 py-1 text-[11px] font-medium text-red-600 border border-red-200 rounded-md hover:bg-red-50 transition-colors">Delete</button>
+                                {{-- Students-style action icons: View, Edit, Delete --}}
+                                <div class="flex items-center gap-0.5 flex-shrink-0">
+                                    <button wire:click="openView({{ $blog->id }})" title="View"
+                                        class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                    </button>
+                                    <button wire:click="openEdit({{ $blog->id }})" title="Edit"
+                                        class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                    </button>
+                                    <button wire:click="confirmDelete({{ $blog->id }})" title="Delete"
+                                        class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -106,6 +123,97 @@
             <div>{{ $blogs->links() }}</div>
         @endif
     </div>
+
+    {{-- ══════════════════ VIEW SLIDE-IN PANEL ══════════════════
+         The blog as it reads: cover, category, title, heading and its
+         paragraphs (links work, as on the website), then when it was
+         posted and its views. Edit closes the view and opens the form. --}}
+    @if ($viewBlog)
+        @php
+            // As the website's blog page: escape, then [label](url) and bare
+            // https://… URLs become links.
+            $bvLinkify = function (string $text): string {
+                $html = preg_replace_callback(
+                    '~\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<]+)~i',
+                    function ($m) {
+                        $isMarkdown = $m[1] !== '';
+                        $url        = $isMarkdown ? $m[2] : $m[3];
+                        $label      = $isMarkdown ? $m[1] : $m[3];
+                        return '<a href="' . $url . '" target="_blank" rel="noopener noreferrer" class="text-indigo-600 underline hover:text-indigo-800">' . $label . '</a>';
+                    },
+                    e($text)
+                );
+                return nl2br($html);
+            };
+        @endphp
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden" x-data @keydown.escape.window="$wire.closeView()">
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeView"></div>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col">
+
+                {{-- Header --}}
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $viewBlog->title }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5 truncate">
+                            Blog{{ $viewBlog->category ? ' · ' . $viewBlog->category : '' }}
+                            · {{ $viewBlog->created_at?->format('d M Y') }}
+                            · {{ number_format($viewBlog->views) }} {{ (int) $viewBlog->views === 1 ? 'view' : 'views' }}
+                        </p>
+                    </div>
+                    <button wire:click="closeView"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                {{-- Body — the article --}}
+                <div class="flex-1 overflow-y-auto px-6 py-6">
+                    @if ($viewBlog->cover_image)
+                        <img src="{{ $viewBlog->cover_image }}" alt="{{ $viewBlog->title }}"
+                            class="w-full max-h-72 object-cover rounded-lg border border-gray-200 mb-5">
+                    @endif
+
+                    @if ($viewBlog->category)
+                        <p class="text-[11px] font-bold tracking-wide uppercase text-indigo-600 mb-1.5">{{ $viewBlog->category }}</p>
+                    @endif
+                    <h3 class="text-xl font-bold text-gray-900 leading-snug">{{ $viewBlog->title }}</h3>
+                    @if ($viewBlog->heading)
+                        <p class="text-sm font-medium text-gray-600 mt-1.5">{{ $viewBlog->heading }}</p>
+                    @endif
+
+                    <div class="mt-5 space-y-4 text-sm text-gray-700 leading-relaxed break-words">
+                        @forelse ($viewBlog->body_paragraphs as $para)
+                            <p>{!! $bvLinkify($para) !!}</p>
+                        @empty
+                            <p class="text-gray-400">No text written yet.</p>
+                        @endforelse
+                    </div>
+
+                    {{-- When and how often read, under a line --}}
+                    <div class="pt-4 mt-6 border-t border-gray-100 space-y-4">
+                        @foreach ([
+                            'Posted on' => $viewBlog->created_at?->format('d M Y · g:i A') ?? '—',
+                            'Views'     => number_format($viewBlog->views),
+                        ] as $label => $value)
+                            <div class="grid grid-cols-3 gap-3 text-sm">
+                                <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
+                                <span class="col-span-2 text-gray-800 font-medium break-words">{{ $value }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                {{-- Footer --}}
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
+                    <button type="button" wire:click="editFromView"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">
+                        Edit
+                    </button>
+                    <button type="button" wire:click="closeView" class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
+                </div>
+            </div>
+        </div>
+    @endif
 
     {{-- ══════════════════ SLIDE-IN PANEL ══════════════════ --}}
     @if ($showPanel)

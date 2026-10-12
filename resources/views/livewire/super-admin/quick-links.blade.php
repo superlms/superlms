@@ -50,9 +50,9 @@
         </div>
     </div>
 
-    {{-- ─── 5 × 5 grid — rows stretch to fill the area so it never scrolls ─── --}}
+    {{-- ─── 6 × 4 grid (the 24 screens) — rows stretch to fill the area so it never scrolls ─── --}}
     <div class="flex-1 min-h-0 p-3 sm:p-4 flex flex-col">
-        <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 md:grid-rows-5 md:auto-rows-fr gap-2.5 sm:gap-3 flex-1 min-h-0">
+        <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 md:grid-rows-4 md:auto-rows-fr gap-2.5 sm:gap-3 flex-1 min-h-0">
             @foreach ($orderedLinks as $link)
                 <a href="{{ route($link['route']) }}" wire:key="ql-{{ $link['route'] }}"
                    class="group flex flex-col items-center justify-center text-center gap-2 p-2 rounded-xl bg-white border border-gray-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-indigo-200 transition-all duration-200">

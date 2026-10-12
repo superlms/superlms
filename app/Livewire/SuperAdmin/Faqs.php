@@ -28,6 +28,9 @@ class Faqs extends Component
     /** Delete confirmation */
     public ?int $pendingDelete = null;
 
+    /** View slide-in (the Enquiry view's look) */
+    public ?int $viewId = null;
+
     protected function rules(): array
     {
         return [
@@ -52,6 +55,28 @@ class Faqs extends Component
     {
         return Faq::query()->whereNotNull('category')
             ->distinct()->orderBy('category')->pluck('category');
+    }
+
+    // ─── View ─────────────────────────────────────────────────────────
+
+    public function openView(int $id): void
+    {
+        $this->viewId = Faq::whereKey($id)->exists() ? $id : null;
+    }
+
+    public function closeView(): void
+    {
+        $this->viewId = null;
+    }
+
+    /** The view's Edit: the view closes and the form opens on that FAQ. */
+    public function editFromView(): void
+    {
+        $id = $this->viewId;
+        $this->viewId = null;
+        if ($id) {
+            $this->openEdit($id);
+        }
     }
 
     // ─── Panel ────────────────────────────────────────────────────────
@@ -147,6 +172,7 @@ class Faqs extends Component
         return view('livewire.super-admin.website.faqs', [
             'faqs'       => $faqs,
             'categories' => $this->categories(),
+            'viewFaq'    => $this->viewId ? Faq::find($this->viewId) : null,
         ]);
     }
 }

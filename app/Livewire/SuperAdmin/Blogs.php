@@ -34,6 +34,9 @@ class Blogs extends Component
     /** Delete confirmation */
     public ?int $pendingDelete = null;
 
+    /** View slide-in: the blog opened as it reads */
+    public ?int $viewId = null;
+
     protected function rules(): array
     {
         return [
@@ -54,6 +57,28 @@ class Blogs extends Component
     public function updatingDateFilter(): void
     {
         $this->resetPage();
+    }
+
+    // ─── View ─────────────────────────────────────────────────────────
+
+    public function openView(int $id): void
+    {
+        $this->viewId = Blog::whereKey($id)->exists() ? $id : null;
+    }
+
+    public function closeView(): void
+    {
+        $this->viewId = null;
+    }
+
+    /** The view's Edit: the view closes and the form opens on that blog. */
+    public function editFromView(): void
+    {
+        $id = $this->viewId;
+        $this->viewId = null;
+        if ($id) {
+            $this->openEdit($id);
+        }
     }
 
     // ─── Panel ────────────────────────────────────────────────────────
@@ -213,7 +238,8 @@ class Blogs extends Component
             ->paginate(9);
 
         return view('livewire.super-admin.website.blogs', [
-            'blogs' => $blogs,
+            'blogs'    => $blogs,
+            'viewBlog' => $this->viewId ? Blog::find($this->viewId) : null,
         ]);
     }
 }

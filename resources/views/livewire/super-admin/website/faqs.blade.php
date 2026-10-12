@@ -9,7 +9,6 @@
                         class="w-11 h-11 rounded-xl object-contain border border-gray-200 shadow-sm bg-white p-1 flex-shrink-0">
                     <div class="min-w-0">
                         <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">FAQs</h1>
-                        <p class="text-xs text-gray-500 mt-0.5 truncate">Manage the questions shown on the website FAQ page.</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
@@ -100,6 +99,13 @@
                                     {{-- Actions --}}
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-center gap-1">
+                                            <button wire:click="openView({{ $faq->id }})" title="View"
+                                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                            </button>
                                             <button wire:click="openEdit({{ $faq->id }})" title="Edit"
                                                 class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -138,6 +144,71 @@
             <div class="mt-6">{{ $faqs->links() }}</div>
         @endif
     </div>
+
+    {{-- ══════════════════ VIEW SLIDE-IN PANEL ══════════════════
+         In the Enquiry view's look: the question in the header, then plain
+         label / value rows; Edit closes the view and opens the form. --}}
+    @if ($viewFaq)
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden" x-data @keydown.escape.window="$wire.closeView()">
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeView"></div>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+
+                {{-- Header --}}
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $viewFaq->question ?: 'FAQ' }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5 truncate">FAQ · {{ $viewFaq->category ?: 'No category' }}</p>
+                    </div>
+                    <button wire:click="closeView"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                {{-- Body — plain label / value rows --}}
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                    @foreach ([
+                        'Category' => $viewFaq->category ?: '—',
+                        'Question' => $viewFaq->question ?: '—',
+                    ] as $label => $value)
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
+                            <span class="col-span-2 text-gray-800 font-medium break-words">{{ $value }}</span>
+                        </div>
+                    @endforeach
+                    <div class="grid grid-cols-3 gap-3 text-sm">
+                        <span class="text-xs text-gray-400 uppercase tracking-wider">Answer</span>
+                        <span class="col-span-2 text-gray-800 whitespace-pre-line leading-relaxed break-words">{{ $viewFaq->answer ?: '—' }}</span>
+                    </div>
+
+                    {{-- When, under a line --}}
+                    <div class="pt-4 mt-2 border-t border-gray-100 space-y-4">
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">Added on</span>
+                            <span class="col-span-2 text-gray-800 font-medium">{{ $viewFaq->created_at?->format('d M Y · g:i A') ?? '—' }}</span>
+                        </div>
+                        @if ($viewFaq->updated_at && $viewFaq->created_at && $viewFaq->updated_at->ne($viewFaq->created_at))
+                            <div class="grid grid-cols-3 gap-3 text-sm">
+                                <span class="text-xs text-gray-400 uppercase tracking-wider">Updated on</span>
+                                <span class="col-span-2 text-gray-800 font-medium">{{ $viewFaq->updated_at->format('d M Y · g:i A') }}</span>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
+                {{-- Footer --}}
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
+                    <button type="button" wire:click="editFromView"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">
+                        Edit
+                    </button>
+                    <button type="button" wire:click="closeView" class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
+                </div>
+            </div>
+        </div>
+    @endif
 
     {{-- ══════════════════ SLIDE-IN PANEL ══════════════════ --}}
     {{-- Teleported to <body>: the page content renders inside its own stacking
