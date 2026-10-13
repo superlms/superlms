@@ -563,53 +563,68 @@
         </div>
     @endif
 
+    {{-- ══════════ ADD / EDIT SLIDE-INS ══════════
+         Contact, team member, social media and document — each in the Students
+         form's look: a wide panel, plain labels over bordered boxes, a flat
+         two-column grid, a photo / file row, Cancel and a dark Save in the
+         footer. Same fields, bindings and saves as before. --}}
+    @php
+        $aaIn = 'w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500';
+        $aaLb = 'block text-sm font-medium text-gray-700 mb-1.5';
+        $aaNote = 'mt-1 text-xs text-gray-400';
+        $aaErr = 'mt-1 text-xs text-red-500';
+        $aaFile = 'flex-1 min-w-0 text-sm';
+        $aaClose = '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>';
+        // A just-picked file's preview, or nothing if it cannot be previewed.
+        $aaPreview = function ($file) {
+            try {
+                return $file && method_exists($file, 'temporaryUrl') ? $file->temporaryUrl() : null;
+            } catch (\Throwable $e) {
+                return null;
+            }
+        };
+    @endphp
+
     {{-- ══════════ CONTACT SLIDE-IN PANEL ══════════ --}}
     @if ($showContactModal)
         <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeContactModal"></div>
-            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
 
-                {{-- Panel Header --}}
-                <div class="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                    <div>
-                        <h2 class="text-lg font-semibold text-gray-900">
-                            {{ $editContactIndex !== null ? 'Edit Contact' : 'Add Contact' }}
-                        </h2>
-                        <p class="text-xs text-gray-500 mt-0.5">Add or update a contact detail</p>
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900">{{ $editContactIndex !== null ? 'Edit Contact' : 'Add Contact' }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">{{ $editContactIndex !== null ? 'Update the contact detail below' : 'Fill in the contact detail below' }}</p>
                     </div>
-                    <button wire:click="closeContactModal"
-                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+                    <button wire:click="closeContactModal" type="button"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">{!! $aaClose !!}</button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-5">
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Type <span class="text-red-500">*</span></label>
-                            <input type="text" wire:model.defer="newContact.type" placeholder="e.g. Email, Phone"
-                                class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm
-                                       focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                            @error('newContact.type')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Value <span class="text-red-500">*</span></label>
-                            <input type="text" wire:model.defer="newContact.value" placeholder="e.g. info@app.com"
-                                class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm
-                                       focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                            @error('newContact.value')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                <div class="flex-1 overflow-y-auto">
+                    <div class="px-6 py-6 space-y-5">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="{{ $aaLb }}">Type <span class="text-red-500">*</span></label>
+                                <input type="text" wire:model.defer="newContact.type" placeholder="e.g. Email, Phone"
+                                    class="{{ $aaIn }} @error('newContact.type') border-red-400 @enderror">
+                                @error('newContact.type')<p class="{{ $aaErr }}">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="{{ $aaLb }}">Value <span class="text-red-500">*</span></label>
+                                <input type="text" wire:model.defer="newContact.value" placeholder="e.g. info@app.com"
+                                    class="{{ $aaIn }} @error('newContact.value') border-red-400 @enderror">
+                                @error('newContact.value')<p class="{{ $aaErr }}">{{ $message }}</p>@enderror
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="px-4 sm:px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
-                    <button wire:click="closeContactModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                    <button wire:click="saveContact"
-                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md">
-                        {{ $editContactIndex !== null ? 'Update' : 'Add Contact' }}
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                    <button wire:click="closeContactModal" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                    <button wire:click="saveContact" type="button" wire:loading.attr="disabled" wire:target="saveContact"
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                        <span wire:loading.remove wire:target="saveContact">{{ $editContactIndex !== null ? 'Update Contact' : 'Add Contact' }}</span>
+                        <span wire:loading wire:target="saveContact">Saving...</span>
                     </button>
                 </div>
             </div>
@@ -618,132 +633,83 @@
 
     {{-- ══════════ TEAM SLIDE-IN PANEL ══════════ --}}
     @if ($showTeamModal)
+        @php
+            $teamNew = $aaPreview($newTeamMemberImage);
+            $teamOld = $editTeamIndex !== null ? ($core_team[$editTeamIndex]['image'] ?? null) : null;
+        @endphp
         <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeTeamModal"></div>
-            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
 
-                {{-- Panel Header --}}
-                <div class="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                    <div>
-                        <h2 class="text-lg font-semibold text-gray-900">
-                            {{ $editTeamIndex !== null ? 'Edit Team Member' : 'Add Team Member' }}
-                        </h2>
-                        <p class="text-xs text-gray-500 mt-0.5">Fill in the member details below</p>
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900">{{ $editTeamIndex !== null ? 'Edit Team Member' : 'New Team Member' }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">{{ $editTeamIndex !== null ? 'Update the member details below' : 'Fill in the member details below' }}</p>
                     </div>
                     <button wire:click="closeTeamModal" type="button"
-                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">{!! $aaClose !!}</button>
                 </div>
 
-                {{-- Form Body (scrollable) --}}
-                <div class="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-5">
+                <div class="flex-1 overflow-y-auto">
+                    <div class="px-6 py-6 space-y-5">
 
-                    {{-- Profile Photo — simple file picker --}}
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Profile Photo</label>
-                        <input type="file" wire:model="newTeamMemberImage" accept="image/*"
-                            class="block w-full text-sm text-gray-600
-                                   file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0
-                                   file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700
-                                   hover:file:bg-amber-100 border border-gray-300 rounded-md">
-                        <p class="text-xs text-gray-400 mt-1">
-                            JPG / PNG up to 2MB{{ $editTeamIndex !== null ? ' · Leave empty to keep current photo' : '' }}
-                        </p>
-                        <div wire:loading wire:target="newTeamMemberImage"
-                            class="flex items-center gap-1.5 text-xs text-amber-600 mt-1">
-                            <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                            </svg>
-                            Uploading…
-                        </div>
-                        @error('newTeamMemberImage')
-                            <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                        @enderror
-
-                        {{-- Current photo preview (compact) --}}
-                        @if ($editTeamIndex !== null && !empty($core_team[$editTeamIndex]['image']) && !$newTeamMemberImage)
-                            <div class="mt-2 flex items-center gap-2">
-                                <img src="{{ $core_team[$editTeamIndex]['image'] }}"
-                                    class="w-10 h-10 rounded-full object-cover border border-gray-200">
-                                <span class="text-xs text-gray-400">Current photo</span>
+                        {{-- Photo (single inline row, as on Students) --}}
+                        <div>
+                            <label class="{{ $aaLb }}">
+                                Profile Photo <span class="text-gray-400 font-normal">(Optional, max 2 MB{{ $editTeamIndex !== null ? ' · leave empty to keep the current one' : '' }})</span>
+                            </label>
+                            <div class="flex items-center gap-3">
+                                @if ($teamNew || $teamOld)
+                                    <img src="{{ $teamNew ?: $teamOld }}" class="w-12 h-12 rounded-full object-cover border border-gray-200 flex-shrink-0" alt="">
+                                @else
+                                    <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                    </div>
+                                @endif
+                                <input type="file" wire:model="newTeamMemberImage" accept="image/*" class="{{ $aaFile }}">
                             </div>
-                        @endif
-                    </div>
-
-                    {{-- Basic Info --}}
-                    <div class="bg-gray-50 rounded-xl p-4 space-y-4">
-                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Basic Information</p>
+                            <div wire:loading wire:target="newTeamMemberImage" class="text-xs text-blue-600 mt-1">Uploading…</div>
+                            @error('newTeamMemberImage')<p class="{{ $aaErr }}">{{ $message }}</p>@enderror
+                        </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Full Name <span class="text-red-500">*</span></label>
+                                <label class="{{ $aaLb }}">Full Name <span class="text-red-500">*</span></label>
                                 <input type="text" wire:model="newTeamMember.name" placeholder="e.g. Annant Dagur"
-                                    class="w-full border rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-amber-400 focus:border-amber-400
-                                           @error('newTeamMember.name') border-red-400 bg-red-50 @else border-gray-300 @enderror">
-                                @error('newTeamMember.name')
-                                    <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>
-                                @enderror
+                                    class="{{ $aaIn }} @error('newTeamMember.name') border-red-400 @enderror">
+                                @error('newTeamMember.name')<p class="{{ $aaErr }}">{{ $message }}</p>@enderror
                             </div>
-
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Position / Role <span class="text-red-500">*</span></label>
+                                <label class="{{ $aaLb }}">Position / Role <span class="text-red-500">*</span></label>
                                 <input type="text" wire:model="newTeamMember.position" placeholder="e.g. CEO, Lead Developer"
-                                    class="w-full border rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-amber-400 focus:border-amber-400
-                                           @error('newTeamMember.position') border-red-400 bg-red-50 @else border-gray-300 @enderror">
-                                @error('newTeamMember.position')
-                                    <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>
-                                @enderror
+                                    class="{{ $aaIn }} @error('newTeamMember.position') border-red-400 @enderror">
+                                @error('newTeamMember.position')<p class="{{ $aaErr }}">{{ $message }}</p>@enderror
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="{{ $aaLb }}">Profile / Social URL</label>
+                                <input type="text" wire:model="newTeamMember.link" placeholder="instagram.com/username · linkedin.com/in/... · https://..."
+                                    class="{{ $aaIn }} @error('newTeamMember.link') border-red-400 @enderror">
+                                <p class="{{ $aaNote }}">A full URL or just domain.com/path — https:// is added for you.</p>
+                                @error('newTeamMember.link')<p class="{{ $aaErr }}">{{ $message }}</p>@enderror
                             </div>
                         </div>
 
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Description</label>
-                            <textarea wire:model="newTeamMember.description" rows="3"
-                                placeholder="Brief bio or description..."
-                                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-amber-400 focus:border-amber-400 resize-none"></textarea>
+                            <label class="{{ $aaLb }}">Description</label>
+                            <textarea wire:model="newTeamMember.description" rows="3" placeholder="Brief bio or description"
+                                class="{{ $aaIn }} resize-none"></textarea>
                         </div>
                     </div>
-
-                    {{-- Social / Profile Link --}}
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Profile / Social URL</label>
-                        <input type="text" wire:model="newTeamMember.link"
-                            placeholder="instagram.com/username  ·  linkedin.com/in/...  ·  https://..."
-                            class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500">
-                        <p class="text-xs text-gray-400 mt-1">You can paste a full URL or just <code class="text-[11px] bg-gray-50 px-1 py-0.5 rounded">domain.com/path</code> — we'll add <code class="text-[11px] bg-gray-50 px-1 py-0.5 rounded">https://</code> for you.</p>
-                        @error('newTeamMember.link')
-                            <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p>
-                        @enderror
-                    </div>
-
                 </div>
 
-                {{-- Footer --}}
-                <div class="px-6 py-4 border-t border-gray-200 bg-white flex-shrink-0 flex items-center gap-3">
-                    <button wire:click="saveTeamMember" wire:loading.attr="disabled"
-                        class="flex-1 flex items-center justify-center gap-2 py-2.5 bg-amber-500 hover:bg-amber-600
-                               text-white text-sm font-semibold rounded-xl transition-colors shadow-sm">
-                        <span wire:loading.remove wire:target="saveTeamMember">
-                            {{ $editTeamIndex !== null ? 'Update Member' : 'Add Member' }}
-                        </span>
-                        <span wire:loading wire:target="saveTeamMember" class="flex items-center gap-2">
-                            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                            </svg>
-                            Saving…
-                        </span>
-                    </button>
-                    <button wire:click="closeTeamModal" type="button"
-                        class="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-medium rounded-xl transition-colors">
-                        Cancel
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                    <button wire:click="closeTeamModal" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                    <button wire:click="saveTeamMember" type="button" wire:loading.attr="disabled" wire:target="saveTeamMember, newTeamMemberImage"
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                        <span wire:loading.remove wire:target="saveTeamMember">{{ $editTeamIndex !== null ? 'Update Member' : 'Add Member' }}</span>
+                        <span wire:loading wire:target="saveTeamMember">Saving...</span>
                     </button>
                 </div>
-
             </div>
         </div>
     @endif
@@ -754,93 +720,87 @@
             $currentPlatform = strtolower(trim($newSocialMedia['platform'] ?? ''));
             $knownPlatforms = ['facebook', 'twitter', 'x', 'instagram', 'linkedin', 'youtube', 'github', 'whatsapp', 'telegram', 'discord', 'tiktok', 'pinterest', 'snapchat', 'reddit'];
             $hasKnownIcon = in_array($currentPlatform, $knownPlatforms, true);
+            $iconNew = $aaPreview($newSocialMediaIcon);
+            $iconOld = $editSocialIndex !== null ? ($social_media[$editSocialIndex]['icon'] ?? null) : null;
         @endphp
         <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeSocialModal"></div>
-            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
 
-                {{-- Panel Header --}}
-                <div class="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                    <div>
-                        <h2 class="text-lg font-semibold text-gray-900">
-                            {{ $editSocialIndex !== null ? 'Edit Social Media' : 'Add Social Media' }}
-                        </h2>
-                        <p class="text-xs text-gray-500 mt-0.5">Any platform · any URL works</p>
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900">{{ $editSocialIndex !== null ? 'Edit Social Media' : 'Add Social Media' }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">Any platform, any URL</p>
                     </div>
-                    <button wire:click="closeSocialModal"
-                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+                    <button wire:click="closeSocialModal" type="button"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">{!! $aaClose !!}</button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-5">
+                <div class="flex-1 overflow-y-auto">
+                    <div class="px-6 py-6 space-y-5">
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Platform <span class="text-red-500">*</span></label>
-                        <input type="text" list="known-social-platforms" wire:model.live.debounce.300ms="newSocialMedia.platform"
-                            placeholder="Type any platform name (Facebook, Behance, Dribbble, etc.)"
-                            class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm bg-white
-                                   focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                        <datalist id="known-social-platforms">
-                            @foreach ($knownPlatforms as $p)
-                                <option value="{{ ucfirst($p) }}"></option>
-                            @endforeach
-                        </datalist>
-                        <p class="text-xs text-gray-400 mt-1">Suggested platforms have built-in logos. Pick anything you like.</p>
-                        @error('newSocialMedia.platform')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
-                    </div>
-
-                    @if ($currentPlatform !== '')
-                        <div class="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 flex items-center gap-3">
-                            <div class="w-12 h-12 bg-white rounded-lg p-2 flex items-center justify-center shadow-sm">
-                                <x-social-platform-icon :platform="$currentPlatform" class="w-full h-full block" />
+                        {{-- Icon (single inline row, as the Students photo): the
+                             custom icon if one is picked or saved, else the
+                             platform's own logo. --}}
+                        <div>
+                            <label class="{{ $aaLb }}">
+                                Custom Icon <span class="text-gray-400 font-normal">(Optional, max 1 MB — overrides the platform's logo)</span>
+                            </label>
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded-full border border-gray-200 bg-white p-2.5 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                    @if ($iconNew || $iconOld)
+                                        <img src="{{ $iconNew ?: $iconOld }}" class="w-full h-full object-contain" alt="">
+                                    @elseif ($currentPlatform !== '')
+                                        <x-social-platform-icon :platform="$currentPlatform" class="w-full h-full block" />
+                                    @else
+                                        <svg class="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                                    @endif
+                                </div>
+                                <input type="file" wire:model="newSocialMediaIcon" accept="image/*" class="{{ $aaFile }}">
                             </div>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-blue-700 uppercase tracking-wide">Logo Preview</p>
-                                <p class="text-sm text-gray-700 capitalize">
-                                    {{ $hasKnownIcon ? ucfirst($currentPlatform) . ' logo will be used.' : 'Custom platform — upload an icon below to override the default.' }}
+                            <div wire:loading wire:target="newSocialMediaIcon" class="text-xs text-blue-600 mt-1">Uploading…</div>
+                            @error('newSocialMediaIcon')<p class="{{ $aaErr }}">{{ $message }}</p>@enderror
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="{{ $aaLb }}">Platform <span class="text-red-500">*</span></label>
+                                <input type="text" list="known-social-platforms" wire:model.live.debounce.300ms="newSocialMedia.platform"
+                                    placeholder="Facebook, Behance, Dribbble…"
+                                    class="{{ $aaIn }} @error('newSocialMedia.platform') border-red-400 @enderror">
+                                <datalist id="known-social-platforms">
+                                    @foreach ($knownPlatforms as $p)
+                                        <option value="{{ ucfirst($p) }}"></option>
+                                    @endforeach
+                                </datalist>
+                                <p class="{{ $aaNote }}">
+                                    @if ($currentPlatform === '')
+                                        Suggested platforms come with their own logo.
+                                    @elseif ($hasKnownIcon)
+                                        {{ ucfirst($currentPlatform) }}'s logo will be used.
+                                    @else
+                                        A custom platform — pick an icon above to show its logo.
+                                    @endif
                                 </p>
+                                @error('newSocialMedia.platform')<p class="{{ $aaErr }}">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="{{ $aaLb }}">URL <span class="text-red-500">*</span></label>
+                                <input type="text" wire:model.defer="newSocialMedia.url" placeholder="instagram.com/username · https://..."
+                                    class="{{ $aaIn }} @error('newSocialMedia.url') border-red-400 @enderror">
+                                <p class="{{ $aaNote }}">A full URL or just domain.com/path — https:// is added for you.</p>
+                                @error('newSocialMedia.url')<p class="{{ $aaErr }}">{{ $message }}</p>@enderror
                             </div>
                         </div>
-                    @endif
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">URL <span class="text-red-500">*</span></label>
-                        <input type="text" wire:model.defer="newSocialMedia.url"
-                            placeholder="instagram.com/username  ·  https://..."
-                            class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm
-                                   focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                        <p class="text-xs text-gray-400 mt-1">You can paste a full URL or just <code class="text-[11px] bg-gray-50 px-1 py-0.5 rounded">domain.com/path</code> — we'll add <code class="text-[11px] bg-gray-50 px-1 py-0.5 rounded">https://</code> for you.</p>
-                        @error('newSocialMedia.url')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">
-                            Custom Icon <span class="text-gray-400 font-normal">(optional — overrides auto logo)</span>
-                        </label>
-                        @if ($editSocialIndex !== null && !empty($social_media[$editSocialIndex]['icon']))
-                            <div class="flex items-center gap-3 mb-2">
-                                <img src="{{ $social_media[$editSocialIndex]['icon'] }}"
-                                    class="w-10 h-10 object-contain rounded border border-gray-200 bg-white p-1">
-                                <span class="text-xs text-gray-500">Current custom icon</span>
-                            </div>
-                        @endif
-                        <input type="file" wire:model="newSocialMediaIcon" accept="image/*"
-                            class="block w-full text-sm text-gray-500
-                                   file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0
-                                   file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700
-                                   hover:file:bg-blue-100 transition-colors border border-gray-300 rounded-md">
-                        @error('newSocialMediaIcon')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                     </div>
                 </div>
 
-                <div class="px-4 sm:px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
-                    <button wire:click="closeSocialModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                    <button wire:click="saveSocialMedia"
-                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md">
-                        {{ $editSocialIndex !== null ? 'Update' : 'Add Social Media' }}
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                    <button wire:click="closeSocialModal" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                    <button wire:click="saveSocialMedia" type="button" wire:loading.attr="disabled" wire:target="saveSocialMedia, newSocialMediaIcon"
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                        <span wire:loading.remove wire:target="saveSocialMedia">{{ $editSocialIndex !== null ? 'Update Social Media' : 'Add Social Media' }}</span>
+                        <span wire:loading wire:target="saveSocialMedia">Saving...</span>
                     </button>
                 </div>
             </div>
@@ -849,85 +809,65 @@
 
     {{-- ══════════ DOCUMENT SLIDE-IN PANEL ══════════ --}}
     @if ($showDocumentModal)
+        @php
+            $docOld = $editDocumentIndex !== null ? ($documents[$editDocumentIndex] ?? null) : null;
+            $docKind = strtoupper((string) ($docOld['file_type'] ?? 'file'));
+        @endphp
         <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
             <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeDocumentModal"></div>
-            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
 
-                {{-- Panel Header --}}
-                <div class="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                    <div>
-                        <h2 class="text-lg font-semibold text-gray-900">
-                            {{ $editDocumentIndex !== null ? 'Edit Document' : 'Add Document' }}
-                        </h2>
-                        <p class="text-xs text-gray-500 mt-0.5">Upload PDF/DOC/DOCX up to 2MB. Files stored on S3.</p>
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900">{{ $editDocumentIndex !== null ? 'Edit Document' : 'Add Document' }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">PDF, DOC or DOCX, up to 2 MB</p>
                     </div>
-                    <button wire:click="closeDocumentModal"
-                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+                    <button wire:click="closeDocumentModal" type="button"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">{!! $aaClose !!}</button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-5">
+                <div class="flex-1 overflow-y-auto">
+                    <div class="px-6 py-6 space-y-5">
 
-                    @if ($editDocumentIndex !== null && !empty($documents[$editDocumentIndex]['file_path']))
-                        <div class="bg-cyan-50 border border-cyan-100 rounded-lg px-4 py-3 flex items-center gap-3">
-                            <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center flex-shrink-0">
-                                <svg class="w-5 h-5 text-cyan-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                        d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                </svg>
+                        <div>
+                            <label class="{{ $aaLb }}">Title <span class="text-red-500">*</span></label>
+                            <input type="text" wire:model.defer="newDocument.title" placeholder="e.g. Company Brochure"
+                                class="{{ $aaIn }} @error('newDocument.title') border-red-400 @enderror">
+                            @error('newDocument.title')<p class="{{ $aaErr }}">{{ $message }}</p>@enderror
+                        </div>
+
+                        {{-- File (single inline row, as the Students photo): the
+                             saved file's kind and size beside the picker. --}}
+                        <div>
+                            <label class="{{ $aaLb }}">
+                                File @if ($editDocumentIndex === null)<span class="text-red-500">*</span>@endif
+                                <span class="text-gray-400 font-normal">(PDF, DOC, DOCX — max 2 MB{{ $docOld ? ' · leave empty to keep the current one' : '' }})</span>
+                            </label>
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded-lg bg-gray-100 text-gray-500 flex flex-col items-center justify-center flex-shrink-0">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                                    <span class="text-[9px] font-bold leading-none mt-0.5">{{ $docOld ? $docKind : 'DOC' }}</span>
+                                </div>
+                                <input type="file" wire:model="newDocumentFile" accept=".pdf,.doc,.docx" class="{{ $aaFile }}">
                             </div>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-xs font-semibold text-cyan-700 uppercase tracking-wide">Current File</p>
-                                <p class="text-sm text-gray-700 truncate">
-                                    {{ strtoupper($documents[$editDocumentIndex]['file_type'] ?? 'FILE') }}
-                                    @if (!empty($documents[$editDocumentIndex]['file_size']))
-                                        · {{ number_format($documents[$editDocumentIndex]['file_size'] / 1024, 0) }} KB
-                                    @endif
+                            @if ($docOld && !empty($docOld['file_path']))
+                                <p class="{{ $aaNote }}">
+                                    Current file: {{ $docKind }}@if (!empty($docOld['file_size'])) · {{ number_format($docOld['file_size'] / 1024, 0) }} KB @endif ·
+                                    <a href="{{ $docOld['file_path'] }}" target="_blank" class="text-blue-600 hover:underline">View ↗</a>
                                 </p>
-                            </div>
-                            <a href="{{ $documents[$editDocumentIndex]['file_path'] }}" target="_blank"
-                                class="text-xs text-cyan-700 font-semibold hover:underline">View</a>
+                            @endif
+                            <div wire:loading wire:target="newDocumentFile" class="text-xs text-blue-600 mt-1">Uploading…</div>
+                            @error('newDocumentFile')<p class="{{ $aaErr }}">{{ $message }}</p>@enderror
                         </div>
-                    @endif
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Title <span class="text-red-500">*</span></label>
-                        <input type="text" wire:model.defer="newDocument.title" placeholder="e.g. Company Brochure"
-                            class="w-full border border-gray-300 rounded-md px-3.5 py-2.5 text-sm
-                                   focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500">
-                        @error('newDocument.title')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1.5">
-                            File <span class="text-red-500">*</span>
-                            <span class="text-gray-400 font-normal">(PDF, DOC, DOCX — max 2MB)</span>
-                        </label>
-                        <input type="file" wire:model="newDocumentFile" accept=".pdf,.doc,.docx"
-                            class="block w-full text-sm text-gray-500
-                                   file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0
-                                   file:text-sm file:font-semibold file:bg-cyan-50 file:text-cyan-700
-                                   hover:file:bg-cyan-100 transition-colors border border-gray-300 rounded-md">
-                        <div wire:loading wire:target="newDocumentFile" class="flex items-center gap-1.5 text-xs text-cyan-600 mt-1.5">
-                            <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                            </svg>
-                            Uploading…
-                        </div>
-                        @error('newDocumentFile')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                     </div>
                 </div>
 
-                <div class="px-4 sm:px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
-                    <button wire:click="closeDocumentModal" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
-                    <button wire:click="saveDocument" wire:loading.attr="disabled"
-                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md disabled:opacity-60 flex items-center gap-1.5">
-                        <span wire:loading.remove wire:target="saveDocument">{{ $editDocumentIndex !== null ? 'Update' : 'Add Document' }}</span>
-                        <span wire:loading wire:target="saveDocument">Saving…</span>
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                    <button wire:click="closeDocumentModal" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                    <button wire:click="saveDocument" type="button" wire:loading.attr="disabled" wire:target="saveDocument, newDocumentFile"
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                        <span wire:loading.remove wire:target="saveDocument">{{ $editDocumentIndex !== null ? 'Update Document' : 'Add Document' }}</span>
+                        <span wire:loading wire:target="saveDocument">Saving...</span>
                     </button>
                 </div>
             </div>

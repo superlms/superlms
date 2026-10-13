@@ -178,7 +178,8 @@ class SuperAdminPagesLookTest extends TestCase
         $rating = preg_replace('/\s+/', ' ', strip_tags(Livewire::test(\App\Livewire\SuperAdmin\Rating::class)->html()));
         $rating = preg_replace('/\s*·\s*/u', ' · ', $rating);
         $this->assertStringContainsString('S.No Review Actions', $rating);
-        $this->assertStringContainsString('1 Sunrise Public School Easy to use for our staff. ★★★★★ 4/5 · office@sunrise.edu', $rating);
+        // The school's logo (here its initial, no logo saved) before the name.
+        $this->assertStringContainsString('1 S Sunrise Public School Easy to use for our staff. ★★★★★ 4/5 · office@sunrise.edu', $rating);
     }
 
     public function test_push_notifications_list_on_the_page_and_are_added_from_a_slide_in(): void

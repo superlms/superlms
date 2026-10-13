@@ -91,15 +91,17 @@
              name), description, who it went to, the date and the actions ══════════ --}}
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
-                <table class="w-full min-w-[720px]">
+                {{-- Fixed columns, so a long title or description never pushes the others about:
+                     it stays on one line and ends in an ellipsis (hover shows it whole). --}}
+                <table class="w-full min-w-[900px] table-fixed">
                     <thead class="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Document</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">S.No</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-[22%]">Document</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Description</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-40">Sent To</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">Added On</th>
-                            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-40">Actions</th>
+                            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-36">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
@@ -108,13 +110,13 @@
                             <tr class="hover:bg-gray-50/70 transition-colors" wire:key="doc-{{ $doc->id }}">
                                 <td class="px-4 py-3 text-sm text-gray-500 font-medium">{{ $documents->firstItem() + $i }}</td>
                                 <td class="px-4 py-3">
-                                    <div class="flex items-center gap-3">
+                                    <div class="flex items-center gap-3 min-w-0">
                                         <span class="w-10 h-10 rounded-lg {{ $typeClass }} flex flex-col items-center justify-center flex-shrink-0">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                                             <span class="text-[9px] font-bold leading-none mt-0.5">{{ $typeLabel }}</span>
                                         </span>
                                         <div class="min-w-0">
-                                            <p class="text-sm font-semibold text-gray-900 truncate max-w-[300px]" title="{{ $doc->title }}">{{ $doc->title }}</p>
+                                            <p class="text-sm font-semibold text-gray-900 truncate" title="{{ $doc->title }}">{{ $doc->title }}</p>
                                             @if ($doc->readable_size !== '—')
                                                 <p class="text-xs text-gray-400">{{ $doc->readable_size }}</p>
                                             @endif
@@ -122,7 +124,7 @@
                                     </div>
                                 </td>
                                 <td class="px-4 py-3 text-sm text-gray-600">
-                                    <span class="line-clamp-2">{{ $doc->description ?: '—' }}</span>
+                                    <span class="block truncate" title="{{ $doc->description }}">{{ $doc->description ?: '—' }}</span>
                                 </td>
                                 <td class="px-4 py-3 text-sm">
                                     @if ($doc->audience_scope === 'private')
@@ -130,7 +132,7 @@
                                     @elseif ($doc->audience_scope === 'all')
                                         <span class="text-emerald-600">All schools</span>
                                     @else
-                                        <span class="text-gray-600 line-clamp-2">{{ $doc->organizations->pluck('name')->take(2)->join(', ') }}@if ($doc->organizations->count() > 2) +{{ $doc->organizations->count() - 2 }}@endif</span>
+                                        <span class="block truncate text-gray-600" title="{{ $doc->organizations->pluck('name')->join(', ') }}">{{ $doc->organizations->pluck('name')->take(2)->join(', ') }}@if ($doc->organizations->count() > 2) +{{ $doc->organizations->count() - 2 }}@endif</span>
                                     @endif
                                 </td>
                                 <td class="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{{ $doc->created_at?->format('d M Y') }}</td>
