@@ -43,9 +43,27 @@ return [
     // resolves to full Flash, whose free allowance runs out far sooner.
     'model'    => env('GEMINI_MODEL', 'gemini-flash-lite-latest'),
 
+    // Asked in turn when the model above is swamped ("high demand" 503s,
+    // quota 429s, or no answer within `attempt_timeout`) or retired (404). In
+    // October 2026 the flash-lite alias spent whole minutes answering nothing
+    // while these still answered in seconds. Comma-separated; empty = none.
+    'fallback_models' => env('GEMINI_FALLBACK_MODELS', 'gemini-3.1-flash-lite,gemini-3.6-flash,gemini-flash-latest'),
+
     'enabled'  => env('GEMINI_ENABLED', true),
 
     'timeout'  => (int) env('GEMINI_TIMEOUT', 45),
+
+    // How long one model gets before the question moves on to the next one
+    // (the last model in line gets the full `timeout`).
+    'attempt_timeout' => (int) env('GEMINI_ATTEMPT_TIMEOUT', 20),
+
+    // The most one question may take, all models and tool rounds included —
+    // under nginx's 60 s, so the panel always gets an answer or a clear "try
+    // again" instead of a gateway error.
+    'question_seconds' => (int) env('GEMINI_QUESTION_SECONDS', 50),
+
+    // How long a swamped model is put to the back of the line.
+    'busy_rest_seconds' => (int) env('GEMINI_BUSY_REST', 120),
 
     'generation' => [
         // Low temperature: this is a reporting assistant, not a writer.

@@ -13,6 +13,34 @@
                 recog: null,
                 supportsVoice: !!(window.SpeechRecognition || window.webkitSpeechRecognition),
 
+                // ── Open / close in the browser ─────────────────────
+                // Livewire sends one request at a time per component, so while
+                // an answer was being worked out a wire:click on the cross (or
+                // Esc, or the backdrop) sat in the queue until it arrived. The
+                // panel now shows and hides right here; the server is told
+                // afterwards, whenever it is free.
+                shown: false,
+                clearing: false,
+
+                show() {
+                    this.shown = true;
+                    this.scrollDown();
+                    $wire.opened();
+                },
+
+                hide() {
+                    this.shown = false;
+                    this.stopVoice();
+                    $wire.close();
+                },
+
+                // The chat empties at once; the server catches up (after the
+                // answer being worked out, if there is one).
+                clearChat() {
+                    this.clearing = true;
+                    $wire.clear().then(() => { this.clearing = false; });
+                },
+
                 // ── Taking things out of the panel ──────────────────
                 // Everything below reads the rendered bubble in the DOM rather
                 // than the markdown behind it: what you see is what you copy.
@@ -258,8 +286,8 @@
             }"
             x-on:gemini-run.window="$wire.run()"
             x-on:gemini-scroll.window="scrollDown()"
-            x-on:gemini-toggle.window="$wire.toggle()"
-            x-on:keydown.escape.window="if ($wire.open) $wire.close()"
+            x-on:gemini-toggle.window="shown ? hide() : show()"
+            x-on:keydown.escape.window="if (shown) hide()"
             wire:key="gemini-assistant">
 
             <style>
@@ -297,13 +325,15 @@
 
             </style>
 
-            {{-- ───────────── Chat panel ───────────── --}}
-            @if ($open)
+            {{-- ───────────── Chat panel ─────────────
+                 Always in the page and shown / hidden by `shown` above, so the
+                 cross, Esc and the backdrop work at once — even while an
+                 answer is still being worked out. --}}
                 {{-- Over the whole window, as the lms-cover popups sit: the
                      panel runs the full height at the right, and the top bar
                      and the sidebar are dimmed and blurred with the page. --}}
-                <div class="fixed inset-0 z-[9999] overflow-hidden">
-                    <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="close"></div>
+                <div class="fixed inset-0 z-[9999] overflow-hidden" x-show="shown" style="display: none">
+                    <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" x-on:click="hide()"></div>
                     <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col" wire:click.stop>
 
                     {{-- Header --}}
@@ -334,12 +364,12 @@
                             </span>
                         @endif
                         @if (count($messages))
-                            <button type="button" wire:click="clear" title="Clear chat"
+                            <button type="button" x-on:click="clearChat()" x-show="! clearing" title="Clear chat"
                                 class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M4 7h16M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" /></svg>
                             </button>
                         @endif
-                        <button type="button" wire:click="close" title="Close"
+                        <button type="button" x-on:click="hide()" title="Close"
                             class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
@@ -366,7 +396,7 @@
 
                         @foreach ($messages as $i => $message)
                             @if ($message['role'] === 'user')
-                                <div wire:key="gm-{{ $i }}" data-gem-row class="flex flex-col items-end">
+                                <div wire:key="gm-{{ $i }}" data-gem-row x-show="! clearing" class="flex flex-col items-end">
                                     <div data-gem-bubble class="max-w-[85%] px-3 py-2 rounded-2xl rounded-br-sm bg-blue-600 text-white text-[13px] leading-relaxed whitespace-pre-wrap break-words">{{ $message['text'] }}</div>
                                     <div class="mt-1 flex items-center gap-1">
                                         <button type="button" class="gem-act" x-on:click="copyMessage($el)">Copy</button>
@@ -381,7 +411,7 @@
                                     $hasImage = str_contains($rendered, '<img');
                                     $hasLink  = str_contains($rendered, '<a href');
                                 @endphp
-                                <div wire:key="gm-{{ $i }}" data-gem-row class="flex flex-col items-start">
+                                <div wire:key="gm-{{ $i }}" data-gem-row x-show="! clearing" class="flex flex-col items-start">
                                     <div data-gem-bubble class="gem-md max-w-[90%] px-3 py-2 rounded-2xl rounded-bl-sm bg-white border border-gray-200 text-[13px] leading-relaxed text-gray-700 break-words overflow-x-auto">
                                         {!! $rendered !!}
                                     </div>
@@ -405,7 +435,7 @@
                         @endforeach
 
                         @if ($pending)
-                            <div class="flex justify-start">
+                            <div x-show="! clearing" class="flex justify-start">
                                 <div class="px-3 py-2.5 rounded-2xl rounded-bl-sm bg-white border border-gray-200 flex items-center gap-1">
                                     <span class="gem-dot w-1.5 h-1.5 rounded-full bg-gray-400"></span>
                                     <span class="gem-dot w-1.5 h-1.5 rounded-full bg-gray-400"></span>
@@ -476,7 +506,6 @@
 
                     </div>
                 </div>
-            @endif
 
         </div>
     @endif

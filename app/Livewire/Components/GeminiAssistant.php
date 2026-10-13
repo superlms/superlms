@@ -9,6 +9,7 @@ use App\Services\Gemini\LmsScope;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Livewire\Attributes\Isolate;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
 
@@ -19,7 +20,13 @@ use Livewire\Component;
  * the typing dots immediately, then the browser calls `run()`, which is the one
  * that waits on the answer. One trip would leave the panel frozen with nothing
  * on screen for as long as the model takes.
+ *
+ * Isolated: its requests travel on their own, so the long `run()` never holds
+ * up another component's update (the top bar's bell poll and the like) that
+ * happened to be sent at the same moment. Showing and hiding the panel is done
+ * in the browser (see the view), so it never waits on `run()` either.
  */
+#[Isolate]
 class GeminiAssistant extends Component
 {
     public bool $open = false;
@@ -101,6 +108,16 @@ class GeminiAssistant extends Component
         $this->dailyLimit = $quota->limit();
         $this->remaining  = $this->unlimited ? 0 : $quota->remaining();
         $this->resetsAt   = $quota->resetDescription();
+    }
+
+    /**
+     * The panel was opened in the browser: note it, and re-read the shared
+     * allowance as toggle() does on opening. (toggle() itself is kept.)
+     */
+    public function opened(): void
+    {
+        $this->open = true;
+        $this->refreshQuota();
     }
 
     public function close(): void

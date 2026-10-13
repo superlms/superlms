@@ -96,6 +96,11 @@ class GeminiAssistant
 
         $used          = [];
         $dropThinking  = false;
+        $leftCache     = false;
+
+        // One question gets so long, every model and tool round included —
+        // answered or turned away before the web server cuts the request.
+        $deadline = microtime(true) + max(10, (int) config('gemini.question_seconds', 50));
 
         for ($round = 0; $round <= (int) config('gemini.max_tool_rounds', 8); $round++) {
             $payload = ['contents' => $contents, 'generationConfig' => $this->generationConfig($dropThinking)];
@@ -110,11 +115,22 @@ class GeminiAssistant
             }
 
             try {
-                $response = $this->client->generateContent($payload);
+                $response = $this->client->generateContent($payload, $deadline);
             } catch (GeminiException $e) {
                 // A cache can expire between our TTL bookkeeping and the call.
                 if ($cacheName && in_array($e->status, [400, 403, 404], true)) {
                     $this->forgetCache($scope);
+                    $cacheName = null;
+                    $contents  = $this->conversation($history, $question, $knowledge->pack());
+                    continue;
+                }
+
+                // A cache belongs to one model. When that model is swamped,
+                // ask again with the context inline, which any fallback model
+                // can take (the cache itself is kept for the next question).
+                if ($cacheName && ! $leftCache && ($e->status === 0 || $e->status === 429 || $e->status >= 500)
+                    && count($this->client->models()) > 1 && $deadline - microtime(true) > 5) {
+                    $leftCache = true;
                     $cacheName = null;
                     $contents  = $this->conversation($history, $question, $knowledge->pack());
                     continue;
@@ -196,7 +212,7 @@ class GeminiAssistant
         }
 
         try {
-            $response = $this->client->generateContent($payload);
+            $response = $this->client->generateContent($payload, $deadline);
             $this->logUsage($response, $cacheName);
             $parts = data_get($response, 'candidates.0.content.parts', []);
             $text  = trim($this->text($parts, $response));
@@ -506,6 +522,7 @@ class GeminiAssistant
 
         Log::debug('gemini.usage', [
             'mode'    => $cacheName ? 'explicit-cache' : 'inline',
+            'model'   => $this->client->lastModel(),
             'prompt'  => (int) ($usage['promptTokenCount'] ?? 0),
             'cached'  => (int) ($usage['cachedContentTokenCount'] ?? 0),
             'output'  => (int) ($usage['candidatesTokenCount'] ?? 0),
