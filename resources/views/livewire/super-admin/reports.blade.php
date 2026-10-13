@@ -18,10 +18,10 @@
 
     {{-- ══════════════════════════════ HEADER ══════════════════════════════ --}}
     <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div class="px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-18">
-            <div>
-                <h1 class="text-lg sm:text-xl font-bold text-gray-900">Reports</h1>
-                <p class="text-xs text-gray-400 mt-0.5">{{ now()->format('l, d M Y') }}</p>
+        <div class="px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-15">
+            <div class="min-w-0 sm:flex sm:items-baseline sm:gap-2">
+                <h1 class="min-w-0 text-lg sm:text-xl font-bold text-gray-900 truncate">Reports</h1>
+                <p class="text-xs text-gray-400 mt-0.5 sm:mt-0 truncate">{{ now()->format('l, d M Y') }}</p>
             </div>
 
             <div class="flex items-center gap-2 self-start sm:self-auto" wire:loading.class="opacity-60">

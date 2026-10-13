@@ -6,7 +6,7 @@
         {{-- ── HEADER (analytics + filter) ── --}}
         <div class="bg-white border-b border-gray-200 sticky top-0 z-50">
             <div class="px-4 sm:px-6 py-3">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-12">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-9">
                     <div>
                         <h1 class="text-lg sm:text-xl font-bold text-gray-900">Schools</h1>
                     </div>
@@ -261,7 +261,7 @@
 
         {{-- ── DETAIL HEADER ── --}}
         <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sticky top-0 z-50">
-            <div class="flex items-center justify-between gap-4 sm:min-h-12">
+            <div class="flex items-center justify-between gap-4 sm:min-h-9">
                 <div class="flex items-center gap-3">
                     <button wire:click="backToList"
                         class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200
@@ -275,17 +275,17 @@
                     <div class="flex items-center gap-3">
                         @if ($detailSchool->logo)
                             <img src="{{ $detailSchool->logo }}"
-                                class="w-10 h-10 rounded-xl object-cover border border-gray-200">
+                                class="w-9 h-9 rounded-xl object-cover border border-gray-200">
                         @else
-                            <div class="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                            <div class="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center">
                                 <span class="text-sm font-bold text-indigo-600">
                                     {{ strtoupper(substr($detailSchool->name, 0, 1)) }}
                                 </span>
                             </div>
                         @endif
-                        <div>
-                            <h1 class="text-lg font-bold text-gray-900 leading-none">{{ $detailSchool->name }}</h1>
-                            <p class="text-xs text-gray-400 mt-0.5">{{ $detailSchool->email }}</p>
+                        <div class="min-w-0 sm:flex sm:items-baseline sm:gap-2">
+                            <h1 class="min-w-0 text-lg font-bold text-gray-900 leading-none truncate">{{ $detailSchool->name }}</h1>
+                            <p class="text-xs text-gray-400 mt-0.5 sm:mt-0 truncate">{{ $detailSchool->email }}</p>
                         </div>
                     </div>
                 </div>

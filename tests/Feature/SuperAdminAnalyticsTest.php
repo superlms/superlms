@@ -66,6 +66,15 @@ class SuperAdminAnalyticsTest extends TestCase
         $this->assertStringContainsString('Reply Rate 75%', $text);
         // A fractional day count from Carbon reads as whole days.
         $this->assertStringContainsString('· 30 days', $text);
+
+        // The header is the title, the date and the months picker — no
+        // Schools / Students / Rating figures (2026-10-13).
+        $header = substr($html, 0, strpos($html, 'Key Metrics'));
+        $this->assertStringContainsString('Analytics', $header);
+        $this->assertStringContainsString('wire:model.live="months"', $header);
+        foreach (['>Schools<', '>Students<', '>Rating<'] as $figure) {
+            $this->assertStringNotContainsString($figure, $header);
+        }
     }
 
     public function test_students_by_gender_reads_the_students_own_details(): void

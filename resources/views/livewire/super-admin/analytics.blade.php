@@ -15,29 +15,16 @@
     @endphp
 
     {{-- ══════════════════════════════════════════════════════════
-         HEADER — title, date, the platform's headline figures and the
-         window the monthly charts cover.
+         HEADER — title, date and the window the monthly charts cover
+         (the Schools / Students / Rating figures left the header).
     ══════════════════════════════════════════════════════════ --}}
     <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div class="px-4 sm:px-6 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:min-h-18">
-            <div>
-                <h1 class="text-lg sm:text-xl font-bold text-gray-900">Analytics</h1>
-                <p class="text-xs text-gray-400 mt-0.5">{{ now()->format('l, d M Y') }}</p>
+        <div class="px-4 sm:px-6 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:min-h-15">
+            <div class="min-w-0 sm:flex sm:items-baseline sm:gap-2">
+                <h1 class="min-w-0 text-lg sm:text-xl font-bold text-gray-900 truncate">Analytics</h1>
+                <p class="text-xs text-gray-400 mt-0.5 sm:mt-0 truncate">{{ now()->format('l, d M Y') }}</p>
             </div>
             <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
-                @php
-                    $headline = [
-                        ['Schools', number_format($overviewStats['totalSchools'] ?? 0)],
-                        ['Students', number_format($overviewStats['totalStudents'] ?? 0)],
-                        ['Rating', ($ratingStats['avg'] ?? 0) . ' / 5'],
-                    ];
-                @endphp
-                @foreach ($headline as [$label, $value])
-                    <div>
-                        <p class="text-[10px] font-medium text-gray-400 uppercase tracking-wide">{{ $label }}</p>
-                        <p class="text-base font-semibold text-gray-900 tabular-nums">{{ $value }}</p>
-                    </div>
-                @endforeach
                 <select wire:model.live="months" title="Months on the monthly charts"
                     class="text-xs bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-indigo-400">
                     <option value="6">Last 6 months</option>

@@ -12,10 +12,10 @@
 
 {{-- Header strip --}}
 <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-12">
-        <div class="min-w-0">
-            <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">{{ $exists ? 'Edit' : 'Create' }} {{ $title }}</h1>
-            <p class="text-xs text-gray-400 mt-0.5">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-9">
+        <div class="min-w-0 sm:flex sm:items-baseline sm:gap-2">
+            <h1 class="min-w-0 text-lg sm:text-xl font-bold text-gray-900 truncate">{{ $exists ? 'Edit' : 'Create' }} {{ $title }}</h1>
+            <p class="text-xs text-gray-400 mt-0.5 sm:mt-0 truncate">
                 {{ count($sections) }} {{ count($sections) === 1 ? 'section' : 'sections' }}
                 · last updated becomes {{ now()->format('d M Y') }} when you save
             </p>

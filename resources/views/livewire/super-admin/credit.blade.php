@@ -3,7 +3,7 @@
     {{-- ══════════ STICKY: HEADER + FILTER BAND ══════════ --}}
     <div class="sticky top-0 z-50">
     <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-12">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-9">
             <div>
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Credit Management</h1>
             </div>

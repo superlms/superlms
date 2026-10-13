@@ -361,8 +361,8 @@ class SuperAdminEditPagesTest extends TestCase
 
                 // No narrow column: the page runs the full width.
                 $this->assertStringNotContainsString('max-w-4xl', $html, "$component $which");
-                // Its header strip is the Super Admin header height.
-                $this->assertStringContainsString('sm:justify-between gap-3 sm:min-h-12', $html, "$component $which");
+                // Its header strip is the Super Admin header height (60px since 2026-10-13).
+                $this->assertStringContainsString('sm:justify-between gap-3 sm:min-h-9', $html, "$component $which");
                 // Tabs scroll sideways on a phone instead of squeezing.
                 $this->assertStringContainsString('<nav class="flex gap-1 min-w-max">', $html, "$component $which");
             }
@@ -381,6 +381,8 @@ class SuperAdminEditPagesTest extends TestCase
         $listing = Livewire::test(\App\Livewire\SuperAdmin\Listing::class)->html();
         $this->assertStringContainsString('School Listing', $listing);
         $this->assertStringNotContainsString('Add prospective schools', $listing);
-        $this->assertStringContainsString('sm:justify-between gap-3 sm:min-h-12', $listing);
+        $this->assertStringContainsString('sm:justify-between gap-3 sm:min-h-9', $listing);
+        // Only the name in the header — no platform logo (2026-10-13).
+        $this->assertStringNotContainsString('Group 11525.png', $listing);
     }
 }

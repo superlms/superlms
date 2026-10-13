@@ -44,16 +44,12 @@
         @else
             {{-- COMPACT HEADER (fees style) --}}
             <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-12">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-9">
                     <div class="flex items-center gap-3 min-w-0">
-                        <img src="{{ $aboutApp->logo ?: asset('website-image/Group 11525.png') }}"
-                            alt="App Logo"
-                            class="w-12 h-12 rounded-xl object-contain border border-gray-200 shadow-sm bg-white p-1 flex-shrink-0"
-                            onerror="this.src='{{ asset('website-image/Group 11525.png') }}'">
-                        <div class="min-w-0">
-                            <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">{{ $aboutApp->heading ?? 'About App' }}</h1>
+                        <div class="min-w-0 sm:flex sm:items-baseline sm:gap-2">
+                            <h1 class="min-w-0 text-lg sm:text-xl font-bold text-gray-900 truncate">{{ $aboutApp->heading ?? 'About App' }}</h1>
                             @if ($aboutApp->company_name || $aboutApp->company_cin)
-                                <p class="text-xs text-gray-400 mt-0.5 truncate">
+                                <p class="text-xs text-gray-400 mt-0.5 sm:mt-0 truncate">
                                     {{ $aboutApp->company_name }}
                                     @if ($aboutApp->company_cin)
                                         · CIN: {{ $aboutApp->company_cin }}
@@ -248,10 +244,10 @@
         {{-- Header strip: the title with Cancel / Save, the same height as
              every Super Admin header; the parts below run across the page. --}}
         <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-12">
-                <div class="min-w-0">
-                    <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">{{ $aboutApp ? 'Edit' : 'Create' }} About App</h1>
-                    <p class="text-xs text-gray-400 mt-0.5">Everything on this page is saved together with Save</p>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-9">
+                <div class="min-w-0 sm:flex sm:items-baseline sm:gap-2">
+                    <h1 class="min-w-0 text-lg sm:text-xl font-bold text-gray-900 truncate">{{ $aboutApp ? 'Edit' : 'Create' }} About App</h1>
+                    <p class="text-xs text-gray-400 mt-0.5 sm:mt-0 truncate">Everything on this page is saved together with Save</p>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
                     <button type="button" wire:click="setTab('view')"

@@ -2,14 +2,14 @@
 
     {{-- ══════════ TOP BAR ══════════ --}}
     <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sticky top-0 z-40">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-12">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:min-h-9">
             <div class="flex items-center gap-3 min-w-0">
                 <a href="{{ route('super-admin.portal-website') }}" class="p-2 -ml-2 text-gray-400 hover:text-gray-600">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                 </a>
-                <div class="min-w-0">
-                    <h1 class="text-lg sm:text-xl font-bold text-gray-900 truncate">{{ $organization->name }} — Website</h1>
-                    <p class="text-xs text-gray-500 mt-0.5">
+                <div class="min-w-0 sm:flex sm:items-baseline sm:gap-2">
+                    <h1 class="min-w-0 text-lg sm:text-xl font-bold text-gray-900 truncate">{{ $organization->name }} — Website</h1>
+                    <p class="text-xs text-gray-500 mt-0.5 sm:mt-0 truncate">
                         @if ($status && $domain)
                             <span class="text-green-600 font-medium">● Live</span> at {{ $domain }}
                         @elseif ($status)
@@ -23,7 +23,7 @@
             <div class="flex items-center gap-2 flex-shrink-0">
                 @if ($domain)
                     <a href="https://{{ $domain }}" target="_blank" rel="noopener"
-                       class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
+                       class="inline-flex items-center gap-1.5 px-3 py-[7px] text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                         View Live
                     </a>

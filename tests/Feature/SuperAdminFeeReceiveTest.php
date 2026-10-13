@@ -345,6 +345,23 @@ class SuperAdminFeeReceiveTest extends TestCase
         $this->assertStringContainsString('Kiran Class 1 (A) · Adm: —', $text);
     }
 
+    public function test_the_fee_structure_panel_is_in_the_update_fee_look_and_counts_the_schools_students(): void
+    {
+        $this->signIn();
+        $this->alphaStudents();
+        $this->structure(['organization_id' => 1, 'fee_type' => 'per_student', 'amount' => 70]);
+
+        $html = Livewire::test(Fees::class)->call('selectSchool', 1)->call('openUpdateFeePanel')->html();
+        $text = preg_replace('/\s+/', ' ', strip_tags($html));
+
+        $this->assertStringContainsString('w-full max-w-3xl bg-white shadow-2xl', $html);
+        $this->assertStringContainsString('wire:click="saveFeeStructures"', $html);
+        $this->assertStringNotContainsString('bg-blue-50 border border-blue-100 rounded-xl', $html);
+        // The school's own page has no student count on it; the panel counts them (it said 0).
+        $this->assertStringContainsString('₹70.00 × 4 students', $text);
+        $this->assertStringContainsString('₹280', $text);
+    }
+
     public function test_the_home_and_analytics_totals_read_the_fee_structures(): void
     {
         $this->alphaStudents();   // 4 students in Alpha

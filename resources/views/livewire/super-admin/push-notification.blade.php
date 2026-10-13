@@ -4,7 +4,7 @@
          HEADER — Add Notification opens the compose slide-in
     ══════════════════════════════════════════════════ --}}
     <div class="bg-white border-b border-gray-200 sticky top-0 z-30 px-4 sm:px-6 py-3">
-        <div class="flex items-center justify-between gap-3 sm:min-h-12">
+        <div class="flex items-center justify-between gap-3 sm:min-h-9">
             <div class="min-w-0">
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Push Notification</h1>
             </div>
