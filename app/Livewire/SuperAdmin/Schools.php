@@ -443,6 +443,18 @@ class Schools extends Component
         $this->selectedModules = $states;
     }
 
+    /**
+     * Modules the Super Admin no longer switches here: Credit has left the
+     * school panel, so it is not offered. Its saved state is left as it is.
+     */
+    public const HIDDEN_MODULES = ['credit'];
+
+    /** The modules listed in the Modules tab and the Add School step. */
+    public function shownModules(): array
+    {
+        return array_diff_key((array) config('modules', []), array_flip(self::HIDDEN_MODULES));
+    }
+
     /** Step 1 → 2: validate the school fields, then show module selection. */
     public function goToModuleStep(): void
     {
@@ -584,6 +596,12 @@ class Schools extends Component
             $this->resetPage();
             $this->notification()->success('School saved successfully!');
         } catch (ValidationException $e) {
+            // Saved from the modules step: a school field that no longer
+            // passes (another school took the code meanwhile) is on the
+            // details step — show that step, with the message under the field.
+            if ($this->modalStep === 2) {
+                $this->modalStep = 1;
+            }
             throw $e;
         } catch (\Throwable $e) {
             // Another school was saved with this code a moment ago — the
@@ -1107,6 +1125,45 @@ class Schools extends Component
             ];
 
             $feeStats['total_remaining'] = max(0, $totalToCollect - (float) $feeStats['total_collected']);
+
+            // Recent Transactions: today's and yesterday's only — fee payments
+            // and bus fees alike, newest first.
+            $yesterday = now()->subDay()->toDateString();
+            $today     = now()->toDateString();
+            $twoDays   = collect();
+            FeePayment::forOrg($orgId)
+                ->with(['studentDetail:id,full_name', 'standard:id,name', 'section:id,name'])
+                ->whereDate('payment_date', '>=', $yesterday)->whereDate('payment_date', '<=', $today)
+                ->orderByDesc('id')->get()
+                ->each(fn ($p) => $twoDays->push([
+                    'receipt' => $p->receipt_number,
+                    'name'    => $p->studentDetail?->full_name,
+                    'class'   => $p->standard?->name,
+                    'section' => $p->section?->name,
+                    'type'    => ucfirst((string) ($p->fee_type ?: 'academic')),
+                    'amount'  => (float) $p->amount,
+                    'mode'    => $p->payment_mode,
+                    'date'    => $p->payment_date?->toDateString(),
+                    'at'      => (string) $p->created_at,
+                ]));
+            TransportFeePayment::where('organization_id', $orgId)
+                ->with(['studentDetail:id,full_name,standard_id,section_id', 'studentDetail.standard:id,name', 'studentDetail.section:id,name'])
+                ->whereDate('payment_date', '>=', $yesterday)->whereDate('payment_date', '<=', $today)
+                ->orderByDesc('id')->get()
+                ->each(fn ($p) => $twoDays->push([
+                    'receipt' => $p->receipt_number,
+                    'name'    => $p->studentDetail?->full_name,
+                    'class'   => $p->studentDetail?->standard?->name,
+                    'section' => $p->studentDetail?->section?->name,
+                    'type'    => 'Transport',
+                    'amount'  => (float) $p->amount,
+                    'mode'    => $p->payment_mode,
+                    'date'    => $p->payment_date?->toDateString(),
+                    'at'      => (string) $p->created_at,
+                ]));
+            $feeStats['two_days']        = $twoDays->sortByDesc(fn ($r) => [$r['date'], $r['at']])->values()->all();
+            $feeStats['today_total']     = (float) $twoDays->where('date', $today)->sum('amount');
+            $feeStats['yesterday_total'] = (float) $twoDays->where('date', $yesterday)->sum('amount');
         }
 
         // ── Student Stats ─────────────────────────────────────────────────────

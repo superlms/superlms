@@ -117,8 +117,9 @@
                             <tr>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">S.No</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">School</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">Mobile</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-36">Mobile</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-40">Board</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-28">School Code</th>
                                 <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Students</th>
                                 <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Teachers</th>
                                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">Actions</th>
@@ -149,13 +150,17 @@
                                     </td>
                                     {{-- Mobile --}}
                                     <td class="px-4 py-3">
-                                        <span class="text-sm text-gray-700">{{ $school->mobile_number ?? '—' }}</span>
+                                        <span class="text-sm text-gray-700 whitespace-nowrap">{{ $school->mobile_number ?? '—' }}</span>
                                     </td>
                                     {{-- Board: the board alone (no medium), cut with … when it is too long. --}}
                                     <td class="px-4 py-3">
                                         <div class="min-w-0">
                                             <p class="text-sm text-gray-700 truncate" title="{{ \App\Support\BoardName::short($school->education_board) }}">{{ \App\Support\BoardName::short($school->education_board) ?: '—' }}</p>
                                         </div>
+                                    </td>
+                                    {{-- School Code: every school has its own --}}
+                                    <td class="px-4 py-3">
+                                        <p class="text-sm text-gray-700 truncate" title="{{ $school->school_code }}">{{ $school->school_code ?: '—' }}</p>
                                     </td>
                                     {{-- Students --}}
                                     <td class="px-4 py-3 text-right">
@@ -189,7 +194,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="px-6 py-16 text-center">
+                                    <td colspan="8" class="px-6 py-16 text-center">
                                         <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                             <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
                                         </div>
@@ -228,6 +233,7 @@
                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[11px] font-medium">{{ number_format($school->total_students) }} students</span>
                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-teal-50 text-teal-600 text-[11px] font-medium">{{ number_format($school->total_teachers) }} teachers</span>
                                     @if ($school->education_board)<span class="truncate max-w-[120px]" title="{{ \App\Support\BoardName::short($school->education_board) }}">{{ \App\Support\BoardName::short($school->education_board) }}</span>@endif
+                                    @if ($school->school_code)<span>Code {{ $school->school_code }}</span>@endif
                                 </div>
                             </div>
                         </div>
@@ -384,7 +390,7 @@
                                                 class="text-xs text-gray-400 w-28 flex-shrink-0 pt-0.5 leading-relaxed">
                                                 {{ $label }}
                                             </span>
-                                            <span class="text-sm text-gray-800 font-medium font-mono leading-relaxed">
+                                            <span class="text-sm text-gray-800 font-medium leading-relaxed">
                                                 {{ $detailSchool->$field ?? '—' }}
                                             </span>
                                         </div>
@@ -396,49 +402,51 @@
                     </div>
                 @endif
 
-                {{-- ════════ MODULES TAB ════════ --}}
+                {{-- ════════ MODULES TAB ════════
+                     The Mark Attendance panel's look: one quiet toolbar (what is on,
+                     Enable all / Disable all), then a flat list of small rows with
+                     hairlines. Credit has left the school panel and is not offered. --}}
                 @if ($detailTab === 'modules')
-                    <div class="p-5">
-                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                            <div>
-                                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                                    Module Access
-                                </p>
-                                <p class="text-xs text-gray-500 mt-1">
-                                    Turn features ON / OFF for this school. Disabled features are hidden from the
-                                    school's menu and blocked from direct access. Core features (Home, Students,
-                                    Teachers, Users, Analytics) are always available.
-                                </p>
-                            </div>
-                            <div class="flex items-center gap-2 flex-shrink-0">
-                                <button type="button" wire:click="enableAllModules"
-                                    class="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
-                                    Enable all
-                                </button>
-                                <button type="button" wire:click="disableAllModules"
-                                    class="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
-                                    Disable all
-                                </button>
-                            </div>
-                        </div>
+                    @php
+                        $shownModules = $this->shownModules();
+                        $modulesOn    = collect($shownModules)->keys()->filter(fn ($k) => !empty($moduleStates[$k]))->count();
+                    @endphp
+                    <div class="p-5 space-y-3">
+                        <p class="text-xs text-gray-500">
+                            Turn features on or off for this school. A feature turned off is hidden from the school's menu and
+                            blocked from direct access. Home, Students, Teachers, Users and Analytics are always on.
+                        </p>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            @foreach (config('modules', []) as $key => $def)
-                                <label
-                                    class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-gray-200 cursor-pointer hover:border-blue-300 hover:bg-blue-50/40 transition-colors">
-                                    <span class="text-sm font-medium text-gray-800">{{ $def['label'] ?? $key }}</span>
-                                    <input type="checkbox" wire:model="moduleStates.{{ $key }}"
-                                        class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
-                                </label>
-                            @endforeach
-                        </div>
+                        <div class="border border-gray-200 rounded-md">
+                            {{-- Toolbar --}}
+                            <div class="px-4 py-2.5 border-b border-gray-100 flex flex-wrap items-center gap-2">
+                                <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-xs">
+                                    <button type="button" wire:click="enableAllModules" class="px-2.5 py-1.5 text-gray-600 hover:bg-gray-50">Enable all</button>
+                                    <button type="button" wire:click="disableAllModules" class="px-2.5 py-1.5 text-gray-600 hover:bg-gray-50 border-l border-gray-200">Disable all</button>
+                                </div>
+                                <span class="ml-auto text-xs text-gray-400 tabular-nums">{{ $modulesOn }} of {{ count($shownModules) }} on</span>
+                            </div>
 
-                        <div class="flex justify-end mt-5">
-                            <button type="button" wire:click="saveModules" wire:loading.attr="disabled"
-                                class="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60">
-                                <span wire:loading.remove wire:target="saveModules">Save Module Access</span>
-                                <span wire:loading wire:target="saveModules">Saving…</span>
-                            </button>
+                            {{-- Rows --}}
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                                @foreach ($shownModules as $key => $def)
+                                    <label wire:key="module-{{ $key }}"
+                                        class="flex items-center gap-2.5 px-4 py-2 border-b border-gray-100 cursor-pointer hover:bg-gray-50">
+                                        <input type="checkbox" wire:model="moduleStates.{{ $key }}"
+                                            class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
+                                        <span class="text-sm text-gray-700 truncate">{{ $def['label'] ?? $key }}</span>
+                                    </label>
+                                @endforeach
+                            </div>
+
+                            {{-- Footer --}}
+                            <div class="px-4 py-2.5 flex justify-end">
+                                <button type="button" wire:click="saveModules" wire:loading.attr="disabled" wire:target="saveModules"
+                                    class="px-4 py-1.5 text-sm font-medium rounded-md bg-gray-900 hover:bg-gray-800 text-white disabled:opacity-60">
+                                    <span wire:loading.remove wire:target="saveModules">Save Module Access</span>
+                                    <span wire:loading wire:target="saveModules">Saving…</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 @endif
@@ -474,12 +482,9 @@
         'IFSC Code' => $detailSchool->bank_ifsc,
         'Branch' => $detailSchool->bank_branch,
     ] as $label => $value)
-                                    <div class="flex items-center gap-6 py-3">
-                                        <span
-                                            class="text-xs text-gray-400 w-32 flex-shrink-0">{{ $label }}</span>
-                                        <span class="text-sm font-semibold text-gray-800 font-mono">
-                                            {{ $value ?? '—' }}
-                                        </span>
+                                    <div class="flex items-start gap-4 py-2.5">
+                                        <span class="text-xs text-gray-400 w-28 flex-shrink-0 pt-0.5 leading-relaxed">{{ $label }}</span>
+                                        <span class="text-sm text-gray-800 font-medium leading-relaxed">{{ $value ?? '—' }}</span>
                                     </div>
                                 @endforeach
                             </div>
@@ -553,252 +558,180 @@
                     </div>
                 @endif
 
-                {{-- ════════ FEES ANALYTICS TAB ════════ --}}
+                {{-- ════════ FEES ANALYTICS TAB ════════
+                     In the home's look: sections with a quiet heading — the
+                     school's collection at a glance, the year month by month
+                     beside the academic / transport split, and the money that
+                     came in today and yesterday. Same figures as before. --}}
                 @if ($detailTab === 'fees')
-                    <div>
-                        {{-- ── Overall Fee Analytics Cards ── --}}
-                        <div class="p-5 border-b border-gray-100 bg-gray-50">
-                            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-7 gap-2.5">
-                                {{-- Total to Collect (Academic + Transport) --}}
-                                <div class="bg-white rounded-xl border border-gray-200 p-3 flex flex-col gap-1">
-                                    <p class="text-xs text-gray-400 font-medium">Total to Collect</p>
-                                    <p class="text-xl font-bold text-gray-800">
-                                        ₹{{ number_format($feeStats['total_to_collect'] ?? 0, 0) }}
-                                    </p>
-                                    <p class="text-[10px] text-gray-400">Academic + Transport</p>
-                                </div>
-                                {{-- Collected --}}
-                                <div class="bg-white rounded-xl border border-gray-200 p-3 flex flex-col gap-1">
-                                    <p class="text-xs text-gray-400 font-medium">Collected</p>
-                                    <p class="text-xl font-bold text-emerald-600">
-                                        ₹{{ number_format($feeStats['total_collected'] ?? 0, 0) }}
-                                    </p>
-                                </div>
-                                {{-- Remaining --}}
-                                <div class="bg-white rounded-xl border border-gray-200 p-3 flex flex-col gap-1">
-                                    <p class="text-xs text-gray-400 font-medium">Remaining</p>
-                                    <p class="text-xl font-bold text-red-500">
-                                        ₹{{ number_format($feeStats['total_remaining'] ?? 0, 0) }}
-                                    </p>
-                                </div>
-                                {{-- This Month --}}
-                                <div class="bg-white rounded-xl border border-gray-200 p-3 flex flex-col gap-1">
-                                    <p class="text-xs text-gray-400 font-medium">This Month</p>
-                                    <p class="text-xl font-bold text-blue-600">
-                                        ₹{{ number_format($feeStats['this_month'] ?? 0, 0) }}
-                                    </p>
-                                </div>
-                                {{-- Last Month --}}
-                                <div class="bg-white rounded-xl border border-gray-200 p-3 flex flex-col gap-1">
-                                    <p class="text-xs text-gray-400 font-medium">Last Month</p>
-                                    <p class="text-xl font-bold text-purple-600">
-                                        ₹{{ number_format($feeStats['last_month'] ?? 0, 0) }}
-                                    </p>
-                                </div>
-                                {{-- Academic collected / total --}}
-                                <div class="bg-white rounded-xl border border-gray-200 p-3 flex flex-col gap-1">
-                                    <p class="text-xs text-gray-400 font-medium">Academic</p>
-                                    <p class="text-lg font-bold text-indigo-600 whitespace-nowrap">
-                                        ₹{{ number_format($feeStats['academic_total'] ?? 0, 0) }}
-                                        <span class="text-xs font-semibold text-gray-400">/ ₹{{ number_format($feeStats['academic_to_collect'] ?? 0, 0) }}</span>
-                                    </p>
-                                    <p class="text-[10px] text-gray-400">collected / total</p>
-                                </div>
-                                {{-- Transport collected / total --}}
-                                <div class="bg-white rounded-xl border border-gray-200 p-3 flex flex-col gap-1">
-                                    <p class="text-xs text-gray-400 font-medium">Transport</p>
-                                    <p class="text-lg font-bold text-amber-600 whitespace-nowrap">
-                                        ₹{{ number_format($feeStats['transport_total'] ?? 0, 0) }}
-                                        <span class="text-xs font-semibold text-gray-400">/ ₹{{ number_format($feeStats['transport_to_collect'] ?? 0, 0) }}</span>
-                                    </p>
-                                    <p class="text-[10px] text-gray-400">collected / total</p>
-                                </div>
+                    @php
+                        $faInr = fn ($v) => '₹' . number_format((float) $v, 0);
+                        $faToCollect = (float) ($feeStats['total_to_collect'] ?? 0);
+                        $faCollected = (float) ($feeStats['total_collected'] ?? 0);
+                        $faPct = $faToCollect > 0 ? min(100, round($faCollected / $faToCollect * 100)) : 0;
+                        $faTiles = [
+                            ['Total to Collect', $faInr($faToCollect), 'Academic + Transport'],
+                            ['Collected',        $faInr($faCollected), $faPct . '% of the fee'],
+                            ['Remaining',        $faInr($feeStats['total_remaining'] ?? 0), 'still to come'],
+                            ['This Month',       $faInr($feeStats['this_month'] ?? 0), now()->format('F Y')],
+                            ['Last Month',       $faInr($feeStats['last_month'] ?? 0), now()->subMonthNoOverflow()->format('F Y')],
+                        ];
+                        $faAcademic   = (float) ($feeStats['academic_total'] ?? 0);
+                        $faTransport  = (float) ($feeStats['transport_total'] ?? 0);
+                        $faAcTo       = (float) ($feeStats['academic_to_collect'] ?? 0);
+                        $faTrTo       = (float) ($feeStats['transport_to_collect'] ?? 0);
+                        $faCards = [
+                            ['Academic',  $faAcademic,  $faAcTo, $faAcTo > 0 ? min(100, round($faAcademic / $faAcTo * 100)) : 0],
+                            ['Transport', $faTransport, $faTrTo, $faTrTo > 0 ? min(100, round($faTransport / $faTrTo * 100)) : 0],
+                        ];
+
+                        // The financial year, April to March, as before.
+                        $faMonths = [[4, 2026], [5, 2026], [6, 2026], [7, 2026], [8, 2026], [9, 2026], [10, 2026], [11, 2026], [12, 2026], [1, 2027], [2, 2027], [3, 2027]];
+                        $faChart  = $feeStats['fy_monthly_chart'] ?? [];
+                        $faLabels = array_map(fn ($m) => \Carbon\Carbon::create($m[1], $m[0], 1)->format('M y'), $faMonths);
+                        $faData   = array_map(fn ($m) => (float) ($faChart[$m[1] . '-' . $m[0]] ?? 0), $faMonths);
+
+                        $faSplitTotal = $faAcademic + $faTransport;
+                        $faTwoDays    = $feeStats['two_days'] ?? [];
+                        $faToday      = now()->toDateString();
+                    @endphp
+                    <div class="p-5 space-y-8">
+
+                        {{-- ── Overview ── --}}
+                        <section>
+                            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Overview</h2>
+                            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5">
+                                @foreach ($faTiles as [$label, $value, $sub])
+                                    <div class="px-5 py-4 -mr-px -mb-px border-r border-b border-gray-100 min-w-0">
+                                        <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide truncate">{{ $label }}</p>
+                                        <p class="text-[26px] leading-none font-semibold text-gray-900 mt-2 tabular-nums truncate">{{ $value }}</p>
+                                        <p class="text-xs text-gray-400 mt-1.5 truncate">{{ $sub }}</p>
+                                    </div>
+                                @endforeach
                             </div>
-                        </div>
 
-                        <div class="p-5 space-y-5">
-
-                            {{-- Fee Type + Monthly Chart --}}
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-                                {{-- Fee Type Breakdown --}}
-                                <div class="bg-white border border-gray-200 rounded-xl p-4">
-                                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                                        By Fee Type
-                                    </p>
-                                    @php
-                                        $academic = $feeStats['academic_total'] ?? 0;
-                                        $transport = $feeStats['transport_total'] ?? 0;
-                                        $total = $academic + $transport;
-                                        $acPct = $total > 0 ? round(($academic / $total) * 100) : 0;
-                                        $trPct = $total > 0 ? round(($transport / $total) * 100) : 0;
-                                    @endphp
-                                    <div class="space-y-3">
-                                        <div>
-                                            <div class="flex items-center justify-between text-xs mb-1">
-                                                <span class="text-gray-600">Academic</span>
-                                                <span class="font-semibold text-gray-800">
-                                                    ₹{{ number_format($academic, 0) }} ({{ $acPct }}%)
-                                                </span>
-                                            </div>
-                                            <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
-                                                <div class="h-full bg-blue-500 rounded-full"
-                                                    style="width: {{ $acPct }}%"></div>
-                                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                                @foreach ($faCards as [$label, $paid, $to, $pct])
+                                    <div class="bg-white rounded-xl border border-gray-200 px-5 py-4">
+                                        <div class="flex items-baseline justify-between gap-2">
+                                            <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide truncate">{{ $label }}</p>
+                                            <p class="text-lg font-semibold text-gray-900 tabular-nums whitespace-nowrap">{{ $pct }}%</p>
                                         </div>
-                                        <div>
-                                            <div class="flex items-center justify-between text-xs mb-1">
-                                                <span class="text-gray-600">Transport</span>
-                                                <span class="font-semibold text-gray-800">
-                                                    ₹{{ number_format($transport, 0) }} ({{ $trPct }}%)
-                                                </span>
-                                            </div>
-                                            <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
-                                                <div class="h-full bg-amber-500 rounded-full"
-                                                    style="width: {{ $trPct }}%"></div>
-                                            </div>
+                                        <div class="w-full bg-gray-100 rounded-full h-1 mt-3">
+                                            <div class="bg-gray-800 h-1 rounded-full" style="width: {{ $pct }}%"></div>
                                         </div>
+                                        <p class="text-xs text-gray-400 mt-2 truncate">{{ $faInr($paid) }} of {{ $faInr($to) }} collected</p>
                                     </div>
-                                    <div
-                                        class="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
-                                        <span class="text-gray-400">This Month Transactions</span>
-                                        <span
-                                            class="font-semibold text-gray-700">{{ $feeStats['this_month_count'] ?? 0 }}</span>
+                                @endforeach
+                            </div>
+                        </section>
+
+                        {{-- ── Collection ── --}}
+                        <section>
+                            <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Collection</h2>
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                                <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
+                                    <div class="mb-4">
+                                        <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Monthly · {{ $faLabels[0] }} – {{ end($faLabels) }}</p>
+                                        <p class="text-2xl font-semibold text-gray-900 mt-1 tabular-nums">{{ $faInr(array_sum($faData)) }}</p>
+                                    </div>
+                                    {{-- Keyed on its figures: a new payment redraws it. --}}
+                                    <div class="h-56" wire:key="sa-school-fee-chart-{{ $detailSchool->id }}-{{ md5(json_encode($faData)) }}">
+                                        <canvas x-data="{
+                                            chart: null,
+                                            init() {
+                                                if (typeof Chart === 'undefined') return;
+                                                this.chart = new Chart(this.$el.getContext('2d'), {
+                                                    type: 'bar',
+                                                    data: {
+                                                        labels: @js($faLabels),
+                                                        datasets: [{ label: 'Collected', data: @js($faData), backgroundColor: 'rgba(99,102,241,0.7)', borderRadius: 3, borderSkipped: false, maxBarThickness: 34 }]
+                                                    },
+                                                    options: {
+                                                        responsive: true, maintainAspectRatio: false,
+                                                        plugins: {
+                                                            legend: { display: false },
+                                                            tooltip: { callbacks: { label: (c) => '₹' + Number(c.raw).toLocaleString('en-IN') } }
+                                                        },
+                                                        scales: {
+                                                            x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 0, autoSkipPadding: 8 } },
+                                                            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 }, callback: (v) => '₹' + Number(v).toLocaleString('en-IN') } }
+                                                        }
+                                                    }
+                                                });
+                                            },
+                                            destroy() { this.chart?.destroy(); }
+                                        }"></canvas>
                                     </div>
                                 </div>
 
-                                {{-- Financial Year Monthly Chart (Apr 2026 → Mar 2027) --}}
-                                <div class="bg-white border border-gray-200 rounded-xl p-4">
-                                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
-                                        Monthly Collections
-                                    </p>
-                                    <p class="text-[10px] text-gray-400 mb-3">FY Apr 2026 – Mar 2027</p>
-
-                                    @php
-                                        $fyMonths = [
-                                            ['label' => 'Apr', 'month' => 4, 'year' => 2026],
-                                            ['label' => 'May', 'month' => 5, 'year' => 2026],
-                                            ['label' => 'Jun', 'month' => 6, 'year' => 2026],
-                                            ['label' => 'Jul', 'month' => 7, 'year' => 2026],
-                                            ['label' => 'Aug', 'month' => 8, 'year' => 2026],
-                                            ['label' => 'Sep', 'month' => 9, 'year' => 2026],
-                                            ['label' => 'Oct', 'month' => 10, 'year' => 2026],
-                                            ['label' => 'Nov', 'month' => 11, 'year' => 2026],
-                                            ['label' => 'Dec', 'month' => 12, 'year' => 2026],
-                                            ['label' => 'Jan', 'month' => 1, 'year' => 2027],
-                                            ['label' => 'Feb', 'month' => 2, 'year' => 2027],
-                                            ['label' => 'Mar', 'month' => 3, 'year' => 2027],
-                                        ];
-                                        $fyChart = $feeStats['fy_monthly_chart'] ?? [];
-                                        $maxVal = !empty($fyChart) ? max(array_values($fyChart)) : 1;
-                                        $maxVal = max($maxVal, 1);
-                                        $nowMonth = now()->month;
-                                        $nowYear = now()->year;
-                                    @endphp
-
-                                    <div class="flex items-end gap-0.5 h-24">
-                                        @foreach ($fyMonths as $m)
-                                            @php
-                                                $key = "{$m['year']}-{$m['month']}";
-                                                $val = $fyChart[$key] ?? 0;
-                                                $pct = ($val / $maxVal) * 100;
-                                                $barH = max(3, round($pct * 0.82));
-                                                $isCurrent = $m['month'] == $nowMonth && $m['year'] == $nowYear;
-                                                $color = $isCurrent ? '#3b82f6' : ($val > 0 ? '#bfdbfe' : '#f3f4f6');
-                                            @endphp
-                                            <div class="flex-1 flex flex-col items-center gap-0.5">
-                                                {{-- Amount label above bar --}}
-                                                @if ($val > 0)
-                                                    <span
-                                                        class="text-[7px] text-gray-500 w-full text-center truncate leading-none mb-0.5">
-                                                        ₹{{ number_format($val / 1000, 0) }}k
-                                                    </span>
-                                                @else
-                                                    <span
-                                                        class="text-[7px] text-transparent leading-none mb-0.5">—</span>
-                                                @endif
-                                                <div class="w-full rounded-sm transition-all"
-                                                    style="height: {{ $barH }}px; background-color: {{ $color }};">
+                                <div class="bg-white rounded-xl border border-gray-200 p-5">
+                                    <h3 class="text-sm font-semibold text-gray-800 mb-4">By Fee Type</h3>
+                                    <dl class="space-y-4 text-sm">
+                                        @foreach ([['Academic', $faAcademic], ['Transport', $faTransport]] as [$label, $value])
+                                            @php $share = $faSplitTotal > 0 ? round($value / $faSplitTotal * 100) : 0; @endphp
+                                            <div>
+                                                <div class="flex items-baseline justify-between gap-3">
+                                                    <dt class="text-gray-500">{{ $label }}</dt>
+                                                    <dd class="font-semibold text-gray-900 tabular-nums">{{ $faInr($value) }} <span class="text-xs font-normal text-gray-400">({{ $share }}%)</span></dd>
                                                 </div>
-                                                <span
-                                                    class="text-[8px] text-gray-400 mt-0.5">{{ $m['label'] }}</span>
+                                                <div class="w-full bg-gray-100 rounded-full h-1.5 mt-2"><div class="bg-gray-800 h-1.5 rounded-full" style="width: {{ $share }}%"></div></div>
                                             </div>
                                         @endforeach
-                                    </div>
+                                        <div class="flex items-baseline justify-between gap-3 pt-4 border-t border-gray-100">
+                                            <dt class="text-gray-500">This month's payments</dt>
+                                            <dd class="font-semibold text-gray-900 tabular-nums">{{ number_format($feeStats['this_month_count'] ?? 0) }}</dd>
+                                        </div>
+                                    </dl>
                                 </div>
                             </div>
+                        </section>
 
-                            {{-- Recent Payments Table --}}
-                            <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                                <div class="px-4 py-3 border-b border-gray-100">
-                                    <h4 class="text-sm font-semibold text-gray-700">Recent Payments</h4>
-                                </div>
-                                <div class="overflow-x-auto">
-                                    <table class="w-full">
-                                        <thead class="bg-gray-50 border-b border-gray-200">
-                                            <tr>
-                                                <th class="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">
-                                                    Receipt</th>
-                                                <th class="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">
-                                                    Student</th>
-                                                <th class="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">
-                                                    Type</th>
-                                                <th class="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">
-                                                    Amount</th>
-                                                <th class="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">
-                                                    Mode</th>
-                                                <th class="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">
-                                                    Date</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-gray-100">
-                                            @forelse ($feeStats['recent_payments'] ?? [] as $payment)
-                                                <tr class="hover:bg-gray-50/50">
-                                                    <td class="px-3 py-2.5 text-xs font-mono text-gray-600">
-                                                        {{ $payment->receipt_number }}
-                                                    </td>
-                                                    <td class="px-3 py-2.5">
-                                                        <p class="text-xs font-medium text-gray-800">
-                                                            {{ $payment->studentDetail?->full_name ?? '—' }}
-                                                        </p>
-                                                        <p class="text-xs text-gray-400">
-                                                            {{ $payment->standard?->name }}
-                                                            {{ $payment->section ? ' / ' . $payment->section->name : '' }}
-                                                        </p>
-                                                    </td>
-                                                    <td class="px-3 py-2.5">
-                                                        <span
-                                                            class="text-xs px-2 py-0.5 rounded-full font-medium
-                                                            {{ $payment->fee_type === 'academic'
-                                                                ? 'bg-blue-50 text-blue-700 border border-blue-100'
-                                                                : 'bg-amber-50 text-amber-700 border border-amber-100' }}">
-                                                            {{ ucfirst($payment->fee_type) }}
-                                                        </span>
-                                                    </td>
-                                                    <td class="px-3 py-2.5 text-sm font-semibold text-emerald-700">
-                                                        ₹{{ number_format($payment->amount, 0) }}
-                                                    </td>
-                                                    <td class="px-3 py-2.5 text-xs text-gray-600 capitalize">
-                                                        {{ $payment->payment_mode ?? '—' }}
-                                                    </td>
-                                                    <td class="px-3 py-2.5 text-xs text-gray-500">
-                                                        {{ $payment->payment_date?->format('d M Y') }}
-                                                    </td>
-                                                </tr>
-                                            @empty
+                        {{-- ── Recent Transactions: today and yesterday only ── --}}
+                        <section>
+                            <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-3">
+                                <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest">Recent Transactions</h2>
+                                <p class="text-xs text-gray-400 tabular-nums">
+                                    Today <span class="text-gray-700 font-medium">{{ $faInr($feeStats['today_total'] ?? 0) }}</span><span class="text-gray-300"> · </span>
+                                    Yesterday <span class="text-gray-700 font-medium">{{ $faInr($feeStats['yesterday_total'] ?? 0) }}</span>
+                                </p>
+                            </div>
+                            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                                @if (empty($faTwoDays))
+                                    <p class="px-5 py-10 text-center text-sm text-gray-400">No fee came in today or yesterday.</p>
+                                @else
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full min-w-[640px]">
+                                            <thead class="bg-gray-50 border-b border-gray-200">
                                                 <tr>
-                                                    <td colspan="6"
-                                                        class="px-3 py-8 text-center text-sm text-gray-400">
-                                                        No fee payments recorded yet
-                                                    </td>
+                                                    <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500">Student</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Receipt</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Type</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Mode</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Day</th>
+                                                    <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500">Amount</th>
                                                 </tr>
-                                            @endforelse
-                                        </tbody>
-                                    </table>
-                                </div>
+                                            </thead>
+                                            <tbody class="divide-y divide-gray-100">
+                                                @foreach ($faTwoDays as $i => $tx)
+                                                    <tr class="hover:bg-gray-50/60" wire:key="fa-tx-{{ $i }}">
+                                                        <td class="px-5 py-3">
+                                                            <p class="text-sm font-medium text-gray-800">{{ $tx['name'] ?: '—' }}</p>
+                                                            <p class="text-xs text-gray-400">{{ trim(($tx['class'] ?? '') . ($tx['section'] ? ' / ' . $tx['section'] : '')) ?: '—' }}</p>
+                                                        </td>
+                                                        <td class="px-4 py-3 text-sm text-gray-600">{{ $tx['receipt'] ?: '—' }}</td>
+                                                        <td class="px-4 py-3 text-sm text-gray-600">{{ $tx['type'] }}</td>
+                                                        <td class="px-4 py-3 text-sm text-gray-600">{{ $tx['mode'] ? ucwords(str_replace('_', ' ', $tx['mode'])) : '—' }}</td>
+                                                        <td class="px-4 py-3 text-sm text-gray-600">{{ $tx['date'] === $faToday ? 'Today' : 'Yesterday' }}</td>
+                                                        <td class="px-5 py-3 text-right text-sm font-semibold text-gray-900 tabular-nums">{{ $faInr($tx['amount']) }}</td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                @endif
                             </div>
-
-                        </div>
+                        </section>
                     </div>
                 @endif
 
@@ -928,38 +861,10 @@
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td class="px-3 py-2.5 text-xs font-mono text-gray-600">
-                                                {{ $s->phone ?? '—' }}
-                                            </td>
-                                            <td class="px-3 py-2.5">
-                                                <span
-                                                    class="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full border border-blue-100">
-                                                    {{ $s->standard?->name ?? '—' }}
-                                                    @if ($s->section)
-                                                        / {{ $s->section->name }}
-                                                    @endif
-                                                </span>
-                                            </td>
-                                            <td class="px-3 py-2.5 text-xs font-mono text-gray-700">
-                                                {{ $s->admission_no ?? '—' }}
-                                            </td>
-                                            <td class="px-3 py-2.5">
-                                                @if ($s->user?->is_active)
-                                                    <span
-                                                        class="inline-flex items-center gap-1 text-xs px-2 py-0.5
-                                                        bg-green-50 text-green-700 rounded-full border border-green-100">
-                                                        <span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-                                                        Active
-                                                    </span>
-                                                @else
-                                                    <span
-                                                        class="inline-flex items-center gap-1 text-xs px-2 py-0.5
-                                                        bg-red-50 text-red-600 rounded-full border border-red-100">
-                                                        <span class="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
-                                                        Inactive
-                                                    </span>
-                                                @endif
-                                            </td>
+                                            <td class="px-3 py-2.5 text-sm text-gray-600">{{ $s->phone ?? '—' }}</td>
+                                            <td class="px-3 py-2.5 text-sm text-gray-600">{{ $s->standard?->name ?? '—' }}{{ $s->section ? ' / ' . $s->section->name : '' }}</td>
+                                            <td class="px-3 py-2.5 text-sm text-gray-600">{{ $s->admission_no ?? '—' }}</td>
+                                            <td class="px-3 py-2.5 text-sm font-medium {{ $s->user?->is_active ? 'text-emerald-600' : 'text-red-500' }}">{{ $s->user?->is_active ? 'Active' : 'Inactive' }}</td>
                                         </tr>
                                     @empty
                                         <tr>
@@ -1086,32 +991,10 @@
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td class="px-3 py-2.5 text-xs font-mono text-gray-700">
-                                                {{ $t->employee_id ?? '—' }}
-                                            </td>
-                                            <td class="px-3 py-2.5 text-xs font-mono text-gray-600">
-                                                {{ $t->phone ?? '—' }}
-                                            </td>
-                                            <td class="px-3 py-2.5 text-xs text-gray-700">
-                                                {{ $t->qualification ?? '—' }}
-                                            </td>
-                                            <td class="px-3 py-2.5">
-                                                @if ($t->user?->is_active)
-                                                    <span
-                                                        class="inline-flex items-center gap-1 text-xs px-2 py-0.5
-                                                        bg-green-50 text-green-700 rounded-full border border-green-100">
-                                                        <span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-                                                        Active
-                                                    </span>
-                                                @else
-                                                    <span
-                                                        class="inline-flex items-center gap-1 text-xs px-2 py-0.5
-                                                        bg-red-50 text-red-600 rounded-full border border-red-100">
-                                                        <span class="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
-                                                        Inactive
-                                                    </span>
-                                                @endif
-                                            </td>
+                                            <td class="px-3 py-2.5 text-sm text-gray-600">{{ $t->employee_id ?? '—' }}</td>
+                                            <td class="px-3 py-2.5 text-sm text-gray-600">{{ $t->phone ?? '—' }}</td>
+                                            <td class="px-3 py-2.5 text-sm text-gray-600">{{ $t->qualification ?? '—' }}</td>
+                                            <td class="px-3 py-2.5 text-sm font-medium {{ $t->user?->is_active ? 'text-emerald-600' : 'text-red-500' }}">{{ $t->user?->is_active ? 'Active' : 'Inactive' }}</td>
                                         </tr>
                                     @empty
                                         <tr>
@@ -1299,7 +1182,7 @@
                                 </div>
                                 <p class="text-xs text-gray-400 mb-3">You can change these later from the school's Modules tab.</p>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    @foreach (config('modules', []) as $key => $def)
+                                    @foreach ($this->shownModules() as $key => $def)
                                         <label class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-md border border-gray-300 cursor-pointer hover:bg-gray-50">
                                             <span class="text-sm text-gray-700">{{ $def['label'] ?? $key }}</span>
                                             <input type="checkbox" wire:model="selectedModules.{{ $key }}"
@@ -1523,75 +1406,50 @@
         </div>
     @endif
 
-    {{-- ══════════ DELETE CONFIRMATION (OTP-verified) ══════════ --}}
+    {{-- ══════════ DELETE CONFIRMATION (OTP-verified) ══════════
+         Minimal: a plain title, a line or two of text, Cancel and the red
+         action. Same steps — send a code to the super admin's email, then
+         enter it to delete. --}}
     @if ($showDeleteConfirm)
         <div class="lms-cover fixed inset-x-0 bottom-0 top-16 z-50 flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" wire:click="cancelDelete"></div>
-            <div class="relative z-10 bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div class="relative z-10 bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
 
                 @if ($deleteStep === 'confirm')
-                    {{-- Step 1: warning + send verification code --}}
-                    <div class="flex flex-col items-center text-center gap-3">
-                        <div class="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center">
-                            <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 class="text-base font-bold text-gray-900">Delete School?</h3>
-                            <p class="text-sm text-gray-500 mt-1">This permanently deletes the school and <span class="font-semibold text-red-600">everything in it</span> — all students, teachers, employees, user accounts, fees, exams and records. This <span class="font-semibold">cannot be undone</span>.</p>
-                            <p class="text-xs text-gray-500 mt-2">For safety, a verification code will be emailed to your super-admin email. You must enter it to confirm.</p>
-                        </div>
-                        <div class="flex items-center gap-3 w-full mt-1">
-                            <button wire:click="cancelDelete"
-                                class="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors">
-                                Cancel
-                            </button>
-                            <button wire:click="sendDeleteOtp" wire:loading.attr="disabled" wire:target="sendDeleteOtp"
-                                class="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors disabled:opacity-60">
-                                <span wire:loading.remove wire:target="sendDeleteOtp">Send Code</span>
-                                <span wire:loading wire:target="sendDeleteOtp">Sending…</span>
-                            </button>
-                        </div>
+                    {{-- Step 1: what goes, then send the code --}}
+                    <h3 class="text-base font-semibold text-gray-900">Delete this school?</h3>
+                    <p class="text-sm text-gray-500 mt-2">Everything in it goes too — students, teachers, staff, logins, fees, exams and records. This cannot be undone.</p>
+                    <p class="text-sm text-gray-500 mt-2">A code will be emailed to you to confirm.</p>
+                    <div class="flex items-center justify-end gap-2 mt-5">
+                        <button wire:click="cancelDelete" type="button"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                        <button wire:click="sendDeleteOtp" type="button" wire:loading.attr="disabled" wire:target="sendDeleteOtp"
+                            class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:opacity-60">
+                            <span wire:loading.remove wire:target="sendDeleteOtp">Send Code</span>
+                            <span wire:loading wire:target="sendDeleteOtp">Sending…</span>
+                        </button>
                     </div>
                 @else
-                    {{-- Step 2: enter the emailed OTP --}}
-                    <div class="flex flex-col items-center text-center gap-3">
-                        <div class="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center">
-                            <svg class="w-7 h-7 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 class="text-base font-bold text-gray-900">Enter Verification Code</h3>
-                            <p class="text-sm text-gray-500 mt-1">We emailed a 6-digit code to
-                                <span class="font-semibold text-gray-700">{{ $deleteOtpEmailMasked }}</span>.
-                                Enter it below to permanently delete this school.</p>
-                        </div>
-                        <div class="w-full">
-                            <input type="text" inputmode="numeric" maxlength="6" wire:model="deleteOtpInput"
-                                wire:keydown.enter="verifyAndDelete"
-                                placeholder="______"
-                                class="w-full text-center tracking-[0.5em] text-lg font-semibold border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-red-400 focus:border-red-400">
-                            @error('deleteOtpInput') <p class="text-xs text-red-500 mt-1.5">{{ $message }}</p> @enderror
-                            <button wire:click="sendDeleteOtp" wire:loading.attr="disabled" wire:target="sendDeleteOtp"
-                                class="text-xs text-blue-600 hover:text-blue-800 font-medium mt-2">
-                                <span wire:loading.remove wire:target="sendDeleteOtp">Resend code</span>
-                                <span wire:loading wire:target="sendDeleteOtp">Sending…</span>
-                            </button>
-                        </div>
-                        <div class="flex items-center gap-3 w-full mt-1">
-                            <button wire:click="cancelDelete"
-                                class="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors">
-                                Cancel
-                            </button>
-                            <button wire:click="verifyAndDelete" wire:loading.attr="disabled" wire:target="verifyAndDelete"
-                                class="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors disabled:opacity-60">
-                                <span wire:loading.remove wire:target="verifyAndDelete">Verify &amp; Delete</span>
-                                <span wire:loading wire:target="verifyAndDelete">Deleting…</span>
-                            </button>
-                        </div>
+                    {{-- Step 2: enter the emailed code --}}
+                    <h3 class="text-base font-semibold text-gray-900">Enter the code</h3>
+                    <p class="text-sm text-gray-500 mt-2">Sent to {{ $deleteOtpEmailMasked }}. Enter it to delete the school for good.</p>
+                    <input type="text" inputmode="numeric" maxlength="6" wire:model="deleteOtpInput"
+                        wire:keydown.enter="verifyAndDelete" placeholder="6-digit code"
+                        class="mt-4 w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-md tracking-widest focus:ring-1 focus:ring-red-400 focus:border-red-400">
+                    @error('deleteOtpInput') <p class="text-xs text-red-500 mt-1.5">{{ $message }}</p> @enderror
+                    <button wire:click="sendDeleteOtp" type="button" wire:loading.attr="disabled" wire:target="sendDeleteOtp"
+                        class="text-xs text-gray-500 hover:text-gray-800 underline mt-2">
+                        <span wire:loading.remove wire:target="sendDeleteOtp">Resend code</span>
+                        <span wire:loading wire:target="sendDeleteOtp">Sending…</span>
+                    </button>
+                    <div class="flex items-center justify-end gap-2 mt-5">
+                        <button wire:click="cancelDelete" type="button"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                        <button wire:click="verifyAndDelete" type="button" wire:loading.attr="disabled" wire:target="verifyAndDelete"
+                            class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:opacity-60">
+                            <span wire:loading.remove wire:target="verifyAndDelete">Delete School</span>
+                            <span wire:loading wire:target="verifyAndDelete">Deleting…</span>
+                        </button>
                     </div>
                 @endif
             </div>

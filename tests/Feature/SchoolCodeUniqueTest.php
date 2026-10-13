@@ -142,4 +142,32 @@ class SchoolCodeUniqueTest extends TestCase
         $this->assertSame('The school code has already been taken.', $c->getErrorBag()->first('schoolCode'));
         $this->assertLessThanOrEqual(1, DB::table('organizations')->where('school_code', 'RACE')->count());
     }
+
+    public function test_a_code_taken_while_on_the_modules_step_takes_the_form_back_to_its_field(): void
+    {
+        $c = $this->form('NEWCODE');
+        $c->goToModuleStep();
+        $this->assertSame(2, $c->modalStep);
+
+        // Another school takes the code before this one is saved.
+        DB::table('organizations')->insert(['name' => 'Quick', 'email' => 'q@test.in', 'school_code' => 'newcode', 'serial_number' => '8']);
+
+        try {
+            $c->saveSchool();
+            $this->fail('expected the code to be refused');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('schoolCode', $e->errors());
+        }
+        $this->assertSame(1, $c->modalStep);
+        $this->assertSame(1, DB::table('organizations')->whereRaw('LOWER(school_code) = ?', ['newcode'])->count());
+    }
+
+    public function test_credit_is_not_offered_among_the_modules(): void
+    {
+        $modules = (new Schools())->shownModules();
+
+        $this->assertArrayNotHasKey('credit', $modules);
+        $this->assertArrayHasKey('fees', $modules);
+        $this->assertCount(count(config('modules')) - 1, $modules);
+    }
 }
