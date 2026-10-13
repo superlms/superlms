@@ -1,4 +1,16 @@
 <div class="min-h-screen bg-gray-50">
+    @php
+        // "CLASS 5 (B) · Adm: 26SSIC120328" — the class, its section by the
+        // last letter of the name, then the admission number.
+        $studentWhere = function (array $row): string {
+            $class   = trim((string) ($row['class'] ?? ''));
+            $section = ($row['section'] ?? '—') !== '—' ? trim((string) $row['section']) : '';
+            $letter  = $section !== '' ? mb_strtoupper(mb_substr($section, -1)) : '';
+            $where   = $class !== '' ? $class . ($letter !== '' ? ' (' . $letter . ')' : '') : ($section !== '' ? 'Sec ' . $section : '');
+
+            return ($where !== '' ? $where . ' · ' : '') . 'Adm: ' . ($row['admission_no'] ?? '—');
+        };
+    @endphp
 
     {{-- ══════════ LIST VIEW ══════════ --}}
     @if ($activeView === 'list')
@@ -620,7 +632,13 @@
                                 <option value="partial">Partial</option>
                                 <option value="pending">Pending</option>
                             </select>
-                            @if ($viewFeeStandardId || $viewFeeSectionId || $viewFeeStatus !== '')
+                            {{-- Sort: class wise (the order the fee marks students paid in) or A to Z --}}
+                            <select wire:model.live="viewFeeSort" title="Sort"
+                                class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="class">Sort: Class wise</option>
+                                <option value="name">Sort: A to Z</option>
+                            </select>
+                            @if ($viewFeeStandardId || $viewFeeSectionId || $viewFeeStatus !== '' || $viewFeeSort !== 'class')
                                 <button wire:click="clearViewFeeFilters"
                                     class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -655,7 +673,7 @@
                                                 <td class="px-5 py-2.5 text-gray-400 tabular-nums">{{ $row['serial'] }}</td>
                                                 <td class="px-3 py-2.5">
                                                     <p class="font-medium text-gray-800 leading-tight">{{ $row['name'] }}</p>
-                                                    <p class="text-xs text-gray-400">{{ $row['section'] !== '—' ? 'Sec ' . $row['section'] . ' · ' : '' }}Adm: {{ $row['admission_no'] }}</p>
+                                                    <p class="text-xs text-gray-400">{{ $studentWhere($row) }}</p>
                                                 </td>
                                                 <td class="px-3 py-2.5 text-right text-gray-700 tabular-nums">{{ $inr($row['total_fee']) }}</td>
                                                 <td class="px-3 py-2.5 text-right tabular-nums">
@@ -959,56 +977,65 @@
         </div>
     @endif
 
-    {{-- ══════════ UPDATE FEE SLIDE-IN PANEL (header — choose org → update payments) ══════════ --}}
+    {{-- ══════════ UPDATE FEE SLIDE-IN PANEL (header — choose org → update payments) ══════════
+         In the Students form's look: a wide panel, plain labels over bordered
+         boxes, the plan as plain text (no chips), statuses as plain coloured
+         words. Amount Received folds away behind its own row — click it to
+         open the form. Same fields, bindings, previews and saves. --}}
     @if ($showUpdatePanel)
+        @php
+            $upIn  = 'w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-400';
+            $upLb  = 'block text-sm font-medium text-gray-700 mb-1.5';
+            $upErr = 'mt-1 text-xs text-red-500';
+            $upStatusTone = ['paid' => 'text-emerald-600', 'partial' => 'text-amber-600', 'pending' => 'text-gray-500'];
+            $upStatusName = ['paid' => 'Paid', 'partial' => 'Partial', 'pending' => 'Pending'];
+        @endphp
         <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden" x-data @keydown.escape.window="$wire.closeUpdatePanel()">
-            <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closeUpdatePanel"></div>
-            <div class="absolute top-0 right-0 bottom-0 w-full max-w-2xl bg-white shadow-2xl flex flex-col">
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeUpdatePanel"></div>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
 
                 {{-- Header --}}
-                <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
-                    <div class="flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center">
-                            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <p class="text-sm font-bold text-gray-900">Update Fee</p>
-                            <p class="text-xs text-gray-400">Choose a school, then record or edit its fee collections</p>
-                        </div>
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900">Update Fee</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">Choose a school, then record or edit its fee collections</p>
                     </div>
-                    <button wire:click="closeUpdatePanel"
-                        class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                    <button wire:click="closeUpdatePanel" type="button"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
 
                 {{-- Scrollable Body --}}
-                <div class="flex-1 overflow-y-auto p-5 space-y-4">
+                <div class="flex-1 overflow-y-auto">
+                    <div class="px-6 py-6 space-y-5">
 
                     {{-- Step 1: Choose Organization --}}
                     <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1.5">School / Organization *</label>
-                        <select wire:model.live="updateOrgId"
-                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white
-                                   focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <label class="{{ $upLb }}">School / Organization <span class="text-red-500">*</span></label>
+                        <select wire:model.live="updateOrgId" class="{{ $upIn }}">
                             <option value="">— Select a school —</option>
                             @foreach ($organizations as $org)
                                 <option value="{{ $org->id }}">{{ $org->name }}</option>
                             @endforeach
                         </select>
+                        {{-- The school's plan, as plain text --}}
+                        @if ($updateOrgId !== '' && $updateOrgFeeType)
+                            <p class="mt-1.5 text-xs text-gray-500">
+                                @if ($updateOrgFeeType === 'one_time')
+                                    One Time · {{ ucfirst($updateOrgFrequency ?: 'yearly') }}
+                                @else
+                                    Per Student
+                                @endif
+                                @if ($updateOrgFeeLabel)
+                                    · {{ $updateOrgFeeLabel }} · {{ $academicYear }}
+                                @endif
+                            </p>
+                        @endif
                     </div>
 
                     @if ($updateOrgId === '')
                         <div class="text-center py-14 text-sm text-gray-400">
-                            <svg class="w-10 h-10 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5" />
-                            </svg>
                             Select a school above to see its fee structure.
                         </div>
                     @elseif (!$updateOrgFeeType)
@@ -1021,27 +1048,16 @@
                         </div>
                     @else
 
-                        {{-- Structure summary chip --}}
-                        <div class="flex items-center gap-2 flex-wrap">
-                            @if ($updateOrgFeeType === 'one_time')
-                                <span class="text-xs px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full font-medium border border-indigo-100">One Time</span>
-                                <span class="text-xs px-2 py-0.5 bg-gray-50 text-gray-600 rounded-full font-medium border border-gray-200 capitalize">{{ $updateOrgFrequency ?: 'yearly' }}</span>
-                            @else
-                                <span class="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full font-medium border border-blue-100">Per Student</span>
-                            @endif
-                            @if ($updateOrgFeeLabel)
-                                <span class="text-xs text-gray-400">{{ $updateOrgFeeLabel }} · {{ $academicYear }}</span>
-                            @endif
-                        </div>
-
                         {{-- ── AMOUNT RECEIVED: one sum from the school, put against what is due in
-                             order (per student: first class, then the next…; monthly: April, then May…) ── --}}
+                             order (per student: first class, then the next…; monthly: April, then May…).
+                             A row that opens like a dropdown; the form shows under it. ── --}}
                         @php $receive = $this->receivePreview(); @endphp
-                        <div class="border border-gray-200 rounded-xl p-4 space-y-3">
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="min-w-0">
-                                    <p class="text-sm font-semibold text-gray-800">Amount Received</p>
-                                    <p class="text-[11px] text-gray-400 mt-0.5">
+                        <div class="border border-gray-300 rounded-md" x-data="{ open: false }" wire:key="receive-box-{{ $updateOrgId }}">
+                            <button type="button" x-on:click="open = ! open"
+                                class="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-gray-50 rounded-md">
+                                <span class="min-w-0">
+                                    <span class="block text-sm font-medium text-gray-800">Amount Received</span>
+                                    <span class="block text-xs text-gray-400 mt-0.5">
                                         @if ($receive['per_student'])
                                             Goes to the first class's students first, then the next class, and so on.
                                         @elseif ($updateOrgFrequency === 'monthly')
@@ -1049,80 +1065,77 @@
                                         @else
                                             Goes to the year's fee.
                                         @endif
-                                    </p>
-                                </div>
-                                <p class="text-xs text-gray-500 whitespace-nowrap">Total due
-                                    <strong class="{{ $receive['due'] > 0 ? 'text-red-500' : 'text-emerald-600' }}">₹{{ number_format($receive['due'], 0) }}</strong>
-                                </p>
-                            </div>
+                                    </span>
+                                </span>
+                                <span class="flex items-center gap-3 flex-shrink-0">
+                                    <span class="text-xs text-gray-500 whitespace-nowrap">Total due
+                                        <strong class="{{ $receive['due'] > 0 ? 'text-red-500' : 'text-emerald-600' }}">₹{{ number_format($receive['due'], 0) }}</strong>
+                                    </span>
+                                    <svg class="w-4 h-4 text-gray-400 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                                </span>
+                            </button>
 
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Amount (₹) *</label>
-                                    <input wire:model.live.debounce.400ms="receiveAmount" type="number" min="0" step="0.01" placeholder="e.g. 25000"
-                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
-                                               focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                                    @error('receiveAmount') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Payment Mode</label>
-                                    <select wire:model="receiveMode"
-                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white
-                                               focus:ring-2 focus:ring-blue-500">
-                                        <option value="cash">Cash</option>
-                                        <option value="online">Online</option>
-                                        <option value="cheque">Cheque</option>
-                                        <option value="upi">UPI</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Payment Date</label>
-                                    <input wire:model="receiveDate" type="date"
-                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
-                                               focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                                    @error('receiveDate') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Remark (Optional)</label>
-                                    <input wire:model="receiveRemark" type="text" placeholder="Optional remark"
-                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg
-                                               focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                                    @error('receiveRemark') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                                </div>
-                            </div>
-
-                            {{-- What the amount will cover, before it is saved. --}}
-                            @if ($receive['amount'] > 0)
-                                @if ($receive['over'])
-                                    <p class="text-xs text-red-500">More than the total due (₹{{ number_format($receive['due'], 0) }}).</p>
-                                @elseif (count($receive['lines']))
-                                    <div class="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 space-y-1 max-h-44 overflow-y-auto">
-                                        @foreach ($receive['lines'] as $line)
-                                            <div class="flex items-baseline justify-between gap-3 text-xs">
-                                                <span class="font-medium text-gray-700 whitespace-nowrap">{{ $line['label'] }}</span>
-                                                <span class="text-right {{ $line['full'] ? 'text-emerald-700' : 'text-amber-600' }}">{{ $line['text'] }}</span>
-                                            </div>
-                                        @endforeach
+                            <div x-show="open" style="display: none" class="border-t border-gray-200 px-4 py-4 space-y-4">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="{{ $upLb }}">Amount (₹) <span class="text-red-500">*</span></label>
+                                        <input wire:model.live.debounce.400ms="receiveAmount" type="number" min="0" step="0.01" placeholder="e.g. 25000"
+                                            class="{{ $upIn }} @error('receiveAmount') border-red-400 @enderror" />
+                                        @error('receiveAmount') <p class="{{ $upErr }}">{{ $message }}</p> @enderror
                                     </div>
-                                @endif
-                            @endif
+                                    <div>
+                                        <label class="{{ $upLb }}">Payment Mode</label>
+                                        <select wire:model="receiveMode" class="{{ $upIn }}">
+                                            <option value="cash">Cash</option>
+                                            <option value="online">Online</option>
+                                            <option value="cheque">Cheque</option>
+                                            <option value="upi">UPI</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="{{ $upLb }}">Payment Date</label>
+                                        <input wire:model="receiveDate" type="date" class="{{ $upIn }} @error('receiveDate') border-red-400 @enderror" />
+                                        @error('receiveDate') <p class="{{ $upErr }}">{{ $message }}</p> @enderror
+                                    </div>
+                                    <div>
+                                        <label class="{{ $upLb }}">Remark <span class="text-gray-400 font-normal">(Optional)</span></label>
+                                        <input wire:model="receiveRemark" type="text" placeholder="Optional remark" class="{{ $upIn }} @error('receiveRemark') border-red-400 @enderror" />
+                                        @error('receiveRemark') <p class="{{ $upErr }}">{{ $message }}</p> @enderror
+                                    </div>
+                                </div>
 
-                            {{-- Asks once before saving: one amount can mark many students / months. --}}
-                            <div x-data="{ ask: false }">
-                                <button type="button" x-show="!ask" x-on:click="ask = true"
-                                    @disabled($receive['due'] <= 0)
-                                    class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors">
-                                    Save Amount
-                                </button>
-                                <div x-show="ask" x-cloak class="flex items-center gap-2">
-                                    <button type="button" wire:click="applyReceivedAmount" x-on:click="ask = false"
-                                        wire:loading.attr="disabled" wire:target="applyReceivedAmount"
-                                        class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition-colors">
-                                        Yes, save{{ $receive['amount'] > 0 ? ' ₹' . number_format($receive['amount'], 0) : '' }}
+                                {{-- What the amount will cover, before it is saved. --}}
+                                @if ($receive['amount'] > 0)
+                                    @if ($receive['over'])
+                                        <p class="text-xs text-red-500">More than the total due (₹{{ number_format($receive['due'], 0) }}).</p>
+                                    @elseif (count($receive['lines']))
+                                        <div class="border border-gray-200 rounded-md divide-y divide-gray-100 max-h-44 overflow-y-auto">
+                                            @foreach ($receive['lines'] as $line)
+                                                <div class="flex items-baseline justify-between gap-3 px-3 py-1.5 text-xs">
+                                                    <span class="font-medium text-gray-700 whitespace-nowrap">{{ $line['label'] }}</span>
+                                                    <span class="text-right {{ $line['full'] ? 'text-emerald-700' : 'text-amber-600' }}">{{ $line['text'] }}</span>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                @endif
+
+                                {{-- Asks once before saving: one amount can mark many students / months. --}}
+                                <div x-data="{ ask: false }" class="flex items-center justify-end gap-2">
+                                    <button type="button" x-show="!ask" x-on:click="ask = true"
+                                        @disabled($receive['due'] <= 0)
+                                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md">
+                                        Save Amount
                                     </button>
-                                    <button type="button" x-on:click="ask = false"
-                                        class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-medium rounded-lg transition-colors">
+                                    <span x-show="ask" x-cloak class="text-xs text-gray-500 mr-auto">Save this amount against what is due?</span>
+                                    <button type="button" x-show="ask" x-cloak x-on:click="ask = false"
+                                        class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">
                                         Cancel
+                                    </button>
+                                    <button type="button" x-show="ask" x-cloak wire:click="applyReceivedAmount" x-on:click="ask = false"
+                                        wire:loading.attr="disabled" wire:target="applyReceivedAmount"
+                                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md disabled:opacity-60">
+                                        Yes, save{{ $receive['amount'] > 0 ? ' ₹' . number_format($receive['amount'], 0) : '' }}
                                     </button>
                                 </div>
                             </div>
@@ -1130,12 +1143,10 @@
 
                         {{-- ── PER STUDENT: class + section → students list ── --}}
                         @if ($updateOrgFeeType === 'per_student')
-                            <div class="grid grid-cols-2 gap-3">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-600 mb-1.5">Class *</label>
-                                    <select wire:model.live="updateStandardId"
-                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white
-                                               focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <label class="{{ $upLb }}">Class <span class="text-red-500">*</span></label>
+                                    <select wire:model.live="updateStandardId" class="{{ $upIn }}">
                                         <option value="">— Select class —</option>
                                         @foreach ($standards as $std)
                                             <option value="{{ $std->id }}">{{ $std->name }}</option>
@@ -1143,10 +1154,8 @@
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-600 mb-1.5">Section</label>
-                                    <select wire:model.live="updateSectionId" @if(!$updateStandardId) disabled @endif
-                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white
-                                               focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-400">
+                                    <label class="{{ $upLb }}">Section</label>
+                                    <select wire:model.live="updateSectionId" @if(!$updateStandardId) disabled @endif class="{{ $upIn }}">
                                         <option value="">All Sections</option>
                                         @foreach ($updateSections as $sec)
                                             <option value="{{ $sec->id }}">{{ $sec->name }}</option>
@@ -1160,17 +1169,17 @@
                             @elseif (empty($studentFeeList))
                                 <div class="text-center py-10 text-sm text-gray-400">No students found in this class/section.</div>
                             @else
-                                <div class="border border-gray-200 rounded-xl overflow-hidden">
+                                <div class="border border-gray-200 rounded-md overflow-hidden">
                                     <div class="overflow-x-auto">
                                         <table class="w-full min-w-[560px]">
                                             <thead class="bg-gray-50 border-b border-gray-200">
                                                 <tr>
-                                                    <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider w-8">#</th>
-                                                    <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Student</th>
-                                                    <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Fee</th>
-                                                    <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Collected</th>
-                                                    <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                                                    <th class="px-3 py-2.5 text-center text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Action</th>
+                                                    <th class="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 w-10">#</th>
+                                                    <th class="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">Student</th>
+                                                    <th class="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">Fee</th>
+                                                    <th class="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">Collected</th>
+                                                    <th class="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">Status</th>
+                                                    <th class="px-3 py-2.5 text-center text-xs font-semibold text-gray-500">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody class="divide-y divide-gray-100">
@@ -1179,24 +1188,16 @@
                                                         <td class="px-3 py-2.5 text-xs text-gray-400">{{ $row['serial'] }}</td>
                                                         <td class="px-3 py-2.5">
                                                             <p class="text-sm font-medium text-gray-800 leading-tight">{{ $row['name'] }}</p>
-                                                            <p class="text-[11px] text-gray-400">{{ $row['section'] !== '—' ? 'Sec ' . $row['section'] . ' · ' : '' }}Adm: {{ $row['admission_no'] }}</p>
+                                                            <p class="text-[11px] text-gray-400">{{ $studentWhere($row) }}</p>
                                                         </td>
                                                         <td class="px-3 py-2.5 text-sm text-gray-700">₹{{ number_format($row['total_fee'], 0) }}</td>
                                                         <td class="px-3 py-2.5">
-                                                            <p class="text-sm font-semibold text-emerald-700">₹{{ number_format($row['collected'], 0) }}</p>
+                                                            <p class="text-sm font-semibold text-gray-900">₹{{ number_format($row['collected'], 0) }}</p>
                                                             @if ($row['status'] === 'partial')
-                                                                <p class="text-[11px] text-red-400">₹{{ number_format($row['remaining'], 0) }} due</p>
+                                                                <p class="text-[11px] text-red-500">₹{{ number_format($row['remaining'], 0) }} due</p>
                                                             @endif
                                                         </td>
-                                                        <td class="px-3 py-2.5">
-                                                            @if ($row['status'] === 'paid')
-                                                                <span class="text-[11px] px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full font-semibold border border-emerald-100">Paid</span>
-                                                            @elseif ($row['status'] === 'partial')
-                                                                <span class="text-[11px] px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full font-semibold border border-amber-100">Partial</span>
-                                                            @else
-                                                                <span class="text-[11px] px-2 py-0.5 bg-gray-50 text-gray-500 rounded-full font-semibold border border-gray-200">Pending</span>
-                                                            @endif
-                                                        </td>
+                                                        <td class="px-3 py-2.5 text-sm font-medium {{ $upStatusTone[$row['status']] ?? 'text-gray-500' }}">{{ $upStatusName[$row['status']] ?? ucfirst($row['status']) }}</td>
                                                         <td class="px-3 py-2.5">
                                                             <div class="flex items-center justify-center gap-1">
                                                                 <button
@@ -1228,16 +1229,16 @@
                             @if (empty($installments))
                                 <div class="text-center py-10 text-sm text-gray-400">No installment periods found.</div>
                             @else
-                                <div class="border border-gray-200 rounded-xl overflow-hidden">
+                                <div class="border border-gray-200 rounded-md overflow-hidden">
                                     <div class="overflow-x-auto">
                                         <table class="w-full min-w-[560px]">
                                             <thead class="bg-gray-50 border-b border-gray-200">
                                                 <tr>
-                                                    <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Period</th>
-                                                    <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
-                                                    <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Collected</th>
-                                                    <th class="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                                                    <th class="px-3 py-2.5 text-center text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Action</th>
+                                                    <th class="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">Period</th>
+                                                    <th class="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">Amount</th>
+                                                    <th class="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">Collected</th>
+                                                    <th class="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">Status</th>
+                                                    <th class="px-3 py-2.5 text-center text-xs font-semibold text-gray-500">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody class="divide-y divide-gray-100">
@@ -1251,20 +1252,12 @@
                                                         </td>
                                                         <td class="px-3 py-2.5 text-sm text-gray-700">₹{{ number_format($inst['amount'], 0) }}</td>
                                                         <td class="px-3 py-2.5">
-                                                            <p class="text-sm font-semibold text-emerald-700">₹{{ number_format($inst['collected'], 0) }}</p>
+                                                            <p class="text-sm font-semibold text-gray-900">₹{{ number_format($inst['collected'], 0) }}</p>
                                                             @if ($inst['status'] === 'partial')
-                                                                <p class="text-[11px] text-red-400">₹{{ number_format($inst['remaining'], 0) }} due</p>
+                                                                <p class="text-[11px] text-red-500">₹{{ number_format($inst['remaining'], 0) }} due</p>
                                                             @endif
                                                         </td>
-                                                        <td class="px-3 py-2.5">
-                                                            @if ($inst['status'] === 'paid')
-                                                                <span class="text-[11px] px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full font-semibold border border-emerald-100">Paid</span>
-                                                            @elseif ($inst['status'] === 'partial')
-                                                                <span class="text-[11px] px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full font-semibold border border-amber-100">Partial</span>
-                                                            @else
-                                                                <span class="text-[11px] px-2 py-0.5 bg-gray-50 text-gray-500 rounded-full font-semibold border border-gray-200">Pending</span>
-                                                            @endif
-                                                        </td>
+                                                        <td class="px-3 py-2.5 text-sm font-medium {{ $upStatusTone[$inst['status']] ?? 'text-gray-500' }}">{{ $upStatusName[$inst['status']] ?? ucfirst($inst['status']) }}</td>
                                                         <td class="px-3 py-2.5">
                                                             <div class="flex items-center justify-center gap-1">
                                                                 <button
@@ -1293,7 +1286,7 @@
                                     $instTotal     = collect($installments)->sum('amount');
                                     $instCollected = collect($installments)->sum('collected');
                                 @endphp
-                                <div class="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex items-center justify-between text-sm">
+                                <div class="border border-gray-200 rounded-md px-4 py-3 flex items-center justify-between text-sm">
                                     <span class="text-gray-500">Total collected</span>
                                     <span>
                                         <strong class="text-emerald-700">₹{{ number_format($instCollected, 0) }}</strong>
@@ -1304,12 +1297,13 @@
                         @endif
 
                     @endif
+                    </div>
                 </div>
 
                 {{-- Footer --}}
-                <div class="flex-shrink-0 px-5 py-4 border-t border-gray-100 bg-gray-50/50">
-                    <button wire:click="closeUpdatePanel"
-                        class="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-medium rounded-lg transition-colors">
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                    <button wire:click="closeUpdatePanel" type="button"
+                        class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">
                         Close
                     </button>
                 </div>

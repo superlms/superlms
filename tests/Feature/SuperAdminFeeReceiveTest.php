@@ -323,6 +323,28 @@ class SuperAdminFeeReceiveTest extends TestCase
         $this->assertSame(['cheque'], DB::table('super_admin_fee_payments')->distinct()->pluck('payment_mode')->all());
     }
 
+    public function test_the_update_panel_is_in_the_students_form_look_with_amount_received_folded(): void
+    {
+        $this->signIn();
+        $this->alphaStudents();
+        $this->structure(['organization_id' => 1, 'fee_type' => 'per_student', 'amount' => 500]);
+
+        $page = Livewire::test(Fees::class)->call('openUpdatePanel')->set('updateOrgId', '1')
+            ->set('updateStandardId', '10')->call('loadStudentFeeList');
+        $html = $page->html();
+        $text = preg_replace('/\s+/', ' ', strip_tags($html));
+
+        $this->assertStringContainsString('w-full max-w-3xl bg-white shadow-2xl', $html);
+        // Amount Received folds away: a row that opens its form.
+        $this->assertStringContainsString('x-data="{ open: false }"', $html);
+        $this->assertStringContainsString('x-show="open" style="display: none"', $html);
+        // The plan as plain text, no chips; statuses as plain words.
+        $this->assertStringContainsString('Per Student · Annual Platform Fee · 2026-2027', $text);
+        $this->assertStringNotContainsString('rounded-full font-medium border border-blue-100', $html);
+        $this->assertStringNotContainsString('rounded-full font-semibold border', $html);
+        $this->assertStringContainsString('Kiran Class 1 (A) · Adm: —', $text);
+    }
+
     public function test_the_home_and_analytics_totals_read_the_fee_structures(): void
     {
         $this->alphaStudents();   // 4 students in Alpha
@@ -446,10 +468,19 @@ class SuperAdminFeeReceiveTest extends TestCase
         foreach (['Alpha School', 'Per Student · Annual Platform Fee · 2026-2027', 'Overview', 'To Collect ₹2,000',
                   'Collected ₹1,200 60% of the fee', 'Students Paid 2 / 4', '1 part paid · 1 pending',
                   'Collected · Apr 26 – Mar 27 ₹1,200', 'Fee Structure', 'Amount ₹500 / student',
-                  'Students All Classes', '2 Kiran Sec A · Adm: — ₹500 ₹500 Paid', '4 Zoya Sec B · Adm: — ₹500 ₹200 ₹300 due Partial'] as $seen) {
+                  'Students All Classes'] as $seen) {
             $this->assertStringContainsString($seen, $alpha);
         }
         $this->assertStringNotContainsString('View Fee', $alpha);   // no tabs: one page
+
+        // Class wise by default — the order Amount Received marks students
+        // paid in — with the class and the section's last letter under the
+        // name (2026-10-13); A to Z on asking.
+        $this->assertStringContainsString('1 Kiran Class 1 (A) · Adm: — ₹500 ₹500 Paid Edit 2 Ravi Class 1 (A) · Adm: — ₹500 ₹500 Paid Edit 3 Zoya Class 1 (B) · Adm: — ₹500 ₹200 ₹300 due Partial', $alpha);
+        $this->assertStringContainsString('4 Aman Class 2 (A) · Adm: — ₹500 ₹0 Pending', $alpha);
+        $byName = $text(Livewire::test(Fees::class)->call('selectSchool', 1)->set('viewFeeSort', 'name'));
+        $this->assertStringContainsString('1 Aman Class 2 (A) · Adm: — ₹500 ₹0 Pending', $byName);
+        $this->assertStringContainsString('4 Zoya Class 1 (B) · Adm: — ₹500 ₹200 ₹300 due Partial', $byName);
 
         $beta = $text(Livewire::test(Fees::class)->call('selectSchool', 2));
         foreach (['Monthly · Annual Platform Fee · 2026-2027', 'Months Paid 0 / 2', 'Months', 'Apr 2026 ₹1,000 ₹0 Pending', 'Jun 2026 — ₹0 No fee'] as $seen) {

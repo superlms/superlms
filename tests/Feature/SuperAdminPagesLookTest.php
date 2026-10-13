@@ -285,6 +285,9 @@ class SuperAdminPagesLookTest extends TestCase
             ->call('review')
             ->assertSet('confirming', true)
             ->assertSet('previewRecipients', 1)
+            // The review is a slide-in now (2026-10-13), not a popup in the middle.
+            ->assertSeeHtml('<h2 class="text-lg font-semibold text-gray-900">Send this notification?</h2>')
+            ->assertDontSeeHtml('relative bg-white rounded-xl shadow-2xl w-full max-w-md p-6')
             ->call('send')
             ->assertSet('composing', false)
             ->assertSet('confirming', false);

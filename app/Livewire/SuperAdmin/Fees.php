@@ -86,6 +86,10 @@ class Fees extends Component
     public string $viewFeeStandardId = '';
     public string $viewFeeSectionId  = '';
     public string $viewFeeStatus     = '';  // '' | paid | partial | pending
+    // 'class' — class by class, section, then A to Z: the order Amount Received
+    // marks students paid in (SuperAdminFeeAllocator), so the paid ones read
+    // in one run. 'name' — A to Z across the school, as the list was before.
+    public string $viewFeeSort       = 'class';
     public        $viewFeeSections   = [];
 
     // ─── Update panel: one_time flow (org-level installments) ─────────────────
@@ -724,7 +728,7 @@ class Fees extends Component
             ->active()
             ->first();
 
-        $students = StudentDetail::with(['user', 'section'])
+        $students = StudentDetail::with(['user', 'section', 'standard:id,name'])
             ->where('organization_id', $orgId)
             ->where('standard_id', $this->updateStandardId)
             ->when($this->updateSectionId, fn($q) => $q->where('section_id', $this->updateSectionId))
@@ -773,6 +777,7 @@ class Fees extends Component
             'mobile'        => $s->mobile_number ?? $s->user?->mobile_number ?? '—',
             'email'         => $s->user?->email ?? '—',
             'section'       => $s->section?->name ?? '—',
+            'class'         => $s->relationLoaded('standard') ? $s->standard?->name : null,
             'total_fee'     => $feeAmount,
             'collected'     => $collected,
             'remaining'     => $remaining,
@@ -1200,7 +1205,7 @@ class Fees extends Component
 
     public function clearViewFeeFilters(): void
     {
-        $this->reset(['viewFeeStandardId', 'viewFeeSectionId', 'viewFeeStatus', 'viewFeeSections']);
+        $this->reset(['viewFeeStandardId', 'viewFeeSectionId', 'viewFeeStatus', 'viewFeeSections', 'viewFeeSort']);
     }
 
     /** The active per-student structure for the school open in detail view. */
@@ -1229,12 +1234,21 @@ class Fees extends Component
             return [];
         }
 
-        $students = StudentDetail::with(['user', 'section'])
+        $students = StudentDetail::with(['user', 'section', 'standard:id,name'])
             ->where('organization_id', $this->selectedSchool->id)
             ->when($this->viewFeeStandardId, fn ($q) => $q->where('standard_id', $this->viewFeeStandardId))
             ->when($this->viewFeeSectionId, fn ($q) => $q->where('section_id', $this->viewFeeSectionId))
             ->tap(fn ($q) => NameOrder::students($q))
             ->get();
+
+        // Class wise (the default): the order the fee marks students paid in —
+        // the school's class order, then section; A to Z stays inside a
+        // section, the sort being stable. A to Z keeps the query's order.
+        if ($this->viewFeeSort !== 'name') {
+            $rank = array_flip(Standard::where('organization_id', $this->selectedSchool->id)
+                ->inClassOrder()->pluck('id')->all());
+            $students = $students->sortBy(fn ($s) => [$rank[$s->standard_id] ?? PHP_INT_MAX, mb_strtolower((string) $s->section?->name)])->values();
+        }
 
         $payments = SuperAdminFeePayment::where('super_admin_fee_structure_id', $structure->id)
             ->whereNotNull('student_detail_id')
