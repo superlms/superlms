@@ -1,6 +1,12 @@
 <div class="min-h-screen bg-gray-50">
     <style>[x-cloak]{display:none !important;}</style>
 
+    {{-- The school Payroll's screen (livewire/admin/payroll) with the Super
+         Admin's own staff and types: the same header, tabs and filter bars,
+         the list with this month's attendance, Mark Attendance as one slide-in
+         for everyone, Mark Salary as one person's account month by month, and
+         Payments filtered by type → person → month. The Add / Edit form keeps
+         its fields as they were. --}}
     @php
         $typeChip = [
             'user'       => 'bg-emerald-50 text-emerald-700 border-emerald-100',
@@ -16,6 +22,7 @@
             'management' => 'Management',
             'other'      => 'Other',
         ];
+        $typeName = fn ($t) => $typeOptions[$t] ?? ucfirst((string) $t);
     @endphp
 
     {{-- ══════════ STICKY: HEADER + TABS + FILTERS ══════════ --}}
@@ -23,33 +30,45 @@
     {{-- ══════════ HEADER ══════════ --}}
     <div class="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:min-h-12">
-            <div class="min-w-0">
+            <div>
                 <h1 class="text-lg sm:text-xl font-bold text-gray-900">Payroll</h1>
             </div>
-            <div class="flex flex-wrap items-center justify-end gap-4 flex-shrink-0">
-                {{-- Employee analytics — inline stats, right-aligned like the Listing header --}}
-                @if ($activeTab === 'employees')
-                    <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 divide-x divide-gray-200">
-                        <span class="pr-4">Total: <strong class="text-gray-800">{{ $empStats['total'] }}</strong></span>
-                        <span class="px-4">Users: <strong class="text-emerald-600">{{ $empStats['user'] }}</strong></span>
-                        <span class="px-4">Counsellors: <strong class="text-blue-600">{{ $empStats['counsellor'] }}</strong></span>
-                        <span class="px-4">Team: <strong class="text-amber-600">{{ $empStats['team'] }}</strong></span>
-                        <span class="px-4">Mgmt: <strong class="text-purple-600">{{ $empStats['management'] }}</strong></span>
-                        <span class="pl-4">Other: <strong class="text-gray-600">{{ $empStats['other'] }}</strong></span>
-                    </div>
-                @endif
+            <div class="flex flex-wrap items-center gap-2">
+                {{-- Same divided analytics strip the Students header uses --}}
+                <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-3 divide-x divide-gray-200">
+                    <span class="pr-4">Total: <strong class="text-gray-800">{{ $empStats['total'] }}</strong></span>
+                    <span class="px-4">Users: <strong class="text-emerald-600">{{ $empStats['user'] }}</strong></span>
+                    <span class="px-4">Counsellors: <strong class="text-blue-600">{{ $empStats['counsellor'] }}</strong></span>
+                    <span class="px-4">Team: <strong class="text-amber-600">{{ $empStats['team'] }}</strong></span>
+                    <span class="px-4">Mgmt: <strong class="text-purple-600">{{ $empStats['management'] }}</strong></span>
+                    <span class="pl-4">Other: <strong class="text-gray-600">{{ $empStats['other'] }}</strong></span>
+                </div>
+
                 @if ($activeTab === 'employees')
                     <button wire:click="openEmpModal()"
-                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
+                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors ml-1">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
                         Add Employee
                     </button>
                 @endif
 
-                {{-- Attendance tab: header button opens the marking screen (view mode only) --}}
+                {{-- Mark Salary tab: Add Payment on a month's own screen, for that month
+                     (the months list has none) --}}
+                @if ($activeTab === 'salary' && $salaryPerson && $salaryMonthView !== ''
+                    && collect($salaryAccount['months'] ?? [])->contains('ym', $salaryMonthView))
+                    <button wire:click="openSalaryPayment('{{ $salaryMonthView }}')"
+                        class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700
+                               text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                        Add Payment
+                    </button>
+                @endif
+
+                {{-- Attendance tab: opens the mark panel on today, for everyone at once --}}
                 @if ($activeTab === 'attendance' && $attendanceMode === 'view')
-                    <button wire:click="startMarking"
-                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
+                    <button wire:click="openMarkPanel"
+                        class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700
+                               text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
                         Mark Attendance
                     </button>
@@ -57,17 +76,15 @@
             </div>
         </div>
 
-        {{-- Employee analytics — enquiries-style inline stats (mobile / tablet) --}}
-        @if ($activeTab === 'employees')
-            <div class="flex lg:hidden items-center gap-3 text-xs text-gray-500 mt-3 flex-wrap">
-                <span>Total: <strong class="text-gray-800">{{ $empStats['total'] }}</strong></span>
-                <span>Users: <strong class="text-emerald-600">{{ $empStats['user'] }}</strong></span>
-                <span>Counsellors: <strong class="text-blue-600">{{ $empStats['counsellor'] }}</strong></span>
-                <span>Team: <strong class="text-amber-600">{{ $empStats['team'] }}</strong></span>
-                <span>Mgmt: <strong class="text-purple-600">{{ $empStats['management'] }}</strong></span>
-                <span>Other: <strong class="text-gray-600">{{ $empStats['other'] }}</strong></span>
-            </div>
-        @endif
+        {{-- Mobile / Tablet stats --}}
+        <div class="flex lg:hidden items-center gap-3 sm:gap-4 text-xs text-gray-500 mt-3 flex-wrap">
+            <span>Total: <strong class="text-gray-800">{{ $empStats['total'] }}</strong></span>
+            <span>Users: <strong class="text-emerald-600">{{ $empStats['user'] }}</strong></span>
+            <span>Counsellors: <strong class="text-blue-600">{{ $empStats['counsellor'] }}</strong></span>
+            <span>Team: <strong class="text-amber-600">{{ $empStats['team'] }}</strong></span>
+            <span>Mgmt: <strong class="text-purple-600">{{ $empStats['management'] }}</strong></span>
+            <span>Other: <strong class="text-gray-600">{{ $empStats['other'] }}</strong></span>
+        </div>
     </div>
 
     {{-- ══════════ TABS ══════════ --}}
@@ -94,7 +111,7 @@
                     Filter by:
                 </div>
                 <input wire:model.live.debounce.300ms="empSearch" type="text" placeholder="Search name, designation, mobile…"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 flex-[1_1_8rem] min-w-0 max-w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 flex-[1_1_8rem] min-w-0 max-w-64 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 <select wire:model.live="empTypeFilter" class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
                     <option value="">All Types</option>
                     @foreach ($typeOptions as $val => $label)<option value="{{ $val }}">{{ $label }}</option>@endforeach
@@ -121,52 +138,34 @@
         </div>
 
     @elseif ($activeTab === 'attendance' && $attendanceMode === 'view')
+        {{-- Two ways in, and nothing else: a type and then one of its people (that
+             person's months), or a date (everyone, that day). --}}
         <div class="bg-gray-50 border-b border-gray-200 px-4 sm:px-6 py-3">
             <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
                     <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $filterIcon }}" /></svg>
                     Filter by:
                 </div>
+                <select wire:model.live="filterAttendanceType" class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <option value="">Select type</option>
+                    @foreach ($typeOptions as $val => $label)<option value="{{ $val }}">{{ $label }}</option>@endforeach
+                </select>
+                <select wire:model.live="attEmpId" @disabled(!$filterAttendanceType)
+                    class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <option value="">{{ $filterAttendanceType ? 'Select ' . mb_strtolower($typeName($filterAttendanceType)) : 'Select a type first' }}</option>
+                    @if ($filterAttendanceType)
+                        @foreach ($attEmployees as $emp)
+                            <option value="{{ $emp->id }}">{{ $emp->name }}</option>
+                        @endforeach
+                    @endif
+                </select>
+                <span class="text-gray-300 text-xs">or</span>
                 <div class="flex items-center gap-1.5">
                     <label class="text-xs text-gray-500">Date</label>
                     <input type="date" wire:model.live="attendanceDate" max="{{ now()->format('Y-m-d') }}"
                         class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                 </div>
-                <span class="text-gray-300 text-xs">or</span>
-                <select wire:model.live="filterAttendanceType" class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                    <option value="">Employee type</option>
-                    @foreach ($typeOptions as $val => $label)<option value="{{ $val }}">{{ $label }}</option>@endforeach
-                </select>
-                <select wire:model.live="attEmpId" class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                    <option value="">Select employee</option>
-                    @foreach ($attEmployees as $emp)
-                        <option value="{{ $emp->id }}">{{ $emp->name }} ({{ ucfirst($emp->type) }})</option>
-                    @endforeach
-                </select>
-                @if ($attEmpId)
-                    <div class="flex items-center gap-1.5">
-                        <label class="text-xs text-gray-500">Month</label>
-                        <input type="month" wire:model.live="attMonth" max="{{ now()->format('Y-m') }}"
-                            class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" />
-                    </div>
-                    @unless ($attMonth)
-                        @php $acadStart = now()->month >= 4 ? now()->year : now()->year - 1; @endphp
-                        <select wire:model.live="attYear" class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" title="Academic year (Apr–Mar)">
-                            @for ($y = $acadStart; $y >= $acadStart - 5; $y--)
-                                <option value="{{ $y }}">{{ $y }}–{{ substr($y + 1, 2) }}</option>
-                            @endfor
-                        </select>
-                    @endunless
-                    <select wire:model.live="attStatus" class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                        <option value="">All status</option>
-                        <option value="present">Present</option>
-                        <option value="absent">Absent</option>
-                        <option value="half_day">Half day</option>
-                        <option value="leave">Leave</option>
-                        <option value="holiday">Holiday</option>
-                    </select>
-                @endif
-                @if ($attendanceDate || $filterAttendanceType || $attEmpId || $attMonth || $attStatus)
+                @if ($attendanceDate || $filterAttendanceType || $attEmpId)
                     <button wire:click="clearAttFilters" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         Clear
@@ -176,55 +175,67 @@
         </div>
 
     @elseif ($activeTab === 'salary')
+        {{-- A type, then one of its people: the tab is that person's salary account. --}}
         <div class="bg-gray-50 border-b border-gray-200 px-4 sm:px-6 py-3">
             <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
                     <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $filterIcon }}" /></svg>
                     Filter by:
                 </div>
-                <input wire:model.live.debounce.300ms="salarySearch" type="text" placeholder="Search employee…"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 flex-[1_1_8rem] min-w-0 max-w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                <div class="flex items-center gap-1.5">
-                    <label class="text-xs text-gray-500">Month</label>
-                    <input type="month" wire:model.live="salaryMonth" max="{{ now()->format('Y-m') }}" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" />
-                </div>
-                <select wire:model.live="filterSalaryType" class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                    <option value="">All Types</option>
+                <select wire:model.live="salaryType" class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <option value="">Select type</option>
                     @foreach ($typeOptions as $val => $label)<option value="{{ $val }}">{{ $label }}</option>@endforeach
                 </select>
-                @if ($salarySearch || $filterSalaryType)
-                    <button wire:click="clearSalaryFilters" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
+                <select wire:model.live="salaryEmpId" @disabled(!$salaryType)
+                    class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <option value="">{{ $salaryType ? 'Select ' . mb_strtolower($typeName($salaryType)) : 'Select a type first' }}</option>
+                    @foreach ($salaryPeople as $emp)
+                        <option value="{{ $emp->id }}">{{ $emp->name }}</option>
+                    @endforeach
+                </select>
+                @if ($salaryPerson && $salaryAccount)
+                    {{-- The month open (its row's arrow sets it); All months goes back to the list. --}}
+                    <select wire:model.live="salaryMonthView"
+                        class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                        <option value="">All months</option>
+                        @foreach ($salaryAccount['months'] as $mo)
+                            <option value="{{ $mo['ym'] }}">{{ $mo['label'] }}</option>
+                        @endforeach
+                    </select>
+                @endif
+                @if ($salaryType || $salaryEmpId)
+                    <button wire:click="clearSalaryPerson" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         Clear
                     </button>
                 @endif
-                @unless ($canPaySalaryMonth)
-                    <span class="ml-auto inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        {{ \Carbon\Carbon::parse($salaryMonth . '-01')->format('M Y') }} payable after month ends
-                    </span>
-                @endunless
             </div>
         </div>
 
     @elseif ($activeTab === 'payments')
+        {{-- A type, then one of its people, then the month. Nothing picked: every payment. --}}
         <div class="bg-gray-50 border-b border-gray-200 px-4 sm:px-6 py-3">
             <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <div class="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
                     <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $filterIcon }}" /></svg>
                     Filter by:
                 </div>
-                <input wire:model.live.debounce.300ms="paymentSearch" type="text" placeholder="Search employee…"
-                    class="text-xs bg-white border border-gray-200 rounded-md px-3 py-1.5 text-gray-700 flex-[1_1_8rem] min-w-0 max-w-56 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                <select wire:model.live="filterPaymentEmpId" class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
-                    <option value="">All Employees</option>
-                    @foreach ($allEmployeesForFilter as $emp)<option value="{{ $emp->id }}">{{ $emp->name }}</option>@endforeach
+                <select wire:model.live="filterPaymentType" class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700">
+                    <option value="">All types</option>
+                    @foreach ($typeOptions as $val => $label)<option value="{{ $val }}">{{ $label }}</option>@endforeach
+                </select>
+                <select wire:model.live="filterPaymentEmpId" @disabled(!$filterPaymentType)
+                    class="text-xs min-w-0 max-w-[13rem] bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <option value="">{{ $filterPaymentType ? 'All ' . mb_strtolower($typeName($filterPaymentType)) . 's' : 'Select a type first' }}</option>
+                    @foreach ($paymentPeople as $emp)
+                        <option value="{{ $emp->id }}">{{ $emp->name }}</option>
+                    @endforeach
                 </select>
                 <div class="flex items-center gap-1.5">
                     <label class="text-xs text-gray-500">Month</label>
                     <input type="month" wire:model.live="filterPaymentMonth" class="text-xs bg-white border border-gray-200 rounded-md px-2.5 py-1.5 text-gray-700" />
                 </div>
-                @if ($paymentSearch || $filterPaymentEmpId || $filterPaymentMonth)
+                @if ($filterPaymentType || $filterPaymentEmpId || $filterPaymentMonth)
                     <button wire:click="clearPaymentFilters" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         Clear
@@ -240,7 +251,9 @@
         {{-- ══════════ EMPLOYEES TAB ══════════ --}}
         @if ($activeTab === 'employees')
 
-            {{-- Employee list (table) --}}
+            {{-- Employee list (table). Under the name: the type, and the designation
+                 when it says more. After the mobile: this month's attendance so
+                 far, present days out of working days. --}}
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full">
@@ -248,14 +261,24 @@
                             <tr>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 w-10">#</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Employee</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Type</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Mobile</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Attendance · {{ now()->format('M') }}</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Salary</th>
                                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @forelse ($employeesList as $i => $emp)
+                                @php
+                                    $typeLabel = $typeName($emp->type);
+                                    $subLine   = $typeLabel;
+                                    $says = trim((string) $emp->designation);
+                                    if ($says !== '' && mb_strtolower($says) !== mb_strtolower($typeLabel)) {
+                                        $subLine .= ' · ' . $says;
+                                    }
+                                    $att  = $monthAttendance[$emp->id] ?? null;
+                                    $days = $att ? rtrim(rtrim(number_format($att['present'], 1), '0'), '.') : null;
+                                @endphp
                                 <tr class="hover:bg-gray-50/60 transition-colors" wire:key="emp-{{ $emp->id }}">
                                     <td class="px-4 py-3 text-xs text-gray-400">{{ $i + 1 }}</td>
                                     <td class="px-4 py-3">
@@ -269,14 +292,20 @@
                                             @endif
                                             <div class="min-w-0">
                                                 <p class="text-sm font-medium text-gray-800 truncate">{{ $emp->name }}</p>
-                                                <p class="text-xs text-gray-400 truncate">{{ $emp->designation ?? '—' }}</p>
+                                                <p class="text-xs text-gray-400 truncate">{{ $subLine }}</p>
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="px-4 py-3">
-                                        <span class="text-xs px-2 py-0.5 rounded-full font-medium border capitalize {{ $typeChip[$emp->type] ?? 'bg-gray-50 text-gray-600 border-gray-200' }}">{{ $emp->type }}</span>
+                                    <td class="px-4 py-3 text-sm text-gray-600">{{ $emp->mobile ?: '—' }}</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600 tabular-nums whitespace-nowrap">
+                                        @if ($att && $att['working'] > 0)
+                                            <span title="Present {{ $days }} of {{ $att['working'] }} working days this month — absent {{ $att['absent'] }}, half day {{ $att['half'] }}">
+                                                <span class="font-semibold text-gray-800">{{ $days }}</span> / {{ $att['working'] }}
+                                            </span>
+                                        @else
+                                            <span class="text-gray-400" title="Not marked yet this month">—</span>
+                                        @endif
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-gray-600">{{ $emp->mobile ?? '—' }}</td>
                                     <td class="px-4 py-3 text-sm font-bold text-emerald-700">₹{{ number_format($emp->salary, 0) }}</td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-center gap-1">
@@ -304,6 +333,8 @@
         {{-- ══════════ ATTENDANCE TAB ══════════ --}}
         @if ($activeTab === 'attendance')
 
+            {{-- The earlier marking screen (startMarking) is kept below; the page
+                 now marks from the Mark Attendance panel. --}}
             @if ($attendanceMode === 'mark')
                 {{-- ─── MARK SCREEN ─── --}}
                 <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -369,214 +400,395 @@
                     </div>
                 </div>
             @elseif ($attView === 'date')
-                {{-- ─── DATE VIEW: everyone's status on the chosen date ─── --}}
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div class="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
-                        <h3 class="text-sm font-semibold text-gray-700">Attendance — {{ \Carbon\Carbon::parse($attendanceDate)->format('d M Y') }}</h3>
+                {{-- ─── DATE VIEW: everyone's status on the chosen date — a plain list ─── --}}
+                @php
+                    $dayText = ['present' => 'Present', 'absent' => 'Absent', 'half_day' => 'Half day', 'holiday' => 'Holiday'];
+                    $dayTone = ['present' => 'text-emerald-600', 'absent' => 'text-red-500', 'half_day' => 'text-amber-600', 'leave' => 'text-blue-600', 'holiday' => 'text-indigo-500'];
+                    $dayDot  = ['present' => 'bg-emerald-500', 'absent' => 'bg-red-500', 'half_day' => 'bg-amber-500', 'leave' => 'bg-blue-500', 'holiday' => 'bg-indigo-400'];
+                    $dayCount = collect($dayMarks)->countBy(fn ($m) => $m['status'] ?: 'not_marked');
+                @endphp
+                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div class="px-5 py-3.5 border-b border-gray-100 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                        <h3 class="text-sm font-semibold text-gray-800">{{ \Carbon\Carbon::parse($attendanceDate)->format('l, d M Y') }}</h3>
+                        <p class="text-xs text-gray-400 tabular-nums">
+                            @foreach ($dayText as $st => $label)
+                                {{ $label }} <span class="text-gray-700 font-medium">{{ $dayCount[$st] ?? 0 }}</span><span class="text-gray-300"> · </span>
+                            @endforeach
+                            @if (($dayCount['leave'] ?? 0) > 0)
+                                Leave <span class="text-gray-700 font-medium">{{ $dayCount['leave'] }}</span><span class="text-gray-300"> · </span>
+                            @endif
+                            Not marked <span class="text-gray-700 font-medium">{{ $dayCount['not_marked'] ?? 0 }}</span>
+                        </p>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full">
-                            <thead class="bg-gray-50 border-b border-gray-200">
-                                <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 w-10">#</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Employee</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Type</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100">
-                                @forelse ($attEmployees as $i => $emp)
-                                    @php $status = $this->getAttendanceStatus($emp->id); @endphp
-                                    <tr class="hover:bg-gray-50/50 transition-colors" wire:key="view-{{ $emp->id }}">
-                                        <td class="px-4 py-3 text-xs text-gray-400">{{ $i + 1 }}</td>
-                                        <td class="px-4 py-3">
-                                            <div class="flex items-center gap-2.5">
-                                                @if ($emp->photo)
-                                                    <img src="{{ $emp->photo }}" class="w-8 h-8 rounded-full object-cover border border-gray-200 flex-shrink-0">
-                                                @else
-                                                    <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"><span class="text-xs font-bold text-gray-600">{{ strtoupper(substr($emp->name, 0, 1)) }}</span></div>
-                                                @endif
-                                                <div><p class="text-sm font-medium text-gray-800">{{ $emp->name }}</p><p class="text-xs text-gray-400">{{ $emp->designation ?? '' }}</p></div>
-                                            </div>
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <span class="text-xs px-2 py-0.5 rounded-full font-medium border capitalize {{ $typeChip[$emp->type] ?? 'bg-gray-50 text-gray-600 border-gray-200' }}">{{ $emp->type }}</span>
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            @if ($status)
-                                                <span class="text-xs px-2 py-1 rounded-full font-medium capitalize {{ ['present' => 'bg-green-50 text-green-700 border border-green-100', 'absent' => 'bg-red-50 text-red-700 border border-red-100', 'half_day' => 'bg-amber-50 text-amber-700 border border-amber-100', 'leave' => 'bg-blue-50 text-blue-700 border border-blue-100'][$status] ?? 'bg-gray-50 text-gray-600' }}">{{ str_replace('_', ' ', $status) }}</span>
-                                            @else
-                                                <span class="text-xs text-gray-400">Not marked</span>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr><td colspan="4" class="px-4 py-8 text-center text-sm text-gray-400">No employees found</td></tr>
-                                @endforelse
-                            </tbody>
-                        </table>
+                    <div class="divide-y divide-gray-100">
+                        @forelse ($dayEmployees as $i => $emp)
+                            @php $mark = $dayMarks[$emp->id] ?? ['status' => null, 'remark' => '']; @endphp
+                            <div class="flex items-center gap-3 px-5 py-2.5" wire:key="view-{{ $emp->id }}">
+                                <span class="w-5 text-[11px] text-gray-300 tabular-nums flex-shrink-0">{{ $i + 1 }}</span>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm text-gray-800 truncate">{{ $emp->name }}</p>
+                                    <p class="text-[11px] text-gray-400 truncate">{{ $typeName($emp->type) }}</p>
+                                </div>
+                                @if ($mark['remark'] !== '')
+                                    <span class="hidden sm:block text-xs text-gray-400 truncate max-w-[14rem]" title="{{ $mark['remark'] }}">{{ $mark['remark'] }}</span>
+                                @endif
+                                <span class="w-24 flex-shrink-0 inline-flex items-center justify-end gap-1.5 text-xs font-medium {{ $dayTone[$mark['status']] ?? 'text-gray-300' }}">
+                                    @if ($mark['status'])
+                                        <span class="w-1.5 h-1.5 rounded-full {{ $dayDot[$mark['status']] ?? 'bg-gray-300' }}"></span>
+                                        {{ $dayText[$mark['status']] ?? ucfirst(str_replace('_', ' ', $mark['status'])) }}{{-- e.g. a Leave marked earlier --}}
+                                    @else
+                                        Not marked
+                                    @endif
+                                </span>
+                            </div>
+                        @empty
+                            <p class="py-12 text-center text-sm text-gray-400">No employees found.</p>
+                        @endforelse
                     </div>
                 </div>
 
             @elseif ($attView === 'employee' && $attEmp)
-                {{-- ─── EMPLOYEE VIEW: chosen month, or the whole year day-by-day ─── --}}
+                {{-- ─── EMPLOYEE VIEW: the session's months, a quiet card each ─── --}}
                 @php
-                    $cP = $attCounts['present'] ?? 0; $cA = $attCounts['absent'] ?? 0;
-                    $cH = $attCounts['half_day'] ?? 0; $cL = $attCounts['leave'] ?? 0;
-                    $cHol = $attCounts['holiday'] ?? 0; $cM = $attCounts['marked'] ?? 0;
-                    $pct = $cM > 0 ? round(($cP + 0.5 * $cH) / $cM * 100) : 0;
+                    // Soft tints and plain numbers: a day says what it was without shouting.
+                    $dayCell = [
+                        'present'  => 'bg-emerald-50 text-emerald-700',
+                        'absent'   => 'bg-red-50 text-red-600',
+                        'half_day' => 'bg-amber-50 text-amber-700',
+                        'leave'    => 'bg-blue-50 text-blue-700',
+                        'holiday'  => 'text-gray-300',
+                    ];
                 @endphp
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div class="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-indigo-50 flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                            <h3 class="text-sm font-semibold text-gray-700">{{ $attEmp->name }} <span class="font-normal text-gray-400">· {{ $attPeriodLabel }}</span></h3>
-                            <p class="text-[11px] text-gray-400 capitalize">{{ $attEmp->type }}{{ $attEmp->designation ? ' · ' . $attEmp->designation : '' }}</p>
-                        </div>
-                        <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">{{ $pct }}% present</span>
+                <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-1">
+                    <div class="min-w-0">
+                        <h3 class="text-sm font-semibold text-gray-800 truncate">{{ $attEmp->name }}</h3>
+                        <p class="text-xs text-gray-400">{{ $typeName($attEmp->type) }} · {{ $attPeriodLabel }}</p>
                     </div>
-                    <div class="p-4">
-                        {{-- Summary --}}
-                        <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 text-center mb-4">
-                            <div class="rounded-lg bg-emerald-50 border border-emerald-100 py-2"><p class="text-lg font-bold text-emerald-600">{{ $cP }}</p><p class="text-[10px] text-emerald-500 uppercase">Present</p></div>
-                            <div class="rounded-lg bg-red-50 border border-red-100 py-2"><p class="text-lg font-bold text-red-600">{{ $cA }}</p><p class="text-[10px] text-red-500 uppercase">Absent</p></div>
-                            <div class="rounded-lg bg-amber-50 border border-amber-100 py-2"><p class="text-lg font-bold text-amber-600">{{ $cH }}</p><p class="text-[10px] text-amber-500 uppercase">Half</p></div>
-                            <div class="rounded-lg bg-blue-50 border border-blue-100 py-2"><p class="text-lg font-bold text-blue-600">{{ $cL }}</p><p class="text-[10px] text-blue-500 uppercase">Leave</p></div>
-                            <div class="rounded-lg bg-gray-50 border border-gray-200 py-2"><p class="text-lg font-bold text-gray-500">{{ $cHol }}</p><p class="text-[10px] text-gray-400 uppercase">Holiday</p></div>
-                            <div class="rounded-lg bg-gray-100 border border-gray-200 py-2"><p class="text-lg font-bold text-gray-800">{{ $cM }}</p><p class="text-[10px] text-gray-400 uppercase">Marked</p></div>
-                        </div>
+                    {{-- Working days are the days the person was marked on (holidays apart). --}}
+                    <p class="text-xs text-gray-400 tabular-nums">
+                        Working days <span class="text-gray-700 font-medium">{{ $attCounts['marked'] ?? 0 }}</span><span class="text-gray-300"> · </span>
+                        Present <span class="text-gray-700 font-medium">{{ $attCounts['present'] ?? 0 }}</span><span class="text-gray-300"> · </span>
+                        Absent <span class="text-gray-700 font-medium">{{ $attCounts['absent'] ?? 0 }}</span><span class="text-gray-300"> · </span>
+                        @if (($attCounts['half_day'] ?? 0) > 0)
+                            Half day <span class="text-gray-700 font-medium">{{ $attCounts['half_day'] }}</span><span class="text-gray-300"> · </span>
+                        @endif
+                        @if (($attCounts['leave'] ?? 0) > 0)
+                            Leave <span class="text-gray-700 font-medium">{{ $attCounts['leave'] }}</span><span class="text-gray-300"> · </span>
+                        @endif
+                        Holiday <span class="text-gray-700 font-medium">{{ $attCounts['holiday'] ?? 0 }}</span>
+                    </p>
+                </div>
 
-                        {{-- Day-by-day, grouped by month --}}
-                        @forelse ($attByMonth as $ym => $days)
-                            <div class="mb-4">
-                                <p class="text-xs font-semibold text-gray-600 mb-1.5">{{ \Carbon\Carbon::parse($ym . '-01')->format('F Y') }}</p>
-                                <div class="grid grid-cols-7 sm:grid-cols-10 md:grid-cols-12 gap-1.5">
-                                    @foreach ($days as $d)
-                                        @php
-                                            $cell = ['present' => 'bg-emerald-100 text-emerald-700 border-emerald-200', 'absent' => 'bg-red-100 text-red-700 border-red-200', 'half_day' => 'bg-amber-100 text-amber-700 border-amber-200', 'leave' => 'bg-blue-100 text-blue-700 border-blue-200'][$d['status']] ?? 'bg-gray-50 text-gray-400 border-gray-200';
-                                            $mark = ['present' => 'P', 'absent' => 'A', 'half_day' => 'H', 'leave' => 'L'][$d['status']] ?? '·';
-                                        @endphp
-                                        <div class="rounded-md border {{ $cell }} p-1.5 text-center" title="{{ \Carbon\Carbon::parse($d['date'])->format('D, d M Y') }} · {{ ucfirst(str_replace('_', ' ', $d['status'])) }}">
-                                            <div class="text-[10px] opacity-70 leading-none">{{ $d['day'] }}</div>
-                                            <div class="text-xs font-bold leading-tight mt-0.5">{{ $mark }}</div>
-                                        </div>
-                                    @endforeach
-                                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    @forelse ($attMonths as $ym => $m)
+                        @php $mc = $m['counts']; @endphp
+                        <div class="bg-white rounded-xl border border-gray-200 p-4" wire:key="cal-{{ $ym }}">
+                            {{-- Beside the month, in short: working days, present, absent and
+                                 holidays (a half day only when there is one). --}}
+                            <div class="flex items-baseline justify-between gap-2 mb-3">
+                                <p class="text-xs font-medium text-gray-700 whitespace-nowrap">{{ $m['label'] }}</p>
+                                <p class="text-[10px] text-gray-400 tabular-nums whitespace-nowrap">
+                                    <span title="Working days">W <span class="text-gray-700 font-medium">{{ $mc['marked'] }}</span></span><span class="text-gray-300"> · </span>
+                                    <span title="Present">P <span class="text-gray-700 font-medium">{{ $mc['present'] }}</span></span><span class="text-gray-300"> · </span>
+                                    <span title="Absent">A <span class="text-gray-700 font-medium">{{ $mc['absent'] }}</span></span><span class="text-gray-300"> · </span>
+                                    @if ($mc['half_day'] > 0)
+                                        <span title="Half day">½ <span class="text-gray-700 font-medium">{{ $mc['half_day'] }}</span></span><span class="text-gray-300"> · </span>
+                                    @endif
+                                    <span title="Holiday / not marked">H <span class="text-gray-700 font-medium">{{ $mc['holiday'] }}</span></span>
+                                </p>
                             </div>
-                        @empty
-                            <p class="text-sm text-gray-400 text-center py-6">No days match this filter.</p>
-                        @endforelse
 
-                        <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-400 mt-1">
-                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-200 border border-emerald-300 align-middle"></span> Present</span>
-                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-red-200 border border-red-300 align-middle"></span> Absent</span>
-                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-amber-200 border border-amber-300 align-middle"></span> Half</span>
-                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-blue-200 border border-blue-300 align-middle"></span> Leave</span>
-                            <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-gray-100 border border-gray-300 align-middle"></span> Holiday / not marked</span>
+                            {{-- Sunday-first weekday header --}}
+                            <div class="grid grid-cols-7 gap-1 mb-1">
+                                @foreach (['S', 'M', 'T', 'W', 'T', 'F', 'S'] as $dow)
+                                    <div class="text-center text-[9px] text-gray-300">{{ $dow }}</div>
+                                @endforeach
+                            </div>
+
+                            <div class="grid grid-cols-7 gap-1">
+                                {{-- Blanks before the 1st so the weekdays line up --}}
+                                @for ($b = 0; $b < $m['lead']; $b++)
+                                    <div></div>
+                                @endfor
+
+                                @foreach ($m['cells'] as $d)
+                                    @if (!$d['in_period'])
+                                        <div class="py-1 text-center text-[10px] leading-none text-gray-200 tabular-nums">{{ $d['day'] }}</div>
+                                    @else
+                                        <div class="rounded py-1 text-center text-[10px] leading-none tabular-nums {{ $dayCell[$d['status']] ?? $dayCell['holiday'] }} {{ $d['dim'] ? 'opacity-30' : '' }}"
+                                            title="{{ \Carbon\Carbon::parse($d['date'])->format('D, d M Y') }} · {{ ucfirst(str_replace('_', ' ', $d['status'])) }}">
+                                            {{ $d['day'] }}
+                                        </div>
+                                    @endif
+                                @endforeach
+                            </div>
+
                         </div>
-                    </div>
+                    @empty
+                        <p class="sm:col-span-2 lg:col-span-3 text-sm text-gray-400 text-center py-6">Nothing to show for this period.</p>
+                    @endforelse
+                </div>
+
+                <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-400 px-1">
+                    <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-100 align-middle"></span> Present</span>
+                    <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-red-100 align-middle"></span> Absent</span>
+                    <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-amber-100 align-middle"></span> Half day</span>
+                    <span><span class="inline-block w-2.5 h-2.5 rounded-sm bg-white border border-gray-200 align-middle"></span> Holiday / not marked</span>
+                    <span class="text-gray-300">·</span>
+                    <span>W working days · P present · A absent · H holiday</span>
                 </div>
             @else
                 {{-- ─── PROMPT (nothing selected yet) ─── --}}
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-10 sm:p-12 text-center">
-                    <div class="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <svg class="w-7 h-7 text-blue-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                    </div>
-                    <p class="text-sm text-gray-600 font-medium">Use the filters above to view attendance.</p>
+                <div class="bg-white rounded-xl border border-gray-200 p-10 sm:p-12 text-center">
+                    <p class="text-sm text-gray-600 font-medium">Use the filter above to view attendance.</p>
                     <div class="text-xs text-gray-400 mt-2 space-y-0.5">
-                        <p>• Pick a <strong>Date</strong> to see everyone's status that day.</p>
-                        <p>• Pick <strong>Type → Employee → Month</strong> for that employee's chosen month.</p>
-                        <p>• Pick <strong>Type → Employee</strong> (no month) for their whole year, then narrow by month or status.</p>
+                        <p>Pick a <strong class="font-medium text-gray-500">type</strong>, then a person, to see their months.</p>
+                        <p>Or pick a <strong class="font-medium text-gray-500">date</strong> to see everyone's attendance that day.</p>
                     </div>
                 </div>
             @endif
         @endif
 
-        {{-- ══════════ SALARY TAB ══════════ --}}
+        {{-- ══════════ SALARY TAB ══════════
+             One person's salary account. Their details first; then every month
+             from 1 April of the session to this one — what they are paid a month,
+             the attendance marked, the salary it works out to and what was paid —
+             with the totals under it. Payments are added from a month's screen. --}}
         @if ($activeTab === 'salary')
+            @php
+                $openMonth = ($salaryPerson && $salaryAccount && $salaryMonthView !== '')
+                    ? collect($salaryAccount['months'])->firstWhere('ym', $salaryMonthView)
+                    : null;
+            @endphp
+            @if ($openMonth)
+                {{-- ─── A MONTH'S OWN SCREEN ─── --}}
+                @php
+                    $money   = fn ($v) => '₹' . number_format((float) $v, 0);
+                    $m       = $openMonth;
+                    $marked  = $m['present'] + $m['absent'] + $m['half'] + $m['leave'] > 0;
+                    $days    = fn ($n) => rtrim(rtrim(number_format((float) $n, 1), '0'), '.');
+                    $over    = $m['paid'] - $m['payable'];
+                @endphp
 
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                <div class="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-teal-50 flex items-center justify-between">
-                    <h3 class="text-sm font-semibold text-gray-700">Salary — {{ \Carbon\Carbon::parse($salaryMonth . '-01')->format('M Y') }} <span class="text-xs font-normal text-gray-400">(calculated from attendance)</span></h3>
+                {{-- Salary, attendance, salary so far --}}
+                <div class="bg-white rounded-xl border border-gray-200 grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+                    <div class="p-5">
+                        <p class="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Monthly salary</p>
+                        <p class="text-xl font-bold text-gray-900 tabular-nums mt-1">{{ $money($m['base']) }}</p>
+                        <p class="text-xs text-gray-400 mt-1 tabular-nums">{{ $money($m['per_day']) }} a day</p>
+                    </div>
+                    <div class="p-5">
+                        <p class="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Attendance</p>
+                        @if ($marked)
+                            <p class="text-sm text-gray-500 mt-2 tabular-nums">
+                                Present <span class="text-gray-900 font-semibold">{{ $m['present'] }}</span><span class="text-gray-300"> · </span>
+                                Absent <span class="text-gray-900 font-semibold">{{ $m['absent'] }}</span><span class="text-gray-300"> · </span>
+                                Half <span class="text-gray-900 font-semibold">{{ $m['half'] }}</span>@if ($m['leave'] > 0)<span class="text-gray-300"> · </span>
+                                Leave <span class="text-gray-900 font-semibold">{{ $m['leave'] }}</span>@endif
+                            </p>
+                        @else
+                            <p class="text-sm text-gray-500 mt-2">Not marked</p>
+                        @endif
+                        <p class="text-xs text-gray-400 mt-1">
+                            @if ($m['paid_leave'] > 0)
+                                {{ $m['paid_leave'] }} absent counted as a paid leave
+                            @else
+                                Paid leave not used (1 absent a month is paid)
+                            @endif
+                        </p>
+                    </div>
+                    <div class="p-5">
+                        <p class="text-[10px] font-medium text-gray-400 uppercase tracking-wide">{{ $m['running'] ? 'Salary so far' : 'Salary for the month' }}</p>
+                        <p class="text-xl font-bold text-gray-900 tabular-nums mt-1">{{ $money($m['payable']) }}</p>
+                        <p class="text-xs text-gray-400 mt-1 tabular-nums">
+                            @if ($m['cut_days'] > 0)
+                                {{ $days($m['cut_days']) }} day{{ (float) $m['cut_days'] === 1.0 ? '' : 's' }} cut · {{ $money($m['deduction']) }}
+                            @else
+                                Nothing cut
+                            @endif
+                        </p>
+                    </div>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full">
-                        <thead class="bg-gray-50 border-b border-gray-200">
-                            <tr>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 w-10">#</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Employee</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Type</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Base</th>
-                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500">P / A / H</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Payable</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Status</th>
-                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            @forelse ($salaryEmployees as $i => $emp)
-                                @php
-                                    $b = $salaryBreakdowns[$emp->id] ?? ['present' => 0, 'absent' => 0, 'halfDay' => 0, 'payable' => $emp->salary];
-                                    $payment = $monthSalaryPayments->get($emp->id);
-                                    $isPaid = $payment && $payment->status === 'paid';
-                                @endphp
-                                <tr class="hover:bg-gray-50/50 transition-colors {{ $isPaid ? 'bg-green-50/20' : '' }}" wire:key="sal-{{ $emp->id }}">
-                                    <td class="px-4 py-3 text-xs text-gray-400">{{ $i + 1 }}</td>
-                                    <td class="px-4 py-3">
-                                        <div class="flex items-center gap-2.5">
-                                            @if ($emp->photo)
-                                                <img src="{{ $emp->photo }}" class="w-8 h-8 rounded-full object-cover border border-gray-200 flex-shrink-0">
-                                            @else
-                                                <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"><span class="text-xs font-bold text-gray-600">{{ strtoupper(substr($emp->name, 0, 1)) }}</span></div>
-                                            @endif
-                                            <div><p class="text-sm font-medium text-gray-800">{{ $emp->name }}</p><p class="text-xs text-gray-400">{{ $emp->designation ?? '' }}</p></div>
-                                        </div>
-                                    </td>
-                                    <td class="px-4 py-3"><span class="text-xs px-2 py-0.5 rounded-full font-medium border capitalize {{ $typeChip[$emp->type] ?? 'bg-gray-50 text-gray-600 border-gray-200' }}">{{ $emp->type }}</span></td>
-                                    <td class="px-4 py-3 text-sm text-gray-700">₹{{ number_format($emp->salary, 0) }}</td>
-                                    <td class="px-4 py-3 text-center text-xs">
-                                        <span class="text-emerald-600 font-semibold">{{ $b['present'] }}</span> /
-                                        <span class="text-red-500 font-semibold">{{ $b['absent'] }}</span> /
-                                        <span class="text-amber-500 font-semibold">{{ $b['halfDay'] }}</span>
-                                    </td>
-                                    <td class="px-4 py-3 text-sm font-bold text-gray-900">₹{{ number_format($b['payable'], 0) }}</td>
-                                    <td class="px-4 py-3">
-                                        @if ($isPaid)
-                                            <span class="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium bg-green-50 text-green-700 border border-green-100"><span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span> Paid</span>
-                                        @else
-                                            <span class="text-xs text-gray-400">Not paid</span>
-                                        @endif
-                                    </td>
-                                    <td class="px-4 py-3 text-center">
-                                        @if ($canPaySalaryMonth)
-                                            <button wire:click="openPayModal({{ $emp->id }})"
-                                                class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors {{ $isPaid ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100' : 'bg-emerald-600 hover:bg-emerald-700 text-white' }}">
-                                                {{ $isPaid ? 'Update' : 'Pay' }}
-                                            </button>
-                                        @else
-                                            <button disabled title="Payable after the month ends"
-                                                class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed">
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                                                Locked
-                                            </button>
-                                        @endif
-                                    </td>
+
+                {{-- The month's payments --}}
+                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div class="px-5 py-3.5 border-b border-gray-100 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                        <h3 class="text-sm font-semibold text-gray-800">Payments · {{ $m['label'] }}</h3>
+                        <p class="text-xs text-gray-400 tabular-nums">
+                            Salary <span class="text-gray-700 font-medium">{{ $money($m['payable']) }}</span><span class="text-gray-300"> · </span>
+                            Paid <span class="text-emerald-600 font-medium">{{ $money($m['paid']) }}</span><span class="text-gray-300"> · </span>
+                            @if ($over > 0)
+                                Paid extra <span class="text-amber-600 font-medium">{{ $money($over) }}</span>
+                            @else
+                                Balance <span class="font-medium {{ -$over > 0 ? 'text-red-500' : 'text-gray-700' }}">{{ $money(-$over) }}</span>
+                            @endif
+                        </p>
+                    </div>
+
+                    @if ($over > 0)
+                        <div class="px-5 py-3 bg-amber-50 border-b border-amber-100 text-sm text-amber-800">
+                            {{ $money($over) }} has been paid over this month's salary — {{ $money($m['paid']) }} paid against {{ $money($m['payable']) }}.
+                        </div>
+                    @endif
+
+                    @if ($m['payments'])
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50 border-b border-gray-200">
+                                    <tr>
+                                        <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 w-14">S.No</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Date</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">From</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Remark</th>
+                                        <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    @foreach ($m['payments'] as $i => $pay)
+                                        <tr class="hover:bg-gray-50/60 transition-colors" wire:key="sal-pay-{{ $m['ym'] }}-{{ $pay['id'] ?? $i }}">
+                                            <td class="px-5 py-3 text-sm text-gray-400 tabular-nums">{{ $i + 1 }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-800 whitespace-nowrap">{{ $pay['date'] }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-600">{{ $pay['from'] ?: '—' }}</td>
+                                            <td class="px-4 py-3 text-sm text-gray-500">{{ $pay['remark'] ?: '—' }}</td>
+                                            <td class="px-5 py-3 text-right text-sm font-semibold text-emerald-600 tabular-nums whitespace-nowrap">{{ $money($pay['amount']) }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                                <tfoot class="bg-gray-50 border-t border-gray-200">
+                                    <tr>
+                                        <td colspan="4" class="px-5 py-3 text-xs font-semibold text-gray-600">Total · {{ count($m['payments']) }} payment{{ count($m['payments']) === 1 ? '' : 's' }}</td>
+                                        <td class="px-5 py-3 text-right text-sm font-bold text-emerald-600 tabular-nums">{{ $money($m['paid']) }}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    @else
+                        <div class="px-5 py-10 text-center">
+                            <p class="text-sm text-gray-600 font-medium">No payment in {{ $m['label'] }} yet.</p>
+                            <p class="text-xs text-gray-400 mt-1">Use Add Payment above to record one.</p>
+                        </div>
+                    @endif
+                </div>
+            @elseif ($salaryPerson && $salaryAccount)
+                @php
+                    $money = fn ($v) => '₹' . number_format((float) $v, 0);
+                    $personLine = $typeName($salaryPerson->type);
+                    $says = trim((string) $salaryPerson->designation);
+                    if ($says !== '' && mb_strtolower($says) !== mb_strtolower($personLine)) {
+                        $personLine .= ' · ' . $says;
+                    }
+                    $personFacts = [
+                        'Mobile'         => $salaryPerson->mobile ?: '—',
+                        'Email'          => $salaryPerson->email ?: '—',
+                        'Monthly salary' => $money($salaryPerson->salary),
+                        'Joining date'   => $salaryPerson->joining_date ? \Carbon\Carbon::parse($salaryPerson->joining_date)->format('d M Y') : '—',
+                        'Bank'           => $salaryPerson->bank_name ?: '—',
+                        'Account no.'    => $salaryPerson->bank_account_no ?: '—',
+                        'IFSC'           => $salaryPerson->bank_ifsc ?: '—',
+                        'Account holder' => $salaryPerson->bank_holder_name ?: '—',
+                    ];
+                @endphp
+
+                {{-- The person --}}
+                <div class="bg-white rounded-xl border border-gray-200 p-5">
+                    <div class="flex items-center gap-3">
+                        @if ($salaryPerson->photo)
+                            <img src="{{ $salaryPerson->photo }}" class="w-11 h-11 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                        @else
+                            <div class="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                <span class="text-sm font-bold text-gray-600">{{ strtoupper(substr($salaryPerson->name, 0, 1)) }}</span>
+                            </div>
+                        @endif
+                        <div class="min-w-0">
+                            <p class="text-base font-semibold text-gray-900 truncate">{{ $salaryPerson->name }}</p>
+                            <p class="text-xs text-gray-400 truncate">{{ $personLine }}</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3 mt-4 pt-4 border-t border-gray-100">
+                        @foreach ($personFacts as $label => $value)
+                            <div class="min-w-0">
+                                <p class="text-[10px] font-medium text-gray-400 uppercase tracking-wide">{{ $label }}</p>
+                                <p class="text-sm text-gray-800 truncate" title="{{ $value }}">{{ $value }}</p>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                {{-- Their months --}}
+                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div class="px-5 py-3.5 border-b border-gray-100 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                        <h3 class="text-sm font-semibold text-gray-800">Salary by month</h3>
+                        <p class="text-xs text-gray-400 tabular-nums">
+                            Salary <span class="text-gray-700 font-medium">{{ $money($salaryAccount['payable']) }}</span><span class="text-gray-300"> · </span>
+                            Paid <span class="text-emerald-600 font-medium">{{ $money($salaryAccount['paid']) }}</span><span class="text-gray-300"> · </span>
+                            Balance <span class="font-medium {{ $salaryAccount['balance'] > 0 ? 'text-red-500' : 'text-gray-700' }}">{{ $money($salaryAccount['balance']) }}</span>
+                        </p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500">Month</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Attendance</th>
+                                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500">Monthly salary</th>
+                                    <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500">Salary by attendance</th>
+                                    <th class="px-5 py-3 text-right text-xs font-semibold text-gray-500">Payment</th>
+                                    <th class="w-12 px-3 py-3"></th>
                                 </tr>
-                            @empty
-                                <tr><td colspan="8" class="px-4 py-8 text-center text-sm text-gray-400">No employees found</td></tr>
-                            @endforelse
-                        </tbody>
-                        @if ($salaryEmployees->count())
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach ($salaryAccount['months'] as $m)
+                                    <tr class="hover:bg-gray-50/60 transition-colors" wire:key="sal-month-{{ $m['ym'] }}">
+                                        <td class="px-5 py-3 align-top">
+                                            <p class="text-sm font-medium text-gray-800">{{ $m['label'] }}</p>
+                                            @if ($m['running'])
+                                                <p class="text-[11px] text-gray-400">Running month — so far</p>
+                                            @endif
+                                        </td>
+                                        <td class="px-4 py-3 align-top text-xs text-gray-400 tabular-nums whitespace-nowrap">
+                                            @if ($m['present'] + $m['absent'] + $m['half'] + $m['leave'] > 0)
+                                                Present <span class="text-gray-700 font-medium">{{ $m['present'] }}</span><span class="text-gray-300"> · </span>
+                                                Absent <span class="text-gray-700 font-medium">{{ $m['absent'] }}</span><span class="text-gray-300"> · </span>
+                                                Half <span class="text-gray-700 font-medium">{{ $m['half'] }}</span>@if ($m['leave'] > 0)<span class="text-gray-300"> · </span>
+                                                Leave <span class="text-gray-700 font-medium">{{ $m['leave'] }}</span>@endif
+                                            @else
+                                                Not marked
+                                            @endif
+                                        </td>
+                                        <td class="px-4 py-3 align-top text-right text-sm text-gray-600 tabular-nums">{{ $money($m['base']) }}</td>
+                                        <td class="px-4 py-3 align-top text-right text-sm font-semibold text-gray-900 tabular-nums">{{ $money($m['payable']) }}</td>
+                                        <td class="px-5 py-3 align-top text-right whitespace-nowrap">
+                                            {{-- Taken so far, of the salary the month works out to so far. --}}
+                                            <p class="text-sm font-semibold tabular-nums {{ $m['paid'] > 0 ? 'text-emerald-600' : 'text-gray-400' }}">{{ $money($m['paid']) }}</p>
+                                            <p class="text-[11px] text-gray-400 tabular-nums">of {{ $money($m['payable']) }}@if ($m['paid'] > $m['payable']) <span class="text-amber-600">· {{ $money($m['paid'] - $m['payable']) }} extra</span>@endif</p>
+                                        </td>
+                                        <td class="px-3 py-3 align-top text-right">
+                                            <button wire:click="openSalaryMonth('{{ $m['ym'] }}')" type="button" title="Open {{ $m['label'] }}"
+                                                class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
                             <tfoot class="bg-gray-50 border-t border-gray-200">
                                 <tr>
-                                    <td colspan="5" class="px-4 py-2.5 text-xs font-semibold text-gray-600">Total ({{ $salaryEmployees->count() }} employees)</td>
-                                    <td class="px-4 py-2.5 text-sm font-bold text-gray-800">₹{{ number_format($totalPayable, 0) }}</td>
-                                    <td colspan="2" class="px-4 py-2.5 text-xs text-gray-500">Paid: <strong class="text-emerald-700">₹{{ number_format($totalPaidAmount, 0) }}</strong></td>
+                                    <td colspan="3" class="px-5 py-3 text-xs font-semibold text-gray-600">Total · {{ count($salaryAccount['months']) }} month{{ count($salaryAccount['months']) === 1 ? '' : 's' }}</td>
+                                    <td class="px-4 py-3 text-right text-sm font-bold text-gray-900 tabular-nums">{{ $money($salaryAccount['payable']) }}</td>
+                                    <td class="px-5 py-3 text-right text-sm font-bold text-emerald-600 tabular-nums">{{ $money($salaryAccount['paid']) }}</td>
+                                    <td></td>
                                 </tr>
                             </tfoot>
-                        @endif
-                    </table>
+                        </table>
+                    </div>
                 </div>
-            </div>
+            @else
+                {{-- ─── PROMPT (nobody picked yet) ─── --}}
+                <div class="bg-white rounded-xl border border-gray-200 p-10 sm:p-12 text-center">
+                    <p class="text-sm text-gray-600 font-medium">Use the filter above to open someone's salary.</p>
+                    <p class="text-xs text-gray-400 mt-2">Pick a <strong class="font-medium text-gray-500">type</strong>, then a person — their months since April follow; open a month to add a payment.</p>
+                </div>
+            @endif
         @endif
 
         {{-- ══════════ PAYMENTS TAB ══════════ --}}
@@ -603,7 +815,7 @@
                                     <td class="px-4 py-3 text-xs text-gray-400">{{ $i + 1 }}</td>
                                     <td class="px-4 py-3">
                                         <p class="text-sm font-medium text-gray-800">{{ $payment->employee?->name ?? '—' }}</p>
-                                        <p class="text-xs text-gray-400 capitalize">{{ $payment->employee?->type ?? '' }}</p>
+                                        <p class="text-xs text-gray-400">{{ $payment->employee ? $typeName($payment->employee->type) : '' }}</p>
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-700">{{ \Carbon\Carbon::parse($payment->month . '-01')->format('M Y') }}</td>
                                     <td class="px-4 py-3 text-sm font-bold text-gray-800">₹{{ number_format($payment->amount, 0) }}</td>
@@ -756,59 +968,54 @@
         </div>
     @endif
 
-    {{-- ══════════ EMPLOYEE DETAIL SLIDE-IN PANEL ══════════ --}}
+    {{-- ══════════ EMPLOYEE DETAIL SLIDE-IN PANEL ══════════
+         The school Payroll's: plain label / value rows. Edit is kept beside Close. --}}
     @if ($showEmpDetailModal && $selectedEmployee)
+        @php
+            $evDetails = [
+                'Designation'  => $selectedEmployee->designation ?: 'N/A',
+                'Type'         => $typeName($selectedEmployee->type),
+                'Mobile'       => $selectedEmployee->mobile ?: 'N/A',
+                'Email'        => $selectedEmployee->email ?: 'N/A',
+                'Salary'       => '₹' . number_format($selectedEmployee->salary, 0),
+                'Joining Date' => $selectedEmployee->joining_date ? \Carbon\Carbon::parse($selectedEmployee->joining_date)->format('d M Y') : 'N/A',
+            ];
+            if ($selectedEmployee->address) {
+                $evDetails['Address'] = $selectedEmployee->address;
+            }
+            if ($selectedEmployee->bank_name) {
+                $evDetails['Bank']    = $selectedEmployee->bank_name;
+                $evDetails['Holder']  = $selectedEmployee->bank_holder_name ?: 'N/A';
+                $evDetails['Account'] = $selectedEmployee->bank_account_no ?: 'N/A';
+                $evDetails['IFSC']    = $selectedEmployee->bank_ifsc ?: 'N/A';
+                $evDetails['Branch']  = $selectedEmployee->bank_branch ?: 'N/A';
+            }
+        @endphp
         <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden" x-data @keydown.escape.window="$wire.closeEmpDetailModal()">
-            <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closeEmpDetailModal"></div>
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeEmpDetailModal"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                    <h2 class="text-lg font-semibold text-gray-900">Employee Details</h2>
-                    <button wire:click="closeEmpDetailModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $selectedEmployee->name }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5">Employee Details</p>
+                    </div>
+                    <button wire:click="closeEmpDetailModal" class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
 
                 <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
-                    <div class="flex flex-col items-center text-center pb-4 border-b border-gray-100">
-                        @if ($selectedEmployee->photo)
-                            <img src="{{ $selectedEmployee->photo }}" class="w-20 h-20 rounded-full object-cover border-2 border-gray-200 shadow-sm mb-3">
-                        @else
-                            <div class="w-20 h-20 rounded-full bg-indigo-100 flex items-center justify-center mb-3 shadow-sm"><span class="text-2xl font-bold text-indigo-600">{{ strtoupper(substr($selectedEmployee->name, 0, 1)) }}</span></div>
-                        @endif
-                        <h3 class="text-lg font-bold text-gray-900">{{ $selectedEmployee->name }}</h3>
-                        <p class="text-sm text-gray-500">{{ $selectedEmployee->designation ?? '—' }}</p>
-                        <span class="mt-1 text-xs px-2.5 py-0.5 rounded-full font-medium capitalize border {{ $typeChip[$selectedEmployee->type] ?? 'bg-gray-50 text-gray-600 border-gray-200' }}">{{ $selectedEmployee->type }}</span>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-3">
-                        @foreach (['Mobile' => $selectedEmployee->mobile, 'Email' => $selectedEmployee->email, 'Salary' => '₹' . number_format($selectedEmployee->salary, 0), 'Joining' => $selectedEmployee->joining_date?->format('d M Y')] as $label => $value)
-                            <div class="bg-gray-50 rounded-xl p-3"><p class="text-xs text-gray-400 mb-0.5">{{ $label }}</p><p class="text-sm font-semibold text-gray-800">{{ $value ?? '—' }}</p></div>
-                        @endforeach
-                    </div>
-
-                    @if ($selectedEmployee->address)
-                        <div class="bg-gray-50 rounded-xl p-3"><p class="text-xs text-gray-400 mb-0.5">Address</p><p class="text-sm font-semibold text-gray-800">{{ $selectedEmployee->address }}</p></div>
-                    @endif
-
-                    @if ($selectedEmployee->bank_name)
-                        <div class="bg-blue-50 rounded-xl border border-blue-100 p-4">
-                            <p class="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">Bank Details</p>
-                            <div class="grid grid-cols-2 gap-2">
-                                @foreach (['Bank' => $selectedEmployee->bank_name, 'Holder' => $selectedEmployee->bank_holder_name, 'Account' => $selectedEmployee->bank_account_no, 'IFSC' => $selectedEmployee->bank_ifsc, 'Branch' => $selectedEmployee->bank_branch] as $label => $value)
-                                    <div><p class="text-xs text-blue-400">{{ $label }}</p><p class="text-xs font-semibold text-gray-800 font-mono">{{ $value ?? '—' }}</p></div>
-                                @endforeach
-                            </div>
+                    @foreach ($evDetails as $label => $value)
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
+                            <span class="col-span-2 text-gray-800 font-medium break-words">{{ $value }}</span>
                         </div>
-                    @endif
+                    @endforeach
                 </div>
 
-                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
-                    <button wire:click="openEmpModal({{ $selectedEmployee->id }})"
-                        class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                        Edit
-                    </button>
-                    <button wire:click="closeEmpDetailModal" class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md">Close</button>
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between gap-2 flex-shrink-0">
+                    <button wire:click="openEmpModal({{ $selectedEmployee->id }})" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Edit</button>
+                    <button wire:click="closeEmpDetailModal" class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">Close</button>
                 </div>
             </div>
         </div>
@@ -885,6 +1092,234 @@
                 </div>
             </div>
         </div>
+    @endif
+
+    {{-- ══════════ ADD PAYMENT SLIDE-IN PANEL ══════════
+         A payment to the person the Mark Salary tab is on: amount, date, from
+         and a remark. (The month-wide Pay Salary panel above is the earlier
+         one, kept; this page no longer opens it.) --}}
+    @if ($showSalaryPayPanel && $salaryPerson)
+        <div class="fixed inset-x-0 bottom-0 top-16 z-[9999] overflow-hidden">
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeSalaryPayment"></div>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900">Add Payment</h2>
+                        @php
+                            $spFor = $spMonth !== '' ? collect($salaryAccount['months'] ?? [])->firstWhere('ym', $spMonth) : null;
+                        @endphp
+                        @if ($spFor)
+                            <p class="text-xs text-gray-500 mt-0.5 truncate">{{ $salaryPerson->name }} · {{ $spFor['label'] }} · balance ₹{{ number_format(max(0, $spFor['payable'] - $spFor['paid']), 0) }}</p>
+                        @else
+                            <p class="text-xs text-gray-500 mt-0.5 truncate">{{ $salaryPerson->name }} · balance ₹{{ number_format((float) ($salaryAccount['balance'] ?? 0), 0) }}</p>
+                        @endif
+                    </div>
+                    <button wire:click="closeSalaryPayment" type="button"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Amount (₹) <span class="text-red-500">*</span></label>
+                            <input wire:model.defer="spAmount" type="number" step="1" min="1" placeholder="0"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                       @error('spAmount') border-red-400 @enderror">
+                            @error('spAmount')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Date <span class="text-red-500">*</span></label>
+                            <input wire:model.defer="spDate" type="date" max="{{ now()->format('Y-m-d') }}"
+                                class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                       @error('spDate') border-red-400 @enderror">
+                            @error('spDate')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">From <span class="text-red-500">*</span></label>
+                        <input wire:model.defer="spFrom" type="text" maxlength="255" placeholder="Who is making this payment"
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500
+                                   @error('spFrom') border-red-400 @enderror">
+                        @error('spFrom')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Remark</label>
+                        <textarea wire:model.defer="spRemark" rows="3" maxlength="500" placeholder="What is this payment for?"
+                            class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none
+                                   @error('spRemark') border-red-400 @enderror"></textarea>
+                        @error('spRemark')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+                </div>
+
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                    <button wire:click="closeSalaryPayment" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                    <button wire:click="saveSalaryPayment" type="button" wire:loading.attr="disabled" wire:target="saveSalaryPayment"
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                        <span wire:loading.remove wire:target="saveSalaryPayment">Save Payment</span>
+                        <span wire:loading wire:target="saveSalaryPayment">Saving...</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- ══════════ MARK ATTENDANCE SLIDE-IN ══════════
+         The school Payroll's mark panel: light scrim, plain header, one quiet
+         toolbar, a flat list of rows and the actions in the footer. Everyone is
+         on it at once, by type and A to Z. Picking a status is handled by
+         Alpine and only synced to the component (no request per click); it all
+         saves together. Every row offers Present, Absent, Half and Holiday. --}}
+    @php
+        $markOpts = ['present' => 'Present', 'absent' => 'Absent', 'half_day' => 'Half', 'holiday' => 'Holiday'];
+        // The remark every row shares, if they share one, for the "Remark for
+        // all" box — a saved holiday opens with its remark in it.
+        $panelRemarks = collect($panelRows)->map(fn ($r) => (string) ($r['remark'] ?? ''))->unique();
+        $panelCommon  = $panelRemarks->count() === 1 ? $panelRemarks->first() : '';
+        $markSel = [
+            'present'  => 'bg-emerald-50 text-emerald-700 font-medium',
+            'absent'   => 'bg-red-50 text-red-600 font-medium',
+            'half_day' => 'bg-amber-50 text-amber-700 font-medium',
+            'holiday'  => 'bg-indigo-50 text-indigo-700 font-medium',
+        ];
+    @endphp
+    @if ($showMarkPanel)
+    <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
+        <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeMarkPanel"></div>
+        <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col"
+            wire:key="pmark-{{ count($panelRows) }}"
+            x-data="{
+                rows: {},
+                remarks: {},
+                common: '',
+                get total() { return Object.keys(this.rows).length },
+                get marked() { return Object.values(this.rows).filter(v => v !== '').length },
+                get allHoliday() { return this.total > 0 && Object.values(this.rows).every(v => v === 'holiday') },
+                /* Everyone on Holiday: the day has to say what it is for, so no
+                   row may go without a remark. */
+                get remarkMissing() {
+                    return this.allHoliday && Object.keys(this.rows).some(id => ! String(this.remarks[id] || '').trim());
+                },
+                remarkAll(text) {
+                    Object.keys(this.rows).forEach(id => {
+                        this.remarks[id] = text;
+                        this.$wire.$set('panelRows.' + id + '.remark', text, false);
+                    });
+                },
+                pick(id, v) {
+                    this.rows[id] = v;
+                    /* Local set: the change rides along with the next request
+                       (Save) instead of costing a round trip per click. */
+                    this.$wire.$set('panelRows.' + id + '.status', v, false);
+                },
+                all(v) { Object.keys(this.rows).forEach(id => this.pick(id, v)) },
+            }">
+
+            {{-- Seeds the rows when the panel opens, and again for each new date. --}}
+            <div class="hidden" wire:key="pmark-seed-{{ $panelDate }}"
+                x-init="rows = @js(collect($panelRows)->map(fn ($r) => (string) ($r['status'] ?? ''))->all()); remarks = @js(collect($panelRows)->map(fn ($r) => (string) ($r['remark'] ?? ''))->all()); common = @js($panelCommon)"></div>
+
+            {{-- Header --}}
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                <div class="min-w-0">
+                    <h2 class="text-lg font-semibold text-gray-900">Mark Attendance</h2>
+                    <p class="text-xs text-gray-500 mt-0.5">{{ \Carbon\Carbon::parse($panelDate)->format('l, d M Y') }}</p>
+                </div>
+                <button wire:click="closeMarkPanel" type="button"
+                    class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            {{-- Toolbar --}}
+            <div class="px-6 py-3 border-b border-gray-100 flex flex-wrap items-center gap-2 flex-shrink-0">
+                {{-- Left alone by re-renders; only a whole date is sent, once the typing pauses. --}}
+                <input type="date" wire:ignore value="{{ $panelDate }}" max="{{ now()->toDateString() }}"
+                    x-on:input.debounce.400ms="if (/^(19|20)\d{2}-\d{2}-\d{2}$/.test($el.value) && $el.value !== $wire.panelDate) $wire.$set('panelDate', $el.value)"
+                    class="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-xs">
+                    <button type="button" x-on:click="all('present')" class="px-2.5 py-1.5 text-gray-600 hover:bg-gray-50">All present</button>
+                    <button type="button" x-on:click="all('absent')" class="px-2.5 py-1.5 text-gray-600 hover:bg-gray-50 border-l border-gray-200">All absent</button>
+                    <button type="button" x-on:click="all('holiday')" class="px-2.5 py-1.5 text-gray-600 hover:bg-gray-50 border-l border-gray-200">All holiday</button>
+                    <button type="button" x-on:click="all('')" class="px-2.5 py-1.5 text-gray-500 hover:bg-gray-50 border-l border-gray-200">Clear</button>
+                </div>
+                <span class="ml-auto text-xs text-gray-400 tabular-nums" x-text="marked + ' of ' + total + ' marked'"></span>
+            </div>
+
+            {{-- Everyone on Holiday: one remark, typed once, goes on every row — and it is compulsory. --}}
+            <div x-show="allHoliday" style="display: none" class="px-6 py-2.5 border-b border-gray-100 flex-shrink-0">
+                <div class="flex items-center gap-3">
+                    <label for="pmark-remark-all" class="text-xs font-medium text-gray-600 flex-shrink-0">Remark for all <span class="text-red-500">*</span></label>
+                    <input id="pmark-remark-all" type="text" x-model="common" x-on:input="remarkAll(common)" maxlength="255" placeholder="e.g. Diwali"
+                        class="flex-1 min-w-0 text-sm border rounded-md px-3 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+                        :class="remarkMissing ? 'border-red-300' : 'border-gray-300'">
+                </div>
+                <p x-show="remarkMissing" class="mt-1 text-xs text-red-500">Say what the holiday is for — it is needed before saving.</p>
+            </div>
+
+            {{-- One quiet line explaining the day --}}
+            @if ($panelExisting)
+                <p class="px-6 py-2 text-xs text-amber-700 border-b border-gray-100 flex-shrink-0">Already marked for this date — change what you need and save to update it.</p>
+            @else
+                <p class="px-6 py-2 text-xs text-gray-500 border-b border-gray-100 flex-shrink-0">Only the rows you set are saved — an unmarked day stays open.</p>
+            @endif
+
+            {{-- Rows --}}
+            <div class="flex-1 overflow-y-auto divide-y divide-gray-100">
+                @forelse ($markPeople as $i => $emp)
+                    @php
+                        $typeLine = $typeName($emp->type);
+                        $subLine  = $emp->designation && strcasecmp((string) $emp->designation, $typeLine) !== 0
+                            ? $typeLine . ' · ' . $emp->designation
+                            : $typeLine;
+                    @endphp
+                    <div wire:key="pmark-row-{{ $emp->id }}" class="flex flex-wrap items-center gap-x-3 gap-y-2 px-6 py-2.5"
+                        :class="{ 'bg-gray-50/60': rows[{{ $emp->id }}] === '' }">
+                        <span class="w-5 text-[11px] text-gray-300 tabular-nums flex-shrink-0">{{ $i + 1 }}</span>
+                        @if ($emp->photo)
+                            <img src="{{ $emp->photo }}" class="w-8 h-8 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                        @else
+                            <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-[11px] font-medium flex-shrink-0">{{ strtoupper(substr($emp->name, 0, 1)) }}</div>
+                        @endif
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm text-gray-800 truncate">{{ $emp->name }}</p>
+                            <p class="text-[11px] text-gray-400 truncate">{{ $subLine }}</p>
+                        </div>
+                        <input type="text" wire:model="panelRows.{{ $emp->id }}.remark" x-on:input="remarks[{{ $emp->id }}] = $event.target.value" placeholder="Remark" maxlength="255"
+                            class="w-28 sm:w-36 text-xs border border-gray-200 rounded-md px-2.5 py-1.5 focus:ring-1 focus:ring-gray-400 focus:border-gray-400">
+                        {{-- One width for every status, so the rows line up down the list. --}}
+                        <div class="inline-flex items-center rounded-md border border-gray-200 overflow-hidden text-[11px] flex-shrink-0">
+                            @foreach ($markOpts as $st => $label)
+                                <button type="button" x-on:click="pick({{ $emp->id }}, '{{ $st }}')"
+                                    class="w-14 py-1.5 text-center {{ $loop->first ? '' : 'border-l border-gray-200' }}"
+                                    :class="{ '{{ $markSel[$st] }}': rows[{{ $emp->id }}] === '{{ $st }}', 'text-gray-500 hover:bg-gray-50': rows[{{ $emp->id }}] !== '{{ $st }}' }">{{ $label }}</button>
+                            @endforeach
+                            {{-- Leave a row blank and it saves nothing at all, so the day stays open. --}}
+                            <button type="button" x-on:click="pick({{ $emp->id }}, '')" title="Leave unmarked"
+                                class="px-2 py-1.5 border-l border-gray-200"
+                                :class="{ 'bg-gray-100 text-gray-500': rows[{{ $emp->id }}] === '', 'text-gray-300 hover:text-gray-600 hover:bg-gray-50': rows[{{ $emp->id }}] !== '' }">&times;</button>
+                        </div>
+                    </div>
+                @empty
+                    <p class="py-16 text-center text-sm text-gray-400">No employees found.</p>
+                @endforelse
+            </div>
+
+            {{-- Footer --}}
+            <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                <button type="button" wire:click="closeMarkPanel" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                <button type="button" wire:click="saveMarkPanel" wire:loading.attr="disabled" wire:target="saveMarkPanel"
+                    :disabled="marked === 0 || remarkMissing"
+                    class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                    <span wire:loading.remove wire:target="saveMarkPanel">{{ $panelExisting ? 'Update Attendance' : 'Save Attendance' }}</span>
+                    <span wire:loading wire:target="saveMarkPanel">Saving...</span>
+                </button>
+            </div>
+        </div>
+    </div>
     @endif
 
     {{-- ══════════ DELETE EMPLOYEE CONFIRM ══════════ --}}

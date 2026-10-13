@@ -413,7 +413,9 @@ class Analytics extends Component
 
         // Salary is payable for the PREVIOUS month (current month is locked in payroll).
         $payableMonth     = now()->subMonthNoOverflow()->format('Y-m');
-        $paidThisMonth    = SuperAdminSalaryPayment::forMonth($payableMonth)->paid()->count();
+        // People paid, not payments: Payroll's Mark Salary keeps each payment as
+        // its own row, so one person can have several in a month.
+        $paidThisMonth    = SuperAdminSalaryPayment::forMonth($payableMonth)->paid()->distinct()->count('super_admin_employee_id');
         $totalPaidAmount  = (float) SuperAdminSalaryPayment::forMonth($payableMonth)->paid()->sum('amount');
 
         // Employee types come from the payroll module so new types show up automatically.

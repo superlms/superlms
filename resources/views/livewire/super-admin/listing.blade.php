@@ -117,13 +117,8 @@
                                         </div>
                                     </div>
                                 </td>
-                                {{-- Location --}}
-                                <td class="px-4 py-3">
-                                    <span class="inline-flex items-center gap-1 text-xs font-medium text-gray-700">
-                                        <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                                        {{ $school->location }}
-                                    </span>
-                                </td>
+                                {{-- Location (plain text) --}}
+                                <td class="px-4 py-3 text-xs text-gray-700">{{ $school->location ?: '—' }}</td>
                                 {{-- Contact --}}
                                 <td class="px-4 py-3">
                                     <div class="text-xs text-gray-700">{{ $school->mobile ?: '—' }}</div>
@@ -137,20 +132,20 @@
                                 <td class="px-4 py-3 text-right text-xs text-gray-700">{{ $school->no_of_students !== null ? number_format($school->no_of_students) : '—' }}</td>
                                 {{-- Avg fee --}}
                                 <td class="px-4 py-3 text-right text-xs text-gray-700">{{ $school->avg_fee !== null ? '₹' . number_format((float) $school->avg_fee) : '—' }}</td>
-                                {{-- Status --}}
+                                {{-- Status — plain coloured text, no badges; an approved school's
+                                     payment under it, a remarked one's remark itself. --}}
                                 <td class="px-4 py-3 max-w-[240px]">
                                     @if ($school->status === 'approved')
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-100 text-green-700">Approved</span>
+                                        <div class="text-xs text-emerald-600 font-medium">Approved</div>
                                         @if ($school->payment_type)
-                                            <div class="text-[11px] text-gray-500 mt-1">
+                                            <div class="text-[11px] text-gray-500 mt-0.5">
                                                 {{ $school->payment_type_label }}@if ($school->payment_amount !== null) · ₹{{ number_format((float) $school->payment_amount) }}@endif
                                             </div>
                                         @endif
                                     @elseif ($school->status === 'rejected')
-                                        {{-- Remarked: show the remark text itself, not a badge --}}
                                         <div class="text-xs text-rose-600 font-medium">{{ $school->remark ?: 'Remarked' }}</div>
                                     @else
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-700">Pending</span>
+                                        <div class="text-xs text-amber-600 font-medium">Pending</div>
                                     @endif
                                 </td>
                                 {{-- Actions --}}
@@ -320,26 +315,35 @@
         </div>
     @endif
 
-    {{-- ══════════════════ VIEW + STATUS PANEL (slide-in) ══════════════════ --}}
+    {{-- ══════════════════ VIEW + STATUS PANEL (slide-in) ══════════════════
+         In the Website Enquiry view's look: the school in the header, then
+         plain label / value rows; the status (same choices, fields and Save
+         Status) under a line. --}}
     @if ($showViewPanel && $viewSchool)
+        @php
+            $lvStatus = in_array($viewSchool->status, ['approved', 'rejected'], true) ? $viewSchool->status : 'pending';
+            $lvName   = ['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Remarked'][$lvStatus];
+            $lvTone   = ['pending' => 'text-amber-600', 'approved' => 'text-emerald-600', 'rejected' => 'text-rose-600'][$lvStatus];
+            $lvRows   = [
+                'Location'        => $viewSchool->location ?: '—',
+                'Email'           => $viewSchool->email ?: '—',
+                'Mobile'          => $viewSchool->mobile ?: '—',
+                'Address'         => $viewSchool->address ?: '—',
+                'Classes'         => $viewSchool->classes ?: '—',
+                'No. of Students' => $viewSchool->no_of_students !== null ? number_format($viewSchool->no_of_students) : '—',
+                'Avg Fee'         => $viewSchool->avg_fee !== null ? '₹' . number_format((float) $viewSchool->avg_fee) : '—',
+            ];
+            $lvIn = 'w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm text-gray-800 bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500';
+        @endphp
         <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden">
-            <div class="absolute inset-0 bg-black/[0.06] backdrop-blur-[1.5px]" wire:click="closeViewPanel"></div>
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeViewPanel"></div>
             <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
 
                 {{-- Header --}}
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <div class="w-11 h-11 rounded-lg border border-gray-200 bg-gray-50 overflow-hidden flex items-center justify-center flex-shrink-0">
-                            @if ($viewSchool->logo)
-                                <img src="{{ $viewSchool->logo }}" class="w-full h-full object-cover" alt="">
-                            @else
-                                <span class="text-lg">🏫</span>
-                            @endif
-                        </div>
-                        <div class="min-w-0">
-                            <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $viewSchool->name }}</h2>
-                            <p class="text-xs text-gray-500 mt-0.5 truncate">{{ $viewSchool->location }}</p>
-                        </div>
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">{{ $viewSchool->name ?: 'School Details' }}</h2>
+                        <p class="text-xs text-gray-500 mt-0.5 truncate">School listing · {{ $lvName }}</p>
                     </div>
                     <button wire:click="closeViewPanel"
                         class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0">
@@ -347,105 +351,99 @@
                     </button>
                 </div>
 
-                {{-- Body --}}
-                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-
-                    {{-- Details --}}
-                    <div>
-                        <div class="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-3">School Details</div>
-                        <dl class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                            <div class="col-span-2">
-                                <dt class="text-xs text-gray-400">Address</dt>
-                                <dd class="text-gray-800">{{ $viewSchool->address ?: '—' }}</dd>
-                            </div>
-                            <div>
-                                <dt class="text-xs text-gray-400">Email</dt>
-                                <dd class="text-gray-800 break-words">{{ $viewSchool->email ?: '—' }}</dd>
-                            </div>
-                            <div>
-                                <dt class="text-xs text-gray-400">Mobile</dt>
-                                <dd class="text-gray-800">{{ $viewSchool->mobile ?: '—' }}</dd>
-                            </div>
-                            <div>
-                                <dt class="text-xs text-gray-400">Classes</dt>
-                                <dd class="text-gray-800">{{ $viewSchool->classes ?: '—' }}</dd>
-                            </div>
-                            <div>
-                                <dt class="text-xs text-gray-400">No. of Students</dt>
-                                <dd class="text-gray-800">{{ $viewSchool->no_of_students !== null ? number_format($viewSchool->no_of_students) : '—' }}</dd>
-                            </div>
-                            <div>
-                                <dt class="text-xs text-gray-400">Avg Fee</dt>
-                                <dd class="text-gray-800">{{ $viewSchool->avg_fee !== null ? '₹' . number_format((float) $viewSchool->avg_fee) : '—' }}</dd>
-                            </div>
-                        </dl>
+                {{-- Body — plain label / value rows --}}
+                <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+                    @if ($viewSchool->logo)
+                        <div class="grid grid-cols-3 gap-3 text-sm items-center">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">Logo</span>
+                            <span class="col-span-2"><img src="{{ $viewSchool->logo }}" alt="{{ $viewSchool->name }}" class="w-12 h-12 rounded-md object-cover border border-gray-200"></span>
+                        </div>
+                    @endif
+                    @foreach ($lvRows as $label => $value)
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">{{ $label }}</span>
+                            <span class="col-span-2 text-gray-800 font-medium whitespace-pre-line break-words">{{ $value }}</span>
+                        </div>
+                    @endforeach
+                    <div class="grid grid-cols-3 gap-3 text-sm">
+                        <span class="text-xs text-gray-400 uppercase tracking-wider">Status</span>
+                        <span class="col-span-2 font-medium {{ $lvTone }}">{{ $lvName }}</span>
+                    </div>
+                    @if ($lvStatus === 'approved' && $viewSchool->payment_type)
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">Payment</span>
+                            <span class="col-span-2 text-gray-800 font-medium">{{ $viewSchool->payment_type_label }}@if ($viewSchool->payment_amount !== null) · ₹{{ number_format((float) $viewSchool->payment_amount) }}@endif</span>
+                        </div>
+                    @endif
+                    @if ($lvStatus === 'rejected' && $viewSchool->remark)
+                        <div class="grid grid-cols-3 gap-3 text-sm">
+                            <span class="text-xs text-gray-400 uppercase tracking-wider">Remark</span>
+                            <span class="col-span-2 text-gray-800 whitespace-pre-line leading-relaxed break-words">{{ $viewSchool->remark }}</span>
+                        </div>
+                    @endif
+                    <div class="grid grid-cols-3 gap-3 text-sm">
+                        <span class="text-xs text-gray-400 uppercase tracking-wider">Added on</span>
+                        <span class="col-span-2 text-gray-800 font-medium">{{ $viewSchool->created_at?->format('d M Y · g:i A') ?? '—' }}</span>
                     </div>
 
-                    {{-- Status marking --}}
-                    <div class="border-t border-gray-100 pt-5">
-                        <div class="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-3">Mark Status</div>
-
-                        <div class="grid grid-cols-3 gap-2">
-                            <label class="cursor-pointer">
-                                <input type="radio" wire:model.live="statusChoice" value="pending" class="peer sr-only">
-                                <div class="text-center text-xs font-semibold py-2 rounded-lg border border-gray-200 text-gray-600 peer-checked:bg-amber-50 peer-checked:border-amber-300 peer-checked:text-amber-700 transition-colors">Pending</div>
-                            </label>
-                            <label class="cursor-pointer">
-                                <input type="radio" wire:model.live="statusChoice" value="approved" class="peer sr-only">
-                                <div class="text-center text-xs font-semibold py-2 rounded-lg border border-gray-200 text-gray-600 peer-checked:bg-green-50 peer-checked:border-green-300 peer-checked:text-green-700 transition-colors">Approved</div>
-                            </label>
-                            <label class="cursor-pointer">
-                                <input type="radio" wire:model.live="statusChoice" value="rejected" class="peer sr-only">
-                                <div class="text-center text-xs font-semibold py-2 rounded-lg border border-gray-200 text-gray-600 peer-checked:bg-rose-50 peer-checked:border-rose-300 peer-checked:text-rose-700 transition-colors">Remark</div>
-                            </label>
+                    {{-- Status, under a line: Pending / Approved (payment type and amount) / Remark (the note) --}}
+                    <div class="pt-4 mt-2 border-t border-gray-100 space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Mark Status</label>
+                            <div class="flex flex-wrap items-center gap-x-5 gap-y-2">
+                                @foreach (['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Remark'] as $val => $label)
+                                    <label class="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                        <input type="radio" name="listingStatus" wire:model.live="statusChoice" value="{{ $val }}"
+                                            class="border-gray-300 text-blue-600 focus:ring-blue-500">
+                                        {{ $label }}
+                                    </label>
+                                @endforeach
+                            </div>
+                            @error('statusChoice')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                         </div>
-                        @error('statusChoice') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
 
-                        {{-- Approved → payment type + amount --}}
                         @if ($statusChoice === 'approved')
-                            <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-xl bg-green-50/60 border border-green-100 p-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Payment Type <span class="text-rose-500">*</span></label>
-                                    <select wire:model="paymentType"
-                                        class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-green-400 focus:border-green-400">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Payment Type <span class="text-red-500">*</span></label>
+                                    <select wire:model="paymentType" class="{{ $lvIn }}">
                                         <option value="">Select type…</option>
                                         <option value="monthly">Monthly</option>
                                         <option value="one_time">One Time</option>
                                         <option value="student_based">Student Based</option>
                                     </select>
-                                    @error('paymentType') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
+                                    @error('paymentType')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Amount (₹) <span class="text-rose-500">*</span></label>
-                                    <input type="number" min="0" step="0.01" wire:model="paymentAmount" placeholder="e.g. 25000"
-                                        class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-400 focus:border-green-400">
-                                    @error('paymentAmount') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
+                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Amount (₹) <span class="text-red-500">*</span></label>
+                                    <input type="number" min="0" step="0.01" wire:model="paymentAmount" placeholder="e.g. 25000" class="{{ $lvIn }}">
+                                    @error('paymentAmount')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                                 </div>
                             </div>
                         @endif
 
-                        {{-- Remark → note --}}
                         @if ($statusChoice === 'rejected')
-                            <div class="mt-4 rounded-xl bg-rose-50/60 border border-rose-100 p-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Remark <span class="text-rose-500">*</span></label>
-                                <textarea wire:model="remarkText" rows="3" placeholder="Reason / note about this school…"
-                                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-rose-400 focus:border-rose-400 resize-y"></textarea>
-                                <p class="text-xs text-gray-400 mt-1">This remark will show in the status column instead of an Approved badge.</p>
-                                @error('remarkText') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Remark <span class="text-red-500">*</span></label>
+                                <textarea wire:model="remarkText" rows="4" placeholder="Reason / note about this school…" class="{{ $lvIn }} resize-y"></textarea>
+                                <p class="mt-1 text-xs text-gray-400">This remark shows in the list's status column.</p>
+                                @error('remarkText')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                             </div>
                         @endif
                     </div>
                 </div>
 
                 {{-- Footer --}}
-                <div class="px-6 py-3.5 border-t border-gray-100 flex items-center justify-end gap-3 flex-shrink-0">
-                    <button wire:click="openEdit({{ $viewSchool->id }})" type="button" class="px-4 py-2 text-sm font-medium text-indigo-600 hover:text-indigo-800">Edit details</button>
-                    <button wire:click="closeViewPanel" type="button" class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800">Close</button>
-                    <button wire:click="saveStatus" type="button" wire:loading.attr="disabled" wire:target="saveStatus"
-                        class="inline-flex items-center gap-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2 rounded-lg">
-                        <span wire:loading.remove wire:target="saveStatus">Save Status</span>
-                        <span wire:loading wire:target="saveStatus">Saving…</span>
-                    </button>
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between gap-2 flex-shrink-0">
+                    <button wire:click="openEdit({{ $viewSchool->id }})" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Edit details</button>
+                    <div class="flex items-center gap-2">
+                        <button wire:click="closeViewPanel" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Close</button>
+                        <button wire:click="saveStatus" type="button" wire:loading.attr="disabled" wire:target="saveStatus"
+                            class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
+                            <span wire:loading.remove wire:target="saveStatus">Save Status</span>
+                            <span wire:loading wire:target="saveStatus">Saving...</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
