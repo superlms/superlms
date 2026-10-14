@@ -94,15 +94,36 @@ class AdmitCard extends Model
         return $this->belongsTo(User::class, 'updated_by');
     }
 
-    // Generate unique admit card number
+    /**
+     * A new admit card number, unused: ADMIT + the school's first 3 letters +
+     * the exam's first 3 + the year + a random number.
+     *
+     * The column is unique across every school, and that base is shared
+     * widely — "F.A 1", "F.A 2", "F.A 3"… all give "F.A", schools whose names
+     * start alike give the same 3 letters — so its 9,000 four-digit numbers
+     * fill up, and a random pick that was already taken stopped the insert
+     * ("Duplicate entry … admit_cards_admit_card_number_unique", 2026-10-14).
+     * A taken number is tried again, and a crowded base moves on to longer
+     * numbers; cards already issued keep theirs.
+     */
     public static function generateAdmitCardNumber($organizationId, $examId)
     {
-        $prefix = 'ADMIT';
-        $orgCode = strtoupper(substr(str_replace(' ', '', Organization::find($organizationId)->name ?? 'ORG'), 0, 3));
-        $year = date('y');
-        $examCode = strtoupper(substr(str_replace(' ', '', Exam::find($examId)->exam_name ?? 'EXAM'), 0, 3));
-        $random = mt_rand(1000, 9999);
+        $prefix   = 'ADMIT';
+        $orgCode  = mb_strtoupper(mb_substr(str_replace(' ', '', Organization::find($organizationId)->name ?? 'ORG'), 0, 3));
+        $year     = date('y');
+        $examCode = mb_strtoupper(mb_substr(str_replace(' ', '', Exam::find($examId)->exam_name ?? 'EXAM'), 0, 3));
+        $base     = "{$prefix}{$orgCode}{$examCode}{$year}";
 
-        return "{$prefix}{$orgCode}{$examCode}{$year}{$random}";
+        foreach ([[1000, 9999, 25], [100000, 999999, 25], [10000000, 99999999, 25]] as [$min, $max, $tries]) {
+            for ($i = 0; $i < $tries; $i++) {
+                $number = $base . random_int($min, $max);
+                if (!static::withoutGlobalScopes()->where('admit_card_number', $number)->exists()) {
+                    return $number;
+                }
+            }
+        }
+
+        // Never in practice: the time of day makes it unlike any other.
+        return $base . now()->format('His') . random_int(100000, 999999);
     }
 }
