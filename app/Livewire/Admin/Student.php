@@ -316,6 +316,22 @@ class Student extends Component
         $this->closePhotoViewer();
     }
 
+    /** Send Credentials (the view's footer): the WhatsApp welcome again, to this student's mobile. */
+    public function sendCredentials(): void
+    {
+        $userId = $this->viewData['user']->id ?? null;
+        $user   = $userId ? User::where('organization_id', Auth::user()->organization_id)->find($userId) : null;
+        if (!$user) {
+            $this->notification()->error('Student not found!');
+            return;
+        }
+
+        $result = \App\Services\WelcomeWhatsApp::resend($user, 'student');
+        $result['ok']
+            ? $this->notification()->success('Credentials sent', $result['message'])
+            : $this->notification()->error('Not sent', $result['message']);
+    }
+
     public function onImageClick($id): void
     {
         $this->imagePath = User::find($id)?->image;

@@ -272,6 +272,26 @@ class Student extends Component
         $this->viewModalTitle = '';
     }
 
+    /**
+     * Send Credentials (the view's footer): the WhatsApp welcome again, to
+     * this student's mobile. Looked up through StudentDetail so a super
+     * admin limited to one school reaches only that school's students.
+     */
+    public function sendCredentials(): void
+    {
+        $userId = $this->viewData['user']->id ?? null;
+        $user   = $userId && StudentDetail::where('user_id', $userId)->exists() ? User::find($userId) : null;
+        if (!$user) {
+            $this->notification()->error('Student not found!');
+            return;
+        }
+
+        $result = \App\Services\WelcomeWhatsApp::resend($user, 'student');
+        $result['ok']
+            ? $this->notification()->success('Credentials sent', $result['message'])
+            : $this->notification()->error('Not sent', $result['message']);
+    }
+
     // ─── Delete ───────────────────────────────────────────────────────────────
 
     public function onDeleteStudentSuperAdmin($id): void

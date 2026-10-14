@@ -85,6 +85,44 @@ class WelcomeWhatsApp
     }
 
     /**
+     * Send a student's or teacher's welcome again — Send Credentials on the
+     * Students / Teachers view: the same message, with a fresh "View details"
+     * link to their admission number or username and password (the password
+     * itself is not changed). Says why when it cannot go: WhatsApp not set
+     * up, no usable mobile, a teacher without a username.
+     *
+     * $kind is 'student' or 'teacher'. Returns ['ok' => bool, 'message' => string].
+     */
+    public static function resend(User $user, string $kind): array
+    {
+        if (!WhatsAppService::enabled()) {
+            return ['ok' => false, 'message' => 'WhatsApp is not set up, so nothing was sent.'];
+        }
+
+        if ($kind === 'student') {
+            $detail = StudentDetail::where('user_id', $user->id)->first();
+            if (!$detail) {
+                return ['ok' => false, 'message' => 'Student details not found.'];
+            }
+            $phone = $detail->phone ?: $user->mobile_number;   // as student() picks it
+        } else {
+            if (!$user->username) {
+                return ['ok' => false, 'message' => 'This teacher has no username yet, so there is nothing to send.'];
+            }
+            $phone = $user->mobile_number;
+        }
+
+        $to = WhatsAppService::normalizePhone($phone);
+        if ($to === null) {
+            return ['ok' => false, 'message' => 'No valid mobile number to send the credentials to.'];
+        }
+
+        $kind === 'student' ? self::student((int) $user->id) : self::teacher((int) $user->id);
+
+        return ['ok' => true, 'message' => 'Credentials sent on WhatsApp to +' . $to . '.'];
+    }
+
+    /**
      * Whether an edit moved the person to a different mobile — the new one
      * gets the message too. The same number written another way ("98765
      * 43210", "+91…") is not a change.
