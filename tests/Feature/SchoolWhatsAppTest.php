@@ -274,10 +274,10 @@ class SchoolWhatsAppTest extends TestCase
 
     // ─── Usage ────────────────────────────────────────────────────────────────
 
-    private function message(string $feature, string $status, string $at, int $org = 1): void
+    private function message(string $feature, string $status, string $at, int $org = 1, array $more = []): void
     {
         $charged = SchoolWhatsApp::FEATURES[$feature][1];
-        WhatsAppMessage::forceCreate([
+        WhatsAppMessage::forceCreate($more + [
             'organization_id' => $org, 'feature' => $feature, 'template' => 't', 'status' => $status,
             'billable' => $charged, 'rate' => $charged ? 0.66 : 0, 'created_at' => $at, 'updated_at' => $at,
         ]);
@@ -296,23 +296,58 @@ class SchoolWhatsAppTest extends TestCase
         $this->message('absent_alert', 'sent', '2026-10-05 12:00:00', 2);    // another school
 
         $this->assertSame([
-            'counts'  => ['absent_alert' => 2, 'fee_received' => 1, 'credentials' => 1, 'welcome' => 1],
-            'charged' => 4,
-            'amount'  => 2.64,
-            'failed'  => 1,
+            'counts'   => ['absent_alert' => 2, 'fee_received' => 1, 'credentials' => 1, 'welcome' => 1],
+            'charged'  => 4,
+            'amount'   => 2.64,
+            'failed'   => 1,
+            'statuses' => ['sent' => 3, 'delivered' => 1, 'read' => 1, 'failed' => 1],
         ], SchoolWhatsApp::usage(1, '2026-10'));
         $this->assertSame(1, SchoolWhatsApp::usage(1, '2026-09')['charged']);
         $this->assertSame(0, SchoolWhatsApp::usage(1, 'nonsense')['charged']);
 
-        $summary = SchoolWhatsApp::summary(1, 'nonsense');
-        $this->assertSame(['2026-10' => 'Oct 2026', '2026-09' => 'Sep 2026'], $summary['months']);
-        $this->assertSame('2026-10', $summary['month']);                       // this month when the one asked is not there
-        $this->assertSame(['absent_alert' => false, 'fee_received' => false], $summary['switches']);
-        $this->assertSame(0.66, $summary['rate']);
-        $this->assertSame('2026-09', SchoolWhatsApp::summary(1, '2026-09')['month']);
+        // The periods to pick: the last 30 days, then each month with messages.
+        $this->assertSame(['' => 'Last 30 days', '2026-10' => 'Oct 2026', '2026-09' => 'Sep 2026'], SchoolWhatsApp::periods(1));
+        $range = fn (?string $p) => array_map(fn ($v) => is_string($v) ? $v : $v->toDateTimeString(), SchoolWhatsApp::periodRange($p));
+        $this->assertSame(['2026-09-16 00:00:00', '2026-10-15 23:59:59', 'Last 30 days'], $range(''));
+        $this->assertSame(['2026-09-01 00:00:00', '2026-09-30 23:59:59', 'Sep 2026'], $range('2026-09'));
+        $this->assertSame(['2026-10-01 00:00:00', '2026-10-15 23:59:59', 'Oct 2026'], $range('2026-10'));   // up to today
+        $this->assertSame(['absent_alert' => false, 'fee_received' => false], SchoolWhatsApp::switches(1));
 
         $this->assertTrue(SchoolWhatsApp::inUse(1));
         $this->assertFalse(SchoolWhatsApp::inUse(3));
+    }
+
+    public function test_day_by_day_and_the_messages_themselves(): void
+    {
+        $this->message('absent_alert', 'read', '2026-10-15 09:00:00', 1, ['student_detail_id' => 1, 'user_id' => 10, 'to_phone' => '919876543210']);
+        $this->message('fee_received', 'delivered', '2026-10-15 09:05:00', 1, ['student_detail_id' => 2, 'user_id' => 11, 'to_phone' => '919988776655']);
+        $this->message('credentials', 'failed', '2026-10-14 12:00:00', 1, ['user_id' => 11, 'to_phone' => '919123456780', 'error' => '131026 Message undeliverable']);
+        $this->message('welcome', 'sent', '2026-10-14 13:00:00', 1, ['user_id' => 10, 'to_phone' => '919876543210']);
+        $this->message('fee_received', 'sending', '2026-10-13 10:00:00');                      // never went
+        $this->message('absent_alert', 'sent', '2026-09-15 08:00:00');                         // before the 30 days
+        $this->message('absent_alert', 'sent', '2026-10-15 08:00:00', 2);                      // another school
+        [$from, $to] = SchoolWhatsApp::periodRange('');
+
+        $daily = SchoolWhatsApp::daily(1, $from, $to);
+        $this->assertCount(30, $daily['days']);
+        $this->assertSame(['16 Sep', '14 Oct', '15 Oct'], [$daily['labels'][0], $daily['labels'][28], $daily['labels'][29]]);
+        $this->assertSame([1, 1, 0, 0], [$daily['counts']['absent_alert'][29], $daily['counts']['fee_received'][29], $daily['counts']['credentials'][28], $daily['counts']['fee_received'][27]]);
+        $this->assertSame([2, 1, 0], [$daily['total'][29], $daily['total'][28], $daily['total'][27]]);
+        $this->assertSame([0, 1], [$daily['failed'][29], $daily['failed'][28]]);
+        $this->assertSame([1.32, 0.0], [$daily['amount'][29], $daily['amount'][28]]);
+
+        $list = SchoolWhatsApp::messages(1, $from, $to);
+        $this->assertSame(4, $list['count']);
+        $this->assertSame(['fee_received', 'absent_alert', 'welcome', 'credentials'], array_column($list['rows'], 'feature'));
+        $this->assertSame(['Bala Rao', 'Asha Verma', 'Asha', 'Bala'], array_column($list['rows'], 'name'));
+        $this->assertSame(['+91 99887 76655', '+91 98765 43210', '+91 98765 43210', '+91 91234 56780'], array_column($list['rows'], 'phone'));
+        $this->assertSame([0.66, 0.66, 'free', 'none'], array_column($list['rows'], 'charge'));
+        $this->assertSame('131026 Message undeliverable', $list['rows'][3]['error']);
+
+        $this->assertSame(1, SchoolWhatsApp::messages(1, $from, $to, 'absent_alert')['count']);
+        $this->assertSame(['credentials'], array_column(SchoolWhatsApp::messages(1, $from, $to, null, 'failed')['rows'], 'feature'));
+        $this->assertSame([2, 4], [count(SchoolWhatsApp::messages(1, $from, $to, null, null, 2)['rows']), SchoolWhatsApp::messages(1, $from, $to, null, null, 2)['count']]);
+        $this->assertSame(1, SchoolWhatsApp::messages(1, ...array_slice(SchoolWhatsApp::periodRange('2026-09'), 0, 2))['count']);
     }
 
     // ─── Meta's status webhook ────────────────────────────────────────────────

@@ -5,8 +5,6 @@ namespace Tests\Feature;
 use App\Livewire\SuperAdmin\Fees;
 use App\Models\SuperAdmin\SuperAdminFeeStructure;
 use App\Models\User;
-use App\Models\WhatsAppMessage;
-use App\Services\SchoolWhatsApp;
 use App\Support\SuperAdminFeeAllocator;
 use App\Support\SuperAdminFeeTotals;
 use Carbon\Carbon;
@@ -520,62 +518,6 @@ class SuperAdminFeeReceiveTest extends TestCase
         // The list cell; the Board filter keeps the saved values it matches on.
         $this->assertMatchesRegularExpression('/whitespace-nowrap">UP BOARD<\/td>/', $html);
         $this->assertDoesNotMatchRegularExpression('/<td[^>]*>[^<]*ENGLISH MEDIUM/', $html);
-    }
-
-    // ─── School view → WhatsApp (2026-10-15) ──────────────────────────────────
-
-    public function test_the_school_page_opens_with_whatsapp_switches_and_a_months_messages(): void
-    {
-        $this->signIn();
-        $text = fn ($page) => preg_replace('/\s+/', ' ', strip_tags($page->html()));
-
-        // Before the migration there is no card.
-        $this->assertStringNotContainsString('toggleWhatsApp', Livewire::test(Fees::class)->call('selectSchool', 1)->html());
-
-        (require base_path('database/migrations/2026_10_14_200000_create_whatsapp_messages_tables.php'))->up();
-        app()->forgetInstance('whatsapp_messages.tracked');
-        $message = function (int $org, string $feature, string $status, string $at) {
-            $charged = SchoolWhatsApp::FEATURES[$feature][1];
-            WhatsAppMessage::forceCreate([
-                'organization_id' => $org, 'feature' => $feature, 'template' => 't', 'status' => $status,
-                'billable' => $charged, 'rate' => $charged ? 0.66 : 0, 'created_at' => $at, 'updated_at' => $at,
-            ]);
-        };
-        $message(1, 'absent_alert', 'sent', '2026-10-01 09:00:00');
-        $message(1, 'absent_alert', 'delivered', '2026-10-02 09:00:00');
-        $message(1, 'absent_alert', 'failed', '2026-10-03 09:00:00');
-        $message(1, 'fee_received', 'read', '2026-10-04 09:00:00');
-        $message(1, 'credentials', 'sent', '2026-10-05 09:00:00');
-        $message(1, 'welcome', 'sent', '2026-10-06 09:00:00');
-        $message(1, 'fee_received', 'sent', '2026-09-20 09:00:00');
-        $message(2, 'absent_alert', 'sent', '2026-10-01 09:00:00');
-
-        $page = Livewire::test(Fees::class)->call('selectSchool', 1);
-        $html = $page->html();
-        $this->assertLessThan(strpos($html, '>Overview</h2>'), strpos($html, '>WhatsApp</h2>'));   // first on the page
-        $this->assertStringContainsString("wire:click=\"toggleWhatsApp('absent_alert')\"", $html);
-        $this->assertStringContainsString("wire:click=\"toggleWhatsApp('fee_received')\"", $html);
-        $this->assertStringNotContainsString("toggleWhatsApp('credentials')", $html);
-        $this->assertStringContainsString('role="switch" aria-checked="false"', $html);
-        foreach (['Absent alert 2 Off · ₹0.66 each', 'Fee received 1 Off · ₹0.66 each', 'Credentials 1 Send Credentials · ₹0.66 each',
-                  'Welcome (free) 1 On adding someone', 'Total · Oct 2026 ₹2.64 4 charged · 1 not delivered',
-                  '₹0.66 a message · not charged when it is not delivered'] as $seen) {
-            $this->assertStringContainsString($seen, $text($page));
-        }
-
-        // On for this school only, and off again; Credentials has no switch.
-        $page->call('toggleWhatsApp', 'absent_alert');
-        $this->assertTrue(SchoolWhatsApp::enabled(1, 'absent_alert'));
-        $this->assertFalse(SchoolWhatsApp::enabled(2, 'absent_alert'));
-        $this->assertStringContainsString('Absent alert 2 On · ₹0.66 each', $text($page));
-        $this->assertStringContainsString('role="switch" aria-checked="true"', $page->html());
-        $page->call('toggleWhatsApp', 'absent_alert')->call('toggleWhatsApp', 'credentials');
-        $this->assertFalse(SchoolWhatsApp::enabled(1, 'absent_alert'));
-        $this->assertSame(['absent_alert'], DB::table('whatsapp_school_features')->pluck('feature')->all());
-
-        // Another month, and another school's own figures.
-        $this->assertStringContainsString('Total · Sep 2026 ₹0.66 1 charged', $text($page->set('waMonth', '2026-09')));
-        $this->assertStringContainsString('Total · Oct 2026 ₹0.66 1 charged', $text(Livewire::test(Fees::class)->call('selectSchool', 2)));
     }
 
     // ─── School view → Payments: View and Edit (2026-10-14) ───────────────────

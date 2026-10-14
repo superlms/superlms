@@ -304,13 +304,7 @@
     {{-- name) in a 3 × 3 grid that fills the screen under the header.     --}}
     {{-- ════════════════════════════════════════════════════════════════ --}}
     @if ($activeTab === '')
-        {{-- WhatsApp: the month's messages and what they come to, to read —
-             over the tiles once the school has any (the grid gives up its room). --}}
-        @if ($whatsApp ?? null)
-            @include('livewire.partials.whatsapp-usage', ['wa' => $whatsApp, 'waEditable' => false])
-        @endif
-
-        <div class="grid grid-cols-3 auto-rows-fr gap-3 sm:gap-4 min-h-[22rem] {{ ($whatsApp ?? null) ? 'sm:h-[calc(100vh-16rem)]' : 'sm:h-[calc(100vh-12rem)]' }}">
+        <div class="grid grid-cols-3 auto-rows-fr gap-3 sm:gap-4 min-h-[22rem] sm:h-[calc(100vh-12rem)]">
             @foreach ($feeTabs as $tab => [$label, $icon, $desc, $color])
                 @php $c = $feeColorMap[$color] ?? $feeColorMap['blue']; @endphp
                 <button wire:click="showTab('{{ $tab }}')" wire:key="fee-tile-{{ $tab }}"

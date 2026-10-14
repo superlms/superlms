@@ -30,6 +30,8 @@ use WireUi\Traits\WireUiActions;
 class Schools extends Component
 {
     use WireUiActions, WithFileUploads, WithPagination;
+    // The school view's WhatsApp tab (after Modules).
+    use \App\Livewire\Concerns\HandlesWhatsAppAnalytics;
 
     public int $totalSchools   = 0;
     public int $activeSchools  = 0;
@@ -202,6 +204,7 @@ class Schools extends Component
         $this->activeView         = 'detail';
         $this->selectedStudentId  = null;
         $this->selectedTeacherId  = null;
+        $this->resetWhatsAppFilters();
     }
 
     public function backToList(): void
@@ -211,6 +214,28 @@ class Schools extends Component
         $this->detailTab          = 'overview';
         $this->selectedStudentId  = null;
         $this->selectedTeacherId  = null;
+        $this->resetWhatsAppFilters();
+    }
+
+    // ─── WhatsApp tab: the school's paid messages on / off, and its analytics ──
+
+    protected function whatsAppOrgId(): ?int
+    {
+        return $this->detailSchool?->id ? (int) $this->detailSchool->id : null;
+    }
+
+    /** Turn one of the school's paid messages (Absent alert, Fee received) on or off. */
+    public function toggleWhatsApp(string $feature): void
+    {
+        $orgId = $this->whatsAppOrgId();
+        if (!$orgId || !\App\Services\SchoolWhatsApp::tracked() || !(\App\Services\SchoolWhatsApp::FEATURES[$feature][2] ?? false)) {
+            return;
+        }
+
+        $on = !\App\Services\SchoolWhatsApp::enabled($orgId, $feature);
+        \App\Services\SchoolWhatsApp::setEnabled($orgId, $feature, $on);
+
+        $this->notification()->success(\App\Services\SchoolWhatsApp::FEATURES[$feature][0] . ($on ? ' is on' : ' is off') . ' for ' . $this->detailSchool->name . '.');
     }
 
     public function setDetailTab(string $tab): void

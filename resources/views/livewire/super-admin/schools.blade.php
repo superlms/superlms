@@ -323,6 +323,7 @@
                     @foreach ([
         'overview' => 'Overview',
         'modules' => 'Modules',
+        'whatsapp' => 'WhatsApp',
         'bank' => 'Bank Details',
         'fees' => 'Fees Analytics',
         'students' => 'Students',
@@ -448,6 +449,20 @@
                                 </button>
                             </div>
                         </div>
+                    </div>
+                @endif
+
+                {{-- ════════ WHATSAPP TAB ════════
+                     The school's paid messages (Absent alert, Fee received) on /
+                     off, and its analytics: the last 30 days or a month — each
+                     kind day by day, what it came to, delivery, the messages. --}}
+                @if ($detailTab === 'whatsapp')
+                    <div class="p-5">
+                        @if ($wa = $this->whatsAppAnalytics())
+                            @include('livewire.partials.whatsapp-analytics', ['wa' => $wa, 'waEditable' => true, 'waKey' => 'sa-school-' . $detailSchool->id])
+                        @else
+                            <p class="text-center py-12 text-sm text-gray-400">WhatsApp messages are not set up yet.</p>
+                        @endif
                     </div>
                 @endif
 

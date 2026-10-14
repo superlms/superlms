@@ -146,36 +146,6 @@ class FeeMergedTabsTest extends TestCase
         $this->assertStringNotContainsString('Add QR', $html);
     }
 
-    public function test_the_landing_reads_the_months_whatsapp_messages_over_the_tiles(): void
-    {
-        $this->assertStringNotContainsString('wire:model.live="waMonth"', Livewire::test(Fee::class)->html());   // no tables yet
-
-        (require base_path('database/migrations/2026_10_14_200000_create_whatsapp_messages_tables.php'))->up();
-        app()->forgetInstance('whatsapp_messages.tracked');
-        $html = Livewire::test(Fee::class)->html();
-        $this->assertStringNotContainsString('wire:model.live="waMonth"', $html);     // nothing sent, nothing on
-        $this->assertStringContainsString('sm:h-[calc(100vh-12rem)]', $html);
-
-        DB::table('organizations')->insert(['id' => 4, 'name' => 'Other School']);
-        DB::table('whatsapp_school_features')->insert(['organization_id' => $this->org, 'feature' => 'fee_received', 'enabled' => true]);
-        foreach ([[$this->org, 'fee_received'], [$this->org, 'welcome'], [4, 'absent_alert']] as [$org, $feature]) {
-            \App\Models\WhatsAppMessage::forceCreate([
-                'organization_id' => $org, 'feature' => $feature, 'template' => 't', 'status' => 'sent',
-                'billable' => $feature !== 'welcome', 'rate' => $feature !== 'welcome' ? 0.66 : 0,
-            ]);
-        }
-
-        $html = Livewire::test(Fee::class)->html();
-        $text = preg_replace('/\s+/', ' ', strip_tags($html));
-        foreach (['WhatsApp', 'Absent alert: 0 (Off)', 'Fee received: 1 (On)', 'Credentials: 0', 'Welcome (free): 1', 'Total: ₹0.66 · 1 charged'] as $seen) {
-            $this->assertStringContainsString($seen, $text);
-        }
-        $this->assertStringContainsString('wire:model.live="waMonth"', $html);
-        $this->assertStringNotContainsString('toggleWhatsApp', $html);                 // to read: the Super Admin switches them
-        $this->assertStringContainsString('sm:h-[calc(100vh-16rem)]', $html);          // the tiles give up the room
-        $this->assertSame(9, substr_count($html, 'wire:key="fee-tile-'));
-    }
-
     public function test_view_and_submit_fee_in_one_tab(): void
     {
         $s    = $this->school();

@@ -10,6 +10,8 @@ use App\Models\WhatsAppMessage;
 use App\Models\WhatsAppSchoolFeature;
 use App\Support\FeeDues;
 use App\Support\StudentFeeTotals;
+use Carbon\CarbonInterface;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -332,29 +334,45 @@ class SchoolWhatsApp
     }
 
     /**
-     * One month of a school's messages: how many of each kind went (a failed
-     * one is not counted) and what the charged ones come to.
-     * ['counts' => [feature => n], 'charged' => n, 'amount' => ₹, 'failed' => n]
+     * One month of a school's messages ('2026-10'), as usageBetween() reads it.
      */
     public static function usage(int $orgId, string $month): array
     {
+        if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
+            return self::usageBetween($orgId, now()->addDay(), now());   // nothing
+        }
+        $from = Carbon::createFromFormat('Y-m-d', $month . '-01')->startOfDay();
+
+        return self::usageBetween($orgId, $from, $from->copy()->endOfMonth());
+    }
+
+    /**
+     * A school's messages between two moments: how many of each kind went (a
+     * failed one is not counted), what the charged ones come to, and how far
+     * they got (sent / delivered / read, and failed — not delivered).
+     * ['counts' => [feature => n], 'charged' => n, 'amount' => ₹, 'failed' => n,
+     *  'statuses' => ['sent' => n, 'delivered' => n, 'read' => n, 'failed' => n]]
+     */
+    public static function usageBetween(int $orgId, CarbonInterface $from, CarbonInterface $to): array
+    {
         $counts = array_fill_keys(array_keys(self::FEATURES), 0);
-        $out    = ['counts' => $counts, 'charged' => 0, 'amount' => 0.0, 'failed' => 0];
-        if (!self::tracked() || !preg_match('/^\d{4}-\d{2}$/', $month)) {
+        $out    = ['counts' => $counts, 'charged' => 0, 'amount' => 0.0, 'failed' => 0,
+                   'statuses' => ['sent' => 0, 'delivered' => 0, 'read' => 0, 'failed' => 0]];
+        if (!self::tracked() || $to->lt($from)) {
             return $out;
         }
 
-        $from = \Illuminate\Support\Carbon::createFromFormat('Y-m-d', $month . '-01')->startOfDay();
         $rows = WhatsAppMessage::where('organization_id', $orgId)
-            ->whereBetween('created_at', [$from, $from->copy()->endOfMonth()])
+            ->whereBetween('created_at', [$from, $to])
             ->selectRaw('feature, status, billable, COUNT(*) as n, SUM(rate) as amount')
             ->groupBy('feature', 'status', 'billable')
             ->get();
 
         foreach ($rows as $r) {
-            if ($r->status === 'sending') {
-                continue;   // not gone yet (or cut short): never charged
+            if (!isset($out['statuses'][$r->status])) {
+                continue;   // sending: not gone yet (or cut short), never charged
             }
+            $out['statuses'][$r->status] += (int) $r->n;
             if ($r->status === 'failed') {
                 $out['failed'] += (int) $r->n;
                 continue;
@@ -371,31 +389,144 @@ class SchoolWhatsApp
         return $out;
     }
 
-    /**
-     * What the WhatsApp card shows for a school (Super Admin → Fees → the
-     * school, with its switches; the school admin's Fee page, to read): the
-     * months to pick from, the month picked (this month when $month is not
-     * one of them), that month's usage, which paid messages are on, the rate.
-     */
-    public static function summary(int $orgId, ?string $month = null): array
-    {
-        $months = self::months($orgId);
-        $month  = $month !== null && isset($months[$month]) ? $month : array_key_first($months);
+    // ─── The WhatsApp analytics (Super Admin → Schools → a school → WhatsApp;
+    //     the school admin's Analytics) ──────────────────────────────────────────
 
-        $switches = [];
+    /**
+     * The periods the analytics can show: '' — the last 30 days — then each
+     * month with messages, newest first ('2026-10' => 'Oct 2026').
+     */
+    public static function periods(int $orgId): array
+    {
+        return ['' => 'Last 30 days'] + self::months($orgId);
+    }
+
+    /**
+     * [from, to, label] of a period: a month ('2026-10'), up to today at most;
+     * '' (or anything else) — the last 30 days, today among them.
+     */
+    public static function periodRange(?string $period): array
+    {
+        if ($period !== null && preg_match('/^\d{4}-\d{2}$/', $period)) {
+            $from = Carbon::createFromFormat('Y-m-d', $period . '-01')->startOfDay();
+            $to   = $from->copy()->endOfMonth();
+
+            return [$from, $to->gt(now()) ? now()->endOfDay() : $to, $from->format('M Y')];
+        }
+
+        return [now()->subDays(29)->startOfDay(), now()->endOfDay(), 'Last 30 days'];
+    }
+
+    /** Which of the switched messages a school has on: [feature => bool]. */
+    public static function switches(int $orgId): array
+    {
+        $out = [];
         foreach (self::FEATURES as $feature => [, , $switched]) {
             if ($switched) {
-                $switches[$feature] = self::enabled($orgId, $feature);
+                $out[$feature] = self::enabled($orgId, $feature);
             }
         }
 
+        return $out;
+    }
+
+    /**
+     * Day by day between two moments: how many of each kind went, how many
+     * failed and what the charged ones came to.
+     * ['days' => ['2026-10-15', …], 'labels' => ['15 Oct', …], 'counts' => [feature => [n, …]],
+     *  'total' => [n, …], 'failed' => [n, …], 'amount' => [₹, …]]
+     */
+    public static function daily(int $orgId, CarbonInterface $from, CarbonInterface $to): array
+    {
+        $days = [];
+        for ($d = $from->copy()->startOfDay(); $d->lte($to); $d->addDay()) {
+            $days[$d->toDateString()] = ['failed' => 0, 'amount' => 0.0] + array_fill_keys(array_keys(self::FEATURES), 0);
+        }
+
+        if ($days && self::tracked()) {
+            $rows = WhatsAppMessage::where('organization_id', $orgId)
+                ->whereBetween('created_at', [$from, $to])
+                ->selectRaw('DATE(created_at) as day, feature, status, billable, COUNT(*) as n, SUM(rate) as amount')
+                ->groupBy('day', 'feature', 'status', 'billable')
+                ->get();
+
+            foreach ($rows as $r) {
+                $day = substr((string) $r->day, 0, 10);
+                if (!isset($days[$day]) || $r->status === 'sending') {
+                    continue;
+                }
+                if ($r->status === 'failed') {
+                    $days[$day]['failed'] += (int) $r->n;
+                    continue;
+                }
+                $feature = array_key_exists($r->feature, self::FEATURES) ? $r->feature : 'welcome';
+                $days[$day][$feature] += (int) $r->n;
+                if ($r->billable) {
+                    $days[$day]['amount'] += (float) $r->amount;
+                }
+            }
+        }
+
+        $counts = [];
+        foreach (array_keys(self::FEATURES) as $feature) {
+            $counts[$feature] = array_values(array_column($days, $feature));
+        }
+
         return [
-            'months'   => $months,
-            'month'    => $month,
-            'usage'    => self::usage($orgId, $month),
-            'switches' => $switches,
-            'rate'     => self::rate(),
+            'days'   => array_keys($days),
+            'labels' => array_map(fn ($d) => Carbon::parse($d)->format('d M'), array_keys($days)),
+            'counts' => $counts,
+            'total'  => array_values(array_map(fn ($d) => array_sum(array_intersect_key($d, self::FEATURES)), $days)),
+            'failed' => array_values(array_column($days, 'failed')),
+            'amount' => array_values(array_map(fn ($d) => round($d['amount'], 2), $days)),
         ];
+    }
+
+    /**
+     * The messages themselves between two moments, newest first — the first
+     * $limit and how many there are — with whom each went to and what it cost.
+     * $feature: one kind or null; $status: sent | delivered | read | failed or null.
+     */
+    public static function messages(int $orgId, CarbonInterface $from, CarbonInterface $to, ?string $feature = null, ?string $status = null, int $limit = 25): array
+    {
+        if (!self::tracked() || $to->lt($from)) {
+            return ['rows' => [], 'count' => 0];
+        }
+
+        $query = WhatsAppMessage::where('organization_id', $orgId)
+            ->whereBetween('created_at', [$from, $to])
+            ->where('status', '!=', 'sending')
+            ->when($feature && isset(self::FEATURES[$feature]), fn ($q) => $q->where('feature', $feature))
+            ->when(in_array($status, ['sent', 'delivered', 'read', 'failed'], true), fn ($q) => $q->where('status', $status));
+
+        $rows     = (clone $query)->orderByDesc('created_at')->orderByDesc('id')->limit(max(1, $limit))->get();
+        $students = StudentDetail::whereIn('id', $rows->pluck('student_detail_id')->filter()->unique())->pluck('full_name', 'id');
+        $users    = \App\Models\User::whereIn('id', $rows->pluck('user_id')->filter()->unique())->pluck('name', 'id');
+
+        return [
+            'count' => (clone $query)->count(),
+            'rows'  => $rows->map(fn (WhatsAppMessage $m) => [
+                'id'      => $m->id,
+                'at'      => $m->created_at,
+                'feature' => $m->feature,
+                'label'   => self::FEATURES[$m->feature][0] ?? $m->feature,
+                'name'    => ($m->student_detail_id ? ($students[$m->student_detail_id] ?? null) : null)
+                             ?: ($m->user_id ? ($users[$m->user_id] ?? null) : null),
+                'phone'   => self::showPhone($m->to_phone),
+                'status'  => $m->status,
+                'error'   => $m->error,
+                // What it cost: free, not charged (it failed), or its rate.
+                'charge'  => !$m->billable ? 'free' : ($m->status === 'failed' ? 'none' : (float) $m->rate),
+            ])->all(),
+        ];
+    }
+
+    /** '919876543210' as '+91 98765 43210'. */
+    public static function showPhone(?string $phone): string
+    {
+        $phone = (string) $phone;
+
+        return preg_match('/^91(\d{5})(\d{5})$/', $phone, $m) ? "+91 {$m[1]} {$m[2]}" : ($phone !== '' ? '+' . $phone : '—');
     }
 
     /** Whether a school has anything to show: a message sent, or a paid message turned on. */

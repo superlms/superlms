@@ -651,6 +651,17 @@
             </div>
         </section>
 
+        {{-- ═══════════════════════ WHATSAPP ═══════════════════════
+             The school's messages: the last 30 days or a month — each kind
+             day by day, what the charged ones came to, delivery and the
+             messages themselves. To read: the Super Admin turns them on. --}}
+        @if ($wa = $this->whatsAppAnalytics())
+            <section class="space-y-4">
+                <x-admin.section-heading title="WhatsApp" />
+                @include('livewire.partials.whatsapp-analytics', ['wa' => $wa, 'waEditable' => false, 'waKey' => 'admin'])
+            </section>
+        @endif
+
         {{-- ═══════════════════════ OPERATIONS ═══════════════════════ --}}
         <section class="space-y-4">
             <x-admin.section-heading title="Operations" />

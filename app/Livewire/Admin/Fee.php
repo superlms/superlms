@@ -17,7 +17,6 @@ use App\Models\Admin\Fee\PaymentQrCode;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\User;
-use App\Services\SchoolWhatsApp;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -72,10 +71,6 @@ class Fee extends Component
     // ─── Penalties — state and logic live in HandlesPenalties ──────────────────
 
     // ─── Fee Cycle (installments) + Calculator — see HandlesFeeCycles ───────────
-
-    // ─── WhatsApp — the school's messages for a month, over the sections, to
-    //     read (SchoolWhatsApp; the Super Admin turns them on or off) ─────────
-    public string $waMonth = '';
 
     // ─── Account Users (nested component — filters proxied via events) ──────────
     public string $acctSearch = '';
@@ -476,11 +471,6 @@ class Fee extends Component
             $data['qrPending'] = FeePaymentRequest::where('organization_id', $orgId)
                 ->where('status', FeePaymentRequest::STATUS_PENDING)
                 ->count();
-
-            // Shown once the school has a message sent or a paid one turned on.
-            $data['whatsApp'] = SchoolWhatsApp::inUse($orgId)
-                ? SchoolWhatsApp::summary($orgId, $this->waMonth ?: null)
-                : null;
         }
 
         if ($this->activeTab === 'qr_payments' && $this->qrSubTab === 'qr') {

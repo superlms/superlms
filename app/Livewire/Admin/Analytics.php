@@ -25,6 +25,9 @@ use App\Support\NameOrder;
 
 class Analytics extends Component
 {
+    // The WhatsApp section: the school's messages, to read (the Super Admin turns them on or off).
+    use \App\Livewire\Concerns\HandlesWhatsAppAnalytics;
+
     // ─── Filters ─────────────────────────────────────────────────────────────
     public $attendanceFilter = '7';
     public $teacherAttFilter = '7';
@@ -1390,6 +1393,11 @@ class Analytics extends Component
     protected function orgId(): int
     {
         return Auth::user()->organization_id;
+    }
+
+    protected function whatsAppOrgId(): ?int
+    {
+        return $this->orgId() ?: null;
     }
 
     public function render()
