@@ -1,8 +1,7 @@
 {{-- ══════════════════════════════════════════════════════════════════
-     PAYMENTS — the fee-type tabs, the grey "Filter by:" band and the
-     analytics strip attached under it. Meant to be @included inside the
-     host's own sticky header (Accounts\Payments or the Admin Fee
-     "Payments" tab).
+     PAYMENTS — the fee-type tabs and the grey "Filter by:" band. Meant
+     to be @included inside the host's own sticky header (Accounts\Payments
+     or the Admin Fee "Payments" tab).
 
      Both hosts feed this via App\Livewire\Concerns\HandlesPayments, so
      editing this one file keeps the two pages in sync. Same shape as
@@ -87,5 +86,5 @@
     </div>
 </div>
 
-{{-- Analytics, attached straight under the filters --}}
-@include('livewire.partials.payments-analytics')
+{{-- No analytics strip under the filters any more (2026-10-14): the host's
+     header shows the Total Fee and Collected figures instead. --}}

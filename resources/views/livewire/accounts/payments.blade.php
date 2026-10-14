@@ -4,6 +4,7 @@
     <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
         <div class="px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <h1 class="text-lg sm:text-xl font-bold text-gray-900">Payments</h1>
+            @include('livewire.partials.payments-header-figures')
         </div>
         @include('livewire.partials.payments-header')
     </div>

@@ -36,7 +36,8 @@ trait HandlesPayments
     public $paymentModeFilter = '';
     public $feeTypeFilter = '';
 
-    public $paymentsPerPage = 15;
+    // 50 a page (2026-10-14); the app's API asks for its own.
+    public $paymentsPerPage = 50;
 
     /** The host component calls this from its own mount(). */
     public function initPaymentFilters(): void
@@ -304,11 +305,14 @@ trait HandlesPayments
             : collect();
 
         $merged = collect();
+        $collectorType = $this->paymentCollectorTypes($feePayments, $transportPayments);
 
         foreach ($feePayments as $p) {
             $merged->push((object) [
                 'id' => $p->id,
                 'student_name' => $p->studentDetail?->user?->name ?? $p->studentDetail?->full_name ?? '—',
+                'father_name' => $p->studentDetail?->father_name,
+                'collected_by_type' => $collectorType($p->submitted_by, $p->payment_mode),
                 'admission_no' => $p->studentDetail?->admission_no,
                 'standard_name' => $p->standard?->name,
                 'section_name' => $p->section?->name,
@@ -328,6 +332,8 @@ trait HandlesPayments
             $merged->push((object) [
                 'id' => $p->id,
                 'student_name' => $p->studentDetail?->user?->name ?? $p->studentDetail?->full_name ?? '—',
+                'father_name' => $p->studentDetail?->father_name,
+                'collected_by_type' => $collectorType($p->submitted_by, $p->payment_mode),
                 'admission_no' => $p->studentDetail?->admission_no,
                 'standard_name' => $p->studentDetail?->standard?->name,
                 'section_name' => $p->studentDetail?->section?->name,
@@ -355,6 +361,56 @@ trait HandlesPayments
             'path' => Paginator::resolveCurrentPath(),
             'pageName' => 'page',
         ]);
+    }
+
+    /**
+     * Who took each payment, as a kind of person rather than a name — the
+     * listing's Collected By says "Admin", "Sub Admin", "Accounts"…
+     * (2026-10-14). submitted_by holds a staff member's name (the panel and
+     * the admin app), a user id (bus fees, older rows), "PhonePe" (paid in the
+     * app) or nothing; a name is matched to the school's staff by name.
+     * Returns fn (submitted_by, payment_mode) => label.
+     */
+    private function paymentCollectorTypes($feePayments, $transportPayments): \Closure
+    {
+        $label = fn (?string $role) => match ($role) {
+            'admin'                            => 'Admin',
+            'sub-admin'                        => 'Sub Admin',
+            'accounts'                         => 'Accounts',
+            'super-admin', 'sub-super-admin'   => 'Super Admin',
+            'teacher'                          => 'Teacher',
+            'driver'                           => 'Driver',
+            'user'                             => 'Student',
+            default                            => null,
+        };
+
+        $values = collect($feePayments)->pluck('submitted_by')
+            ->merge(collect($transportPayments)->pluck('submitted_by'))
+            ->filter(fn ($v) => $v !== null && $v !== '')->unique();
+
+        $ids    = $values->filter(fn ($v) => ctype_digit((string) $v))->map(fn ($v) => (int) $v)->all();
+        $byId   = $ids ? \App\Models\User::whereIn('id', $ids)->pluck('role', 'id')->all() : [];
+
+        // The school's staff by name — admin before sub-admin before accounts
+        // should two share a name.
+        $byName = [];
+        foreach (\App\Models\User::where('organization_id', $this->orgId())
+            ->whereIn('role', ['admin', 'sub-admin', 'accounts'])
+            ->get(['name', 'role'])
+            ->sortBy(fn ($u) => array_search($u->role, ['admin', 'sub-admin', 'accounts'], true)) as $u) {
+            $byName[mb_strtolower(trim((string) $u->name))] ??= $u->role;
+        }
+
+        return function ($value, $mode) use ($label, $byId, $byName): string {
+            $value = trim((string) $value);
+            if ($value === '' || strcasecmp($value, 'PhonePe') === 0) {
+                // Nobody at the counter: the student paid in the app.
+                return strtolower((string) $mode) === 'online' || $value !== '' ? 'Online' : '—';
+            }
+            $role = ctype_digit($value) ? ($byId[(int) $value] ?? null) : ($byName[mb_strtolower($value)] ?? null);
+
+            return $label($role) ?? '—';
+        };
     }
 
     /** Everything the three shared payment partials need. */

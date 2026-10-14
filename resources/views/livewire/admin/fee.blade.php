@@ -62,6 +62,10 @@
                         <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-1">
                             <span>Net Payable: <strong class="text-blue-600">₹{{ number_format($netPayable, 0) }}</strong></span>
                         </div>
+                    @elseif ($activeTab === 'payments')
+                        {{-- Only the two overall figures (2026-10-14): the whole fee — academic
+                             and transport together — and what has been collected. --}}
+                        @include('livewire.partials.payments-header-figures')
                     @elseif ($activeTab === 'account_users')
                         <div class="hidden lg:flex items-center gap-4 text-sm text-gray-500 mr-1 divide-x divide-gray-200">
                             <span class="pr-4">Total: <strong class="text-gray-800">{{ $acctTotal ?? 0 }}</strong></span>

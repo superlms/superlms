@@ -284,4 +284,43 @@ class FeeMergedTabsTest extends TestCase
         $this->assertFalse($sita['dues']['has']);
         $this->assertSame(1000.0, (float) collect($sita['cycles'])->firstWhere('fee_type', 'academic')['total']);
     }
+
+    public function test_payments_read_with_father_section_collector_kind_and_two_header_figures(): void
+    {
+        $s   = $this->school();
+        $sub = User::forceCreate(['name' => 'Seema', 'role' => 'sub-admin', 'organization_id' => $this->org]);
+        $pay = fn ($student, $amount, $by, $mode = 'cash') => DB::table('fee_payments')->insert([
+            'organization_id' => $this->org, 'student_detail_id' => $student, 'standard_id' => $s['std'], 'section_id' => $s['sec'],
+            'fee_type' => 'academic', 'amount' => $amount, 'payment_mode' => $mode, 'payment_date' => now()->toDateString(),
+            'submitted_by' => $by, 'receipt_number' => 'RCT-' . $amount, 'created_at' => now(),
+        ]);
+        $pay($s['ravi'], 400, 'Head');                 // the admin, by name
+        $pay($s['sita'], 300, 'seema');                // a sub-admin, the name typed in lower case
+        $pay($s['sita'], 200, (string) $sub->id);      // a sub-admin, by user id
+        $pay($s['ravi'], 100, null, 'online');         // paid in the app
+        $pay($s['ravi'], 50, 'Somebody Else');         // a name nobody on the staff has
+
+        $page = Livewire::test(Fee::class)->call('showTab', 'payments');
+        $html = $page->html();
+        $text = preg_replace('/\s+/', ' ', strip_tags($html));
+
+        // The header: only the whole fee and what is collected; no strip under the filters.
+        $this->assertStringContainsString('Total Fee: ₹2,500 Collected: ₹1,050', $text);
+        $this->assertStringNotContainsString('Academic Collected', $text);
+        $this->assertStringNotContainsString('Transport Remaining', $text);
+
+        // The listing: no Penalty column; the father under the name, the section under the class.
+        $this->assertStringContainsString('# Student Adm No Class Date Type Mode Collected By Amount Slip', $text);
+        $this->assertStringContainsString('Ravi Mr Rao — Class 2 A', $text);
+        // Collected By says who by kind, never by name.
+        foreach (['Admin', 'Sub Admin', 'Online'] as $kind) {
+            $this->assertMatchesRegularExpression('/>\s*' . $kind . '\s*<\/td>/', $html, $kind);
+        }
+        $this->assertSame(2, preg_match_all('/>\s*Sub Admin\s*<\/td>/', $html));
+        $this->assertStringNotContainsString('Somebody Else', $text);
+        $this->assertStringNotContainsString('>Head<', $html);
+        // The slip in green; fifty to a page.
+        $this->assertStringContainsString('border-emerald-200 text-emerald-600', $html);
+        $this->assertSame(50, $page->get('paymentsPerPage'));
+    }
 }
