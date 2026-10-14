@@ -22,8 +22,8 @@ use Illuminate\Support\Facades\Schema;
  *   credentials    Send Credentials on a student's or teacher's view            charged
  *   welcome        the welcome on adding a student or teacher                   free (the platform's)
  *
- * Every message is a row in whatsapp_messages with its rate (the school's
- * price at the time, config services.whatsapp.rate_per_message — ₹0.55);
+ * Every message is a row in whatsapp_messages with its rate (RATE, a fixed
+ * ₹0.66 a message; a row keeps the rate it went at);
  * Meta's status webhook (WhatsAppWebhookController) marks one failed, and a
  * failed message is not charged. The paid messages are off for every school
  * until the super admin turns them on (Super Admin → Fees → the school).
@@ -38,10 +38,12 @@ class SchoolWhatsApp
         'welcome'      => ['Welcome (free)', false, false],
     ];
 
-    /** The school's price for one charged message. */
+    /** What a school pays for one charged message: 66 paise, fixed. */
+    public const RATE = 0.66;
+
     public static function rate(): float
     {
-        return round((float) config('services.whatsapp.rate_per_message', 0.55), 2);
+        return self::RATE;
     }
 
     /** Whether the tables are there yet (the migration of 14 Oct 2026) — asked once a request. */

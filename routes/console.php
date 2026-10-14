@@ -44,12 +44,13 @@ Schedule::command('fees:remind')
     ->timezone('Asia/Kolkata')
     ->withoutOverlapping();
 
-// Every five minutes, 6 am – 8 pm IST: WhatsApp the students marked absent
-// today, in schools that have "Absent alert" on — one message a student a
-// day, once the mark has stood ten minutes. Charged to the school.
+// Every minute, at any hour: WhatsApp the students marked absent today — by a
+// teacher, the admin, a sub admin or the accounts desk — in schools that have
+// "Absent alert" on: one message a student a day, two minutes after the mark
+// was saved. Charged to the school.
 // See App\Console\Commands\SendWhatsAppAbsentAlerts / App\Services\SchoolWhatsApp.
 Schedule::command('whatsapp:absent-alerts')
-    ->everyFiveMinutes()
+    ->everyMinute()
     ->timezone('Asia/Kolkata')
     ->withoutOverlapping(10);
 

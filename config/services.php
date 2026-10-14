@@ -77,9 +77,6 @@ return [
             'absent'  => env('WHATSAPP_TEMPLATE_ABSENT', 'student_absent_alert'),
             'fee'     => env('WHATSAPP_TEMPLATE_FEE', 'fee_received'),
         ],
-        // What a school pays for each message charged to it (absent alert, fee
-        // received, Send Credentials); the welcome on adding someone is free.
-        'rate_per_message' => (float) env('WHATSAPP_RATE_PER_MESSAGE', 0.55),
         // Meta's status webhook (/api/whatsapp/webhook): the token Meta echoes
         // when the callback is set up, and the app secret its posts are signed with.
         'webhook_verify_token' => env('WHATSAPP_WEBHOOK_VERIFY_TOKEN'),

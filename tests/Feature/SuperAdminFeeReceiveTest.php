@@ -538,7 +538,7 @@ class SuperAdminFeeReceiveTest extends TestCase
             $charged = SchoolWhatsApp::FEATURES[$feature][1];
             WhatsAppMessage::forceCreate([
                 'organization_id' => $org, 'feature' => $feature, 'template' => 't', 'status' => $status,
-                'billable' => $charged, 'rate' => $charged ? 0.55 : 0, 'created_at' => $at, 'updated_at' => $at,
+                'billable' => $charged, 'rate' => $charged ? 0.66 : 0, 'created_at' => $at, 'updated_at' => $at,
             ]);
         };
         $message(1, 'absent_alert', 'sent', '2026-10-01 09:00:00');
@@ -557,9 +557,9 @@ class SuperAdminFeeReceiveTest extends TestCase
         $this->assertStringContainsString("wire:click=\"toggleWhatsApp('fee_received')\"", $html);
         $this->assertStringNotContainsString("toggleWhatsApp('credentials')", $html);
         $this->assertStringContainsString('role="switch" aria-checked="false"', $html);
-        foreach (['Absent alert 2 Off · ₹0.55 each', 'Fee received 1 Off · ₹0.55 each', 'Credentials 1 Send Credentials · ₹0.55 each',
-                  'Welcome (free) 1 On adding someone', 'Total · Oct 2026 ₹2.20 4 charged · 1 not delivered',
-                  '₹0.55 a message · not charged when it is not delivered'] as $seen) {
+        foreach (['Absent alert 2 Off · ₹0.66 each', 'Fee received 1 Off · ₹0.66 each', 'Credentials 1 Send Credentials · ₹0.66 each',
+                  'Welcome (free) 1 On adding someone', 'Total · Oct 2026 ₹2.64 4 charged · 1 not delivered',
+                  '₹0.66 a message · not charged when it is not delivered'] as $seen) {
             $this->assertStringContainsString($seen, $text($page));
         }
 
@@ -567,15 +567,15 @@ class SuperAdminFeeReceiveTest extends TestCase
         $page->call('toggleWhatsApp', 'absent_alert');
         $this->assertTrue(SchoolWhatsApp::enabled(1, 'absent_alert'));
         $this->assertFalse(SchoolWhatsApp::enabled(2, 'absent_alert'));
-        $this->assertStringContainsString('Absent alert 2 On · ₹0.55 each', $text($page));
+        $this->assertStringContainsString('Absent alert 2 On · ₹0.66 each', $text($page));
         $this->assertStringContainsString('role="switch" aria-checked="true"', $page->html());
         $page->call('toggleWhatsApp', 'absent_alert')->call('toggleWhatsApp', 'credentials');
         $this->assertFalse(SchoolWhatsApp::enabled(1, 'absent_alert'));
         $this->assertSame(['absent_alert'], DB::table('whatsapp_school_features')->pluck('feature')->all());
 
         // Another month, and another school's own figures.
-        $this->assertStringContainsString('Total · Sep 2026 ₹0.55 1 charged', $text($page->set('waMonth', '2026-09')));
-        $this->assertStringContainsString('Total · Oct 2026 ₹0.55 1 charged', $text(Livewire::test(Fees::class)->call('selectSchool', 2)));
+        $this->assertStringContainsString('Total · Sep 2026 ₹0.66 1 charged', $text($page->set('waMonth', '2026-09')));
+        $this->assertStringContainsString('Total · Oct 2026 ₹0.66 1 charged', $text(Livewire::test(Fees::class)->call('selectSchool', 2)));
     }
 
     // ─── School view → Payments: View and Edit (2026-10-14) ───────────────────

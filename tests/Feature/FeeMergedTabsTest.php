@@ -161,13 +161,13 @@ class FeeMergedTabsTest extends TestCase
         foreach ([[$this->org, 'fee_received'], [$this->org, 'welcome'], [4, 'absent_alert']] as [$org, $feature]) {
             \App\Models\WhatsAppMessage::forceCreate([
                 'organization_id' => $org, 'feature' => $feature, 'template' => 't', 'status' => 'sent',
-                'billable' => $feature !== 'welcome', 'rate' => $feature !== 'welcome' ? 0.55 : 0,
+                'billable' => $feature !== 'welcome', 'rate' => $feature !== 'welcome' ? 0.66 : 0,
             ]);
         }
 
         $html = Livewire::test(Fee::class)->html();
         $text = preg_replace('/\s+/', ' ', strip_tags($html));
-        foreach (['WhatsApp', 'Absent alert: 0 (Off)', 'Fee received: 1 (On)', 'Credentials: 0', 'Welcome (free): 1', 'Total: ₹0.55 · 1 charged'] as $seen) {
+        foreach (['WhatsApp', 'Absent alert: 0 (Off)', 'Fee received: 1 (On)', 'Credentials: 0', 'Welcome (free): 1', 'Total: ₹0.66 · 1 charged'] as $seen) {
             $this->assertStringContainsString($seen, $text);
         }
         $this->assertStringContainsString('wire:model.live="waMonth"', $html);

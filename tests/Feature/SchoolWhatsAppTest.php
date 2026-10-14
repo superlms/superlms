@@ -37,7 +37,6 @@ class SchoolWhatsAppTest extends TestCase
             'services.whatsapp.enabled'              => true,
             'services.whatsapp.token'                => 'test-token',
             'services.whatsapp.phone_number_id'      => '1294658720402506',
-            'services.whatsapp.rate_per_message'     => 0.55,
             'services.whatsapp.webhook_verify_token' => 'verify-me',
             'services.whatsapp.app_secret'           => self::SECRET,
         ]);
@@ -134,7 +133,7 @@ class SchoolWhatsAppTest extends TestCase
         $this->assertTrue(SchoolWhatsApp::send(1, 'welcome', '9876543210', 'admission_confirmed', ['A'], null, ['user_id' => 10]));
 
         [$paid, $free] = WhatsAppMessage::orderBy('id')->get()->all();
-        $this->assertSame(['credentials', 'sent', true, '0.55', 'wamid.1', '919876543210'], [$paid->feature, $paid->status, $paid->billable, $paid->rate, $paid->wa_message_id, $paid->to_phone]);
+        $this->assertSame(['credentials', 'sent', true, '0.66', 'wamid.1', '919876543210'], [$paid->feature, $paid->status, $paid->billable, $paid->rate, $paid->wa_message_id, $paid->to_phone]);
         $this->assertSame(['welcome', false, '0.00'], [$free->feature, $free->billable, $free->rate]);
     }
 
@@ -193,31 +192,44 @@ class SchoolWhatsAppTest extends TestCase
         $this->assertTrue(SchoolWhatsApp::sentFor('absent_alert:1:2026-10-15'));
     }
 
-    public function test_the_command_alerts_settled_absent_marks_once_in_schools_that_have_it_on(): void
+    public function test_the_command_alerts_an_absent_mark_two_minutes_after_it_is_saved_at_any_hour(): void
     {
         SchoolWhatsApp::setEnabled(1, 'absent_alert', true);
         $at = fn (string $time) => ['created_at' => $time, 'updated_at' => $time];
+        // Who marked it (teacher, admin, sub admin, accounts) makes no difference.
         DB::table('student_attendances')->insert([
-            ['organization_id' => 1, 'student_detail_id' => 1, 'attendance_date' => '2026-10-15', 'status' => 0] + $at('2026-10-15 09:30:00'),
-            // Marked absent five minutes ago: not yet (it may be put right).
-            ['organization_id' => 1, 'student_detail_id' => 2, 'attendance_date' => '2026-10-15', 'status' => 0] + $at('2026-10-15 09:55:00'),
+            ['organization_id' => 1, 'student_detail_id' => 1, 'attendance_date' => '2026-10-15', 'status' => 0, 'marked_by' => 10] + $at('2026-10-15 09:58:00'),
+            // Marked absent a minute ago: not yet (it may be put right).
+            ['organization_id' => 1, 'student_detail_id' => 2, 'attendance_date' => '2026-10-15', 'status' => 0, 'marked_by' => 11] + $at('2026-10-15 09:59:00'),
             // Absent in a school that has it off.
-            ['organization_id' => 2, 'student_detail_id' => 3, 'attendance_date' => '2026-10-15', 'status' => 0] + $at('2026-10-15 09:00:00'),
+            ['organization_id' => 2, 'student_detail_id' => 3, 'attendance_date' => '2026-10-15', 'status' => 0, 'marked_by' => 12] + $at('2026-10-15 09:00:00'),
         ]);
 
         Artisan::call('whatsapp:absent-alerts');
         Artisan::call('whatsapp:absent-alerts');
-        $this->assertSame([[1]], WhatsAppMessage::pluck('student_detail_id')->map(fn ($id) => [$id])->all());
+        $this->assertSame([1], WhatsAppMessage::pluck('student_detail_id')->all());
 
-        Carbon::setTestNow('2026-10-15 10:06:00');
+        Carbon::setTestNow('2026-10-15 10:01:00');
         Artisan::call('whatsapp:absent-alerts');
         $this->assertSame([1, 2], WhatsAppMessage::orderBy('id')->pluck('student_detail_id')->all());
 
-        // Nothing at night.
-        DB::table('student_attendances')->where('student_detail_id', 1)->update(['attendance_date' => '2026-10-16']);
-        Carbon::setTestNow('2026-10-16 21:00:00');
+        // Late at night too; a mark put right to present within the two minutes gets nothing.
+        DB::table('student_attendances')->insert([
+            ['organization_id' => 1, 'student_detail_id' => 1, 'attendance_date' => '2026-10-16', 'status' => 0] + $at('2026-10-16 23:30:00'),
+            ['organization_id' => 1, 'student_detail_id' => 2, 'attendance_date' => '2026-10-16', 'status' => 1] + $at('2026-10-16 23:30:40'),
+        ]);
+        Carbon::setTestNow('2026-10-16 23:32:00');
         Artisan::call('whatsapp:absent-alerts');
-        $this->assertSame(2, WhatsAppMessage::count());
+        $this->assertSame(['absent_alert:1:2026-10-16'], WhatsAppMessage::where('dedupe_key', 'like', '%2026-10-16')->pluck('dedupe_key')->all());
+    }
+
+    public function test_the_alerts_run_every_minute(): void
+    {
+        $event = collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events())
+            ->first(fn ($e) => str_contains((string) $e->command, 'whatsapp:absent-alerts'));
+
+        $this->assertNotNull($event);
+        $this->assertSame('* * * * *', $event->expression);
     }
 
     // ─── Fee received ─────────────────────────────────────────────────────────
@@ -267,7 +279,7 @@ class SchoolWhatsAppTest extends TestCase
         $charged = SchoolWhatsApp::FEATURES[$feature][1];
         WhatsAppMessage::forceCreate([
             'organization_id' => $org, 'feature' => $feature, 'template' => 't', 'status' => $status,
-            'billable' => $charged, 'rate' => $charged ? 0.55 : 0, 'created_at' => $at, 'updated_at' => $at,
+            'billable' => $charged, 'rate' => $charged ? 0.66 : 0, 'created_at' => $at, 'updated_at' => $at,
         ]);
     }
 
@@ -286,7 +298,7 @@ class SchoolWhatsAppTest extends TestCase
         $this->assertSame([
             'counts'  => ['absent_alert' => 2, 'fee_received' => 1, 'credentials' => 1, 'welcome' => 1],
             'charged' => 4,
-            'amount'  => 2.2,
+            'amount'  => 2.64,
             'failed'  => 1,
         ], SchoolWhatsApp::usage(1, '2026-10'));
         $this->assertSame(1, SchoolWhatsApp::usage(1, '2026-09')['charged']);
@@ -296,7 +308,7 @@ class SchoolWhatsAppTest extends TestCase
         $this->assertSame(['2026-10' => 'Oct 2026', '2026-09' => 'Sep 2026'], $summary['months']);
         $this->assertSame('2026-10', $summary['month']);                       // this month when the one asked is not there
         $this->assertSame(['absent_alert' => false, 'fee_received' => false], $summary['switches']);
-        $this->assertSame(0.55, $summary['rate']);
+        $this->assertSame(0.66, $summary['rate']);
         $this->assertSame('2026-09', SchoolWhatsApp::summary(1, '2026-09')['month']);
 
         $this->assertTrue(SchoolWhatsApp::inUse(1));
@@ -351,7 +363,7 @@ class SchoolWhatsAppTest extends TestCase
     {
         SchoolWhatsApp::send(1, 'credentials', '9876543210', 'admission_confirmed', ['A']);   // wamid.1
         SchoolWhatsApp::send(1, 'credentials', '9123456780', 'admission_confirmed', ['B']);   // wamid.2
-        $this->assertSame(1.1, SchoolWhatsApp::usage(1, '2026-10')['amount']);
+        $this->assertSame(1.32, SchoolWhatsApp::usage(1, '2026-10')['amount']);
 
         $this->postSigned($this->statuses([
             ['id' => 'wamid.1', 'status' => 'delivered', 'timestamp' => '1760500000', 'recipient_id' => '919876543210'],
@@ -366,7 +378,7 @@ class SchoolWhatsAppTest extends TestCase
         $this->assertSame(['failed', '131026 Message undeliverable — Not on WhatsApp'], [$rows[1]->status, $rows[1]->error]);
 
         $usage = SchoolWhatsApp::usage(1, '2026-10');
-        $this->assertSame([1, 0.55, 1], [$usage['charged'], $usage['amount'], $usage['failed']]);
+        $this->assertSame([1, 0.66, 1], [$usage['charged'], $usage['amount'], $usage['failed']]);
     }
 
     public function test_a_status_never_takes_a_message_back(): void
