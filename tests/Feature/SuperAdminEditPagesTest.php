@@ -242,7 +242,13 @@ class SuperAdminEditPagesTest extends TestCase
             $text = $this->text($html);
 
             $this->assertStringContainsString($title . ' 2 sections · last updated becomes 12 Oct 2026 when you save Cancel Save', html_entity_decode($text), $component);
-            $this->assertStringContainsString('class="min-h-screen bg-white"', $html);
+            // The Students list's look: a white card on the grey page with a
+            // quiet S.No / Heading & Text / Actions header row.
+            $this->assertStringContainsString('class="min-h-screen bg-gray-50"', $html);
+            $this->assertStringContainsString('S.No Heading & Text Actions', html_entity_decode($text));
+            $this->assertStringContainsString('bg-white rounded-xl border border-gray-200 shadow-sm', $html);
+            // Fits a phone: no 640px table floor, so the boxes stay on screen.
+            $this->assertStringContainsString('<table class="w-full table-fixed min-w-0!">', $html);
             $this->assertStringContainsString('wire:model="sections.1.head"', $html);
             $this->assertStringContainsString('wire:click="confirmRemoveSection(1)"', $html);
             $this->assertStringContainsString('Add section', $text);
@@ -291,11 +297,14 @@ class SuperAdminEditPagesTest extends TestCase
         $html = $page->html();
         $text = $this->text($html);
 
+        // Each part a white card in the Students list's look (2026-10-14).
         foreach (['Edit About App Everything on this page is saved together with Save Cancel Save', 'Basic Information',
-                  'Content Sections 1 section', 'Add section', 'Contact Details Add contact Email hello@superlms.in',
-                  'Core Team Add member Asha Founder · Started it.', 'Social Media Add link instagram https://instagram.com/superlms',
-                  'Documents PDF, DOC or DOCX · up to 2 MB each Add document Brochure PDF · 200 KB'] as $seen) {
-            $this->assertStringContainsString($seen, $text);
+                  'Content Sections 1 section S.No Title & Text Actions', 'Add section',
+                  'Contact Details Add contact S.No Type Value Actions 1 Email hello@superlms.in',
+                  'Core Team Add member S.No Member Position Actions 1 A Asha Started it. Founder',
+                  'Social Media Add link S.No Platform Link Actions 1 instagram https://instagram.com/superlms',
+                  'Documents PDF, DOC or DOCX · up to 2 MB each Add document S.No Document Type · Size Actions 1 Brochure PDF · 200 KB'] as $seen) {
+            $this->assertStringContainsString($seen, html_entity_decode($text));
         }
         foreach (['wire:model.defer="heading"', 'wire:model.defer="company_cin"', 'wire:model="logo"', 'wire:model="content.0.title"',
                   'wire:click="openContactModal(0)"', 'wire:click="removeContact(0)"', 'wire:click="openTeamModal(0)"',

@@ -316,12 +316,14 @@ class SuperAdminPagesLookTest extends TestCase
         $html = Livewire::test(\App\Livewire\SuperAdmin\PrivacyPolicy::class)->html();
         $text = preg_replace('/\s+/', ' ', strip_tags($html));
 
-        $this->assertStringContainsString('1.Information We Collect Name and email.', $text);
-        $this->assertStringContainsString('2.How We Use It To run the service.', $text);
+        // The Students list's look (2026-10-14): S.No and the section in a white card.
+        $this->assertStringContainsString('Privacy Policy 2 sections S.No Section 1 Information We Collect Name and email. 2 How We Use It To run the service.', $text);
         $this->assertStringContainsString('Last updated 01 Oct 2026', $text);
         $this->assertStringNotContainsString('from-green-50 to-emerald-50', $html);
-        $this->assertStringContainsString('class="min-h-screen bg-white"', $html);
-        $this->assertStringContainsString('<p class="text-sm text-black leading-relaxed break-words mt-2">', $html);
+        $this->assertStringContainsString('class="min-h-screen bg-gray-50"', $html);
+        $this->assertStringContainsString('bg-white rounded-xl border border-gray-200 shadow-sm', $html);
+        // Fits a phone: the card would cut a 640px table off.
+        $this->assertStringContainsString('<table class="w-full table-fixed min-w-0!">', $html);
     }
 
     public function test_website_enquiries_are_listed_as_the_school_panels_enquiries(): void
@@ -559,11 +561,13 @@ class SuperAdminPagesLookTest extends TestCase
         $html = Livewire::test(AboutApp::class)->html();
         $text = preg_replace('/\s+/', ' ', strip_tags($html));
 
-        $this->assertStringContainsString('min-h-screen bg-white', $html);
-        $this->assertStringContainsString('1.Who we are A school app. 2.What we do Everything a school needs.', $text);
-        $this->assertStringContainsString('Contact Details Email hello@superlms.in Address Aligarh, UP Our Core Team 1 members Asha Founder View Profile ↗', $text);
-        $this->assertStringContainsString('Follow Us On Social Media instagram', $text);
-        $this->assertStringContainsString('Documents 1 file(s) pdf Brochure 200 KB', $text);
+        // Each part a white card in the Students list's look (2026-10-14).
+        $this->assertStringContainsString('min-h-screen bg-gray-50', $html);
+        $this->assertStringContainsString('Content 2 sections S.No Section 1 Who we are A school app. 2 What we do Everything a school needs.', $text);
+        $this->assertStringContainsString('Contact Details 2 entries Type Detail Email hello@superlms.in Address Aligarh, UP', $text);
+        $this->assertStringContainsString('Our Core Team 1 members S.No Member Position Profile 1 A Asha Founder View Profile ↗', $text);
+        $this->assertStringContainsString('Follow Us On Social Media 1 links S.No Platform Link 1 instagram https://instagram.com/superlms', $text);
+        $this->assertStringContainsString('Documents 1 file(s) S.No Document Size Actions 1 pdf Brochure 200 KB', $text);
         // No gradient headers, shadows or hover lift left on the view.
         $view = substr($html, 0, strpos($html, 'Brochure'));
         foreach (['bg-gradient-to-r', 'shadow-md', 'hover:-translate-y'] as $gone) {

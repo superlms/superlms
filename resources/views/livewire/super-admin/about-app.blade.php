@@ -1,4 +1,4 @@
-<div class="min-h-screen bg-white">
+<div class="min-h-screen bg-gray-50">
 
     {{-- ══════════ TABS ══════════ --}}
     <div class="bg-white border-b border-gray-200 px-3 sm:px-6 sticky top-0 z-40 overflow-x-auto">
@@ -70,164 +70,217 @@
                 </div>
             </div>
 
-            {{-- As the Terms & Conditions view: a plain document out of its cards —
-                 "1. Heading", the text under it, a hairline between one section
-                 and the next. Contact, address, team, social links and documents
-                 follow as plain sections; the team, links and files sit in simple
-                 bordered boxes (no colours, shadows or lift). --}}
-            <div class="px-4 sm:px-6 py-6">
-                <div class="divide-y divide-gray-200">
+            {{-- In the Students list's look: each part a white card on the grey
+                 page with its name and count, a quiet header row and a row per
+                 entry — the content sections (as the policy pages), contact
+                 details with the address, the core team, social links and
+                 documents. --}}
+            @php
+                $avCard = 'bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden';
+                $avHead = 'px-5 py-3.5 border-b border-gray-100 flex items-baseline justify-between gap-3';
+                $avTh   = 'px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider';
+                $avThC  = 'px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider';
+                $avEye  = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>';
+            @endphp
+            <div class="p-4 sm:p-6 space-y-5">
 
-                    {{-- Content Sections --}}
-                    @php $shown = 0; @endphp
-                    @foreach ($aboutApp->content ?? [] as $i => $section)
-                        @if (!empty($section['title']) || !empty($section['description']))
-                            @php $shown++; @endphp
-                            <section class="py-5 first:pt-0">
-                                @if (!empty($section['title']))
-                                    <h2 class="text-base font-semibold text-black break-words">
-                                        <span class="tabular-nums mr-1">{{ $shown }}.</span>{{ $section['title'] }}
-                                    </h2>
+                {{-- Content Sections --}}
+                @include('livewire.super-admin.partials.sections-view', [
+                    'sections' => collect($aboutApp->content ?? [])->map(fn ($s) => ['head' => $s['title'] ?? '', 'desc' => $s['description'] ?? ''])->all(),
+                    'title'    => 'Content',
+                ])
+
+                {{-- Contact Details, the address with them --}}
+                @if (!empty($aboutApp->contact_details) || $aboutApp->address)
+                    <div class="{{ $avCard }}">
+                        <div class="{{ $avHead }}">
+                            <h2 class="text-sm font-semibold text-gray-800">Contact Details</h2>
+                            <span class="text-xs text-gray-400">{{ count($aboutApp->contact_details ?? []) + ($aboutApp->address ? 1 : 0) }} entries</span>
+                        </div>
+                        <table class="w-full table-fixed min-w-0!">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="{{ $avTh }} w-28 sm:w-40">Type</th>
+                                    <th class="{{ $avTh }}">Detail</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach ($aboutApp->contact_details ?? [] as $contact)
+                                    <tr class="hover:bg-gray-50/60 transition-colors">
+                                        <td class="px-4 py-3 text-sm text-gray-500 truncate">{{ $contact['type'] ?? '' }}</td>
+                                        <td class="px-4 py-3 text-sm font-medium text-gray-900 break-words">{{ $contact['value'] ?? '' }}</td>
+                                    </tr>
+                                @endforeach
+                                @if ($aboutApp->address)
+                                    <tr class="hover:bg-gray-50/60 transition-colors">
+                                        <td class="px-4 py-3 text-sm text-gray-500">Address</td>
+                                        <td class="px-4 py-3 text-sm font-medium text-gray-900 break-words">{{ $aboutApp->address }}</td>
+                                    </tr>
                                 @endif
-                                @if (!empty($section['description']))
-                                    <p class="text-sm text-black leading-relaxed break-words {{ !empty($section['title']) ? 'mt-2' : '' }}">
-                                        {!! nl2br(e($section['description'])) !!}
-                                    </p>
-                                @endif
-                            </section>
-                        @endif
-                    @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
 
-                    {{-- Contact Details --}}
-                    @if (!empty($aboutApp->contact_details))
-                        <section class="py-5 first:pt-0">
-                            <h2 class="text-base font-semibold text-black">Contact Details</h2>
-                            <div class="mt-3 space-y-2">
-                                @foreach ($aboutApp->contact_details as $contact)
-                                    <div class="flex gap-3 text-sm">
-                                        <span class="w-24 sm:w-32 flex-shrink-0 text-xs text-gray-400 uppercase tracking-wider pt-0.5">{{ $contact['type'] ?? '' }}</span>
-                                        <span class="min-w-0 text-black break-words">{{ $contact['value'] ?? '' }}</span>
-                                    </div>
-                                @endforeach
-                            </div>
-                        </section>
-                    @endif
+                {{-- Core Team --}}
+                @if (!empty($aboutApp->core_team))
+                    <div class="{{ $avCard }}">
+                        <div class="{{ $avHead }}">
+                            <h2 class="text-sm font-semibold text-gray-800">Our Core Team</h2>
+                            <span class="text-xs text-gray-400">{{ count($aboutApp->core_team) }} members</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full min-w-[560px] table-fixed">
+                                <thead class="bg-gray-50 border-b border-gray-200">
+                                    <tr>
+                                        <th class="{{ $avTh }} w-16">S.No</th>
+                                        <th class="{{ $avTh }}">Member</th>
+                                        <th class="{{ $avTh }} w-48">Position</th>
+                                        <th class="{{ $avThC }} w-32">Profile</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    @foreach ($aboutApp->core_team as $i => $member)
+                                        <tr class="hover:bg-gray-50/60 transition-colors">
+                                            <td class="px-4 py-3 text-sm text-gray-500 font-medium">{{ $i + 1 }}</td>
+                                            <td class="px-4 py-3">
+                                                <div class="flex items-center gap-3 min-w-0">
+                                                    @if (!empty($member['image']))
+                                                        <img src="{{ $member['image'] }}" alt="" class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                                                    @else
+                                                        <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                            <span class="text-xs font-semibold text-indigo-600">{{ strtoupper(substr($member['name'] ?? 'M', 0, 1)) }}</span>
+                                                        </div>
+                                                    @endif
+                                                    <div class="min-w-0">
+                                                        <p class="text-sm font-semibold text-gray-900 truncate">{{ $member['name'] ?? '' }}</p>
+                                                        @if (!empty($member['description']))
+                                                            <p class="text-xs text-gray-400 truncate" title="{{ $member['description'] }}">{{ $member['description'] }}</p>
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-4 py-3 text-sm text-gray-700 truncate">{{ $member['position'] ?? '—' }}</td>
+                                            <td class="px-4 py-3 text-center">
+                                                @if (!empty($member['link']))
+                                                    <a href="{{ $member['link'] }}" target="_blank" rel="noopener noreferrer" class="text-xs font-medium text-blue-600 hover:underline">View Profile ↗</a>
+                                                @else
+                                                    <span class="text-sm text-gray-300">—</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                @endif
 
-                    {{-- Address --}}
-                    @if ($aboutApp->address)
-                        <section class="py-5 first:pt-0">
-                            <h2 class="text-base font-semibold text-black">Address</h2>
-                            <p class="mt-2 text-sm text-black leading-relaxed break-words">{{ $aboutApp->address }}</p>
-                        </section>
-                    @endif
+                {{-- Social Media --}}
+                @if (!empty($aboutApp->social_media))
+                    <div class="{{ $avCard }}">
+                        <div class="{{ $avHead }}">
+                            <h2 class="text-sm font-semibold text-gray-800">Follow Us On Social Media</h2>
+                            <span class="text-xs text-gray-400">{{ count($aboutApp->social_media) }} links</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full min-w-[560px] table-fixed">
+                                <thead class="bg-gray-50 border-b border-gray-200">
+                                    <tr>
+                                        <th class="{{ $avTh }} w-16">S.No</th>
+                                        <th class="{{ $avTh }} w-48">Platform</th>
+                                        <th class="{{ $avTh }}">Link</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    @foreach ($aboutApp->social_media as $i => $social)
+                                        <tr class="hover:bg-gray-50/60 transition-colors">
+                                            <td class="px-4 py-3 text-sm text-gray-500 font-medium">{{ $i + 1 }}</td>
+                                            <td class="px-4 py-3">
+                                                <div class="flex items-center gap-2.5 min-w-0">
+                                                    <span class="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                                        @if (!empty($social['icon']))
+                                                            <img src="{{ $social['icon'] }}" alt="" class="w-full h-full object-contain">
+                                                        @else
+                                                            <x-social-platform-icon :platform="$social['platform'] ?? ''" class="w-full h-full block" />
+                                                        @endif
+                                                    </span>
+                                                    <span class="text-sm font-medium text-gray-900 capitalize truncate">{{ $social['platform'] ?? '' }}</span>
+                                                </div>
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                <a href="{{ $social['url'] ?? '#' }}" target="_blank" rel="noopener noreferrer"
+                                                    class="block text-sm text-blue-600 hover:underline truncate" title="{{ $social['url'] ?? '' }}">{{ $social['url'] ?? '' }}</a>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                @endif
 
-                    {{-- Core Team --}}
-                    @if (!empty($aboutApp->core_team))
-                        <section class="py-5 first:pt-0">
-                            <h2 class="text-base font-semibold text-black">
-                                Our Core Team <span class="ml-1 text-xs font-normal text-gray-400">{{ count($aboutApp->core_team) }} members</span>
-                            </h2>
-                            <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
-                                @foreach ($aboutApp->core_team as $member)
-                                    @php $memberUrl = $member['link'] ?? null; @endphp
-                                    <div class="flex items-start gap-3 p-3 border border-gray-200 rounded-lg">
-                                        @if (!empty($member['image']))
-                                            <img src="{{ $member['image'] }}" alt="{{ $member['name'] ?? '' }}"
-                                                class="w-12 h-12 rounded-full object-cover flex-shrink-0">
-                                        @else
-                                            <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                                                <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                </svg>
-                                            </div>
-                                        @endif
-                                        <div class="min-w-0">
-                                            <p class="text-sm font-semibold text-black truncate">{{ $member['name'] ?? '' }}</p>
-                                            @if (!empty($member['position']))
-                                                <p class="text-xs text-gray-500 truncate">{{ $member['position'] }}</p>
-                                            @endif
-                                            @if (!empty($member['description']))
-                                                <p class="mt-1 text-xs text-gray-500 leading-relaxed line-clamp-2">{{ $member['description'] }}</p>
-                                            @endif
-                                            @if ($memberUrl)
-                                                <a href="{{ $memberUrl }}" target="_blank" rel="noopener noreferrer"
-                                                    class="mt-1 inline-block text-xs font-medium text-blue-600 hover:underline">View Profile ↗</a>
-                                            @endif
-                                        </div>
-                                    </div>
-                                @endforeach
-                            </div>
-                        </section>
-                    @endif
-
-                    {{-- Social Media --}}
-                    @if (!empty($aboutApp->social_media))
-                        <section class="py-5 first:pt-0">
-                            <h2 class="text-base font-semibold text-black">Follow Us On Social Media</h2>
-                            <div class="mt-3 flex flex-wrap gap-2">
-                                @foreach ($aboutApp->social_media as $social)
-                                    <a href="{{ $social['url'] ?? '#' }}" target="_blank" rel="noopener noreferrer"
-                                        class="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm text-black hover:bg-gray-50 transition-colors">
-                                        <span class="w-5 h-5 flex items-center justify-center flex-shrink-0">
-                                            @if (!empty($social['icon']))
-                                                <img src="{{ $social['icon'] }}" class="w-full h-full object-contain">
-                                            @else
-                                                <x-social-platform-icon :platform="$social['platform'] ?? ''" class="w-full h-full block" />
-                                            @endif
-                                        </span>
-                                        <span class="capitalize">{{ $social['platform'] ?? '' }}</span>
-                                    </a>
-                                @endforeach
-                            </div>
-                        </section>
-                    @endif
-
-                    {{-- Documents --}}
-                    @if (!empty($aboutApp->documents))
-                        <section class="py-5 first:pt-0">
-                            <h2 class="text-base font-semibold text-black">
-                                Documents <span class="ml-1 text-xs font-normal text-gray-400">{{ count($aboutApp->documents) }} file(s)</span>
-                            </h2>
-                            <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
-                                @foreach ($aboutApp->documents as $doc)
-                                    @php
-                                        $ext = strtolower($doc['file_type'] ?? '');
-                                        $extTile = match (true) {
-                                            $ext === 'pdf'                 => 'bg-red-50 text-red-600',
-                                            in_array($ext, ['doc', 'docx']) => 'bg-blue-50 text-blue-600',
-                                            default                        => 'bg-gray-100 text-gray-600',
-                                        };
-                                    @endphp
-                                    <a href="{{ $doc['file_path'] ?? '#' }}" target="_blank" rel="noopener noreferrer"
-                                        class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                                        <span class="w-10 h-10 rounded-lg {{ $extTile }} flex flex-col items-center justify-center flex-shrink-0">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                                            <span class="text-[9px] font-bold leading-none mt-0.5 uppercase">{{ $doc['file_type'] ?? 'FILE' }}</span>
-                                        </span>
-                                        <span class="min-w-0">
-                                            <span class="block text-sm font-semibold text-black truncate">{{ $doc['title'] ?? 'Document' }}</span>
-                                            @if (!empty($doc['file_size']))
-                                                <span class="block text-xs text-gray-400">{{ number_format($doc['file_size'] / 1024, 0) }} KB</span>
-                                            @endif
-                                        </span>
-                                    </a>
-                                @endforeach
-                            </div>
-                        </section>
-                    @endif
-
-                </div>
+                {{-- Documents --}}
+                @if (!empty($aboutApp->documents))
+                    <div class="{{ $avCard }}">
+                        <div class="{{ $avHead }}">
+                            <h2 class="text-sm font-semibold text-gray-800">Documents</h2>
+                            <span class="text-xs text-gray-400">{{ count($aboutApp->documents) }} file(s)</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full min-w-[560px] table-fixed">
+                                <thead class="bg-gray-50 border-b border-gray-200">
+                                    <tr>
+                                        <th class="{{ $avTh }} w-16">S.No</th>
+                                        <th class="{{ $avTh }}">Document</th>
+                                        <th class="{{ $avTh }} w-28">Size</th>
+                                        <th class="{{ $avThC }} w-24">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    @foreach ($aboutApp->documents as $i => $doc)
+                                        @php
+                                            $ext = strtolower($doc['file_type'] ?? '');
+                                            $extTile = match (true) {
+                                                $ext === 'pdf'                 => 'bg-red-50 text-red-600',
+                                                in_array($ext, ['doc', 'docx']) => 'bg-blue-50 text-blue-600',
+                                                default                        => 'bg-gray-100 text-gray-600',
+                                            };
+                                        @endphp
+                                        <tr class="hover:bg-gray-50/60 transition-colors">
+                                            <td class="px-4 py-3 text-sm text-gray-500 font-medium">{{ $i + 1 }}</td>
+                                            <td class="px-4 py-3">
+                                                <div class="flex items-center gap-3 min-w-0">
+                                                    <span class="w-9 h-9 rounded-lg {{ $extTile }} flex flex-col items-center justify-center flex-shrink-0">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                                        <span class="text-[8px] font-bold leading-none mt-0.5 uppercase">{{ $doc['file_type'] ?? 'FILE' }}</span>
+                                                    </span>
+                                                    <span class="text-sm font-semibold text-gray-900 truncate" title="{{ $doc['title'] ?? '' }}">{{ $doc['title'] ?? 'Document' }}</span>
+                                                </div>
+                                            </td>
+                                            <td class="px-4 py-3 text-sm text-gray-500">{{ !empty($doc['file_size']) ? number_format($doc['file_size'] / 1024, 0) . ' KB' : '—' }}</td>
+                                            <td class="px-4 py-3">
+                                                <div class="flex items-center justify-center">
+                                                    @if (!empty($doc['file_path']))
+                                                        <a href="{{ $doc['file_path'] }}" target="_blank" rel="noopener noreferrer" title="View"
+                                                            class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">{!! $avEye !!}</a>
+                                                    @endif
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                @endif
             </div>
         @endif
     @endif
 
     {{-- ══════════ EDIT TAB ══════════
-         Plain and minimal, in the view's look, across the whole page: a header strip with Cancel / Save,
-         then each part under its own heading with hairlines between — the
-         fields as the panel's forms, lists in simple bordered boxes with the
-         Students list's action icons. Same fields, slide-ins, removes (with
-         their confirms) and save as before. --}}
+         The Students list's look: a header strip with Cancel / Save, then each
+         part in its own white card on the grey page. --}}
     @if ($activeTab === 'edit')
         @php
             $aIn = 'w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500';
@@ -261,216 +314,306 @@
             </div>
         </div>
 
-        <div class="px-4 sm:px-6">
+        {{-- Each part a white card on the grey page (the Students list's look):
+             its name with the Add button on the right, a quiet header row and
+             a row per entry with the Students list's icons. Same fields,
+             slide-ins, removes (with their confirms) and save as before. --}}
+        @php
+            $aCard = 'bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden';
+            $aHead = 'px-5 py-3.5 border-b border-gray-100 flex items-center justify-between gap-3';
+            $aTh   = 'px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider';
+            $aThC  = 'px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider';
+            $aNone = 'px-5 py-8 text-center text-sm text-gray-400';
+        @endphp
+        <div class="p-4 sm:p-6 space-y-5">
 
-            <div class="divide-y divide-gray-200">
+            {{-- Basic Information --}}
+            <div class="{{ $aCard }}">
+                <div class="{{ $aHead }}">
+                    <h2 class="text-sm font-semibold text-gray-800">Basic Information</h2>
+                </div>
+                <div class="p-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                    <div>
+                        <label class="{{ $aLb }}">Heading <span class="text-red-500">*</span></label>
+                        <input type="text" wire:model.defer="heading" placeholder="App name or heading"
+                            class="{{ $aIn }} @error('heading') border-red-400 @enderror">
+                        @error('heading')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="{{ $aLb }}">Sub Heading</label>
+                        <input type="text" wire:model.defer="sub_heading" placeholder="Tagline or subtitle" class="{{ $aIn }}">
+                    </div>
+                    <div>
+                        <label class="{{ $aLb }}">Company Name</label>
+                        <input type="text" wire:model.defer="company_name" placeholder="e.g. Super Learnings Private Limited"
+                            class="{{ $aIn }} @error('company_name') border-red-400 @enderror">
+                        @error('company_name')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="{{ $aLb }}">Company CIN</label>
+                        <input type="text" wire:model.defer="company_cin" placeholder="Corporate Identification Number"
+                            class="{{ $aIn }} @error('company_cin') border-red-400 @enderror">
+                        @error('company_cin')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="{{ $aLb }}">Logo</label>
+                        <div class="flex items-center gap-3">
+                            @if ($logoPreview)
+                                <img src="{{ $logoPreview }}" class="w-12 h-12 rounded-md object-contain border border-gray-200 flex-shrink-0">
+                            @endif
+                            <input type="file" wire:model="logo" accept="image/*" class="flex-1 min-w-0 text-sm">
+                        </div>
+                        <div wire:loading wire:target="logo" class="text-xs text-blue-600 mt-1">Uploading…</div>
+                        @error('logo')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="{{ $aLb }}">Address</label>
+                        <textarea wire:model.defer="address" rows="2" placeholder="Office or contact address" class="{{ $aIn }} resize-none"></textarea>
+                    </div>
+                </div>
+            </div>
 
-                {{-- Basic Information --}}
-                <section class="py-6">
-                    <h2 class="text-base font-semibold text-gray-900 mb-4">Basic Information</h2>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                        <div>
-                            <label class="{{ $aLb }}">Heading <span class="text-red-500">*</span></label>
-                            <input type="text" wire:model.defer="heading" placeholder="App name or heading"
-                                class="{{ $aIn }} @error('heading') border-red-400 @enderror">
-                            @error('heading')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="{{ $aLb }}">Sub Heading</label>
-                            <input type="text" wire:model.defer="sub_heading" placeholder="Tagline or subtitle" class="{{ $aIn }}">
-                        </div>
-                        <div>
-                            <label class="{{ $aLb }}">Company Name</label>
-                            <input type="text" wire:model.defer="company_name" placeholder="e.g. Super Learnings Private Limited"
-                                class="{{ $aIn }} @error('company_name') border-red-400 @enderror">
-                            @error('company_name')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="{{ $aLb }}">Company CIN</label>
-                            <input type="text" wire:model.defer="company_cin" placeholder="Corporate Identification Number"
-                                class="{{ $aIn }} @error('company_cin') border-red-400 @enderror">
-                            @error('company_cin')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="{{ $aLb }}">Logo</label>
-                            <div class="flex items-center gap-3">
-                                @if ($logoPreview)
-                                    <img src="{{ $logoPreview }}" class="w-12 h-12 rounded-md object-contain border border-gray-200 flex-shrink-0">
-                                @endif
-                                <input type="file" wire:model="logo" accept="image/*" class="flex-1 min-w-0 text-sm">
-                            </div>
-                            <div wire:loading wire:target="logo" class="text-xs text-blue-600 mt-1">Uploading…</div>
-                            @error('logo')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="{{ $aLb }}">Address</label>
-                            <textarea wire:model.defer="address" rows="2" placeholder="Office or contact address" class="{{ $aIn }} resize-none"></textarea>
-                        </div>
-                    </div>
-                </section>
-
-                {{-- Content Sections --}}
-                <section class="py-6">
-                    <div class="flex items-center justify-between gap-3 mb-2">
-                        <h2 class="text-base font-semibold text-gray-900">Content Sections</h2>
-                        <span class="text-xs text-gray-400">{{ count($content) }} {{ count($content) === 1 ? 'section' : 'sections' }}</span>
-                    </div>
-                    <div class="divide-y divide-gray-100">
-                        @foreach ($content as $index => $section)
-                            <div class="py-4 flex items-start gap-3" wire:key="about-content-{{ $index }}">
-                                <span class="w-6 pt-2.5 text-sm font-semibold text-gray-400 tabular-nums flex-shrink-0">{{ $index + 1 }}.</span>
-                                <div class="flex-1 min-w-0 space-y-2">
-                                    <input type="text" wire:model="content.{{ $index }}.title" placeholder="Section title" aria-label="Title {{ $index + 1 }}"
-                                        class="{{ $aIn }} font-medium text-gray-900">
-                                    <textarea wire:model="content.{{ $index }}.description" rows="3" placeholder="Write this section…" aria-label="Text {{ $index + 1 }}"
-                                        class="{{ $aIn }} leading-relaxed resize-y"></textarea>
-                                </div>
-                                @if (count($content) > 1)
-                                    <button type="button" wire:click="removeContentSection({{ $index }})" title="Delete section"
-                                        class="mt-1.5 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0">{!! $binIcon !!}</button>
-                                @else
-                                    <span class="w-7 flex-shrink-0"></span>
-                                @endif
-                            </div>
-                        @endforeach
-                    </div>
-                    <button type="button" wire:click="addContentSection" class="{{ $aAdd }} mt-2">{!! $plus !!} Add section</button>
-                </section>
-
-                {{-- Contact Details --}}
-                <section class="py-6">
-                    <div class="flex items-center justify-between gap-3 mb-4">
-                        <h2 class="text-base font-semibold text-gray-900">Contact Details</h2>
-                        <button type="button" wire:click="openContactModal()" class="{{ $aAdd }}">{!! $plus !!} Add contact</button>
-                    </div>
-                    @if (count($contact_details))
-                        <div class="border border-gray-200 rounded-md divide-y divide-gray-100">
-                            @foreach ($contact_details as $index => $contact)
-                                <div class="px-4 py-2.5 flex items-center justify-between gap-3">
-                                    <div class="min-w-0 grid grid-cols-3 gap-3 flex-1 text-sm">
-                                        <span class="text-xs text-gray-400 uppercase tracking-wider pt-0.5">{{ $contact['type'] }}</span>
-                                        <span class="col-span-2 text-gray-800 font-medium truncate">{{ $contact['value'] }}</span>
-                                    </div>
-                                    <div class="flex items-center gap-1 flex-shrink-0">
-                                        <button type="button" wire:click="openContactModal({{ $index }})" title="Edit" class="{{ $aEdit }}">{!! $penIcon !!}</button>
-                                        <button type="button" wire:click="removeContact({{ $index }})" title="Delete" class="{{ $aDel }}">{!! $binIcon !!}</button>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    @else
-                        <p class="text-sm text-gray-400">No contacts added yet.</p>
-                    @endif
-                </section>
-
-                {{-- Core Team --}}
-                <section class="py-6">
-                    <div class="flex items-center justify-between gap-3 mb-4">
-                        <h2 class="text-base font-semibold text-gray-900">Core Team</h2>
-                        <button type="button" wire:click="openTeamModal()" class="{{ $aAdd }}">{!! $plus !!} Add member</button>
-                    </div>
-                    @if (count($core_team))
-                        <div class="border border-gray-200 rounded-md divide-y divide-gray-100">
-                            @foreach ($core_team as $index => $member)
-                                <div class="px-4 py-2.5 flex items-center justify-between gap-3">
-                                    <div class="flex items-center gap-3 min-w-0">
-                                        @if (!empty($member['image']))
-                                            <img src="{{ $member['image'] }}" alt="{{ $member['name'] }}" class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0">
-                                        @endif
-                                        <div class="min-w-0">
-                                            <p class="text-sm font-medium text-gray-900 truncate">{{ $member['name'] }}</p>
-                                            <p class="text-xs text-gray-400 truncate">
-                                                {{ $member['position'] ?? '' }}@if (!empty($member['position']) && !empty($member['description'])) · @endif{{ $member['description'] ?? '' }}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center gap-1 flex-shrink-0">
-                                        <button type="button" wire:click="openTeamModal({{ $index }})" title="Edit" class="{{ $aEdit }}">{!! $penIcon !!}</button>
-                                        <button type="button" wire:click="removeTeamMember({{ $index }})" title="Delete" class="{{ $aDel }}">{!! $binIcon !!}</button>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    @else
-                        <p class="text-sm text-gray-400">No team members added yet.</p>
-                    @endif
-                </section>
-
-                {{-- Social Media --}}
-                <section class="py-6">
-                    <div class="flex items-center justify-between gap-3 mb-4">
-                        <h2 class="text-base font-semibold text-gray-900">Social Media</h2>
-                        <button type="button" wire:click="openSocialModal()" class="{{ $aAdd }}">{!! $plus !!} Add link</button>
-                    </div>
-                    @if (count($social_media))
-                        <div class="border border-gray-200 rounded-md divide-y divide-gray-100">
-                            @foreach ($social_media as $index => $social)
-                                <div class="px-4 py-2.5 flex items-center justify-between gap-3">
-                                    <div class="flex items-center gap-3 min-w-0">
-                                        <div class="w-7 h-7 flex items-center justify-center flex-shrink-0">
-                                            @if (!empty($social['icon']))
-                                                <img src="{{ $social['icon'] }}" class="w-full h-full object-contain">
+            {{-- Content Sections --}}
+            <div class="{{ $aCard }}">
+                <div class="{{ $aHead }}">
+                    <h2 class="text-sm font-semibold text-gray-800">Content Sections</h2>
+                    <span class="text-xs text-gray-400">{{ count($content) }} {{ count($content) === 1 ? 'section' : 'sections' }}</span>
+                </div>
+                <div class="overflow-x-auto">
+                    {{-- No sideways scroll on a phone: S.No and Actions narrow there. --}}
+                    <table class="w-full table-fixed min-w-0!">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-14 sm:w-16">S.No</th>
+                                <th class="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Title &amp; Text</th>
+                                <th class="px-1 sm:px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-16 sm:w-20">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @foreach ($content as $index => $section)
+                                <tr class="align-top" wire:key="about-content-{{ $index }}">
+                                    <td class="px-3 sm:px-4 pb-4 pt-6 text-sm text-gray-500 font-medium tabular-nums">{{ $index + 1 }}</td>
+                                    <td class="px-3 sm:px-4 py-4 space-y-2">
+                                        <input type="text" wire:model="content.{{ $index }}.title" placeholder="Section title" aria-label="Title {{ $index + 1 }}"
+                                            class="{{ $aIn }} font-medium text-gray-900">
+                                        <textarea wire:model="content.{{ $index }}.description" rows="3" placeholder="Write this section…" aria-label="Text {{ $index + 1 }}"
+                                            class="{{ $aIn }} leading-relaxed resize-y"></textarea>
+                                    </td>
+                                    <td class="px-1 sm:px-4 pb-4 pt-5">
+                                        <div class="flex items-center justify-center">
+                                            @if (count($content) > 1)
+                                                <button type="button" wire:click="removeContentSection({{ $index }})" title="Delete section" class="{{ $aDel }}">{!! $binIcon !!}</button>
                                             @else
-                                                <x-social-platform-icon :platform="$social['platform'] ?? ''" class="w-full h-full block" />
+                                                <span class="text-xs text-gray-300">—</span>
                                             @endif
                                         </div>
-                                        <div class="min-w-0">
-                                            <p class="text-sm font-medium text-gray-900 capitalize truncate">{{ $social['platform'] ?? 'Link' }}</p>
-                                            <p class="text-xs text-gray-400 truncate" title="{{ $social['url'] ?? '' }}">{{ $social['url'] ?? '' }}</p>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center gap-1 flex-shrink-0">
-                                        @if (!empty($social['url']))
-                                            <a href="{{ $social['url'] }}" target="_blank" rel="noopener noreferrer" title="Open" class="{{ $aView }}">{!! $eyeIcon !!}</a>
-                                        @endif
-                                        <button type="button" wire:click="openSocialModal({{ $index }})" title="Edit" class="{{ $aEdit }}">{!! $penIcon !!}</button>
-                                        <button type="button" wire:click="removeSocialMedia({{ $index }})" title="Delete" class="{{ $aDel }}">{!! $binIcon !!}</button>
-                                    </div>
-                                </div>
+                                    </td>
+                                </tr>
                             @endforeach
-                        </div>
-                    @else
-                        <p class="text-sm text-gray-400">No social media links added yet.</p>
-                    @endif
-                </section>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="px-5 py-3.5 border-t border-gray-100">
+                    <button type="button" wire:click="addContentSection" class="{{ $aAdd }}">{!! $plus !!} Add section</button>
+                </div>
+            </div>
 
-                {{-- Documents --}}
-                <section class="py-6">
-                    <div class="flex items-center justify-between gap-3 mb-4">
-                        <div class="min-w-0">
-                            <h2 class="text-base font-semibold text-gray-900">Documents</h2>
-                            <p class="text-xs text-gray-400 mt-0.5">PDF, DOC or DOCX · up to 2 MB each</p>
-                        </div>
-                        <button type="button" wire:click="openDocumentModal()" class="{{ $aAdd }} flex-shrink-0">{!! $plus !!} Add document</button>
+            {{-- Contact Details --}}
+            <div class="{{ $aCard }}">
+                <div class="{{ $aHead }}">
+                    <h2 class="text-sm font-semibold text-gray-800">Contact Details</h2>
+                    <button type="button" wire:click="openContactModal()" class="{{ $aAdd }}">{!! $plus !!} Add contact</button>
+                </div>
+                @if (count($contact_details))
+                    <div class="overflow-x-auto">
+                        <table class="w-full min-w-[560px] table-fixed">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="{{ $aTh }} w-16">S.No</th>
+                                    <th class="{{ $aTh }} w-40">Type</th>
+                                    <th class="{{ $aTh }}">Value</th>
+                                    <th class="{{ $aThC }} w-28">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach ($contact_details as $index => $contact)
+                                    <tr class="hover:bg-gray-50/60 transition-colors" wire:key="about-contact-{{ $index }}">
+                                        <td class="px-4 py-3 text-sm text-gray-500 font-medium">{{ $index + 1 }}</td>
+                                        <td class="px-4 py-3 text-sm text-gray-500 truncate">{{ $contact['type'] }}</td>
+                                        <td class="px-4 py-3 text-sm font-medium text-gray-900 truncate" title="{{ $contact['value'] }}">{{ $contact['value'] }}</td>
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center justify-center gap-1">
+                                                <button type="button" wire:click="openContactModal({{ $index }})" title="Edit" class="{{ $aEdit }}">{!! $penIcon !!}</button>
+                                                <button type="button" wire:click="removeContact({{ $index }})" title="Delete" class="{{ $aDel }}">{!! $binIcon !!}</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
-                    @if (count($documents))
-                        <div class="border border-gray-200 rounded-md divide-y divide-gray-100">
-                            @foreach ($documents as $index => $doc)
-                                <div class="px-4 py-2.5 flex items-center justify-between gap-3">
-                                    <div class="min-w-0">
-                                        <p class="text-sm font-medium text-gray-900 truncate" title="{{ $doc['title'] ?? '' }}">{{ $doc['title'] ?? 'Document' }}</p>
-                                        <p class="text-xs text-gray-400">
+                @else
+                    <p class="{{ $aNone }}">No contacts added yet.</p>
+                @endif
+            </div>
+
+            {{-- Core Team --}}
+            <div class="{{ $aCard }}">
+                <div class="{{ $aHead }}">
+                    <h2 class="text-sm font-semibold text-gray-800">Core Team</h2>
+                    <button type="button" wire:click="openTeamModal()" class="{{ $aAdd }}">{!! $plus !!} Add member</button>
+                </div>
+                @if (count($core_team))
+                    <div class="overflow-x-auto">
+                        <table class="w-full min-w-[560px] table-fixed">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="{{ $aTh }} w-16">S.No</th>
+                                    <th class="{{ $aTh }}">Member</th>
+                                    <th class="{{ $aTh }} w-48">Position</th>
+                                    <th class="{{ $aThC }} w-28">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach ($core_team as $index => $member)
+                                    <tr class="hover:bg-gray-50/60 transition-colors" wire:key="about-team-{{ $index }}">
+                                        <td class="px-4 py-3 text-sm text-gray-500 font-medium">{{ $index + 1 }}</td>
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center gap-3 min-w-0">
+                                                @if (!empty($member['image']))
+                                                    <img src="{{ $member['image'] }}" alt="{{ $member['name'] }}" class="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0">
+                                                @else
+                                                    <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                        <span class="text-xs font-semibold text-indigo-600">{{ strtoupper(substr($member['name'] ?? 'M', 0, 1)) }}</span>
+                                                    </div>
+                                                @endif
+                                                <div class="min-w-0">
+                                                    <p class="text-sm font-semibold text-gray-900 truncate">{{ $member['name'] }}</p>
+                                                    @if (!empty($member['description']))
+                                                        <p class="text-xs text-gray-400 truncate" title="{{ $member['description'] }}">{{ $member['description'] }}</p>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-gray-700 truncate">{{ $member['position'] ?? '—' }}</td>
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center justify-center gap-1">
+                                                <button type="button" wire:click="openTeamModal({{ $index }})" title="Edit" class="{{ $aEdit }}">{!! $penIcon !!}</button>
+                                                <button type="button" wire:click="removeTeamMember({{ $index }})" title="Delete" class="{{ $aDel }}">{!! $binIcon !!}</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <p class="{{ $aNone }}">No team members added yet.</p>
+                @endif
+            </div>
+
+            {{-- Social Media --}}
+            <div class="{{ $aCard }}">
+                <div class="{{ $aHead }}">
+                    <h2 class="text-sm font-semibold text-gray-800">Social Media</h2>
+                    <button type="button" wire:click="openSocialModal()" class="{{ $aAdd }}">{!! $plus !!} Add link</button>
+                </div>
+                @if (count($social_media))
+                    <div class="overflow-x-auto">
+                        <table class="w-full min-w-[560px] table-fixed">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="{{ $aTh }} w-16">S.No</th>
+                                    <th class="{{ $aTh }} w-48">Platform</th>
+                                    <th class="{{ $aTh }}">Link</th>
+                                    <th class="{{ $aThC }} w-32">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach ($social_media as $index => $social)
+                                    <tr class="hover:bg-gray-50/60 transition-colors" wire:key="about-social-{{ $index }}">
+                                        <td class="px-4 py-3 text-sm text-gray-500 font-medium">{{ $index + 1 }}</td>
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center gap-2.5 min-w-0">
+                                                <span class="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                                                    @if (!empty($social['icon']))
+                                                        <img src="{{ $social['icon'] }}" class="w-full h-full object-contain">
+                                                    @else
+                                                        <x-social-platform-icon :platform="$social['platform'] ?? ''" class="w-full h-full block" />
+                                                    @endif
+                                                </span>
+                                                <span class="text-sm font-medium text-gray-900 capitalize truncate">{{ $social['platform'] ?? 'Link' }}</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-gray-500 truncate" title="{{ $social['url'] ?? '' }}">{{ $social['url'] ?? '' }}</td>
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center justify-center gap-1">
+                                                @if (!empty($social['url']))
+                                                    <a href="{{ $social['url'] }}" target="_blank" rel="noopener noreferrer" title="Open" class="{{ $aView }}">{!! $eyeIcon !!}</a>
+                                                @endif
+                                                <button type="button" wire:click="openSocialModal({{ $index }})" title="Edit" class="{{ $aEdit }}">{!! $penIcon !!}</button>
+                                                <button type="button" wire:click="removeSocialMedia({{ $index }})" title="Delete" class="{{ $aDel }}">{!! $binIcon !!}</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <p class="{{ $aNone }}">No social media links added yet.</p>
+                @endif
+            </div>
+
+            {{-- Documents --}}
+            <div class="{{ $aCard }}">
+                <div class="{{ $aHead }}">
+                    <div class="min-w-0 sm:flex sm:items-baseline sm:gap-2">
+                        <h2 class="text-sm font-semibold text-gray-800">Documents</h2>
+                        <p class="text-xs text-gray-400">PDF, DOC or DOCX · up to 2 MB each</p>
+                    </div>
+                    <button type="button" wire:click="openDocumentModal()" class="{{ $aAdd }} flex-shrink-0">{!! $plus !!} Add document</button>
+                </div>
+                @if (count($documents))
+                    <div class="overflow-x-auto">
+                        <table class="w-full min-w-[560px] table-fixed">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="{{ $aTh }} w-16">S.No</th>
+                                    <th class="{{ $aTh }}">Document</th>
+                                    <th class="{{ $aTh }} w-32">Type · Size</th>
+                                    <th class="{{ $aThC }} w-32">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach ($documents as $index => $doc)
+                                    <tr class="hover:bg-gray-50/60 transition-colors" wire:key="about-doc-{{ $index }}">
+                                        <td class="px-4 py-3 text-sm text-gray-500 font-medium">{{ $index + 1 }}</td>
+                                        <td class="px-4 py-3 text-sm font-semibold text-gray-900 truncate" title="{{ $doc['title'] ?? '' }}">{{ $doc['title'] ?? 'Document' }}</td>
+                                        <td class="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
                                             {{ strtoupper($doc['file_type'] ?? 'FILE') }}@if (!empty($doc['file_size'])) · {{ number_format($doc['file_size'] / 1024, 0) }} KB @endif
-                                        </p>
-                                    </div>
-                                    <div class="flex items-center gap-1 flex-shrink-0">
-                                        @if (!empty($doc['file_path']))
-                                            <a href="{{ $doc['file_path'] }}" target="_blank" rel="noopener noreferrer" title="View" class="{{ $aView }}">{!! $eyeIcon !!}</a>
-                                        @endif
-                                        <button type="button" wire:click="openDocumentModal({{ $index }})" title="Edit" class="{{ $aEdit }}">{!! $penIcon !!}</button>
-                                        <button type="button" wire:click="removeDocument({{ $index }})" title="Delete" class="{{ $aDel }}">{!! $binIcon !!}</button>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    @else
-                        <p class="text-sm text-gray-400">No documents uploaded.</p>
-                    @endif
-                </section>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center justify-center gap-1">
+                                                @if (!empty($doc['file_path']))
+                                                    <a href="{{ $doc['file_path'] }}" target="_blank" rel="noopener noreferrer" title="View" class="{{ $aView }}">{!! $eyeIcon !!}</a>
+                                                @endif
+                                                <button type="button" wire:click="openDocumentModal({{ $index }})" title="Edit" class="{{ $aEdit }}">{!! $penIcon !!}</button>
+                                                <button type="button" wire:click="removeDocument({{ $index }})" title="Delete" class="{{ $aDel }}">{!! $binIcon !!}</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <p class="{{ $aNone }}">No documents uploaded.</p>
+                @endif
             </div>
 
             {{-- Save --}}
-            <div class="pt-4 border-t border-gray-200 flex justify-end pb-6">
+            <div class="flex justify-end">
                 <button type="button" wire:click="save" wire:loading.attr="disabled" wire:target="save,logo"
                     class="w-full sm:w-auto px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md disabled:opacity-60">Save</button>
             </div>

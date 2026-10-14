@@ -1,4 +1,4 @@
-<div class="min-h-screen bg-white">
+<div class="min-h-screen bg-gray-50">
 
     {{-- ══════════ TABS ══════════ --}}
     <div class="bg-white border-b border-gray-200 px-3 sm:px-6 sticky top-0 z-40 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -75,29 +75,11 @@
                 </div>
             </div>
 
-            {{-- The sections as a plain document, out of their cards: "1. Heading",
-                 the text under it, and a hairline between one section and the next. --}}
-            <div class="px-4 sm:px-6 py-6">
-                <div class="divide-y divide-gray-200">
-                    @php $shown = 0; @endphp
-                    @foreach ($viewSections as $i => $section)
-                        @if (!empty($section['head']) || !empty($section['desc']))
-                            @php $shown++; @endphp
-                            <section class="py-5 first:pt-0">
-                                @if (!empty($section['head']))
-                                    <h2 class="text-base font-semibold text-black break-words">
-                                        <span class="tabular-nums mr-1">{{ $shown }}.</span>{{ $section['head'] }}
-                                    </h2>
-                                @endif
-                                @if (!empty($section['desc']))
-                                    <p class="text-sm text-black leading-relaxed break-words {{ !empty($section['head']) ? 'mt-2' : '' }}">
-                                        {!! nl2br(e($section['desc'])) !!}
-                                    </p>
-                                @endif
-                            </section>
-                        @endif
-                    @endforeach
-                </div>
+            {{-- The sections in the Students list's look: one white card on the
+                 grey page — S.No and the section, its heading in bold and the
+                 text under it (partials/sections-view). --}}
+            <div class="p-4 sm:p-6">
+                @include('livewire.super-admin.partials.sections-view', ['sections' => $viewSections, 'title' => 'Terms of Use'])
             </div>
         @endif
     @endif
