@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\WebsiteController;
+use App\Http\Controllers\WhatsAppWebhookController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -30,6 +31,11 @@ Route::prefix('website')->group(function () {
         Route::post('/executive-apply', [WebsiteController::class, 'executiveApply']);
     });
 });
+
+// Meta's WhatsApp webhook (public): the callback check, then message statuses
+// signed with the app secret — a failed message is not charged to its school.
+Route::get('/whatsapp/webhook', [WhatsAppWebhookController::class, 'verify']);
+Route::post('/whatsapp/webhook', [WhatsAppWebhookController::class, 'handle']);
 
 //v1 api
 require __DIR__ . '/v1.php';

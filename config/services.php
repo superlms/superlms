@@ -73,7 +73,17 @@ return [
         'templates'       => [
             'student' => env('WHATSAPP_TEMPLATE_STUDENT', 'admission_confirmed'),
             'teacher' => env('WHATSAPP_TEMPLATE_TEACHER', 'teacher_joining_confirmed'),
+            // School messages, charged to the school (App\Services\SchoolWhatsApp).
+            'absent'  => env('WHATSAPP_TEMPLATE_ABSENT', 'student_absent_alert'),
+            'fee'     => env('WHATSAPP_TEMPLATE_FEE', 'fee_received'),
         ],
+        // What a school pays for each message charged to it (absent alert, fee
+        // received, Send Credentials); the welcome on adding someone is free.
+        'rate_per_message' => (float) env('WHATSAPP_RATE_PER_MESSAGE', 0.55),
+        // Meta's status webhook (/api/whatsapp/webhook): the token Meta echoes
+        // when the callback is set up, and the app secret its posts are signed with.
+        'webhook_verify_token' => env('WHATSAPP_WEBHOOK_VERIFY_TOKEN'),
+        'app_secret'           => env('WHATSAPP_APP_SECRET'),
         // The value for the templates' dynamic Download Now button (index 1),
         // appended to its Play Store link. Empty when that button is static.
         'download_button_suffix' => env('WHATSAPP_DOWNLOAD_BUTTON_SUFFIX', 'wa'),

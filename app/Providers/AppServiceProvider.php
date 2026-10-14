@@ -46,6 +46,20 @@ class AppServiceProvider extends ServiceProvider
         // In-app notifications for the accounts desk (money + messages).
         $this->bootAccountsNotifications();
 
+        // WhatsApp to the student when a fee is booked — counter, panel, admin
+        // app, school QR or online — for a school that has "Fee received" on;
+        // charged to the school (App\Services\SchoolWhatsApp). Absent alerts
+        // go from the whatsapp:absent-alerts command. Never stops a save.
+        $feeWhatsApp = function ($payment) {
+            try {
+                \App\Services\SchoolWhatsApp::feeReceived($payment);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        };
+        \App\Models\Admin\Fee\FeePayment::created($feeWhatsApp);
+        \App\Models\Admin\TransportFeePayment::created($feeWhatsApp);
+
         // Record last login timestamp on every successful authentication
         Event::listen(Login::class, function (Login $event) {
             $user = $event->user;

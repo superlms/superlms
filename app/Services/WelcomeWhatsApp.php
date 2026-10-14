@@ -22,13 +22,18 @@ use Illuminate\Support\Facades\Log;
  */
 class WelcomeWhatsApp
 {
-    public static function student(int $userId): void
+    /**
+     * $feature is what the message counts as (App\Services\SchoolWhatsApp):
+     * 'welcome' — on adding someone, free; 'credentials' — Send Credentials,
+     * charged to the school.
+     */
+    public static function student(int $userId, string $feature = 'welcome'): void
     {
         if (!WhatsAppService::enabled()) {
             return;
         }
 
-        dispatch(function () use ($userId) {
+        dispatch(function () use ($userId, $feature) {
             try {
                 $user   = User::find($userId);
                 $detail = StudentDetail::with(['standard', 'section'])->where('user_id', $userId)->first();
@@ -38,7 +43,9 @@ class WelcomeWhatsApp
 
                 $class = trim(($detail->standard->name ?? '') . ($detail->section ? ' - ' . $detail->section->name : ''));
 
-                WhatsAppService::sendTemplate(
+                SchoolWhatsApp::send(
+                    (int) $user->organization_id ?: null,
+                    $feature,
                     $detail->phone ?: $user->mobile_number,
                     config('services.whatsapp.templates.student', 'admission_confirmed'),
                     [
@@ -48,6 +55,7 @@ class WelcomeWhatsApp
                         $detail->admission_no ?: '-',
                     ],
                     self::buttons(AccountSetupLink::issue($user)),
+                    ['user_id' => $user->id, 'student_detail_id' => $detail->id],
                 );
             } catch (\Throwable $e) {
                 Log::error('WelcomeWhatsApp student failed', ['user_id' => $userId, 'error' => $e->getMessage()]);
@@ -55,20 +63,22 @@ class WelcomeWhatsApp
         })->afterResponse();
     }
 
-    public static function teacher(int $userId): void
+    public static function teacher(int $userId, string $feature = 'welcome'): void
     {
         if (!WhatsAppService::enabled()) {
             return;
         }
 
-        dispatch(function () use ($userId) {
+        dispatch(function () use ($userId, $feature) {
             try {
                 $user = User::find($userId);
                 if (!$user || !$user->username) {
                     return;
                 }
 
-                WhatsAppService::sendTemplate(
+                SchoolWhatsApp::send(
+                    (int) $user->organization_id ?: null,
+                    $feature,
                     $user->mobile_number,
                     config('services.whatsapp.templates.teacher', 'teacher_joining_confirmed'),
                     [
@@ -77,6 +87,7 @@ class WelcomeWhatsApp
                         $user->username,
                     ],
                     self::buttons(AccountSetupLink::issue($user)),
+                    ['user_id' => $user->id],
                 );
             } catch (\Throwable $e) {
                 Log::error('WelcomeWhatsApp teacher failed', ['user_id' => $userId, 'error' => $e->getMessage()]);
@@ -117,7 +128,8 @@ class WelcomeWhatsApp
             return ['ok' => false, 'message' => 'No valid mobile number to send the credentials to.'];
         }
 
-        $kind === 'student' ? self::student((int) $user->id) : self::teacher((int) $user->id);
+        // Charged to the school, as Send Credentials (SchoolWhatsApp).
+        $kind === 'student' ? self::student((int) $user->id, 'credentials') : self::teacher((int) $user->id, 'credentials');
 
         return ['ok' => true, 'message' => 'Credentials sent on WhatsApp to +' . $to . '.'];
     }

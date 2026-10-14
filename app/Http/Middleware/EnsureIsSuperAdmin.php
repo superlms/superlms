@@ -94,6 +94,8 @@ class EnsureIsSuperAdmin
             \App\Models\Admin\RateLms::class,
             \App\Models\Admin\Fee\FeePayment::class,
             \App\Models\SchoolWebsite::class,
+            \App\Models\WhatsAppMessage::class,
+            \App\Models\WhatsAppSchoolFeature::class,
         ];
 
         foreach ($models as $model) {

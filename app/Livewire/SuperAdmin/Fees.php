@@ -9,6 +9,7 @@ use App\Models\Student\StudentDetail;
 use App\Models\SuperAdmin\SuperAdminFeePayment;
 use App\Models\SuperAdmin\SuperAdminFeeReceipt;
 use App\Models\SuperAdmin\SuperAdminFeeStructure;
+use App\Services\SchoolWhatsApp;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -111,6 +112,10 @@ class Fees extends Component
     public string $editPayMode   = 'cash';
     public string $editPayDate   = '';
     public string $editPayRemark = '';
+
+    // ─── School view: WhatsApp — the school's paid messages, on / off, and a
+    // month's count of each kind with what it comes to (SchoolWhatsApp) ──────
+    public string $waMonth = '';
 
     // ─── Record / Edit Payment Modal (shared by both flows) ───────────────────
     public bool   $showPayModal      = false;
@@ -259,6 +264,7 @@ class Fees extends Component
         $this->loadSchoolStats();
         $this->activeTab  = 'analytics';
         $this->activeView = 'school';
+        $this->waMonth    = '';
     }
 
     public function backToList(): void
@@ -268,6 +274,7 @@ class Fees extends Component
         $this->schoolStats    = [];
         $this->paymentsShown  = 10;
         $this->viewPaymentId  = null;
+        $this->waMonth        = '';
         $this->closeEditPayment();
     }
 
@@ -981,6 +988,30 @@ class Fees extends Component
     public function showMorePayments(): void
     {
         $this->paymentsShown += 25;
+    }
+
+    // ─── School view: WhatsApp ──────────────────────────────────────────────
+
+    /** For the WhatsApp card: null until the tables are there (SchoolWhatsApp). */
+    public function whatsAppSummary(): ?array
+    {
+        return $this->selectedSchool && SchoolWhatsApp::tracked()
+            ? SchoolWhatsApp::summary((int) $this->selectedSchool->id, $this->waMonth ?: null)
+            : null;
+    }
+
+    /** Turn one of the school's paid messages (Absent alert, Fee received) on or off. */
+    public function toggleWhatsApp(string $feature): void
+    {
+        if (!$this->selectedSchool || !SchoolWhatsApp::tracked() || !(SchoolWhatsApp::FEATURES[$feature][2] ?? false)) {
+            return;
+        }
+
+        $orgId = (int) $this->selectedSchool->id;
+        $on    = !SchoolWhatsApp::enabled($orgId, $feature);
+        SchoolWhatsApp::setEnabled($orgId, $feature, $on);
+
+        $this->notification()->success(SchoolWhatsApp::FEATURES[$feature][0] . ($on ? ' is on' : ' is off') . ' for ' . $this->selectedSchool->name . '.');
     }
 
     private function findSchoolPayment($id): ?SuperAdminFeeReceipt

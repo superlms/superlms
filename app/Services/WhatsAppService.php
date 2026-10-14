@@ -49,15 +49,25 @@ class WhatsAppService
      */
     public static function sendTemplate(string $to, string $template, array $body = [], string|array|null $urlSuffix = null): bool
     {
+        return self::sendTemplateResult($to, $template, $body, $urlSuffix)['ok'];
+    }
+
+    /**
+     * sendTemplate(), telling what came of it: ['ok' => bool, 'id' => Meta's
+     * message id or null, 'error' => why it did not go, or null] — for the
+     * messages a school is charged for (App\Services\SchoolWhatsApp).
+     */
+    public static function sendTemplateResult(string $to, string $template, array $body = [], string|array|null $urlSuffix = null): array
+    {
         if (!self::enabled()) {
             Log::info('WhatsApp: not configured, skipped', ['template' => $template]);
-            return false;
+            return ['ok' => false, 'id' => null, 'error' => 'WhatsApp is not set up'];
         }
 
         $phone = self::normalizePhone($to);
         if (!$phone) {
             Log::warning('WhatsApp: no usable mobile number, skipped', ['template' => $template]);
-            return false;
+            return ['ok' => false, 'id' => null, 'error' => 'No usable mobile number'];
         }
 
         $components = [];
@@ -104,14 +114,14 @@ class WhatsAppService
                     'status'   => $res->status(),
                     'error'    => $res->json('error.message') ?? $res->body(),
                 ]);
-                return false;
+                return ['ok' => false, 'id' => null, 'error' => (string) ($res->json('error.message') ?? ('HTTP ' . $res->status()))];
             }
 
             Log::info('WhatsApp: sent', ['template' => $template, 'id' => $res->json('messages.0.id')]);
-            return true;
+            return ['ok' => true, 'id' => $res->json('messages.0.id'), 'error' => null];
         } catch (\Throwable $e) {
             Log::error('WhatsApp: send failed', ['template' => $template, 'error' => $e->getMessage()]);
-            return false;
+            return ['ok' => false, 'id' => null, 'error' => $e->getMessage()];
         }
     }
 }

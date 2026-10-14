@@ -436,6 +436,13 @@
 
         <div class="p-4 sm:p-6 space-y-8">
 
+            {{-- ══════════════════════════════ WHATSAPP ══════════════════════════════
+                 The school's paid messages (Absent alert, Fee received) on / off,
+                 and a month's count of each kind with what it comes to. --}}
+            @if ($wa = $this->whatsAppSummary())
+                @include('livewire.partials.whatsapp-usage', ['wa' => $wa, 'waEditable' => true])
+            @endif
+
             {{-- ══════════════════════════════ OVERVIEW ══════════════════════════════ --}}
             <section>
                 <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Overview</h2>
