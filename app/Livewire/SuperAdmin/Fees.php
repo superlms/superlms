@@ -102,6 +102,16 @@ class Fees extends Component
     public string $receiveDate   = '';
     public string $receiveRemark = '';
 
+    // ─── School view: Payments — each time money came (SuperAdminFeeReceipt),
+    // with View and Edit (the Amount Received form, filled in again) ─────────
+    public int    $paymentsShown = 10;
+    public ?int   $viewPaymentId = null;
+    public ?int   $editPaymentId = null;
+    public string $editPayAmount = '';
+    public string $editPayMode   = 'cash';
+    public string $editPayDate   = '';
+    public string $editPayRemark = '';
+
     // ─── Record / Edit Payment Modal (shared by both flows) ───────────────────
     public bool   $showPayModal      = false;
     public        $payStudentId      = null;   // set for per_student flow
@@ -256,6 +266,9 @@ class Fees extends Component
         $this->activeView     = 'list';
         $this->selectedSchool = null;
         $this->schoolStats    = [];
+        $this->paymentsShown  = 10;
+        $this->viewPaymentId  = null;
+        $this->closeEditPayment();
     }
 
     public function setTab(string $tab): void
@@ -939,6 +952,162 @@ class Fees extends Component
             . ($result['part'] > 0 ? ', ' . $result['part'] . ' part paid' : '');
 
         $this->afterPaymentChange('₹' . number_format($result['applied'], 0) . ' recorded — ' . $what . '.');
+    }
+
+    // ─── School view: Payments (View / Edit) ───────────────────────────────────
+
+    /** The school's money received this year, newest first (a receipt above ₹0 — a sum taken back is not a payment). */
+    private function schoolPaymentsQuery()
+    {
+        return SuperAdminFeeReceipt::where('organization_id', $this->selectedSchool?->id ?? 0)
+            ->where('academic_year', $this->academicYear)
+            ->where('amount', '>', 0);
+    }
+
+    /** For the Payments card: the first $paymentsShown rows, how many there are and their total. */
+    public function schoolPayments(): array
+    {
+        $query = $this->schoolPaymentsQuery();
+
+        return [
+            'rows'  => (clone $query)->with('organization:id,name')
+                ->orderByDesc('payment_date')->orderByDesc('id')
+                ->limit($this->paymentsShown)->get(),
+            'count' => (clone $query)->count(),
+            'total' => round((float) (clone $query)->sum('amount'), 2),
+        ];
+    }
+
+    public function showMorePayments(): void
+    {
+        $this->paymentsShown += 25;
+    }
+
+    private function findSchoolPayment($id): ?SuperAdminFeeReceipt
+    {
+        return $id && $this->selectedSchool
+            ? SuperAdminFeeReceipt::with(['organization:id,name', 'feeStructure'])
+                ->where('organization_id', $this->selectedSchool->id)
+                ->where('amount', '>', 0)
+                ->find($id)
+            : null;
+    }
+
+    public function viewPayment($id): void
+    {
+        if ($this->findSchoolPayment($id)) {
+            $this->closeEditPayment();
+            $this->viewPaymentId = (int) $id;
+        }
+    }
+
+    public function closeViewPayment(): void
+    {
+        $this->viewPaymentId = null;
+    }
+
+    public function viewedPayment(): ?SuperAdminFeeReceipt
+    {
+        return $this->findSchoolPayment($this->viewPaymentId);
+    }
+
+    /** Edit opens the Amount Received form with this payment's amount, mode, date and remark. */
+    public function openEditPayment($id): void
+    {
+        $receipt = $this->findSchoolPayment($id);
+        if (!$receipt) {
+            return;
+        }
+
+        $this->resetErrorBag();
+        $this->viewPaymentId = null;
+        $this->editPaymentId = $receipt->id;
+        $this->editPayAmount = rtrim(rtrim(number_format((float) $receipt->amount, 2, '.', ''), '0'), '.');
+        $this->editPayMode   = $receipt->payment_mode ?: 'cash';
+        $this->editPayDate   = $receipt->payment_date?->format('Y-m-d') ?? now()->format('Y-m-d');
+        $this->editPayRemark = (string) $receipt->remark;
+    }
+
+    public function closeEditPayment(): void
+    {
+        $this->editPaymentId = null;
+        $this->reset(['editPayAmount', 'editPayMode', 'editPayDate', 'editPayRemark']);
+        $this->resetErrorBag(['editPayAmount', 'editPayMode', 'editPayDate', 'editPayRemark']);
+    }
+
+    public function editedPayment(): ?SuperAdminFeeReceipt
+    {
+        return $this->findSchoolPayment($this->editPaymentId);
+    }
+
+    /** The modes the edit form offers: the Amount Received form's, and the payment's own if it was another. */
+    public function editPaymentModes(): array
+    {
+        $modes = ['cash' => 'Cash', 'online' => 'Online', 'cheque' => 'Cheque', 'upi' => 'UPI'];
+        $own   = (string) $this->editedPayment()?->payment_mode;
+        if ($own !== '' && !isset($modes[$own])) {
+            $modes[$own] = ucwords(str_replace('_', ' ', $own));
+        }
+
+        return $modes;
+    }
+
+    /** For the edit panel: the payment's amount, what is still due, and what the new amount would change. */
+    public function editPaymentPreview(): array
+    {
+        $receipt   = $this->editedPayment();
+        $structure = $receipt?->feeStructure;
+        $old       = round((float) ($receipt?->amount ?? 0), 2);
+        $new       = is_numeric($this->editPayAmount) ? max(0, round((float) $this->editPayAmount, 2)) : 0;
+        $delta     = round($new - $old, 2);
+        $dues      = $receipt && $structure ? SuperAdminFeeAllocator::duesForEdit($receipt, $structure) : [];
+        $due       = round(array_sum(array_column($dues, 'due')), 2);
+
+        return [
+            'old'         => $old,
+            'new'         => $new,
+            'delta'       => $delta,
+            'due'         => $due,
+            'max'         => round($old + $due, 2),
+            'over'        => $delta > $due + 0.005,
+            'fixed'       => !$structure,
+            'lines'       => $delta >= 0.005 && $delta <= $due + 0.005
+                ? SuperAdminFeeAllocator::lines(SuperAdminFeeAllocator::plan($dues, $delta))
+                : [],
+            'per_student' => $structure?->fee_type === 'per_student',
+            'monthly'     => $structure?->installment_frequency === 'monthly',
+        ];
+    }
+
+    /** Save the edited payment: SuperAdminFeeAllocator::editReceipt adds or takes back the difference. */
+    public function saveEditPayment(): void
+    {
+        $receipt = $this->editedPayment();
+        if (!$receipt) {
+            $this->closeEditPayment();
+            return;
+        }
+
+        $this->validate([
+            'editPayAmount' => 'required|numeric|min:0.01',
+            'editPayMode'   => 'required|in:' . implode(',', array_keys($this->editPaymentModes())),
+            'editPayDate'   => 'required|date',
+            'editPayRemark' => 'nullable|string|max:255',
+        ], [], [
+            'editPayAmount' => 'amount',
+            'editPayMode'   => 'payment mode',
+            'editPayDate'   => 'payment date',
+            'editPayRemark' => 'remark',
+        ]);
+
+        $result = SuperAdminFeeAllocator::editReceipt($receipt, (float) $this->editPayAmount, $this->editPayMode, $this->editPayDate, $this->editPayRemark);
+        if (!$result['ok']) {
+            $this->addError('editPayAmount', $result['error']);
+            return;
+        }
+
+        $this->closeEditPayment();
+        $this->afterPaymentChange('Payment updated.');
     }
 
     // ─── Pay / Edit Payment Modal (shared) ─────────────────────────────────────

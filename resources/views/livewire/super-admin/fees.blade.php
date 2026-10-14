@@ -597,6 +597,89 @@
                 </div>
             </section>
 
+            {{-- ═══════════════════════════════ PAYMENTS ═══════════════════════════════
+                 Each time money came from the school this year (Update Fee's
+                 Amount Received, Record, Mark Paid), newest first — Date,
+                 Amount, Mode, School, Remark; View, and Edit in the Amount
+                 Received form. --}}
+            @php
+                $dPay     = $this->schoolPayments();
+                $modeName = fn ($m) => ['upi' => 'UPI'][$m] ?? ($m ? ucwords(str_replace('_', ' ', $m)) : '—');
+            @endphp
+            <section>
+                <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Payments</h2>
+
+                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
+                        <h3 class="text-sm font-semibold text-gray-800">Payments · {{ $academicYear }}</h3>
+                        <span class="text-xs text-gray-400 whitespace-nowrap">
+                            {{ number_format($dPay['count']) }} {{ $dPay['count'] === 1 ? 'payment' : 'payments' }} ·
+                            <span class="font-medium text-gray-700">{{ $inr($dPay['total']) }}</span>
+                        </span>
+                    </div>
+
+                    @if ($dPay['count'] === 0)
+                        <p class="text-center py-12 text-sm text-gray-400">No payments yet — an amount saved in Update Fee shows here.</p>
+                    @else
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm min-w-[720px]">
+                                <thead class="bg-gray-50/70 text-gray-400 text-[11px] uppercase tracking-wide">
+                                    <tr>
+                                        <th class="px-5 py-2.5 text-left font-medium w-12">S.No</th>
+                                        <th class="px-3 py-2.5 text-left font-medium">Date</th>
+                                        <th class="px-3 py-2.5 text-right font-medium">Amount</th>
+                                        <th class="px-3 py-2.5 text-left font-medium">Mode</th>
+                                        <th class="px-3 py-2.5 text-left font-medium">School</th>
+                                        <th class="px-3 py-2.5 text-left font-medium">Remark</th>
+                                        <th class="px-5 py-2.5 text-center font-medium">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    @foreach ($dPay['rows'] as $i => $pay)
+                                        <tr class="hover:bg-gray-50/70" wire:key="sa-fee-payment-{{ $pay->id }}">
+                                            <td class="px-5 py-2.5 text-gray-400 tabular-nums">{{ $i + 1 }}</td>
+                                            <td class="px-3 py-2.5 text-gray-700 whitespace-nowrap">{{ $pay->payment_date?->format('d M Y') ?? '—' }}</td>
+                                            <td class="px-3 py-2.5 text-right font-semibold text-gray-900 tabular-nums whitespace-nowrap">{{ $inr($pay->amount) }}</td>
+                                            <td class="px-3 py-2.5 text-gray-700 whitespace-nowrap">{{ $modeName($pay->payment_mode) }}</td>
+                                            <td class="px-3 py-2.5 text-gray-700">
+                                                <span class="block truncate max-w-[14rem]" title="{{ $pay->organization?->name ?? $selectedSchool->name }}">{{ $pay->organization?->name ?? $selectedSchool->name }}</span>
+                                            </td>
+                                            <td class="px-3 py-2.5 text-gray-500">
+                                                <span class="block truncate max-w-[16rem]" title="{{ $pay->remark }}">{{ $pay->remark ?: '—' }}</span>
+                                            </td>
+                                            <td class="px-5 py-2.5">
+                                                <div class="flex items-center justify-center gap-1">
+                                                    <button wire:click="viewPayment({{ $pay->id }})" title="View"
+                                                        class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                        </svg>
+                                                    </button>
+                                                    <button wire:click="openEditPayment({{ $pay->id }})" title="Edit"
+                                                        class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        @if ($dPay['count'] > $dPay['rows']->count())
+                            <div class="px-5 py-3 border-t border-gray-100 text-center">
+                                <button wire:click="showMorePayments" class="text-xs font-medium text-blue-600 hover:text-blue-800">
+                                    Show more ({{ number_format($dPay['count'] - $dPay['rows']->count()) }} more)
+                                </button>
+                            </div>
+                        @endif
+                    @endif
+                </div>
+            </section>
+
             {{-- ═══════════════════ STUDENTS (per student) / MONTHS (monthly, one time) ═══════════════════ --}}
             @if ($dStructure?->fee_type === 'per_student')
                 @php
@@ -1274,6 +1357,222 @@
                     </button>
                 </div>
 
+            </div>
+        </div>
+    @endif
+
+    {{-- ══════════ PAYMENT VIEW SLIDE-IN (school view → Payments → View) ══════════
+         In the Push Notification view's look: one bordered card of label /
+         value rows; Edit and Close in the footer. --}}
+    @if ($viewPaymentId && ($vPay = $this->viewedPayment()))
+        @php
+            $vModeName = fn ($m) => ['upi' => 'UPI'][$m] ?? ($m ? ucwords(str_replace('_', ' ', $m)) : '—');
+            $vRows = [
+                ['School', $vPay->organization?->name ?? $selectedSchool?->name ?? '—'],
+                ['Date', $vPay->payment_date?->format('d M Y') ?? '—'],
+                ['Amount', '₹' . number_format((float) $vPay->amount, 2)],
+                ['Payment Mode', $vModeName($vPay->payment_mode)],
+                ['Remark', $vPay->remark ?: '—'],
+                ['For', $vPay->label ?: ($vPay->feeStructure ? \App\Support\SuperAdminFeeTotals::planName($vPay->feeStructure) : '—')],
+                ['Receipt No.', $vPay->receipt_number ?: '—'],
+                ['Recorded', $vPay->created_at?->format('d M Y · g:i A') ?? '—'],
+            ];
+            if ($vPay->updated_at && $vPay->created_at && $vPay->updated_at->gt($vPay->created_at->copy()->addMinute())) {
+                $vRows[] = ['Last Edited', $vPay->updated_at->format('d M Y · g:i A')];
+            }
+        @endphp
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden" x-data @keydown.escape.window="$wire.closeViewPayment()">
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeViewPayment"></div>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col">
+
+                {{-- Header --}}
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900 truncate">Payment</h2>
+                        <p class="text-xs text-gray-500 mt-0.5 truncate">
+                            ₹{{ number_format((float) $vPay->amount, 0) }} · {{ $vPay->payment_date?->format('d M Y') ?? '—' }}
+                        </p>
+                    </div>
+                    <button wire:click="closeViewPayment" type="button"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                {{-- Body --}}
+                <div class="flex-1 overflow-y-auto px-6 py-6">
+                    <div class="rounded-xl border border-gray-200 divide-y divide-gray-100">
+                        @foreach ($vRows as [$vLabel, $vValue])
+                            <div class="px-4 py-3">
+                                <p class="text-[11px] text-gray-400 uppercase tracking-wider">{{ $vLabel }}</p>
+                                <p class="mt-1 text-sm {{ $vLabel === 'Amount' ? 'font-semibold text-gray-900' : 'text-gray-800' }} break-words">{{ $vValue }}</p>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                {{-- Footer --}}
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-between flex-shrink-0">
+                    <button type="button" wire:click="openEditPayment({{ $vPay->id }})"
+                        class="px-4 py-2 text-sm font-medium text-amber-600 hover:bg-amber-50 rounded-md">
+                        Edit
+                    </button>
+                    <button type="button" wire:click="closeViewPayment"
+                        class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- ══════════ PAYMENT EDIT SLIDE-IN (school view → Payments → Edit) ══════════
+         The Update Fee panel's Amount Received form, open and filled in with
+         the payment: change the amount, date, mode or remark and save. More
+         money goes on as Amount Received puts it; less comes off what this
+         payment paid, last first (SuperAdminFeeAllocator::editReceipt). --}}
+    @if ($editPaymentId && ($ePay = $this->editedPayment()))
+        @php
+            $epIn  = 'w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500';
+            $epLb  = 'block text-sm font-medium text-gray-700 mb-1.5';
+            $epErr = 'mt-1 text-xs text-red-500';
+            $ePrev = $this->editPaymentPreview();
+            $eFs   = $ePay->feeStructure;
+        @endphp
+        <div class="fixed inset-x-0 bottom-0 top-16 z-50 overflow-hidden" x-data @keydown.escape.window="$wire.closeEditPayment()">
+            <div class="absolute inset-0 bg-black/[0.04] backdrop-blur-[1.5px]" wire:click="closeEditPayment"></div>
+            <div class="absolute top-0 right-0 bottom-0 w-full max-w-3xl bg-white shadow-2xl flex flex-col">
+
+                {{-- Header --}}
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-gray-900">Edit Payment</h2>
+                        <p class="text-xs text-gray-500 mt-0.5 truncate">Change the amount or date and save — the fee is updated to match</p>
+                    </div>
+                    <button wire:click="closeEditPayment" type="button"
+                        class="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                {{-- Body --}}
+                <div class="flex-1 overflow-y-auto">
+                    <div class="px-6 py-6 space-y-5">
+
+                        {{-- The school (fixed: this payment is its own) and its plan, as plain text --}}
+                        <div>
+                            <label class="{{ $epLb }}">School / Organization</label>
+                            <div class="{{ $epIn }} bg-gray-50 text-gray-700 truncate">{{ $ePay->organization?->name ?? $selectedSchool?->name ?? '—' }}</div>
+                            @if ($eFs)
+                                <p class="mt-1.5 text-xs text-gray-500">
+                                    {{ \App\Support\SuperAdminFeeTotals::planName($eFs) }}{{ $eFs->fee_label ? ' · ' . $eFs->fee_label : '' }} · {{ $eFs->academic_year }}
+                                </p>
+                            @endif
+                        </div>
+
+                        {{-- ── AMOUNT RECEIVED, open, with this payment in it ── --}}
+                        <div class="border border-gray-300 rounded-md">
+                            <div class="flex items-center justify-between gap-3 px-4 py-3">
+                                <span class="min-w-0">
+                                    <span class="block text-sm font-medium text-gray-800">Amount Received</span>
+                                    <span class="block text-xs text-gray-400 mt-0.5">
+                                        Was ₹{{ number_format($ePrev['old'], 0) }} on {{ $ePay->payment_date?->format('d M Y') ?? '—' }}
+                                        @if (!$ePrev['fixed'])
+                                            · up to ₹{{ number_format($ePrev['max'], 0) }}
+                                        @endif
+                                    </span>
+                                </span>
+                                @if (!$ePrev['fixed'])
+                                    <span class="text-xs text-gray-500 whitespace-nowrap flex-shrink-0">Total due
+                                        <strong class="{{ $ePrev['due'] > 0 ? 'text-red-500' : 'text-emerald-600' }}">₹{{ number_format($ePrev['due'], 0) }}</strong>
+                                    </span>
+                                @endif
+                            </div>
+
+                            <div class="border-t border-gray-200 px-4 py-4 space-y-4">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="{{ $epLb }}">Amount (₹) <span class="text-red-500">*</span></label>
+                                        <input wire:model.live.debounce.400ms="editPayAmount" type="number" min="0" step="0.01" placeholder="e.g. 25000"
+                                            @if ($ePrev['fixed']) readonly @endif
+                                            class="{{ $epIn }} {{ $ePrev['fixed'] ? 'bg-gray-50 text-gray-500' : '' }} @error('editPayAmount') border-red-400 @enderror" />
+                                        @error('editPayAmount') <p class="{{ $epErr }}">{{ $message }}</p> @enderror
+                                    </div>
+                                    <div>
+                                        <label class="{{ $epLb }}">Payment Mode</label>
+                                        <select wire:model="editPayMode" class="{{ $epIn }} @error('editPayMode') border-red-400 @enderror">
+                                            @foreach ($this->editPaymentModes() as $mValue => $mName)
+                                                <option value="{{ $mValue }}">{{ $mName }}</option>
+                                            @endforeach
+                                        </select>
+                                        @error('editPayMode') <p class="{{ $epErr }}">{{ $message }}</p> @enderror
+                                    </div>
+                                    <div>
+                                        <label class="{{ $epLb }}">Payment Date</label>
+                                        <input wire:model="editPayDate" type="date" class="{{ $epIn }} @error('editPayDate') border-red-400 @enderror" />
+                                        @error('editPayDate') <p class="{{ $epErr }}">{{ $message }}</p> @enderror
+                                    </div>
+                                    <div>
+                                        <label class="{{ $epLb }}">Remark <span class="text-gray-400 font-normal">(Optional)</span></label>
+                                        <input wire:model="editPayRemark" type="text" placeholder="Optional remark" class="{{ $epIn }} @error('editPayRemark') border-red-400 @enderror" />
+                                        @error('editPayRemark') <p class="{{ $epErr }}">{{ $message }}</p> @enderror
+                                    </div>
+                                </div>
+
+                                {{-- What the new amount changes, before it is saved. --}}
+                                @if ($ePrev['fixed'])
+                                    <p class="text-xs text-gray-500">This payment's fee is no longer set, so only its date, mode and remark can change.</p>
+                                @elseif ($ePrev['new'] > 0 && $ePrev['delta'] >= 0.005)
+                                    @if ($ePrev['over'])
+                                        <p class="text-xs text-red-500">More than is due — at most ₹{{ number_format($ePrev['max'], 0) }}.</p>
+                                    @else
+                                        <p class="text-xs text-gray-600">₹{{ number_format($ePrev['delta'], 0) }} more —
+                                            {{ $ePrev['per_student'] ? 'goes to the next students due, class by class' : ($ePrev['monthly'] ? 'goes to the next months due' : "goes to the year's fee") }}:</p>
+                                        @if (count($ePrev['lines']))
+                                            <div class="border border-gray-200 rounded-md divide-y divide-gray-100 max-h-44 overflow-y-auto">
+                                                @foreach ($ePrev['lines'] as $line)
+                                                    <div class="flex items-baseline justify-between gap-3 px-3 py-1.5 text-xs">
+                                                        <span class="font-medium text-gray-700 whitespace-nowrap">{{ $line['label'] }}</span>
+                                                        <span class="text-right {{ $line['full'] ? 'text-emerald-700' : 'text-amber-600' }}">{{ $line['text'] }}</span>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        @endif
+                                    @endif
+                                @elseif ($ePrev['new'] > 0 && $ePrev['delta'] <= -0.005)
+                                    <p class="text-xs text-gray-600">₹{{ number_format(-$ePrev['delta'], 0) }} less — taken back from what this payment paid, the last {{ $ePrev['per_student'] ? 'students' : ($ePrev['monthly'] ? 'months' : 'part') }} first.</p>
+                                @endif
+
+                                {{-- Asks once before saving, as Amount Received does. --}}
+                                <div x-data="{ ask: false }" class="flex items-center justify-end gap-2">
+                                    <button type="button" x-show="!ask" x-on:click="ask = true"
+                                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md">
+                                        Save Amount
+                                    </button>
+                                    <span x-show="ask" x-cloak class="text-xs text-gray-500 mr-auto">Save the changes to this payment?</span>
+                                    <button type="button" x-show="ask" x-cloak x-on:click="ask = false"
+                                        class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">
+                                        Cancel
+                                    </button>
+                                    <button type="button" x-show="ask" x-cloak wire:click="saveEditPayment" x-on:click="ask = false"
+                                        wire:loading.attr="disabled" wire:target="saveEditPayment"
+                                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md disabled:opacity-60">
+                                        Yes, save{{ $ePrev['new'] > 0 ? ' ₹' . number_format($ePrev['new'], 0) : '' }}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                {{-- Footer --}}
+                <div class="px-6 py-3.5 border-t border-gray-200 flex items-center justify-end gap-2 flex-shrink-0">
+                    <button wire:click="closeEditPayment" type="button"
+                        class="px-5 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md">
+                        Close
+                    </button>
+                </div>
             </div>
         </div>
     @endif

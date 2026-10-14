@@ -32,13 +32,35 @@ class SuperAdminFeeReceipt extends Model
         'label',
         'items',
         'remark',
+        'allocation',
     ];
 
     protected $casts = [
         'amount'       => 'decimal:2',
         'payment_date' => 'date',
         'items'        => 'integer',
+        // [[payment id, amount put on it], …] — NULL on receipts from before 14 Oct 2026.
+        'allocation'   => 'array',
     ];
+
+    /**
+     * Whether the receipts table has its allocation column yet (the migration
+     * of 14 Oct 2026) — asked once a request, so nothing breaks before it runs.
+     */
+    public static function tracksAllocation(): bool
+    {
+        $key = 'superadmin.fee_receipts.tracks_allocation';
+        if (!app()->bound($key)) {
+            try {
+                $has = \Illuminate\Support\Facades\Schema::hasColumn((new self)->getTable(), 'allocation');
+            } catch (\Throwable $e) {
+                $has = false;
+            }
+            app()->instance($key, $has);
+        }
+
+        return (bool) app($key);
+    }
 
     public function organization(): BelongsTo
     {
@@ -127,7 +149,7 @@ class SuperAdminFeeReceipt extends Model
                 'label'                        => self::describe([$payment->student_detail_id], [$payment->installment_period]),
                 'items'                        => 1,
                 'remark'                       => $payment->remark,
-            ]);
+            ] + (self::tracksAllocation() ? ['allocation' => [[$payment->id, round($amount, 2)]]] : []));
         } catch (\Throwable $e) {
             // The payment itself is saved; a missing receipts table never stops it.
             report($e);

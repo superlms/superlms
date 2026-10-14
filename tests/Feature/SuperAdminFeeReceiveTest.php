@@ -519,4 +519,168 @@ class SuperAdminFeeReceiveTest extends TestCase
         $this->assertMatchesRegularExpression('/whitespace-nowrap">UP BOARD<\/td>/', $html);
         $this->assertDoesNotMatchRegularExpression('/<td[^>]*>[^<]*ENGLISH MEDIUM/', $html);
     }
+
+    // ─── School view → Payments: View and Edit (2026-10-14) ───────────────────
+
+    /** The receipts table with its allocation column (the migration of 14 Oct 2026). */
+    private function trackAllocation(): void
+    {
+        (require base_path('database/migrations/2026_10_14_120000_add_allocation_to_super_admin_fee_receipts.php'))->up();
+    }
+
+    private function assertReceiptsAddUp(): void
+    {
+        $this->assertEquals(
+            round((float) DB::table('super_admin_fee_payments')->sum('amount'), 2),
+            round((float) $this->receipts()->sum('amount'), 2)
+        );
+    }
+
+    public function test_a_payment_edited_from_the_school_page_takes_back_or_adds_where_it_went(): void
+    {
+        $this->trackAllocation();
+        $this->signIn();
+        $s   = $this->alphaStudents();
+        $fs  = $this->structure(['organization_id' => 1, 'fee_type' => 'per_student', 'amount' => 500]);
+        $row = fn ($who) => $this->payment($fs->id, ['student_detail_id' => $s[$who]]);
+
+        SuperAdminFeeAllocator::apply($fs, 1200, 'cash', '2026-10-12', 'First lot');   // Kiran 500, Ravi 500, Zoya 200
+        SuperAdminFeeAllocator::apply($fs, 600, 'upi', '2026-10-15');                  // Zoya +300, Aman 300
+        [$first, $second] = $this->receipts()->orderBy('id')->get()->all();
+        $this->assertSame([[$row('kiran')->id, 500], [$row('ravi')->id, 500], [$row('zoya')->id, 200]], json_decode($first->allocation, true));
+
+        // The Payments card: date, amount, mode, school, remark; View and Edit.
+        $text = fn ($page) => preg_replace('/\s+/', ' ', strip_tags($page->html()));
+        $page = Livewire::test(Fees::class)->call('selectSchool', 1);
+        $seen = $text($page);
+        foreach (['Payments Payments · 2026-2027 2 payments · ₹1,800',
+                  'S.No Date Amount Mode School Remark Actions',
+                  '1 15 Oct 2026 ₹600 UPI Alpha School —',
+                  '2 12 Oct 2026 ₹1,200 Cash Alpha School First lot'] as $part) {
+            $this->assertStringContainsString($part, $seen);
+        }
+        $page->assertSeeHtml('wire:click="viewPayment(' . $second->id . ')"')
+            ->assertSeeHtml('wire:click="openEditPayment(' . $first->id . ')"');
+
+        $view = $text($page->call('viewPayment', $second->id));
+        foreach (['Payment ₹600 · 15 Oct 2026', 'School Alpha School', 'Date 15 Oct 2026', 'Amount ₹600.00',
+                  'Payment Mode UPI', 'Remark —', 'For 2 students'] as $part) {
+            $this->assertStringContainsString($part, $view);
+        }
+
+        // Edit opens the Amount Received form filled in with the payment.
+        $page->call('openEditPayment', $first->id)
+            ->assertSet('viewPaymentId', null)
+            ->assertSet('editPayAmount', '1200')
+            ->assertSet('editPayMode', 'cash')
+            ->assertSet('editPayDate', '2026-10-12')
+            ->assertSet('editPayRemark', 'First lot');
+        $this->assertStringContainsString('Edit Payment', $text($page));
+        $this->assertStringContainsString('Amount Received Was ₹1,200 on 12 Oct 2026', $text($page));
+
+        // Less: taken back from what it paid, last first — Zoya's 200, then 100 of Ravi's.
+        $this->assertStringContainsString('₹300 less — taken back from what this payment paid, the last students first.',
+            $text($page->set('editPayAmount', '900')));
+        $page->set('editPayDate', '2026-10-13')->call('saveEditPayment')->assertHasNoErrors()->assertSet('editPaymentId', null);
+
+        $this->assertEquals(500, $row('kiran')->amount);
+        $this->assertEquals(400, $row('ravi')->amount);
+        $this->assertEquals(0, $row('ravi')->is_paid);
+        $this->assertEquals(300, $row('zoya')->amount);
+        $this->assertEquals(300, $row('aman')->amount);
+        $first = $this->receipts()->find($first->id);
+        $this->assertEquals(900, $first->amount);
+        $this->assertSame('2026-10-13', substr($first->payment_date, 0, 10));
+        $this->assertSame('2 students', $first->label);
+        $this->assertSame([[$row('kiran')->id, 500], [$row('ravi')->id, 400]], json_decode($first->allocation, true));
+        // Its rows take the new date; Zoya's last money came on the 15th.
+        $this->assertSame('2026-10-13', substr($row('kiran')->payment_date, 0, 10));
+        $this->assertSame('2026-10-13', substr($row('ravi')->payment_date, 0, 10));
+        $this->assertSame('2026-10-15', substr($row('zoya')->payment_date, 0, 10));
+        $this->assertSame(2, $this->receipts()->count());   // no extra receipt rows
+        $this->assertReceiptsAddUp();
+
+        // More: this payment's own students first (Zoya, Aman), then the fee's order.
+        $page->call('openEditPayment', $second->id)->set('editPayAmount', '1000');
+        $this->assertStringContainsString('₹400 more — goes to the next students due, class by class:', $text($page));
+        $page->call('saveEditPayment')->assertHasNoErrors();
+        $this->assertEquals(500, $row('zoya')->amount);
+        $this->assertEquals(500, $row('aman')->amount);
+        $this->assertEquals(400, $row('ravi')->amount);
+        $this->assertEquals(1000, $this->receipts()->find($second->id)->amount);
+        $this->assertReceiptsAddUp();
+
+        // Not more than is due.
+        $page->call('openEditPayment', $second->id)->set('editPayAmount', '2000')->call('saveEditPayment')
+            ->assertHasErrors('editPayAmount');
+        $this->assertEquals(1000, $this->receipts()->find($second->id)->amount);
+
+        // Another school's and a sum taken back are not listed.
+        DB::table('super_admin_fee_receipts')->insert([
+            ['organization_id' => 2, 'amount' => 999, 'academic_year' => self::YEAR, 'payment_mode' => 'cash', 'payment_date' => '2026-10-14', 'items' => 1],
+            ['organization_id' => 1, 'amount' => -50, 'academic_year' => self::YEAR, 'payment_mode' => 'cash', 'payment_date' => '2026-10-14', 'items' => 1],
+        ]);
+        $seen = $text(Livewire::test(Fees::class)->call('selectSchool', 1));
+        $this->assertStringContainsString('2 payments · ₹1,900', $seen);
+        $this->assertStringNotContainsString('₹999', $seen);
+    }
+
+    public function test_a_payment_saved_before_knows_no_rows_and_gives_back_from_the_last_paid(): void
+    {
+        $this->trackAllocation();
+        $this->signIn();
+        $fs = $this->monthly(1, ['2026-04' => 1000, '2026-05' => 1000, '2026-06' => 1000]);
+        foreach (['2026-04' => 1000, '2026-05' => 500] as $month => $amount) {
+            DB::table('super_admin_fee_payments')->insert([
+                'organization_id' => 1, 'super_admin_fee_structure_id' => $fs->id, 'installment_period' => $month,
+                'amount' => $amount, 'academic_year' => self::YEAR, 'payment_mode' => 'cash',
+                'payment_date' => '2026-09-01', 'is_paid' => $amount >= 1000,
+            ]);
+        }
+        $receiptId = DB::table('super_admin_fee_receipts')->insertGetId([
+            'organization_id' => 1, 'super_admin_fee_structure_id' => $fs->id, 'amount' => 1500,
+            'academic_year' => self::YEAR, 'payment_mode' => 'cash', 'payment_date' => '2026-09-01',
+            'label' => 'Apr 2026 – May 2026', 'items' => 2, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $month = fn ($key) => $this->payment($fs->id, ['installment_period' => $key]);
+
+        $page = Livewire::test(Fees::class)->call('selectSchool', 1)->call('openEditPayment', $receiptId);
+        $page->set('editPayAmount', '1200')->set('editPayDate', '2026-09-05')->set('editPayMode', 'online')
+            ->call('saveEditPayment')->assertHasNoErrors();
+
+        $this->assertEquals(1000, $month('2026-04')->amount);
+        $this->assertEquals(200, $month('2026-05')->amount);
+        $this->assertEquals(0, $month('2026-05')->is_paid);
+        // The only payment that day: its rows take the new date and mode.
+        $this->assertSame('2026-09-05', substr($month('2026-04')->payment_date, 0, 10));
+        $this->assertSame('online', $month('2026-05')->payment_mode);
+        $this->assertNull($this->receipts()->find($receiptId)->allocation);
+        $this->assertReceiptsAddUp();
+
+        // More goes to May, then June.
+        $page->call('openEditPayment', $receiptId)->set('editPayAmount', '2500')->call('saveEditPayment')->assertHasNoErrors();
+        $this->assertEquals(1000, $month('2026-05')->amount);
+        $this->assertEquals(1, $month('2026-05')->is_paid);
+        $this->assertEquals(500, $month('2026-06')->amount);
+        $this->assertReceiptsAddUp();
+    }
+
+    public function test_editing_a_payment_works_before_the_allocation_column_exists(): void
+    {
+        $this->signIn();
+        $s  = $this->alphaStudents();
+        $fs = $this->structure(['organization_id' => 1, 'fee_type' => 'per_student', 'amount' => 500]);
+
+        SuperAdminFeeAllocator::apply($fs, 1200, 'cash', '2026-10-12');   // Kiran 500, Ravi 500, Zoya 200
+        $receipt = \App\Models\SuperAdmin\SuperAdminFeeReceipt::first();
+        $this->assertNull($receipt->allocation);
+
+        $result = SuperAdminFeeAllocator::editReceipt($receipt, 900, 'cash', '2026-10-12');
+        $this->assertTrue($result['ok']);
+        // The last paid in the fee's order give back: Zoya's 200 (now pending), then 100 of Ravi's.
+        $this->assertNull($this->payment($fs->id, ['student_detail_id' => $s['zoya']]));
+        $this->assertEquals(400, $this->payment($fs->id, ['student_detail_id' => $s['ravi']])->amount);
+        $this->assertEquals(500, $this->payment($fs->id, ['student_detail_id' => $s['kiran']])->amount);
+        $this->assertReceiptsAddUp();
+    }
 }
