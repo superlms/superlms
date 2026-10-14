@@ -75,6 +75,8 @@
     ], fn ($v) => $v !== null && $v !== '');
 
     $paymentRows = array_filter([
+        // Taken as Last Year Dues — it came off the dues, not this year's fee.
+        'For'         => ($isDues ?? false) ? 'Last Year Dues' : null,
         'Paid on'     => $paidOn ? $paidOn->format('d M Y') . ' · ' . $paidOn->format('l') : null,
         'Mode'        => $payMode === '—' ? $payType : trim($payMode . ' · ' . $payType),
         'Received by' => $collectedBy,
@@ -86,6 +88,8 @@
         'Payable this year' => $money($yearTotal),
         'Concession'        => $concession > 0 ? '− ' . $money($concession) : null,
         'Paid to date'      => $money($paidSoFar),
+        // The Last Year Dues within it, and what is left of them (FeeDues).
+        'Last Year Dues'    => !empty($dues['has']) ? $money($dues['dues_total']) . ' · ' . $money($dues['dues_remaining']) . ' left' : null,
         'Balance'           => $money($balance),
     ], fn ($v) => $v !== null && $v !== '');
 @endphp

@@ -215,4 +215,73 @@ class FeeMergedTabsTest extends TestCase
         $this->assertSame(['Last Year Dues' => 300.0], $own($s['ravi']));
         $this->assertSame(['2024-25 Fee' => 750.0, '2023-24 Fee' => 120.0], $own($s['sita']));
     }
+
+    public function test_dues_are_paid_apart_and_the_receipt_shows_them(): void
+    {
+        // fee_payments.applies_to (the migration of 14 Oct 2026).
+        (require base_path('database/migrations/2026_10_14_150000_add_applies_to_to_fee_payments.php'))->up();
+        app()->forgetInstance('fee_payments.applies_to');
+
+        $s = $this->school();   // Ravi: 1,000 this year + 500 of dues (300 Last Year Dues, 200 of 2023-24)
+        foreach ([1, 2, 3, 4] as $q) {
+            DB::table('fee_cycles')->insert(['organization_id' => $this->org, 'fee_type' => 'academic', 'payment_serial' => $q,
+                'fee_percent' => 25, 'due_date' => '2027-0' . ($q + 1) . '-10', 'academic_year' => '2026-2027']);
+        }
+
+        $page = Livewire::test(Fee::class)->call('showTab', 'view_fee')
+            ->set('viewStudentStandardId', (string) $s['std'])->set('viewStudentId', (string) $s['ravi']);
+
+        // An ordinary academic payment goes to this year's installments.
+        $page->call('openFeeSubmit')->set('submitAmount', 400)->set('submitFeeType', 'academic')->set('submittedBy', 'Head')->call('submitFeePayment');
+
+        // Collect Fee offers Dues, up to what is left of them.
+        $page->call('openFeeSubmit');
+        $html = $page->html();
+        $this->assertStringContainsString('<option value="dues"', $html);
+        $page->set('submitFeeType', 'dues');
+        $this->assertStringContainsString('Up to ₹500.00 due for Last Year Dues.', $page->html());
+        $page->set('submitAmount', 300)->set('submittedBy', 'Head')->call('submitFeePayment');
+
+        $dues = DB::table('fee_payments')->where('student_detail_id', $s['ravi'])->orderByDesc('id')->first();
+        $this->assertSame(['academic', 'dues', 300.0], [$dues->fee_type, $dues->applies_to, (float) $dues->amount]);
+
+        // The ledger: academic paid as before (both payments); the installments
+        // carry only the 400; the dues their 300.
+        $sv = $page->get('studentFeeView');
+        $this->assertSame(700.0, (float) $sv['academic']['paid']);
+        $this->assertSame(['dues_total' => 500.0, 'dues_paid' => 300.0, 'dues_remaining' => 200.0, 'cycle_total' => 1000.0, 'cycle_paid' => 400.0, 'has' => true], $sv['dues']);
+        $academicCycle = collect($sv['cycles'])->firstWhere('fee_type', 'academic');
+        $this->assertSame([250.0, 150.0, 0.0, 0.0], array_map(fn ($i) => (float) $i['paid'], $academicCycle['installments']));
+
+        $text = preg_replace('/\s+/', ' ', strip_tags($page->html()));
+        $this->assertStringContainsString('5 Last Year Dues — ₹500.00 ₹300.00 ₹200.00 Partial', $text);
+        $this->assertStringContainsString('Total ₹1,500.00 ₹700.00 ₹800.00', $text);
+        $this->assertStringContainsString('Dues', $text);
+
+        // Not more than is left of the dues.
+        $page->call('openFeeSubmit')->set('submitFeeType', 'dues')->set('submitAmount', 250)->set('submittedBy', 'Head')->call('submitFeePayment');
+        $this->assertSame(2, DB::table('fee_payments')->where('student_detail_id', $s['ravi'])->count());
+
+        // The printed receipt: the payment as Last Year Dues, the dues after the
+        // installments in the fee cycle, the total with both, and the overall split.
+        $receipt = app(\App\Http\Controllers\Admin\FeeReceiptController::class)
+            ->show(request(), $this->org, $dues->id)->render();
+        $rt = preg_replace('/\s+/', ' ', strip_tags($receipt));
+        $this->assertStringContainsString('Last Year Dues ₹300.00', $rt);
+        $this->assertStringContainsString('5 Last Year Dues — 500.00 300.00 200.00', $rt);
+        $this->assertStringContainsString('1 of 4 cleared · with dues 1,500.00 700.00 800.00', $rt);
+        $this->assertStringContainsString('Academic fee (this year) 1,000.00 Paid 400.00 Last Year Dues 500.00 Paid 300.00', $rt);
+        $this->assertStringContainsString('Total payable 1,500.00 Balance 800.00', $rt);
+
+        // The app's PDF receipt says the same.
+        $data = \App\Support\FeeReceipt::data(\App\Models\Admin\Fee\FeePayment::with(\App\Support\FeeReceipt::WITH)->find($dues->id));
+        $this->assertTrue($data['isDues']);
+        $this->assertSame(200.0, $data['dues']['dues_remaining']);
+
+        // A student without dues: this year's fee is the whole academic fee, as before.
+        $sita = Livewire::test(Fee::class)->call('showTab', 'view_fee')
+            ->set('viewStudentStandardId', (string) $s['std'])->set('viewStudentId', (string) $s['sita'])->get('studentFeeView');
+        $this->assertFalse($sita['dues']['has']);
+        $this->assertSame(1000.0, (float) collect($sita['cycles'])->firstWhere('fee_type', 'academic')['total']);
+    }
 }

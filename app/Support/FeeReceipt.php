@@ -30,6 +30,7 @@ class FeeReceipt
 
         // What this student's academic fee comes to for the year, net of any
         // concession, and what has come in against it so far.
+        $duesGross = $student ? (float) (FeeStructure::ownTotals($orgId, [$student->id])[$student->id] ?? 0) : 0.0;
         $gross = $student
             ? (float) FeeStructure::where('organization_id', $orgId)
                 ->where('standard_id', $student->standard_id)
@@ -38,7 +39,7 @@ class FeeReceipt
                 ->where('fee_type', 'academic')
                 ->sum('amount')
                 // …and the student's own — Last Year Dues.
-                + (float) (FeeStructure::ownTotals($orgId, [$student->id])[$student->id] ?? 0)
+                + $duesGross
             : (float) $payment->amount;
 
         $concessions = $student
@@ -69,6 +70,11 @@ class FeeReceipt
             'collectedBy' => self::collectedBy($payment),
             'payMode'     => TransportReceipt::modeLabel($payment->payment_mode),
             'payType'     => self::type($payment),
+            // Last Year Dues apart from this year's fee, as the ledger has it (FeeDues).
+            'isDues'      => FeeDues::isDues($payment),
+            'dues'        => $student
+                ? FeeDues::split($net, $duesGross, $paidSoFar, FeeDues::paidAsDues($orgId, (int) $student->id)) + ['has' => $duesGross > 0]
+                : ['has' => false],
         ];
     }
 

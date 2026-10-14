@@ -26,6 +26,8 @@ class FeePayment extends Model
         'remark',
         'submitted_by',
         'receipt_number',
+        // 'dues' — an academic payment taken for Last Year Dues (App\Support\FeeDues).
+        'applies_to',
     ];
 
     protected $casts = [

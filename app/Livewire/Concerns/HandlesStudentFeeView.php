@@ -10,6 +10,7 @@ use App\Models\Admin\TransportFeePayment;
 use App\Models\Student\StudentDetail;
 use App\Models\User;
 use App\Support\FeeCycleBreakdown;
+use App\Support\FeeDues;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -76,6 +77,21 @@ trait HandlesStudentFeeView
         $academic  = $this->feeSideFor('academic', $structures, $payments, $concessions);
         $transport = $this->transportSideFor($student, $concessions);
 
+        // The academic fee as this year's and the Last Year Dues (FeeDues):
+        // a payment taken as Dues goes against the dues, not the installments.
+        $duesGross = (float) $structures->where('fee_type', 'academic')
+            ->filter(fn ($r) => !empty($r->student_detail_id))->sum('amount');
+        $dues = FeeDues::split(
+            $academic['net'],
+            $duesGross,
+            $academic['paid'],
+            (float) $payments->where('fee_type', 'academic')->filter(fn ($p) => FeeDues::isDues($p))->sum('amount'),
+        );
+        // No dues: this year's fee is the whole academic fee, as it always was.
+        $cycleAcademic = $duesGross > 0
+            ? ['total' => $dues['cycle_total'], 'paid' => $dues['cycle_paid']]
+            : ['total' => $academic['net'],     'paid' => $academic['paid']];
+
         // A student rides the bus if they are actually on a route — the old
         // `transportation_required` flag is not kept in step with assignments.
         $hasTransport = $transport['route'] !== null;
@@ -108,12 +124,15 @@ trait HandlesStudentFeeView
             'transport'    => $transport,
             // How the school splits the year — the same rule the receipt prints,
             // with this student's payments allocated oldest installment first.
+            // The academic installments are this year's fee; the dues sit apart.
             'cycles'       => FeeCycleBreakdown::build(
                 $orgId,
                 $studentId,
-                ['academic' => $academic['paid'], 'transport' => $transport['paid']],
-                ['academic' => $academic['net'],  'transport' => $transport['net']],
+                ['academic' => $cycleAcademic['paid'],  'transport' => $transport['paid']],
+                ['academic' => $cycleAcademic['total'], 'transport' => $transport['net']],
             ),
+            // Last Year Dues: what they come to, what is paid, what is left.
+            'dues'         => $dues + ['has' => $duesGross > 0],
             'concessions'  => $concessions->map(fn (FeeConcession $c) => [
                 'reason' => $c->reason ?: 'Concession',
                 'scope'  => $c->fee_type === 'all' ? 'All fees' : ucfirst($c->fee_type),
@@ -257,6 +276,8 @@ trait HandlesStudentFeeView
             'penalty_amount' => (float) $p->penalty_amount,
             'waiver_amount'  => (float) $p->waiver_amount,
             'fee_type'       => $p->fee_type,
+            // Taken as Last Year Dues (FeeDues) — the list names it so.
+            'is_dues'        => FeeDues::isDues($p),
             'payment_mode'   => $p->payment_mode,
             'payment_date'   => optional($p->payment_date)->format('d M Y'),
             'sort'           => optional($p->payment_date)->timestamp ?? 0,

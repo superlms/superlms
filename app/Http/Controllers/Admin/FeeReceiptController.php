@@ -9,6 +9,7 @@ use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Admin\TransportFeePayment;
 use App\Models\User;
 use App\Support\FeeCycleBreakdown;
+use App\Support\FeeDues;
 use App\Support\TransportBilling;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -64,8 +65,16 @@ class FeeReceiptController extends Controller
         $transportPaid = (float) TransportFeePayment::where('organization_id', $orgId)
             ->where('student_detail_id', $student->id)->sum('amount');
 
-        $totals = ['academic' => $academicNet, 'transport' => $transportNet];
-        $paid   = ['academic' => $academicPaid, 'transport' => $transportPaid];
+        // The academic fee as this year's (the installments) and the Last Year
+        // Dues — a payment taken as Dues comes off the dues alone (FeeDues).
+        $duesGross = (float) $structures->where('fee_type', 'academic')
+            ->filter(fn ($r) => !empty($r->student_detail_id))->sum('amount');
+        $dues = FeeDues::split($academicNet, $duesGross, $academicPaid, FeeDues::paidAsDues($orgId, $student->id))
+            + ['has' => $duesGross > 0];
+
+        // No dues: this year's fee is the whole academic fee, as it always was.
+        $totals = ['academic' => $dues['has'] ? $dues['cycle_total'] : $academicNet, 'transport' => $transportNet];
+        $paid   = ['academic' => $dues['has'] ? $dues['cycle_paid'] : $academicPaid, 'transport' => $transportPaid];
 
         $overall = [
             'total'     => round($academicNet + $transportNet, 2),
@@ -82,6 +91,7 @@ class FeeReceiptController extends Controller
             'student'     => $student,
             'route'       => $route,
             'cycles'      => FeeCycleBreakdown::build($orgId, $student->id, $paid, $totals),
+            'dues'        => $dues,
             'overall'     => $overall,
             'concessions' => $concessions,
             // fee_payments.submitted_by holds the collector's NAME today (see

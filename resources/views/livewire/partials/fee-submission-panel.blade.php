@@ -52,7 +52,7 @@
             </div>
             <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
                 @php
-                    $capMap     = $feeTypeCaps ?? ['academic' => 0, 'transport' => 0, 'penalty' => 0];
+                    $capMap     = ($feeTypeCaps ?? []) + ['academic' => 0, 'transport' => 0, 'penalty' => 0, 'dues' => 0];
                     $currentCap = $capMap[$submitFeeType] ?? 0;
                 @endphp
                 <div>
@@ -60,7 +60,10 @@
                     <input type="number" step="0.01" min="1" max="{{ $currentCap > 0 ? $currentCap : 0 }}" wire:model="submitAmount" placeholder="Enter amount" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                     @error('submitAmount')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                     <p class="mt-1.5 text-[11px] text-gray-400">
-                        Up to ₹{{ number_format($currentCap, 2) }} due for {{ $submitFeeType === 'penalty' ? 'penalties' : $submitFeeType }}.
+                        Up to ₹{{ number_format($currentCap, 2) }} due for {{ match ($submitFeeType) { 'penalty' => 'penalties', 'dues' => 'Last Year Dues', default => $submitFeeType } }}.
+                        @if ($submitFeeType === 'dues')
+                            It comes off the dues only, not this year's academic fee.
+                        @endif
                     </p>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
@@ -70,6 +73,8 @@
                             <option value="academic" @disabled($capMap['academic'] <= 0)>Academic{{ $capMap['academic'] <= 0 ? ' (fully paid)' : '' }}</option>
                             <option value="transport" @disabled($capMap['transport'] <= 0)>Transport{{ $capMap['transport'] <= 0 ? ' (fully paid)' : '' }}</option>
                             <option value="penalty" @disabled($capMap['penalty'] <= 0)>Penalties{{ $capMap['penalty'] <= 0 ? ' (none due)' : '' }}</option>
+                            {{-- Last Year Dues: paid against the dues alone (FeeDues). --}}
+                            <option value="dues" @disabled($capMap['dues'] <= 0)>Dues{{ $capMap['dues'] <= 0 ? ' (none due)' : '' }}</option>
                         </select>
                     </div>
                     <div>

@@ -92,7 +92,7 @@
 
     <div class="payamt">
         <div class="payamt-row">
-            <span class="chip">{{ $payment->fee_type === 'penalty' ? 'Penalty' : ucfirst($payment->fee_type) . ' Fee' }} <b>₹{{ number_format($base, 2) }}</b></span>
+            <span class="chip">{{ \App\Support\FeeDues::isDues($payment) ? 'Last Year Dues' : ($payment->fee_type === 'penalty' ? 'Penalty' : ucfirst($payment->fee_type) . ' Fee') }} <b>₹{{ number_format($base, 2) }}</b></span>
             @if ((float) $payment->penalty_amount > 0)
                 <span class="chip plus">+ Penalty <b>₹{{ number_format((float) $payment->penalty_amount, 2) }}</b></span>
             @endif
@@ -105,8 +105,15 @@
         <div class="words"><span class="words-lbl">Amount in Words</span>{{ \App\Support\NumberToWords::rupees((float) $payment->amount) }}</div>
     </div>
 
-    {{-- ══════════ FEE CYCLE ══════════ --}}
+    {{-- ══════════ FEE CYCLE ══════════
+         The academic installments are this year's fee; the Last Year Dues
+         left follow them as their own row, and the total takes both. --}}
     @forelse ($cycles as $cycle)
+        @php
+            $cycleDues = ($cycle['fee_type'] === 'academic' && !empty($dues['has'])) ? $dues : null;
+            $sumTotal  = $cycle['total'] + ($cycleDues['dues_total'] ?? 0);
+            $sumPaid   = $cycle['paid'] + ($cycleDues['dues_paid'] ?? 0);
+        @endphp
         <div class="sec">
             {{ ucfirst($cycle['fee_type']) }} Fee Cycle — {{ $cycle['label'] }} · {{ $cycle['year'] }}
         </div>
@@ -141,11 +148,22 @@
                         </td>
                     </tr>
                 @endforeach
+                @if ($cycleDues)
+                    <tr>
+                        <td class="sl">{{ count($cycle['installments']) + 1 }}</td>
+                        <td>Last Year Dues</td>
+                        <td class="muted">—</td>
+                        <td class="num">{{ number_format($cycleDues['dues_total'], 2) }}</td>
+                        <td class="num {{ $cycleDues['dues_paid'] > 0 ? '' : 'muted' }}">{{ number_format($cycleDues['dues_paid'], 2) }}</td>
+                        <td class="num {{ $cycleDues['dues_remaining'] > 0 ? '' : 'muted' }}">{{ number_format($cycleDues['dues_remaining'], 2) }}</td>
+                        <td class="num muted">—</td>
+                    </tr>
+                @endif
                 <tr class="sum">
-                    <td colspan="3">{{ $cycle['paid_count'] }} of {{ count($cycle['installments']) }} cleared</td>
-                    <td class="num">{{ number_format($cycle['total'], 2) }}</td>
-                    <td class="num">{{ number_format($cycle['paid'], 2) }}</td>
-                    <td class="num">{{ number_format(max(0, $cycle['total'] - $cycle['paid']), 2) }}</td>
+                    <td colspan="3">{{ $cycle['paid_count'] }} of {{ count($cycle['installments']) }} cleared{{ $cycleDues ? ' · with dues' : '' }}</td>
+                    <td class="num">{{ number_format($sumTotal, 2) }}</td>
+                    <td class="num">{{ number_format($sumPaid, 2) }}</td>
+                    <td class="num">{{ number_format(max(0, $sumTotal - $sumPaid), 2) }}</td>
                     <td class="num {{ ($cycle['penalty_net'] ?? 0) > 0 ? 'penalty-flag' : '' }}">{{ number_format($cycle['penalty_net'] ?? 0, 2) }}</td>
                 </tr>
             </tbody>
@@ -159,11 +177,26 @@
     @php $totalPenalty = collect($cycles)->sum('penalty_net'); @endphp
     <div class="sec">Overall</div>
     <table class="tot">
-        <tr>
-            <td>Academic fee</td>
-            <td class="num">{{ number_format($overall['academic']['total'], 2) }}</td>
-            <td class="num muted" style="width:22mm;">Paid {{ number_format($overall['academic']['paid'], 2) }}</td>
-        </tr>
+        @if (!empty($dues['has']))
+            {{-- This year's academic fee, then the Last Year Dues — both add up
+                 to the academic fee the total below takes. --}}
+            <tr>
+                <td>Academic fee <span class="muted">(this year)</span></td>
+                <td class="num">{{ number_format($dues['cycle_total'], 2) }}</td>
+                <td class="num muted" style="width:22mm;">Paid {{ number_format($dues['cycle_paid'], 2) }}</td>
+            </tr>
+            <tr>
+                <td>Last Year Dues</td>
+                <td class="num">{{ number_format($dues['dues_total'], 2) }}</td>
+                <td class="num muted">Paid {{ number_format($dues['dues_paid'], 2) }}</td>
+            </tr>
+        @else
+            <tr>
+                <td>Academic fee</td>
+                <td class="num">{{ number_format($overall['academic']['total'], 2) }}</td>
+                <td class="num muted" style="width:22mm;">Paid {{ number_format($overall['academic']['paid'], 2) }}</td>
+            </tr>
+        @endif
         @if ($route)
             <tr>
                 <td>Transport fee <span class="muted">({{ $route->route_name }})</span></td>

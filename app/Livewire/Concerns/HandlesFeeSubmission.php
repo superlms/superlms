@@ -208,7 +208,8 @@ trait HandlesFeeSubmission
         $this->validate([
             'selectedStudentId' => 'required|exists:student_details,id',
             'submitAmount'      => 'required|numeric|min:1',
-            'submitFeeType'     => 'required|in:academic,transport,penalty',
+            // 'dues' — an academic payment against the Last Year Dues only (FeeDues).
+            'submitFeeType'     => 'required|in:academic,transport,penalty,dues',
             'submitPaymentMode' => 'required|in:cash,online,cheque,bank_transfer',
             // Never before the running session — 1 April.
             'submitDate'        => 'required|date|after_or_equal:' . $this->feeMinDate(),
@@ -223,17 +224,24 @@ trait HandlesFeeSubmission
         $cap = $this->submitFeeTypeCap();
         if ($cap <= 0) {
             $this->notification()->error(
-                $this->submitFeeType === 'penalty' ? 'No penalty due' : 'Nothing due',
-                $this->submitFeeType === 'penalty'
-                    ? 'This student has no penalty currently due — there is nothing to submit.'
-                    : ucfirst($this->submitFeeType) . ' fee for this student is already fully paid for the year.'
+                match ($this->submitFeeType) {
+                    'penalty' => 'No penalty due',
+                    'dues'    => 'No dues',
+                    default   => 'Nothing due',
+                },
+                match ($this->submitFeeType) {
+                    'penalty' => 'This student has no penalty currently due — there is nothing to submit.',
+                    'dues'    => 'This student has no Last Year Dues left to pay.',
+                    default   => ucfirst($this->submitFeeType) . ' fee for this student is already fully paid for the year.',
+                }
             );
             return;
         }
         if ((float) $this->submitAmount > $cap + 0.01) {
             $this->notification()->error(
                 'Amount too high',
-                'Only up to ₹' . number_format($cap, 2) . ' can be submitted — that is what is currently due for ' . $this->submitFeeType . '.'
+                'Only up to ₹' . number_format($cap, 2) . ' can be submitted — that is what is currently due for '
+                    . ($this->submitFeeType === 'dues' ? 'Last Year Dues' : $this->submitFeeType) . '.'
             );
             return;
         }
@@ -263,18 +271,23 @@ trait HandlesFeeSubmission
                     'submitted_by'      => Auth::id(),
                 ]);
             } else {
+                // Dues: an academic payment marked for the Last Year Dues — it
+                // comes off the dues, not this year's installments, and every
+                // academic total still counts it (FeeDues).
+                $isDues = $this->submitFeeType === 'dues';
+
                 FeePayment::create([
                     'organization_id'   => $this->orgId(),
                     'student_detail_id' => $this->selectedStudentId,
                     'standard_id'       => $student->standard_id,
                     'section_id'        => $student->section_id,
-                    'fee_type'          => $this->submitFeeType,
+                    'fee_type'          => $isDues ? 'academic' : $this->submitFeeType,
                     'amount'            => $this->submitAmount,
                     'payment_mode'      => $this->submitPaymentMode,
                     'payment_date'      => $this->submitDate,
                     'remark'            => $this->submitRemark,
                     'submitted_by'      => $this->submittedBy,
-                ]);
+                ] + ($isDues && \App\Support\FeeDues::tracked() ? ['applies_to' => 'dues'] : []));
             }
 
             $this->notification()->success('Fee submitted successfully!');
@@ -397,6 +410,8 @@ trait HandlesFeeSubmission
             'academic'  => round((float) ($this->submissionLedger['academic']['remaining'] ?? 0), 2),
             'transport' => round((float) ($this->submissionLedger['transport']['remaining'] ?? 0), 2),
             'penalty'   => round(collect($this->submissionLedger['cycles'] ?? [])->sum('penalty_net'), 2),
+            // What is left of the Last Year Dues (FeeDues, via the ledger).
+            'dues'      => round((float) ($this->submissionLedger['dues']['dues_remaining'] ?? 0), 2),
         ];
     }
 

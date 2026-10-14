@@ -199,6 +199,13 @@
 {{-- ══════════ 3. FEE CYCLE — how the year is split, and where it stands ══════════ --}}
 @foreach ($sv['cycles'] ?? [] as $cycle)
     @php
+        // The academic cycle's installments are this year's fee; the Last Year
+        // Dues follow them as their own row and the totals take both (FeeDues).
+        $cycleDues = ($cycle['fee_type'] === 'academic' && !empty($sv['dues']['has'])) ? $sv['dues'] : null;
+        if ($cycleDues) {
+            $cycle['total'] = round($cycle['total'] + $cycleDues['dues_total'], 2);
+            $cycle['paid']  = round($cycle['paid'] + $cycleDues['dues_paid'], 2);
+        }
         $cycleDue = max(0, $cycle['total'] - $cycle['paid']);
         // Penalty keys are newer than the ledger shape a live Livewire session
         // may still be holding, so every read of them defaults to 0.
@@ -260,6 +267,19 @@
                         </span>
                     </div>
                 @endforeach
+                @if ($cycleDues)
+                    @php [$tone, $word] = $statusWord[$cycleDues['dues_remaining'] <= 0 ? 'paid' : ($cycleDues['dues_paid'] > 0 ? 'partial' : 'pending')]; @endphp
+                    <div wire:key="sv-inst-{{ $cycle['fee_type'] }}-dues" class="{{ $cycleCols }} border-t border-gray-100">
+                        <span class="px-4 py-2.5 text-[11px] text-gray-300 tabular-nums">{{ count($cycle['installments']) + 1 }}</span>
+                        <span class="px-4 py-2.5 text-gray-800 min-w-0 truncate">Last Year Dues</span>
+                        <span class="px-4 py-2.5 text-gray-400">—</span>
+                        <span class="px-4 py-2.5 text-right text-gray-700 tabular-nums">{{ $money($cycleDues['dues_total']) }}</span>
+                        <span class="px-4 py-2.5 text-right tabular-nums {{ $cycleDues['dues_paid'] > 0 ? 'text-gray-700' : 'text-gray-400' }}">{{ $money($cycleDues['dues_paid']) }}</span>
+                        <span class="px-4 py-2.5 text-right tabular-nums {{ $cycleDues['dues_remaining'] > 0 ? 'text-red-600' : 'text-gray-400' }}">{{ $money($cycleDues['dues_remaining']) }}</span>
+                        <span class="px-4 py-2.5 {{ $tone }}">{{ $word }}</span>
+                        <span class="px-4 py-2.5 text-right text-gray-400">—</span>
+                    </div>
+                @endif
                 <div class="{{ $cycleCols }} border-t border-gray-100 bg-gray-50/60">
                     <span></span>
                     <span class="px-4 py-2.5 text-gray-700">Total</span>
@@ -381,7 +401,7 @@
                             </button>
                         @endif
                     </span>
-                    <span class="px-4 py-2.5 text-gray-600">{{ ucfirst($p['fee_type']) }}</span>
+                    <span class="px-4 py-2.5 text-gray-600">{{ !empty($p['is_dues']) ? 'Dues' : ucfirst($p['fee_type']) }}</span>
                     <span class="px-4 py-2.5 {{ $p['is_concession'] ? 'text-emerald-600' : 'text-gray-600' }}">{{ ucfirst(str_replace('_', ' ', $p['payment_mode'])) }}</span>
                     <span class="px-4 py-2.5 text-gray-600 truncate">{{ $p['collected_by'] }}</span>
                     <span class="px-4 py-2.5 text-right tabular-nums {{ $p['penalty_amount'] > 0 ? 'text-amber-600' : 'text-gray-400' }}">{{ $money($p['penalty_amount']) }}</span>
