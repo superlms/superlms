@@ -230,7 +230,7 @@ class AdmitCardListTest extends TestCase
         $this->assertStringContainsString('Exam: Unit Test Issued', $text);
         $this->assertStringNotContainsString('Card No.', $text);
         $this->assertStringNotContainsString('ADMIT-Asha', $text);
-        // Both ends of the sheet's length get the same 5mm, on screen and on paper.
-        $this->assertSame(3, substr_count($html, 'padding: 0 5mm'));
+        // Room at every edge of the sheet — 4mm top and bottom, 5mm left and right — on screen and on paper.
+        $this->assertSame(3, substr_count($html, 'padding: 4mm 5mm'));
     }
 }

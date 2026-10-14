@@ -22,14 +22,14 @@
 
         /* ═══ The page, cut in four ═══
            A4 landscape is 297 × 210mm and the sheet takes no page margin, only
-           5mm at each end of its length (.sheet-wrap below), so a quadrant is
-           143.5mm wide, 105mm tall, and the cut lines run down and across the
-           middle of the paper.
+           5mm at each end of its length and 4mm at each end of its width
+           (.sheet-wrap below), so a quadrant is 143.5mm wide, 101mm tall, and
+           the cut lines run down and across the middle of the paper.
 
-           The rows ask for 104.7mm rather than a flat 105: collapsed cut-line
+           The rows ask for 100.7mm rather than a flat 101: collapsed cut-line
            borders add their own fraction of a millimetre, and a height in mm
            rounds up to a whole pixel at 96dpi, so a table asking for exactly
-           210mm measures over 210mm and drops the bottom row onto a second
+           its room measures over it and drops the bottom row onto a second
            sheet. 0.3mm of slack per row buys immunity and cannot be seen. */
         @page { size: A4 landscape; margin: 0; }
 
@@ -45,7 +45,7 @@
            the middle and across the middle whether the sheet holds one card or
            four, and an empty quadrant is simply an empty quadrant. */
         .sheet { width: 100%; border-collapse: collapse; table-layout: fixed; page-break-inside: avoid; }
-        .sheet .cell { width: 50%; height: 104.7mm; vertical-align: top; padding: 0; }
+        .sheet .cell { width: 50%; height: 100.7mm; vertical-align: top; padding: 0; }
         .sheet tr { page-break-inside: avoid; }
         /* The cross: the right edge of column one, the bottom edge of row one.
            Both lines run the full length of the page. */
@@ -54,12 +54,15 @@
 
         .sheet-wrap { page-break-after: always; }
         .sheet-wrap.last { page-break-after: auto; }
-        /* A little room at both ends of the page's length (2026-10-14): a
-           printer cannot print to the paper's edge and was leaving a margin on
-           one side only. The same 5mm on the left and the right keeps the
-           sheet centred and the cut line down the middle of the paper; the
-           cards are only that much narrower — same rows, same layout. */
-        .sheet-wrap { padding: 0 5mm; }
+        /* A little room at every edge of the page (2026-10-14): a printer
+           cannot print to the paper's edge and was leaving a margin on one
+           side only. 5mm on the left and the right, 4mm at the top and the
+           bottom, keep the sheet centred and the cut lines down and across
+           the middle of the paper. The cards are that much smaller: the 4mm a
+           row loses comes out of the card's own top and bottom margins (the
+           page's now stands in for them) and 0.5mm of the schedule window, so
+           a schedule fits exactly as it did — same rows, same layout. */
+        .sheet-wrap { padding: 4mm 5mm; }
 
         /* ═══ One frame, whatever the schedule holds ═══
            The card fills its quadrant, and the parts that decide how it reads
@@ -68,13 +71,13 @@
            are pinned to the bottom, and the schedule lives in a fixed window
            between them. A two-subject card and a ten-subject card are then the
            same card at the same size — only the number of rows differs. */
-        .card { position: relative; height: 104.7mm; overflow: hidden; page-break-inside: avoid; }
+        .card { position: relative; height: 100.7mm; overflow: hidden; page-break-inside: avoid; }
         /* The padding lives on an inner box, never on the card itself: dompdf
            ignores box-sizing, so padding on a height-fixed element is added to
-           that height — 104.7mm of card plus 13mm of padding is 117.7mm of row,
+           that height — 100.7mm of card plus 13mm of padding is 113.7mm of row,
            which is exactly what used to push the bottom pair onto a second
            sheet. The card keeps its height; this box keeps the margins. */
-        .pad { padding: 3.6mm 4.2mm 21mm; }
+        .pad { padding: 2.4mm 4.2mm 21mm; }
 
         /* ── Masthead: the school's name over one line of contacts, flush left
               against the same edge the card's content starts from ── */
@@ -115,7 +118,7 @@
            The window takes the room the logo and the four-line instruction
            list used to hold: it fits a dozen papers at this scale, and past
            that the rows tighten, only the rows (see .card.many below). */
-        .sched { height: 48mm; overflow: hidden; }
+        .sched { height: 47.5mm; overflow: hidden; }
         .papers { width: 100%; border-collapse: collapse; table-layout: fixed; }
         .papers th {
             font-size: 6.3pt; letter-spacing: 0.08em; text-transform: uppercase;
@@ -147,11 +150,11 @@
 
         /* ── Instructions: pinned above the foot, so they end on the same line
               in every card and the schedule window above never moves ── */
-        .instructions { position: absolute; left: 4.2mm; right: 4.2mm; bottom: 9.4mm; }
+        .instructions { position: absolute; left: 4.2mm; right: 4.2mm; bottom: 8.2mm; }
         .note { font-size: 4.7pt; line-height: 1.3; text-align: justify; }
 
         /* ── Foot: pinned into the card's bottom padding ── */
-        .foot-wrap { position: absolute; left: 4.2mm; right: 4.2mm; bottom: 3.2mm; }
+        .foot-wrap { position: absolute; left: 4.2mm; right: 4.2mm; bottom: 2mm; }
         .foot { width: 100%; border-collapse: collapse; }
         .foot td { font-size: 5.1pt; vertical-align: bottom; line-height: 1.3; }
         .foot .sign { text-align: right; }
@@ -167,6 +170,15 @@
            the print preview, line for line. */
         body, .masthead .school, .masthead .address, .titlebar td, .info td,
         .papers th, .papers td, .note, .foot td { line-height: 0.72; }
+
+        /* ═══ dompdf only — the room at the edges ═══
+           dompdf lays the two rows out a little taller than the browser does,
+           so with 4mm at the top and the bottom the second row drops onto a
+           sheet of its own (measured: rows of 100.7mm need at most ~3.5mm).
+           The PDF takes the room as the page's own margin, 3mm top and bottom
+           and 5mm at the sides; the cards keep their size. */
+        @page { size: A4 landscape; margin: 3mm 5mm; }
+        .sheet-wrap { padding: 0; }
         @endif
 
         @unless($isPdf ?? false)
@@ -176,7 +188,7 @@
         body { background: #f1f3f6; padding: 22px 16px 48px; }
         .sheet-wrap {
             width: 297mm; max-width: 100%; height: 210mm; margin: 0 auto 8mm;
-            background: #fff; padding: 0 5mm; overflow: hidden;
+            background: #fff; padding: 4mm 5mm; overflow: hidden;
             box-shadow: 0 1px 3px rgba(16,24,40,.08), 0 8px 28px rgba(16,24,40,.10);
         }
         .toolbar {
@@ -205,7 +217,7 @@
 
         @media print {
             body { background: #fff; padding: 0; }
-            .sheet-wrap { width: auto; height: auto; margin: 0; padding: 0 5mm; box-shadow: none; }
+            .sheet-wrap { width: auto; height: auto; margin: 0; padding: 4mm 5mm; box-shadow: none; }
             .no-print { display: none !important; }
             .card { break-inside: avoid; }
         }
