@@ -76,7 +76,7 @@
 
     {{-- ── IDENTITY — a bordered grid, same shape as the report card.
            No candidate photo: the card carries the student's name, class, roll
-           and card number, which is what an invigilator checks against. --}}
+           and the exam, which is what an invigilator checks against. --}}
     <table class="info">
         {{-- Explicit columns: the first row carries a colspan, and a
              fixed-layout table without a colgroup would take its widths
@@ -98,8 +98,10 @@
         <tr>
             <td class="label">Adm. No.</td>
             <td class="value">{{ $student?->admission_no ?: '—' }}</td>
-            <td class="label">{{ $admitCard->exam_roll_number ? 'Exam Roll' : 'Card No.' }}</td>
-            <td class="value">{{ $admitCard->exam_roll_number ?: $admitCard->admit_card_number }}</td>
+            {{-- The exam the card is for where the card number was (2026-10-14);
+                 an exam roll number, when the seating plan gives one, as before. --}}
+            <td class="label">{{ $admitCard->exam_roll_number ? 'Exam Roll' : 'Exam' }}</td>
+            <td class="value">{{ $admitCard->exam_roll_number ?: ($admitCard->exam_name ?: '—') }}</td>
         </tr>
         <tr>
             <td class="label">Father</td>
@@ -172,7 +174,8 @@
     <table class="foot">
         <tr>
             <td>
-                Card No. {{ $admitCard->admit_card_number }}<br>
+                {{-- The exam, not the card number (2026-10-14). --}}
+                Exam: {{ $admitCard->exam_name ?: '—' }}<br>
                 Issued {{ $admitCard->issue_date?->format('d M Y') ?? now()->format('d M Y') }}
             </td>
             <td class="sign">

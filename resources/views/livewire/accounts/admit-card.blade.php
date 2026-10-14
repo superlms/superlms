@@ -422,7 +422,7 @@
                                     <input type="checkbox" value="{{ $card->id }}" wire:model="printSelected" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                                     <div class="flex-1 min-w-0">
                                         <p class="text-sm font-medium text-gray-800 truncate">{{ $card->student_name }}</p>
-                                        <p class="text-xs text-gray-400 truncate">Roll {{ $card->roll_number ?: '—' }} · {{ $card->admit_card_number }}</p>
+                                        <p class="text-xs text-gray-400 truncate">Roll {{ $card->roll_number ?: '—' }} · Father: {{ $card->father_name ?: '—' }}</p>
                                     </div>
                                     @if($card->printed_at)
                                         <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 flex-shrink-0"

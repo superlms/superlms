@@ -205,4 +205,32 @@ class AdmitCardListTest extends TestCase
         $this->assertMatchesRegularExpression('/Fee 25% \/ Attendance 50%/', $html);
         $this->assertStringNotContainsString('>Roll</th>', $html);
     }
+
+    public function test_the_print_list_shows_the_father_and_the_card_shows_the_exam(): void
+    {
+        $s = $this->school();
+        DB::table('admit_cards')->where('id', $s['ashaCard'])->update(['father_name' => 'Mr Rao']);
+        DB::table('admit_cards')->where('id', $s['bilalCard'])->update(['father_name' => 'Mr Khan']);
+
+        // Print panel: the father's name where the card number was (2026-10-14), admin and accounts alike.
+        foreach ([AdmitCard::class, AccountsAdmitCard::class] as $class) {
+            $html = $this->page($s, $class)->call('openPrintModal')->html();
+            $text = preg_replace('/\s+/', ' ', strip_tags($html));
+            $this->assertStringContainsString('Asha Roll R-Asha · Father: Mr Rao', $text, $class);
+            $this->assertStringContainsString('Bilal Roll R-Bilal · Father: Mr Khan', $text, $class);
+            $this->assertStringNotContainsString('ADMIT-Asha', $html, $class);
+        }
+
+        // The card: "Exam" with the exam's name where "Card No." was, in the grid and the foot.
+        $card = \App\Models\Student\AdmitCard::with('studentDetail.standard', 'studentDetail.section')->find($s['ashaCard']);
+        $card->seating_sessions = [];
+        $html = view('admin.admit-card-sheet', ['admitCards' => collect([$card]), 'single' => null, 'organization' => new \App\Models\Organization(['name' => 'Alpha'])])->render();
+        $text = preg_replace('/\s+/', ' ', strip_tags($html));
+        $this->assertStringContainsString('Adm. No. — Exam Unit Test Father', $text);
+        $this->assertStringContainsString('Exam: Unit Test Issued', $text);
+        $this->assertStringNotContainsString('Card No.', $text);
+        $this->assertStringNotContainsString('ADMIT-Asha', $text);
+        // Both ends of the sheet's length get the same 5mm, on screen and on paper.
+        $this->assertSame(3, substr_count($html, 'padding: 0 5mm'));
+    }
 }

@@ -21,9 +21,10 @@
         body, h1, p, ol, li, table, td, th, div { margin: 0; padding: 0; }
 
         /* ═══ The page, cut in four ═══
-           A4 landscape is 297 × 210mm and the sheet takes no page margin, so a
-           quadrant is a true half each way — 148.5mm wide, 105mm tall — and the
-           cut lines run down and across the middle of the paper.
+           A4 landscape is 297 × 210mm and the sheet takes no page margin, only
+           5mm at each end of its length (.sheet-wrap below), so a quadrant is
+           143.5mm wide, 105mm tall, and the cut lines run down and across the
+           middle of the paper.
 
            The rows ask for 104.7mm rather than a flat 105: collapsed cut-line
            borders add their own fraction of a millimetre, and a height in mm
@@ -53,6 +54,12 @@
 
         .sheet-wrap { page-break-after: always; }
         .sheet-wrap.last { page-break-after: auto; }
+        /* A little room at both ends of the page's length (2026-10-14): a
+           printer cannot print to the paper's edge and was leaving a margin on
+           one side only. The same 5mm on the left and the right keeps the
+           sheet centred and the cut line down the middle of the paper; the
+           cards are only that much narrower — same rows, same layout. */
+        .sheet-wrap { padding: 0 5mm; }
 
         /* ═══ One frame, whatever the schedule holds ═══
            The card fills its quadrant, and the parts that decide how it reads
@@ -169,7 +176,7 @@
         body { background: #f1f3f6; padding: 22px 16px 48px; }
         .sheet-wrap {
             width: 297mm; max-width: 100%; height: 210mm; margin: 0 auto 8mm;
-            background: #fff; padding: 0; overflow: hidden;
+            background: #fff; padding: 0 5mm; overflow: hidden;
             box-shadow: 0 1px 3px rgba(16,24,40,.08), 0 8px 28px rgba(16,24,40,.10);
         }
         .toolbar {
@@ -198,7 +205,7 @@
 
         @media print {
             body { background: #fff; padding: 0; }
-            .sheet-wrap { width: auto; height: auto; margin: 0; padding: 0; box-shadow: none; }
+            .sheet-wrap { width: auto; height: auto; margin: 0; padding: 0 5mm; box-shadow: none; }
             .no-print { display: none !important; }
             .card { break-inside: avoid; }
         }
