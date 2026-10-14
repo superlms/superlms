@@ -323,4 +323,50 @@ class FeeMergedTabsTest extends TestCase
         $this->assertStringContainsString('border-emerald-200 text-emerald-600', $html);
         $this->assertSame(50, $page->get('paymentsPerPage'));
     }
+
+    public function test_last_year_dues_have_their_own_payments_tab_before_penalty(): void
+    {
+        (require base_path('database/migrations/2026_10_14_150000_add_applies_to_to_fee_payments.php'))->up();
+        app()->forgetInstance('fee_payments.applies_to');
+
+        $s   = $this->school();
+        $pay = fn ($amount, $appliesTo = null, $type = 'academic') => DB::table('fee_payments')->insert([
+            'organization_id' => $this->org, 'student_detail_id' => $s['ravi'], 'standard_id' => $s['std'], 'section_id' => $s['sec'],
+            'fee_type' => $type, 'applies_to' => $appliesTo, 'amount' => $amount, 'payment_mode' => 'cash',
+            'payment_date' => now()->toDateString(), 'submitted_by' => 'Head', 'receipt_number' => 'RCT-' . $amount, 'created_at' => now(),
+        ]);
+        $pay(400);                 // academic
+        $pay(300, 'dues');         // Last Year Dues
+        $pay(25, null, 'penalty'); // late fee
+
+        $page = Livewire::test(Fee::class)->call('showTab', 'payments');
+        $text = fn () => preg_replace('/\s+/', ' ', strip_tags($page->html()));
+        $this->assertStringContainsString('All Academic Transport Last Year Dues Penalty', $text());
+
+        $page->call('setFeeTypeFilter', 'dues');
+        $this->assertStringContainsString('Dues cash Admin ₹300.00', $text());
+        $this->assertStringNotContainsString('₹400.00', $text());
+
+        // Academic no longer lists the dues payment; All lists all three.
+        $page->call('setFeeTypeFilter', 'academic');
+        $this->assertStringContainsString('₹400.00', $text());
+        $this->assertStringNotContainsString('₹300.00', $text());
+        $page->call('setFeeTypeFilter', '');
+        $this->assertSame(3, $page->viewData('payments')->total());
+    }
+
+    public function test_a_class_fee_structure_takes_half_the_screen_a_section(): void
+    {
+        $s    = $this->school();
+        $secB = DB::table('sections')->insertGetId(['organization_id' => $this->org, 'standard_id' => $s['std'], 'name' => 'B']);
+        DB::table('fee_structures')->insert([
+            'organization_id' => $this->org, 'standard_id' => $s['std'], 'section_id' => $secB, 'fee_name' => 'Lab', 'fee_type' => 'academic', 'amount' => 200,
+        ]);
+
+        $html = Livewire::test(\App\Livewire\Admin\FeeStructure::class)->set('filterStructureStandard', (string) $s['std'])->html();
+
+        // Two to a row on a laptop: the class-wide card and section B's sit side by side.
+        $this->assertStringContainsString('grid grid-cols-1 lg:grid-cols-2 gap-4 items-start', $html);
+        $this->assertSame(2, preg_match_all('/wire:key="grp-\d+-\d+"/', $html));
+    }
 }

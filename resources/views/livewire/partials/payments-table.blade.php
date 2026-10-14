@@ -54,7 +54,7 @@
                             @endif
                         </td>
                         <td class="px-4 py-2.5 text-gray-600 whitespace-nowrap">{{ $p->payment_date?->format('d M Y') ?? '—' }}</td>
-                        <td class="px-4 py-2.5 capitalize {{ $p->fee_type === 'penalty' ? 'text-amber-600' : 'text-gray-600' }}">{{ $p->fee_type }}</td>
+                        <td class="px-4 py-2.5 capitalize {{ $p->fee_type === 'penalty' ? 'text-amber-600' : 'text-gray-600' }}">{{ !empty($p->is_dues) ? 'Dues' : $p->fee_type }}</td>
                         <td class="px-4 py-2.5 capitalize {{ $p->waiver_amount > 0 ? 'text-emerald-600' : 'text-gray-600' }}">{{ str_replace('_', ' ', $p->payment_mode) }}</td>
                         {{-- Who took it, by kind only — Admin, Sub Admin… (HandlesPayments::paymentCollectorTypes) --}}
                         <td class="px-4 py-2.5 text-gray-500 whitespace-nowrap">{{ $p->collected_by_type ?? '—' }}</td>

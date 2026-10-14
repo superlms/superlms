@@ -67,11 +67,34 @@ trait HandlesPayments
         return 'accounts';
     }
 
-    /** Fee-type tabs above the filter band: '' (all) | academic | transport | penalty. */
+    /**
+     * Fee-type tabs above the filter band: '' (all) | academic | transport |
+     * dues (Last Year Dues — academic payments taken as Dues, FeeDues) | penalty.
+     */
     public function setFeeTypeFilter(string $type): void
     {
-        $this->feeTypeFilter = in_array($type, ['academic', 'transport', 'penalty'], true) ? $type : '';
+        $this->feeTypeFilter = in_array($type, ['academic', 'transport', 'dues', 'penalty'], true) ? $type : '';
         $this->resetPage();
+    }
+
+    /**
+     * One fee-type tab on fee_payments. Last Year Dues are academic payments
+     * marked for the dues, so they have their own tab and stay out of
+     * Academic's; every other tab is its fee_type.
+     */
+    private function applyFeeTypeTab($query)
+    {
+        $tracked = \App\Support\FeeDues::tracked();
+
+        return match ($this->feeTypeFilter) {
+            ''       => $query,
+            'dues'   => $tracked
+                ? $query->where('fee_type', 'academic')->where('applies_to', 'dues')
+                : $query->whereRaw('1 = 0'),
+            'academic' => $query->where('fee_type', 'academic')
+                ->when($tracked, fn ($q) => $q->where(fn ($w) => $w->whereNull('applies_to')->orWhere('applies_to', '!=', 'dues'))),
+            default  => $query->where('fee_type', $this->feeTypeFilter),
+        };
     }
 
     /** The range dropdown moved the date span; recompute from/to. */
@@ -295,8 +318,7 @@ trait HandlesPayments
         $prefix = $this->paymentsRoutePrefix();
         $includeTransportTable = in_array($this->feeTypeFilter, ['', 'transport'], true);
 
-        $feePayments = $this->feePaymentQuery()
-            ->when($this->feeTypeFilter, fn ($q) => $q->where('fee_type', $this->feeTypeFilter))
+        $feePayments = $this->applyFeeTypeTab($this->feePaymentQuery())
             ->with(['studentDetail.user', 'standard', 'section'])
             ->get();
 
@@ -313,6 +335,8 @@ trait HandlesPayments
                 'student_name' => $p->studentDetail?->user?->name ?? $p->studentDetail?->full_name ?? '—',
                 'father_name' => $p->studentDetail?->father_name,
                 'collected_by_type' => $collectorType($p->submitted_by, $p->payment_mode),
+                // Taken as Last Year Dues (FeeDues) — the Type column says Dues.
+                'is_dues' => \App\Support\FeeDues::isDues($p),
                 'admission_no' => $p->studentDetail?->admission_no,
                 'standard_name' => $p->standard?->name,
                 'section_name' => $p->section?->name,
@@ -334,6 +358,7 @@ trait HandlesPayments
                 'student_name' => $p->studentDetail?->user?->name ?? $p->studentDetail?->full_name ?? '—',
                 'father_name' => $p->studentDetail?->father_name,
                 'collected_by_type' => $collectorType($p->submitted_by, $p->payment_mode),
+                'is_dues' => false,
                 'admission_no' => $p->studentDetail?->admission_no,
                 'standard_name' => $p->studentDetail?->standard?->name,
                 'section_name' => $p->studentDetail?->section?->name,

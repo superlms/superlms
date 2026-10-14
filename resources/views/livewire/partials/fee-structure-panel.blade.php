@@ -25,7 +25,10 @@
             <p class="text-xs text-gray-400 mt-1">Pick a class — and a section, if you want — from the filter above.</p>
         </div>
     @else
-        <div class="space-y-4">
+        {{-- Two to a row on a laptop and wider (2026-10-14): a class with one
+             section shows its card in the left half, a class with two shows
+             both side by side the moment it is picked; more wrap two a row. --}}
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
             @forelse ($structureGroups as $g)
                 @php
                     $secParam = $g['section_id'] ?? '';
@@ -67,8 +70,9 @@
                         </div>
                     </div>
 
-                    {{-- Fee heads across two columns, nothing drawn between them --}}
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 px-4 py-3">
+                    {{-- Fee heads across two columns, nothing drawn between them — one
+                         column while the card is half the screen, two again on a very wide one --}}
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 2xl:grid-cols-2 gap-6 lg:gap-y-0 px-4 py-3">
                         @foreach ($feeCols as $col => $items)
                             <div wire:key="grp-col-{{ $g['standard_id'] }}-{{ $g['section_id'] ?? 0 }}-{{ $col }}">
                                 @foreach ($items as $n => $r)
@@ -88,7 +92,7 @@
                     </div>
                 </div>
             @empty
-                <div class="bg-white rounded-2xl border border-dashed border-gray-200 px-4 py-14 text-center">
+                <div class="lg:col-span-2 bg-white rounded-2xl border border-dashed border-gray-200 px-4 py-14 text-center">
                     <p class="text-sm font-semibold text-gray-800">No fee structure for this selection</p>
                     <p class="text-xs text-gray-400 mt-1">Use <strong class="text-gray-600">Add Fee Structure</strong> to create one.</p>
                 </div>
