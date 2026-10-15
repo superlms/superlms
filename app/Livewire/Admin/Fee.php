@@ -17,6 +17,7 @@ use App\Models\Admin\Fee\PaymentQrCode;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\User;
+use App\Support\CustomFee;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -428,6 +429,13 @@ class Fee extends Component
     public function render()
     {
         $orgId = $this->orgId();
+
+        // A school on Custom Fee gets Add Fee, Submit Fee and View Fee in place
+        // of the nine sections (App\Livewire\Admin\CustomFee).
+        if (CustomFee::enabled($orgId)) {
+            return view('livewire.admin.fee-custom');
+        }
+
         $data  = ['standards' => $this->standards, 'sections' => $this->sections, 'students' => $this->students];
 
         if ($this->activeTab === 'fee_structure') {

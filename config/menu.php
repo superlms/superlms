@@ -411,6 +411,14 @@ return [
             'icon' => 'user-plus',
             'prefix' => 'accounts.admissions',
         ],
+        // Only for a school on Custom Fee, which gets it in place of the fee
+        // pages below (App\Support\CustomFee).
+        [
+            'title' => 'Fees',
+            'link' => 'accounts.custom-fee',
+            'icon' => 'currency-rupee',
+            'prefix' => 'accounts.custom-fee',
+        ],
         [
             'title' => 'Fee Submission',
             'link' => 'accounts.fee-submission',

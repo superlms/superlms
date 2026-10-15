@@ -4,11 +4,13 @@ namespace App\Services;
 
 use App\Models\Admin\AdmissionEnquiry;
 use App\Models\Admin\AdminSalaryPayment;
+use App\Models\Admin\Fee\CustomFeePayment;
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\LedgerTransaction;
 use App\Models\Admin\TransportFeePayment;
 use App\Models\Organization;
 use App\Models\User;
+use App\Support\CustomFee;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -117,6 +119,13 @@ class LedgerService
             )->sum('amount');
         }
 
+        // Custom Fee payments (App\Support\CustomFee) — none in a school without it.
+        if (CustomFee::tracked()) {
+            $total += (float) self::dateScoped(
+                CustomFeePayment::where('organization_id', $orgId), 'payment_date', $start, $end
+            )->sum('amount');
+        }
+
         if (self::hasAdmissionFees()) {
             $total += (float) self::admissionQuery($orgId, $start, $end)->sum('collected_amount');
         }
@@ -205,6 +214,31 @@ class LedgerService
                             . ($p->receipt_number ? ' · ' . $p->receipt_number : ''),
                         'by'      => self::recordedBy($orgId, $p->submitted_by),
                     ] + self::payer($p->studentDetail, 'Transport'));
+                });
+        }
+
+        // ── Custom Fee payments (credit) — App\Support\CustomFee ───────────
+        if (CustomFee::tracked()) {
+            self::dateScoped(CustomFeePayment::where('organization_id', $orgId), 'payment_date', $start, $end)
+                ->with('studentDetail:id,full_name,admission_no,father_name')
+                ->orderBy('payment_date')
+                ->get()
+                ->each(function ($p) use ($rows, $school, $orgId) {
+                    $student = self::studentLabel($p->studentDetail, $p->submitted_by ?: 'Student');
+                    $rows->push([
+                        'date'    => Carbon::parse($p->payment_date),
+                        'time'    => optional($p->created_at)->format('g:i A'),
+                        'sort_at' => $p->created_at ?? Carbon::parse($p->payment_date),
+                        'type'    => 'credit',
+                        'amount'  => (float) $p->amount,
+                        'source'  => 'Fee',
+                        'from'    => $student,
+                        'to'      => $school,
+                        'mode'    => $p->payment_mode,
+                        'party'   => $student,
+                        'reason'  => 'Fee collection' . ($p->receipt_number ? ' · ' . $p->receipt_number : ''),
+                        'by'      => self::recordedBy($orgId, $p->submitted_by),
+                    ] + self::payer($p->studentDetail, 'Fee'));
                 });
         }
 

@@ -238,6 +238,45 @@ class Schools extends Component
         $this->notification()->success(\App\Services\SchoolWhatsApp::FEATURES[$feature][0] . ($on ? ' is on' : ' is off') . ' for ' . $this->detailSchool->name . '.');
     }
 
+    // ─── Custom Fee tab: the school's own per-student fee in place of the ordinary one ──
+
+    /** Turn Custom Fee on or off for the school on screen (App\Support\CustomFee). */
+    public function toggleCustomFee(): void
+    {
+        $orgId = $this->detailSchool?->id ? (int) $this->detailSchool->id : null;
+        if (!$orgId || !\App\Support\CustomFee::tracked()) {
+            return;
+        }
+
+        $on = !\App\Support\CustomFee::enabled($orgId);
+        \App\Support\CustomFee::setEnabled($orgId, $on, auth()->id());
+
+        $this->notification()->success('Custom Fee is ' . ($on ? 'on' : 'off') . ' for ' . $this->detailSchool->name . '.');
+    }
+
+    /** What the Custom Fee tab shows: on or off, and the school's custom fee so far. */
+    public function customFeeSummary(): ?array
+    {
+        $orgId = $this->detailSchool?->id ? (int) $this->detailSchool->id : null;
+        if (!$orgId || !\App\Support\CustomFee::tracked()) {
+            return null;
+        }
+
+        $total     = \App\Support\CustomFee::schoolTotal($orgId);
+        $collected = \App\Support\CustomFee::collected($orgId);
+
+        return [
+            'enabled'   => \App\Support\CustomFee::enabled($orgId),
+            'students'  => \App\Models\Admin\Fee\CustomFeeItem::where('organization_id', $orgId)
+                ->whereIn('student_detail_id', \App\Models\Student\StudentDetail::where('organization_id', $orgId)->select('id'))
+                ->distinct()->count('student_detail_id'),
+            'total'     => $total,
+            'collected' => $collected,
+            'balance'   => max(0, round($total - $collected, 2)),
+            'payments'  => \App\Models\Admin\Fee\CustomFeePayment::where('organization_id', $orgId)->count(),
+        ];
+    }
+
     public function setDetailTab(string $tab): void
     {
         $this->detailTab         = $tab;

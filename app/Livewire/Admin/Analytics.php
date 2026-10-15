@@ -20,6 +20,7 @@ use App\Models\Teacher\TeacherAttendance;
 use App\Models\Teacher\TeacherDetail;
 use App\Models\WebsiteContact;
 use App\Support\AcademicYear;
+use App\Support\CustomFee;
 use Illuminate\Support\Facades\DB;
 use App\Support\NameOrder;
 
@@ -225,14 +226,21 @@ class Analytics extends Component
         $totalFee   = (float) ($this->feeStats['totalFee'] ?? 0);
         $collected  = (float) ($this->feeStats['collected'] ?? 0);
         $collectRate = $totalFee > 0 ? round(($collected / $totalFee) * 100, 1) : 0.0;
-        $last30Sum  = (float) FeePayment::where('organization_id', $orgId)
-            ->where('payment_date', '>=', $today->copy()->subDays(29))->sum('amount');
+        if (CustomFee::enabled($orgId)) {
+            // A school on Custom Fee: what came in through it, and the students
+            // with a fee set who have paid nothing yet.
+            $last30Sum      = CustomFee::collected($orgId, $today->copy()->subDays(29)->toDateString());
+            $unpaidStudents = CustomFee::unpaidCount($orgId);
+        } else {
+            $last30Sum  = (float) FeePayment::where('organization_id', $orgId)
+                ->where('payment_date', '>=', $today->copy()->subDays(29))->sum('amount');
 
-        // Students who have never paid (defaulters proxy)
-        $paidIds = FeePayment::where('organization_id', $orgId)
-            ->whereNotNull('student_detail_id')->distinct()->pluck('student_detail_id');
-        $unpaidStudents = StudentDetail::where('organization_id', $orgId)
-            ->whereNotIn('id', $paidIds)->count();
+            // Students who have never paid (defaulters proxy)
+            $paidIds = FeePayment::where('organization_id', $orgId)
+                ->whereNotNull('student_detail_id')->distinct()->pluck('student_detail_id');
+            $unpaidStudents = StudentDetail::where('organization_id', $orgId)
+                ->whereNotIn('id', $paidIds)->count();
+        }
 
         $this->kpis = [
             'student_rate'     => $stuRateToday,
@@ -1256,6 +1264,23 @@ class Analytics extends Component
     {
         $orgId = $this->orgId();
 
+        // A school on Custom Fee: every student's own fee (read as the academic
+        // fee), and all that has come in on it up to today.
+        if (CustomFee::enabled($orgId)) {
+            $totalFee  = CustomFee::schoolTotal($orgId);
+            $collected = CustomFee::collected($orgId, null, Carbon::today()->toDateString());
+
+            $this->feeStats = [
+                'totalFee'     => $totalFee,
+                'collected'    => $collected,
+                'remaining'    => max(0, $totalFee - $collected),
+                'transportFee' => 0.0,
+                'academicFee'  => $totalFee,
+                'lastYearDues' => 0.0,
+            ];
+            return;
+        }
+
         $heads = FeeStructure::where('organization_id', $orgId)
             ->where('is_active', true)->where('fee_type', 'academic')
             ->get(['standard_id', 'section_id', 'amount'])
@@ -1326,6 +1351,23 @@ class Analytics extends Component
         $orgId     = $this->orgId();
         $standards = Standard::where('organization_id', $orgId)->inClassOrder()->get();
         $labels    = $standards->pluck('name')->toArray();
+
+        // A school on Custom Fee: each class's students' own fees, and what
+        // they have paid on them.
+        if (CustomFee::enabled($orgId)) {
+            $byClass   = CustomFee::byClass($orgId);
+            $collected = [];
+            $remaining = [];
+            foreach ($standards as $std) {
+                $fee  = (float) ($byClass[$std->id]['fee'] ?? 0);
+                $paid = (float) ($byClass[$std->id]['paid'] ?? 0);
+                $collected[] = round($paid, 2);
+                $remaining[] = round(max(0, $fee - $paid), 2);
+            }
+
+            $this->feeClassData = ['labels' => $labels, 'collected' => $collected, 'remaining' => $remaining];
+            return;
+        }
 
         $heads = FeeStructure::where('organization_id', $orgId)
             ->where('is_active', true)->where('fee_type', 'academic')

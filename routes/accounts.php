@@ -67,6 +67,12 @@ Route::prefix('accounts')->group(function () {
                 ->name('accounts.fee-structure.transport-pdf');
             Route::get('/fee/receipt/{id}', [\App\Http\Controllers\Admin\FeeReceiptController::class, 'show'])
                 ->name('accounts.fee.receipt');
+            // A school on Custom Fee: Add Fee, Submit Fee and View Fee in place
+            // of the fee pages above and below (App\Support\CustomFee).
+            Route::get('/custom-fee', \App\Livewire\Admin\CustomFee::class)->name('accounts.custom-fee');
+            Route::get('/fee/custom-receipt/{id}', [\App\Http\Controllers\Admin\CustomFeeReceiptController::class, 'show'])
+                ->whereNumber('id')
+                ->name('accounts.fee.custom-receipt');
             Route::get('/payments', Payments::class)->name('accounts.payments');
             Route::get('/penalties', Penalties::class)->name('accounts.penalties');
             Route::get('/fee-cycles', FeeCycles::class)->name('accounts.fee-cycles');

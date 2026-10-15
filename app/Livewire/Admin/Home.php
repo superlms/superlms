@@ -27,6 +27,7 @@ use App\Models\Admin\RateLms;
 use App\Models\Admin\TransportFeePayment;
 use App\Livewire\Concerns\CountsBillableMonths;
 use App\Support\AcademicYear;
+use App\Support\CustomFee;
 
 class Home extends Component
 {
@@ -240,14 +241,18 @@ class Home extends Component
             return $out;
         };
 
-        $fee = FeePayment::where('organization_id', FacadesAuth::user()->organization_id)
-            ->whereDate('payment_date', '>=', $from)
-            ->whereDate('payment_date', '<=', $to)
-            ->selectRaw('DATE(payment_date) as d, SUM(amount) as total')
-            ->groupBy('d')
-            ->pluck('total', 'd')
-            ->mapWithKeys(fn ($total, $d) => [(string) $d => $total])
-            ->all();
+        $orgId = (int) FacadesAuth::user()->organization_id;
+        // A school on Custom Fee collects through it alone.
+        $fee = CustomFee::enabled($orgId)
+            ? CustomFee::collectedByDay($orgId, $from, $to)
+            : FeePayment::where('organization_id', $orgId)
+                ->whereDate('payment_date', '>=', $from)
+                ->whereDate('payment_date', '<=', $to)
+                ->selectRaw('DATE(payment_date) as d, SUM(amount) as total')
+                ->groupBy('d')
+                ->pluck('total', 'd')
+                ->mapWithKeys(fn ($total, $d) => [(string) $d => $total])
+                ->all();
 
         return $this->weekMarks = [
             'students' => $byDay(StudentAttendance::query(), 'studentDetail'),
@@ -268,6 +273,17 @@ class Home extends Component
     protected function loadFeeOverview(): void
     {
         $orgId = FacadesAuth::user()->organization_id;
+
+        // A school on Custom Fee: every student's own fee, and all that has
+        // come in on it up to today (its fees are not set by session).
+        if (CustomFee::enabled((int) $orgId)) {
+            $today = now()->toDateString();
+            $this->totalFee            = CustomFee::schoolTotal((int) $orgId);
+            $this->overallFeeCollected = CustomFee::collected((int) $orgId, null, $today);
+            $this->feeRemaining        = max(0, $this->totalFee - $this->overallFeeCollected);
+            $this->feeCollectedToday   = CustomFee::collected((int) $orgId, $today, $today);
+            return;
+        }
 
         $heads = FeeStructure::where('organization_id', $orgId)
             ->where('is_active', true)->where('fee_type', 'academic')
@@ -456,12 +472,16 @@ class Home extends Component
         $days  = (int) $this->feeRange;
         $start = now()->subDays($days - 1)->startOfDay();
 
-        // Academic and transport, from both payment tables.
+        // Academic and transport, from both payment tables — or, for a school
+        // on Custom Fee, what it has collected through that.
         $byDate = [];
-        $queries = [
+        $queries = CustomFee::enabled((int) $orgId) ? [] : [
             FeePayment::where('organization_id', $orgId)->whereIn('fee_type', ['academic', 'transport']),
             TransportFeePayment::where('organization_id', $orgId),
         ];
+        if (!$queries) {
+            $byDate = CustomFee::collectedByDay((int) $orgId, $start->toDateString());
+        }
         foreach ($queries as $query) {
             $payments = $query->whereDate('payment_date', '>=', $start->toDateString())
                 ->selectRaw('DATE(payment_date) as d, SUM(amount) as total')

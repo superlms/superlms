@@ -33,6 +33,8 @@ return [
             'accounts.penalties',
             'accounts.fee-cycles',
             'accounts.fee-concessions',
+            // The accounts desk's Fees page, for a school on Custom Fee.
+            'accounts.custom-fee',
         ],
     ],
     'payroll' => [

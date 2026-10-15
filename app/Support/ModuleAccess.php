@@ -50,6 +50,11 @@ class ModuleAccess
      */
     public static function allows(?Organization $org, ?string $link): bool
     {
+        // A school on Custom Fee has its own fee screens in place of the ordinary ones.
+        if (CustomFee::linkAllowed($org, $link) === false) {
+            return false;
+        }
+
         $key = self::moduleForLink($link);
 
         if ($key === null) {

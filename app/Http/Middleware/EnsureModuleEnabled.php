@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\CustomFee;
 use App\Support\ModuleAccess;
 use Closure;
 use Illuminate\Http\Request;
@@ -20,6 +21,11 @@ class EnsureModuleEnabled
     {
         $routeName = $request->route()?->getName();
         $moduleKey = ModuleAccess::moduleForLink($routeName);
+
+        // Custom Fee swaps the ordinary fee screens for its own (App\Support\CustomFee).
+        if (CustomFee::linkAllowed($request->user()?->organization, $routeName) === false) {
+            abort(403, 'This feature is not enabled for your school. Please contact your administrator.');
+        }
 
         if ($moduleKey !== null) {
             $org = $request->user()?->organization;

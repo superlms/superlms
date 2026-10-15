@@ -324,6 +324,7 @@
         'overview' => 'Overview',
         'modules' => 'Modules',
         'whatsapp' => 'WhatsApp',
+        'custom_fee' => 'Custom Fee',
         'bank' => 'Bank Details',
         'fees' => 'Fees Analytics',
         'students' => 'Students',
@@ -462,6 +463,59 @@
                             @include('livewire.partials.whatsapp-analytics', ['wa' => $wa, 'waEditable' => true, 'waKey' => 'sa-school-' . $detailSchool->id])
                         @else
                             <p class="text-center py-12 text-sm text-gray-400">WhatsApp messages are not set up yet.</p>
+                        @endif
+                    </div>
+                @endif
+
+                {{-- ════════ CUSTOM FEE TAB ════════
+                     On: the school's Fee page has Add Fee, Submit Fee and View Fee
+                     (each student's own particulars) in place of its nine sections,
+                     and the accounts desk one Fees page for the same. Off: the
+                     ordinary fee screens, as they were. Nothing is deleted either way. --}}
+                @if ($detailTab === 'custom_fee')
+                    <div class="p-5 space-y-4">
+                        @if ($cf = $this->customFeeSummary())
+                            <div class="border border-gray-200 rounded-md">
+                                <div class="px-4 py-3 flex flex-wrap items-center gap-3">
+                                    <button type="button" role="switch" aria-checked="{{ $cf['enabled'] ? 'true' : 'false' }}"
+                                        wire:click="toggleCustomFee" wire:loading.attr="disabled" wire:target="toggleCustomFee"
+                                        wire:confirm="{{ $cf['enabled']
+                                            ? 'Turn Custom Fee off for this school? Its ordinary fee screens come back as they were; the custom fees and payments are kept.'
+                                            : 'Turn Custom Fee on for this school? Its nine fee sections are hidden and replaced by Add Fee, Submit Fee and View Fee. Nothing is deleted.' }}"
+                                        title="{{ $cf['enabled'] ? 'Turn off' : 'Turn on' }}"
+                                        class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-60 {{ $cf['enabled'] ? 'bg-emerald-500' : 'bg-gray-300' }}">
+                                        <span class="inline-block h-4 w-4 rounded-full bg-white shadow transition-transform {{ $cf['enabled'] ? 'translate-x-4.5' : 'translate-x-0.5' }}"></span>
+                                    </button>
+                                    <span class="text-sm font-medium text-gray-800">Custom Fee</span>
+                                    <span class="text-xs {{ $cf['enabled'] ? 'text-emerald-600' : 'text-gray-400' }}">{{ $cf['enabled'] ? 'On' : 'Off' }}</span>
+                                </div>
+                                <div class="px-4 py-3 border-t border-gray-100">
+                                    <p class="text-xs text-gray-500 leading-relaxed">
+                                        When on, the school sets each student's fee by hand — any particulars and amounts, on that
+                                        student alone — so a parent's children can all be put on one of them. Its Fee page shows
+                                        <strong class="text-gray-700">Add Fee</strong>, <strong class="text-gray-700">Submit Fee</strong> and
+                                        <strong class="text-gray-700">View Fee</strong> in place of Fee Structure, Fee Cycle, Concession,
+                                        Penalties and the rest; the accounts desk gets one Fees page for the same; Home and Analytics count
+                                        the fee from it. When off, the ordinary fee screens come back as they were. Nothing is deleted either way.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                                @foreach ([
+                                    ['Students with a fee', number_format($cf['students']), 'text-gray-900'],
+                                    ['Total fee', '₹' . number_format($cf['total'], 0), 'text-gray-900'],
+                                    ['Collected', '₹' . number_format($cf['collected'], 0) . ' · ' . number_format($cf['payments']) . ' payments', 'text-emerald-600'],
+                                    ['Balance', '₹' . number_format($cf['balance'], 0), $cf['balance'] > 0 ? 'text-red-600' : 'text-gray-900'],
+                                ] as [$cfLabel, $cfValue, $cfTone])
+                                    <div class="border border-gray-200 rounded-md px-4 py-3">
+                                        <p class="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{{ $cfLabel }}</p>
+                                        <p class="mt-1 text-sm font-semibold tabular-nums {{ $cfTone }}">{{ $cfValue }}</p>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <p class="text-center py-12 text-sm text-gray-400">Custom Fee is not set up yet.</p>
                         @endif
                     </div>
                 @endif

@@ -129,6 +129,10 @@ Route::middleware(['auth:admin', 'admin', 'module'])->group(function () {
         Route::get('/fee-structure/transport-pdf', [\App\Http\Controllers\Admin\FeeStructurePdfController::class, 'transport'])
             ->name('admin.fee-structure.transport-pdf');
         Route::get('/fee/receipt/{id}', [FeeReceiptController::class, 'show'])->name('admin.fee.receipt');
+        // A Custom Fee payment's receipt (App\Support\CustomFee).
+        Route::get('/fee/custom-receipt/{id}', [\App\Http\Controllers\Admin\CustomFeeReceiptController::class, 'show'])
+            ->whereNumber('id')
+            ->name('admin.fee.custom-receipt');
         Route::get('/homework', Homework::class)->name('admin.homework');
         Route::get('/attendance', Attendance::class)->name('admin.attendance');
         Route::get('/syllabus', Syllabus::class)->name('admin.syllabus');
