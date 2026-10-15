@@ -336,10 +336,11 @@
                                             class="inline-flex p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/></svg>
                                         </a>
+                                        {{-- A payment is never deleted; Submit Fee may correct its date. --}}
                                         @if ($tab === 'submit')
-                                            <button wire:click="confirmDeletePayment({{ $p->id }})" title="Delete payment"
-                                                class="inline-flex p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            <button type="button" wire:click="openPaymentDateEdit({{ $p->id }})" title="Edit date"
+                                                class="inline-flex p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
                                             </button>
                                         @endif
                                     </span>
@@ -557,6 +558,36 @@
                         class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
                         <span wire:loading.remove wire:target="savePayment">Submit Payment</span>
                         <span wire:loading wire:target="savePayment">Saving…</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- ══════════════════════════════════════════════════
+         EDIT PAYMENT DATE — the pencil beside a payment in Submit Fee
+         (as the regular fee's); only the date changes
+    ══════════════════════════════════════════════════ --}}
+    @if ($showPaymentDateEdit)
+        <div class="lms-cover fixed inset-x-0 bottom-0 z-[60] flex items-center justify-center p-4" style="top: var(--lms-nav-h, 65px);">
+            <div class="absolute inset-0 bg-black/40 backdrop-blur-[1.5px]" wire:click="closePaymentDateEdit"></div>
+            <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
+                <h3 class="text-base font-semibold text-gray-900">Edit Payment Date</h3>
+                <p class="text-xs text-gray-500 mt-0.5">
+                    {{ $editPaymentInfo['receipt_number'] ?? '' }} · {{ $money($editPaymentInfo['amount'] ?? 0) }}
+                </p>
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Date <span class="text-red-500">*</span></label>
+                    <input type="date" wire:model="editPaymentDate" max="{{ today()->toDateString() }}" wire:keydown.enter="savePaymentDate"
+                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                    @error('editPaymentDate')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                </div>
+                <div class="flex items-center justify-end gap-2 mt-5">
+                    <button wire:click="closePaymentDateEdit" class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                    <button wire:click="savePaymentDate" wire:loading.attr="disabled" wire:target="savePaymentDate"
+                        class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md disabled:opacity-60">
+                        <span wire:loading.remove wire:target="savePaymentDate">Save</span>
+                        <span wire:loading wire:target="savePaymentDate">Saving…</span>
                     </button>
                 </div>
             </div>

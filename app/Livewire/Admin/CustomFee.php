@@ -60,6 +60,12 @@ class CustomFee extends Component
     public $payCollectedBy = '';
     public $payRemark      = '';
 
+    // ── Edit Payment Date popup ───────────────────────────────────────────
+    public bool $showPaymentDateEdit = false;
+    public ?int $editPaymentId       = null;
+    public $editPaymentDate          = '';
+    public array $editPaymentInfo    = [];
+
     public const MODES = [
         'cash'          => 'Cash',
         'online'        => 'Online',
@@ -99,7 +105,10 @@ class CustomFee extends Component
 
     public function clearFilters(): void
     {
-        $this->reset(['standardId', 'sectionId', 'studentId', 'showFeePanel', 'feeRows', 'showPayPanel']);
+        $this->reset([
+            'standardId', 'sectionId', 'studentId', 'showFeePanel', 'feeRows', 'showPayPanel',
+            'showPaymentDateEdit', 'editPaymentId', 'editPaymentDate', 'editPaymentInfo',
+        ]);
         $this->resetValidation();
     }
 
@@ -366,21 +375,52 @@ class CustomFee extends Component
         $this->notification()->success('₹' . number_format($amount, 2) . ' received · ' . $payment->receipt_number);
     }
 
-    public function confirmDeletePayment(int $id): void
+    // ── A payment's date, corrected (payments are never deleted) ──────────
+
+    /** Submit Fee's pencil beside a payment: the Edit Payment Date popup. */
+    public function openPaymentDateEdit(int $id): void
     {
-        $this->dialog()->confirm([
-            'title'       => 'Delete this payment?',
-            'description' => 'Its receipt stops counting and the amount goes back on the balance. This cannot be undone.',
-            'icon'        => 'error',
-            'accept'      => ['label' => 'Yes, delete', 'method' => 'deletePayment', 'params' => $id],
-            'reject'      => ['label' => 'Cancel'],
-        ]);
+        $payment = CustomFeePayment::where('organization_id', $this->orgId())->find($id);
+        if (!$payment) {
+            return;
+        }
+
+        $this->editPaymentId   = $payment->id;
+        $this->editPaymentDate = optional($payment->payment_date)->toDateString() ?? '';
+        $this->editPaymentInfo = [
+            'receipt_number' => $payment->receipt_number,
+            'amount'         => (float) $payment->amount,
+        ];
+        $this->resetValidation('editPaymentDate');
+        $this->showPaymentDateEdit = true;
     }
 
-    public function deletePayment(int $id): void
+    public function closePaymentDateEdit(): void
     {
-        CustomFeePayment::where('organization_id', $this->orgId())->whereKey($id)->delete();
-        $this->notification()->success('Payment deleted.');
+        $this->reset(['showPaymentDateEdit', 'editPaymentId', 'editPaymentDate', 'editPaymentInfo']);
+        $this->resetValidation('editPaymentDate');
+    }
+
+    /** Only the date changes — amount, mode, collector and receipt number stay as they were. */
+    public function savePaymentDate(): void
+    {
+        $this->validate(
+            ['editPaymentDate' => 'required|date|before_or_equal:today'],
+            ['editPaymentDate.before_or_equal' => 'The date cannot be after today.']
+        );
+
+        $payment = $this->editPaymentId
+            ? CustomFeePayment::where('organization_id', $this->orgId())->find($this->editPaymentId)
+            : null;
+        if (!$payment) {
+            $this->closePaymentDateEdit();
+            return;
+        }
+
+        $payment->update(['payment_date' => $this->editPaymentDate]);
+
+        $this->closePaymentDateEdit();
+        $this->notification()->success('Payment date updated · ' . $payment->receipt_number);
     }
 
     // ── Reading ───────────────────────────────────────────────────────────
