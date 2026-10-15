@@ -231,7 +231,7 @@ class Schools extends Component
         return $this->detailSchool?->id ? (int) $this->detailSchool->id : null;
     }
 
-    /** Turn one of the school's paid messages (Absent alert, Fee received) on or off. */
+    /** Turn one of the school's paid messages (Absent alert, Fee received, Send Credentials) on or off. */
     public function toggleWhatsApp(string $feature): void
     {
         $orgId = $this->whatsAppOrgId();
@@ -242,7 +242,8 @@ class Schools extends Component
         $on = !\App\Services\SchoolWhatsApp::enabled($orgId, $feature);
         \App\Services\SchoolWhatsApp::setEnabled($orgId, $feature, $on);
 
-        $this->notification()->success(\App\Services\SchoolWhatsApp::FEATURES[$feature][0] . ($on ? ' is on' : ' is off') . ' for ' . $this->detailSchool->name . '.');
+        $label = $feature === 'credentials' ? 'Send Credentials' : \App\Services\SchoolWhatsApp::FEATURES[$feature][0];
+        $this->notification()->success($label . ($on ? ' is on' : ' is off') . ' for ' . $this->detailSchool->name . '.');
     }
 
     // ─── Custom Fee tab: the school's own per-student fee in place of the ordinary one ──

@@ -21,14 +21,16 @@ use Illuminate\Support\Facades\Schema;
  *
  *   absent_alert   a student marked absent today       student_absent_alert   charged, when the school has it on
  *   fee_received   a fee booked for a student          fee_received           charged, when the school has it on
- *   credentials    Send Credentials on a student's or teacher's view            charged
+ *   credentials    Send Credentials on a student's or teacher's view            charged, when the school has it on
  *   welcome        the welcome on adding a student or teacher                   free (the platform's)
  *
  * Every message is a row in whatsapp_messages with its rate (RATE, a fixed
  * ₹0.66 a message; a row keeps the rate it went at);
  * Meta's status webhook (WhatsAppWebhookController) marks one failed, and a
  * failed message is not charged. The paid messages are off for every school
- * until the super admin turns them on (Super Admin → Fees → the school).
+ * until the super admin turns them on (Super Admin → Schools → the school →
+ * WhatsApp). With Send Credentials off, the button is not on the student's or
+ * teacher's view and nothing is sent (WelcomeWhatsApp::resend).
  */
 class SchoolWhatsApp
 {
@@ -36,7 +38,7 @@ class SchoolWhatsApp
     public const FEATURES = [
         'absent_alert' => ['Absent alert', true, true],
         'fee_received' => ['Fee received', true, true],
-        'credentials'  => ['Credentials', true, false],
+        'credentials'  => ['Credentials', true, true],
         'welcome'      => ['Welcome (free)', false, false],
     ];
 
@@ -72,6 +74,12 @@ class SchoolWhatsApp
         }
 
         return (bool) WhatsAppSchoolFeature::where('organization_id', $orgId)->where('feature', $feature)->value('enabled');
+    }
+
+    /** Whether a school's admin may Send Credentials (and sees the button) — off until turned on. */
+    public static function credentialsOn(?int $orgId): bool
+    {
+        return $orgId > 0 && self::enabled($orgId, 'credentials');
     }
 
     public static function setEnabled(int $orgId, string $feature, bool $on): void

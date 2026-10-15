@@ -99,13 +99,18 @@ class WelcomeWhatsApp
      * Send a student's or teacher's welcome again — Send Credentials on the
      * Students / Teachers view: the same message, with a fresh "View details"
      * link to their admission number or username and password (the password
-     * itself is not changed). Says why when it cannot go: WhatsApp not set
-     * up, no usable mobile, a teacher without a username.
+     * itself is not changed). Says why when it cannot go: Send Credentials
+     * off for the school (the super admin's switch), WhatsApp not set up, no
+     * usable mobile, a teacher without a username.
      *
      * $kind is 'student' or 'teacher'. Returns ['ok' => bool, 'message' => string].
      */
     public static function resend(User $user, string $kind): array
     {
+        if (!SchoolWhatsApp::credentialsOn((int) $user->organization_id)) {
+            return ['ok' => false, 'message' => 'Send Credentials is off for this school, so nothing was sent.'];
+        }
+
         if (!WhatsAppService::enabled()) {
             return ['ok' => false, 'message' => 'WhatsApp is not set up, so nothing was sent.'];
         }

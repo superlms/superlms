@@ -78,6 +78,47 @@ class SendCredentialsTest extends TestCase
             ['user_id' => 30, 'organization_id' => 4, 'full_name' => 'Other', 'admission_no' => 'ADM-9', 'phone' => null],
         ]);
         DB::table('teacher_details')->insert(['user_id' => 20, 'organization_id' => 3]);
+
+        // Send Credentials is the super admin's switch per school (2026-10-15): on for both here.
+        DB::table('organizations')->insert(['id' => 4, 'name' => 'Beta School']);
+        (require base_path('database/migrations/2026_10_14_200000_create_whatsapp_messages_tables.php'))->up();
+        DB::table('whatsapp_school_features')->insert([
+            ['organization_id' => 3, 'feature' => 'credentials', 'enabled' => true],
+            ['organization_id' => 4, 'feature' => 'credentials', 'enabled' => true],
+        ]);
+    }
+
+    public function test_with_the_switch_off_nothing_goes_and_the_button_is_not_shown(): void
+    {
+        DB::table('whatsapp_school_features')->where('organization_id', 3)->update(['enabled' => false]);
+
+        $this->assertSame(
+            ['ok' => false, 'message' => 'Send Credentials is off for this school, so nothing was sent.'],
+            WelcomeWhatsApp::resend(User::find(10), 'student')
+        );
+        $this->assertFalse(WelcomeWhatsApp::resend(User::find(20), 'teacher')['ok']);
+
+        // From the school panel too; another school with it on still sends.
+        $this->actingAs(User::find(1));
+        $own = new \App\Livewire\Admin\Student();
+        $own->viewData = ['user' => User::find(10)];
+        $own->sendCredentials();
+        $this->app->terminate();
+        Http::assertNothingSent();
+        $this->assertTrue(WelcomeWhatsApp::resend(User::find(30), 'student')['ok']);
+
+        // Every view shows the button only when the school has it on.
+        foreach (['admin/student', 'admin/teacher', 'super-admin/student', 'super-admin/teacher'] as $view) {
+            $blade = file_get_contents(resource_path("views/livewire/{$view}.blade.php"));
+            $send  = strpos($blade, 'wire:click="sendCredentials"');
+            $gate  = strrpos(substr($blade, 0, $send), "@if (\\App\\Services\\SchoolWhatsApp::credentialsOn((int) (\$viewData['user']->organization_id ?? 0)))");
+            $this->assertNotFalse($gate, $view);
+            $this->assertLessThan(400, $send - $gate, $view);
+            $this->assertNotFalse(strpos($blade, '@endif', $send), $view);
+        }
+        $this->assertTrue(\App\Services\SchoolWhatsApp::credentialsOn(4));
+        $this->assertFalse(\App\Services\SchoolWhatsApp::credentialsOn(3));
+        $this->assertFalse(\App\Services\SchoolWhatsApp::credentialsOn(9));   // never switched: off
     }
 
     private function sentTo(string $number, string $template): bool

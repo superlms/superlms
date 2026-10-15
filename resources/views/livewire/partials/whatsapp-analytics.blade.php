@@ -3,10 +3,12 @@
      the charged ones came to (a message not delivered is not charged), how
      far they got, and the messages themselves.
        $wa         HandlesWhatsAppAnalytics::whatsAppAnalytics()
-       $waEditable the Super Admin's: Absent alert / Fee received switches
+       $waEditable the Super Admin's: Absent alert / Fee received / Send Credentials switches
        $waKey      keeps this page's chart apart from another's --}}
 @php
     $waFeatures = \App\Services\SchoolWhatsApp::FEATURES;
+    // A switch reads as what it allows; the Credentials one is the Send Credentials button.
+    $waSwitchLabel = fn (string $waF) => $waF === 'credentials' ? 'Send Credentials' : $waFeatures[$waF][0];
     $waUsage    = $wa['usage'];
     $waDaily    = $wa['daily'];
     $waMoney    = fn ($v) => '₹' . number_format((float) $v, fmod((float) $v, 1) ? 2 : 0);
@@ -58,14 +60,14 @@
                         class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-60 {{ $waOn ? 'bg-emerald-500' : 'bg-gray-300' }}">
                         <span class="inline-block h-4 w-4 rounded-full bg-white shadow transition-transform {{ $waOn ? 'translate-x-4.5' : 'translate-x-0.5' }}"></span>
                     </button>
-                    <span class="text-sm font-medium text-gray-800">{{ $waFeatures[$waF][0] }}</span>
+                    <span class="text-sm font-medium text-gray-800">{{ $waSwitchLabel($waF) }}</span>
                     <span class="text-xs {{ $waOn ? 'text-emerald-600' : 'text-gray-400' }}">{{ $waOn ? 'On' : 'Off' }}</span>
                 </div>
             @endforeach
         @else
             <p class="text-xs text-gray-500">
                 @foreach ($wa['switches'] as $waF => $waOn)
-                    {{ $waFeatures[$waF][0] }}: <strong class="{{ $waOn ? 'text-emerald-600' : 'text-gray-400' }}">{{ $waOn ? 'On' : 'Off' }}</strong>@if (!$loop->last)<span class="text-gray-300"> · </span>@endif
+                    {{ $waSwitchLabel($waF) }}: <strong class="{{ $waOn ? 'text-emerald-600' : 'text-gray-400' }}">{{ $waOn ? 'On' : 'Off' }}</strong>@if (!$loop->last)<span class="text-gray-300"> · </span>@endif
                 @endforeach
             </p>
         @endif

@@ -100,10 +100,14 @@ class WhatsAppAnalyticsPagesTest extends TestCase
         $html = $page->html();
         $this->assertStringContainsString("wire:click=\"toggleWhatsApp('absent_alert')\"", $html);
         $this->assertStringContainsString("wire:click=\"toggleWhatsApp('fee_received')\"", $html);
+        // Send Credentials: the third switch, after Absent alert and Fee received (2026-10-15).
+        $this->assertStringContainsString("wire:click=\"toggleWhatsApp('credentials')\"", $html);
+        $this->assertTrue(strpos($html, "toggleWhatsApp('fee_received')") < strpos($html, "toggleWhatsApp('credentials')"));
+        $this->assertStringContainsString('Absent alert Off Fee received Off Send Credentials Off', $this->text($page));
         $this->assertStringContainsString('wire:model.live="waPeriod"', $html);
         $this->assertStringContainsString('wire:key="wa-daily-sa-school-1-', $html);
         foreach (['Messages 3 Last 30 days', 'Absent alert 1 Off · ₹0.66 each', 'Fee received 1 Off · ₹0.66 each',
-                  'Credentials 0 Send Credentials · ₹0.66 each', 'Welcome (free) 1 On adding someone',
+                  'Credentials 0 Off · ₹0.66 each', 'Welcome (free) 1 On adding someone',
                   'Charged ₹1.32 2 charged · 1 not delivered', 'Read 1 (25%)', 'Delivered 1 (25%)', 'Sent 1 (25%)',
                   'Not delivered 1 (25%)', 'Busiest day 15 Oct · 2', 'Messages · Last 30 days 4',
                   '1 15 Oct 2026 09:05 AM Fee received Bala Rao +91 99887 76655 Delivered ₹0.66',
@@ -111,14 +115,19 @@ class WhatsAppAnalyticsPagesTest extends TestCase
             $this->assertStringContainsString($seen, $this->text($page));
         }
 
-        // On for this school only, and off again; Credentials has no switch.
+        // On for this school only, and off again; Send Credentials switches the same way, Welcome not at all.
         $page->call('toggleWhatsApp', 'absent_alert');
         $this->assertTrue(SchoolWhatsApp::enabled(1, 'absent_alert'));
         $this->assertFalse(SchoolWhatsApp::enabled(2, 'absent_alert'));
         $this->assertStringContainsString('Absent alert 1 On · ₹0.66 each', $this->text($page));
         $page->call('toggleWhatsApp', 'absent_alert')->call('toggleWhatsApp', 'credentials');
         $this->assertFalse(SchoolWhatsApp::enabled(1, 'absent_alert'));
-        $this->assertSame(['absent_alert'], DB::table('whatsapp_school_features')->pluck('feature')->all());
+        $this->assertTrue(SchoolWhatsApp::enabled(1, 'credentials'));
+        $this->assertFalse(SchoolWhatsApp::enabled(2, 'credentials'));
+        $this->assertStringContainsString('Send Credentials On', $this->text($page));
+        $page->call('toggleWhatsApp', 'credentials')->call('toggleWhatsApp', 'welcome');
+        $this->assertFalse(SchoolWhatsApp::enabled(1, 'credentials'));
+        $this->assertSame(['absent_alert', 'credentials'], DB::table('whatsapp_school_features')->orderBy('id')->pluck('feature')->all());
 
         // A month, a kind, a status.
         $this->assertStringContainsString('Messages 1 Sep 2026', $this->text($page->set('waPeriod', '2026-09')));

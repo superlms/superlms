@@ -163,11 +163,17 @@ class SchoolWhatsAppTest extends TestCase
         Http::assertNothingSent();
 
         SchoolWhatsApp::setEnabled(1, 'absent_alert', true);
-        SchoolWhatsApp::setEnabled(1, 'credentials', true);   // not a switched message: ignored
+        SchoolWhatsApp::setEnabled(1, 'welcome', true);       // not a switched message: ignored
         $this->assertTrue(SchoolWhatsApp::enabled(1, 'absent_alert'));
         $this->assertFalse(SchoolWhatsApp::enabled(1, 'fee_received'));
+        $this->assertFalse(SchoolWhatsApp::enabled(1, 'credentials'));           // Send Credentials: off until turned on
         $this->assertFalse(SchoolWhatsApp::enabled(2, 'absent_alert'));          // another school
         $this->assertSame(1, DB::table('whatsapp_school_features')->count());
+
+        SchoolWhatsApp::setEnabled(1, 'credentials', true);   // switched since 2026-10-15
+        $this->assertTrue(SchoolWhatsApp::credentialsOn(1));
+        $this->assertFalse(SchoolWhatsApp::credentialsOn(2));
+        $this->assertSame(2, DB::table('whatsapp_school_features')->count());
 
         $this->assertTrue(SchoolWhatsApp::absentAlert($this->student(1), '2026-10-15'));
         SchoolWhatsApp::setEnabled(1, 'absent_alert', false);
@@ -311,7 +317,7 @@ class SchoolWhatsAppTest extends TestCase
         $this->assertSame(['2026-09-16 00:00:00', '2026-10-15 23:59:59', 'Last 30 days'], $range(''));
         $this->assertSame(['2026-09-01 00:00:00', '2026-09-30 23:59:59', 'Sep 2026'], $range('2026-09'));
         $this->assertSame(['2026-10-01 00:00:00', '2026-10-15 23:59:59', 'Oct 2026'], $range('2026-10'));   // up to today
-        $this->assertSame(['absent_alert' => false, 'fee_received' => false], SchoolWhatsApp::switches(1));
+        $this->assertSame(['absent_alert' => false, 'fee_received' => false, 'credentials' => false], SchoolWhatsApp::switches(1));
 
         $this->assertTrue(SchoolWhatsApp::inUse(1));
         $this->assertFalse(SchoolWhatsApp::inUse(3));
