@@ -479,10 +479,7 @@
                                 <div class="px-4 py-3 flex flex-wrap items-center gap-3">
                                     <button type="button" role="switch" aria-checked="{{ $cf['enabled'] ? 'true' : 'false' }}"
                                         wire:click="toggleCustomFee" wire:loading.attr="disabled" wire:target="toggleCustomFee"
-                                        wire:confirm="{{ $cf['enabled']
-                                            ? 'Turn Custom Fee off for this school? Its ordinary fee screens come back as they were; the custom fees and payments are kept.'
-                                            : 'Turn Custom Fee on for this school? Its nine fee sections are hidden and replaced by Add Fee, Submit Fee and View Fee. Nothing is deleted.' }}"
-                                        title="{{ $cf['enabled'] ? 'Turn off' : 'Turn on' }}"
+                                        title="{{ $cf['enabled'] ? 'Turn off — a code is emailed to you to confirm' : 'Turn on — a code is emailed to you to confirm' }}"
                                         class="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-60 {{ $cf['enabled'] ? 'bg-emerald-500' : 'bg-gray-300' }}">
                                         <span class="inline-block h-4 w-4 rounded-full bg-white shadow transition-transform {{ $cf['enabled'] ? 'translate-x-4.5' : 'translate-x-0.5' }}"></span>
                                     </button>
@@ -1518,6 +1515,62 @@
                             class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:opacity-60">
                             <span wire:loading.remove wire:target="verifyAndDelete">Delete School</span>
                             <span wire:loading wire:target="verifyAndDelete">Deleting…</span>
+                        </button>
+                    </div>
+                @endif
+            </div>
+        </div>
+    @endif
+
+    {{-- ══════════ CUSTOM FEE ON / OFF (OTP-verified) ══════════
+         As the delete above: what changes, a code emailed to the super admin,
+         then the code turns it on or off. --}}
+    @if ($showCustomFeeConfirm && $detailSchool)
+        @php $cfTurnOn = !\App\Support\CustomFee::enabled((int) $detailSchool->id); @endphp
+        <div class="lms-cover fixed inset-x-0 bottom-0 top-16 z-50 flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" wire:click="cancelCustomFee"></div>
+            <div class="relative z-10 bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
+
+                @if ($customFeeStep === 'confirm')
+                    {{-- Step 1: what changes, then send the code --}}
+                    <h3 class="text-base font-semibold text-gray-900">Turn Custom Fee {{ $cfTurnOn ? 'on' : 'off' }}?</h3>
+                    <p class="text-sm text-gray-500 mt-2">
+                        @if ($cfTurnOn)
+                            {{ $detailSchool->name }}'s nine fee sections are hidden and replaced by Add Fee, Submit Fee and View Fee. Nothing is deleted.
+                        @else
+                            {{ $detailSchool->name }}'s ordinary fee screens come back as they were. The custom fees and payments are kept.
+                        @endif
+                    </p>
+                    <p class="text-sm text-gray-500 mt-2">A code will be emailed to you to confirm.</p>
+                    <div class="flex items-center justify-end gap-2 mt-5">
+                        <button wire:click="cancelCustomFee" type="button"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                        <button wire:click="sendCustomFeeOtp" type="button" wire:loading.attr="disabled" wire:target="sendCustomFeeOtp"
+                            class="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md disabled:opacity-60">
+                            <span wire:loading.remove wire:target="sendCustomFeeOtp">Send Code</span>
+                            <span wire:loading wire:target="sendCustomFeeOtp">Sending…</span>
+                        </button>
+                    </div>
+                @else
+                    {{-- Step 2: enter the emailed code --}}
+                    <h3 class="text-base font-semibold text-gray-900">Enter the code</h3>
+                    <p class="text-sm text-gray-500 mt-2">Sent to {{ $customFeeOtpEmailMasked }}. Enter it to turn Custom Fee {{ $cfTurnOn ? 'on' : 'off' }} for {{ $detailSchool->name }}.</p>
+                    <input type="text" inputmode="numeric" maxlength="6" wire:model="customFeeOtpInput"
+                        wire:keydown.enter="verifyCustomFeeOtp" placeholder="6-digit code"
+                        class="mt-4 w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-md tracking-widest focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                    @error('customFeeOtpInput') <p class="text-xs text-red-500 mt-1.5">{{ $message }}</p> @enderror
+                    <button wire:click="sendCustomFeeOtp" type="button" wire:loading.attr="disabled" wire:target="sendCustomFeeOtp"
+                        class="text-xs text-gray-500 hover:text-gray-800 underline mt-2">
+                        <span wire:loading.remove wire:target="sendCustomFeeOtp">Resend code</span>
+                        <span wire:loading wire:target="sendCustomFeeOtp">Sending…</span>
+                    </button>
+                    <div class="flex items-center justify-end gap-2 mt-5">
+                        <button wire:click="cancelCustomFee" type="button"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Cancel</button>
+                        <button wire:click="verifyCustomFeeOtp" type="button" wire:loading.attr="disabled" wire:target="verifyCustomFeeOtp"
+                            class="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md disabled:opacity-60">
+                            <span wire:loading.remove wire:target="verifyCustomFeeOtp">Verify &amp; Turn {{ $cfTurnOn ? 'On' : 'Off' }}</span>
+                            <span wire:loading wire:target="verifyCustomFeeOtp">Verifying…</span>
                         </button>
                     </div>
                 @endif

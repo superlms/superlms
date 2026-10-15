@@ -79,15 +79,11 @@ class CustomFee extends Component
 
     // ── Tabs and filters ──────────────────────────────────────────────────
 
+    /** Each tab opens on a clean filter — Class → Section → Student picked afresh. */
     public function setTab(string $tab): void
     {
         $this->tab = in_array($tab, ['add', 'submit', 'view'], true) ? $tab : 'add';
-        $this->resetValidation();
-
-        // Submit Fee and View Fee list only the students with a fee set.
-        if ($this->tab !== 'add' && $this->studentId && !$this->hasFee((int) $this->studentId)) {
-            $this->studentId = '';
-        }
+        $this->clearFilters();
     }
 
     public function updatedStandardId(): void
@@ -103,7 +99,8 @@ class CustomFee extends Component
 
     public function clearFilters(): void
     {
-        $this->reset(['standardId', 'sectionId', 'studentId']);
+        $this->reset(['standardId', 'sectionId', 'studentId', 'showFeePanel', 'feeRows', 'showPayPanel']);
+        $this->resetValidation();
     }
 
     /** A row of the class list opens that student. */

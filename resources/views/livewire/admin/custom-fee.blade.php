@@ -202,12 +202,15 @@
             @php
                 $stu = $ledger['student'];
                 $tot = $ledger['totals'];
+                $pct = $tot['total'] > 0 ? (int) min(100, round($tot['paid'] / $tot['total'] * 100)) : 0;
             @endphp
 
-            {{-- ── The student and where their fee stands ── --}}
-            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div class="px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-                    <div class="flex items-center gap-3 min-w-0">
+            {{-- ══════════ Student on the left, their fee structure on the right ══════════ --}}
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+
+                {{-- ── 1. The student, and where their fee stands ── --}}
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="px-4 py-3 border-b border-gray-100 flex items-center gap-3 min-w-0">
                         <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-[11px] font-medium flex-shrink-0">
                             {{ mb_strtoupper(mb_substr($ledger['name'], 0, 1)) }}
                         </div>
@@ -215,134 +218,146 @@
                             <h3 class="text-sm font-semibold text-gray-700 truncate">{{ $ledger['name'] }}</h3>
                             <p class="text-[11px] text-gray-400">
                                 {{ $stu->standard->name ?? '—' }}{{ $stu->section ? ' · ' . $stu->section->name : '' }}
-                                · Father {{ $stu->father_name ?: '—' }}
-                                @if ($stu->admission_no) · Adm {{ $stu->admission_no }}@endif
+                                · Adm {{ $stu->admission_no ?: '—' }} · Roll {{ $stu->roll_no ?: '—' }}
                             </p>
                         </div>
                     </div>
-                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600">
-                        <span>Total <strong class="tabular-nums">{{ $money($tot['total']) }}</strong></span>
-                        <span>Paid <strong class="tabular-nums text-emerald-600">{{ $money($tot['paid']) }}</strong></span>
-                        <span>Balance <strong class="tabular-nums {{ $tot['balance'] > 0 ? 'text-red-600' : '' }}">{{ $money($tot['balance']) }}</strong></span>
+
+                    {{-- Details, as flat label rows --}}
+                    <div class="divide-y divide-gray-100 border-b border-gray-100">
+                        @foreach ([
+                            "Father's name"   => $stu->father_name,
+                            "Mother's name"   => $stu->mother_name,
+                            'Phone'           => $stu->phone,
+                            'Admission no.'   => $stu->admission_no,
+                            'Roll no.'        => $stu->roll_no,
+                            'Class / section' => ($stu->standard->name ?? '—') . ($stu->section ? ' · ' . $stu->section->name : ''),
+                        ] as $label => $value)
+                            <div wire:key="cf-detail-{{ \Illuminate\Support\Str::slug($label) }}" class="flex items-center gap-3 px-4 py-2.5 text-sm">
+                                <span class="w-28 flex-shrink-0 text-xs text-gray-500">{{ $label }}</span>
+                                <span class="flex-1 text-gray-800 truncate">{{ $value ?: '—' }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    {{-- Collection --}}
+                    <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_3.5rem] items-center bg-gray-50 text-xs text-gray-500">
+                        <span class="px-4 py-2 text-right">Total</span>
+                        <span class="px-4 py-2 text-right">Paid</span>
+                        <span class="px-4 py-2 text-right">Remaining</span>
+                        <span class="px-4 py-2 text-right">Done</span>
+                    </div>
+                    <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_3.5rem] items-center border-t border-gray-100 text-sm">
+                        <span class="px-4 py-2.5 text-right text-gray-700 tabular-nums">{{ $money($tot['total']) }}</span>
+                        <span class="px-4 py-2.5 text-right text-gray-700 tabular-nums">{{ $money($tot['paid']) }}</span>
+                        <span class="px-4 py-2.5 text-right tabular-nums {{ $tot['balance'] > 0 ? 'text-red-600' : 'text-gray-400' }}">{{ $money($tot['balance']) }}</span>
+                        <span class="px-4 py-2.5 text-right text-gray-500 tabular-nums">{{ $pct }}%</span>
+                    </div>
+                </div>
+
+                {{-- ── 2. Fee structure — the student's own particulars ── --}}
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-700">Fee structure</h3>
+                            <p class="text-[11px] text-gray-400">{{ $ledger['items']->count() }} {{ \Illuminate\Support\Str::plural('particular', $ledger['items']->count()) }}</p>
+                        </div>
+                        <span class="text-[11px] text-gray-600">Payable <strong>{{ $money($tot['total']) }}</strong></span>
+                    </div>
+
+                    <div class="divide-y divide-gray-100 text-sm">
+                        @forelse ($ledger['items'] as $n => $item)
+                            <div wire:key="cf-item-{{ $item->id }}" class="flex items-center gap-3 px-4 py-2.5">
+                                <span class="w-4 text-[11px] text-gray-300 tabular-nums flex-shrink-0">{{ $n + 1 }}</span>
+                                <span class="flex-1 text-gray-800 truncate">{{ $item->fee_name }}</span>
+                                <span class="text-gray-700 tabular-nums">{{ $money($item->amount) }}</span>
+                                @if ($tab === 'add')
+                                    <button wire:click="confirmDeleteItem({{ $item->id }})" title="Remove"
+                                        class="w-7 h-7 -my-1 inline-flex items-center justify-center rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 flex-shrink-0">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    </button>
+                                @endif
+                            </div>
+                        @empty
+                            <p class="px-4 py-10 text-center text-xs text-gray-400">
+                                No fee added yet.@if ($tab === 'add') Use Add Fee above to put the particulars on this student.@endif
+                            </p>
+                        @endforelse
+                        @if ($ledger['items']->isNotEmpty())
+                            <div class="flex items-center gap-3 px-4 py-2.5 bg-gray-50/60">
+                                <span class="flex-1 text-gray-800 font-medium">Payable</span>
+                                <span class="text-gray-900 font-semibold tabular-nums">{{ $money($tot['total']) }}</span>
+                                @if ($tab === 'add')
+                                    <span class="w-7 flex-shrink-0"></span>
+                                @endif
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>
 
-            {{-- ── Fee Structure ── --}}
-            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2">
-                    <h3 class="text-sm font-semibold text-gray-700">Fee Structure</h3>
-                    <span class="text-xs text-gray-400 tabular-nums">{{ $ledger['items']->count() }} {{ \Illuminate\Support\Str::plural('particular', $ledger['items']->count()) }}</span>
-                </div>
-                @if ($ledger['items']->isEmpty())
-                    <div class="text-center py-12 px-4">
-                        <p class="text-sm font-semibold text-gray-800">No fee added yet</p>
-                        <p class="text-xs text-gray-400 mt-1">Use Add Fee above to put the particulars on this student.</p>
+            {{-- ══════════ 3. PAYMENTS — full width, each with its slip (as the regular fee lists them) ══════════ --}}
+            @if ($tab !== 'add')
+                @php $payCols = 'grid grid-cols-[2.5rem_9.5rem_7.5rem_7rem_9rem_minmax(0,1fr)_7rem_4.5rem] items-center'; @endphp
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-700">Payments</h3>
+                            <p class="text-[11px] text-gray-400">Every payment, newest first, each with its slip</p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-600">
+                            <span>Entries <strong>{{ $ledger['payments']->count() }}</strong></span>
+                            <span>Collected <strong>{{ $money($tot['paid']) }}</strong></span>
+                        </div>
                     </div>
-                @else
-                    <table class="min-w-full text-sm">
-                        <thead>
-                            <tr class="text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400 border-b border-gray-100">
-                                <th class="px-4 py-2.5 w-12">#</th>
-                                <th class="px-4 py-2.5">Particular</th>
-                                <th class="px-4 py-2.5 text-right">Amount</th>
-                                @if ($tab === 'add')
-                                    <th class="px-4 py-2.5 w-12"></th>
-                                @endif
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            @foreach ($ledger['items'] as $i => $item)
-                                <tr wire:key="cf-item-{{ $item->id }}">
-                                    <td class="px-4 py-2.5 text-gray-400 tabular-nums">{{ $i + 1 }}</td>
-                                    <td class="px-4 py-2.5 text-gray-800">{{ $item->fee_name }}</td>
-                                    <td class="px-4 py-2.5 text-right tabular-nums text-gray-800">{{ $money($item->amount) }}</td>
-                                    @if ($tab === 'add')
-                                        <td class="px-4 py-2.5 text-right">
-                                            <button wire:click="confirmDeleteItem({{ $item->id }})" title="Remove"
-                                                class="w-7 h-7 inline-flex items-center justify-center rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50">
+                    <div class="overflow-x-auto">
+                        <div class="min-w-[860px] text-sm">
+                            <div class="{{ $payCols }} bg-gray-50 text-xs text-gray-500">
+                                <span class="px-4 py-2">#</span>
+                                <span class="px-4 py-2">Receipt</span>
+                                <span class="px-4 py-2">Date</span>
+                                <span class="px-4 py-2">Mode</span>
+                                <span class="px-4 py-2">Collected by</span>
+                                <span class="px-4 py-2">Remark</span>
+                                <span class="px-4 py-2 text-right">Amount</span>
+                                <span class="px-4 py-2 text-center">Slip</span>
+                            </div>
+                            @forelse ($ledger['payments'] as $n => $p)
+                                <div wire:key="cf-pay-{{ $p->id }}" class="{{ $payCols }} border-t border-gray-100">
+                                    <span class="px-4 py-2.5 text-[11px] text-gray-300 tabular-nums">{{ $n + 1 }}</span>
+                                    <span class="px-4 py-2.5 text-xs text-gray-700 font-mono truncate">{{ $p->receipt_number }}</span>
+                                    <span class="px-4 py-2.5 text-gray-600 whitespace-nowrap">{{ optional($p->payment_date)->format('d M Y') ?? '—' }}</span>
+                                    <span class="px-4 py-2.5 text-gray-600">{{ $modes[$p->payment_mode] ?? ucfirst(str_replace('_', ' ', $p->payment_mode)) }}</span>
+                                    <span class="px-4 py-2.5 text-gray-600 truncate">{{ $p->submitted_by ?: '—' }}</span>
+                                    <span class="px-4 py-2.5 text-gray-500 truncate" title="{{ $p->remark }}">{{ $p->remark ?: '—' }}</span>
+                                    <span class="px-4 py-2.5 text-right text-gray-800 tabular-nums">{{ $money($p->amount) }}</span>
+                                    <span class="px-2 py-2.5 text-center whitespace-nowrap">
+                                        <a href="{{ $this->receiptUrl($p->id) }}" target="_blank" rel="noopener" title="Open slip"
+                                            class="inline-flex p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/></svg>
+                                        </a>
+                                        @if ($tab === 'submit')
+                                            <button wire:click="confirmDeletePayment({{ $p->id }})" title="Delete payment"
+                                                class="inline-flex p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                             </button>
-                                        </td>
-                                    @endif
-                                </tr>
-                            @endforeach
-                            <tr class="bg-gray-50">
-                                <td class="px-4 py-2.5"></td>
-                                <td class="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500">Total</td>
-                                <td class="px-4 py-2.5 text-right tabular-nums font-semibold text-gray-900">{{ $money($tot['total']) }}</td>
-                                @if ($tab === 'add')
-                                    <td></td>
-                                @endif
-                            </tr>
-                        </tbody>
-                    </table>
-                @endif
-            </div>
-
-            {{-- ── Payments, each with its receipt ── --}}
-            @if ($tab !== 'add')
-                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2">
-                        <h3 class="text-sm font-semibold text-gray-700">Payments</h3>
-                        <span class="text-xs text-gray-400 tabular-nums">{{ $ledger['payments']->count() }}</span>
-                    </div>
-                    @if ($ledger['payments']->isEmpty())
-                        <div class="text-center py-12 px-4">
-                            <p class="text-sm font-semibold text-gray-800">No payment yet</p>
-                            @if ($tab === 'submit')
-                                <p class="text-xs text-gray-400 mt-1">Use Update Fee above to take one.</p>
+                                        @endif
+                                    </span>
+                                </div>
+                            @empty
+                                <p class="px-4 py-10 text-center text-sm text-gray-400 border-t border-gray-100">
+                                    No payments yet — collected fees appear here with their slips.
+                                </p>
+                            @endforelse
+                            @if ($ledger['payments']->isNotEmpty())
+                                <div class="flex items-center gap-3 px-4 py-2.5 border-t border-gray-100 bg-gray-50/60">
+                                    <span class="flex-1 text-gray-700">Total</span>
+                                    <span class="w-28 text-right text-gray-800 font-medium tabular-nums">{{ $money($tot['paid']) }}</span>
+                                    <span class="w-[4.5rem] flex-shrink-0"></span>
+                                </div>
                             @endif
                         </div>
-                    @else
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full text-sm">
-                                <thead>
-                                    <tr class="text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400 border-b border-gray-100">
-                                        <th class="px-4 py-2.5">Date</th>
-                                        <th class="px-4 py-2.5">Receipt No.</th>
-                                        <th class="px-4 py-2.5">Mode</th>
-                                        <th class="px-4 py-2.5">Collected By</th>
-                                        <th class="px-4 py-2.5">Remark</th>
-                                        <th class="px-4 py-2.5 text-right">Amount</th>
-                                        <th class="px-4 py-2.5 text-right">Receipt</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-100">
-                                    @foreach ($ledger['payments'] as $p)
-                                        <tr wire:key="cf-pay-{{ $p->id }}">
-                                            <td class="px-4 py-2.5 whitespace-nowrap text-gray-700">{{ optional($p->payment_date)->format('d M Y') }}</td>
-                                            <td class="px-4 py-2.5 whitespace-nowrap text-gray-500 tabular-nums">{{ $p->receipt_number }}</td>
-                                            <td class="px-4 py-2.5 whitespace-nowrap text-gray-700">{{ $modes[$p->payment_mode] ?? ucfirst(str_replace('_', ' ', $p->payment_mode)) }}</td>
-                                            <td class="px-4 py-2.5 whitespace-nowrap text-gray-700">{{ $p->submitted_by ?: '—' }}</td>
-                                            <td class="px-4 py-2.5 text-gray-500 max-w-[220px] truncate" title="{{ $p->remark }}">{{ $p->remark ?: '—' }}</td>
-                                            <td class="px-4 py-2.5 text-right whitespace-nowrap tabular-nums font-medium text-gray-900">{{ $money($p->amount) }}</td>
-                                            <td class="px-4 py-2.5 text-right whitespace-nowrap">
-                                                <div class="inline-flex items-center gap-1">
-                                                    <a href="{{ $this->receiptUrl($p->id) }}" target="_blank" rel="noopener"
-                                                        class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-md">
-                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                                        Slip
-                                                    </a>
-                                                    @if ($tab === 'submit')
-                                                        <button wire:click="confirmDeletePayment({{ $p->id }})" title="Delete payment"
-                                                            class="w-7 h-7 inline-flex items-center justify-center rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50">
-                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                                        </button>
-                                                    @endif
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                    <tr class="bg-gray-50">
-                                        <td class="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-gray-500" colspan="5">Paid so far</td>
-                                        <td class="px-4 py-2.5 text-right tabular-nums font-semibold text-emerald-600">{{ $money($tot['paid']) }}</td>
-                                        <td></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    @endif
+                    </div>
                 </div>
             @endif
         @endif
@@ -458,9 +473,9 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div data-sole-section-wrap>
+                        <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Section</label>
-                            <select data-sole-section wire:model.live="paySectionId" @disabled(!$payStandardId)
+                            <select wire:model.live="paySectionId" @disabled(!$payStandardId)
                                 class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50">
                                 <option value="">All Sections</option>
                                 @foreach ($paySections as $sec)
