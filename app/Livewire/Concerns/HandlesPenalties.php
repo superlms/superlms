@@ -76,9 +76,10 @@ trait HandlesPenalties
 
         // Other screens (the class list) jump straight here with only a
         // student id, so backfill the class/section — otherwise the filter
-        // band reads "Select Class" over a view that is already on screen.
+        // band reads "Select Class" over a view that is already on screen. A
+        // student picked from the list leaves them be, so the list stays put.
         $student = StudentDetail::find($this->penaltyViewStudentId);
-        if ($student) {
+        if ($student && (string) $this->penaltyViewStandardId !== (string) $student->standard_id) {
             $this->penaltyViewStandardId = (string) $student->standard_id;
             $this->penaltyViewSectionId  = (string) ($student->section_id ?: '');
         }

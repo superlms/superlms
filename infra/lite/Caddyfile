@@ -2,11 +2,23 @@
 # Replaces the ALB + ACM cert. Certificates are obtained from Let's Encrypt
 # automatically (free) and auto-renew. Requires ports 80 + 443 open and DNS
 # for the domain pointing at this box's public IP.
+#
+# deploy.sh validates this file and recreates Caddy when it changes (it is
+# mounted as a single file, which a git pull replaces under a running
+# container); a file that does not validate leaves Caddy on the old one.
 
 {
 	email {$TLS_EMAIL}
 	# Uncomment while testing to avoid Let's Encrypt rate limits:
 	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+
+	# School custom domains (the https:// site below): a certificate is fetched
+	# the first time one is visited — only once the app says it is the domain
+	# of a published school website (App\Http\Controllers\TlsCheckController),
+	# so no one can make the box get certificates for any name they point here.
+	on_demand_tls {
+		ask http://web:80/internal/tls-check
+	}
 }
 
 # Main app — apex + www.
@@ -40,25 +52,27 @@ cdn.{$APP_DOMAIN} {
 	}
 }
 
-# ── School custom domains (optional) ──────────────────────────────────────
-# The app can serve schools on their own domains. To auto-issue certs for
-# arbitrary domains, uncomment the block below AND expose an app endpoint that
-# returns 200 only for domains you actually host (prevents open cert issuance).
-# See infra/dns/add-domain-cert.ps1 for how this worked on the ALB.
-#
-# {
-# 	on_demand_tls {
-# 		ask http://web:80/internal/tls-check
-# 		interval 2m
-# 		burst 5
-# 	}
-# }
-#
-# https:// {
-# 	tls {$TLS_EMAIL} {
-# 		on_demand
-# 	}
-# 	reverse_proxy web:80 {
-# 		header_up X-Forwarded-Proto https
-# 	}
-# }
+# ── School custom domains ─────────────────────────────────────────────────
+# A school's own domain (Super Admin → School Website), once its DNS points
+# at this box: the app serves that school's website for it
+# (App\Http\Middleware\ServeSchoolSite), on a certificate fetched on demand.
+https:// {
+	tls {
+		on_demand
+	}
+
+	encode zstd gzip
+
+	reverse_proxy web:80 {
+		header_up X-Forwarded-Proto https
+	}
+
+	request_body {
+		max_size 64MB
+	}
+}
+
+# …and plain http on any of them goes to https.
+http:// {
+	redir https://{host}{uri} permanent
+}

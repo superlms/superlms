@@ -37,6 +37,25 @@ $COMPOSE run --rm --no-deps web sh -c \
 echo "==> Starting web + worker + scheduler + caddy"
 $COMPOSE up -d
 
+echo "==> Caddy on the Caddyfile in the repo"
+# The Caddyfile is mounted as a single file: a git pull replaces it with a new
+# file the running container never sees, and `up -d` leaves Caddy alone. So
+# when it differs from what Caddy runs, check it first — a file that does not
+# validate must never take the site down — then recreate Caddy on it (its
+# certificates live in the caddy-data volume and stay).
+want=$(sha256sum Caddyfile | cut -d' ' -f1)
+have=$(docker exec superlms-caddy sha256sum /etc/caddy/Caddyfile 2>/dev/null | cut -d' ' -f1 || true)
+if [ "$want" != "$have" ]; then
+  if $COMPOSE run --rm --no-deps -T caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile; then
+    $COMPOSE up -d --no-deps --force-recreate caddy
+    echo "    Caddy recreated on the new Caddyfile."
+  else
+    echo "WARNING: the new Caddyfile does not validate — Caddy keeps running the old one." >&2
+  fi
+else
+  echo "    unchanged."
+fi
+
 echo "==> Pruning old dangling images"
 docker image prune -f >/dev/null 2>&1 || true
 

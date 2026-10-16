@@ -124,6 +124,11 @@ jobs:
         run: |
           php artisan route:list --no-ansi >/dev/null
           echo "All routes resolved."
+      - name: caddy validate (infra/lite/Caddyfile, as the box runs it)
+        run: |
+          docker run --rm -e APP_DOMAIN=superlms.in -e TLS_EMAIL=admin@superlms.in \
+            -v "$PWD/infra/lite/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
   # ──────────────────────────────────────────────────────────────────────
   # JOB 2 — DEPLOY  (runs ON the single-box via a self-hosted runner)

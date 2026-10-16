@@ -79,7 +79,7 @@
                 @endif
             </div>
 
-            <div class="flex-1 overflow-y-auto px-2 pb-3">
+            <div class="flex-1 overflow-y-auto pb-3 border-t border-gray-100 divide-y divide-gray-100">
                 @forelse ($contacts as $c)
                     @php
                         $u        = $c['user'];
@@ -95,9 +95,9 @@
                             @else
                                 wire:click="openChat({{ $u->id }})"
                             @endif
-                            class="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-left transition-colors
-                                   {{ !$selectMode && $selectedUserId === $u->id ? 'bg-blue-50' : 'hover:bg-gray-50' }}
-                                   {{ $selected ? 'bg-blue-50' : '' }}
+                            class="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors
+                                   {{ !$selectMode && $selectedUserId === $u->id ? 'bg-gray-50' : 'hover:bg-gray-50/70' }}
+                                   {{ $selected ? 'bg-gray-50' : '' }}
                                    {{ $selectMode && !$cid ? 'opacity-40 cursor-not-allowed' : '' }}">
 
                             @if ($selectMode)
@@ -111,9 +111,9 @@
 
                             <div class="relative flex-shrink-0">
                                 @if ($u->image)
-                                    <img src="{{ $u->image }}" class="w-11 h-11 rounded-full object-cover" alt="">
+                                    <img src="{{ $u->image }}" class="w-10 h-10 rounded-full object-cover" alt="">
                                 @else
-                                    <span class="w-11 h-11 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center text-sm font-semibold">{{ strtoupper(substr($u->name, 0, 1)) }}</span>
+                                    <span class="w-10 h-10 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center text-sm font-medium">{{ strtoupper(substr($u->name, 0, 1)) }}</span>
                                 @endif
                             </div>
 
@@ -121,7 +121,7 @@
                                 {{-- Line 1: name + time. The time lives here alone, so the
                                      hover actions on line 2 can never sit on top of it. --}}
                                 <div class="flex items-baseline justify-between gap-2">
-                                    <p class="text-sm font-medium text-gray-900 truncate">{{ $u->name }}</p>
+                                    <p class="text-sm font-medium text-gray-800 truncate">{{ $u->name }}</p>
                                     @if ($last)
                                         <span class="text-[11px] text-gray-400 flex-shrink-0 tabular-nums">{{ $last->created_at->format('h:i A') }}</span>
                                     @endif
@@ -153,7 +153,7 @@
                                             <svg class="w-3.5 h-3.5 text-gray-400 {{ $selectMode ? '' : 'group-hover:hidden' }}" fill="currentColor" viewBox="0 0 24 24"><path d="M16 3v2l1 1v4l2 2v2h-6v6l-1 1-1-1v-6H5v-2l2-2V6l1-1V3h8z"/></svg>
                                         @endif
                                         @if (!$selectMode && $c['unread'] > 0)
-                                            <span class="min-w-[18px] h-[18px] px-1.5 rounded-full bg-blue-600 text-white text-[10px] font-semibold flex items-center justify-center group-hover:hidden">{{ $c['unread'] > 99 ? '99+' : $c['unread'] }}</span>
+                                            <span class="min-w-[18px] h-[18px] px-1.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-semibold flex items-center justify-center group-hover:hidden">{{ $c['unread'] > 99 ? '99+' : $c['unread'] }}</span>
                                         @endif
                                     </span>
                                 </div>
@@ -162,7 +162,7 @@
 
                         {{-- Hover actions, anchored to line 2 — never overlapping the timestamp. --}}
                         @if (!$selectMode && $cid)
-                            <div class="absolute right-3 bottom-2.5 hidden group-hover:flex items-center gap-0.5">
+                            <div class="absolute right-4 bottom-3 hidden group-hover:flex items-center gap-0.5">
                                 <button wire:click="togglePinThread({{ $cid }})" title="{{ $c['pinned'] ? 'Unpin chat' : 'Pin chat' }}"
                                     class="p-1 rounded-md text-gray-400 hover:text-blue-600 hover:bg-white">
                                     <svg class="w-4 h-4" fill="{{ $c['pinned'] ? 'currentColor' : 'none' }}" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 3v2l1 1v4l2 2v2h-6v6l-1 1-1-1v-6H5v-2l2-2V6l1-1V3h8z"/></svg>
@@ -183,7 +183,7 @@
         {{-- ══════════════════════════════════════════════════
              RIGHT — Conversation
         ══════════════════════════════════════════════════ --}}
-        <div class="relative flex-1 flex flex-col min-w-0 bg-gray-50/60 {{ $selectedUserId ? 'flex' : 'hidden sm:flex' }}">
+        <div class="relative flex-1 flex flex-col min-w-0 bg-white {{ $selectedUserId ? 'flex' : 'hidden sm:flex' }}">
             @if ($otherUser)
                 {{-- Header — swaps to a selection bar while messages are selected --}}
                 @if ($msgSelectMode)
@@ -282,7 +282,7 @@
 
                         @if ($newDay)
                             <div class="flex justify-center py-3" wire:key="day-{{ $day }}">
-                                <span class="text-[11px] text-gray-400 bg-white px-3 py-1 rounded-full ring-1 ring-gray-100">
+                                <span class="text-[11px] text-gray-400 bg-gray-50 px-3 py-1 rounded-full">
                                     {{ $m->created_at->isToday() ? 'Today' : ($m->created_at->isYesterday() ? 'Yesterday' : $m->created_at->format('d M Y')) }}
                                 </span>
                             </div>
@@ -319,10 +319,10 @@
                                     @endif
 
                                     <div class="min-w-0 rounded-2xl px-3 py-2
-                                                {{ $mine ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-white text-gray-800 ring-1 ring-gray-100 rounded-bl-sm' }}">
+                                                {{ $mine ? 'bg-blue-50 text-gray-800 rounded-br-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm' }}">
 
                                         @if ($m->forwarded_from_id)
-                                            <p class="flex items-center gap-1 text-[10px] italic mb-0.5 {{ $mine ? 'text-blue-100' : 'text-gray-400' }}">
+                                            <p class="flex items-center gap-1 text-[10px] italic mb-0.5 text-gray-400">
                                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12h13m0 0l-4-4m4 4l-4 4M17 6l4 6-4 6" /></svg>
                                                 Forwarded
                                             </p>
@@ -335,9 +335,9 @@
                                             </a>
                                         @elseif ($m->attachment_type && $m->attachment_url)
                                             <a href="{{ route('chat.attachment', $m->id) }}" target="_blank" rel="noopener"
-                                               class="flex items-center gap-2 mb-1 px-2 py-1.5 rounded-xl {{ $mine ? 'bg-blue-500/40' : 'bg-gray-50' }}">
-                                                <svg class="w-5 h-5 flex-shrink-0 {{ $mine ? 'text-white' : 'text-blue-600' }}" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                                                <span class="text-xs truncate max-w-[180px] {{ $mine ? 'text-white' : 'text-gray-700' }}">{{ $m->attachment_name ?: 'Document' }}</span>
+                                               class="flex items-center gap-2 mb-1 px-2 py-1.5 rounded-xl bg-white/80">
+                                                <svg class="w-5 h-5 flex-shrink-0 text-blue-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                                                <span class="text-xs truncate max-w-[180px] text-gray-700">{{ $m->attachment_name ?: 'Document' }}</span>
                                             </a>
                                         @endif
 
@@ -347,11 +347,11 @@
 
                                         <div class="flex items-center justify-end gap-1 mt-0.5 -mb-0.5">
                                             @if ($m->pinned_at)
-                                                <svg class="w-3 h-3 {{ $mine ? 'text-blue-200' : 'text-amber-500' }}" fill="currentColor" viewBox="0 0 24 24"><path d="M16 3v2l1 1v4l2 2v2h-6v6l-1 1-1-1v-6H5v-2l2-2V6l1-1V3h8z"/></svg>
+                                                <svg class="w-3 h-3 text-amber-500" fill="currentColor" viewBox="0 0 24 24"><path d="M16 3v2l1 1v4l2 2v2h-6v6l-1 1-1-1v-6H5v-2l2-2V6l1-1V3h8z"/></svg>
                                             @endif
-                                            <span class="text-[10px] tabular-nums {{ $mine ? 'text-blue-100' : 'text-gray-400' }}">{{ $m->created_at->format('h:i A') }}</span>
+                                            <span class="text-[10px] tabular-nums text-gray-400">{{ $m->created_at->format('h:i A') }}</span>
                                             @if ($mine)
-                                                <x-chat-ticks :state="$m->deliveryState()" tone="light" />
+                                                <x-chat-ticks :state="$m->deliveryState()" tone="dark" />
                                             @endif
                                         </div>
                                     </div>
@@ -416,7 +416,7 @@
                             class="flex-1 resize-none bg-gray-50 border border-transparent rounded-2xl px-4 py-2.5 text-sm leading-relaxed placeholder:text-gray-400 focus:bg-white focus:border-gray-200 focus:ring-0 max-h-32"></textarea>
 
                         <button type="submit" wire:loading.attr="disabled" wire:target="sendMessage"
-                            class="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white flex items-center justify-center transition-colors">
+                            class="flex-shrink-0 w-10 h-10 rounded-full bg-blue-50 hover:bg-blue-100 disabled:opacity-60 text-blue-600 flex items-center justify-center transition-colors">
                             <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
                         </button>
                     </form>

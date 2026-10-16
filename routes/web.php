@@ -152,6 +152,13 @@ Route::get('/account-setup/{token}', [\App\Http\Controllers\AccountSetupControll
     ->middleware('throttle:30,1')
     ->name('account.setup');
 
+// Caddy's question before it gets a certificate for a school's own domain:
+// yes only for a published school website's (infra/lite/Caddyfile). Before
+// website.php, whose {organization} wildcard would swallow it.
+Route::get('/internal/tls-check', \App\Http\Controllers\TlsCheckController::class)
+    ->middleware('throttle:600,1')
+    ->name('internal.tls-check');
+
 //SuperLMS Website (must be before admin — avoids {organization} wildcard swallowing /web/* routes)
 require __DIR__.'/website.php';
 

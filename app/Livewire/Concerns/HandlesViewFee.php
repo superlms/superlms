@@ -72,9 +72,11 @@ trait HandlesViewFee
 
         // Other screens jump straight here with only a student id, so backfill
         // the class and section — otherwise the filter band reads "Select Class"
-        // over a ledger that is already on screen.
+        // over a ledger that is already on screen. A student picked from the
+        // list leaves the class and section as they were, so the list does not
+        // change under the box (All Sections stays all sections).
         $student = StudentDetail::find($this->viewStudentId);
-        if ($student) {
+        if ($student && (string) $this->viewStudentStandardId !== (string) $student->standard_id) {
             $this->viewStudentStandardId = (string) $student->standard_id;
             $this->viewStudentSectionId  = (string) ($student->section_id ?: '');
         }
