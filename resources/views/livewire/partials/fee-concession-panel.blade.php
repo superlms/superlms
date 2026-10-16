@@ -31,7 +31,7 @@
                         <p class="text-xs text-gray-400">{{ $c->studentDetail->father_name ?? '' }}</p>
                     </td>
                     <td class="px-4 py-3 text-gray-600">{{ $c->standard->name ?? '—' }}{{ $c->section ? ' / ' . $c->section->name : '' }}</td>
-                    <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-[11px] bg-gray-100 text-gray-600">{{ \App\Models\Admin\Fee\FeeConcession::appliesToLabel($c->fee_type) }}</span></td>
+                    <td class="px-4 py-3 text-gray-600">{{ \App\Models\Admin\Fee\FeeConcession::appliesToLabel($c->fee_type) }}</td>
                     <td class="px-4 py-3 text-right font-semibold text-emerald-600">{{ $c->concession_type === 'percent' ? $c->value . '%' : '₹' . number_format($c->value, 2) }}</td>
                     <td class="px-4 py-3 text-gray-600">{{ $c->reason ?: '—' }}</td>
                     <td class="px-4 py-3 text-gray-600">{{ $c->created_at?->format('d M Y') ?? '—' }}</td>

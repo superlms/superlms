@@ -2,12 +2,15 @@
 
 namespace App\Livewire\Concerns;
 
+use App\Models\Admin\Fee\FeeConcession;
 use App\Models\Admin\Fee\FeeCycle;
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Student\Section;
 use App\Models\Student\StudentDetail;
 use App\Support\AccountsNotifier;
+use App\Support\FeeDues;
+use App\Support\NameOrder;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -79,6 +82,12 @@ trait HandlesFeeCycles
     public function switchCycleTab(string $tab): void
     {
         $this->cycleTab = in_array($tab, ['cycle', 'calculator'], true) ? $tab : 'cycle';
+    }
+
+    /** Another class: every one of its students, until a section of it is picked. */
+    public function updatedCalcStandardId(): void
+    {
+        $this->calcSectionId = '';
     }
 
     // ── Fee Cycle (installments) ────────────────────────────────────────────
@@ -362,7 +371,7 @@ trait HandlesFeeCycles
         return 1;
     }
 
-    /** View a single installment (or the token fee) read-only. */
+    /** View a single installment (or the registration fee) read-only. */
     public function viewCycle(int $id): void
     {
         $this->viewingCycle = FeeCycle::forOrg($this->orgId())->find($id);
@@ -617,7 +626,7 @@ trait HandlesFeeCycles
 
             foreach ($rows as $c) {
                 fputcsv($out, [
-                    $c->is_token ? 'Token Fee' : $this->cycleRowLabel($c, $kind),
+                    $c->is_token ? 'Registration Fee' : $this->cycleRowLabel($c, $kind),
                     optional($c->due_date)->format('d M Y') ?? '',
                     ($c->start_date && $c->end_date)
                         ? $c->start_date->format('d M Y') . ' - ' . $c->end_date->format('d M Y')
@@ -671,7 +680,7 @@ trait HandlesFeeCycles
     public function cycleRowLabel(FeeCycle $cycle, string $kind): string
     {
         if ($cycle->is_token) {
-            return 'Token Fee';
+            return 'Registration Fee';
         }
 
         $start = $cycle->start_date ? \Carbon\Carbon::parse($cycle->start_date) : null;
@@ -761,7 +770,7 @@ trait HandlesFeeCycles
         $this->tokenPenaltyPerDay = $token ? (string) $token->penalty_per_day : '0';
     }
 
-    /** Create/update the one-time token fee for the current fee type + year. No-op if no amount was set. */
+    /** Create/update the one-time registration fee for the current fee type + year. No-op if no amount was set. */
     private function upsertTokenFee(): void
     {
         $amount = (float) ($this->tokenFeeAmount ?: 0);
@@ -769,7 +778,7 @@ trait HandlesFeeCycles
             return;
         }
         if (!$this->tokenDueDate) {
-            $this->notification()->error('Set a due date for the token fee, or leave its amount blank.');
+            $this->notification()->error('Set a due date for the registration fee, or leave its amount blank.');
             return;
         }
 
@@ -796,11 +805,11 @@ trait HandlesFeeCycles
     {
         $amount = (float) ($this->tokenFeeAmount ?: 0);
         if ($amount <= 0) {
-            $this->notification()->error('Enter a token fee amount.');
+            $this->notification()->error('Enter a registration fee amount.');
             return;
         }
         if (!$this->tokenDueDate) {
-            $this->notification()->error('Set a due date for the token fee.');
+            $this->notification()->error('Set a due date for the registration fee.');
             return;
         }
 
@@ -809,8 +818,8 @@ trait HandlesFeeCycles
             'penalty_per_day' => $this->tokenPenaltyPerDay ?: 0,
             'amount'          => $amount,
         ]);
-        AccountsNotifier::feeCycle('token fee updated', $this->orgId(), $this->cycleSummary());
-        $this->notification()->success('Token fee updated!');
+        AccountsNotifier::feeCycle('registration fee updated', $this->orgId(), $this->cycleSummary());
+        $this->notification()->success('Registration fee updated!');
         $this->closeCycleModal();
     }
 
@@ -1099,6 +1108,127 @@ trait HandlesFeeCycles
     }
 
     /**
+     * The Calculator for the class picked — every student in it, or in the
+     * section picked — each worked out as their View Fee works it out: this
+     * year's academic fee (their class's heads, whole class or their section,
+     * net of concession, the Last Year Dues apart — FeeDues), split into the
+     * Registration Fee off the top and the % installments of the rest, and
+     * their payments put against it oldest installment first.
+     *
+     * @return array{0: array, 1: array, 2: array}  [installment rows, student rows, summary]
+     */
+    private function calculatorFor(int $orgId): array
+    {
+        if (!$this->calcStandardId) {
+            return [[], [], []];
+        }
+
+        $students = StudentDetail::with('user:id,name')
+            ->where('organization_id', $orgId)
+            ->where('standard_id', $this->calcStandardId)
+            ->when($this->calcSectionId, fn ($q) => $q->where('section_id', $this->calcSectionId))
+            ->tap(fn ($q) => NameOrder::students($q))
+            ->get(['id', 'user_id', 'full_name', 'admission_no', 'roll_no', 'section_id']);
+        $ids = $students->pluck('id')->all();
+
+        // The latest year that has installments, as View Fee reads it.
+        $cycles = FeeCycle::forOrg($orgId)->active()->where('fee_type', 'academic')->get();
+        $cycles = $cycles->where('academic_year', $cycles->max('academic_year'))
+            ->sortBy(fn ($c) => ($c->is_token ? '0' : '1') . str_pad((string) $c->payment_serial, 3, '0', STR_PAD_LEFT))
+            ->values();
+        $registration = (float) optional($cycles->firstWhere('is_token', true))->amount;
+
+        $heads = FeeStructure::where('organization_id', $orgId)->where('is_active', true)
+            ->where('fee_type', 'academic')->where('standard_id', $this->calcStandardId)
+            ->get(['section_id', 'amount']);
+        $dues        = FeeStructure::ownTotals($orgId, $ids);
+        $concessions = $ids
+            ? FeeConcession::where('organization_id', $orgId)->where('is_penalty', false)
+                ->whereIn('student_detail_id', $ids)->get()->groupBy('student_detail_id')
+            : collect();
+        $sumBy = fn ($query) => $ids
+            ? $query->whereIn('student_detail_id', $ids)->selectRaw('student_detail_id, SUM(amount) as total')
+                ->groupBy('student_detail_id')->pluck('total', 'student_detail_id')
+            : collect();
+        $paid       = $sumBy(FeePayment::where('organization_id', $orgId)->where('fee_type', 'academic'));
+        $paidAsDues = FeeDues::tracked()
+            ? $sumBy(FeePayment::where('organization_id', $orgId)->where('fee_type', 'academic')->where('applies_to', 'dues'))
+            : collect();
+        $sectionNames = Section::where('standard_id', $this->calcStandardId)->pluck('name', 'id');
+
+        $perCycle = $cycles->mapWithKeys(fn ($c) => [$c->id => ['total' => 0.0, 'collected' => 0.0, 'amounts' => []]])->all();
+        $studentRows = [];
+
+        foreach ($students as $s) {
+            $duesGross = (float) ($dues[$s->id] ?? 0);
+            $gross     = (float) $heads->filter(fn ($h) => $h->section_id === null || (int) $h->section_id === (int) $s->section_id)->sum('amount')
+                + $duesGross;
+            $off   = FeeConcession::takeOff($concessions->get($s->id, collect()), 'academic', $gross, $duesGross);
+            $split = FeeDues::split(max(0, $gross - $off['taken']), max(0, $duesGross - $off['dues']),
+                (float) ($paid[$s->id] ?? 0), (float) ($paidAsDues[$s->id] ?? 0));
+
+            $fee  = $split['cycle_total'];
+            $left = $split['cycle_paid'];
+            $base = max(0, $fee - $registration);
+
+            $parts = [];
+            foreach ($cycles as $c) {
+                $amount  = $c->is_token ? $registration : round($base * (float) $c->fee_percent / 100, 2);
+                $covered = round(min($left, $amount), 2);
+                $left    = max(0, $left - $covered);
+
+                $perCycle[$c->id]['total']     += $amount;
+                $perCycle[$c->id]['collected'] += $covered;
+                $perCycle[$c->id]['amounts'][]  = $amount;
+                $parts[$c->is_token ? 'registration' : (string) $c->payment_serial] = ['amount' => $amount, 'paid' => $covered];
+            }
+
+            $studentRows[] = [
+                'id'        => $s->id,
+                'name'      => $s->full_name ?: ($s->user->name ?? '—'),
+                'admission' => $s->admission_no,
+                'roll'      => $s->roll_no,
+                'section'   => $sectionNames[$s->section_id] ?? '—',
+                'fee'       => $fee,
+                'paid'      => $split['cycle_paid'],
+                'remaining' => round(max(0, $fee - $split['cycle_paid']), 2),
+                'cleared'   => collect($parts)->filter(fn ($p) => $p['amount'] > 0 && $p['paid'] >= $p['amount'] - 0.01)->count(),
+                'parts'     => $parts,
+            ];
+        }
+
+        $rows = $cycles->map(function ($c) use ($perCycle) {
+            $p = $perCycle[$c->id];
+            $amounts = array_unique(array_map(fn ($a) => round($a, 2), $p['amounts']));
+
+            return [
+                'serial'      => $c->is_token ? 'Registration' : '#' . $c->payment_serial,
+                'span'        => $c->is_token ? null : $this->cycleSpanLabel($c),
+                'percent'     => $c->is_token ? null : (float) $c->fee_percent,
+                'due_date'    => optional($c->due_date)->format('d M Y'),
+                // One amount a student when they all pay the same; null when it differs.
+                'amount'      => count($amounts) === 1 ? reset($amounts) : null,
+                'class_total' => round($p['total'], 2),
+                'collected'   => round($p['collected'], 2),
+                'remaining'   => round(max(0, $p['total'] - $p['collected']), 2),
+            ];
+        })->all();
+
+        $fees = array_column($studentRows, 'fee');
+
+        return [$rows, $studentRows, [
+            'students'   => count($studentRows),
+            'fee_min'    => $fees ? min($fees) : 0.0,
+            'fee_max'    => $fees ? max($fees) : 0.0,
+            'total'      => round(array_sum($fees), 2),
+            'collected'  => round(array_sum(array_column($studentRows, 'paid')), 2),
+            'remaining'  => round(array_sum(array_column($studentRows, 'remaining')), 2),
+            'paid_up'    => count(array_filter($studentRows, fn ($r) => $r['fee'] > 0 && $r['remaining'] <= 0)),
+            'has_cycles' => $cycles->isNotEmpty(),
+        ]];
+    }
+
+    /**
      * Everything the `livewire.partials.fee-cycle-panel` view needs: the
      * installments list, the "already added" preview for the open form, and
      * the per-class calculator breakdown. Call from render() and merge the
@@ -1152,81 +1282,7 @@ trait HandlesFeeCycles
             ? Section::where('standard_id', $this->calcStandardId)->where('is_active', true)->orderBy('id')->get()
             : collect();
 
-        $calcTotalFee     = 0.0;
-        $calcStudentCount = 0;
-        $calcRows         = [];
-        if ($this->calcStandardId) {
-            $calcTotalFee = (float) FeeStructure::where('organization_id', $orgId)
-                ->academic()->active()
-                ->forClass((int) $this->calcStandardId, $this->calcSectionId ? (int) $this->calcSectionId : null)
-                ->sum('amount');
-
-            $calcStudentIds = StudentDetail::where('organization_id', $orgId)
-                ->where('standard_id', $this->calcStandardId)
-                ->when($this->calcSectionId, fn ($q) => $q->where('section_id', $this->calcSectionId))
-                ->pluck('id');
-            $calcStudentCount = $calcStudentIds->count();
-
-            // Real money collected for this class/section, allocated across
-            // installments oldest-due-first — a payment carries no installment
-            // of its own to join against, so this is the closest true reading
-            // of "how much of installment N has actually come in".
-            $realCollected = (float) FeePayment::whereIn('student_detail_id', $calcStudentIds)
-                ->where('fee_type', 'academic')
-                ->sum('amount');
-
-            $acadCycles = FeeCycle::forOrg($orgId)->active()
-                ->where('fee_type', 'academic')
-                ->get();
-
-            // The token fee (if any) comes off the top; the % installments
-            // then split whatever of the class fee is left over.
-            $tokenCycle    = $acadCycles->firstWhere('is_token', true);
-            $tokenAmount   = (float) ($tokenCycle->amount ?? 0);
-            $remainingBase = max(0, $calcTotalFee - $tokenAmount);
-
-            // The token fee always leads the list, ahead of every installment,
-            // whatever its own due date happens to be — it's the up-front
-            // charge, so it reads first and is the first thing paid down too.
-            $defs = [];
-            if ($tokenCycle) {
-                $defs[] = [
-                    'serial'      => 'Token',
-                    'percent'     => null,
-                    'due_date'    => $tokenCycle->due_date,
-                    'per_student' => $tokenAmount,
-                    'span'        => null,
-                ];
-            }
-            foreach ($acadCycles->where('is_token', false)->sortBy('payment_serial') as $cy) {
-                $pct = (float) $cy->fee_percent;
-                $defs[] = [
-                    'serial'      => '#' . $cy->payment_serial,
-                    'percent'     => $pct,
-                    'due_date'    => $cy->due_date,
-                    'per_student' => round($remainingBase * $pct / 100, 2),
-                    'span'        => $this->cycleSpanLabel($cy),
-                ];
-            }
-
-            $allocated = 0.0;
-            foreach ($defs as $d) {
-                $classTotal = round($d['per_student'] * $calcStudentCount, 2);
-                $collected  = min($classTotal, max(0, $realCollected - $allocated));
-                $allocated += $collected;
-
-                $calcRows[] = [
-                    'serial'      => $d['serial'],
-                    'span'        => $d['span'],
-                    'percent'     => $d['percent'],
-                    'due_date'    => optional($d['due_date'])->format('d M Y'),
-                    'amount'      => $d['per_student'],
-                    'class_total' => $classTotal,
-                    'collected'   => round($collected, 2),
-                    'remaining'   => round(max(0, $classTotal - $collected), 2),
-                ];
-            }
-        }
+        [$calcRows, $calcStudents, $calcSummary] = $this->calculatorFor($orgId);
 
         $installmentCycles = $cycles->where('is_token', false);
 
@@ -1235,9 +1291,9 @@ trait HandlesFeeCycles
             'cycleGroups'      => $cycleGroups,
             'cycleExisting'    => $cycleExisting,
             'calcSections'     => $calcSections,
-            'calcTotalFee'     => $calcTotalFee,
-            'calcStudentCount' => $calcStudentCount,
             'calcRows'         => $calcRows,
+            'calcStudents'     => $calcStudents,
+            'calcSummary'      => $calcSummary,
             'totalCycles'      => $installmentCycles->count(),
             'academicCycles'   => $installmentCycles->where('fee_type', 'academic')->count(),
             'transportCycles'  => $installmentCycles->where('fee_type', 'transport')->count(),

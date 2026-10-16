@@ -646,7 +646,7 @@
                         </div>
                         <div>
                             <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Assigned</p>
-                            <p class="text-gray-800 font-medium">{{ $viewHomework->created_at?->format('M d, Y h:i A') ?? 'Unknown' }}</p>
+                            <p class="text-gray-800 font-medium">{{ $viewHomework->created_at?->format('d M Y, h:i A') ?? 'Unknown' }}</p>
                         </div>
                     </div>
 

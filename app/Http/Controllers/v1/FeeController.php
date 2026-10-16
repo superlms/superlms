@@ -668,7 +668,7 @@ class FeeController extends ApiController
 
             $schedule[] = [
                 'serial'       => (int) $cycle->payment_serial,
-                'label'        => $cycle->is_token ? 'Token Fee' : $this->ordinal((int) $cycle->payment_serial) . ' Installment',
+                'label'        => $cycle->is_token ? 'Registration Fee' : $this->ordinal((int) $cycle->payment_serial) . ' Installment',
                 'due_date'     => $dueDate?->format('Y-m-d'),
                 'amount'       => $instAmt,
                 'paid'         => round($paidPortion, 2),

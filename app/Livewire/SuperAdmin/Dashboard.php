@@ -462,7 +462,7 @@ class Dashboard extends Component
                 'status'         => $s->status,          // boolean: true=active
                 'students_count' => $s->students_count,
                 'teachers_count' => $s->teachers_count,
-                'created_at'     => $s->created_at->format('M d, Y'),
+                'created_at'     => $s->created_at->format('d M Y'),
             ])
             ->toArray();
 

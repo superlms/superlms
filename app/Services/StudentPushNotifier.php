@@ -691,7 +691,7 @@ class StudentPushNotifier
     /** The reminder for an installment $days before its due date (-1: a day late). */
     private function reminder(FeeCycle $cycle, int $days, float $outstanding, float $rate): array
     {
-        $what = ($cycle->is_token ? 'token fee' : $this->ordinal((int) $cycle->payment_serial) . ' installment')
+        $what = ($cycle->is_token ? 'registration fee' : $this->ordinal((int) $cycle->payment_serial) . ' installment')
             . ' of ' . $this->rupees($outstanding);
         $date = $cycle->due_date->format('d M Y');
         $late = $rate > 0 ? 'A late fee of ' . $this->rupees($rate) . ' per day applies after the due date.' : '';

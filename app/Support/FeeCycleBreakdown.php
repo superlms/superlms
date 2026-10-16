@@ -128,7 +128,7 @@ class FeeCycleBreakdown
                     'cycle_id'        => $c->id,
                     'serial'          => (int) $c->payment_serial,
                     'label'           => $c->is_token
-                        ? 'Token Fee'
+                        ? 'Registration Fee'
                         : ($periodLabel ?? ($due ? $due->format('M Y') : ('Installment ' . $c->payment_serial))),
                     'due_date'        => $due ? $due->format('d M Y') : null,
                     'start_date'      => $c->start_date ? $c->start_date->format('d M Y') : null,

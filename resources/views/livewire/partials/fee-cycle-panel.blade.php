@@ -21,7 +21,7 @@
             $groupName = ucfirst($group['fee_type']) . ' Fee Cycle — ' . $kindLabel . ' · ' . $group['year'];
             $groupSub  = $group['count'] . ' installment' . ($group['count'] === 1 ? '' : 's')
                 . ' · totals ' . rtrim(rtrim(number_format($group['percent'], 2), '0'), '.') . '%'
-                . ($group['token'] ? ' · token fee ₹' . number_format($group['token']->amount, 2) : '');
+                . ($group['token'] ? ' · registration fee ₹' . number_format($group['token']->amount, 2) : '');
         @endphp
         {{-- Print hands a bare copy of this card's table to a new window — the
              page's own Tailwind classes mean nothing there, so it carries its
@@ -62,7 +62,7 @@
                         {{ $group['count'] }} installment{{ $group['count'] === 1 ? '' : 's' }} · totals
                         <strong class="{{ $balanced ? 'text-emerald-600' : 'text-amber-600' }}">{{ rtrim(rtrim(number_format($group['percent'], 2), '0'), '.') }}%</strong>
                         @if ($group['token'])
-                            · token fee <strong class="text-gray-700">₹{{ number_format($group['token']->amount, 2) }}</strong>
+                            · registration fee <strong class="text-gray-700">₹{{ number_format($group['token']->amount, 2) }}</strong>
                         @endif
                     </p>
                 </div>
@@ -110,7 +110,7 @@
                                         <span class="text-gray-400 font-normal text-xs">#{{ $cy->payment_serial }}</span>
                                     @endunless
                                 </td>
-                                <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-[11px] {{ $cy->fee_type === 'academic' ? 'bg-emerald-100 text-emerald-700' : 'bg-teal-100 text-teal-700' }} capitalize">{{ $cy->fee_type }}</span></td>
+                                <td class="px-4 py-3 text-gray-600">{{ ucfirst($cy->fee_type) }}</td>
                                 <td class="px-4 py-3 text-gray-600">{{ optional($cy->due_date)->format('d M Y') ?? '—' }}</td>
                                 <td class="px-4 py-3 text-gray-500 whitespace-nowrap">
                                     @if ($cy->start_date && $cy->end_date)
@@ -124,11 +124,16 @@
                                 <td class="px-4 py-3 text-right text-gray-600">₹{{ number_format($cy->penalty_per_day, 2) }}</td>
                                 <td class="px-4 py-3 text-center text-gray-500">{{ $cy->academic_year }}</td>
                                 <td class="px-4 py-3 cycle-actions">
-                                    {{-- View only — Edit and Delete for one row live in the view card's own header. --}}
-                                    <div class="flex items-center justify-center">
-                                        <button wire:click="viewCycle({{ $cy->id }})" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-gray-200 text-xs font-medium text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200" title="View">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                                            View
+                                    {{-- View, Edit and Delete, as the Students list has them. --}}
+                                    <div class="flex items-center justify-center gap-1">
+                                        <button wire:click="viewCycle({{ $cy->id }})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                        </button>
+                                        <button wire:click="openCycleModal({{ $cy->id }})" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                        </button>
+                                        <button wire:click="deleteCycle({{ $cy->id }})" class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                         </button>
                                     </div>
                                 </td>
@@ -149,17 +154,28 @@
     @endforelse
 
 @else
-    {{-- ══════════ CALCULATOR TAB (per class/section) ══════════ --}}
+    {{-- ══════════ CALCULATOR TAB — every student of the class, or of the
+         section picked, as their View Fee works it out ══════════ --}}
+    @php
+        $cs = $calcSummary ?? [];
+        $rupees = fn ($v) => '₹' . number_format((float) $v, 2);
+    @endphp
     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         @if (!$calcStandardId)
-            <div class="px-4 sm:px-5 py-10 text-center text-sm text-gray-400">Select a class to calculate installment amounts.</div>
+            <div class="px-4 sm:px-5 py-10 text-center text-sm text-gray-400">Select a class to see every student's fee — or a section for just its students.</div>
         @elseif (empty($calcRows))
             <div class="px-4 sm:px-5 py-10 text-center text-sm text-amber-600">No academic installments defined yet — add one from the Fee Cycle tab.</div>
         @else
             <div class="px-4 sm:px-5 py-3 flex flex-wrap items-center gap-x-6 gap-y-1 border-b border-gray-100">
-                <span class="text-sm text-gray-500">Fee per student: <strong class="text-gray-900">₹{{ number_format($calcTotalFee, 2) }}</strong></span>
-                <span class="text-sm text-gray-500">Students in class: <strong class="text-gray-900">{{ $calcStudentCount }}</strong></span>
-                @if ($calcTotalFee <= 0)
+                <span class="text-sm text-gray-500">Students: <strong class="text-gray-900">{{ $cs['students'] }}</strong></span>
+                <span class="text-sm text-gray-500">Fee per student:
+                    <strong class="text-gray-900">{{ $rupees($cs['fee_min']) }}@if ($cs['fee_max'] - $cs['fee_min'] > 0.009) – {{ $rupees($cs['fee_max']) }}@endif</strong>
+                </span>
+                <span class="text-sm text-gray-500">Total: <strong class="text-gray-900">{{ $rupees($cs['total']) }}</strong></span>
+                <span class="text-sm text-gray-500">Collected: <strong class="text-emerald-600">{{ $rupees($cs['collected']) }}</strong></span>
+                <span class="text-sm text-gray-500">Remaining: <strong class="{{ $cs['remaining'] > 0 ? 'text-red-600' : 'text-gray-900' }}">{{ $rupees($cs['remaining']) }}</strong></span>
+                <span class="text-sm text-gray-500">Paid up: <strong class="text-gray-900">{{ $cs['paid_up'] }} of {{ $cs['students'] }}</strong></span>
+                @if ($cs['students'] > 0 && $cs['total'] <= 0)
                     <span class="text-xs text-amber-600">No academic fee structure found for this class — amounts show ₹0.</span>
                 @endif
             </div>
@@ -171,7 +187,7 @@
                             <th class="px-4 py-3 text-left">Due Date</th>
                             <th class="px-4 py-3 text-right">Fee %</th>
                             <th class="px-4 py-3 text-right">Amount</th>
-                            <th class="px-4 py-3 text-right">Total (class)</th>
+                            <th class="px-4 py-3 text-right">Total ({{ $calcSectionId ? 'section' : 'class' }})</th>
                             <th class="px-4 py-3 text-right">Total Collected</th>
                             <th class="px-4 py-3 text-right">Remaining</th>
                         </tr>
@@ -188,10 +204,10 @@
                                     </td>
                                     <td class="px-4 py-3 text-gray-600">{{ $row['due_date'] ?? '—' }}</td>
                                     <td class="px-4 py-3 text-right text-gray-700">{{ $row['percent'] === null ? '—' : rtrim(rtrim(number_format($row['percent'], 2), '0'), '.') . '%' }}</td>
-                                    <td class="px-4 py-3 text-right font-semibold text-emerald-700">₹{{ number_format($row['amount'], 2) }}</td>
-                                    <td class="px-4 py-3 text-right text-gray-800">₹{{ number_format($row['class_total'], 2) }}</td>
-                                    <td class="px-4 py-3 text-right text-gray-600">₹{{ number_format($row['collected'], 2) }}</td>
-                                    <td class="px-4 py-3 text-right text-gray-600">₹{{ number_format($row['remaining'], 2) }}</td>
+                                    <td class="px-4 py-3 text-right font-semibold text-emerald-700">{{ $row['amount'] === null ? 'Varies' : $rupees($row['amount']) }}</td>
+                                    <td class="px-4 py-3 text-right text-gray-800">{{ $rupees($row['class_total']) }}</td>
+                                    <td class="px-4 py-3 text-right text-gray-600">{{ $rupees($row['collected']) }}</td>
+                                    <td class="px-4 py-3 text-right text-gray-600">{{ $rupees($row['remaining']) }}</td>
                                 </tr>
                             @endif
                         @endforeach
@@ -200,6 +216,60 @@
             </div>
         @endif
     </div>
+
+    {{-- Student by student — the year's fee, or the installment picked --}}
+    @if ($calcStandardId && !empty($calcRows))
+        @php $part = $calcSerial === '' ? null : (string) $calcSerial; @endphp
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mt-4">
+            <div class="px-4 sm:px-5 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-700">Students</h3>
+                    <p class="text-[11px] text-gray-400">{{ $part === null ? "This year's academic fee, net of concession" : 'Installment ' . $part }} · {{ $calcSectionId ? 'this section' : 'every section' }}</p>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+                        <tr>
+                            <th class="px-4 py-3 text-left w-10">#</th>
+                            <th class="px-4 py-3 text-left">Student</th>
+                            <th class="px-4 py-3 text-left">Section</th>
+                            <th class="px-4 py-3 text-right">{{ $part === null ? 'Fee' : 'Amount' }}</th>
+                            <th class="px-4 py-3 text-right">Paid</th>
+                            <th class="px-4 py-3 text-right">Remaining</th>
+                            @if ($part === null)<th class="px-4 py-3 text-center">Cleared</th>@endif
+                            <th class="px-4 py-3 text-left">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @forelse ($calcStudents as $n => $st)
+                            @php
+                                $amount = $part === null ? $st['fee'] : ($st['parts'][$part]['amount'] ?? 0);
+                                $got    = $part === null ? $st['paid'] : ($st['parts'][$part]['paid'] ?? 0);
+                                $left   = round(max(0, $amount - $got), 2);
+                                [$tone, $word] = $amount <= 0 ? ['text-gray-400', '—'] : ($left <= 0 ? ['text-emerald-600', 'Paid'] : ($got > 0 ? ['text-amber-600', 'Partial'] : ['text-red-600', 'Due']));
+                            @endphp
+                            <tr wire:key="calc-student-{{ $st['id'] }}" class="hover:bg-gray-50/70">
+                                <td class="px-4 py-2.5 text-[11px] text-gray-400 tabular-nums">{{ $n + 1 }}</td>
+                                <td class="px-4 py-2.5">
+                                    <p class="text-gray-800">{{ $st['name'] }}</p>
+                                    <p class="text-[11px] text-gray-400">Adm {{ $st['admission'] ?: '—' }} · Roll {{ $st['roll'] ?: '—' }}</p>
+                                </td>
+                                <td class="px-4 py-2.5 text-gray-600">{{ $st['section'] }}</td>
+                                <td class="px-4 py-2.5 text-right text-gray-800 tabular-nums">{{ $rupees($amount) }}</td>
+                                <td class="px-4 py-2.5 text-right text-gray-600 tabular-nums">{{ $rupees($got) }}</td>
+                                <td class="px-4 py-2.5 text-right tabular-nums {{ $left > 0 ? 'text-red-600' : 'text-gray-400' }}">{{ $rupees($left) }}</td>
+                                @if ($part === null)<td class="px-4 py-2.5 text-center text-gray-600 tabular-nums">{{ $st['cleared'] }} of {{ count($st['parts']) }}</td>@endif
+                                <td class="px-4 py-2.5 {{ $tone }}">{{ $word }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="8" class="px-4 py-10 text-center text-sm text-gray-400">No students in this {{ $calcSectionId ? 'section' : 'class' }}.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @endif
 @endif
 
 {{-- Add / Edit installment slide-in --}}
@@ -209,7 +279,7 @@
         <div class="absolute top-0 right-0 bottom-0 w-full max-w-md bg-white shadow-2xl flex flex-col">
             @php
                 $cycleTitle = $editingToken
-                    ? 'Edit Token Fee'
+                    ? 'Edit Registration Fee'
                     : ($editCycleId
                         ? 'Edit Installment'
                         : ($cycleMode === '' ? 'Add Fee Cycle'
@@ -236,7 +306,7 @@
             <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
 
                 @if ($editingToken)
-                    {{-- ── Editing the token fee only ── --}}
+                    {{-- ── Editing the registration fee only ── --}}
                     <div class="grid grid-cols-1 gap-3">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1.5">Amount (₹) <span class="text-red-500">*</span></label>
@@ -432,7 +502,7 @@
                 {{-- ── TOKEN FEE — a one-time up-front charge, optional in every mode ── --}}
                 <div class="border border-gray-200 rounded-lg p-4 space-y-3">
                     <div>
-                        <p class="text-sm font-semibold text-gray-700">Token Fee <span class="text-xs font-normal text-gray-400">(optional, one-time)</span></p>
+                        <p class="text-sm font-semibold text-gray-700">Registration Fee <span class="text-xs font-normal text-gray-400">(optional, one-time)</span></p>
                         <p class="text-xs text-gray-500 mt-0.5">Collected once, up front — the installments above then split whatever is left of the fee.</p>
                     </div>
                     <div class="grid grid-cols-3 gap-3">
@@ -462,7 +532,7 @@
                 @if ($editingToken || $editCycleId || $cycleMode !== '')
                     <button wire:click="saveCycle" wire:loading.attr="disabled"
                         class="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-md flex items-center gap-1.5 disabled:opacity-60">
-                        <span wire:loading.remove wire:target="saveCycle">{{ $editingToken ? 'Update Token Fee' : ($editCycleId ? 'Update Installment' : ($cycleMode === 'custom' ? 'Save Installments' : 'Generate Cycle')) }}</span>
+                        <span wire:loading.remove wire:target="saveCycle">{{ $editingToken ? 'Update Registration Fee' : ($editCycleId ? 'Update Installment' : ($cycleMode === 'custom' ? 'Save Installments' : 'Generate Cycle')) }}</span>
                         <span wire:loading wire:target="saveCycle">Saving…</span>
                     </button>
                 @endif
@@ -592,7 +662,7 @@
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                 <div class="min-w-0">
                     <h2 class="text-lg font-semibold text-gray-900 truncate">
-                        {{ $viewingCycle->is_token ? 'Token Fee' : 'Installment #' . $viewingCycle->payment_serial }}
+                        {{ $viewingCycle->is_token ? 'Registration Fee' : 'Installment #' . $viewingCycle->payment_serial }}
                     </h2>
                     <p class="text-xs text-gray-500 mt-0.5">{{ ucfirst($viewingCycle->fee_type) }} · {{ $viewingCycle->academic_year }}</p>
                 </div>

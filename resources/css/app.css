@@ -186,3 +186,37 @@ body.drawer-open {
 
 
 
+
+/* Date boxes read day, month, year ("16 Oct 2026") whatever language the
+   browser is set to: resources/js/date-display.js writes the date into
+   data-display and it is drawn over the box's own (hidden) text. */
+input[type="date"][data-display],
+input[type="datetime-local"][data-display] {
+    position: relative;
+}
+input[type="date"][data-display]::-webkit-datetime-edit,
+input[type="datetime-local"][data-display]::-webkit-datetime-edit {
+    opacity: 0;
+}
+input[type="date"][data-display]::before,
+input[type="datetime-local"][data-display]::before {
+    content: attr(data-display);
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 2em;
+    padding: inherit;
+    padding-right: 0;
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    pointer-events: none;
+}
+input[type="date"][data-display=""]::before,
+input[type="datetime-local"][data-display=""]::before {
+    content: attr(data-empty);
+    color: #9ca3af;
+}

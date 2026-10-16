@@ -359,7 +359,7 @@
                 <h1 class="title">STUDENT ID CARDS</h1>
                 <p class="subtitle">{{ $organization->name ?? 'SCHOOL MANAGEMENT SYSTEM' }}</p>
                 <p class="subtitle" style="font-size: 12px; margin-top: 3mm;">
-                    Generated on {{ now()->format('F d, Y - h:i A') }} | Total Cards: {{ $cards->count() }}
+                    Generated on {{ now()->format('d F Y - h:i A') }} | Total Cards: {{ $cards->count() }}
                 </p>
             </div>
 

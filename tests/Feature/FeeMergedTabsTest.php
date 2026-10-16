@@ -228,6 +228,57 @@ class FeeMergedTabsTest extends TestCase
         $this->assertStringContainsString('Fully Paid Students 1 / 2', $text);
     }
 
+    public function test_the_calculator_shows_every_student_of_the_class_or_of_the_section(): void
+    {
+        $s = $this->school();   // Class 2 · A: Ravi (with 500 of dues) and Sita; 1,000 a student
+        $secB  = DB::table('sections')->insertGetId(['organization_id' => $this->org, 'standard_id' => $s['std'], 'name' => 'B']);
+        DB::table('student_details')->insert(['organization_id' => $this->org, 'standard_id' => $s['std'], 'section_id' => $secB, 'full_name' => 'Mohan']);
+        DB::table('fee_structures')->insert(['organization_id' => $this->org, 'standard_id' => $s['std'], 'section_id' => $secB, 'fee_name' => 'Lab', 'fee_type' => 'academic', 'amount' => 400]);
+        DB::table('fee_cycles')->insert([
+            ['organization_id' => $this->org, 'fee_type' => 'academic', 'payment_serial' => 0, 'is_token' => true, 'amount' => 200, 'fee_percent' => 0, 'due_date' => '2026-04-10', 'academic_year' => '2026-2027'],
+            ['organization_id' => $this->org, 'fee_type' => 'academic', 'payment_serial' => 1, 'is_token' => false, 'amount' => null, 'fee_percent' => 50, 'due_date' => '2026-07-10', 'academic_year' => '2026-2027'],
+            ['organization_id' => $this->org, 'fee_type' => 'academic', 'payment_serial' => 2, 'is_token' => false, 'amount' => null, 'fee_percent' => 50, 'due_date' => '2026-12-10', 'academic_year' => '2026-2027'],
+        ]);
+        DB::table('fee_payments')->insert(['organization_id' => $this->org, 'student_detail_id' => $s['sita'], 'fee_type' => 'academic',
+            'amount' => 700, 'payment_mode' => 'cash', 'payment_date' => now()->toDateString()]);
+
+        // The listing: the fee type in plain words, View / Edit / Delete as on Students.
+        $page = Livewire::test(Fee::class)->call('showTab', 'cycle');
+        $html = $page->html();
+        $this->assertStringContainsString('<td class="px-4 py-3 text-gray-600">Academic</td>', $html);
+        $this->assertStringContainsString('wire:click="openCycleModal(', $html);
+        $this->assertStringContainsString('wire:click="deleteCycle(', $html);
+        $this->assertStringContainsString('Registration Fee', $html);
+        $this->assertStringNotContainsString('Token', strip_tags($html));
+
+        // The class picked: all three students — each with their own fee
+        // (Mohan's section has its Lab on top), Registration Fee first.
+        $page->call('switchCycleTab', 'calculator')->set('calcStandardId', (string) $s['std']);
+        $html  = $page->html();
+        $names = fn () => array_column($page->viewData('calcStudents'), 'name');
+        $this->assertSame(['Mohan', 'Ravi', 'Sita'], $names());
+        $this->assertSame([['Registration', 200.0, 600.0, 200.0], ['#1', null, 1400.0, 400.0], ['#2', null, 1400.0, 100.0]],
+            array_map(fn ($r) => [$r['serial'], $r['amount'], $r['class_total'], $r['collected']], $page->viewData('calcRows')));
+        $summary = $page->viewData('calcSummary');
+        $this->assertSame([3, 1000.0, 1400.0, 3400.0, 700.0, 2700.0], [$summary['students'], $summary['fee_min'], $summary['fee_max'], $summary['total'], $summary['collected'], $summary['remaining']]);
+        $text = preg_replace('/\s+/', ' ', strip_tags($html));
+        $this->assertStringContainsString('Fee per student: ₹1,000.00 – ₹1,400.00', $text);
+        $this->assertStringContainsString('Sita Adm — · Roll — A ₹1,000.00 ₹700.00 ₹300.00 2 of 3 Partial', $text);
+
+        // A section: only its students.
+        $page->set('calcSectionId', (string) $s['sec']);
+        $this->assertSame(['Ravi', 'Sita'], $names());
+        $this->assertSame(400.0, $page->viewData('calcRows')[1]['amount']);
+
+        // An installment: each student's share of it.
+        $page->set('calcSerial', '2');
+        $this->assertStringContainsString('Sita Adm — · Roll — A ₹400.00 ₹100.00 ₹300.00 Partial', preg_replace('/\s+/', ' ', strip_tags($page->html())));
+
+        // Another class starts from all its sections again.
+        $page->set('calcStandardId', (string) $s['std']);
+        $this->assertSame('', $page->get('calcSectionId'));
+    }
+
     public function test_add_dues_takes_earlier_years_fees_with_plus(): void
     {
         $s    = $this->school();
@@ -397,6 +448,8 @@ class FeeMergedTabsTest extends TestCase
         $page->set('concStudentId', (string) $s['ravi'])->call('saveConcession');
         $page->assertHasNoErrors();
         $this->assertSame('dues', DB::table('fee_concessions')->value('fee_type'));
+        // The list reads what it is on in plain text.
+        $this->assertStringContainsString('<td class="px-4 py-3 text-gray-600">Last Year Dues</td>', $page->html());
         DB::table('fee_concessions')->insert(['organization_id' => $this->org, 'student_detail_id' => $s['ravi'],
             'fee_type' => 'academic', 'concession_type' => 'amount', 'value' => 100]);
 
