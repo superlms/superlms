@@ -25,6 +25,7 @@ class SchoolWebsiteBuilder extends Component
     public Organization $organization;
 
     public array  $pages        = [];   // enabled page slugs
+    public string $template     = 'kider';
     public string $theme_preset = 'sunset';
     public string $primary      = '';
     public string $domain       = '';
@@ -43,6 +44,8 @@ class SchoolWebsiteBuilder extends Component
             ? $website->enabledPages()
             : array_keys(SchoolWebsite::allPages());
 
+        $this->template = $website->exists ? $website->templateKey() : 'kider';
+
         $theme = $website->theme ?? [];
         $this->theme_preset = $theme['preset'] ?? 'sunset';
         $this->primary      = $theme['primary'] ?? '';
@@ -53,6 +56,21 @@ class SchoolWebsiteBuilder extends Component
     public function switchTab(string $tab): void
     {
         $this->activeTab = $tab;
+    }
+
+    /**
+     * Picking Classic on the default colours moves to its red-and-green
+     * tricolour preset; a preset or colour picked on purpose is kept.
+     */
+    public function pickTemplate(string $key): void
+    {
+        if (! array_key_exists($key, SchoolWebsite::templates())) {
+            return;
+        }
+        $this->template = $key;
+        if ($key === 'classic' && $this->theme_preset === 'sunset' && $this->primary === '') {
+            $this->theme_preset = 'tricolour';
+        }
     }
 
     public function togglePage(string $slug): void
@@ -77,6 +95,7 @@ class SchoolWebsiteBuilder extends Component
                 'regex:/^(?!https?:\/\/)([a-z0-9-]+\.)+[a-z]{2,}$/i',
                 Rule::unique('school_websites', 'domain')->ignore($this->organization->id, 'organization_id'),
             ],
+            'template'         => ['required', Rule::in(array_keys(SchoolWebsite::templates()))],
             'theme_preset'     => 'required|string',
             'primary'          => 'nullable|regex:/^#([0-9a-fA-F]{6})$/',
         ], [
@@ -92,7 +111,7 @@ class SchoolWebsiteBuilder extends Component
             ['organization_id' => $this->organization->id],
             [
                 'domain'   => $this->domain ?: null,
-                'template' => 'kider',
+                'template' => $this->template,
                 'theme'    => ['preset' => $this->theme_preset, 'primary' => $this->primary ?: null],
                 'pages'    => array_values(array_unique(array_merge(['home'], $this->pages))),
                 'status'   => $this->status,
@@ -108,6 +127,7 @@ class SchoolWebsiteBuilder extends Component
     public function render()
     {
         return view('livewire.super-admin.school-website-builder', [
+            'templates'    => SchoolWebsite::templates(),
             'allPages'     => SchoolWebsite::allPages(),
             'pageGroups'   => SchoolWebsite::pageGroups(),
             'themePresets' => SchoolWebsite::themePresets(),

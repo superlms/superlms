@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * A school's public marketing website (Kider template), served on its own
+ * A school's public marketing website (in one of templates()), served on its own
  * custom domain. Content is auto-fetched from the Organization / SchoolInfo
  * where available, and any field can be overridden from the super-admin
  * builder (stored in the `content` JSON column).
@@ -34,7 +34,48 @@ class SchoolWebsite extends Model
         return $this->belongsTo(Organization::class);
     }
 
-    // ─── Catalogue: pages & themes ─────────────────────────────────────────
+    // ─── Catalogue: templates, pages & themes ──────────────────────────────
+
+    /**
+     * The site designs a school can be given. Each one is a folder of blades
+     * under resources/views/school-site/<key> reading the same content, so
+     * switching a school's template never loses anything it has filled in.
+     */
+    public static function templates(): array
+    {
+        return [
+            'kider'   => ['label' => 'Playful', 'desc' => 'Pastel gradients, rounded cards and a floating menu.'],
+            'classic' => ['label' => 'Classic CBSE', 'desc' => 'Tricolour masthead with the logo, school name and board, a photo slider and a menu of every page.'],
+        ];
+    }
+
+    /** This site's template, or the default when it names one that does not exist. */
+    public function templateKey(): string
+    {
+        return array_key_exists((string) $this->template, static::templates()) ? $this->template : 'kider';
+    }
+
+    /**
+     * How the Classic template groups its menu, after the CBSE school sites it
+     * is modelled on: group => slugs. A slug left out of every group but
+     * switched on goes under More; the Documents menu is built from the
+     * disclosure documents the school has uploaded, not listed here.
+     */
+    public static function classicNavGroups(): array
+    {
+        return [
+            'Home'                 => ['home'],
+            'About Us'             => ['about', 'history', 'mission', 'vision', 'manager-desk', 'principal-desk', 'campus-life'],
+            'Messaging'            => ['chairman', 'founder', 'co-founder', 'managing-director', 'executive-director', 'director', 'leadership'],
+            'Features'             => ['facilities'],
+            'Photogallery'         => ['gallery', 'sports', 'building', 'labs', 'classrooms', 'playground', 'activities', 'programs'],
+            'Online Admission'     => ['admission', 'fee-structure', 'rules', 'classes'],
+            'Curriculum'           => ['curriculum', 'academic-calendar'],
+            'Mandatory Disclosure' => ['disclosures'],
+            'Contact'              => ['contact', 'career', 'query', 'appointment'],
+            'More'                 => ['result', 'infrastructure', 'team', 'transport'],
+        ];
+    }
 
     /**
      * The template's page catalogue, grouped the way the navigation shows it.
@@ -64,7 +105,9 @@ class SchoolWebsite extends Model
                 'leadership'         => ['Leadership', 'view'],
                 'chairman'           => ["Chairman's Desk", 'content'],
                 'founder'            => ["Founder's Desk", 'content'],
+                'co-founder'         => ["Co-Founder's Desk", 'content'],
                 'managing-director'  => ['Managing Director', 'content'],
+                'executive-director' => ['Executive Director', 'content'],
                 'director'           => ["Director's Desk", 'content'],
                 'manager-desk'       => ["Manager's Desk", 'content'],
                 'principal-desk'     => ["Principal's Desk", 'content'],
@@ -103,6 +146,7 @@ class SchoolWebsite extends Model
                 'contact'     => ['Contact Us', 'view'],
                 'appointment' => ['Appointment', 'view'],
                 'career'      => ['Career', 'content'],
+                'query'       => ['Query', 'view'],
             ],
         ];
     }
@@ -171,6 +215,7 @@ class SchoolWebsite extends Model
             'royal'  => ['label' => 'Royal Purple',     'primary' => '#6F56FE', 'light' => '#F2EFFF', 'dark' => '#1A0F2E'],
             'rose'   => ['label' => 'Rose Pink',        'primary' => '#E6477F', 'light' => '#FDEEF4', 'dark' => '#2E1020'],
             'amber'  => ['label' => 'Amber Gold',       'primary' => '#E8A009', 'light' => '#FFF8E8', 'dark' => '#3A2A05'],
+            'tricolour' => ['label' => 'Tricolour (Red & Green)', 'primary' => '#E8000B', 'light' => '#FFF6EA', 'dark' => '#2D6944'],
         ];
     }
 
@@ -233,9 +278,15 @@ class SchoolWebsite extends Model
             'affiliation_no'=> '',
             'school_code'   => '',
             'logo'          => $org?->logo ?? '',
+            'board_logo'    => '',   // the board's seal, beside the name in the Classic masthead
+            'page_banner'   => '',   // photo behind every inner page's title (Classic)
+            'map_embed'     => '',   // Google Maps embed link; blank → a map of the address
 
             'hero_title'    => 'Welcome to ' . $name,
             'hero_subtitle' => 'Nurturing young minds with care, creativity and quality education for a brighter future.',
+            // Home slider (Classic): [{image, title, subtitle}]. A slide with
+            // no image shows the school's logo as a watermark instead.
+            'hero_slides'   => [],
 
             'about_heading' => 'Learn More About ' . $name,
             'about_text'    => $info?->about_school ?: 'We are committed to providing a safe, joyful and inspiring environment where every child can learn, grow and thrive.',
@@ -291,10 +342,15 @@ class SchoolWebsite extends Model
     {
         $row = $this->resolvedContent()['pages'][$slug] ?? [];
 
+        // More photos, one URL a line — what makes Labs, Sports, Building and
+        // the like a photo page.
+        $photos = preg_split('/\s*[\r\n]+\s*/', trim((string) ($row['photos'] ?? '')), -1, PREG_SPLIT_NO_EMPTY);
+
         return [
             'heading' => $row['heading'] ?? (static::allPages()[$slug] ?? 'Page'),
             'body'    => $row['body'] ?? '',
             'image'   => $row['image'] ?? '',
+            'photos'  => $photos,
         ];
     }
 

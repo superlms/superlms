@@ -33,8 +33,10 @@ class WebsiteData extends Component
     public array  $documentsRequired = [];   // [{text}]
     public array  $admissionRules    = [];   // [{text}]
     public array  $gallery           = [];   // [{image,caption}]
+    public array  $heroSlides        = [];   // [{image,title,subtitle}]
+    public array  $results           = [];   // [{year,appeared,passed}]
 
-    /** Generic content pages: slug => {heading, body, image}. */
+    /** Generic content pages: slug => {heading, body, image, photos}. */
     public array  $pages   = [];
     /** Document tables: slug => [{title,file,date}]. */
     public array  $docs    = [];
@@ -50,6 +52,7 @@ class WebsiteData extends Component
     /** Scalar content fields managed by the form. */
     private array $scalarKeys = [
         'school_name', 'tagline', 'motto', 'medium', 'board', 'affiliation_no', 'school_code', 'logo',
+        'board_logo', 'page_banner', 'map_embed',
         'hero_title', 'hero_subtitle',
         'about_heading', 'about_text', 'about_text2', 'history_text', 'philosophy', 'vision', 'mission',
         'admission_intro', 'admission_session', 'fee_note', 'curriculum_text',
@@ -63,13 +66,14 @@ class WebsiteData extends Component
         'classes'           => ['title' => '', 'age' => '', 'time' => '', 'capacity' => '', 'image' => ''],
         'team'              => ['name' => '', 'role' => '', 'photo' => ''],
         'leadership'        => ['name' => '', 'role' => '', 'photo' => '', 'message' => ''],
-        'facilities'        => ['icon' => '', 'title' => '', 'desc' => ''],
+        'facilities'        => ['icon' => '', 'title' => '', 'desc' => '', 'image' => ''],
         'whyUs'             => ['icon' => '', 'title' => '', 'desc' => ''],
         'stats'             => ['value' => '', 'label' => ''],
         'admissionSteps'    => ['title' => '', 'desc' => ''],
         'documentsRequired' => ['text' => ''],
         'admissionRules'    => ['text' => ''],
         'gallery'           => ['image' => '', 'caption' => ''],
+        'heroSlides'        => ['image' => '', 'title' => '', 'subtitle' => ''],
         'results'           => ['year' => '', 'appeared' => '', 'passed' => ''],
     ];
 
@@ -85,6 +89,7 @@ class WebsiteData extends Component
         'documentsRequired' => 'documents_required',
         'admissionRules'    => 'admission_rules',
         'gallery'           => 'gallery',
+        'heroSlides'        => 'hero_slides',
         'results'           => 'results',
     ];
 
@@ -114,6 +119,7 @@ class WebsiteData extends Component
                 'heading' => $this->pages[$slug]['heading'] ?? SchoolWebsite::allPages()[$slug] ?? '',
                 'body'    => $this->pages[$slug]['body'] ?? '',
                 'image'   => $this->pages[$slug]['image'] ?? '',
+                'photos'  => $this->pages[$slug]['photos'] ?? '',
             ];
         }
         $this->pageSlug = array_key_first($this->pages) ?: '';
@@ -218,7 +224,9 @@ class WebsiteData extends Component
         // showing its "being updated" note rather than an empty heading.
         $content['pages'] = array_filter(
             $this->pages,
-            fn ($p) => trim((string) ($p['body'] ?? '')) !== '' || trim((string) ($p['image'] ?? '')) !== ''
+            fn ($p) => trim((string) ($p['body'] ?? '')) !== ''
+                || trim((string) ($p['image'] ?? '')) !== ''
+                || trim((string) ($p['photos'] ?? '')) !== ''
         );
 
         $content['documents'] = [];
@@ -229,11 +237,12 @@ class WebsiteData extends Component
             }
         }
 
-        // updateOrCreate with only template + content leaves the super-admin's
-        // pages, theme, domain and publish status untouched.
+        // updateOrCreate with only content leaves the super-admin's template,
+        // pages, theme, domain and publish status untouched (a new record
+        // gets the column's default template).
         SchoolWebsite::updateOrCreate(
             ['organization_id' => $this->organization->id],
-            ['template' => 'kider', 'content' => $content],
+            ['content' => $content],
         );
 
         $this->notification()->success('Saved', 'Website content updated — it is now live on your site.');

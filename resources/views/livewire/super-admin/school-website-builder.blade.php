@@ -38,7 +38,7 @@
         {{-- Tabs — super-admin owns only the site shell; content lives in the
              school admin's More → Website Data screen. --}}
         <nav class="flex gap-1 mt-3 -mb-4 overflow-x-auto">
-            @foreach (['pages' => 'Pages', 'theme' => 'Theme', 'domain' => 'Domain & Publish'] as $tab => $label)
+            @foreach (['pages' => 'Pages', 'theme' => 'Template & Theme', 'domain' => 'Domain & Publish'] as $tab => $label)
                 <button wire:click="switchTab('{{ $tab }}')"
                     class="py-2.5 px-4 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors
                         {{ $activeTab === $tab ? 'border-indigo-500 text-indigo-700' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
@@ -85,8 +85,31 @@
             </div>
         @endif
 
-        {{-- ══════════ THEME ══════════ --}}
+        {{-- ══════════ TEMPLATE & THEME ══════════ --}}
         @if ($activeTab === 'theme')
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <h2 class="text-base font-semibold text-gray-900 mb-1">Template</h2>
+                <p class="text-xs text-gray-400 mb-5">The site's design. Every template reads the same Website Data, so switching keeps everything the school has filled in.</p>
+                <div class="grid sm:grid-cols-2 gap-3">
+                    @foreach ($templates as $key => $tpl)
+                        <button type="button" wire:click="pickTemplate('{{ $key }}')"
+                            class="flex items-start gap-3 px-4 py-3 rounded-xl border text-left transition
+                                {{ $template === $key ? 'border-indigo-400 ring-2 ring-indigo-100 bg-indigo-50/40' : 'border-gray-200 hover:border-gray-300' }}">
+                            @if ($template === $key)
+                                <svg class="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4"/></svg>
+                            @else
+                                <span class="w-5 h-5 rounded-full border border-gray-300 flex-shrink-0 mt-0.5"></span>
+                            @endif
+                            <span>
+                                <span class="block text-sm font-semibold text-gray-800">{{ $tpl['label'] }}</span>
+                                <span class="block text-xs text-gray-500 mt-0.5">{{ $tpl['desc'] }}</span>
+                            </span>
+                        </button>
+                    @endforeach
+                </div>
+                @error('template')<p class="text-xs text-red-500 mt-2">{{ $message }}</p>@enderror
+            </div>
+
             <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                 <h2 class="text-base font-semibold text-gray-900 mb-1">Colour Theme</h2>
                 <p class="text-xs text-gray-400 mb-5">Pick a preset, or set a custom primary colour to override it.</p>

@@ -74,6 +74,14 @@
                         <label class="block text-xs font-medium text-gray-600 mb-1">Logo URL <span class="text-gray-400">(leave blank to use the school's saved logo)</span></label>
                         <input type="text" wire:model="form.logo" placeholder="https://... or storage path" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
                     </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Board Logo URL <span class="text-gray-400">(e.g. the CBSE logo, beside the name)</span></label>
+                        <input type="text" wire:model="form.board_logo" placeholder="https://..." class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Page Banner Photo URL <span class="text-gray-400">(behind every page's title)</span></label>
+                        <input type="text" wire:model="form.page_banner" placeholder="https://..." class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
+                    </div>
                 </div>
             </div>
 
@@ -87,6 +95,26 @@
                 <div>
                     <label class="block text-xs font-medium text-gray-600 mb-1">Hero Subtitle</label>
                     <textarea wire:model="form.hero_subtitle" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400 resize-y"></textarea>
+                </div>
+
+                {{-- Slides: the Classic template's home slider. --}}
+                <div class="pt-2 space-y-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <h3 class="text-sm font-semibold text-gray-800">Slider <span class="text-xs font-normal text-gray-400">({{ count($heroSlides) }}) — photos that slide on the home page; a slide without a photo shows your logo as a watermark</span></h3>
+                        <button wire:click="addRow('heroSlides')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg whitespace-nowrap">+ Add Slide</button>
+                    </div>
+                    @forelse ($heroSlides as $i => $slide)
+                        <div class="border border-gray-200 rounded-xl p-3 grid sm:grid-cols-3 gap-2 items-end" wire:key="slide-{{ $i }}">
+                            <div><label class="block text-[11px] text-gray-500 mb-1">Photo URL</label><input wire:model="heroSlides.{{ $i }}.image" placeholder="https://..." class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
+                            <div><label class="block text-[11px] text-gray-500 mb-1">Title</label><input wire:model="heroSlides.{{ $i }}.title" placeholder="e.g. Leading CBSE Affiliated School" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
+                            <div class="flex gap-1">
+                                <div class="flex-1"><label class="block text-[11px] text-gray-500 mb-1">Subtitle</label><input wire:model="heroSlides.{{ $i }}.subtitle" placeholder="e.g. Classes from Nursery to Class X" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
+                                <button wire:click="removeRow('heroSlides', {{ $i }})" class="p-2 text-red-500 hover:bg-red-50 rounded-lg self-end"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                            </div>
+                        </div>
+                    @empty
+                        <p class="text-xs text-gray-400">No slides added — the slider uses your gallery photos, or your logo as a watermark, under the hero title.</p>
+                    @endforelse
                 </div>
             </div>
 
@@ -147,6 +175,10 @@
                     <div class="sm:col-span-2">
                         <label class="block text-xs font-medium text-gray-600 mb-1">Address</label>
                         <input type="text" wire:model="form.address" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Google Maps Embed Link <span class="text-gray-400">(Google Maps → Share → Embed a map; leave blank to map the address)</span></label>
+                        <input type="text" wire:model="form.map_embed" placeholder="https://www.google.com/maps/embed?pb=..." class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-400">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1">Facebook URL</label>
@@ -313,7 +345,8 @@
                     <div class="border border-gray-200 rounded-xl p-3 grid sm:grid-cols-6 gap-2 items-end" wire:key="fac-{{ $i }}">
                         <div><label class="block text-[11px] text-gray-500 mb-1">Icon (emoji)</label><input wire:model="facilities.{{ $i }}.icon" placeholder="🔬" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
                         <div class="sm:col-span-2"><label class="block text-[11px] text-gray-500 mb-1">Title</label><input wire:model="facilities.{{ $i }}.title" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
-                        <div class="sm:col-span-3 flex gap-1">
+                        <div class="sm:col-span-3"><label class="block text-[11px] text-gray-500 mb-1">Photo URL (optional)</label><input wire:model="facilities.{{ $i }}.image" placeholder="https://..." class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
+                        <div class="sm:col-span-6 flex gap-1">
                             <div class="flex-1"><label class="block text-[11px] text-gray-500 mb-1">Description</label><input wire:model="facilities.{{ $i }}.desc" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm"></div>
                             <button wire:click="removeRow('facilities', {{ $i }})" class="p-2 text-red-500 hover:bg-red-50 rounded-lg self-end"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
                         </div>
@@ -461,6 +494,11 @@
                         <div>
                             <label class="block text-[11px] text-gray-500 mb-1">Image URL (optional — shown beside the text)</label>
                             <input wire:model="pages.{{ $pageSlug }}.image" placeholder="https://..." class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-gray-500 mb-1">More Photos — one URL a line (shown as a photo gallery under the text; for Labs, Sports, Building and the like)</label>
+                            <textarea wire:model="pages.{{ $pageSlug }}.photos" rows="4" placeholder="https://...&#10;https://..."
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono"></textarea>
                         </div>
                     </div>
                 @endif
