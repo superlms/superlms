@@ -99,6 +99,46 @@ class SchoolSiteClassicTemplateTest extends TestCase
         $this->assertSame('tricolour', $site->theme['preset']);
     }
 
+    /**
+     * The builder in the Modules look (user's ask of 2026-10-16): pages ticked
+     * in a list with Enable all / Disable all and what is on, the template a
+     * radio, Publish a switch, and Save at the foot of each tab.
+     */
+    public function test_the_builder_reads_like_the_modules_tab(): void
+    {
+        $su = new User(['name' => 'Super', 'email' => 'super@example.com']);
+        $su->id = 900;
+        $su->role = 'super-admin';
+        $this->actingAs($su);
+        SchoolWebsite::create(['organization_id' => 1, 'pages' => ['home', 'about', 'contact']]);
+        SchoolWebsite::flushEventListeners();   // going live tells the super admins; no users table here
+        $all = count(SchoolWebsite::allPages());
+
+        $page = Livewire::test(SchoolWebsiteBuilder::class, ['organization' => Organization::find(1)]);
+        $html = $page->html();
+        $this->assertStringContainsString('Enable all', $html);
+        $this->assertStringContainsString("3 of {$all} on", $html);
+        $this->assertStringContainsString('Save Pages', $html);
+        $this->assertMatchesRegularExpression('/wire:model="pages" value="about"\s+checked/', $html);
+        $this->assertDoesNotMatchRegularExpression('/wire:model="pages" value="history"\s+checked/', $html);
+
+        $page->call('enableAllPages')->assertSee("{$all} of {$all} on")
+            ->call('disableAllPages')->assertSee("1 of {$all} on")
+            ->set('pages', ['home', 'about', 'result'])
+            ->call('switchTab', 'theme')->assertSee('Save Template &amp; Theme', false)
+            ->set('template', 'classic')->assertSet('theme_preset', 'tricolour')
+            ->call('switchTab', 'domain')->assertSee('Save Domain &amp; Publish', false)
+            ->set('domain', 'sunrise.edu.in')
+            ->toggle('status')   // the switch's wire:click="$toggle('status')"
+            ->call('save');
+
+        $site = SchoolWebsite::first();
+        $this->assertSame(['home', 'about', 'result'], $site->pages);
+        $this->assertSame('classic', $site->template);
+        $this->assertSame('sunrise.edu.in', $site->domain);
+        $this->assertTrue($site->status);
+    }
+
     public function test_saving_website_data_keeps_the_template_and_the_slides(): void
     {
         SchoolWebsite::create(['organization_id' => 1, 'template' => 'classic']);

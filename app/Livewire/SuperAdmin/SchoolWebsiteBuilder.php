@@ -73,16 +73,23 @@ class SchoolWebsiteBuilder extends Component
         }
     }
 
-    public function togglePage(string $slug): void
+    /** The Template radio (wire:model.live) goes through the same pick. */
+    public function updatedTemplate(string $key): void
     {
-        if ($slug === 'home') {
-            return; // home is mandatory
-        }
-        if (in_array($slug, $this->pages, true)) {
-            $this->pages = array_values(array_diff($this->pages, [$slug]));
-        } else {
-            $this->pages[] = $slug;
-        }
+        $this->pickTemplate($key);
+    }
+
+    // Pages are ticked like the school's Modules (wire:model on the list);
+    // Home is always on.
+
+    public function enableAllPages(): void
+    {
+        $this->pages = array_keys(SchoolWebsite::allPages());
+    }
+
+    public function disableAllPages(): void
+    {
+        $this->pages = ['home'];
     }
 
     // ─── Save (shell only — pages / theme / domain / publish) ──────────────
