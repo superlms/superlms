@@ -12,7 +12,8 @@
     $rate = $a['rate'] ?? 0;
     $pct  = fn ($part, $whole) => $whole > 0 ? min(100, round($part / $whole * 100, 1)) : 0;
 
-    $academicPct  = $pct($a['academic_collected'] ?? 0, $a['academic_billable'] ?? 0);
+    $yearPct      = $pct($a['year_collected'] ?? 0, $a['year_billable'] ?? 0);
+    $duesPct      = $pct($a['dues_collected'] ?? 0, $a['dues_billable'] ?? 0);
     $transportPct = $pct($a['transport_collected'] ?? 0, $a['transport_billable'] ?? 0);
     $paidUpPct    = $pct($a['fully_paid'] ?? 0, $a['students'] ?? 0);
     $perStudent   = ($a['students'] ?? 0) > 0 ? ($a['total_collected'] ?? 0) / $a['students'] : 0;
@@ -31,33 +32,45 @@
 <div class="space-y-8">
 
     {{-- ══════════════════════════════════════════════════════════════════
-         OVERVIEW — one flat row of the four figures, then each head's
-         collection as a thin rule.
+         OVERVIEW — the figures in one flat band (what is billable in all,
+         this year's academic fee, transport, then what came in and what is
+         left), then each head's collection as a thin rule.
     ══════════════════════════════════════════════════════════════════ --}}
     <section>
         <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Overview</h2>
 
-        <div class="bg-white rounded-xl border border-gray-200 divide-y sm:divide-y-0 sm:divide-x divide-gray-100 grid grid-cols-2 sm:grid-cols-4">
+        {{-- Total Billable is the academic fee, the bus fee and the Last Year
+             Dues together (each net of concession); this year's academic fee
+             and the bus fee follow it on their own. --}}
+        <div class="bg-gray-100 rounded-xl border border-gray-200 overflow-hidden grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-px">
             @foreach ([
-                ['Total Billable', '₹' . number_format($a['total_billable'] ?? 0, 0), ($a['students'] ?? 0) . ' students · ' . ($a['riders'] ?? 0) . ' on transport', 'text-gray-900'],
-                ['Collected', '₹' . number_format($a['total_collected'] ?? 0, 0), ($a['penalty_collected'] ?? 0) > 0 ? '+ ₹' . number_format($a['penalty_collected'], 0) . ' penalty' : 'Academic + transport', 'text-emerald-600'],
+                ['Total Billable', '₹' . number_format($a['total_billable'] ?? 0, 0), ($a['dues_billable'] ?? 0) > 0 ? 'Academic + transport + ₹' . number_format($a['dues_billable'], 0) . ' dues' : 'Academic + transport', 'text-gray-900'],
+                ['Academic · This Year', '₹' . number_format($a['year_billable'] ?? 0, 0), ($a['students'] ?? 0) . ' students', 'text-gray-900'],
+                ['Transport', '₹' . number_format($a['transport_billable'] ?? 0, 0), ($a['riders'] ?? 0) . ' on transport', 'text-gray-900'],
+                ['Collected', '₹' . number_format($a['total_collected'] ?? 0, 0), ($a['penalty_collected'] ?? 0) > 0 ? '+ ₹' . number_format($a['penalty_collected'], 0) . ' penalty' : 'Academic + transport + dues', 'text-emerald-600'],
                 ['Outstanding', '₹' . number_format($a['total_due'] ?? 0, 0), ($a['defaulters'] ?? 0) . ' students with dues', ($a['total_due'] ?? 0) > 0 ? 'text-rose-600' : 'text-gray-900'],
                 ['Collection Rate', $rate . '%', '₹' . number_format($perStudent, 0) . ' collected a student', 'text-gray-900'],
             ] as [$label, $value, $sub, $tone])
-                <div class="px-5 py-4">
+                <div class="bg-white px-5 py-4 min-w-0">
                     <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">{{ $label }}</p>
-                    <p class="text-[26px] leading-none font-semibold {{ $tone }} mt-2 tabular-nums">{{ $value }}</p>
+                    <p class="text-[26px] leading-none font-semibold {{ $tone }} mt-2 tabular-nums truncate">{{ $value }}</p>
                     <p class="text-xs text-gray-400 mt-1.5">{{ $sub }}</p>
                 </div>
             @endforeach
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-            @foreach ([
-                ['Academic', $academicPct . '%', '₹' . number_format($a['academic_collected'] ?? 0, 0) . ' of ₹' . number_format($a['academic_billable'] ?? 0, 0) . ' · ₹' . number_format($a['academic_due'] ?? 0, 0) . ' due', $academicPct],
+        @php
+            $heads = [
+                ['Academic · This Year', $yearPct . '%', '₹' . number_format($a['year_collected'] ?? 0, 0) . ' of ₹' . number_format($a['year_billable'] ?? 0, 0) . ' · ₹' . number_format($a['year_due'] ?? 0, 0) . ' due', $yearPct],
                 ['Transport', $transportPct . '%', '₹' . number_format($a['transport_collected'] ?? 0, 0) . ' of ₹' . number_format($a['transport_billable'] ?? 0, 0) . ' · ₹' . number_format($a['transport_due'] ?? 0, 0) . ' due', $transportPct],
-                ['Fully Paid Students', ($a['fully_paid'] ?? 0) . ' / ' . ($a['students'] ?? 0), $paidUpPct . '% paid up · ' . ($a['defaulters'] ?? 0) . ' still owe', $paidUpPct],
-            ] as [$label, $value, $sub, $bar])
+            ];
+            if (($a['dues_billable'] ?? 0) > 0) {
+                $heads[] = ['Last Year Dues', $duesPct . '%', '₹' . number_format($a['dues_collected'] ?? 0, 0) . ' of ₹' . number_format($a['dues_billable'], 0) . ' · ₹' . number_format($a['dues_due'] ?? 0, 0) . ' due', $duesPct];
+            }
+            $heads[] = ['Fully Paid Students', ($a['fully_paid'] ?? 0) . ' / ' . ($a['students'] ?? 0), $paidUpPct . '% paid up · ' . ($a['defaulters'] ?? 0) . ' still owe', $paidUpPct];
+        @endphp
+        <div class="grid grid-cols-1 sm:grid-cols-2 {{ count($heads) === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3' }} gap-4 mt-4">
+            @foreach ($heads as [$label, $value, $sub, $bar])
                 <div class="bg-white rounded-xl border border-gray-200 px-5 py-4">
                     <div class="flex items-baseline justify-between gap-2">
                         <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">{{ $label }}</p>
@@ -305,10 +318,11 @@
             <div class="bg-white rounded-xl border border-gray-200 p-5 flex flex-col">
                 <h3 class="text-sm font-semibold text-gray-800 mb-4">By head</h3>
                 <div class="space-y-5 text-sm">
-                    @foreach ([
-                        ['Academic', $a['academic_billable'] ?? 0, $a['academic_collected'] ?? 0, $a['academic_due'] ?? 0, $academicPct],
+                    @foreach (array_filter([
+                        ['Academic · This Year', $a['year_billable'] ?? 0, $a['year_collected'] ?? 0, $a['year_due'] ?? 0, $yearPct],
                         ['Transport', $a['transport_billable'] ?? 0, $a['transport_collected'] ?? 0, $a['transport_due'] ?? 0, $transportPct],
-                    ] as [$label, $billable, $collected, $due, $headPct])
+                        ($a['dues_billable'] ?? 0) > 0 ? ['Last Year Dues', $a['dues_billable'], $a['dues_collected'] ?? 0, $a['dues_due'] ?? 0, $duesPct] : null,
+                    ]) as [$label, $billable, $collected, $due, $headPct])
                         <div>
                             <div class="flex items-baseline justify-between">
                                 <span class="font-semibold text-gray-700">{{ $label }}</span>

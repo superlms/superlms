@@ -9,10 +9,13 @@ use App\Models\Admin\TransportFeePayment;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
+use App\Services\SchoolWhatsApp;
 use App\Support\AcademicYear;
+use App\Support\FeeDues;
 use App\Support\TransportBilling;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use App\Support\NameOrder;
 
 /**
@@ -201,7 +204,7 @@ trait HandlesFeeSubmission
         // Default to whichever type actually has something due, so the form
         // doesn't open on a disabled option.
         $caps = $this->feeTypeCaps();
-        $this->submitFeeType     = $caps['academic'] > 0 ? 'academic' : ($caps['transport'] > 0 ? 'transport' : ($caps['penalty'] > 0 ? 'penalty' : 'academic'));
+        $this->submitFeeType     = collect(['academic', 'transport', 'dues', 'penalty'])->first(fn ($t) => $caps[$t] > 0) ?? 'academic';
         $this->submitPaymentMode = 'cash';
         $this->submitDate        = today()->toDateString();
         $this->submitRemark      = '';
@@ -230,79 +233,35 @@ trait HandlesFeeSubmission
             'submitDate.after_or_equal' => $this->feeMinDateMessage(),
         ]);
 
-        // Can't collect more than what's actually due — the remaining
-        // academic/transport balance for the year, or the total penalty
-        // currently accrued (net of any waiver/payment already applied).
-        $cap = $this->submitFeeTypeCap();
-        if ($cap <= 0) {
-            $this->notification()->error(
-                match ($this->submitFeeType) {
-                    'penalty' => 'No penalty due',
-                    'dues'    => 'No dues',
-                    default   => 'Nothing due',
-                },
-                match ($this->submitFeeType) {
-                    'penalty' => 'This student has no penalty currently due — there is nothing to submit.',
-                    'dues'    => 'This student has no Last Year Dues left to pay.',
-                    default   => ucfirst($this->submitFeeType) . ' fee for this student is already fully paid for the year.',
-                }
-            );
-            return;
-        }
-        if ((float) $this->submitAmount > $cap + 0.01) {
-            $this->notification()->error(
-                'Amount too high',
-                'Only up to ₹' . number_format($cap, 2) . ' can be submitted — that is what is currently due for '
-                    . ($this->submitFeeType === 'dues' ? 'Last Year Dues' : $this->submitFeeType) . '.'
-            );
+        // The fee type picked must have something due; the amount may then be
+        // up to all the student owes (academic, transport and Last Year Dues),
+        // what is over the type picked going to the others. A penalty is only
+        // ever up to the penalty currently accrued.
+        if ($error = $this->feeCollectionError($this->submitFeeType, (float) $this->submitAmount)) {
+            [$title, $message] = $error;
+            if ($title === 'Amount too high') {
+                $this->addError('submitAmount', $message);
+            }
+            $this->notification()->error($title, $message);
             return;
         }
 
         try {
             $student = StudentDetail::find($this->selectedStudentId);
+            $parts   = $this->feeCollectionSplit($this->submitFeeType, (float) $this->submitAmount);
 
-            if ($this->submitFeeType === 'transport') {
-                // A bus fee goes with the student's other transport payments —
-                // transport_fee_payments, which the Transport module, View Fee,
-                // this ledger's own transport side, the receipts and the app all
-                // read. Booked into fee_payments it showed on the Payments list
-                // and nowhere else.
-                [$route] = TransportBilling::forStudent($this->orgId(), (int) $student->id);
-                $year    = (int) date('Y', strtotime((string) $this->submitDate));
+            $this->bookFeeCollection($student, $parts, [
+                'payment_mode' => $this->submitPaymentMode,
+                'payment_date' => $this->submitDate,
+                'remark'       => $this->submitRemark,
+                'submitted_by' => $this->submittedBy,
+                'user_id'      => Auth::id(),
+            ]);
 
-                TransportFeePayment::create([
-                    'organization_id'   => $this->orgId(),
-                    'transportation_id' => $route?->id,
-                    'student_detail_id' => $student->id,
-                    'amount'            => $this->submitAmount,
-                    'payment_mode'      => $this->submitPaymentMode,
-                    'payment_date'      => $this->submitDate,
-                    'academic_year'     => $year . '-' . substr((string) ($year + 1), -2),
-                    'remark'            => $this->submitRemark ?: null,
-                    // transport_fee_payments keeps the collector as a user id
-                    'submitted_by'      => Auth::id(),
-                ]);
-            } else {
-                // Dues: an academic payment marked for the Last Year Dues — it
-                // comes off the dues, not this year's installments, and every
-                // academic total still counts it (FeeDues).
-                $isDues = $this->submitFeeType === 'dues';
-
-                FeePayment::create([
-                    'organization_id'   => $this->orgId(),
-                    'student_detail_id' => $this->selectedStudentId,
-                    'standard_id'       => $student->standard_id,
-                    'section_id'        => $student->section_id,
-                    'fee_type'          => $isDues ? 'academic' : $this->submitFeeType,
-                    'amount'            => $this->submitAmount,
-                    'payment_mode'      => $this->submitPaymentMode,
-                    'payment_date'      => $this->submitDate,
-                    'remark'            => $this->submitRemark,
-                    'submitted_by'      => $this->submittedBy,
-                ] + ($isDues && \App\Support\FeeDues::tracked() ? ['applies_to' => 'dues'] : []));
-            }
-
-            $this->notification()->success('Fee submitted successfully!');
+            $this->notification()->success(
+                'Fee submitted successfully!',
+                count($parts) > 1 ? self::describeFeeCollection($parts) : null
+            );
             $this->reset(['submitAmount', 'submitFeeType', 'submitPaymentMode', 'submitRemark', 'submittedBy']);
             $this->submitDate = today()->toDateString();
             $this->showSubmitPanel = false;
@@ -402,29 +361,156 @@ trait HandlesFeeSubmission
         }
     }
 
-    /** How much can currently be submitted for the selected fee type. */
-    private function submitFeeTypeCap(): float
-    {
-        return $this->feeTypeCaps()[$this->submitFeeType] ?? 0.0;
-    }
-
     /**
-     * Per fee type, how much can currently be submitted — the remaining
-     * academic/transport balance for the year, or the total penalty still
-     * due (net of any waiver/payment). Both read straight off
-     * $submissionLedger so they match what's on screen, and the Collect Fee
-     * panel uses this to grey out Penalties when nothing is due and to hint
-     * the cap under the Amount field.
+     * What is left of each fee — this year's academic fee (the installments),
+     * transport, the Last Year Dues and the penalty accrued (net of any waiver
+     * or payment) — and 'overall', the academic, transport and dues together:
+     * the most one collection can take. All read straight off
+     * $submissionLedger so they match what's on screen; the Collect Fee panel
+     * greys out a fee with nothing left and hints the cap under the Amount.
      */
     protected function feeTypeCaps(): array
     {
+        $ledger = $this->submissionLedger;
+        $dues   = $ledger['dues'] ?? [];
+
+        // With dues, the academic side is this year's fee and the dues (FeeDues).
+        $academic = !empty($dues['has'])
+            ? max(0, (float) ($dues['cycle_total'] ?? 0) - (float) ($dues['cycle_paid'] ?? 0))
+            : (float) ($ledger['academic']['remaining'] ?? 0);
+        $transport = (float) ($ledger['transport']['remaining'] ?? 0);
+        $duesLeft  = (float) ($dues['dues_remaining'] ?? 0);
+
         return [
-            'academic'  => round((float) ($this->submissionLedger['academic']['remaining'] ?? 0), 2),
-            'transport' => round((float) ($this->submissionLedger['transport']['remaining'] ?? 0), 2),
-            'penalty'   => round(collect($this->submissionLedger['cycles'] ?? [])->sum('penalty_net'), 2),
-            // What is left of the Last Year Dues (FeeDues, via the ledger).
-            'dues'      => round((float) ($this->submissionLedger['dues']['dues_remaining'] ?? 0), 2),
+            'academic'  => round($academic, 2),
+            'transport' => round($transport, 2),
+            'penalty'   => round(collect($ledger['cycles'] ?? [])->sum('penalty_net'), 2),
+            'dues'      => round($duesLeft, 2),
+            'overall'   => round($academic + $transport + $duesLeft, 2),
         ];
+    }
+
+    /**
+     * Why a collection of $amount for $type cannot be taken, as [title,
+     * message], or null when it can: the type picked must have something left,
+     * and the amount be no more than the student owes in all (a penalty, no
+     * more than the penalty).
+     */
+    protected function feeCollectionError(string $type, float $amount): ?array
+    {
+        $caps = $this->feeTypeCaps();
+
+        if (($caps[$type] ?? 0) <= 0) {
+            return match ($type) {
+                'penalty' => ['No penalty due', 'This student has no penalty currently due — there is nothing to submit.'],
+                'dues'    => ['No dues', 'This student has no Last Year Dues left to pay.'],
+                default   => ['Nothing due', ucfirst($type) . ' fee for this student is already fully paid for the year.'],
+            };
+        }
+
+        $cap = $type === 'penalty' ? $caps['penalty'] : $caps['overall'];
+        if ($amount > $cap + 0.01) {
+            return ['Amount too high', $type === 'penalty'
+                ? 'You cannot collect more than ₹' . number_format($cap, 2) . ' — that is the penalty currently due.'
+                : 'You cannot collect more than ₹' . number_format($cap, 2) . ' — that is all this student still owes.'];
+        }
+
+        return null;
+    }
+
+    /**
+     * How one collection is booked: the fee type picked takes what is left of
+     * it first; anything over goes to transport, then the Last Year Dues, then
+     * this year's academic fee. A penalty stands alone. [type => amount], in
+     * booking order, the fees it does not reach left out.
+     *
+     * @return array<string, float>
+     */
+    protected function feeCollectionSplit(string $type, float $amount): array
+    {
+        $caps   = $this->feeTypeCaps();
+        $amount = round($amount, 2);
+        $order  = $type === 'penalty' ? ['penalty'] : array_unique([$type, 'transport', 'dues', 'academic']);
+
+        $parts = [];
+        foreach ($order as $fee) {
+            $take = round(min($amount, max(0, (float) ($caps[$fee] ?? 0))), 2);
+            if ($take > 0) {
+                $parts[$fee] = $take;
+                $amount      = round($amount - $take, 2);
+            }
+            if ($amount <= 0) {
+                break;
+            }
+        }
+
+        return $parts;
+    }
+
+    /**
+     * Books a collection as feeCollectionSplit() lays it out — a payment, and
+     * a receipt, for each fee it reaches, all or none of them — with one
+     * WhatsApp "Fee received" for the whole of it. A bus fee goes with the
+     * student's other transport payments (transport_fee_payments, which the
+     * Transport module, View Fee, the receipts and the app all read); a dues
+     * part is an academic payment marked for the Last Year Dues (FeeDues).
+     *
+     * @param  array{payment_mode: string, payment_date: string, remark: ?string, submitted_by: string, user_id: ?int}  $meta
+     * @return array<int, FeePayment|TransportFeePayment>  the payments, in booking order
+     */
+    protected function bookFeeCollection(StudentDetail $student, array $parts, array $meta): array
+    {
+        $orgId = $this->orgId();
+
+        return SchoolWhatsApp::oneFeeMessage(fn () => DB::transaction(function () use ($orgId, $student, $parts, $meta) {
+            $made = [];
+            foreach ($parts as $fee => $amount) {
+                if ($fee === 'transport') {
+                    [$route] = TransportBilling::forStudent($orgId, (int) $student->id);
+                    $year    = (int) date('Y', strtotime((string) $meta['payment_date']));
+
+                    $made[] = TransportFeePayment::create([
+                        'organization_id'   => $orgId,
+                        'transportation_id' => $route?->id,
+                        'student_detail_id' => $student->id,
+                        'amount'            => $amount,
+                        'payment_mode'      => $meta['payment_mode'],
+                        'payment_date'      => $meta['payment_date'],
+                        'academic_year'     => $year . '-' . substr((string) ($year + 1), -2),
+                        'remark'            => $meta['remark'] ?: null,
+                        // transport_fee_payments keeps the collector as a user id
+                        'submitted_by'      => $meta['user_id'],
+                    ]);
+                    continue;
+                }
+
+                $isDues = $fee === 'dues';
+                $made[] = FeePayment::create([
+                    'organization_id'   => $orgId,
+                    'student_detail_id' => $student->id,
+                    'standard_id'       => $student->standard_id,
+                    'section_id'        => $student->section_id,
+                    'fee_type'          => $isDues ? 'academic' : $fee,
+                    'amount'            => $amount,
+                    'payment_mode'      => $meta['payment_mode'],
+                    'payment_date'      => $meta['payment_date'],
+                    'remark'            => $meta['remark'],
+                    'submitted_by'      => $meta['submitted_by'],
+                ] + ($isDues && FeeDues::tracked() ? ['applies_to' => 'dues'] : []));
+            }
+
+            return $made;
+        }));
+    }
+
+    /** "Academic ₹2,000.00 · Transport ₹1,000.00 · Last Year Dues ₹1,000.00" */
+    protected static function describeFeeCollection(array $parts): string
+    {
+        $names = ['academic' => 'Academic', 'transport' => 'Transport', 'dues' => 'Last Year Dues', 'penalty' => 'Penalty'];
+
+        return collect($parts)
+            ->map(fn ($amount, $fee) => ($names[$fee] ?? ucfirst($fee)) . ' ₹' . number_format($amount, 2))
+            ->implode(' · ');
     }
 
     /**
@@ -469,6 +555,10 @@ trait HandlesFeeSubmission
             'fsSections'   => $fsSections,
             'fsStudents'   => $fsStudents,
             'feeTypeCaps'  => $this->feeTypeCaps(),
+            // Where the amount typed in Collect Fee will go, fee by fee.
+            'collectionSplit' => $this->showSubmitPanel && is_numeric($this->submitAmount) && (float) $this->submitAmount > 0
+                ? $this->feeCollectionSplit((string) $this->submitFeeType, (float) $this->submitAmount)
+                : [],
             // The date fields' `min` — Collect Fee and the payment date edit.
             'feeMinDate'   => $this->feeMinDate(),
         ];

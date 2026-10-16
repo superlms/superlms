@@ -10,7 +10,6 @@ use App\Models\Admin\TransportFeePayment;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
-use App\Support\TransportBilling;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use RuntimeException;
@@ -25,8 +24,8 @@ use RuntimeException;
  *
  *   Students   classes, students by class / section / name
  *   Ledger     one student's fees net of concession, cycles, payments
- *   Collect    a payment, capped at what is due (transport goes with the
- *              student's other bus payments, as on the panel)
+ *   Collect    a payment: the fee picked, then transport, then Last Year Dues,
+ *              then this year's academic fee — never more than is owed
  *   Payments   every payment, both tables, with the panel's filters and figures
  *   Analytics  the panel's Analytics tab
  *   QR         payments students reported on the school's QR — checked,
@@ -155,15 +154,38 @@ class AdminFeeController extends ApiController
 
         return $this->success($ledger + [
             'photo'        => $student->user?->image,
-            'caps'         => $this->run($page, 'feeTypeCaps'),
+            'caps'         => $this->appCaps($this->run($page, 'feeTypeCaps')),
             'net_payable'  => (float) $page->netPayable,
             'submitted_by' => $user->name ?? '',
         ], 'Ledger fetched.');
     }
 
     /**
+     * The caps as the app reads them — each fee type's the most it may take.
+     * A collection now reaches past the fee picked (transport, then Last Year
+     * Dues, then this year's academic fee), so a fee with anything left may
+     * take all the student owes; 'academic' counts the dues too, as the app
+     * has no Dues of its own. 'left' is what is left of each.
+     */
+    private function appCaps(array $caps): array
+    {
+        $overall = $caps['overall'];
+
+        return [
+            'academic'  => ($caps['academic'] + $caps['dues']) > 0 ? $overall : 0.0,
+            'transport' => $caps['transport'] > 0 ? $overall : 0.0,
+            'dues'      => $caps['dues'] > 0 ? $overall : 0.0,
+            'penalty'   => $caps['penalty'],
+            'overall'   => $overall,
+            'left'      => $caps,
+        ];
+    }
+
+    /**
      * POST /admin/fees/students/{id}/payments {amount, fee_type, payment_mode, date, remark?, submitted_by}
-     * The panel's Collect Fee: never more than is due for the fee type.
+     * The panel's Collect Fee: the fee picked first, what is over it to
+     * transport, then Last Year Dues, then this year's academic fee — never
+     * more than the student owes (a penalty, than the penalty due).
      */
     public function collect(Request $request, $id)
     {
@@ -176,7 +198,7 @@ class AdminFeeController extends ApiController
 
         if ($err = $this->validateWith($request, [
             'amount'       => 'required|numeric|min:1',
-            'fee_type'     => 'required|in:academic,transport,penalty',
+            'fee_type'     => 'required|in:academic,transport,penalty,dues',
             'payment_mode' => 'required|in:cash,online,cheque,bank_transfer',
             'date'         => 'required|date',
             'submitted_by' => 'required|string|max:255',
@@ -186,55 +208,37 @@ class AdminFeeController extends ApiController
         // What is due now, read off the same ledger the panel shows.
         $page = $this->page(['selectedStudentId' => (string) $student->id]);
         $this->run($page, 'updatedSelectedStudentId');
-        $cap = (float) ($this->run($page, 'feeTypeCaps')[$request->fee_type] ?? 0.0);
+        $caps = $this->run($page, 'feeTypeCaps');
 
-        if ($cap <= 0) {
-            return $this->error($request->fee_type === 'penalty'
-                ? 'This student has no penalty currently due — there is nothing to submit.'
-                : ucfirst($request->fee_type) . ' fee for this student is already fully paid for the year.', 422);
-        }
-        if ((float) $request->amount > $cap + 0.01) {
-            return $this->error('Only up to ₹' . number_format($cap, 2) . ' can be submitted — that is what is currently due for ' . $request->fee_type . '.', 422);
-        }
+        // The app's Academic is this year's fee and the dues together: with
+        // this year's paid, it is the dues.
+        $type = $request->fee_type === 'academic' && $caps['academic'] <= 0 && $caps['dues'] > 0
+            ? 'dues'
+            : $request->fee_type;
 
-        if ($request->fee_type === 'transport') {
-            // With the student's other bus payments, as the panel books it.
-            [$route] = TransportBilling::forStudent($orgId, (int) $student->id);
-            $year    = (int) date('Y', strtotime((string) $request->date));
-
-            $payment = TransportFeePayment::create([
-                'organization_id'   => $orgId,
-                'transportation_id' => $route?->id,
-                'student_detail_id' => $student->id,
-                'amount'            => $request->amount,
-                'payment_mode'      => $request->payment_mode,
-                'payment_date'      => $request->date,
-                'academic_year'     => $year . '-' . substr((string) ($year + 1), -2),
-                'remark'            => $request->remark ?: null,
-                'submitted_by'      => $user->id,
-            ]);
-            $kind = 'transport';
-        } else {
-            $payment = FeePayment::create([
-                'organization_id'   => $orgId,
-                'student_detail_id' => $student->id,
-                'standard_id'       => $student->standard_id,
-                'section_id'        => $student->section_id,
-                'fee_type'          => $request->fee_type,
-                'amount'            => $request->amount,
-                'payment_mode'      => $request->payment_mode,
-                'payment_date'      => $request->date,
-                'remark'            => $request->remark,
-                'submitted_by'      => $request->submitted_by,
-            ]);
-            $kind = 'academic';
+        if ($error = $this->run($page, 'feeCollectionError', $type, (float) $request->amount)) {
+            return $this->error($error[1], 422);
         }
 
-        return $this->success([
-            'id'             => $payment->id,
-            'kind'           => $kind,
-            'receipt_number' => $payment->fresh()->receipt_number,
-        ], 'Fee submitted successfully!');
+        $parts    = $this->run($page, 'feeCollectionSplit', $type, (float) $request->amount);
+        $payments = $this->run($page, 'bookFeeCollection', $student, $parts, [
+            'payment_mode' => $request->payment_mode,
+            'payment_date' => $request->date,
+            'remark'       => $request->remark,
+            'submitted_by' => $request->submitted_by,
+            'user_id'      => $user->id,
+        ]);
+
+        $made = array_map(fn ($p) => [
+            'id'             => $p->id,
+            'kind'           => $p instanceof TransportFeePayment ? 'transport' : 'academic',
+            'amount'         => (float) $p->amount,
+            'receipt_number' => $p->fresh()->receipt_number,
+        ], $payments);
+
+        // The first is the fee picked, as one payment always answered; every
+        // part the collection was booked as follows in 'payments'.
+        return $this->success($made[0] + ['payments' => $made], 'Fee submitted successfully!');
     }
 
     /** GET /admin/fees/receipt/{id}/pdf — an academic / penalty receipt, as the panel prints it. */

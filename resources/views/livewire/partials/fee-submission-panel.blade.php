@@ -52,17 +52,36 @@
             </div>
             <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
                 @php
-                    $capMap     = ($feeTypeCaps ?? []) + ['academic' => 0, 'transport' => 0, 'penalty' => 0, 'dues' => 0];
-                    $currentCap = $capMap[$submitFeeType] ?? 0;
+                    $capMap     = ($feeTypeCaps ?? []) + ['academic' => 0, 'transport' => 0, 'penalty' => 0, 'dues' => 0, 'overall' => 0];
+                    // A penalty only up to the penalty; anything else up to all the
+                    // student owes, what is over the fee picked going to the others.
+                    $currentCap = $submitFeeType === 'penalty' ? $capMap['penalty'] : $capMap['overall'];
+                    $feeNames   = ['academic' => 'Academic', 'transport' => 'Transport', 'dues' => 'Last Year Dues', 'penalty' => 'Penalty'];
+                    $split      = $collectionSplit ?? [];
+                    $tooMuch    = is_numeric($submitAmount) && (float) $submitAmount > $currentCap + 0.01;
                 @endphp
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1.5">Amount (₹) <span class="text-red-500">*</span></label>
-                    <input type="number" step="0.01" min="1" max="{{ $currentCap > 0 ? $currentCap : 0 }}" wire:model="submitAmount" placeholder="Enter amount" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                    @error('submitAmount')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                    <input type="number" step="0.01" min="1" max="{{ $currentCap > 0 ? $currentCap : 0 }}" wire:model.live.debounce.400ms="submitAmount" placeholder="Enter amount" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-md text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                    @error('submitAmount')
+                        <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>
+                    @else
+                        @if ($tooMuch)
+                            <p class="mt-1.5 text-xs text-red-500">You cannot collect more than ₹{{ number_format($currentCap, 2) }} — {{ $submitFeeType === 'penalty' ? 'that is the penalty currently due' : 'that is all this student still owes' }}.</p>
+                        @endif
+                    @enderror
                     <p class="mt-1.5 text-[11px] text-gray-400">
-                        Up to ₹{{ number_format($currentCap, 2) }} due for {{ match ($submitFeeType) { 'penalty' => 'penalties', 'dues' => 'Last Year Dues', default => $submitFeeType } }}.
-                        @if ($submitFeeType === 'dues')
-                            It comes off the dues only, not this year's academic fee.
+                        @if ($submitFeeType === 'penalty')
+                            Up to ₹{{ number_format($currentCap, 2) }} due for penalties.
+                        @else
+                            Up to ₹{{ number_format($currentCap, 2) }} in all.
+                            @if (count($split) > 1 && !$tooMuch)
+                                Goes to {{ collect($split)->map(fn ($amount, $fee) => $feeNames[$fee] . ' ₹' . number_format($amount, 2))->implode(', then ') }}.
+                            @elseif (count($split) === 1 && !$tooMuch)
+                                All of it to {{ $feeNames[array_key_first($split)] }}.
+                            @else
+                                {{ $feeNames[$submitFeeType] ?? ucfirst($submitFeeType) }} is cleared first; anything over goes to transport, then Last Year Dues, then this year's academic fee.
+                            @endif
                         @endif
                     </p>
                 </div>

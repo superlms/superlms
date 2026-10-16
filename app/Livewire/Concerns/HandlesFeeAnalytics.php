@@ -2,25 +2,30 @@
 
 namespace App\Livewire\Concerns;
 
+use App\Models\Admin\Fee\FeeConcession;
 use App\Models\Admin\Fee\FeePayment;
 use App\Models\Admin\Fee\FeeStructure;
 use App\Models\Admin\TransportFeePayment;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
+use App\Support\FeeDues;
+use App\Support\TransportBilling;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use App\Support\NameOrder;
 
 /**
  * The Fee > Analytics tab.
  *
- * Billable money is counted exactly the way the Payments screen counts it
- * (see HandlesPayments::paymentHeaderStats) — academic = each class's active
- * fee heads × the students actually in that class, transport = each rider's
- * route fee × the months they are billed for — so the two screens can never
- * disagree. Collections likewise read BOTH payment tables: fee_payments
- * (academic / transport / penalty) and transport_fee_payments.
+ * Each student is counted the way their View Fee counts them
+ * (HandlesStudentFeeView), so a student View Fee shows as paid up is paid up
+ * here too: the academic fee is their class's active heads (whole class or
+ * their section) and their own Last Year Dues, the bus fee their route's fee ×
+ * the months they are billed for, on the one route View Fee reads — each net
+ * of concession — against every academic payment and every bus payment
+ * (transport_fee_payments, and fee_payments' transport rows), whatever class
+ * the payment was booked under. This year's academic fee and the dues are
+ * kept apart as FeeDues splits them.
  *
  * Everything is loaded once per filter change into small, display-shaped
  * arrays; nothing here is computed per row in Blade.
@@ -99,57 +104,79 @@ trait HandlesFeeAnalytics
             ->when($sec, fn ($q) => $q->where('section_id', $sec))
             ->get(['id', 'user_id', 'full_name', 'admission_no', 'standard_id', 'section_id']);
 
+        $studentIds = $students->pluck('id')->all();
+
         // ── Each student's own academic rows (Last Year Dues) ────────────────
-        $ownAcademic = FeeStructure::ownTotals($orgId, $students->pluck('id')->all());
+        $ownAcademic = FeeStructure::ownTotals($orgId, $studentIds);
 
-        // ── Each rider's own transport bill: route fee × months billed ───────
-        $transportPerStudent = [];
-        $riderRows = DB::table('transportation_students as ts')
-            ->join('transportations as t', 'ts.transportation_id', '=', 't.id')
-            ->join('student_details as sd', 'ts.student_detail_id', '=', 'sd.id')
-            ->where('ts.organization_id', $orgId)
-            ->when($std, fn ($q) => $q->where('sd.standard_id', $std))
-            ->when($sec, fn ($q) => $q->where('sd.section_id', $sec))
-            ->get(['ts.student_detail_id', 'ts.billable_months', 't.monthly_fee']);
+        // ── Concessions on the base fee (penalty waivers are their own pool) ─
+        $concessions = $studentIds
+            ? FeeConcession::where('organization_id', $orgId)->where('is_penalty', false)
+                ->whereIn('student_detail_id', $studentIds)->get()->groupBy('student_detail_id')
+            : collect();
 
-        foreach ($riderRows as $row) {
-            $bill = (float) $row->monthly_fee * $this->billableMonthsCount($row->billable_months);
-            $transportPerStudent[$row->student_detail_id] = ($transportPerStudent[$row->student_detail_id] ?? 0) + $bill;
-        }
+        // ── Each rider's bus fee: route fee × months billed, on the one route
+        //    View Fee reads (the active one first) ───────────────────────────
+        $transportPerStudent = TransportBilling::yearTotals($orgId, $studentIds);
 
-        // ── Collected, per student, from both payment tables ─────────────────
-        $feePaidPerStudent = FeePayment::where('organization_id', $orgId)
-            ->when($std, fn ($q) => $q->where('standard_id', $std))
-            ->when($sec, fn ($q) => $q->where('section_id', $sec))
-            ->whereIn('fee_type', ['academic', 'transport'])
-            ->selectRaw('student_detail_id, SUM(amount) as total')
-            ->groupBy('student_detail_id')
-            ->pluck('total', 'student_detail_id');
-
-        $txPaidPerStudent = TransportFeePayment::where('organization_id', $orgId)
-            ->when($std || $sec, fn ($q) => $q->whereHas('studentDetail', fn ($sq) => $sq
-                ->when($std, fn ($x) => $x->where('standard_id', $std))
-                ->when($sec, fn ($x) => $x->where('section_id', $sec))))
-            ->selectRaw('student_detail_id, SUM(amount) as total')
-            ->groupBy('student_detail_id')
-            ->pluck('total', 'student_detail_id');
+        // ── Paid, per student — every academic payment (dues included) and
+        //    every bus payment, whatever class the payment was booked under ───
+        $academicPaidPerStudent = $studentIds
+            ? FeePayment::where('organization_id', $orgId)->where('fee_type', 'academic')
+                ->whereIn('student_detail_id', $studentIds)
+                ->selectRaw('student_detail_id, SUM(amount) as total')
+                ->groupBy('student_detail_id')
+                ->pluck('total', 'student_detail_id')
+            : collect();
+        $paidAsDuesPerStudent = $studentIds && FeeDues::tracked()
+            ? FeePayment::where('organization_id', $orgId)->where('fee_type', 'academic')->where('applies_to', 'dues')
+                ->whereIn('student_detail_id', $studentIds)
+                ->selectRaw('student_detail_id, SUM(amount) as total')
+                ->groupBy('student_detail_id')
+                ->pluck('total', 'student_detail_id')
+            : collect();
+        $transportPaidPerStudent = TransportBilling::paidByStudent($orgId, $studentIds);
 
         // ── Roll the per-student figures up into totals, classes and rows ────
         $standardNames = Standard::where('organization_id', $orgId)->pluck('name', 'id');
         $sectionNames  = Section::where('organization_id', $orgId)->pluck('name', 'id');
 
-        $academicBillable = $transportBillable = 0.0;
+        // Each fee: what is billed (net of concession), what came in, what is left.
+        $sum = ['year' => [0.0, 0.0, 0.0], 'dues' => [0.0, 0.0, 0.0], 'transport' => [0.0, 0.0, 0.0]];
+        $academicPaidTotal = $transportPaidTotal = 0.0;
         $classes = [];
         $studentRows = [];
 
         foreach ($students as $s) {
-            $acadBill = $academicFeeFor($s->standard_id, $s->section_id) + (float) ($ownAcademic[$s->id] ?? 0);
-            $txBill   = (float) ($transportPerStudent[$s->id] ?? 0);
-            $paid     = (float) ($feePaidPerStudent[$s->id] ?? 0) + (float) ($txPaidPerStudent[$s->id] ?? 0);
-            $billable = $acadBill + $txBill;
+            // As the student's View Fee works it out: the academic fee (their
+            // class's heads and their Last Year Dues) and the bus fee, each net
+            // of concession — this year's fee and the dues apart (FeeDues).
+            $duesGross = (float) ($ownAcademic[$s->id] ?? 0);
+            $acadGross = $academicFeeFor($s->standard_id, $s->section_id) + $duesGross;
+            $own       = $concessions->get($s->id, collect());
+            $acadOff   = FeeConcession::takeOff($own, 'academic', $acadGross, $duesGross);
+            $acadNet   = max(0, $acadGross - $acadOff['taken']);
+            $txGross   = (float) ($transportPerStudent[$s->id] ?? 0);
+            $txNet     = max(0, $txGross - FeeConcession::takeOff($own, 'transport', $txGross)['taken']);
 
-            $academicBillable  += $acadBill;
-            $transportBillable += $txBill;
+            $acadPaid = (float) ($academicPaidPerStudent[$s->id] ?? 0);
+            $txPaid   = (float) ($transportPaidPerStudent[$s->id] ?? 0);
+            $split    = FeeDues::split($acadNet, max(0, $duesGross - $acadOff['dues']), $acadPaid, (float) ($paidAsDuesPerStudent[$s->id] ?? 0));
+
+            foreach ([
+                'year'      => [$split['cycle_total'], $split['cycle_paid']],
+                'dues'      => [$split['dues_total'], $split['dues_paid']],
+                'transport' => [$txNet, min($txPaid, $txNet)],
+            ] as $fee => [$billed, $in]) {
+                $sum[$fee][0] += $billed;
+                $sum[$fee][1] += $in;
+                $sum[$fee][2] += max(0, $billed - $in);
+            }
+            $academicPaidTotal  += $acadPaid;
+            $transportPaidTotal += $txPaid;
+
+            $billable = $acadNet + $txNet;
+            $paid     = $acadPaid + $txPaid;
 
             $classes[$s->standard_id] ??= [
                 'id' => $s->standard_id,
@@ -168,39 +195,41 @@ trait HandlesFeeAnalytics
                 'section' => $s->section_id ? ($sectionNames[$s->section_id] ?? null) : null,
                 'billable' => $billable,
                 'collected' => $paid,
-                'due' => max(0, $billable - $paid),
+                'due' => max(0, round($billable - $paid, 2)),
             ];
         }
 
-        // ── Collected totals, split by head ──────────────────────────────────
-        $feeByType = FeePayment::where('organization_id', $orgId)
-            ->when($std, fn ($q) => $q->where('standard_id', $std))
-            ->when($sec, fn ($q) => $q->where('section_id', $sec))
-            ->selectRaw('fee_type, SUM(amount) as total')
-            ->groupBy('fee_type')
-            ->pluck('total', 'fee_type');
+        $penaltyCollected = $studentIds
+            ? (float) FeePayment::where('organization_id', $orgId)->where('fee_type', 'penalty')
+                ->whereIn('student_detail_id', $studentIds)->sum('amount')
+            : 0.0;
 
-        $academicCollected  = (float) ($feeByType['academic'] ?? 0);
-        $penaltyCollected   = (float) ($feeByType['penalty'] ?? 0);
-        $transportCollected = (float) ($feeByType['transport'] ?? 0)
-            + (float) $this->analyticsTransportQuery()->sum('amount');
-
-        $totalBillable  = $academicBillable + $transportBillable;
-        $totalCollected = $academicCollected + $transportCollected;
+        $totalBillable  = $sum['year'][0] + $sum['dues'][0] + $sum['transport'][0];
+        $totalCollected = $academicPaidTotal + $transportPaidTotal;
 
         $this->analyticsSummary = [
             'students'            => $students->count(),
             'riders'              => count($transportPerStudent),
-            'academic_billable'   => $academicBillable,
-            'transport_billable'  => $transportBillable,
+            // Academic is this year's fee and the Last Year Dues together, as
+            // the admin app reads it; year_* and dues_* are each part alone.
+            'academic_billable'   => $sum['year'][0] + $sum['dues'][0],
+            'year_billable'       => $sum['year'][0],
+            'dues_billable'       => $sum['dues'][0],
+            'transport_billable'  => $sum['transport'][0],
+            // Academic, transport and dues, each net of concession.
             'total_billable'      => $totalBillable,
-            'academic_collected'  => $academicCollected,
-            'transport_collected' => $transportCollected,
+            'academic_collected'  => $academicPaidTotal,
+            'year_collected'      => $sum['year'][1],
+            'dues_collected'      => $sum['dues'][1],
+            'transport_collected' => $transportPaidTotal,
             'penalty_collected'   => $penaltyCollected,
             'total_collected'     => $totalCollected,
-            'academic_due'        => max(0, $academicBillable - $academicCollected),
-            'transport_due'       => max(0, $transportBillable - $transportCollected),
-            'total_due'           => max(0, $totalBillable - $totalCollected),
+            'academic_due'        => $sum['year'][2] + $sum['dues'][2],
+            'year_due'            => $sum['year'][2],
+            'dues_due'            => $sum['dues'][2],
+            'transport_due'       => $sum['transport'][2],
+            // What every student still owes, each counted on their own.
+            'total_due'           => array_sum(array_column($studentRows, 'due')),
             'rate'                => $totalBillable > 0 ? round($totalCollected / $totalBillable * 100, 1) : 0.0,
             'fully_paid'          => count(array_filter($studentRows, fn ($r) => $r['billable'] > 0 && $r['due'] <= 0)),
             'defaulters'          => count(array_filter($studentRows, fn ($r) => $r['due'] > 0)),

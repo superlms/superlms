@@ -265,12 +265,52 @@ class SchoolWhatsApp
         $kind = $payment instanceof TransportFeePayment ? 'transport' : 'fee';
         $id   = (int) $payment->id;
 
-        DB::afterCommit(function () use ($kind, $id) {
-            dispatch(function () use ($kind, $id) {
+        // One collection booked as several payments (oneFeeMessage) waits to
+        // go as one message.
+        if (self::$heldFeePayments !== null) {
+            self::$heldFeePayments[] = [$kind, $id];
+            return;
+        }
+
+        self::queueFeeReceived([[$kind, $id]]);
+    }
+
+    /** Payments of one collection being booked, held for one message; null when none is. */
+    private static ?array $heldFeePayments = null;
+
+    /**
+     * Runs $book — which saves one collection as several payments (Collect
+     * Fee's academic, transport and dues parts) — and sends the student one
+     * "Fee received" for all of it, the fee types together and the amounts
+     * added up, instead of one charged message a payment.
+     */
+    public static function oneFeeMessage(callable $book): mixed
+    {
+        $outer = self::$heldFeePayments;
+        self::$heldFeePayments = [];
+        try {
+            $result = $book();
+            $held   = self::$heldFeePayments;
+        } finally {
+            self::$heldFeePayments = $outer;
+        }
+
+        if ($held) {
+            $outer === null ? self::queueFeeReceived($held) : array_push(self::$heldFeePayments, ...$held);
+        }
+
+        return $result;
+    }
+
+    /** Sends the message for these payments after the request and its transaction. */
+    private static function queueFeeReceived(array $parts): void
+    {
+        DB::afterCommit(function () use ($parts) {
+            dispatch(function () use ($parts) {
                 try {
-                    self::sendFeeReceived($kind, $id);
+                    self::sendFeeReceivedFor($parts);
                 } catch (\Throwable $e) {
-                    Log::error('WhatsApp fee_received failed', ['kind' => $kind, 'id' => $id, 'error' => $e->getMessage()]);
+                    Log::error('WhatsApp fee_received failed', ['parts' => $parts, 'error' => $e->getMessage()]);
                 }
             })->afterResponse();
         });
@@ -279,9 +319,27 @@ class SchoolWhatsApp
     /** The fee message for one saved payment ('fee' = fee_payments, 'transport' = transport_fee_payments). */
     public static function sendFeeReceived(string $kind, int $id): bool
     {
-        $payment = $kind === 'transport' ? TransportFeePayment::find($id) : FeePayment::find($id);
-        $student = $payment ? StudentDetail::with(['user', 'standard', 'section'])->find($payment->student_detail_id) : null;
-        if (!$payment || !$student) {
+        return self::sendFeeReceivedFor([[$kind, $id]]);
+    }
+
+    /**
+     * The fee message for one collection — one payment, or the parts it was
+     * booked as ([[kind, id], …]): the fee types joined ("Academic + Transport")
+     * and their amounts added up, dated as the first.
+     */
+    public static function sendFeeReceivedFor(array $parts): bool
+    {
+        $payments = collect($parts)->map(fn ($p) => [
+            $p[0],
+            $p[0] === 'transport' ? TransportFeePayment::find($p[1]) : FeePayment::find($p[1]),
+        ])->filter(fn ($p) => $p[1] !== null)->values();
+        if ($payments->isEmpty()) {
+            return false;
+        }
+
+        [$kind, $payment] = $payments->first();
+        $student = StudentDetail::with(['user', 'standard', 'section'])->find($payment->student_detail_id);
+        if (!$student) {
             return false;
         }
 
@@ -289,13 +347,13 @@ class SchoolWhatsApp
         $totals = StudentFeeTotals::overall($orgId, $student);
         $money  = fn ($v) => number_format((float) $v, fmod((float) $v, 1) ? 2 : 0);
 
-        $type = match (true) {
-            $kind === 'transport'                                   => 'Transport',
-            $payment->fee_type === 'transport'                      => 'Transport',
-            $payment->fee_type === 'penalty'                        => 'Late Fee',
-            FeeDues::isDues($payment)                               => 'Last Year Dues',
+        $type = $payments->map(fn ($p) => match (true) {
+            $p[0] === 'transport'                                   => 'Transport',
+            $p[1]->fee_type === 'transport'                         => 'Transport',
+            $p[1]->fee_type === 'penalty'                           => 'Late Fee',
+            FeeDues::isDues($p[1])                                  => 'Last Year Dues',
             default                                                 => 'Academic',
-        };
+        })->unique()->implode(' + ');
 
         return self::send(
             $orgId,
@@ -307,14 +365,14 @@ class SchoolWhatsApp
                 $student->full_name ?: ($student->user?->name ?? 'Student'),
                 self::classLine($student),
                 $type,
-                $money($payment->amount),
+                $money($payments->sum(fn ($p) => (float) $p[1]->amount)),
                 \Illuminate\Support\Carbon::parse($payment->payment_date ?? now())->format('d M Y'),
                 $money($totals['total']),
                 $money($totals['balance']),
             ],
             null,
             ['user_id' => $student->user_id, 'student_detail_id' => $student->id],
-            'fee_received:' . $kind . ':' . $id,
+            'fee_received:' . $kind . ':' . (int) $payment->id,
         );
     }
 

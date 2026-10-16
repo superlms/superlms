@@ -190,6 +190,44 @@ class FeeMergedTabsTest extends TestCase
         $this->assertStringContainsString('wire:key="fa-daily-', $html);
     }
 
+    public function test_analytics_counts_a_student_as_view_fee_does(): void
+    {
+        $s = $this->school();   // Ravi: 1,000 this year + 500 of dues; Sita: 1,000
+        DB::table('fee_concessions')->insert(['organization_id' => $this->org, 'student_detail_id' => $s['ravi'],
+            'fee_type' => 'academic', 'concession_type' => 'amount', 'value' => 100]);
+        // Ravi's bus: 500 for April; an old route he is still listed on is not billed again.
+        $months = array_fill_keys(['apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec', 'jan', 'feb', 'mar'], false);
+        foreach ([[500, true], [300, false]] as [$fee, $active]) {
+            $route = DB::table('transportations')->insertGetId(['organization_id' => $this->org, 'route_name' => 'R' . $fee, 'monthly_fee' => $fee, 'is_active' => $active]);
+            DB::table('transportation_students')->insert(['organization_id' => $this->org, 'transportation_id' => $route,
+                'student_detail_id' => $s['ravi'], 'billable_months' => json_encode(['apr' => true] + $months)]);
+        }
+        // Ravi pays all of it: 1,400 academic (booked under an old class) and the 500 bus.
+        DB::table('fee_payments')->insert(['organization_id' => $this->org, 'student_detail_id' => $s['ravi'], 'standard_id' => 999,
+            'fee_type' => 'academic', 'amount' => 1400, 'payment_mode' => 'cash', 'payment_date' => now()->toDateString()]);
+        DB::table('transport_fee_payments')->insert(['organization_id' => $this->org, 'student_detail_id' => $s['ravi'],
+            'amount' => 500, 'payment_mode' => 'cash', 'payment_date' => now()->toDateString()]);
+
+        // View Fee: Ravi owes nothing.
+        $sv = Livewire::test(Fee::class)->call('showTab', 'view_fee')
+            ->set('viewStudentStandardId', (string) $s['std'])->set('viewStudentId', (string) $s['ravi'])->get('studentFeeView');
+        $this->assertSame([1900.0, 1900.0, 0.0], [$sv['totals']['net'], $sv['totals']['paid'], $sv['totals']['remaining']]);
+
+        // Analytics: Ravi paid up, Sita owes her 1,000; billable is this year's
+        // academic fee (900 + 1,000), the dues (500) and the bus (500).
+        $page = Livewire::test(Fee::class)->call('showTab', 'analytics');
+        $a = $page->get('analyticsSummary');
+        $this->assertSame([1900.0, 500.0, 500.0, 2900.0], [$a['year_billable'], $a['dues_billable'], $a['transport_billable'], $a['total_billable']]);
+        $this->assertSame([1900.0, 1000.0, 65.5], [$a['total_collected'], $a['total_due'], $a['rate']]);
+        $this->assertSame([1, 1], [$a['fully_paid'], $a['defaulters']]);
+
+        $text = preg_replace('/\s+/', ' ', strip_tags($page->html()));
+        $this->assertStringContainsString('Total Billable ₹2,900 Academic + transport + ₹500 dues', $text);
+        $this->assertStringContainsString('Academic · This Year ₹1,900 2 students', $text);
+        $this->assertStringContainsString('Transport ₹500 1 on transport', $text);
+        $this->assertStringContainsString('Fully Paid Students 1 / 2', $text);
+    }
+
     public function test_add_dues_takes_earlier_years_fees_with_plus(): void
     {
         $s    = $this->school();
@@ -234,13 +272,16 @@ class FeeMergedTabsTest extends TestCase
         // An ordinary academic payment goes to this year's installments.
         $page->call('openFeeSubmit')->set('submitAmount', 400)->set('submitFeeType', 'academic')->set('submittedBy', 'Head')->call('submitFeePayment');
 
-        // Collect Fee offers Dues, up to what is left of them.
+        // Collect Fee offers Dues; any fee takes up to all that is owed (600 of
+        // this year's and 500 of dues).
         $page->call('openFeeSubmit');
         $html = $page->html();
         $this->assertStringContainsString('<option value="dues"', $html);
         $page->set('submitFeeType', 'dues');
-        $this->assertStringContainsString('Up to ₹500.00 due for Last Year Dues.', $page->html());
-        $page->set('submitAmount', 300)->set('submittedBy', 'Head')->call('submitFeePayment');
+        $this->assertStringContainsString('Up to ₹1,100.00 in all.', $page->html());
+        $page->set('submitAmount', 300)->set('submittedBy', 'Head');
+        $this->assertStringContainsString('All of it to Last Year Dues.', $page->html());
+        $page->call('submitFeePayment');
 
         $dues = DB::table('fee_payments')->where('student_detail_id', $s['ravi'])->orderByDesc('id')->first();
         $this->assertSame(['academic', 'dues', 300.0], [$dues->fee_type, $dues->applies_to, (float) $dues->amount]);
@@ -258,8 +299,10 @@ class FeeMergedTabsTest extends TestCase
         $this->assertStringContainsString('Total ₹1,500.00 ₹700.00 ₹800.00', $text);
         $this->assertStringContainsString('Dues', $text);
 
-        // Not more than is left of the dues.
-        $page->call('openFeeSubmit')->set('submitFeeType', 'dues')->set('submitAmount', 250)->set('submittedBy', 'Head')->call('submitFeePayment');
+        // Not more than the student owes in all (800).
+        $page->call('openFeeSubmit')->set('submitFeeType', 'dues')->set('submitAmount', 900)->set('submittedBy', 'Head')->call('submitFeePayment');
+        $page->assertHasErrors(['submitAmount']);
+        $this->assertStringContainsString('You cannot collect more than ₹800.00', $page->html());
         $this->assertSame(2, DB::table('fee_payments')->where('student_detail_id', $s['ravi'])->count());
 
         // The printed receipt: the payment as Last Year Dues, the dues after the
@@ -283,6 +326,49 @@ class FeeMergedTabsTest extends TestCase
             ->set('viewStudentStandardId', (string) $s['std'])->set('viewStudentId', (string) $s['sita'])->get('studentFeeView');
         $this->assertFalse($sita['dues']['has']);
         $this->assertSame(1000.0, (float) collect($sita['cycles'])->firstWhere('fee_type', 'academic')['total']);
+    }
+
+    public function test_a_collection_clears_the_fee_picked_then_transport_then_dues(): void
+    {
+        (require base_path('database/migrations/2026_10_14_150000_add_applies_to_to_fee_payments.php'))->up();
+        app()->forgetInstance('fee_payments.applies_to');
+
+        $s = $this->school();   // Ravi: 1,000 this year + 500 of dues
+        // …and a bus billed for April alone: 500.
+        $route = DB::table('transportations')->insertGetId(['organization_id' => $this->org, 'route_name' => 'R1', 'monthly_fee' => 500]);
+        $months = array_fill_keys(['apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec', 'jan', 'feb', 'mar'], false);
+        DB::table('transportation_students')->insert(['organization_id' => $this->org, 'transportation_id' => $route,
+            'student_detail_id' => $s['ravi'], 'billable_months' => json_encode(['apr' => true] + $months)]);
+
+        $page = Livewire::test(Fee::class)->call('showTab', 'view_fee')
+            ->set('viewStudentStandardId', (string) $s['std'])->set('viewStudentId', (string) $s['ravi']);
+
+        // 1,700 as Academic: 1,000 clears this year's fee, 500 the bus, 200 the dues.
+        $page->call('openFeeSubmit')->set('submitFeeType', 'academic')->set('submittedBy', 'Head')->set('submitAmount', 1700);
+        $this->assertStringContainsString('Up to ₹2,000.00 in all.', $page->html());
+        $this->assertStringContainsString('Goes to Academic ₹1,000.00, then Transport ₹500.00, then Last Year Dues ₹200.00.', $page->html());
+        $page->call('submitFeePayment');
+        $page->assertHasNoErrors();
+
+        $fees = DB::table('fee_payments')->where('student_detail_id', $s['ravi'])->orderBy('id')->get();
+        $this->assertSame([['academic', null, 1000.0], ['academic', 'dues', 200.0]],
+            $fees->map(fn ($p) => [$p->fee_type, $p->applies_to, (float) $p->amount])->all());
+        $this->assertSame(500.0, (float) DB::table('transport_fee_payments')->where('student_detail_id', $s['ravi'])->sum('amount'));
+
+        $sv = $page->get('studentFeeView');
+        $this->assertSame([1000.0, 0.0, 300.0], [$sv['dues']['cycle_paid'], (float) $sv['transport']['remaining'], $sv['dues']['dues_remaining']]);
+
+        // 300 is all that is left: 400 is refused, whichever fee is picked.
+        $page->call('openFeeSubmit');
+        $this->assertSame('dues', $page->get('submitFeeType'));   // the only fee with anything left
+        $page->set('submitAmount', 400)->set('submittedBy', 'Head')->call('submitFeePayment');
+        $page->assertHasErrors(['submitAmount']);
+        $this->assertStringContainsString('You cannot collect more than ₹300.00 — that is all this student still owes.', $page->html());
+        $this->assertSame(2, DB::table('fee_payments')->where('student_detail_id', $s['ravi'])->count());
+
+        // A fee with nothing left is not taken at all.
+        $page->set('submitFeeType', 'transport')->set('submitAmount', 100)->call('submitFeePayment');
+        $this->assertSame(500.0, (float) DB::table('transport_fee_payments')->where('student_detail_id', $s['ravi'])->sum('amount'));
     }
 
     public function test_a_concession_on_last_year_dues_comes_off_the_dues_alone(): void

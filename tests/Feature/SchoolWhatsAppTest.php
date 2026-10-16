@@ -278,6 +278,27 @@ class SchoolWhatsAppTest extends TestCase
         $this->assertSame(['fee_received:fee:4'], WhatsAppMessage::pluck('dedupe_key')->all());
     }
 
+    public function test_a_collection_booked_as_several_payments_is_one_message(): void
+    {
+        DB::table('fee_structures')->insert(['organization_id' => 1, 'standard_id' => 1, 'fee_name' => 'Tuition', 'fee_type' => 'academic', 'amount' => 12000]);
+        SchoolWhatsApp::setEnabled(1, 'fee_received', true);
+        $book = fn (array $row) => \App\Models\Admin\Fee\FeePayment::forceCreate($row + [
+            'organization_id' => 1, 'student_detail_id' => 2, 'fee_type' => 'academic', 'payment_mode' => 'cash', 'payment_date' => '2026-10-15',
+        ]);
+
+        // Collect Fee's academic and dues parts of one collection.
+        SchoolWhatsApp::oneFeeMessage(function () use ($book) {
+            $book(['amount' => 2000]);
+            $book(['amount' => 500, 'applies_to' => 'dues']);
+        });
+        $this->app->terminate();
+
+        $this->assertSame([
+            ['fee_received', '919988776655', ['Sunrise Public School', 'Bala Rao', 'CLASS 9 - A', 'Academic + Last Year Dues', '2,500', '15 Oct 2026', '12,000', '9,500']],
+        ], $this->sentBodies());
+        $this->assertSame(['fee_received:fee:1'], WhatsAppMessage::pluck('dedupe_key')->all());
+    }
+
     // ─── Usage ────────────────────────────────────────────────────────────────
 
     private function message(string $feature, string $status, string $at, int $org = 1, array $more = []): void
