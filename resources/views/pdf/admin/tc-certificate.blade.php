@@ -10,7 +10,7 @@
         * { padding: 0; }
         @page { size: A4 portrait; margin: 0; }
 
-        body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 9pt; color: #1f2937; background: #fff; }
+        body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 9pt; color: #000; background: #fff; }
         {{-- No width here: dompdf ignores box-sizing, so `width: 210mm` plus the side
              padding lays the sheet out 240mm wide and the right edge falls off the
              paper. Width auto fills the page and the padding insets inside it. --}}
@@ -24,41 +24,41 @@
         /* ── Masthead ── */
         .head { text-align: center; }
         .logo { height: 15mm; margin: 0 0 2.5mm; }
-        .school-name { font-family: "DejaVu Serif", Georgia, serif; font-size: 16pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #111827; }
-        .affil { font-size: 8pt; color: #6b7280; margin-top: 1mm; }
-        .addr { font-size: 8pt; color: #6b7280; margin-top: 1mm; }
+        .school-name { font-family: "DejaVu Serif", Georgia, serif; font-size: 16pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #000; }
+        .affil { font-size: 8pt; color: #000; margin-top: 1mm; }
+        .addr { font-size: 8pt; color: #000; margin-top: 1mm; }
         {{-- Same masthead contact line as the achievement certificate. --}}
-        .contact { font-size: 8pt; color: #9ca3af; margin-top: 1mm; }
+        .contact { font-size: 8pt; color: #000; margin-top: 1mm; }
 
         .rule { border-top: 0.8px solid #e5e7eb; margin: 3.5mm 0 0; }
 
         /* ── Title ── */
         .title { text-align: center; font-family: "DejaVu Serif", Georgia, serif; font-size: 12pt; font-weight: bold;
-                 text-transform: uppercase; letter-spacing: 5px; color: #111827; margin: 3.5mm 0 0; }
+                 text-transform: uppercase; letter-spacing: 5px; color: #000; margin: 3.5mm 0 0; }
 
         /* ── Identifier strip: label above value, no boxes ── */
         .meta { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 3.5mm; }
         .meta td { width: 25%; vertical-align: top; }
-        .meta-label { font-size: 6.5pt; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; }
-        .meta-value { font-size: 9pt; font-weight: bold; color: #111827; margin-top: 0.8mm; }
+        .meta-label { font-size: 6.5pt; text-transform: uppercase; letter-spacing: 1px; color: #000; }
+        .meta-value { font-size: 9pt; font-weight: bold; color: #000; margin-top: 0.8mm; }
 
         /* ── The statutory questions ── */
         {{-- `table-layout: fixed` or dompdf hands the long labels two thirds of the row
              and squeezes the answers; percentages (not mm) are what survive it. --}}
         .data { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 3.5mm; }
-        .data td { vertical-align: top; padding: 0.5mm 0; border-bottom: 0.5px solid #f3f4f6; line-height: 1.25; }
-        .data td.num { width: 6%; font-size: 8pt; color: #9ca3af; }
-        .data td.label { width: 54%; font-size: 8.5pt; color: #6b7280; padding-right: 4mm; }
-        {{-- The answers carry the weight of the page by being darker, not bolder — a
-             column of bold shouts over the questions it belongs to. --}}
-        .data td.value { width: 40%; font-size: 8.5pt; font-weight: normal; color: #111827; }
+        .data td { vertical-align: top; padding: 0.5mm 0; border-bottom: 0.5px solid #d1d5db; line-height: 1.25; }
+        .data td.num { width: 6%; font-size: 8pt; color: #000; }
+        .data td.label { width: 54%; font-size: 8.5pt; color: #000; padding-right: 4mm; }
+        {{-- Questions and answers alike in black, so neither prints faint; the
+             answers are not bold — a column of bold shouts over its questions. --}}
+        .data td.value { width: 40%; font-size: 8.5pt; font-weight: normal; color: #000; }
         .data tr.last td { border-bottom: 0; }
 
         /* ── Signatures ── */
         .sig { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 5.5mm; }
         .sig td { width: 33.33%; text-align: center; padding: 0 6mm; }
-        .sig-line { border-top: 0.8px solid #d1d5db; padding-top: 2mm; font-size: 8pt; text-transform: uppercase;
-                    letter-spacing: 1px; color: #6b7280; }
+        .sig-line { border-top: 0.8px solid #000; padding-top: 2mm; font-size: 8pt; text-transform: uppercase;
+                    letter-spacing: 1px; color: #000; }
     </style>
 </head>
 <body>
@@ -119,17 +119,19 @@
 
     // One list, one shape: every question is a label and its answer.
     $rows = [
-        'Name of pupil'                                          => $tc->student->full_name ?? '—',
+        'Name of Student'                                        => $tc->student->full_name ?? '—',
         "Mother's name"                                          => $tc->student->mother_name ?? '—',
         "Father's / guardian name"                               => $tc->student->father_name ?? '—',
         'Nationality'                                            => $tc->nationality,
-        'Belongs to Schedule Caste / Schedule Tribe'             => $tc->is_sc_st ? 'Yes' : 'No',
+        // The caste as typed when issued; older certificates kept only a yes / no.
+        'Belongs to Schedule Caste / Schedule Tribe'             => $tc->casteLine(),
         'Date of first admission in the school with class'       => $admissionWith,
         'Name of the school last attended before this'           => $tc->previous_school_name ?: '—',
         'Class studied in that school'                           => $tc->previous_school_class ?: '—',
+        'PEN No'                                                 => $tc->student->pen_no ?: '—',
         'Date of birth as per admission register (in figures)'   => $tc->student->dob?->format('d/m/Y') ?? '—',
         'Date of birth (in words)'                               => $dobWords,
-        'Class in which the pupil last studied'                  => trim(($tc->last_class_studied ?: '—') . ($lastClassWords ? '  ·  ' . $lastClassWords : '')),
+        'Class in which the Student last studied'                => trim(($tc->last_class_studied ?: '—') . ($lastClassWords ? '  ·  ' . $lastClassWords : '')),
         'Annual examination last taken, with result'             => $tc->exam_last_taken ?: '—',
         'Whether failed, if so once / twice in the same class'    => $tc->whether_failed,
         'Subjects studied'                                       => $tc->subjects_studied ?: '—',
@@ -177,11 +179,11 @@
         <table class="meta">
             <tr>
                 <td>
-                    <div class="meta-label">TC No</div>
-                    <div class="meta-value">{{ $tc->tc_no ?: '—' }}</div>
+                    <div class="meta-label">APAAR ID</div>
+                    <div class="meta-value">{{ $tc->student->appar_id ?: '—' }}</div>
                 </td>
                 <td>
-                    <div class="meta-label">Book No</div>
+                    <div class="meta-label">Sr No</div>
                     <div class="meta-value">{{ $tc->book_no ?: '—' }}</div>
                 </td>
                 <td>
@@ -189,8 +191,8 @@
                     <div class="meta-value">{{ $tc->student->admission_no ?? '—' }}</div>
                 </td>
                 <td>
-                    <div class="meta-label">School Code</div>
-                    <div class="meta-value">{{ $org->school_code ?: '—' }}</div>
+                    <div class="meta-label">Affiliation No</div>
+                    <div class="meta-value">{{ $org->affiliation_no ?: '—' }}</div>
                 </td>
             </tr>
         </table>

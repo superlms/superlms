@@ -4,6 +4,7 @@ namespace App\Livewire\Admin;
 
 use App\Models\Admin\Certificate;
 use App\Models\Admin\TransferCertificate;
+use App\Models\Organization;
 use App\Models\Student\Section;
 use App\Models\Student\Standard;
 use App\Models\Student\StudentDetail;
@@ -44,7 +45,8 @@ class TcCertificate extends Component
     public ?int   $tc_student_id            = null;
     public string $book_no                  = '';
     public string $nationality              = 'Indian';
-    public bool   $is_sc_st                 = false;
+    /** The student's caste, as the certificate answers Scheduled Caste / Tribe with it. */
+    public string $caste                    = '';
     public string $last_class_studied       = '';
     /** The school the pupil came from, and the class they were in there. */
     public string $previous_school_name     = '';
@@ -109,6 +111,13 @@ class TcCertificate extends Component
         'father_name'       => "Father's / Guardian Name",
         'dob'               => 'Date of Birth',
         'date_of_admission' => 'Date of First Admission',
+        'appar_id'          => 'APAAR ID',
+        'pen_no'            => 'PEN No',
+    ];
+
+    /** …and from the school's: where it is blank, asked for and saved to the school. */
+    public const TC_SCHOOL_FIELDS = [
+        'affiliation_no' => 'Affiliation No (school)',
     ];
 
     /** What was typed for those blanks, by field. */
@@ -257,7 +266,10 @@ class TcCertificate extends Component
             : null;
     }
 
-    /** The record's blanks among what the TC prints, for the student picked: field => label. */
+    /**
+     * The blanks among what the TC prints, for the student picked — in the
+     * student's record, then the school's: field => label.
+     */
     #[Computed]
     public function tcMissingFields(): array
     {
@@ -266,9 +278,15 @@ class TcCertificate extends Component
             return [];
         }
 
+        $school = Organization::find($this->organizationId);
+
         return array_filter(
             self::TC_STUDENT_FIELDS,
             fn ($label, $key) => blank($student->{$key}),
+            ARRAY_FILTER_USE_BOTH
+        ) + array_filter(
+            self::TC_SCHOOL_FIELDS,
+            fn ($label, $key) => blank($school?->{$key}),
             ARRAY_FILTER_USE_BOTH
         );
     }
@@ -488,7 +506,8 @@ class TcCertificate extends Component
         $this->tc_student_id           = $tc->student_detail_id;
         $this->book_no                 = $tc->book_no ?? '';
         $this->nationality             = $tc->nationality;
-        $this->is_sc_st                = $tc->is_sc_st;
+        // Issued before a caste was asked: its yes / no for SC / ST.
+        $this->caste                   = $tc->caste ?? ($tc->is_sc_st ? 'SC / ST' : '');
         $this->last_class_studied      = $tc->last_class_studied ?? '';
         $this->previous_school_name    = $tc->previous_school_name ?? '';
         $this->previous_school_class   = $tc->previous_school_class ?? '';
@@ -513,13 +532,13 @@ class TcCertificate extends Component
 
     public function saveTc(): void
     {
-        // Every field of the form is needed — and, where the student's record
-        // lacks something the certificate prints, that too. (Only the SC / ST
-        // tick is a yes or no and so is never "missing".)
+        // Every field of the form is needed — and, where the student's or the
+        // school's record lacks something the certificate prints, that too.
         $rules = [
             'tc_student_id'           => 'required|exists:student_details,id',
             'nationality'             => 'required|string|max:100',
             'book_no'                 => 'required|string|max:50',
+            'caste'                   => 'required|string|max:100',
             'previous_school_name'    => 'required|string|max:255',
             'previous_school_class'   => 'required|string|max:50',
             'last_class_studied'      => 'required|string|max:50',
@@ -540,15 +559,17 @@ class TcCertificate extends Component
             'tc_remarks'              => 'required|string|max:1000',
         ];
         foreach (array_keys($this->tcMissingFields) as $key) {
-            $rules['tcStudentFill.' . $key] = in_array($key, ['dob', 'date_of_admission'], true)
-                ? 'required|date'
-                : 'required|string|max:255';
+            $rules['tcStudentFill.' . $key] = match (true) {
+                in_array($key, ['dob', 'date_of_admission'], true)            => 'required|date',
+                in_array($key, ['appar_id', 'pen_no', 'affiliation_no'], true) => 'required|string|max:30',
+                default                                                     => 'required|string|max:255',
+            };
         }
 
         $this->validate($rules, [
             'tc_student_id.required' => 'Pick the student.',
         ], [
-            'book_no'                 => 'book no.',
+            'book_no'                 => 'sr no.',
             'previous_school_name'    => 'last school name',
             'previous_school_class'   => 'class in last school',
             'last_class_studied'      => 'class last studied',
@@ -566,6 +587,9 @@ class TcCertificate extends Component
             'tcStudentFill.father_name'       => "father's name",
             'tcStudentFill.dob'               => 'date of birth',
             'tcStudentFill.date_of_admission' => 'date of admission',
+            'tcStudentFill.appar_id'          => 'APAAR ID',
+            'tcStudentFill.pen_no'            => 'PEN no.',
+            'tcStudentFill.affiliation_no'    => 'affiliation no.',
         ]);
 
         $data = [
@@ -573,7 +597,8 @@ class TcCertificate extends Component
             'student_detail_id'      => $this->tc_student_id,
             'book_no'                => $this->book_no ?: null,
             'nationality'            => $this->nationality,
-            'is_sc_st'               => $this->is_sc_st,
+            'caste'                  => trim($this->caste),
+            'is_sc_st'               => TransferCertificate::casteIsScSt($this->caste),
             'last_class_studied'     => $this->last_class_studied ?: null,
             'previous_school_name'   => trim($this->previous_school_name) ?: null,
             'previous_school_class'  => trim($this->previous_school_class) ?: null,
@@ -613,8 +638,9 @@ class TcCertificate extends Component
     }
 
     /**
-     * What was typed for the student's blank details goes onto the student's
-     * record — only into fields that are blank there, never over a value.
+     * What was typed for the blank details goes onto the student's record, or
+     * the school's (its Affiliation No) — only into fields that are blank
+     * there, never over a value.
      */
     private function saveTcStudentBlanks(): void
     {
@@ -626,10 +652,19 @@ class TcCertificate extends Component
             }
         }
 
-        if ($fill) {
+        $school  = array_intersect_key($fill, self::TC_SCHOOL_FIELDS);
+        $student = array_diff_key($fill, self::TC_SCHOOL_FIELDS);
+
+        if ($student) {
             StudentDetail::where('organization_id', $this->organizationId)
                 ->whereKey($this->tc_student_id)
-                ->update($fill);
+                ->update($student);
+        }
+        if ($school) {
+            Organization::whereKey($this->organizationId)->update($school);
+            $this->organization = Organization::find($this->organizationId);
+        }
+        if ($fill) {
             unset($this->selectedTcStudent, $this->tcMissingFields);
         }
     }
@@ -667,6 +702,7 @@ class TcCertificate extends Component
             'tcStudentSearch',
             'tcStudentFill',
             'book_no',
+            'caste',
             'last_class_studied',
             'previous_school_name',
             'previous_school_class',
@@ -679,7 +715,6 @@ class TcCertificate extends Component
             'tc_remarks',
         ]);
         $this->nationality             = 'Indian';
-        $this->is_sc_st                = false;
         $this->whether_failed          = 'No';
         $this->qualified_for_promotion = 'Yes';
         $this->total_working_days      = 0;

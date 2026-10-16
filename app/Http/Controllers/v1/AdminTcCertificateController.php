@@ -218,8 +218,13 @@ class AdminTcCertificateController extends ApiController
             'student_name'            => $tc->student?->full_name,
             'admission_no'            => $tc->student?->admission_no,
             'book_no'                 => $tc->book_no,
+            // The certificate prints book_no as its Sr No.
+            'sr_no'                   => $tc->book_no,
+            'apaar_id'                => $tc->student?->appar_id,
+            'pen_no'                  => $tc->student?->pen_no,
             'nationality'             => $tc->nationality,
             'is_sc_st'                => (bool) $tc->is_sc_st,
+            'caste'                   => $tc->caste,
             'last_class_studied'      => $tc->last_class_studied,
             'exam_last_taken'         => $tc->exam_last_taken,
             'whether_failed'          => $tc->whether_failed,
@@ -372,12 +377,17 @@ class AdminTcCertificateController extends ApiController
 
     private function tcData(Request $request, int $orgId): array
     {
-        return [
+        // A caste, when sent, is what the certificate prints for SC / ST (and
+        // sets is_sc_st); an app that sends only is_sc_st leaves the caste be.
+        $caste = $request->has('caste')
+            ? ['caste' => trim((string) $request->caste) ?: null, 'is_sc_st' => TransferCertificate::casteIsScSt($request->caste)]
+            : ['is_sc_st' => (bool) $request->boolean('is_sc_st')];
+
+        return $caste + [
             'organization_id'         => $orgId,
             'student_detail_id'       => $request->student_detail_id,
-            'book_no'                 => $request->book_no ?: null,
+            'book_no'                 => ($request->sr_no ?? $request->book_no) ?: null,
             'nationality'             => $request->input('nationality', 'Indian'),
-            'is_sc_st'                => (bool) $request->boolean('is_sc_st'),
             'last_class_studied'      => $request->last_class_studied ?: null,
             'exam_last_taken'         => $request->exam_last_taken ?: null,
             'whether_failed'          => $request->input('whether_failed', 'No'),

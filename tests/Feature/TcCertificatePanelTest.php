@@ -35,6 +35,7 @@ class TcCertificatePanelTest extends TestCase
         Schema::create('organizations', function (Blueprint $t) {
             $t->id();
             $t->string('name');
+            $t->string('affiliation_no')->nullable();
             $t->softDeletes();
             $t->timestamps();
         });
@@ -58,6 +59,8 @@ class TcCertificatePanelTest extends TestCase
             $t->date('dob')->nullable();
             $t->date('date_of_admission')->nullable();
             $t->string('admission_no')->nullable();
+            $t->string('appar_id')->nullable();
+            $t->string('pen_no')->nullable();
             $t->softDeletes();
             $t->timestamps();
         });
@@ -96,6 +99,7 @@ class TcCertificatePanelTest extends TestCase
             $t->string('book_no')->nullable();
             $t->string('nationality')->nullable();
             $t->boolean('is_sc_st')->default(false);
+            $t->string('caste')->nullable();
             $t->string('last_class_studied')->nullable();
             $t->string('previous_school_name')->nullable();
             $t->string('previous_school_class')->nullable();
@@ -124,7 +128,7 @@ class TcCertificatePanelTest extends TestCase
         $admin->organization_id = $this->org;
         $this->actingAs($admin);
 
-        DB::table('organizations')->insert(['id' => $this->org, 'name' => 'Test School']);
+        DB::table('organizations')->insert(['id' => $this->org, 'name' => 'Test School', 'affiliation_no' => '2130456']);
         DB::table('standards')->insert(['id' => 1, 'organization_id' => $this->org, 'name' => 'Class 5']);
         DB::table('sections')->insert([
             ['id' => 1, 'organization_id' => $this->org, 'standard_id' => 1, 'name' => 'A'],
@@ -154,6 +158,7 @@ class TcCertificatePanelTest extends TestCase
             'full_name' => $name, 'father_name' => $father, 'mother_name' => 'Mother of ' . $name,
             'dob' => '2015-04-10', 'date_of_admission' => '2021-04-05',
             'admission_no' => 'ADM-' . strtoupper(substr($name, 0, 3)),
+            'appar_id' => 'APR' . strtoupper(substr($name, 0, 3)), 'pen_no' => 'PEN' . strtoupper(substr($name, 0, 3)),
         ]);
     }
 
@@ -248,7 +253,7 @@ class TcCertificatePanelTest extends TestCase
         $table = $this->table(Livewire::test($pageClass)->set('activeTab', 'tc')->html());
 
         preg_match_all('/<th\s[^>]*>(.*?)<\/th>/s', $table, $m);
-        $this->assertSame(['S.No', 'Student', 'TC No', 'Class', 'Book No', 'Last Class', 'Conduct', 'Issue Date', 'Actions'], array_map('trim', $m[1]));
+        $this->assertSame(['S.No', 'Student', 'TC No', 'Class', 'Sr No', 'Last Class', 'Conduct', 'Issue Date', 'Actions'], array_map('trim', $m[1]));
 
         // The student's class with the section small under it.
         $this->assertSame('1 Asha ADM-ASH ' . $tc->tc_no . ' Class 5 B 096 5th Good 16 Sep 2026', $this->rowText(explode('<tr wire:key="tc-', $table)[1]));
@@ -475,7 +480,7 @@ class TcCertificatePanelTest extends TestCase
     {
         $fields = $more + [
             'tcClass' => '1', 'tc_student_id' => $student,
-            'nationality' => 'Indian', 'book_no' => '096',
+            'nationality' => 'Indian', 'book_no' => '096', 'caste' => 'OBC',
             'previous_school_name' => 'ABC Public School', 'previous_school_class' => '4th',
             'last_class_studied' => '5th', 'exam_last_taken' => '5th Passed', 'subjects_studied' => 'Hindi, English, Maths',
             'total_working_days' => 220, 'days_present' => 201, 'fees_paid_upto' => 'March 2026', 'fee_concession' => 'None',
@@ -495,7 +500,7 @@ class TcCertificatePanelTest extends TestCase
 
         $page = Livewire::test($pageClass)->set('activeTab', 'tc')->call('createTc')->set('nationality', '')->call('saveTc')
             ->assertHasErrors([
-                'tc_student_id', 'nationality', 'book_no', 'previous_school_name', 'previous_school_class', 'last_class_studied',
+                'tc_student_id', 'nationality', 'book_no', 'caste', 'previous_school_name', 'previous_school_class', 'last_class_studied',
                 'exam_last_taken', 'subjects_studied', 'fees_paid_upto', 'fee_concession', 'extra_activities', 'reason_for_leaving', 'tc_remarks',
             ])
             ->assertHasNoErrors(['whether_failed', 'qualified_for_promotion', 'is_ncc_scout', 'general_conduct', 'application_date', 'tc_issue_date', 'total_working_days', 'days_present']);
@@ -503,19 +508,19 @@ class TcCertificatePanelTest extends TestCase
 
         // Every label carries the star and every field shows its error.
         $panel = $this->panel($page->html(), 'Transfer Certificate</h2>');
-        foreach (['Nationality', 'Book No.', 'Last School Name', 'Class in Last School', 'Class Last Studied', 'Exam Last Taken with Result', 'Whether Failed',
+        foreach (['Nationality', 'Sr No.', 'Caste', 'Last School Name', 'Class in Last School', 'Class Last Studied', 'Exam Last Taken with Result', 'Whether Failed',
             'Qualified for Promotion', 'Subjects Studied', 'Total Working Days', 'Days Present', 'Fees Paid Upto', 'Fee Concession (if any)',
             'NCC / Scout / Guide', 'Games / Extra-Curricular Activities', 'Reason for Leaving', 'Any Other Remark'] as $label) {
             $this->assertStringContainsString($label . ' <span class="text-red-500">*</span>', $panel, $label);
         }
-        $this->assertStringContainsString('The book no. field is required.', $panel);
+        $this->assertStringContainsString('The sr no. field is required.', $panel);
         $this->assertStringContainsString('The remark field is required.', $panel);
 
         $this->filledTc($page, $asha)->call('saveTc')->assertHasNoErrors()->assertSet('tcModal', false);
 
         $tc = TransferCertificate::first();
-        $this->assertSame([$asha, '096', 'ABC Public School', '4th', 'None', 'No'],
-            [$tc->student_detail_id, $tc->book_no, $tc->previous_school_name, $tc->previous_school_class, $tc->fee_concession, $tc->remarks]);
+        $this->assertSame([$asha, '096', 'ABC Public School', '4th', 'None', 'No', 'OBC', false],
+            [$tc->student_detail_id, $tc->book_no, $tc->previous_school_name, $tc->previous_school_class, $tc->fee_concession, $tc->remarks, $tc->caste, $tc->is_sc_st]);
 
         // Edit brings them back.
         $page->call('editTc', $tc->id)->assertSet('previous_school_name', 'ABC Public School')->assertSet('previous_school_class', '4th')
@@ -533,12 +538,12 @@ class TcCertificatePanelTest extends TestCase
 
         // A complete record: nothing more is asked.
         $panel = $this->panel($page->set('tc_student_id', $whole)->html(), 'Transfer Certificate</h2>');
-        $this->assertStringNotContainsString("Missing in the Student's Record", html_entity_decode($panel, ENT_QUOTES));
+        $this->assertStringNotContainsString('Missing in the Record', $panel);
         $this->assertSame([], $page->instance()->tcMissingFields);
 
         // Blanks in the record: just those are asked for.
         $panel = $this->panel($page->set('tc_student_id', $gaps)->html(), 'Transfer Certificate</h2>');
-        $this->assertStringContainsString("Missing in the Student's Record", html_entity_decode($panel, ENT_QUOTES));
+        $this->assertStringContainsString('Missing in the Record', $panel);
         $this->assertStringContainsString('wire:model.defer="tcStudentFill.mother_name"', $panel);
         $this->assertStringContainsString('type="date" wire:model.defer="tcStudentFill.dob"', $panel);
         $this->assertStringNotContainsString('tcStudentFill.father_name', $panel);
@@ -576,13 +581,74 @@ class TcCertificatePanelTest extends TestCase
         $this->assertMatchesRegularExpression('/<div class="rule"><\/div>\s*<div class="title">Transfer Certificate<\/div>\s*<div class="rule"><\/div>/', $html);
 
         // The two new lines, after the admission line; the numbering runs on.
-        $this->assertStringContainsString('6 Date of first admission in the school with class 05/04/2021 · Class Class 5 7 Name of the school last attended before this ABC Public School 8 Class studied in that school 4th 9 Date of birth', $text);
-        $this->assertStringContainsString('26 Any other remark No', $text);
+        $this->assertStringContainsString('6 Date of first admission in the school with class 05/04/2021 · Class Class 5 7 Name of the school last attended before this ABC Public School 8 Class studied in that school 4th 9 PEN No PENASH 10 Date of birth', $text);
+        $this->assertStringContainsString('27 Any other remark No', $text);
 
         // A certificate issued before these were asked for prints a dash for each.
         $old = $this->tc($asha)->load('student.standard');
         $old->setRelation('organization', Organization::find($this->org));
         $text = $this->text(view('pdf.admin.tc-certificate', ['tc' => $old, 'contact' => []])->render());
         $this->assertStringContainsString('7 Name of the school last attended before this — 8 Class studied in that school — 9', $text);
+        // …and answers SC / ST with its yes / no.
+        $this->assertStringContainsString('5 Belongs to Schedule Caste / Schedule Tribe No 6', $text);
+    }
+
+    public function test_the_printed_tc_reads_apaar_sr_no_affiliation_pen_and_the_caste_in_black(): void
+    {
+        $asha = $this->student('Asha', 'Ramesh');
+        $tc = $this->tc($asha, ['caste' => 'OBC'])->load('student.standard');
+        $tc->setRelation('organization', Organization::find($this->org));
+
+        $html = view('pdf.admin.tc-certificate', ['tc' => $tc, 'contact' => []])->render();
+        $text = $this->text(substr($html, strpos($html, '<body')));
+
+        // APAAR ID where the TC No was, Sr No for Book No, Affiliation No for School Code.
+        $this->assertStringContainsString('APAAR ID APRASH Sr No 096 Admission No ADM-ASH Affiliation No 2130456', $text);
+        foreach (['TC No', 'Book No', 'School Code', 'pupil'] as $gone) {
+            $this->assertStringNotContainsString($gone, $text, $gone);
+        }
+        $this->assertStringContainsString('1 Name of Student Asha', $text);
+        $this->assertStringContainsString('Class in which the Student last studied', $text);
+        $this->assertStringContainsString('5 Belongs to Schedule Caste / Schedule Tribe OBC', $text);
+
+        // Every word in black, nothing in the old greys.
+        $style = substr($html, 0, strpos($html, '</style>'));
+        $this->assertDoesNotMatchRegularExpression('/color:\s*#(9ca3af|6b7280|1f2937|111827)/', $style);
+        $this->assertStringContainsString('.data td.label { width: 54%; font-size: 8.5pt; color: #000;', $style);
+        $this->assertStringContainsString('.data td.value { width: 40%; font-size: 8.5pt; font-weight: normal; color: #000;', $style);
+    }
+
+    #[DataProvider('pages')]
+    public function test_a_missing_apaar_pen_or_affiliation_no_is_asked_for_and_saved(string $pageClass): void
+    {
+        DB::table('organizations')->where('id', $this->org)->update(['affiliation_no' => null]);
+        $bina = $this->student('Bina', 'Suresh', 1, null, null, ['appar_id' => null, 'pen_no' => null]);
+
+        $page = Livewire::test($pageClass)->set('activeTab', 'tc')->call('createTc')->set('tcClass', '1')->set('tc_student_id', $bina);
+        $panel = $this->panel($page->html(), 'Transfer Certificate</h2>');
+        foreach (['appar_id', 'pen_no', 'affiliation_no'] as $key) {
+            $this->assertStringContainsString('type="text" wire:model.defer="tcStudentFill.' . $key . '"', $panel, $key);
+        }
+        $this->assertStringNotContainsString('tcStudentFill.mother_name', $panel);
+        // Caste is typed, not ticked.
+        $this->assertStringContainsString('wire:model.defer="caste"', $panel);
+        $this->assertStringNotContainsString('is_sc_st', $panel);
+
+        $this->filledTc($page, $bina)->call('saveTc')
+            ->assertHasErrors(['tcStudentFill.appar_id', 'tcStudentFill.pen_no', 'tcStudentFill.affiliation_no']);
+        $this->assertSame(0, TransferCertificate::count());
+
+        $page->set('tcStudentFill.appar_id', 'APAAR123')->set('tcStudentFill.pen_no', 'PEN987')
+            ->set('tcStudentFill.affiliation_no', '2130999')->set('caste', 'SC')
+            ->call('saveTc')->assertHasNoErrors()->assertSet('tcModal', false);
+
+        $record = DB::table('student_details')->where('id', $bina)->first();
+        $this->assertSame(['APAAR123', 'PEN987'], [$record->appar_id, $record->pen_no]);
+        $this->assertSame('2130999', DB::table('organizations')->where('id', $this->org)->value('affiliation_no'));
+        $tc = TransferCertificate::first();
+        $this->assertSame(['SC', true], [$tc->caste, $tc->is_sc_st]);
+
+        // Edit brings the caste back.
+        $page->call('editTc', $tc->id)->assertSet('caste', 'SC');
     }
 }

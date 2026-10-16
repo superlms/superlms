@@ -15,7 +15,9 @@ class TransferCertificate extends Model
 
     protected $fillable = [
         'organization_id', 'student_detail_id', 'tc_no', 'book_no',
-        'nationality', 'is_sc_st', 'last_class_studied', 'exam_last_taken',
+        // book_no is the TC's Sr No; caste is as typed when it was issued
+        // (older ones have only the is_sc_st yes / no).
+        'nationality', 'is_sc_st', 'caste', 'last_class_studied', 'exam_last_taken',
         'previous_school_name', 'previous_school_class',
         'whether_failed', 'subjects_studied', 'qualified_for_promotion',
         'fees_paid_upto', 'fee_concession', 'total_working_days', 'days_present',
@@ -32,6 +34,18 @@ class TransferCertificate extends Model
     public function organization() { return $this->belongsTo(Organization::class); }
 
     public function student() { return $this->belongsTo(StudentDetail::class, 'student_detail_id'); }
+
+    /** Whether a caste as typed is a Scheduled Caste or Scheduled Tribe — kept in is_sc_st. */
+    public static function casteIsScSt(?string $caste): bool
+    {
+        return (bool) preg_match('/\b(sc|st)\b|schedul/i', (string) $caste);
+    }
+
+    /** What the certificate answers for Scheduled Caste / Tribe: the caste, else the old yes / no. */
+    public function casteLine(): string
+    {
+        return trim((string) $this->caste) !== '' ? trim($this->caste) : ($this->is_sc_st ? 'Yes' : 'No');
+    }
 
     protected static function booted(): void
     {

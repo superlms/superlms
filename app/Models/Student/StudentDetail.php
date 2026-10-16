@@ -41,6 +41,8 @@ class StudentDetail extends Model
         'organization_id',
         'transportation_required',
         'appar_id',
+        // Permanent Education Number — the transfer certificate prints it.
+        'pen_no',
         'registration_number'
     ];
 
