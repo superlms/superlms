@@ -14,15 +14,23 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Beside the APAAR ID / SC-ST tick where those are there already — a
+        // fresh database gets appar_id from lms:migrate, which runs after this.
         Schema::table('student_details', function (Blueprint $table) {
             if (! Schema::hasColumn('student_details', 'pen_no')) {
-                $table->string('pen_no', 30)->nullable()->after('appar_id');
+                $column = $table->string('pen_no', 30)->nullable();
+                if (Schema::hasColumn('student_details', 'appar_id')) {
+                    $column->after('appar_id');
+                }
             }
         });
 
         Schema::table('transfer_certificates', function (Blueprint $table) {
             if (! Schema::hasColumn('transfer_certificates', 'caste')) {
-                $table->string('caste', 100)->nullable()->after('is_sc_st');
+                $column = $table->string('caste', 100)->nullable();
+                if (Schema::hasColumn('transfer_certificates', 'is_sc_st')) {
+                    $column->after('is_sc_st');
+                }
             }
         });
     }
