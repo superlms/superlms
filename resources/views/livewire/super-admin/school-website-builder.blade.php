@@ -62,8 +62,9 @@
             @if ($activeTab === 'pages')
                 <div class="p-5 space-y-3">
                     <p class="text-xs text-gray-500">
-                        Turn pages on or off for this school's website. A page turned off leaves the site's menu and its
-                        link shows Page not found. The school writes each page under More → Website Data. Home is always on.
+                        Turn pages on or off for this school's website — listed under the same menus the site shows them in
+                        ({{ $templates[$template]['label'] ?? 'Playful' }} template). A page turned off leaves the site's menu
+                        and its link shows Page not found. The school writes each page under More → Website Data. Home is always on.
                     </p>
 
                     <div class="border border-gray-200 rounded-md">
@@ -80,7 +81,7 @@
                         @foreach ($pageGroups as $group => $items)
                             <p class="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{{ $group }}</p>
                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                                @foreach ($items as $slug => [$label, $type])
+                                @foreach ($items as $slug => $label)
                                     <label wire:key="page-{{ $slug }}"
                                         class="flex items-center gap-2.5 px-4 py-2 border-b border-gray-100 {{ $slug === 'home' ? 'cursor-default' : 'cursor-pointer hover:bg-gray-50' }}">
                                         @if ($slug === 'home')
@@ -94,6 +95,13 @@
                                     </label>
                                 @endforeach
                             </div>
+                            @if ($template === 'classic' && $group === 'Mandatory Disclosure')
+                                {{-- The site's next menu, built from the uploads rather than ticked. --}}
+                                <p class="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Documents</p>
+                                <p class="px-4 py-2 border-b border-gray-100 text-xs text-gray-400">
+                                    Fills itself: every Mandatory Disclosure the school uploads is listed here on its own page.
+                                </p>
+                            @endif
                         @endforeach
 
                         {{-- Footer --}}

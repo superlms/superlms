@@ -78,6 +78,26 @@ class SchoolWebsite extends Model
     }
 
     /**
+     * Every page under the menu group it sits in on a site of this template,
+     * in the menu's order: group => [slug => label]. The site's menu is this
+     * with the pages switched off taken out; the Super Admin's Pages tab lists
+     * it whole, so a page is ticked where the school's visitors will find it.
+     */
+    public static function menuGroups(string $template): array
+    {
+        $labels = static::allPages();
+
+        if ($template !== 'classic') {
+            return array_map(fn ($pages) => array_map(fn ($page) => $page[0], $pages), static::pageGroups());
+        }
+
+        $groups = static::classicNavGroups();
+        $groups['More'] = array_merge($groups['More'], array_values(array_diff(array_keys($labels), array_merge(...array_values($groups)))));
+
+        return array_map(fn ($slugs) => array_combine($slugs, array_map(fn ($slug) => $labels[$slug], $slugs)), $groups);
+    }
+
+    /**
      * The template's page catalogue, grouped the way the navigation shows it.
      *
      * Most entries are "content" pages — a heading, a body and an optional
@@ -384,6 +404,39 @@ class SchoolWebsite extends Model
             }
         }
         return $out;
+    }
+
+    /**
+     * Content to store, less what only repeats the school's own record. Website
+     * Data opens with every field filled from the profile, so a save used to
+     * keep a copy of each — and the site then showed that copy for good: a
+     * logo replaced (or moved to new storage) stayed the old, dead link.
+     * A value equal to the one fetched from the profile is dropped, and so is
+     * a logo pointing at the school-logo uploads (the profile's own logo, an
+     * old one included); the site then follows the profile.
+     */
+    public function overridesOnly(array $content): array
+    {
+        $auto = $this->autoContent();
+
+        foreach ($content as $key => $value) {
+            if (! array_key_exists($key, $auto)) {
+                continue;
+            }
+            $same = is_array($value) || is_array($auto[$key])
+                ? $value == $auto[$key]
+                : trim((string) $value) === trim((string) $auto[$key]);
+            if ($same) {
+                unset($content[$key]);
+            }
+        }
+
+        $logoPath = (string) parse_url((string) ($content['logo'] ?? ''), PHP_URL_PATH);
+        if (preg_match('#/(superadmin/schools/logos|admin/profile/photos)/#', $logoPath)) {
+            unset($content['logo']);
+        }
+
+        return $content;
     }
 
     /**

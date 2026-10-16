@@ -169,11 +169,7 @@
             @if ($lead)<p class="lead">{{ $lead }}</p>@endif
             <div class="welcome-body">
                 <div class="welcome-logo">
-                    @if (SchoolWebsite::media($c['logo'] ?? null))
-                        <img src="{{ SchoolWebsite::media($c['logo']) }}" alt="{{ $c['school_name'] }}">
-                    @else
-                        @include('school-site.classic.partials.seal', ['center' => null, 'ring' => $c['school_name'], 'sealId' => 'welcome'])
-                    @endif
+                    @include('school-site.classic.partials.logo', ['sealId' => 'welcome'])
                 </div>
                 <div class="prose">
                     @include('school-site.classic.partials.paras', ['text' => $c['about_text']])

@@ -65,72 +65,35 @@ class SchoolSiteController extends Controller
     /** Shared view data (content, theme, nav, current page). */
     private function data(SchoolWebsite $site, string $current): array
     {
-        $enabled = $site->enabledPages();
-
-        $nav = $site->templateKey() === 'classic'
-            ? $this->classicNav($site, $enabled)
-            : $this->groupedNav($enabled);
-
         return [
             'site'    => $site,
             'c'       => $site->resolvedContent(),
             'theme'   => $site->resolvedTheme(),
-            'nav'     => $nav,
+            'nav'     => $this->nav($site),
             'current' => $current,
         ];
     }
 
     /**
-     * The nav keeps pageGroups' order and drops anything switched off; a
-     * group with nothing left in it disappears entirely.
+     * The menu: the template's groups (SchoolWebsite::menuGroups, the same
+     * list the Super Admin ticks pages in) with the pages switched off taken
+     * out — a group with nothing left disappears. Classic adds a Documents
+     * group of the disclosures the school has uploaded (each its own page,
+     * doc/N) straight after Mandatory Disclosure.
      */
-    private function groupedNav(array $enabled): array
+    private function nav(SchoolWebsite $site): array
     {
-        $nav = [];
-        foreach (SchoolWebsite::pageGroups() as $group => $pages) {
-            $items = [];
-            foreach ($pages as $slug => [$label, $type]) {
-                if (in_array($slug, $enabled, true)) {
-                    $items[$slug] = $label;
-                }
-            }
-            if ($items) {
-                $nav[$group] = $items;
-            }
-        }
-
-        return $nav;
-    }
-
-    /**
-     * The Classic menu: classicNavGroups' groups, then a Documents group of
-     * the disclosure documents the school has uploaded (each its own page,
-     * doc/N) straight after Mandatory Disclosure. Pages switched on that no
-     * group names go under More.
-     */
-    private function classicNav(SchoolWebsite $site, array $enabled): array
-    {
-        $labels = SchoolWebsite::allPages();
-        $groups = SchoolWebsite::classicNavGroups();
-        $placed = array_merge(...array_values($groups));
+        $enabled = $site->enabledPages();
+        $classic = $site->templateKey() === 'classic';
 
         $nav = [];
-        foreach ($groups as $group => $slugs) {
-            if ($group === 'More') {
-                $slugs = array_merge($slugs, array_diff(array_keys($labels), $placed));
-            }
-
-            $items = [];
-            foreach ($slugs as $slug) {
-                if (in_array($slug, $enabled, true)) {
-                    $items[$slug] = $labels[$slug];
-                }
-            }
+        foreach (SchoolWebsite::menuGroups($site->templateKey()) as $group => $pages) {
+            $items = array_intersect_key($pages, array_flip($enabled));
             if ($items) {
                 $nav[$group] = $items;
             }
 
-            if ($group === 'Mandatory Disclosure' && in_array('disclosures', $enabled, true)) {
+            if ($classic && $group === 'Mandatory Disclosure' && in_array('disclosures', $enabled, true)) {
                 $docs = [];
                 foreach ($site->pageDocuments('disclosures') as $i => $doc) {
                     if (trim((string) ($doc['file'] ?? '')) !== '' && trim((string) ($doc['title'] ?? '')) !== '') {

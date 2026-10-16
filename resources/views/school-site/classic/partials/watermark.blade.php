@@ -7,7 +7,7 @@
 @php $wmLogo = \App\Models\SchoolWebsite::media($c['logo'] ?? null); @endphp
 <div class="wm" aria-hidden="true" @if ($wmLogo) style="--wm-tile:url(&quot;{{ str_replace(['"', '\\'], ['%22', '%5C'], $wmLogo) }}&quot;)" @endif>
     @if ($wmLogo)
-        <img src="{{ $wmLogo }}" alt="">
+        <img src="{{ $wmLogo }}" alt="" onerror="this.remove()">
     @else
         @include('school-site.classic.partials.seal', ['center' => null, 'ring' => $c['school_name'], 'sealId' => 'wm'])
     @endif

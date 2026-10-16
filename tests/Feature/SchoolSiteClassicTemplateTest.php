@@ -247,4 +247,103 @@ class SchoolSiteClassicTemplateTest extends TestCase
         $this->assertSame(200, $status);
         $this->assertStringNotContainsString('class="mast-name"', $html);
     }
+
+    /**
+     * The Super Admin ticks pages under the menus the site shows them in
+     * (user's ask of 2026-10-16): Classic's About Us holds what its About Us
+     * menu holds, in that order; Playful keeps its own groups.
+     */
+    public function test_the_builder_lists_pages_under_the_site_menu_of_its_template(): void
+    {
+        $su = new User(['name' => 'Super', 'email' => 'super@example.com']);
+        $su->id = 900;
+        $su->role = 'super-admin';
+        $this->actingAs($su);
+        SchoolWebsite::create(['organization_id' => 1, 'template' => 'classic']);
+
+        $text = fn ($page) => preg_replace('/\s+/', ' ', strip_tags($page->html()));
+        $page = Livewire::test(SchoolWebsiteBuilder::class, ['organization' => Organization::find(1)]);
+
+        $this->assertStringContainsString(
+            "About Us About School History Mission Vision Manager's Desk Principal's Desk Campus & School Life Messaging Chairman's Desk",
+            html_entity_decode($text($page))
+        );
+        $this->assertStringContainsString('Photogallery Photo Gallery Sports & Activities Building Photos', html_entity_decode($text($page)));
+        $this->assertStringContainsString('Documents Fills itself', $text($page));
+        $this->assertSame(
+            ['about', 'history', 'mission', 'vision', 'manager-desk', 'principal-desk', 'campus-life'],
+            array_keys(SchoolWebsite::menuGroups('classic')['About Us'])
+        );
+        // Every page is listed exactly once, whichever the template.
+        foreach (['classic', 'kider'] as $tpl) {
+            $listed = array_merge(...array_map('array_keys', array_values(SchoolWebsite::menuGroups($tpl))));
+            $this->assertEqualsCanonicalizing(array_keys(SchoolWebsite::allPages()), $listed, $tpl);
+        }
+
+        $playful = html_entity_decode($text($page->set('template', 'kider')));
+        $this->assertStringContainsString('Management Leadership', $playful);
+        $this->assertStringNotContainsString('Messaging', $playful);
+    }
+
+    /**
+     * The site follows the school's own logo (user's report of 2026-10-16):
+     * Website Data had saved a copy of the profile's logo — an address on the
+     * old CloudFront, dead — and the site kept showing the copy.
+     */
+    public function test_the_site_shows_the_profile_logo_not_a_stale_copy(): void
+    {
+        $now  = 'https://superlms-media.s3.ap-south-1.amazonaws.com/admin/profile/photos/new.png';
+        $dead = 'https://dvtmf2beaqewz.cloudfront.net/superadmin/schools/logos/old.png';
+        DB::table('organizations')->where('id', 1)->update(['logo' => $now, 'email' => 'office@sunrise.in']);
+
+        // The data as it was left on the live site: copies of the profile.
+        DB::table('school_websites')->insert([
+            'organization_id' => 1, 'template' => 'classic', 'status' => true,
+            'content' => json_encode([
+                'logo' => $dead, 'school_name' => 'Sunrise Public School', 'email' => 'office@sunrise.in',
+                'board' => 'CBSE', 'motto' => 'Serving Nation Through Education', 'team' => [],
+            ]),
+        ]);
+        (require database_path('migrations/2026_10_16_180000_school_website_content_follows_the_profile.php'))->up();
+
+        $site = SchoolWebsite::first();
+        $this->assertSame(['motto' => 'Serving Nation Through Education'], $site->content);
+        $site->setRelation('organization', Organization::find(1)->setRelation('schoolInfo', null));
+        [, $html] = $this->render($site, '');
+        $this->assertStringContainsString('<img src="' . $now . '" alt="Sunrise Public School logo"', $html);
+        $this->assertStringNotContainsString('cloudfront', $html);
+
+        // A logo the school typed in on purpose stays, with the profile's as
+        // the stand-in should its link fail.
+        $own = $this->site(['logo' => 'https://cdn.sunrise.in/crest.png']);
+        $own->organization->logo = $now;
+        [, $html] = $this->render($own, '');
+        $this->assertMatchesRegularExpression('#<img src="https://cdn\.sunrise\.in/crest\.png" alt="Sunrise Public School logo"\s+data-alt="' . preg_quote($now, '#') . '"#', $html);
+    }
+
+    public function test_saving_website_data_stores_only_what_differs_from_the_profile(): void
+    {
+        DB::table('organizations')->where('id', 1)->update(['logo' => 'https://bucket.example/admin/profile/photos/a.png']);
+        $admin = new User(['name' => 'Admin', 'email' => 'admin@example.com']);
+        $admin->id = 901;
+        $admin->role = 'admin';
+        $admin->organization_id = 1;
+        $this->actingAs($admin);
+
+        Livewire::test(WebsiteData::class)
+            ->assertSet('form.logo', 'https://bucket.example/admin/profile/photos/a.png')   // shown, as before
+            ->set('form.motto', 'Learn to Serve')
+            ->call('save');
+
+        $content = SchoolWebsite::first()->content;
+        $this->assertSame('Learn to Serve', $content['motto']);
+        foreach (['logo', 'school_name', 'phone', 'address', 'board', 'hero_title', 'team'] as $copied) {
+            $this->assertArrayNotHasKey($copied, $content, $copied);
+        }
+
+        // The profile's logo changes; the site follows.
+        DB::table('organizations')->where('id', 1)->update(['logo' => 'https://bucket.example/admin/profile/photos/b.png']);
+        $site = SchoolWebsite::first()->load('organization');
+        $this->assertSame('https://bucket.example/admin/profile/photos/b.png', $site->resolvedContent()['logo']);
+    }
 }

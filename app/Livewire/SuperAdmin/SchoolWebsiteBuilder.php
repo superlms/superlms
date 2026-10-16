@@ -136,7 +136,8 @@ class SchoolWebsiteBuilder extends Component
         return view('livewire.super-admin.school-website-builder', [
             'templates'    => SchoolWebsite::templates(),
             'allPages'     => SchoolWebsite::allPages(),
-            'pageGroups'   => SchoolWebsite::pageGroups(),
+            // Pages are listed under the menu groups the school's site shows them in.
+            'pageGroups'   => SchoolWebsite::menuGroups($this->template),
             'themePresets' => SchoolWebsite::themePresets(),
         ]);
     }

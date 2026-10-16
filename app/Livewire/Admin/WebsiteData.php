@@ -237,13 +237,14 @@ class WebsiteData extends Component
             }
         }
 
-        // updateOrCreate with only content leaves the super-admin's template,
-        // pages, theme, domain and publish status untouched (a new record
-        // gets the column's default template).
-        SchoolWebsite::updateOrCreate(
-            ['organization_id' => $this->organization->id],
-            ['content' => $content],
-        );
+        // Only content is written, which leaves the super-admin's template,
+        // pages, theme, domain and publish status untouched (a new record gets
+        // the column's default template) — and only what differs from the
+        // school's profile, so the site keeps following its logo, phone, etc.
+        $website = SchoolWebsite::firstOrNew(['organization_id' => $this->organization->id]);
+        $website->setRelation('organization', $this->organization);
+        $website->content = $website->overridesOnly($content);
+        $website->save();
 
         $this->notification()->success('Saved', 'Website content updated — it is now live on your site.');
     }

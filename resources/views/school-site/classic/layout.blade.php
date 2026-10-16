@@ -292,11 +292,7 @@
         </svg>
         <div class="wrap mast-in">
             <a href="{{ url('/') }}" class="mast-logo" aria-label="{{ $c['school_name'] }} — Home">
-                @if ($logoUrl)
-                    <img src="{{ $logoUrl }}" alt="{{ $c['school_name'] }} logo">
-                @else
-                    @include('school-site.classic.partials.seal', ['center' => null, 'ring' => $c['school_name'], 'sealId' => 'logo'])
-                @endif
+                @include('school-site.classic.partials.logo', ['sealId' => 'logo'])
             </a>
             <div class="mast-text">
                 <a href="{{ url('/') }}" class="mast-name">{{ $c['school_name'] }}</a>
