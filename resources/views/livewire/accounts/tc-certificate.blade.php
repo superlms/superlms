@@ -194,7 +194,7 @@
                             <tr>
                                 <th class="px-4 py-3 text-left w-12">S.No</th>
                                 <th class="px-4 py-3 text-left">Student</th>
-                                <th class="px-4 py-3 text-left">TC No</th>
+                                <th class="px-4 py-3 text-left">Admission No</th>
                                 <th class="px-4 py-3 text-left">Class</th>
                                 <th class="px-4 py-3 text-left">Sr No</th>
                                 <th class="px-4 py-3 text-left">Last Class</th>
@@ -219,11 +219,11 @@
                                             @endif
                                             <div class="min-w-0">
                                                 <p class="text-sm font-semibold text-gray-900 truncate">{{ $tc->student->full_name ?? '—' }}</p>
-                                                <p class="text-xs text-gray-400 truncate">{{ $tc->student->admission_no ?? '' }}</p>
+                                                <p class="text-xs text-gray-400 truncate">{{ $tc->student->father_name ?? '' }}</p>
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="px-4 py-3 font-mono text-xs text-rose-600 font-semibold whitespace-nowrap">{{ $tc->tc_no }}</td>
+                                    <td class="px-4 py-3 text-gray-700 whitespace-nowrap">{{ $tc->student->admission_no ?? '—' }}</td>
                                     {{-- The class and section the student was last in here --}}
                                     <td class="px-4 py-3">
                                         <p class="text-gray-700">{{ $tc->student?->standard?->name ?? '—' }}</p>

@@ -46,7 +46,8 @@
         {{-- `table-layout: fixed` or dompdf hands the long labels two thirds of the row
              and squeezes the answers; percentages (not mm) are what survive it. --}}
         .data { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 3.5mm; }
-        .data td { vertical-align: top; padding: 0.5mm 0; border-bottom: 0.5px solid #d1d5db; line-height: 1.25; }
+        {{-- The rules between the lines stay faint; the words are what print black. --}}
+        .data td { vertical-align: top; padding: 0.5mm 0; border-bottom: 0.5px solid #f3f4f6; line-height: 1.25; }
         .data td.num { width: 6%; font-size: 8pt; color: #000; }
         .data td.label { width: 54%; font-size: 8.5pt; color: #000; padding-right: 4mm; }
         {{-- Questions and answers alike in black, so neither prints faint; the
@@ -55,9 +56,10 @@
         .data tr.last td { border-bottom: 0; }
 
         /* ── Signatures ── */
-        .sig { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 5.5mm; }
+        {{-- Room after the last line for the signatures to go above their rules. --}}
+        .sig { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 16mm; }
         .sig td { width: 33.33%; text-align: center; padding: 0 6mm; }
-        .sig-line { border-top: 0.8px solid #000; padding-top: 2mm; font-size: 8pt; text-transform: uppercase;
+        .sig-line { border-top: 0.8px solid #d1d5db; padding-top: 2mm; font-size: 8pt; text-transform: uppercase;
                     letter-spacing: 1px; color: #000; }
     </style>
 </head>

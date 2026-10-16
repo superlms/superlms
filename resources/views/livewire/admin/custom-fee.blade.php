@@ -1,11 +1,7 @@
 <div class="min-h-screen bg-gray-50">
     @php
         $money = fn ($v) => '₹' . number_format((float) $v, 2);
-        $cfTabs = [
-            'add'    => ['Add Fee', 'M12 4v16m8-8H4'],
-            'submit' => ['Submit Fee', 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z'],
-            'view'   => ['View Fee', 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z'],
-        ];
+        $cfTabs = ['add' => 'Add Fee', 'submit' => 'Submit Fee', 'view' => 'View Fee'];
         $openStudent = $ledger['student'] ?? null;
     @endphp
 
@@ -56,14 +52,11 @@
         {{-- Tabs --}}
         <div class="border-t border-gray-200 px-4 sm:px-6">
             <div class="flex gap-1 overflow-x-auto">
-                @foreach ($cfTabs as $key => [$label, $icon])
+                @foreach ($cfTabs as $key => $label)
                     <button wire:click="setTab('{{ $key }}')" wire:key="cf-tab-{{ $key }}"
                         class="px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap
                                {{ $tab === $key ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
-                        <span class="inline-flex items-center gap-1.5">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $icon }}" /></svg>
-                            {{ $label }}
-                        </span>
+                        {{ $label }}
                     </button>
                 @endforeach
             </div>

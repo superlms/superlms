@@ -245,7 +245,7 @@ class TcCertificatePanelTest extends TestCase
     }
 
     #[DataProvider('pages')]
-    public function test_the_tc_listing_has_the_class_after_the_tc_number(string $pageClass): void
+    public function test_the_tc_listing_has_the_admission_number_then_the_class(string $pageClass): void
     {
         $asha = $this->student('Asha', 'Ramesh', 2, 'https://cdn.test/asha.jpg');
         $tc = $this->tc($asha);
@@ -253,10 +253,12 @@ class TcCertificatePanelTest extends TestCase
         $table = $this->table(Livewire::test($pageClass)->set('activeTab', 'tc')->html());
 
         preg_match_all('/<th\s[^>]*>(.*?)<\/th>/s', $table, $m);
-        $this->assertSame(['S.No', 'Student', 'TC No', 'Class', 'Sr No', 'Last Class', 'Conduct', 'Issue Date', 'Actions'], array_map('trim', $m[1]));
+        $this->assertSame(['S.No', 'Student', 'Admission No', 'Class', 'Sr No', 'Last Class', 'Conduct', 'Issue Date', 'Actions'], array_map('trim', $m[1]));
 
-        // The student's class with the section small under it.
-        $this->assertSame('1 Asha ADM-ASH ' . $tc->tc_no . ' Class 5 B 096 5th Good 16 Sep 2026', $this->rowText(explode('<tr wire:key="tc-', $table)[1]));
+        // The father's name under the student's, the admission number in place
+        // of the TC number, and the class with the section small under it.
+        $this->assertSame('1 Asha Ramesh ADM-ASH Class 5 B 096 5th Good 16 Sep 2026', $this->rowText(explode('<tr wire:key="tc-', $table)[1]));
+        $this->assertStringNotContainsString($tc->tc_no, $table);
         $this->assertMatchesRegularExpression('/<p class="text-gray-700">Class 5<\/p>(?:\s|<!--.*?-->)*<p class="text-xs text-gray-400">B<\/p>/s', $table);
 
         $this->assertStringContainsString('wire:click="showStudentPhoto(' . $asha . ')"', $table);
@@ -611,8 +613,11 @@ class TcCertificatePanelTest extends TestCase
         $this->assertStringContainsString('Class in which the Student last studied', $text);
         $this->assertStringContainsString('5 Belongs to Schedule Caste / Schedule Tribe OBC', $text);
 
-        // Every word in black, nothing in the old greys.
+        // Every word in black, nothing in the old greys; the rules between the
+        // lines stay faint, and the signatures have room above their lines.
         $style = substr($html, 0, strpos($html, '</style>'));
+        $this->assertStringContainsString('border-bottom: 0.5px solid #f3f4f6;', $style);
+        $this->assertStringContainsString('.sig { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 16mm; }', $style);
         $this->assertDoesNotMatchRegularExpression('/color:\s*#(9ca3af|6b7280|1f2937|111827)/', $style);
         $this->assertStringContainsString('.data td.label { width: 54%; font-size: 8.5pt; color: #000;', $style);
         $this->assertStringContainsString('.data td.value { width: 40%; font-size: 8.5pt; font-weight: normal; color: #000;', $style);
